@@ -57,6 +57,7 @@
 #define LIBGLUSTERFS_INODE_TABLE_LRU_LIMIT 1000 //14057
 #define LIBGF_SENDFILE_BLOCK_SIZE 4096
 #define LIBGF_READDIR_BLOCK     4096
+#define libgf_path_absolute(path) ((path)[0] == '/')
 
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph);
@@ -86,12 +87,13 @@ pthread_mutex_t vmplock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mountlock = PTHREAD_MUTEX_INITIALIZER;
 
 char *
-libgf_vmp_virtual_path(struct vmp_entry *entry, const char *path)
+libgf_vmp_virtual_path(struct vmp_entry *entry, char *path, char *vpath)
 {
-        char    *vpath = NULL;
         char    *tmp = NULL;
 
-        vpath = calloc (strlen (path) + 1, sizeof (char));
+        if ((!entry) || (!path) || (!vpath))
+                return NULL;
+
         tmp = ((char *)(path + (entry->vmplen-1)));
         if (tmp[0] != '/') {
                 vpath[0] = '/';
@@ -785,6 +787,23 @@ libgf_trim_to_prev_dir (char * path)
         return path;
 }
 
+
+char *
+libgf_prepend_cwd (const char *userpath, char *abspath, int size)
+{
+        if ((!userpath) || (!abspath))
+                return NULL;
+
+        if (!getcwd (abspath, size))
+                return NULL;
+
+        strcat (abspath, "/");
+        strcat (abspath, userpath);
+
+        return abspath;
+}
+
+
 /* Performs a lightweight path resolution that only
  * looks for . and  .. and replaces those with the
  * proper names.
@@ -800,22 +819,26 @@ libgf_resolve_path_light (char *path)
         char            *respath = NULL;
         char            *saveptr = NULL;
         char            *tok = NULL;
-        char            *mypath = NULL;
         int             len = 0;
         int             addslash = 0;
+        char            mypath[PATH_MAX];
 
         if (!path)
                 goto out;
 
-        /* We dont as yet support relative paths anywhere in
-         * the lib.
-         */
-        if (path[0] != '/')
-                goto out;
+        memset (mypath, 0, PATH_MAX);
 
-        mypath = strdup (path);
+        if (!libgf_path_absolute (path))
+                libgf_prepend_cwd (path, mypath, PATH_MAX);
+        else
+                strcpy (mypath, path);
+
         len = strlen (mypath);
-        respath = calloc (strlen(mypath) + 1, sizeof (char));
+        if (len == 0) {
+                goto out;
+        }
+
+        respath = calloc (PATH_MAX, sizeof (char));
         if (respath == NULL) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR,"Memory allocation failed");
                 goto out;
@@ -857,8 +880,6 @@ libgf_resolve_path_light (char *path)
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Path: %s, Resolved Path: %s",
                 path, respath);
 out:
-        if (mypath)
-                free (mypath);
         return respath;
 }
 
@@ -1661,6 +1682,45 @@ libgf_vmp_get_ghandle (char * path)
         return entry->handle;
 }
 
+
+/* Returns the handle for the path given in @path,
+ * @path can be a relative path. The point is, here we
+ * perform any path resolution that is needed and then
+ * search for the corresponding vmp handle.
+ * @vpath is a result-value argument in that the virtual
+ * path inside the handle is copied into it.
+ */
+glusterfs_handle_t
+libgf_resolved_path_handle (const char *path, char *vpath)
+{
+        char                    *respath = NULL;
+        struct vmp_entry        *entry = NULL;
+        glusterfs_handle_t      handle = NULL;
+
+        if ((!path) || (!vpath))
+                return NULL;
+
+        respath = libgf_resolve_path_light ((char *)path);
+        if (respath == NULL) {
+                return NULL;
+        }
+
+        entry = libgf_vmp_search_entry (respath);
+        if (!entry)
+                goto free_respath;
+
+        if (!libgf_vmp_virtual_path (entry, respath, vpath))
+                goto free_respath;
+
+        handle = entry->handle;
+free_respath:
+        if (respath)
+                free (respath); /* Alloced in libgf_resolve_path_light */
+
+        return handle;
+}
+
+
 int
 glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
 {
@@ -2055,7 +2115,7 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
                 goto out;
         }
 
-        loc.path = libgf_resolve_path_light ((char *)path);
+        loc.path = strdup (path);
         if (!loc.path) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
                 goto out;
@@ -2127,9 +2187,9 @@ out:
 int
 glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        glusterfs_handle_t      h      = NULL;
+        char                    vpath[PATH_MAX];
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
@@ -2137,18 +2197,16 @@ glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf)
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %lu", path,
                 (long unsigned)size);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_get (entry->handle, vpath, buf, size, stbuf);
+        op_ret = glusterfs_glh_get (h, vpath, buf, size, stbuf);
 
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -2471,9 +2529,9 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
                 goto out;
         }
 
-        pathres = libgf_resolve_path_light ((char *)path);
+        pathres = strdup (path);
         if (!pathres) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -2579,8 +2637,8 @@ glusterfs_getxattr (const char *path, const char *name, void *value,
                         size_t size)
 {
         int                     op_ret = -1;
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
@@ -2588,19 +2646,17 @@ glusterfs_getxattr (const char *path, const char *name, void *value,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
                 path, name, (long unsigned)size);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = __glusterfs_glh_getxattr (entry->handle, vpath, name, value,
-                                           size, LIBGF_DO_GETXATTR);
+        op_ret = __glusterfs_glh_getxattr (h, vpath, name, value, size,
+                                           LIBGF_DO_GETXATTR);
 
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -2609,8 +2665,8 @@ glusterfs_lgetxattr (const char *path, const char *name, void *value,
                      size_t size)
 {
         int                     op_ret = -1;
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
@@ -2618,19 +2674,17 @@ glusterfs_lgetxattr (const char *path, const char *name, void *value,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
                 path, name, (long unsigned)size);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = __glusterfs_glh_getxattr (entry->handle, vpath, name, value,
-                                           size, LIBGF_DO_LGETXATTR);
+        op_ret = __glusterfs_glh_getxattr (h, vpath, name, value, size,
+                                           LIBGF_DO_LGETXATTR);
 
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -2796,9 +2850,9 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        pathres = libgf_resolve_path_light ((char *)path);
+        pathres = strdup (path);
         if (!pathres) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -2912,32 +2966,31 @@ out:
 glusterfs_file_t
 glusterfs_open (const char *path, int flags, ...)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
-        glusterfs_file_t        fh = NULL;
-        mode_t                  mode = 0;
         va_list                 ap;
+        glusterfs_file_t        fh   = NULL;
+        glusterfs_handle_t      h    = NULL; 
+        mode_t                  mode = 0;
+        char                    vpath[PATH_MAX];
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
         if (flags & O_CREAT) {
                 va_start (ap, flags);
                 mode = va_arg (ap, mode_t);
                 va_end (ap);
-                fh = glusterfs_glh_open (entry->handle, vpath, flags, mode);
+                fh = glusterfs_glh_open (h, vpath, flags, mode);
         } else
-                fh = glusterfs_glh_open (entry->handle, vpath, flags);
+                fh = glusterfs_glh_open (h, vpath, flags);
 out:
-        if (vpath)
-                free (vpath);
         return fh;
 }
 
@@ -2952,25 +3005,23 @@ glusterfs_glh_creat (glusterfs_handle_t handle, const char *path, mode_t mode)
 glusterfs_file_t
 glusterfs_creat (const char *path, mode_t mode)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
         glusterfs_file_t        fh = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        fh = glusterfs_glh_creat (entry->handle, vpath, mode);
+        fh = glusterfs_glh_creat (h, vpath, mode);
 
 out:
-        if (vpath)
-                free (vpath);
         return fh;
 }
 
@@ -3109,9 +3160,9 @@ __glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
                 goto out;
         }
 
-        pathres = libgf_resolve_path_light ((char *)path);
+        pathres = strdup (path);
         if (!pathres) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -3182,27 +3233,26 @@ int
 glusterfs_setxattr (const char *path, const char *name, const void *value,
                         size_t size, int flags)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s", path, name);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = __glusterfs_glh_setxattr (entry->handle, vpath, name, value,
-                                           size, flags, LIBGF_DO_SETXATTR);
+        op_ret = __glusterfs_glh_setxattr (h, vpath, name, value, size, flags,
+                                           LIBGF_DO_SETXATTR);
+
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -3211,27 +3261,26 @@ glusterfs_lsetxattr (glusterfs_handle_t handle, const char *path,
                      const char *name, const void *value, size_t size,
                      int flags)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s", path, name);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = __glusterfs_glh_setxattr (entry->handle, vpath, name, value,
-                                           size, flags, LIBGF_DO_LSETXATTR);
+        op_ret = __glusterfs_glh_setxattr (h, vpath, name, value, size, flags,
+                                           LIBGF_DO_LSETXATTR);
+
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -4668,9 +4717,10 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, op: %d", path,
                 whichstat);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -4738,25 +4788,24 @@ glusterfs_glh_stat (glusterfs_handle_t handle, const char *path,
 int
 glusterfs_stat (const char *path, struct stat *buf)
 {
-        struct vmp_entry        *entry = NULL;
+        glusterfs_handle_t      h      = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_stat (entry->handle, vpath, buf);
+        op_ret = glusterfs_glh_stat (h, vpath, buf);
+
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -4769,25 +4818,23 @@ glusterfs_glh_lstat (glusterfs_handle_t handle, const char *path, struct stat *b
 int
 glusterfs_lstat (const char *path, struct stat *buf)
 {
-        struct vmp_entry        *entry = NULL;
+        glusterfs_handle_t      h      = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_lstat (entry->handle, vpath, buf);
+        op_ret = glusterfs_glh_lstat (h, vpath, buf);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -4943,9 +4990,9 @@ glusterfs_glh_mkdir (glusterfs_handle_t handle, const char *path, mode_t mode)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        loc.path = libgf_resolve_path_light ((char *)path);
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -4993,24 +5040,22 @@ out:
 int32_t
 glusterfs_mkdir (const char *path, mode_t mode)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_mkdir (entry->handle, vpath, mode);
+        op_ret = glusterfs_glh_mkdir (h, vpath, mode);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -5108,24 +5153,22 @@ out:
 int32_t
 glusterfs_rmdir (const char *path)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_rmdir (entry->handle, vpath);
+        op_ret = glusterfs_glh_rmdir (h, vpath);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -5186,9 +5229,10 @@ glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
 
         stbuf.st_mode = mode;
         valid |= GF_SET_ATTR_MODE;
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -5217,24 +5261,22 @@ out:
 int
 glusterfs_chmod (const char *path, mode_t mode)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_chmod (entry->handle, vpath, mode);
+        op_ret = glusterfs_glh_chmod (h, vpath, mode);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -5262,9 +5304,10 @@ __glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
         stbuf.st_uid = owner;
         stbuf.st_gid = group;
         valid |= (GF_SET_ATTR_UID | GF_SET_ATTR_GID);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -5312,24 +5355,23 @@ glusterfs_glh_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
 int
 glusterfs_chown (const char *path, uid_t owner, gid_t group)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_chown (entry->handle, vpath, owner, group);
+        op_ret = glusterfs_glh_chown (h, vpath, owner, group);
+
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -5343,24 +5385,22 @@ glusterfs_glh_lchown (glusterfs_handle_t handle, const char *path, uid_t owner,
 int
 glusterfs_lchown (const char *path, uid_t owner, gid_t group)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_lchown (entry->handle, vpath, owner, group);
+        op_ret = glusterfs_glh_lchown (h, vpath, owner, group);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -5377,9 +5417,10 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -5436,24 +5477,21 @@ out:
 glusterfs_dir_t
 glusterfs_opendir (const char *path)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
         glusterfs_dir_t         dir = NULL;
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
 
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        dir = glusterfs_glh_opendir (entry->handle, vpath);
+        dir = glusterfs_glh_opendir (h, vpath);
 out:
-        if (vpath)
-                free (vpath);
         return dir;
 }
 
@@ -5776,9 +5814,10 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s", oldpath,
                 newpath);
-        old.path = libgf_resolve_path_light ((char *)oldpath);
+
+        old.path = strdup (oldpath);
         if (!old.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -5802,9 +5841,9 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
                 goto out;
         }
 
-        new.path = libgf_resolve_path_light ((char *)newpath);
+        new.path = strdup (newpath);
         if (!new.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -5835,43 +5874,38 @@ out:
 int
 glusterfs_link (const char *oldpath, const char *newpath)
 {
-        struct vmp_entry        *oldentry = NULL;
-        struct vmp_entry        *newentry = NULL;
-        char                    *oldvpath = NULL;
-        char                    *newvpath = NULL;
         int                     op_ret = -1;
+        char                    oldvpath[PATH_MAX];
+        char                    newvpath[PATH_MAX];
+        glusterfs_handle_t      oldh = NULL;
+        glusterfs_handle_t      newh = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s", oldpath,
                 newpath);
-        oldentry = libgf_vmp_search_entry ((char *)oldpath);
-        if (!oldentry) {
+
+        oldh = libgf_resolved_path_handle (oldpath, oldvpath);
+        if (!oldh) {
                 errno = ENODEV;
                 goto out;
         }
 
-        newentry = libgf_vmp_search_entry ((char *)newpath);
-        if (!newentry) {
-                errno =  ENODEV;
+        newh = libgf_resolved_path_handle (newpath, newvpath);
+        if (!newh) {
+                errno = ENODEV;
                 goto out;
         }
 
         /* Cannot hard link across glusterfs mounts. */
-        if (newentry != oldentry) {
+        if (newh != oldh) {
                 errno = EXDEV;
                 goto out;
         }
 
-        newvpath = libgf_vmp_virtual_path (newentry, newpath);
-        oldvpath = libgf_vmp_virtual_path (oldentry, oldpath);
-        op_ret = glusterfs_glh_link (newentry->handle, oldvpath, newvpath);
+        op_ret = glusterfs_glh_link (newh, oldvpath, newvpath);
 out:
-        if (newvpath)
-                free (newvpath);
-        if (oldvpath)
-                free (oldvpath);
         return op_ret;
 }
 
@@ -5931,9 +5965,10 @@ glusterfs_glh_statfs (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -5994,25 +6029,23 @@ out:
 int
 glusterfs_statfs (const char *path, struct statfs *buf)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
         int                     op_ret = -1;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h      = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_statfs (entry->handle, vpath, buf);
+        op_ret = glusterfs_glh_statfs (h, vpath, buf);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6029,9 +6062,10 @@ glusterfs_glh_statvfs (glusterfs_handle_t handle, const char *path,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
         op_ret = libgf_client_path_lookup (&loc, ctx, 1);
@@ -6069,25 +6103,23 @@ out:
 int
 glusterfs_statvfs (const char *path, struct statvfs *buf)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h      = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_statvfs (entry->handle, vpath, buf);
+        op_ret = glusterfs_glh_statvfs (h, vpath, buf);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6155,9 +6187,10 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s", oldpath,
                 newpath);
-        oldloc.path = libgf_resolve_path_light ((char *)oldpath);
+
+        oldloc.path = strdup (oldpath);
         if (!oldloc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -6168,9 +6201,9 @@ glusterfs_glh_rename (glusterfs_handle_t handle, const char *oldpath,
                 goto out;
         }
 
-        newloc.path = libgf_resolve_path_light ((char *)newpath);
+        newloc.path = strdup (newpath);
         if (!newloc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "strdup failed");
                 goto out;
         }
 
@@ -6215,42 +6248,36 @@ int
 glusterfs_rename (const char *oldpath, const char *newpath)
 {
         int                     op_ret = -1;
-        struct vmp_entry        *new = NULL;
-        struct vmp_entry        *old = NULL;
-        char                    *oldvpath = NULL;
-        char                    *newvpath = NULL;
+        char                    oldvpath[PATH_MAX];
+        char                    newvpath[PATH_MAX];
+        glusterfs_handle_t      oldh = NULL;
+        glusterfs_handle_t      newh = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Old %s, new %s", oldpath,
                 newpath);
-        old = libgf_vmp_search_entry ((char *)oldpath);
-        if (!old) {
+
+        oldh = libgf_resolved_path_handle (oldpath, oldvpath);
+        if (!oldh) {
                 errno = ENODEV;
                 goto out;
         }
 
-        new = libgf_vmp_search_entry ((char *)newpath);
-        if (!new) {
+        newh = libgf_resolved_path_handle (newpath, newvpath);
+        if (!newh) {
                 errno = ENODEV;
                 goto out;
         }
 
-        if (old != new) {
+        if (oldh != newh) {
                 errno = EXDEV;
                 goto out;
         }
 
-        oldvpath = libgf_vmp_virtual_path (old, oldpath);
-        newvpath = libgf_vmp_virtual_path (new, newpath);
-        op_ret = glusterfs_glh_rename (old->handle, oldvpath, newvpath);
-
+        op_ret = glusterfs_glh_rename (oldh, oldvpath, newvpath);
 out:
-        if (oldvpath)
-                free (oldvpath);
-        if (newvpath)
-                free (newvpath);
         return op_ret;
 }
 
@@ -6276,9 +6303,9 @@ glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
         ST_MTIM_NSEC_SET (&stbuf, (times[1].tv_usec * 1000));
         valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
 
-        loc.path = libgf_resolve_path_light ((char *)path);
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -6311,24 +6338,22 @@ out:
 int
 glusterfs_utimes (const char *path, const struct timeval times[2])
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
         int                     op_ret = -1;
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_utimes (entry->handle, vpath, times);
+        op_ret = glusterfs_glh_utimes (h, vpath, times);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6357,9 +6382,9 @@ glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
 
         valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
 
-        loc.path = libgf_resolve_path_light ((char *)path);
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -6392,25 +6417,23 @@ out:
 int
 glusterfs_utime (const char *path, const struct utimbuf *buf)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
         int                     op_ret = -1;
+        glusterfs_handle_t      h      = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_utime (entry->handle, vpath, buf);
+        op_ret = glusterfs_glh_utime (h, vpath, buf);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6477,9 +6500,10 @@ glusterfs_glh_mknod(glusterfs_handle_t handle, const char *path, mode_t mode,
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -6521,24 +6545,21 @@ out:
 int
 glusterfs_mknod(const char *pathname, mode_t mode, dev_t dev)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX]; 
         int                     op_ret = -1;
+        glusterfs_handle_t      h      = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", pathname);
-        entry = libgf_vmp_search_entry ((char *)pathname);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (pathname, vpath);
+        if (!h) {
                 errno = ENODEV;
-               goto out;
+                goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, pathname);
-        op_ret = glusterfs_glh_mknod (entry->handle, vpath, mode, dev);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6600,24 +6621,22 @@ out:
 int
 glusterfs_mkfifo (const char *path, mode_t mode)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
         int                     op_ret = -1;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_mkfifo (entry->handle, vpath, mode);
+        op_ret = glusterfs_glh_mkfifo (h, vpath, mode);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6670,9 +6689,10 @@ glusterfs_glh_unlink (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -6706,24 +6726,23 @@ out:
 int
 glusterfs_unlink (const char *path)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
         int                     op_ret = -1;
+        glusterfs_handle_t      h      = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_unlink (entry->handle, vpath);
+        op_ret = glusterfs_glh_unlink (h, vpath);
+
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6778,7 +6797,7 @@ out:
 
 int
 glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
-                                const char *newpath)
+                       const char *newpath)
 {
         int32_t                         op_ret = -1;
         libglusterfs_client_ctx_t       *ctx = handle;
@@ -6795,9 +6814,9 @@ glusterfs_glh_symlink (glusterfs_handle_t handle, const char *oldpath,
         /* Old path does not need to be interpreted or looked up */
         oldloc.path = strdup (oldpath);
 
-	newloc.path = libgf_resolve_path_light ((char *)newpath);
+	newloc.path = strdup (newpath);
         if (!newloc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -6846,26 +6865,24 @@ out:
 int
 glusterfs_symlink (const char *oldpath, const char *newpath)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
         int                     op_ret = -1;
+        glusterfs_handle_t      h      = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, newpath, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "target: %s, link: %s", oldpath,
                 newpath);
-        entry = libgf_vmp_search_entry ((char *)newpath);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (newpath, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, newpath);
-        op_ret = glusterfs_glh_symlink (entry->handle, oldpath, vpath);
+        op_ret = glusterfs_glh_symlink (h, oldpath, vpath);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -6935,9 +6952,9 @@ glusterfs_glh_readlink (glusterfs_handle_t handle, const char *path, char *buf,
                 goto out;
         }
 
-        loc.path = libgf_resolve_path_light ((char *)path);
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -6972,25 +6989,23 @@ out:
 ssize_t
 glusterfs_readlink (const char *path, char *buf, size_t bufsize)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
         int                     op_ret = -1;
+        glusterfs_handle_t      h      = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, path);
-        op_ret = glusterfs_glh_readlink (entry->handle, vpath, buf, bufsize);
+        op_ret = glusterfs_glh_readlink (h, vpath, buf, bufsize);
 out:
-        if (vpath)
-                free (vpath);
         return op_ret;
 }
 
@@ -7192,39 +7207,28 @@ err:
 char *
 glusterfs_realpath (const char *path, char *resolved_path)
 {
-        struct vmp_entry        *entry = NULL;
-        char                    *vpath = NULL;
-        char                    *res = NULL;
-        char                    *realp = NULL;
+        char                    *res   = NULL;
+        char                     vpath[PATH_MAX];
+        glusterfs_handle_t       h     = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        realp = CALLOC (PATH_MAX, sizeof (char));
-        if (!realp)
-                goto out;
-
-        vpath = libgf_vmp_virtual_path (entry, path);
-        res = glusterfs_glh_realpath (entry->handle, vpath, resolved_path);
+        res = glusterfs_glh_realpath (h, vpath, resolved_path);
         if (!res)
                 goto out;
 
-        strncpy (realp, entry->vmp, entry->vmplen-1);
-        strcat (realp, res);
-        strcpy (resolved_path, realp);
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, resolved %s", path,
                 resolved_path);
 out:
-        if (vpath)
-                free (vpath);
-
-        return realp;
+        return res;
 }
 
 int
@@ -7239,9 +7243,10 @@ glusterfs_glh_remove (glusterfs_handle_t handle, const char *path)
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        loc.path = libgf_resolve_path_light ((char *)path);
+
+        loc.path = strdup (path);
         if (!loc.path) {
-                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction failed");
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
                 goto out;
         }
 
@@ -7270,25 +7275,22 @@ out:
 int
 glusterfs_remove(const char *pathname)
 {
-        struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    *vpath = NULL;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", pathname);
-        entry = libgf_vmp_search_entry ((char *)pathname);
-        if (!entry) {
+
+        h = libgf_resolved_path_handle (pathname, vpath);
+        if (!h) {
                 errno = ENODEV;
                 goto out;
         }
 
-        vpath = libgf_vmp_virtual_path (entry, pathname);
-        op_ret = glusterfs_glh_remove (entry->handle, vpath);
-
+        op_ret = glusterfs_glh_remove (h, vpath);
 out:
-        if (vpath)
-                FREE (vpath);
         return op_ret;
 }
 
