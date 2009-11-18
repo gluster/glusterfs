@@ -58,8 +58,6 @@
 #define LIBGF_SENDFILE_BLOCK_SIZE 4096
 #define LIBGF_READDIR_BLOCK     4096
 
-#define libgf_path_absolute(path) ((path[0] == '/'))
-
 static inline xlator_t *
 libglusterfs_graph (xlator_t *graph);
 int32_t libgf_client_readlink (libglusterfs_client_ctx_t *ctx, loc_t *loc,
@@ -86,25 +84,20 @@ pthread_mutex_t vmplock = PTHREAD_MUTEX_INITIALIZER;
  * needs to be syncronised.
  */
 pthread_mutex_t mountlock = PTHREAD_MUTEX_INITIALIZER;
-int relativepaths = 0;
 
 char *
-libgf_vmp_virtual_path (int entrylen, const char *path, char *vpath)
+libgf_vmp_virtual_path(struct vmp_entry *entry, const char *path)
 {
+        char    *vpath = NULL;
         char    *tmp = NULL;
 
-        tmp = ((char *)(path + (entrylen-1)));
-        if (strlen (tmp) > 0) {
-                if (tmp[0] != '/') {
-                        vpath[0] = '/';
-                        vpath[1] = '\0';
-                        strcat (&vpath[1], tmp);
-                } else
-                        strcpy (vpath, tmp);
-        } else {
+        vpath = calloc (strlen (path) + 1, sizeof (char));
+        tmp = ((char *)(path + (entry->vmplen-1)));
+        if (tmp[0] != '/') {
                 vpath[0] = '/';
-                vpath[1] = '\0';
-        }
+                strcat (&vpath[1], tmp);
+        } else
+                strcpy (vpath, tmp);
 
         return vpath;
 }
@@ -810,21 +803,17 @@ libgf_resolve_path_light (char *path)
         char            *mypath = NULL;
         int             len = 0;
         int             addslash = 0;
-        char            *savemypath = NULL;
 
         if (!path)
                 goto out;
 
-        if ((path[0] != '/') && (strncmp (path, "./", 2) != 0))
+        /* We dont as yet support relative paths anywhere in
+         * the lib.
+         */
+        if (path[0] != '/')
                 goto out;
 
         mypath = strdup (path);
-        savemypath = mypath;
-        if (strncmp (mypath, "./", 2) == 0) {
-                savemypath = mypath;
-                mypath++;
-        }
-
         len = strlen (mypath);
         respath = calloc (strlen(mypath) + 1, sizeof (char));
         if (respath == NULL) {
@@ -868,8 +857,8 @@ libgf_resolve_path_light (char *path)
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Path: %s, Resolved Path: %s",
                 path, respath);
 out:
-        if (savemypath)
-                free (savemypath);
+        if (mypath)
+                free (mypath);
         return respath;
 }
 
@@ -1416,7 +1405,6 @@ libgf_init_vmpentry (char *vmp, glusterfs_handle_t *vmphandle)
         }
  
         entry->vmplen = vmplen;
-
         entry->handle = vmphandle;
         INIT_LIST_HEAD (&entry->list);
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "New VMP entry: %s", vmp);
@@ -1454,12 +1442,6 @@ libgf_count_path_components (char *path)
         pathdup = strdup (path);
         if (!pathdup)
                 return -1;
-
-        /* Must account for atleast one component in a relative since it starts
-         * with a path component.
-         */
-	if (pathdup[0] != '/')
-		compos++;
 
         len = strlen (pathdup);
         if (pathdup[len - 1] == '/')
@@ -1522,9 +1504,9 @@ free_s1:
 }
 
 int
-libgf_vmp_entry_match (char *entry, char *path)
+libgf_vmp_entry_match (struct vmp_entry *entry, char *path)
 {
-        return libgf_strmatchcount (entry, path);
+        return libgf_strmatchcount (entry->vmp, path);
 }
 
 #define LIBGF_VMP_EXACT          1
@@ -1548,7 +1530,7 @@ _libgf_vmp_search_entry (char *path, int searchtype)
 
         list_for_each_entry(entry, &vmplist.list, list) {
                 vmpcompcount = libgf_count_path_components (entry->vmp);
-                matchcount = libgf_vmp_entry_match (entry->vmp, path);
+                matchcount = libgf_vmp_entry_match (entry, path);
                 gf_log (LIBGF_XL_NAME, GF_LOG_TRACE, "Candidate VMP:  %s,"
                         " Matchcount: %d", entry->vmp, matchcount);
                 if ((matchcount > maxcount) && (matchcount == vmpcompcount)) {
@@ -1634,77 +1616,6 @@ out:
         return entry;
 }
 
-
-struct vmp_entry *
-libgf_vmp_first_entry ()
-{
-        struct vmp_entry        *entry = NULL;
-
-        pthread_mutex_lock (&vmplock);
-        {
-                if (vmplist.entries == 0) {
-                        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Virtual Mount Point "
-                                "list is empty.");
-                        goto unlock_out;
-                }
-
-                list_for_each_entry (entry, &vmplist.list, list)
-                        break;
-        }
-unlock_out:
-        pthread_mutex_unlock (&vmplock);
-
-        return entry;
-}
-
-
-struct vmp_entry *
-libgf_vmp_search_entry_vpath (char *path, char *vpath)
-{
-        struct vmp_entry	*entry = NULL;
-        int			vmplen = 0;
-
-        if ((!path) || (!vpath))
-                return NULL;
-
-	if (!libgf_path_absolute (path)) {
-                if (!relativepaths)
-                        goto out;
-                else {
-                        /* On relativepaths, we assume that all relativepaths
-                         * go over the first VMP. It is dangerous but for now
-                         * we're assuming relative path support is only needed
-                         * for samba. This condition is safe for the assumptions
-                         * made in samba about its cwd.
-                         */
-                        entry = libgf_vmp_first_entry ();
-                        /* Relative paths can start with both . and .. */
-                        if (strncmp (path, "..", 2) == 0)
-                                vmplen = 3;
-                        else if (strncmp (path, ".", 1) == 0)
-                                vmplen = 1;
-
-                        goto vpath_out;
-                }
-        }
-
-        entry = libgf_vmp_search_entry ((char *)path);
-        if (!entry)
-                goto out;
-
-        vmplen = entry->vmplen;
-
-vpath_out:
-        if (!entry)
-                return NULL;
-
-        libgf_vmp_virtual_path (vmplen, path, vpath);
-
-out:
-	return entry;
-}
-
-
 int
 libgf_vmp_map_ghandle (char *vmp, glusterfs_handle_t *vmphandle)
 {
@@ -1787,13 +1698,6 @@ glusterfs_mount (char *vmp, glusterfs_init_params_t *ipars)
                 }
 
                 ret = libgf_vmp_map_ghandle (vmp_resolved, vmphandle);
-                /* Only switch on relativepaths if it is not on already.
-                 * The check is there to ensure no one actually adds more than
-                 * two VMPs in the conf file and expect relative paths to work.
-                 */
-                if (ipars->relativepaths && !relativepaths)
-                        relativepaths = 1;
-
                 if (ret == -1) {
                         gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Failed to map new"
                                 " handle: %s", vmp);
@@ -2225,7 +2129,7 @@ glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
@@ -2233,15 +2137,18 @@ glusterfs_get (const char *path, void *buf, size_t size, struct stat *stbuf)
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, size %lu", path,
                 (long unsigned)size);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_get (entry->handle, vpath, buf, size, stbuf);
 
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -2673,7 +2580,7 @@ glusterfs_getxattr (const char *path, const char *name, void *value,
 {
         int                     op_ret = -1;
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
@@ -2681,16 +2588,19 @@ glusterfs_getxattr (const char *path, const char *name, void *value,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
                 path, name, (long unsigned)size);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = __glusterfs_glh_getxattr (entry->handle, vpath, name, value,
                                            size, LIBGF_DO_GETXATTR);
 
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -2700,7 +2610,7 @@ glusterfs_lgetxattr (const char *path, const char *name, void *value,
 {
         int                     op_ret = -1;
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
@@ -2708,16 +2618,19 @@ glusterfs_lgetxattr (const char *path, const char *name, void *value,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
                 path, name, (long unsigned)size);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = __glusterfs_glh_getxattr (entry->handle, vpath, name, value,
                                            size, LIBGF_DO_LGETXATTR);
 
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -3000,7 +2913,7 @@ glusterfs_file_t
 glusterfs_open (const char *path, int flags, ...)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         glusterfs_file_t        fh = NULL;
         mode_t                  mode = 0;
         va_list                 ap;
@@ -3008,12 +2921,13 @@ glusterfs_open (const char *path, int flags, ...)
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         if (flags & O_CREAT) {
                 va_start (ap, flags);
                 mode = va_arg (ap, mode_t);
@@ -3022,6 +2936,8 @@ glusterfs_open (const char *path, int flags, ...)
         } else
                 fh = glusterfs_glh_open (entry->handle, vpath, flags);
 out:
+        if (vpath)
+                free (vpath);
         return fh;
 }
 
@@ -3037,21 +2953,24 @@ glusterfs_file_t
 glusterfs_creat (const char *path, mode_t mode)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         glusterfs_file_t        fh = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         fh = glusterfs_glh_creat (entry->handle, vpath, mode);
 
 out:
+        if (vpath)
+                free (vpath);
         return fh;
 }
 
@@ -3265,22 +3184,25 @@ glusterfs_setxattr (const char *path, const char *name, const void *value,
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s", path, name);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = __glusterfs_glh_setxattr (entry->handle, vpath, name, value,
                                            size, flags, LIBGF_DO_SETXATTR);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -3291,22 +3213,25 @@ glusterfs_lsetxattr (glusterfs_handle_t handle, const char *path,
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "path %s, name %s", path, name);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = __glusterfs_glh_setxattr (entry->handle, vpath, name, value,
                                            size, flags, LIBGF_DO_LSETXATTR);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -4815,19 +4740,23 @@ glusterfs_stat (const char *path, struct stat *buf)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
+
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_stat (entry->handle, vpath, buf);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -4842,20 +4771,23 @@ glusterfs_lstat (const char *path, struct stat *buf)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_lstat (entry->handle, vpath, buf);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -5063,19 +4995,22 @@ glusterfs_mkdir (const char *path, mode_t mode)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_mkdir (entry->handle, vpath, mode);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -5175,19 +5110,22 @@ glusterfs_rmdir (const char *path)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_rmdir (entry->handle, vpath);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -5281,19 +5219,22 @@ glusterfs_chmod (const char *path, mode_t mode)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_chmod (entry->handle, vpath, mode);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -5373,19 +5314,22 @@ glusterfs_chown (const char *path, uid_t owner, gid_t group)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_chown (entry->handle, vpath, owner, group);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -5401,19 +5345,22 @@ glusterfs_lchown (const char *path, uid_t owner, gid_t group)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_lchown (entry->handle, vpath, owner, group);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -5490,20 +5437,23 @@ glusterfs_dir_t
 glusterfs_opendir (const char *path)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         glusterfs_dir_t         dir = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
 
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         dir = glusterfs_glh_opendir (entry->handle, vpath);
 out:
+        if (vpath)
+                free (vpath);
         return dir;
 }
 
@@ -5887,8 +5837,8 @@ glusterfs_link (const char *oldpath, const char *newpath)
 {
         struct vmp_entry        *oldentry = NULL;
         struct vmp_entry        *newentry = NULL;
-        char                    oldvpath[PATH_MAX];
-        char                    newvpath[PATH_MAX];
+        char                    *oldvpath = NULL;
+        char                    *newvpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
@@ -5896,13 +5846,13 @@ glusterfs_link (const char *oldpath, const char *newpath)
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "old %s, new %s", oldpath,
                 newpath);
-        oldentry = libgf_vmp_search_entry_vpath ((char *)oldpath, oldvpath);
+        oldentry = libgf_vmp_search_entry ((char *)oldpath);
         if (!oldentry) {
                 errno = ENODEV;
                 goto out;
         }
 
-        newentry = libgf_vmp_search_entry_vpath ((char *)newpath, newvpath);
+        newentry = libgf_vmp_search_entry ((char *)newpath);
         if (!newentry) {
                 errno =  ENODEV;
                 goto out;
@@ -5914,8 +5864,14 @@ glusterfs_link (const char *oldpath, const char *newpath)
                 goto out;
         }
 
+        newvpath = libgf_vmp_virtual_path (newentry, newpath);
+        oldvpath = libgf_vmp_virtual_path (oldentry, oldpath);
         op_ret = glusterfs_glh_link (newentry->handle, oldvpath, newvpath);
 out:
+        if (newvpath)
+                free (newvpath);
+        if (oldvpath)
+                free (oldvpath);
         return op_ret;
 }
 
@@ -6039,21 +5995,24 @@ int
 glusterfs_statfs (const char *path, struct statfs *buf)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_statfs (entry->handle, vpath, buf);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6111,21 +6070,24 @@ int
 glusterfs_statvfs (const char *path, struct statvfs *buf)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_statvfs (entry->handle, vpath, buf);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6263,13 +6225,13 @@ glusterfs_rename (const char *oldpath, const char *newpath)
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "Old %s, new %s", oldpath,
                 newpath);
-        old = libgf_vmp_search_entry_vpath ((char *)oldpath, oldvpath);
+        old = libgf_vmp_search_entry ((char *)oldpath);
         if (!old) {
                 errno = ENODEV;
                 goto out;
         }
 
-        new = libgf_vmp_search_entry_vpath ((char *)newpath, newvpath);
+        new = libgf_vmp_search_entry ((char *)newpath);
         if (!new) {
                 errno = ENODEV;
                 goto out;
@@ -6280,9 +6242,15 @@ glusterfs_rename (const char *oldpath, const char *newpath)
                 goto out;
         }
 
+        oldvpath = libgf_vmp_virtual_path (old, oldpath);
+        newvpath = libgf_vmp_virtual_path (new, newpath);
         op_ret = glusterfs_glh_rename (old->handle, oldvpath, newvpath);
 
 out:
+        if (oldvpath)
+                free (oldvpath);
+        if (newvpath)
+                free (newvpath);
         return op_ret;
 }
 
@@ -6344,20 +6312,23 @@ int
 glusterfs_utimes (const char *path, const struct timeval times[2])
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_utimes (entry->handle, vpath, times);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6422,21 +6393,24 @@ int
 glusterfs_utime (const char *path, const struct utimbuf *buf)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_utime (entry->handle, vpath, buf);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6548,20 +6522,23 @@ int
 glusterfs_mknod(const char *pathname, mode_t mode, dev_t dev)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", pathname);
-        entry = libgf_vmp_search_entry_vpath ((char *)pathname, vpath);
+        entry = libgf_vmp_search_entry ((char *)pathname);
         if (!entry) {
                 errno = ENODEV;
                goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, pathname);
         op_ret = glusterfs_glh_mknod (entry->handle, vpath, mode, dev);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6624,20 +6601,23 @@ int
 glusterfs_mkfifo (const char *path, mode_t mode)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_mkfifo (entry->handle, vpath, mode);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6727,20 +6707,23 @@ int
 glusterfs_unlink (const char *path)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_unlink (entry->handle, vpath);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6864,7 +6847,7 @@ int
 glusterfs_symlink (const char *oldpath, const char *newpath)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, oldpath, out);
@@ -6872,14 +6855,17 @@ glusterfs_symlink (const char *oldpath, const char *newpath)
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "target: %s, link: %s", oldpath,
                 newpath);
-        entry = libgf_vmp_search_entry_vpath ((char *)newpath, vpath);
+        entry = libgf_vmp_search_entry ((char *)newpath);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, newpath);
         op_ret = glusterfs_glh_symlink (entry->handle, oldpath, vpath);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -6987,21 +6973,24 @@ ssize_t
 glusterfs_readlink (const char *path, char *buf, size_t bufsize)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         int                     op_ret = -1;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, buf, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         op_ret = glusterfs_glh_readlink (entry->handle, vpath, buf, bufsize);
 out:
+        if (vpath)
+                free (vpath);
         return op_ret;
 }
 
@@ -7204,14 +7193,14 @@ char *
 glusterfs_realpath (const char *path, char *resolved_path)
 {
         struct vmp_entry        *entry = NULL;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
         char                    *res = NULL;
         char                    *realp = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        entry = libgf_vmp_search_entry_vpath ((char *)path, vpath);
+        entry = libgf_vmp_search_entry ((char *)path);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
@@ -7221,6 +7210,7 @@ glusterfs_realpath (const char *path, char *resolved_path)
         if (!realp)
                 goto out;
 
+        vpath = libgf_vmp_virtual_path (entry, path);
         res = glusterfs_glh_realpath (entry->handle, vpath, resolved_path);
         if (!res)
                 goto out;
@@ -7231,6 +7221,8 @@ glusterfs_realpath (const char *path, char *resolved_path)
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, resolved %s", path,
                 resolved_path);
 out:
+        if (vpath)
+                free (vpath);
 
         return realp;
 }
@@ -7280,20 +7272,23 @@ glusterfs_remove(const char *pathname)
 {
         struct vmp_entry        *entry = NULL;
         int                     op_ret = -1;
-        char                    vpath[PATH_MAX];
+        char                    *vpath = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, pathname, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", pathname);
-        entry = libgf_vmp_search_entry_vpath ((char *)pathname, vpath);
+        entry = libgf_vmp_search_entry ((char *)pathname);
         if (!entry) {
                 errno = ENODEV;
                 goto out;
         }
 
+        vpath = libgf_vmp_virtual_path (entry, pathname);
         op_ret = glusterfs_glh_remove (entry->handle, vpath);
 
 out:
+        if (vpath)
+                FREE (vpath);
         return op_ret;
 }
 
