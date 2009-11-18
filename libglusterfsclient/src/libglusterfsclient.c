@@ -7468,7 +7468,6 @@ out:
         return off;
 }
 
-
 struct libgf_client_sendfile_data {
         int                reads_sent;
         int                reads_completed;
@@ -7909,6 +7908,110 @@ unlock:
         return res;
 }
 
+int32_t
+libgf_client_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno,
+                           struct stat *prebuf, struct stat *postbuf)
+{
+        libgf_client_local_t *local = frame->local;
+
+        local->reply_stub = fop_truncate_cbk_stub (frame, NULL, op_ret,
+                                                   op_errno, prebuf, postbuf);
+
+        LIBGF_REPLY_NOTIFY (local);
+        return 0;
+}
+
+int32_t 
+libgf_client_truncate (libglusterfs_client_ctx_t *ctx, 
+                       loc_t *loc, off_t length)
+{
+        call_stub_t *stub = NULL;
+        int32_t op_ret = 0;
+        libgf_client_local_t *local = NULL;
+
+        LIBGF_CLIENT_FOP (ctx, stub, truncate, local, loc, length);
+ 
+        op_ret = stub->args.truncate_cbk.op_ret;
+        errno = stub->args.truncate_cbk.op_errno;
+        libgf_transform_iattr (ctx, loc->inode,
+                               &stub->args.truncate_cbk.postbuf);
+
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, status %d, errno %d",
+                loc->path, op_ret, errno);
+        libgf_update_iattr_cache (loc->inode, LIBGF_UPDATE_STAT,
+                                  &stub->args.truncate_cbk.postbuf);
+	call_stub_destroy (stub);
+
+        return op_ret;
+}
+
+int
+glusterfs_glh_truncate (glusterfs_handle_t handle, const char *path,
+                        off_t length)
+{
+        int32_t op_ret = -1;
+        loc_t loc = {0, };
+        libglusterfs_client_ctx_t *ctx = handle;
+	char *name = NULL, *pathname = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
+        GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        loc.path = strdup (path);
+        if (!loc.path) {
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "strdup failed");
+                goto out;
+        }
+
+	op_ret = libgf_client_path_lookup (&loc, ctx, 1);
+	if (op_ret == -1) {
+		gf_log ("libglusterfsclient", GF_LOG_ERROR,
+			"path lookup failed for (%s)", loc.path);
+		goto out;
+	}
+
+	pathname = strdup (loc.path);
+	name = basename (pathname);
+
+        op_ret = libgf_client_loc_fill (&loc, ctx, 0, loc.parent->ino, name);
+	if (op_ret == -1) {
+		gf_log ("libglusterfsclient",
+			GF_LOG_ERROR,
+			"libgf_client_loc_fill returned -1, returning EINVAL");
+		errno = EINVAL;
+		goto out;
+	}
+
+        op_ret = libgf_client_truncate (ctx, &loc, length);
+
+out:
+        libgf_client_loc_wipe (&loc);
+
+        return op_ret;
+}
+
+int
+glusterfs_truncate (const char *path, off_t length)
+{
+        int                     op_ret = -1;
+        char                    vpath[PATH_MAX];
+        glusterfs_handle_t      h = NULL;
+
+        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
+
+        gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path:%s length:%"PRIu64, path,
+                length);
+        h = libgf_resolved_path_handle (path, vpath);
+        if (!h) {
+                errno = ENODEV;
+                goto out;
+        }
+
+        op_ret = glusterfs_glh_truncate (h, vpath, length);
+out:
+        return op_ret;
+}
 
 static struct xlator_fops libgf_client_fops = {
 };

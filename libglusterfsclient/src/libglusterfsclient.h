@@ -1339,6 +1339,19 @@ glusterfs_fchdir (glusterfs_file_t fd);
 char *
 glusterfs_getcwd (char *buf, size_t size);
 
+/*
+ * Truncate the file to a specified length.
+ *
+ * @path   : path to the file.
+ * @length : length to which the file has to be truncated.
+ *
+ * Returns 0 on success and -1 on failure with errno set appropriately 
+ */
+
+int
+glusterfs_truncate (const char *path, off_t length);
+
+
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
