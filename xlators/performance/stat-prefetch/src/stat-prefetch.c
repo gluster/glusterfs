@@ -190,10 +190,10 @@ out:
 
 
 int32_t
-sp_cache_get_entry (sp_cache_t *cache, char *name, gf_dirent_t *entry)
+sp_cache_get_entry (sp_cache_t *cache, char *name, gf_dirent_t **entry)
 {
         int32_t      ret = -1;
-        gf_dirent_t *tmp = NULL;
+        gf_dirent_t *tmp = NULL, *new = NULL;
 
         if ((cache == NULL) || (name == NULL) || (entry == NULL)) {
                 goto out;
@@ -203,10 +203,22 @@ sp_cache_get_entry (sp_cache_t *cache, char *name, gf_dirent_t *entry)
         {
                 tmp = rbthash_get (cache->table, name, strlen (name));
                 if (tmp != NULL) {
-                        memcpy (entry, tmp, sizeof (*entry));
+                        new = gf_dirent_for_name (tmp->d_name);
+                        if (new == NULL) {
+                                goto unlock;
+                        }
+
+                        new->d_ino  = tmp->d_ino;
+                        new->d_off  = tmp->d_off;
+                        new->d_len  = tmp->d_len;
+                        new->d_type = tmp->d_type;
+                        new->d_stat = tmp->d_stat;
+
+                        *entry = new;
                         ret = 0;
                 }
         }
+unlock:
         UNLOCK (&cache->lock);
 
 out:
@@ -718,10 +730,10 @@ out:
 int32_t
 sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
-        gf_dirent_t     dirent;     
+        gf_dirent_t    *dirent          = NULL;     
         int32_t         ret             = -1, op_ret = -1, op_errno = EINVAL; 
         sp_cache_t     *cache           = NULL;
-        struct stat    *buf             = NULL;
+        struct stat     buf             = {0, };
         char            entry_cached    = 0;
         char            xattr_req_empty = 1;
         sp_inode_ctx_t *inode_ctx       = NULL;
@@ -768,25 +780,26 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                 goto wind;
         }
 
-        memset (&dirent, 0, sizeof (dirent));
         cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
         if (cache) {
                 ret = sp_cache_get_entry (cache, (char *)loc->name, &dirent);
                 if (ret == 0) {
-                        buf = &dirent.d_stat;
+                        buf = dirent->d_stat;
                         op_ret = 0;
                         op_errno = 0;
                         entry_cached = 1;
+                        FREE (dirent);
                 } 
         } else if (S_ISDIR (loc->inode->st_mode)) {
                 cache = sp_get_cache_inode (this, loc->inode, frame->root->pid);
                 if (cache) {
                         ret = sp_cache_get_entry (cache, ".", &dirent);
                         if (ret == 0) {
-                                buf = &dirent.d_stat;
+                                buf = dirent->d_stat;
                                 op_ret = 0;
                                 op_errno = 0;
                                 entry_cached = 1;
+                                FREE (dirent);
                         }
                 }
         }
@@ -833,7 +846,7 @@ wind:
         }
 
 unwind:
-	SP_STACK_UNWIND (frame, op_ret, op_errno, loc->inode, buf, NULL);
+	SP_STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf, NULL);
         return 0;
 
 }
