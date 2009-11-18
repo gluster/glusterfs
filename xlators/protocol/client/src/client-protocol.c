@@ -5862,7 +5862,7 @@ protocol_client_reopendir (xlator_t *this, client_fd_ctx_t *fdctx)
         inode = fdctx->inode;
 
         ret = inode_path (inode, NULL, &path);
-        if (ret == -1) {
+        if (ret < 0) {
                 goto out;
         }
 
@@ -5985,7 +5985,7 @@ protocol_client_reopen (xlator_t *this, client_fd_ctx_t *fdctx)
         inode = fdctx->inode;
 
         ret = inode_path (inode, NULL, &path);
-        if (ret == -1) {
+        if (ret < 0) {
                 goto out;
         }
 
