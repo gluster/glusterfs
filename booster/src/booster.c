@@ -194,6 +194,9 @@ static int (*real_fcntl) (int fd, int cmd, ...);
 static int (*real_chdir) (const char *path);
 static int (*real_fchdir) (int fd);  
 static char * (*real_getcwd) (char *buf, size_t size);
+static int (*real_truncate) (const char *path, off_t length);
+static int (*real_truncate64) (const char *path, loff_t length);
+
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -2826,6 +2829,77 @@ getcwd (char *buf, size_t size)
 }
 
 
+int __REDIRECT (booster_false_truncate, (const char *path, off_t length),
+                truncate) __nonnull ((1));
+int __REDIRECT (booster_false_truncate64, (const char *path, loff_t length),
+                truncate64) __nonnull ((1));;
+
+int
+booster_false_truncate (const char *path, off_t length)
+{
+        int             ret = -1;
+
+        gf_log ("booster", GF_LOG_TRACE, "truncate: path (%s) length (%"PRIu64
+                ")", path, length);
+
+        ret = glusterfs_truncate (path, length);
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "truncate failed: %s",
+                        strerror (errno));
+                goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_TRACE, "truncate succeeded");
+                goto out;
+        }
+
+        if (real_truncate != NULL)
+                ret = real_truncate (path, length);
+        else {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+
+int
+booster_false_truncate64 (const char *path, loff_t length)
+{
+        int             ret = -1;
+  
+        gf_log ("booster", GF_LOG_TRACE, "truncate64: path (%s) length "
+                "(%"PRIu64")", path, length);
+
+        ret = glusterfs_truncate (path, length);
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "truncate64 failed: %s",
+                        strerror (errno));
+                goto out;
+        }
+
+        if (ret == 0) {
+                gf_log ("booster", GF_LOG_TRACE, "truncate64 succeeded");
+                goto out;
+        }
+
+        if (real_truncate64 != NULL)
+                ret = real_truncate64 (path, length);
+        else {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+
 void
 booster_lib_init (void)
 {
@@ -2907,6 +2981,8 @@ booster_lib_init (void)
         RESOLVE (chdir);
         RESOLVE (fchdir);
         RESOLVE (getcwd);
+        RESOLVE (truncate);
+        RESOLVE (truncate64);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
