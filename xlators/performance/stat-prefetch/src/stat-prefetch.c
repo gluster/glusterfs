@@ -476,6 +476,10 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
         LOCK (&cache->lock);
         {
                 list_for_each_entry (entry, &entries->list, list) {
+                        if (S_ISDIR (entry->d_stat.st_mode)) {
+                                continue;
+                        }
+
                         new = gf_dirent_for_name (entry->d_name);
                         if (new == NULL) {
                                 goto unlock;
