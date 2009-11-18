@@ -104,6 +104,7 @@ write (int fd, const void *buf, size_t count);
 static int (*real_open) (const char *pathname, int flags, ...);
 static int (*real_open64) (const char *pathname, int flags, ...);
 static int (*real_creat) (const char *pathname, mode_t mode);
+static int (*real_creat64) (const char *pathname, mode_t mode);
 
 /* read, readv, pread, pread64 */
 static ssize_t (*real_read) (int fd, void *buf, size_t count);
@@ -607,6 +608,8 @@ out:
 
 int __REDIRECT (booster_false_creat, (const char *pathname, mode_t mode),
                 creat) __nonnull ((1));
+int __REDIRECT (booster_false_creat64, (const char *pathname, mode_t mode),
+                creat64) __nonnull ((1));
 
 int
 booster_false_creat (const char *pathname, mode_t mode)
@@ -638,6 +641,49 @@ booster_false_creat (const char *pathname, mode_t mode)
         }
 
         ret = real_creat (pathname, mode);
+
+        if (ret != -1) {
+                do_open (ret, pathname, GF_O_WRONLY | GF_O_TRUNC, mode,
+                         BOOSTER_CREAT);
+        } else
+                gf_log ("booster", GF_LOG_ERROR, "real create failed: %s",
+                        strerror (errno));
+
+out:
+        return ret;
+}
+
+
+int
+booster_false_creat64 (const char *pathname, mode_t mode)
+{
+        int     ret = -1;
+        if (!pathname) {
+                errno = EINVAL;
+                goto out;
+        }
+
+        gf_log ("booster", GF_LOG_TRACE, "Create: %s", pathname);
+        ret = vmp_creat (pathname, mode);
+
+        if ((ret == -1) && (errno != ENODEV)) {
+                gf_log ("booster", GF_LOG_ERROR, "VMP create failed: %s",
+                        strerror (errno));
+                goto out;
+        }
+
+        if (ret > 0) {
+                gf_log ("booster", GF_LOG_TRACE, "File created");
+                goto out;
+        }
+
+        if (real_creat64 == NULL) {
+                errno = ENOSYS;
+                ret = -1;
+                goto out;
+        }
+
+        ret = real_creat64 (pathname, mode);
 
         if (ret != -1) {
                 do_open (ret, pathname, GF_O_WRONLY | GF_O_TRUNC, mode,
@@ -2907,6 +2953,7 @@ booster_lib_init (void)
         RESOLVE (open);
         RESOLVE (open64);
         RESOLVE (creat);
+        RESOLVE (creat64);
 
         RESOLVE (read);
         RESOLVE (readv);
