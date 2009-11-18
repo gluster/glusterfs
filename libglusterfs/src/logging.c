@@ -494,12 +494,12 @@ log:
                                 basename, line, function,
                                 domain);
                 if (-1 == ret) {
-                        goto out;
+                        goto unlock;
                 }
 
                 ret = vasprintf (&str2, fmt, ap);
                 if (-1 == ret) {
-                        goto out;
+                        goto unlock;
                 }
 
 		va_end (ap);
@@ -513,9 +513,10 @@ log:
 		fprintf (logfile, "%s\n", msg);
 		fflush (logfile);
 	}
+unlock:
 	pthread_mutex_unlock (&logfile_mutex);
 
-        if (__central_log_enabled && 
+        if ((ret != -1) && __central_log_enabled && 
             ((glusterfs_central_log_flag_get ()) == 0)) {
                 
                 glusterfs_central_log_flag_set ();
@@ -524,11 +525,15 @@ log:
                 }
                 glusterfs_central_log_flag_unset ();
         }
-        
-        FREE (msg);
 
-        FREE (str1);
-        FREE (str2);
+        if (msg)
+                FREE (msg);
+
+        if (str1)
+                FREE (str1);
+
+        if (str2)
+                FREE (str2);
 
 out:
 	return (0);
