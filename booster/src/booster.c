@@ -141,6 +141,7 @@ static int (*real_fchmod) (int fd, mode_t mode);
 static int (*real_fchown) (int fd, uid_t, gid_t gid);
 static int (*real_fsync) (int fd);
 static int (*real_ftruncate) (int fd, off_t length);
+static int (*real_ftruncate64) (int fd, loff_t length);
 static int (*real_link) (const char *oldpath, const char *newname);
 static int (*real_rename) (const char *oldpath, const char *newpath);
 static int (*real_utimes) (const char *path, const struct timeval times[2]);
@@ -1266,8 +1267,13 @@ fsync (int fd)
         return ret;
 }
 
+int __REDIRECT (booster_false_ftruncate, (int fd, off_t length),
+                ftruncate);
+int __REDIRECT (booster_false_ftruncate64, (int fd, loff_t length),
+                ftruncate64);
+
 int
-ftruncate (int fd, off_t length)
+booster_false_ftruncate (int fd, off_t length)
 {
         int                     ret = -1;
         glusterfs_file_t        fh = NULL;
@@ -1282,6 +1288,31 @@ ftruncate (int fd, off_t length)
                         ret = -1;
                 } else
                         ret = real_ftruncate (fd, length);
+        } else {
+                gf_log ("booster", GF_LOG_TRACE, "Is a booster fd");
+                ret = glusterfs_ftruncate (fh, length);
+                booster_fdptr_put (fh);
+        }
+
+        return ret;
+}
+
+int
+booster_false_ftruncate64 (int fd, loff_t length)
+{
+        int                     ret = -1;
+        glusterfs_file_t        fh = NULL;
+
+        gf_log ("booster", GF_LOG_TRACE, "ftruncate: fd %d, length: %"PRIu64,fd
+                , length);
+        fh = booster_fdptr_get (booster_fdtable, fd);
+        if (!fh) {
+                gf_log ("booster", GF_LOG_TRACE, "Not a booster fd");
+                if (real_ftruncate == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                } else
+                        ret = real_ftruncate64 (fd, length);
         } else {
                 gf_log ("booster", GF_LOG_TRACE, "Is a booster fd");
                 ret = glusterfs_ftruncate (fh, length);
@@ -2830,6 +2861,7 @@ booster_lib_init (void)
         RESOLVE (fchown);
         RESOLVE (fsync);
         RESOLVE (ftruncate);
+        RESOLVE (ftruncate64);
         RESOLVE (link);
         RESOLVE (rename);
         RESOLVE (utimes);
