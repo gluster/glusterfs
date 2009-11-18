@@ -2613,11 +2613,6 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 		goto out;
 	}
 
-        if (size == 0) {
-                op_ret = 0;
-                goto out;
-        }
-
         if (size < 0) {
                 errno = EINVAL;
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid argument: size is"
@@ -2681,10 +2676,13 @@ do_getx:
 
                         /* Don't return the value for '\0' */
 			op_ret = value_data->len;
-				
-			copy_len = size < value_data->len ? 
-                                size : value_data->len;
-			memcpy (value, value_data->data, copy_len);
+
+                        if ((size > 0) && (value != NULL)) {
+                                copy_len = size < value_data->len ? 
+                                        size : value_data->len;
+                                memcpy (value, value_data->data, copy_len);
+                                op_ret = copy_len;
+                        }
 		} else {
 			errno = ENODATA;
 			op_ret = -1;
@@ -2738,7 +2736,12 @@ glusterfs_getxattr (const char *path, const char *name, void *value,
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
-        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
+
+        if ((size > 0) && (value == NULL)) {
+                errno = EINVAL;
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid argument value");
+                goto out;
+        }
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
                 path, name, (long unsigned)size);
@@ -2766,7 +2769,12 @@ glusterfs_lgetxattr (const char *path, const char *name, void *value,
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, name, out);
-        GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, value, out);
+
+        if ((size > 0) && (value == NULL)) {
+                errno = EINVAL;
+                gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Invalid argument value");
+                goto out;
+        }
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, name %s, size %lu",
                 path, name, (long unsigned)size);
