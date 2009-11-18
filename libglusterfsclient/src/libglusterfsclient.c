@@ -86,6 +86,10 @@ pthread_mutex_t vmplock = PTHREAD_MUTEX_INITIALIZER;
  */
 pthread_mutex_t mountlock = PTHREAD_MUTEX_INITIALIZER;
 
+static char cwd[PATH_MAX];
+static char cwd_inited = 0;
+static pthread_mutex_t cwdlock   = PTHREAD_MUTEX_INITIALIZER;
+
 char *
 libgf_vmp_virtual_path(struct vmp_entry *entry, char *path, char *vpath)
 {
@@ -1063,6 +1067,8 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
 	uint32_t xl_count = 0;
         loc_t       new_loc = {0, };
         struct timeval tv = {0, };
+        uint32_t       len = 0;
+        char           buf[PATH_MAX];
 
         if (!init_ctx || (!init_ctx->specfile && !init_ctx->specfp)) {
                 errno = EINVAL;
@@ -1148,6 +1154,43 @@ glusterfs_init (glusterfs_init_params_t *init_ctx, uint32_t fakefsid)
 
 	if (first_init)
         {
+                memset (buf, 0, PATH_MAX);
+
+                if (getcwd (buf, PATH_MAX) == NULL) {
+                        fprintf (stderr, "libglusterfsclient: cannot get "
+                                 "current working directory (%s)",
+                                 strerror (errno));
+			FREE (ctx->gf_ctx.cmd_args.log_file);
+                        FREE (ctx->gf_ctx.pool);
+                        FREE (ctx->gf_ctx.event_pool);
+                        FREE (ctx);
+                        return NULL;
+                }
+
+                len = strlen (buf);
+                if ((buf[len - 1] != '/')) {
+                        if ((len + 2) > PATH_MAX) {
+                                errno = ENAMETOOLONG;
+                                fprintf (stderr, "libglusterfsclient: cannot"
+                                         "get current working directory (%s)",
+                                         strerror (errno));
+                                FREE (ctx->gf_ctx.cmd_args.log_file);
+                                FREE (ctx->gf_ctx.pool);
+                                FREE (ctx->gf_ctx.event_pool);
+                                FREE (ctx);
+                                return NULL;
+                        }
+
+                        strcat (buf, "/");
+                }
+
+                pthread_mutex_lock (&cwdlock);
+                {
+                        strcpy (cwd, buf);
+                        cwd_inited = 1;
+                }
+                pthread_mutex_unlock (&cwdlock);
+
                 ret = gf_log_init (ctx->gf_ctx.cmd_args.log_file);
                 if (ret == -1) {
 			fprintf (stderr, 
@@ -7598,6 +7641,80 @@ glusterfs_fcntl (glusterfs_file_t fd, int cmd, ...)
 
 out:
         return ret;
+}
+
+
+int
+libgf_client_chdir (const char *path)
+{
+        int                op_ret            = 0;
+        uint32_t           resulting_cwd_len = 0;
+
+        pthread_mutex_lock (&cwdlock);
+        {
+                if (!libgf_path_absolute (path)) {
+                        resulting_cwd_len = strlen (path) + strlen (cwd)
+                                + ((path[strlen (path) - 1] == '/')
+                                   ? 0 : 1) + 1;
+
+                        if (resulting_cwd_len > PATH_MAX) {
+                                op_ret = -1;
+                                errno = ENAMETOOLONG;
+                                goto unlock;
+                        }
+                        strcat (cwd, path);
+                } else {
+                        resulting_cwd_len = strlen (path)
+                                + ((path[strlen (path) - 1] == '/')
+                                   ? 0 : 1) + 1;
+                                
+                        if (resulting_cwd_len > PATH_MAX) {
+                                op_ret = -1;
+                                errno = ENAMETOOLONG;
+                                goto unlock;
+                        }
+
+                        strcpy (cwd, path);
+                }
+
+                if (cwd[strlen (cwd) - 1] != '/') {
+                        strcat (cwd, "/");
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&cwdlock);
+
+        return op_ret;
+}
+
+
+int
+glusterfs_chdir (const char *path)
+{
+        int32_t            op_ret            = -1;
+        glusterfs_handle_t handle            = NULL;
+        loc_t              loc               = {0, };
+        char               vpath[PATH_MAX]; 
+
+        handle = libgf_resolved_path_handle (path, vpath);
+
+        if (handle != NULL)  {
+                loc.path = strdup (vpath);
+                if (!loc.path) {
+                        gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "Path compaction "
+                                "failed");
+                        goto out;
+                }
+
+                op_ret = libgf_client_path_lookup (&loc, handle, 0);
+        }
+
+        if ((handle == NULL) || (op_ret == 0)) {
+                libgf_client_chdir (path);
+        }
+
+out:
+        return op_ret;
 }
 
 
