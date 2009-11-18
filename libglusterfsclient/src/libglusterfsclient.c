@@ -5793,8 +5793,8 @@ libgf_client_ftruncate (libglusterfs_client_ctx_t *ctx, fd_t *fd,
         int                             op_ret = -1;
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
 
-        if ((!(fd->flags & O_ACCMODE) ==  O_RDWR)
-                        && (!((fd->flags & O_ACCMODE) == O_WRONLY))) {
+        if (!(((fd->flags & O_ACCMODE) == O_RDWR)
+              || ((fd->flags & O_ACCMODE) == O_WRONLY))) {
                 errno = EBADF;
                 goto out;
         }
