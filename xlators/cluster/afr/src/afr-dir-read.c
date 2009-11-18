@@ -115,6 +115,7 @@ afr_examine_dir_readdir_cbk (call_frame_t *frame, void *cookie,
 
         if (op_ret == -1) {
                 local->op_ret = -1;
+                local->op_ret = op_errno;
                 goto out;
         }
 
@@ -224,8 +225,8 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 	{
 		local = frame->local;
 
-		if (op_ret == 0)
-			local->op_ret = 0;
+		if (op_ret >= 0)
+			local->op_ret = op_ret;
 
 		local->op_errno = op_errno;
 	}
