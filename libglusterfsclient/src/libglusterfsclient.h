@@ -111,8 +111,6 @@ typedef struct {
                                            for the duration specified in this
                                            member. In Seconds.
                                            */
-
-        int            relativepaths;
 } glusterfs_init_params_t;
 
 
