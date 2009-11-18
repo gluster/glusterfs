@@ -698,6 +698,7 @@ __ib_verbs_lookup_peer (ib_verbs_device_t *device, int32_t qp_num)
         ib_verbs_qpreg_t *qpreg = NULL;
         int32_t hash            = 0;
 
+        qpreg = &device->qpreg;
         hash = qp_num % 42;
         ent = qpreg->ents[hash].next;
         while ((ent != &qpreg->ents[hash]) && (ent->qp_num != qp_num))
