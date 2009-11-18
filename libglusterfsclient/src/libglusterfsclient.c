@@ -3367,9 +3367,8 @@ out:
 }
 
 int
-glusterfs_lsetxattr (glusterfs_handle_t handle, const char *path,
-                     const char *name, const void *value, size_t size,
-                     int flags)
+glusterfs_lsetxattr (const char *path, const char *name, const void *value,
+                     size_t size, int flags)
 {
         int                     op_ret = -1;
         char                    vpath[PATH_MAX];
