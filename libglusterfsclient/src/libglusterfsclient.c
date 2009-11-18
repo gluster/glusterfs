@@ -2949,6 +2949,10 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
                 goto out;
         }
 
+        if (op_ret == 0) {
+                flags &= ~O_CREAT;
+        }
+
         if ((op_ret == -1) && ((flags & O_CREAT) == O_CREAT)) {
                 libgf_client_loc_wipe (&loc);
                 loc.path = strdup (pathres);
@@ -2979,7 +2983,7 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
         fd = fd_create (loc.inode, ctx->pid);
         fd->flags = flags;
 
-        if ((flags & O_CREAT) == O_CREAT) {
+        if (((flags & O_CREAT) == O_CREAT)) {
                 /* If we have the st_mode for the basename, check if
                  * it is a directory here itself, rather than sending
                  * a network message through libgf_client_creat, and
