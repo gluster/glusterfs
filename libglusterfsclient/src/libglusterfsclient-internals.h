@@ -130,7 +130,7 @@ typedef struct {
          */
 	struct dirent dirp;
         struct direntcache *dcache;
-
+        char   vpath[PATH_MAX]; 
 } libglusterfs_client_fd_ctx_t;
 
 typedef struct libglusterfs_client_async_local {

@@ -1315,6 +1315,16 @@ glusterfs_fcntl (glusterfs_file_t fd, int cmd, ...);
 int
 glusterfs_chdir (const char *path);
 
+/*
+ * Change the current working directory to the path @fd is opened on.
+ *
+ * @fd   : current working directory will be changed to path @fd is opened on.
+ *
+ * Returns 0 on success and -1 on  with errno set appropriately.
+ */
+int
+glusterfs_fchdir (glusterfs_file_t fd);
+
 /* FIXME: review the need for these apis */
 /* added for log related initialization in booster fork implementation */
 void
