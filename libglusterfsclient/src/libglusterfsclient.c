@@ -2067,7 +2067,8 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 		parent = local->fop.lookup.loc->parent;
                 libgf_transform_iattr (ctx, inode, buf);
                 if (inode->ino != 1) {
-                        inode_link (inode, parent, local->fop.lookup.loc->name, buf);
+                        inode = inode_link (inode, parent,
+                                            local->fop.lookup.loc->name, buf);
                 }
 
 		inode_lookup (inode);
@@ -2179,6 +2180,12 @@ libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
 
         if (dict)
                 *dict = dict_ref (stub->args.lookup_cbk.dict);
+
+        if (inode != loc->inode) {
+                inode_unref (loc->inode);
+                loc->inode = inode_ref (inode);
+        }
+
 out:
 	call_stub_destroy (stub);
         return op_ret;
@@ -2571,9 +2578,12 @@ libgf_client_getxattr (libglusterfs_client_ctx_t *ctx,
 
                         /* Don't return the value for '\0' */
                         op_ret = value_data->len; 
-                        copy_len = size < value_data->len ? 
-                                size : value_data->len;
-                        memcpy (value, value_data->data, copy_len);
+                        if ((size > 0) && (value != NULL)) {
+                                copy_len = size < value_data->len ? 
+                                        size : value_data->len;
+                                memcpy (value, value_data->data, copy_len);
+                                op_ret = copy_len;
+                        }
                 } else {
                         errno = ENODATA;
                         op_ret = -1;
@@ -2594,10 +2604,8 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
-	dict_t *dict = NULL;
 	libglusterfs_client_ctx_t *ctx = handle;
 	char *file = NULL;
-	dict_t *xattr_req = NULL;
         char *pathres = NULL, *tmp = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
@@ -2645,21 +2653,13 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
 		goto out;
 	}
 
-	xattr_req = dict_new ();
-	op_ret = dict_set (xattr_req, (char *)name,
-			   data_from_uint64 (size));
-	if (op_ret == -1) {
-		/* TODO: set proper error code */
-		goto out;
-	}
-
         if (whichop == LIBGF_DO_LGETXATTR)
                 goto do_getx;
 
         if (!S_ISLNK (loc.inode->st_mode))
                 goto do_getx;
 
-        libgf_client_loc_wipe (&loc);
+        libgf_client_loc_wipe (&loc); 
         op_ret = libgf_realpath_loc_fill (ctx, (char *)pathres, &loc);
         if (op_ret == -1) {
                 gf_log (LIBGF_XL_NAME, GF_LOG_ERROR, "realpath failed");
@@ -2667,39 +2667,11 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
         }
 
 do_getx:
-	op_ret = libgf_client_lookup (ctx, &loc, NULL, &dict, xattr_req);
-	if (op_ret == 0) {
-		data_t *value_data = dict_get (dict, (char *)name);
-			
-		if (value_data) {
-			int32_t copy_len = 0;
-
-                        /* Don't return the value for '\0' */
-			op_ret = value_data->len;
-
-                        if ((size > 0) && (value != NULL)) {
-                                copy_len = size < value_data->len ? 
-                                        size : value_data->len;
-                                memcpy (value, value_data->data, copy_len);
-                                op_ret = copy_len;
-                        }
-		} else {
-			errno = ENODATA;
-			op_ret = -1;
-		}
-	}
+	op_ret = libgf_client_getxattr (ctx, &loc, name, value, size);
 
 out:
 	if (tmp) {
 		FREE (tmp);
-	}
-
-	if (xattr_req) {
-		dict_unref (xattr_req);
-	}
-
-	if (dict) {
-		dict_unref (dict);
 	}
 
         if (pathres)
