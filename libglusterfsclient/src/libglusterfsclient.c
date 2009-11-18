@@ -91,19 +91,22 @@ static char cwd_inited = 0;
 static pthread_mutex_t cwdlock   = PTHREAD_MUTEX_INITIALIZER;
 
 char *
-libgf_vmp_virtual_path(struct vmp_entry *entry, char *path, char *vpath)
+libgf_vmp_virtual_path (struct vmp_entry *entry, const char *path, char *vpath)
 {
         char    *tmp = NULL;
 
-        if ((!entry) || (!path) || (!vpath))
-                return NULL;
-
         tmp = ((char *)(path + (entry->vmplen-1)));
-        if (tmp[0] != '/') {
+        if (strlen (tmp) > 0) {
+                if (tmp[0] != '/') {
+                        vpath[0] = '/';
+                        vpath[1] = '\0';
+                        strcat (&vpath[1], tmp);
+                } else
+                        strcpy (vpath, tmp);
+        } else {
                 vpath[0] = '/';
-                strcat (&vpath[1], tmp);
-        } else
-                strcpy (vpath, tmp);
+                vpath[1] = '\0';
+        }
 
         return vpath;
 }
