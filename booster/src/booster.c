@@ -49,6 +49,8 @@
 #define GF_UNIT_KB 1024
 #endif
 
+static pthread_mutex_t cwdlock   = PTHREAD_MUTEX_INITIALIZER;
+
 /* attr constructor registers this function with libc's
  * _init function as a function that must be called before
  * the main() of the program.
@@ -188,6 +190,7 @@ static ssize_t (*real_sendfile) (int out_fd, int in_fd, off_t *offset,
 static ssize_t (*real_sendfile64) (int out_fd, int in_fd, off_t *offset,
                                    size_t count);
 static int (*real_fcntl) (int fd, int cmd, ...);
+static int (*real_chdir) (const char *path);
 
 #define RESOLVE(sym) do {                                       \
                 if (!real_##sym)                                \
@@ -2688,6 +2691,55 @@ out:
         return ret;
 }
 
+
+int
+chdir (const char *path)
+{
+        int     ret = -1;
+        char    cwd[PATH_MAX];
+        char   *res = NULL;
+
+        gf_log ("booster", GF_LOG_TRACE, "chdir: path %s", path);
+
+        pthread_mutex_lock (&cwdlock);
+        {
+                res = glusterfs_getcwd (cwd, PATH_MAX);
+                if (res == NULL) {
+                        gf_log ("booster", GF_LOG_ERROR, "getcwd failed: %s",
+                                strerror (errno));
+                        goto unlock;
+                }
+
+                ret = glusterfs_chdir (path);
+                if ((ret == -1) && (errno != ENODEV)) {
+                        gf_log ("booster", GF_LOG_ERROR, "chdir failed: %s",
+                                strerror (errno));
+                        goto unlock;
+                }
+
+                if (ret == 0) {
+                        gf_log ("booster", GF_LOG_TRACE, "chdir succeeded");
+                        goto unlock;
+                }
+
+                if (real_chdir == NULL) {
+                        errno = ENOSYS;
+                        ret = -1;
+                        goto unlock;
+                }
+
+                ret = real_chdir (path);
+                if (ret == -1) {
+                        glusterfs_chdir (cwd);
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&cwdlock);
+
+        return ret;
+}
+
+
 void
 booster_lib_init (void)
 {
@@ -2765,6 +2817,7 @@ booster_lib_init (void)
         RESOLVE (readdir_r);
         RESOLVE (readdir64_r);
         RESOLVE (fcntl);
+        RESOLVE (chdir);
 
         /* This must be called after resolving real functions
          * above so that the socket based IO calls in libglusterfsclient
