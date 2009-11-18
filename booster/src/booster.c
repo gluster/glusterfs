@@ -2781,6 +2781,20 @@ fchdir (int fd)
 }
 
 
+char *
+getcwd (char *buf, size_t size)
+{
+        char *res = NULL;
+
+        res = glusterfs_getcwd (buf, size);
+        if ((res == NULL) && (errno == ENODEV)) {
+                res = real_getcwd (buf, size);
+        }
+
+        return res;
+}
+
+
 void
 booster_lib_init (void)
 {
