@@ -2339,14 +2339,14 @@ init (xlator_t *this)
                 pvt->enable[i] = 0;
         if (!error_no) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Warning error-no not specified.");
+                        "error-no not specified.");
         } else {
                 pvt->error_no = data_to_str (error_no);
         }
 
         if (!failure_percent) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Warning, failure percent not specified.");
+                        "failure percent not specified.");
                 pvt->failure_iter_no = 100/GF_FAILURE_DEFAULT;
         } else {
                 failure_percent_int = data_to_int32 (failure_percent);
@@ -2358,7 +2358,7 @@ init (xlator_t *this)
 
         if (!enable) {
                 gf_log (this->name, GF_LOG_WARNING,
-                        "Warning, all fops are enabled.");
+                        "All fops are enabled.");
                 for (i = 0; i < NO_OF_FOPS; i++)
                         pvt->enable[i] = 1;
         } else {
