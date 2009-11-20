@@ -1863,7 +1863,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
 
         op_ret = posix_lstat_with_gen (this, real_newpath, &stbuf);
-        if ((op_ret == -1) && (errno = ENOENT)) {
+        if ((op_ret == -1) && (errno == ENOENT)) {
                 was_present = 0;
         }
 
