@@ -319,7 +319,8 @@ iot_lookup_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                 inode_t *inode, struct stat *buf, dict_t *xattr,
                 struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr, postparent);
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xattr,
+                             postparent);
         return 0;
 }
 
@@ -358,7 +359,8 @@ out:
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL, NULL);
+                STACK_UNWIND_STRICT (lookup, frame, -1, -ret, NULL, NULL, NULL,
+                                     NULL);
         }
 
         return 0;
@@ -370,7 +372,7 @@ iot_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
                  struct stat *preop, struct stat *postop)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
+        STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
         return 0;
 }
 
@@ -411,7 +413,7 @@ out:
                         call_stub_destroy (stub);
                 }
 
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+                STACK_UNWIND_STRICT (setattr, frame, -1, -ret, NULL, NULL);
         }
 
         return 0;
@@ -423,7 +425,7 @@ iot_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
                   struct stat *preop, struct stat *postop)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
+        STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, preop, postop);
         return 0;
 }
 
@@ -459,7 +461,7 @@ iot_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+                STACK_UNWIND_STRICT (fsetattr, frame, -1, -ret, NULL, NULL);
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -472,7 +474,7 @@ int
 iot_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -505,7 +507,7 @@ iot_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
                                       stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret);
+                STACK_UNWIND_STRICT (access, frame, -1, -ret);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -520,7 +522,7 @@ iot_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, const char *path,
                   struct stat *stbuf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, path, stbuf);
+        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, path, stbuf);
         return 0;
 }
 
@@ -556,7 +558,7 @@ iot_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+                STACK_UNWIND_STRICT (readlink, frame, -1, -ret, NULL, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -573,8 +575,8 @@ iot_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct stat *buf, struct stat *preparent,
                struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
-                      postparent);
+        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
@@ -609,7 +611,8 @@ iot_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL, NULL);
+                STACK_UNWIND_STRICT (mknod, frame, -1, -ret, NULL, NULL, NULL,
+                                     NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -625,8 +628,8 @@ iot_mkdir_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                struct stat *buf, struct stat *preparent,
                struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
-                      postparent);
+        STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
@@ -659,7 +662,8 @@ iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL, NULL);
+                STACK_UNWIND_STRICT (mkdir, frame, -1, -ret, NULL, NULL, NULL,
+                                     NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -674,7 +678,8 @@ iot_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct stat *preparent,
                struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent,
+                             postparent);
         return 0;
 }
 
@@ -706,8 +711,8 @@ iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
                                       stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL);
-                
+                STACK_UNWIND_STRICT (rmdir, frame, -1, -ret, NULL, NULL);
+
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -722,8 +727,8 @@ iot_symlink_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                  struct stat *buf, struct stat *preparent,
                  struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
-                      postparent);
+        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
@@ -758,8 +763,8 @@ iot_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL, NULL);
-
+                STACK_UNWIND_STRICT (symlink, frame, -1, -ret, NULL, NULL, NULL,
+                                     NULL);
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -775,8 +780,8 @@ iot_rename_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                 struct stat *preoldparent, struct stat *postoldparent,
                 struct stat *prenewparent, struct stat *postnewparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf,
-                      preoldparent, postoldparent, prenewparent, postnewparent);
+        STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf, preoldparent,
+                             postoldparent, prenewparent, postnewparent);
         return 0;
 }
 
@@ -810,13 +815,13 @@ iot_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL, NULL, NULL);
-                
+                STACK_UNWIND_STRICT (rename, frame, -1, -ret, NULL, NULL, NULL,
+                                     NULL, NULL);
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
         }
-                
+
         return 0;
 }
 
@@ -825,7 +830,7 @@ int
 iot_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, fd_t *fd)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, fd);
+	STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 	return 0;
 }
 
@@ -861,12 +866,12 @@ iot_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, 0);
+                STACK_UNWIND_STRICT (open, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
-        }                
+        }
 
 	return 0;
 }
@@ -878,8 +883,8 @@ iot_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 struct stat *stbuf, struct stat *preparent,
                 struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, stbuf, preparent,
-                      postparent);
+	STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, stbuf,
+                             preparent, postparent);
 	return 0;
 }
 
@@ -918,7 +923,8 @@ iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL, NULL, NULL);
+                STACK_UNWIND_STRICT (create, frame, -1, -ret, NULL, NULL, NULL,
+                                     NULL, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -934,7 +940,8 @@ iot_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iovec *vector,
                int32_t count, struct stat *stbuf, struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+                             stbuf, iobref);
 
 	return 0;
 }
@@ -973,8 +980,8 @@ iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL, -1, NULL, NULL);
-
+		STACK_UNWIND_STRICT (readv, frame, -1, -ret, NULL, -1, NULL,
+                                     NULL);
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -987,7 +994,7 @@ int
 iot_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -1022,7 +1029,7 @@ iot_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                                     stub);
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret);
+		STACK_UNWIND_STRICT (flush, frame, -1, -ret);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1037,7 +1044,7 @@ iot_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1074,8 +1081,8 @@ iot_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret);
-                
+		STACK_UNWIND_STRICT (fsync, frame, -1, -ret, NULL, NULL);
+
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -1089,7 +1096,7 @@ iot_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                 struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1130,8 +1137,8 @@ iot_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                     stub);
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL, NULL);
-                
+		STACK_UNWIND_STRICT (writev, frame, -1, -ret, NULL, NULL);
+
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -1145,7 +1152,7 @@ int32_t
 iot_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             int32_t op_ret, int32_t op_errno, struct flock *flock)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, flock);
+	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock);
 	return 0;
 }
 
@@ -1183,7 +1190,7 @@ iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                                     stub);
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL);
+		STACK_UNWIND_STRICT (lk, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1197,7 +1204,7 @@ int
 iot_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
 	return 0;
 }
 
@@ -1243,7 +1250,7 @@ iot_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL);
+		STACK_UNWIND_STRICT (stat, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1257,7 +1264,7 @@ int
 iot_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
 	return 0;
 }
 
@@ -1292,7 +1299,7 @@ iot_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                                     stub);
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL);
+		STACK_UNWIND_STRICT (fstat, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1307,7 +1314,8 @@ iot_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                   struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
+                             postbuf);
 	return 0;
 }
 
@@ -1353,7 +1361,7 @@ iot_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+		STACK_UNWIND_STRICT (truncate, frame, -1, -ret, NULL, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1369,7 +1377,8 @@ iot_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                    struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
+                             postbuf);
 	return 0;
 }
 
@@ -1404,7 +1413,7 @@ iot_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                                     stub);
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+		STACK_UNWIND_STRICT (ftruncate, frame, -1, -ret, NULL, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1419,7 +1428,8 @@ iot_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int32_t op_ret, int32_t op_errno, uint8_t *file_checksum,
                   uint8_t *dir_checksum)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
+	STACK_UNWIND_STRICT (checksum, frame, op_ret, op_errno, file_checksum,
+                             dir_checksum);
 	return 0;
 }
 
@@ -1456,7 +1466,7 @@ iot_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags)
                                       stub);
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL, NULL);
+		STACK_UNWIND_STRICT (checksum, frame, -1, -ret, NULL, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1471,7 +1481,8 @@ iot_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int32_t op_ret, int32_t op_errno, struct stat *preparent,
                 struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+	STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
+                             postparent);
 	return 0;
 }
 
@@ -1493,7 +1504,7 @@ iot_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
 	call_stub_t *stub = NULL;
         int         ret = -1;
- 
+
 	stub = fop_unlink_stub (frame, iot_unlink_wrapper, loc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1508,12 +1519,12 @@ iot_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 out:
         if (ret < 0) {
-		STACK_UNWIND (frame, -1, -ret, NULL, NULL);
-                
+		STACK_UNWIND_STRICT (unlink, frame, -1, -ret, NULL, NULL);
+
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
-        } 
+        }
 
 	return 0;
 }
@@ -1524,8 +1535,8 @@ iot_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, inode_t *inode,
               struct stat *buf, struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
-                      postparent);
+        STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
@@ -1558,7 +1569,8 @@ iot_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                                       oldloc->inode, stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL, NULL, NULL, NULL);
+                STACK_UNWIND_STRICT (link, frame, -1, -ret, NULL, NULL, NULL,
+                                     NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1572,7 +1584,7 @@ int
 iot_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
         return 0;
 }
 
@@ -1604,7 +1616,7 @@ iot_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
                                       stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (opendir, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1618,7 +1630,7 @@ int
 iot_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -1651,7 +1663,7 @@ iot_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
                                     stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret);
+                STACK_UNWIND_STRICT (fsyncdir, frame, -1, -ret);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1665,7 +1677,7 @@ int
 iot_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, struct statvfs *buf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf);
         return 0;
 }
 
@@ -1697,7 +1709,7 @@ iot_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
                                       stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (statfs, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1711,7 +1723,7 @@ int
 iot_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -1755,7 +1767,7 @@ iot_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (setxattr, frame, -1, -ret);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1769,7 +1781,7 @@ int
 iot_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
         return 0;
 }
 
@@ -1812,7 +1824,7 @@ iot_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (getxattr, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1826,7 +1838,7 @@ int
 iot_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, dict);
+        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
         return 0;
 }
 
@@ -1860,7 +1872,7 @@ iot_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                     stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (fgetxattr, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1874,7 +1886,7 @@ int
 iot_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -1909,7 +1921,7 @@ iot_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                                     stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret);
+                STACK_UNWIND_STRICT (fsetxattr, frame, -1, -ret);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -1923,7 +1935,7 @@ int
 iot_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -1967,8 +1979,8 @@ iot_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret);
-                
+                STACK_UNWIND_STRICT (removexattr, frame, -1, -ret);
+
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
@@ -1981,7 +1993,7 @@ int
 iot_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, entries);
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
         return 0;
 }
 
@@ -2016,7 +2028,7 @@ iot_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                     stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (readdirp, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -2030,7 +2042,7 @@ int
 iot_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, entries);
+        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, entries);
         return 0;
 }
 
@@ -2064,7 +2076,7 @@ iot_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                     stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (readdir, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -2078,7 +2090,7 @@ int
 iot_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *xattr)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, xattr);
+        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr);
         return 0;
 }
 
@@ -2122,7 +2134,7 @@ iot_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (xattrop, frame, -1, -ret, NULL);
 
                 if (stub != NULL) {
                         call_stub_destroy (stub);
@@ -2136,7 +2148,7 @@ int
 iot_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xattr)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, xattr);
+        STACK_UNWIND_STRICT (fxattrop, frame, op_ret, op_errno, xattr);
         return 0;
 }
 
@@ -2169,7 +2181,7 @@ iot_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                     stub);
 out:
         if (ret < 0) {
-                STACK_UNWIND (frame, -1, -ret, NULL);
+                STACK_UNWIND_STRICT (fxattrop, frame, -1, -ret, NULL);
                 if (stub != NULL) {
                         call_stub_destroy (stub);
                 }
