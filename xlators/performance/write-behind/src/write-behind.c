@@ -540,7 +540,7 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 }
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
 
         if (request != NULL) {
                 wb_request_unref (request);
@@ -625,7 +625,7 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         op_errno = ENOMEM;
                         goto unwind;
                 }
-                
+
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
                         op_errno = ENOMEM;
