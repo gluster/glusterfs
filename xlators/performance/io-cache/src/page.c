@@ -753,8 +753,8 @@ ioc_frame_unwind (call_frame_t *frame)
 
 	//  ioc_local_unlock (local);
 
-	STACK_UNWIND (frame, op_ret, local->op_errno, vector, count,
-		      &stbuf, iobref);
+	STACK_UNWIND_STRICT (readv, frame, op_ret, local->op_errno, vector,
+                             count, &stbuf, iobref);
 
         if (iobref != NULL) {
                 iobref_unref (iobref);
