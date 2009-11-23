@@ -140,7 +140,7 @@ ioc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
                  struct stat *preop, struct stat *postop)
 {
- 	STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
+ 	STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
  	return 0;
 }
 
@@ -203,7 +203,8 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	
 out:
-	STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict, postparent);
+	STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, stbuf, dict,
+                      postparent);
 	return 0;
 }
 
@@ -511,7 +512,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 	FREE (local);
 	frame->local = NULL;
 
-	STACK_UNWIND (frame, op_ret, op_errno, fd);
+	STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 
 	return 0;
 }
@@ -590,8 +591,8 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	frame->local = NULL;
 	FREE (local);
 
-        STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf, preparent,
-                      postparent);
+        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
+                             preparent, postparent);
 
 	return 0;
 }
@@ -614,7 +615,7 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         local = CALLOC (1, sizeof (ioc_local_t));
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL);
                 return 0;
         }
 
@@ -645,18 +646,19 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	    mode_t mode, fd_t *fd)
 {
 	ioc_local_t *local = NULL;
-        
+
         local = CALLOC (1, sizeof (ioc_local_t));
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL, NULL);
+                STACK_UNWIND_STRICT (create, frame, -1, ENOMEM, NULL, NULL,
+                                     NULL, NULL, NULL);
                 return 0;
         }
 
 	local->flags = flags;
 	local->file_loc.path = loc->path;
 	frame->local = local;
-        
+
 	STACK_WIND (frame, ioc_create_cbk, FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->create, loc, flags, mode, fd);
 
@@ -697,7 +699,8 @@ ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			int32_t count, struct stat *stbuf,
                         struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+                             stbuf, iobref);
 	return 0;
 }
 
@@ -912,7 +915,8 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local = (ioc_local_t *) CALLOC (1, sizeof (ioc_local_t));
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                STACK_UNWIND (frame, -1, ENOMEM, NULL, 0, NULL, NULL);
+                STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0, NULL,
+                                     NULL);
                 return 0;
         }
 
@@ -967,7 +971,7 @@ ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (ioc_inode)
 		ioc_inode_flush ((ioc_inode_t *)(long)ioc_inode);
 
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -989,12 +993,12 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
 	ioc_local_t *local     = NULL;
 	uint64_t    ioc_inode = 0;
-	
+
 	local = CALLOC (1, sizeof (ioc_local_t));
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
 
-                STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
 
@@ -1030,7 +1034,8 @@ ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct stat *postbuf)
 {
 
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
+                             postbuf);
 	return 0;
 }
 
@@ -1052,7 +1057,8 @@ ioc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct stat *postbuf)
 {
 
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
+                             postbuf);
 	return 0;
 }
 
@@ -1107,7 +1113,7 @@ int32_t
 ioc_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 	    int32_t op_errno, struct flock *lock)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, lock);
+	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
 	return 0;
 }
 
@@ -1123,7 +1129,7 @@ ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 	if (!ioc_inode) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"inode context is NULL: returning EBADFD");
-		STACK_UNWIND (frame, -1, EBADFD, NULL);
+		STACK_UNWIND_STRICT (lk, frame, -1, EBADFD, NULL);
 		return 0;
 	}
 
