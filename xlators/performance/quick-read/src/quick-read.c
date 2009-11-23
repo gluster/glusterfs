@@ -240,7 +240,8 @@ out:
          * FIXME: content size in dict can be greater than the size application 
          * requested for. Applications need to be careful till this is fixed.
          */
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
+	STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, dict,
+                             postparent);
         return 0;
 }
 
@@ -321,7 +322,8 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         return 0;
 
 unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, NULL, NULL, NULL,
+                             NULL);
 
         if (new_req_dict) {
                 dict_unref (new_req_dict);
@@ -404,7 +406,7 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 out: 
         if (is_open) {
-                STACK_UNWIND (frame, op_ret, op_errno, fd);
+                STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
         }
 
         return 0;
@@ -509,7 +511,7 @@ unwind:
                 FREE (local);
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
         return 0;
 
 wind:
@@ -589,7 +591,7 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         call_resume (local->stub);
-        
+
         FREE (local);
         return 0;
 
@@ -600,7 +602,8 @@ unwind:
         }
 
         /* this is actually unwind of readv */
-        STACK_UNWIND (frame, op_ret, op_errno, NULL, -1, NULL, NULL);
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, NULL, -1, NULL,
+                             NULL);
         return 0;
 }
 
@@ -610,7 +613,7 @@ qr_validate_cache_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
         qr_local_t *local = NULL;
         int32_t     op_ret = -1, op_errno = -1;
-        
+
         local = frame->local;
         if (local == NULL) {
                 op_ret = -1;
@@ -727,7 +730,8 @@ qr_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct stat *stbuf, struct iobref *iobref)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+                             stbuf, iobref);
 	return 0;
 }
 
@@ -877,8 +881,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 out:
         if (content_cached || need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, vector, count, &stbuf,
-                              iobref);
+                STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector,
+                                     count, &stbuf, iobref);
 
         } else if (need_validation) {
                 stub = fop_readv_stub (frame, qr_readv, fd, size, offset);
@@ -976,7 +980,7 @@ qr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1067,12 +1071,13 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+                STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, NULL,
+                                     NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_writev_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->writev, fd, vector, count,
                             off, iobref);
-        } else if (need_open) { 
+        } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
                         qr_resume_pending_ops (qr_fd_ctx);
@@ -1093,7 +1098,7 @@ int32_t
 qr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 		   int32_t op_errno, struct stat *buf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, buf);
+	STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
 	return 0;
 }
 
@@ -1161,7 +1166,7 @@ qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+                STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_fstat_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fstat, fd);
@@ -1189,7 +1194,7 @@ qr_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
                  struct stat *preop, struct stat *postop)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
+	STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, preop, postop);
 	return 0;
 }
 
@@ -1260,7 +1265,8 @@ qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL, NULL);
+                STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, NULL,
+                                     NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_fsetattr_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fsetattr, fd, stbuf,
@@ -1286,7 +1292,7 @@ int32_t
 qr_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -1357,7 +1363,7 @@ qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno);
+                STACK_UNWIND_STRICT (fsetxattr, frame, op_ret, op_errno);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_fsetxattr_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fsetxattr, fd, dict,
@@ -1384,7 +1390,7 @@ int32_t
 qr_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, dict);
+	STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
 	return 0;
 }
 
@@ -1459,7 +1465,7 @@ qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+                STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_fgetxattr_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fgetxattr, fd, name);
@@ -1484,7 +1490,7 @@ int32_t
 qr_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -1542,7 +1548,7 @@ qr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         }
 
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno);
+                STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_flush_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->flush, fd);
@@ -1556,7 +1562,7 @@ int32_t
 qr_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno)
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (fentrylk, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -1629,7 +1635,7 @@ qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno);
+                STACK_UNWIND_STRICT (fentrylk, frame, op_ret, op_errno);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_fentrylk_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->fentrylk, volume, fd,
@@ -1656,7 +1662,7 @@ qr_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno)
 
 {
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (finodelk, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -1728,7 +1734,7 @@ qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno);
+                STACK_UNWIND_STRICT (finodelk, frame, op_ret, op_errno);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_finodelk_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->finodelk, volume, fd,
@@ -1754,7 +1760,7 @@ int32_t
 qr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -1821,7 +1827,8 @@ qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno);
+                STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, NULL,
+                                     NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_fsync_cbk, FIRST_CHILD (this),
                             FIRST_CHILD (this)->fops->fsync, fd, flags);
@@ -1838,7 +1845,7 @@ out:
 
                 qr_loc_wipe (&loc);
         }
-        
+
         return 0;
 }
 
@@ -1849,7 +1856,7 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct stat *postbuf)
 {
         int32_t     ret = 0;
-        uint64_t    value = 0; 
+        uint64_t    value = 0;
         qr_file_t  *qr_file = NULL;
         qr_local_t *local = NULL;
 
@@ -1864,11 +1871,11 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
-                
+
         ret = inode_ctx_get (local->fd->inode, this, &value);
         if (ret == 0) {
                 qr_file = (qr_file_t *)(long) value;
-                
+
                 if (qr_file) {
                         LOCK (&qr_file->lock);
                         {
@@ -1883,7 +1890,8 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
-        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
+                             postbuf);
         return 0;
 }
 
@@ -1915,7 +1923,7 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         if (ret == 0) {
                 qr_fd_ctx = (qr_fd_ctx_t *)(long)value;
         }
-        
+
         local = CALLOC (1, sizeof (*local));
         if (local == NULL) {
                 op_ret = -1;
@@ -1926,7 +1934,7 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
         local->fd = fd;
         frame->local = local;
- 
+
         if (qr_fd_ctx) {
                 LOCK (&qr_fd_ctx->lock);
                 {
@@ -1965,7 +1973,8 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+                STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, NULL,
+                                     NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_ftruncate_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->ftruncate, fd, offset);
@@ -1981,7 +1990,7 @@ out:
 
                 qr_loc_wipe (&loc);
         }
-        
+
         return 0;
 }
 
@@ -1990,7 +1999,7 @@ int32_t
 qr_lk_cbk (call_frame_t *frame,	void *cookie, xlator_t *this, int32_t op_ret,
            int32_t op_errno, struct flock *lock)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, lock);
+	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
 	return 0;
 }
 
@@ -2061,7 +2070,7 @@ qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
 out:
         if (need_unwind) {
-                STACK_UNWIND (frame, op_ret, op_errno, NULL);
+                STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, qr_lk_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lk, fd, cmd, lock);
