@@ -573,7 +573,8 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         if ((local != NULL) && (local->is_lookup)) {
-                SP_STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
+                SP_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
+                                 dict, postparent);
         }
 
         return 0;
@@ -865,10 +866,10 @@ wind:
         }
 
 unwind:
-	SP_STACK_UNWIND (frame, op_ret, op_errno, loc->inode, &buf, &postparent,
-                         NULL);
-        return 0;
+	SP_STACK_UNWIND (lookup, frame, op_ret, op_errno, loc->inode, &buf,
+                         NULL, &postparent);
 
+        return 0;
 }
 
 
@@ -916,7 +917,7 @@ unlock:
         }
 
 out:
-	SP_STACK_UNWIND (frame, op_ret, op_errno, entries);
+	SP_STACK_UNWIND (readdir, frame, op_ret, op_errno, entries);
 	return 0;
 }
 
@@ -966,7 +967,7 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (readdir, frame, -1, errno, NULL);
         return 0;
 }
 
@@ -976,7 +977,7 @@ sp_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
                  struct stat *postbuf)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	SP_STACK_UNWIND (truncate, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -988,7 +989,7 @@ sp_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct stat *preoldparent, struct stat *postoldparent,
                struct stat *prenewparent, struct stat *postnewparent)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, buf, preoldparent,
+	SP_STACK_UNWIND (rename, frame, op_ret, op_errno, buf, preoldparent,
                          postoldparent, prenewparent, postnewparent);
 	return 0;
 }
@@ -1021,7 +1022,7 @@ sp_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         }
 
 out:
-        SP_STACK_UNWIND (frame, op_ret, op_errno, fd);
+        SP_STACK_UNWIND (open, frame, op_ret, op_errno, fd);
         return 0;
 }
 
@@ -1065,7 +1066,7 @@ sp_open_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, fd);
+        SP_STACK_UNWIND (open, frame, -1, op_errno, fd);
         return 0;
 }
 
@@ -1107,7 +1108,7 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                               &need_lookup, &can_wind, &op_errno);
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, fd);
+                SP_STACK_UNWIND (open, frame, -1, op_errno, fd);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -1151,7 +1152,8 @@ sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
-        SP_STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+        SP_STACK_UNWIND (create, frame, op_ret, op_errno, fd, inode, buf,
+                         preparent, postparent);
         return 0;
 }
 
@@ -1193,7 +1195,8 @@ sp_create_helper (call_frame_t *frame,	xlator_t *this,	loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        SP_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+                         NULL);
         return 0;
 }
 
@@ -1248,7 +1251,8 @@ sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
                               &need_lookup, &can_wind, &op_errno);
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+                SP_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
+                                 NULL, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -1283,7 +1287,7 @@ sp_opendir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
         int32_t         ret       = 0, op_ret = -1, op_errno = -1;
-         
+
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
@@ -1313,7 +1317,7 @@ sp_opendir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        SP_STACK_UNWIND (opendir, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1355,7 +1359,7 @@ sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+                SP_STACK_UNWIND (opendir, frame, -1, op_errno, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -1374,8 +1378,8 @@ sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct stat *buf, struct stat *preparent,
                   struct stat *postparent)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
-                      postparent);
+	SP_STACK_UNWIND (mkdir, frame, op_ret, op_errno, inode, buf, preparent,
+                         postparent);
 	return 0;
 }
 
@@ -1386,7 +1390,7 @@ sp_mkdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
         int32_t         ret       = 0, op_ret = -1, op_errno = -1;
-         
+
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
@@ -1422,7 +1426,7 @@ sp_mkdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        SP_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1464,7 +1468,8 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+                SP_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL,
+                                 NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -1519,7 +1524,7 @@ sp_mknod_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        SP_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1562,7 +1567,8 @@ sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+                SP_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL,
+                                 NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -1616,7 +1622,7 @@ sp_symlink_helper (call_frame_t *frame, xlator_t *this, const char *linkpath,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        SP_STACK_UNWIND (symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1658,7 +1664,8 @@ sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
                               &need_lookup, &can_wind, &op_errno);
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+                SP_STACK_UNWIND (symlink, frame, -1, op_errno, NULL, NULL, NULL,
+                                 NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -1708,7 +1715,7 @@ sp_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        SP_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1769,7 +1776,8 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
          */
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL);
+                SP_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL,
+                                 NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, oldloc, NULL);
@@ -1819,7 +1827,7 @@ sp_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        SP_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1856,7 +1864,7 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+                SP_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -1899,7 +1907,7 @@ sp_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (ftruncate, frame, -1, errno, NULL, NULL);
         return 0;
 }
 
@@ -1909,7 +1917,7 @@ sp_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
                 struct stat *prestat, struct stat *poststat)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, prestat, poststat);
+	SP_STACK_UNWIND (setattr, frame, op_ret, op_errno, prestat, poststat);
 	return 0;
 }
 
@@ -1951,7 +1959,7 @@ sp_setattr_helper (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        SP_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1989,7 +1997,7 @@ sp_setattr (call_frame_t *frame, xlator_t *this,
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+                SP_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -2007,7 +2015,7 @@ sp_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, const char *path,
                  struct stat *buf)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, path, buf);
+	SP_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, buf);
         return 0;
 }
 
@@ -2049,7 +2057,7 @@ sp_readlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        SP_STACK_UNWIND (readlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2086,7 +2094,7 @@ sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+                SP_STACK_UNWIND (readlink, frame, -1, op_errno, NULL, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -2094,7 +2102,7 @@ out:
                 STACK_WIND (frame, sp_readlink_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readlink, loc, size);
         }
-        
+
         return 0;
 }
 
@@ -2104,7 +2112,8 @@ sp_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct stat *preparent,
                struct stat *postparent)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+	SP_STACK_UNWIND (unlink, frame, op_ret, op_errno, preparent,
+                         postparent);
 	return 0;
 }
 
@@ -2114,7 +2123,7 @@ int32_t
 sp_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             int32_t op_ret, int32_t op_errno)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno);
+	SP_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
 	return 0;
 }
 
@@ -2155,7 +2164,7 @@ sp_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        SP_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2199,7 +2208,7 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 out:
          if (need_unwind) {
-                 SP_STACK_UNWIND (frame, -1, op_errno);
+                 SP_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL);
          } else if (need_lookup) {
                  STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                              FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -2267,7 +2276,7 @@ sp_rmdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        SP_STACK_UNWIND (rmdir, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
  
@@ -2317,7 +2326,7 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno);
+                SP_STACK_UNWIND (rmdir, frame, -1, op_errno, NULL, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -2335,7 +2344,8 @@ sp_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct stat *stbuf, struct iobref *iobref)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	SP_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
+                         iobref);
 	return 0;
 }
 
@@ -2371,7 +2381,7 @@ sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 
 unwind:
-	SP_STACK_UNWIND (frame, -1, errno, NULL, -1, NULL, NULL);
+	SP_STACK_UNWIND (readv, frame, -1, errno, NULL, -1, NULL, NULL);
         return 0;
 }
 
@@ -2408,7 +2418,7 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (writev, frame, -1, errno, NULL, NULL);
         return 0;
 }
 
@@ -2443,7 +2453,7 @@ sp_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno);
+        SP_STACK_UNWIND (fsync, frame, -1, errno, NULL, NULL);
         return 0;
 }
 
@@ -2536,7 +2546,8 @@ sp_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+        SP_STACK_UNWIND (rename, frame, -1, op_errno, NULL, NULL, NULL, NULL,
+                         NULL);
         return 0;
 }
 
@@ -2650,8 +2661,8 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL, NULL,
-                                 NULL);
+                SP_STACK_UNWIND (rename, frame, -1, op_errno, NULL, NULL, NULL,
+                                 NULL, NULL);
         } else if (old_inode_need_lookup || new_inode_need_lookup) {
                 if (old_inode_need_lookup) {
                         STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
@@ -2711,7 +2722,7 @@ sp_setxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        SP_STACK_UNWIND (setxattr, frame, -1, op_errno);
         return 0;
 }
 
@@ -2749,7 +2760,7 @@ sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno);
+                SP_STACK_UNWIND (setxattr, frame, -1, op_errno);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -2800,7 +2811,7 @@ sp_removexattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        SP_STACK_UNWIND (removexattr, frame, -1, op_errno);
         return 0;
 }
 
@@ -2838,7 +2849,7 @@ sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno);
+                SP_STACK_UNWIND (removexattr, frame, -1, op_errno);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -2897,7 +2908,7 @@ sp_getxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        SP_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2926,7 +2937,7 @@ sp_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+                SP_STACK_UNWIND (getxattr, frame, -1, op_errno, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -2979,7 +2990,7 @@ sp_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
 	return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno);
+        SP_STACK_UNWIND (setdents, frame, -1, errno);
         return 0;
 }
 
@@ -2992,7 +3003,7 @@ sp_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dir_entry_t *trav  = NULL;
         sp_local_t  *local = NULL;
         sp_cache_t  *cache = NULL;
-        
+
         if (op_ret == -1) {
                 goto out;
         }
@@ -3012,9 +3023,9 @@ sp_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
                 }
         }
-        
-out: 
-	SP_STACK_UNWIND (frame, op_ret, op_errno, entries, count);
+
+out:
+	SP_STACK_UNWIND (getdents, frame, op_ret, op_errno, entries, count);
 	return 0;
 }
 
@@ -3026,9 +3037,9 @@ sp_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         sp_fd_ctx_t *fd_ctx = NULL;
         sp_cache_t  *cache  = NULL;
         uint64_t     value  = 0;
-        int32_t      ret    = 0; 
+        int32_t      ret    = 0;
         inode_t     *parent = NULL;
-        char        *name   = NULL; 
+        char        *name   = NULL;
         sp_local_t  *local  = NULL;
 
         ret = fd_ctx_get (fd, this, &value);
@@ -3060,7 +3071,7 @@ sp_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 	return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL, -1);
+        SP_STACK_UNWIND (getdents, frame, -1, errno, NULL, -1);
         return 0;
 }
 
@@ -3070,7 +3081,8 @@ sp_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, uint8_t *file_checksum,
                  uint8_t *dir_checksum)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, file_checksum, dir_checksum);
+	SP_STACK_UNWIND (checksum, frame, op_ret, op_errno, file_checksum,
+                         dir_checksum);
 	return 0;
 }
 
@@ -3112,7 +3124,7 @@ sp_checksum_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+        SP_STACK_UNWIND (checksum, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -3122,7 +3134,7 @@ sp_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 {
         sp_cache_t     *cache     = NULL;
         int32_t         op_errno  = -1;
-        call_stub_t    *stub      = NULL; 
+        call_stub_t    *stub      = NULL;
         char            can_wind  = 0, need_lookup = 0, need_unwind = 1;
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
@@ -3143,13 +3155,13 @@ sp_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
-                                
+
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
                               &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
+                SP_STACK_UNWIND (checksum, frame, -1, op_errno, NULL, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -3166,7 +3178,7 @@ int32_t
 sp_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-	SP_STACK_UNWIND (frame, op_ret, op_errno, dict);
+	SP_STACK_UNWIND (xattrop, frame, op_ret, op_errno, dict);
 	return 0;
 }
 
@@ -3178,7 +3190,7 @@ sp_xattrop_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
         int32_t         ret       = 0, op_ret = -1, op_errno = -1;
-         
+
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
@@ -3208,7 +3220,7 @@ sp_xattrop_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        SP_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3246,7 +3258,7 @@ sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+                SP_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -3254,7 +3266,7 @@ out:
                 STACK_WIND (frame, sp_xattrop_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->xattrop, loc, flags, dict);
         }
-         
+
         return 0;
 }
 
@@ -3290,7 +3302,7 @@ sp_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, errno, NULL);
+        SP_STACK_UNWIND (xattrop, frame, -1, errno, NULL);
         return 0;
 }
 
@@ -3309,7 +3321,7 @@ sp_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
         int32_t         ret       = 0, op_ret = -1, op_errno = -1;
-        
+
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
@@ -3339,7 +3351,7 @@ sp_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+        SP_STACK_UNWIND (stat, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3368,7 +3380,7 @@ sp_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno, NULL);
+                SP_STACK_UNWIND (stat, frame, -1, op_errno, NULL);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -3417,7 +3429,7 @@ sp_access_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        SP_STACK_UNWIND (access, frame, -1, op_errno);
         return 0;
 }
 
@@ -3446,7 +3458,7 @@ sp_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno);
+                SP_STACK_UNWIND (access, frame, -1, op_errno);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -3454,7 +3466,7 @@ out:
                 STACK_WIND (frame, sp_err_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->access, loc, mask);
         }
-        
+
         return 0;
 }
 
@@ -3496,7 +3508,7 @@ sp_inodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        SP_STACK_UNWIND (inodelk, frame, -1, op_errno);
         return 0;
 }
 
@@ -3527,7 +3539,7 @@ sp_inodelk (call_frame_t *frame, xlator_t *this, const char *volume, loc_t *loc,
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno);
+                SP_STACK_UNWIND (inodelk, frame, -1, op_errno);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -3536,7 +3548,7 @@ out:
                             FIRST_CHILD(this)->fops->inodelk, volume, loc, cmd,
                             lock);
         }
-         
+
         return 0;
 }
 
@@ -3580,7 +3592,7 @@ sp_entrylk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (frame, -1, op_errno);
+        SP_STACK_UNWIND (entrylk, frame, -1, op_errno);
         return 0;
 }
 
@@ -3611,7 +3623,7 @@ sp_entrylk (call_frame_t *frame, xlator_t *this, const char *volume, loc_t *loc,
 
 out:
         if (need_unwind) {
-                SP_STACK_UNWIND (frame, -1, op_errno);
+                SP_STACK_UNWIND (entrylk, frame, -1, op_errno);
         } else if (need_lookup) {
                 STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
@@ -3620,7 +3632,7 @@ out:
                             FIRST_CHILD(this)->fops->entrylk, volume, loc,
                             basename, cmd, type);
         }
-         
+
         return 0;
 }
 
