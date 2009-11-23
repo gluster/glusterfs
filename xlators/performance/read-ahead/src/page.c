@@ -400,10 +400,10 @@ ra_frame_unwind (call_frame_t *frame)
 	fd = local->fd;
 	ret = fd_ctx_get (fd, frame->this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
-	
-	STACK_UNWIND (frame, local->op_ret, local->op_errno,
-		      vector, count, &file->stbuf, iobref);
-  
+
+	STACK_UNWIND_STRICT (readv, frame, local->op_ret, local->op_errno,
+                             vector, count, &file->stbuf, iobref);
+
 	iobref_unref (iobref);
 	pthread_mutex_destroy (&local->local_lock);
 	free (local);
