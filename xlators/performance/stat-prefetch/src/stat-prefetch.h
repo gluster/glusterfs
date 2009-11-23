@@ -80,11 +80,11 @@ typedef struct sp_inode_ctx sp_inode_ctx_t;
 
 void sp_local_free (sp_local_t *local);
 
-#define SP_STACK_UNWIND(frame, params ...) do {    \
-        sp_local_t *__local = frame->local;        \
-        frame->local = NULL;                       \
-        STACK_UNWIND (frame, params);              \
-        sp_local_free (__local);                   \
+#define SP_STACK_UNWIND(op, frame, params ...) do { \
+        sp_local_t *__local = frame->local;         \
+        frame->local = NULL;                        \
+        STACK_UNWIND_STRICT (op, frame, params);    \
+        sp_local_free (__local);                    \
 } while (0)
 
 #define SP_STACK_DESTROY(frame) do {         \
