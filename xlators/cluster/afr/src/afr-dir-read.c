@@ -49,7 +49,7 @@
 
 
 int
-afr_examine_dir_completion_cbk (call_frame_t *frame, xlator_t *this)
+afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local  = NULL;
         afr_self_heal_t *sh = NULL;
@@ -98,8 +98,9 @@ afr_examine_dir_readdir_cbk (call_frame_t *frame, void *cookie,
                              xlator_t *this, int32_t op_ret, int32_t op_errno,
                              gf_dirent_t *entries)
 {
-	afr_private_t * priv     = NULL;
-	afr_local_t *   local    = NULL;
+	afr_private_t *    priv  = NULL;
+	afr_local_t *      local = NULL;
+        afr_self_heal_t *  sh    = NULL;
 
         gf_dirent_t * entry = NULL;
         gf_dirent_t * tmp   = NULL;
@@ -113,6 +114,7 @@ afr_examine_dir_readdir_cbk (call_frame_t *frame, void *cookie,
 
         priv  = this->private;
         local = frame->local;
+        sh    = &local->self_heal;
 
         child_index = (long) cookie;
 
@@ -151,22 +153,23 @@ out:
                         if (__checksums_differ (local->cont.opendir.checksum,
                                                 priv->child_count)) {
 
-                                local->need_entry_self_heal   = _gf_true;
-                                local->self_heal.forced_merge = _gf_true;
+                                /* self-heal will call AFR_STACK_DESTROY and
+                                   thus unref local->fd, so ref it here */
 
-                                local->cont.lookup.buf.st_mode = local->fd->inode->st_mode;
+                                local->fd = fd_ref (local->fd);
 
-                                local->child_count = afr_up_children_count (priv->child_count,
-                                                                            local->child_up);
+                                sh->need_entry_self_heal  = _gf_true;
+                                sh->forced_merge          = _gf_true;
+                                sh->mode                  = local->fd->inode->st_mode;
+                                sh->background            = _gf_false;
+                                sh->unwind                = afr_examine_dir_sh_unwind;
 
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "checksums of directory %s differ,"
                                         " triggering forced merge",
                                         local->loc.path);
 
-                                afr_self_heal (frame, this,
-                                               afr_examine_dir_completion_cbk,
-                                               _gf_true);
+                                afr_self_heal (frame, this);
                         } else {
                                 afr_set_opendir_done (this, local->fd->inode);
 

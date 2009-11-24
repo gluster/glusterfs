@@ -80,7 +80,7 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 		"self heal of %s completed",
 		local->loc.path);
 
-	sh->completion_cbk (sh->orig_frame, this);
+	sh->completion_cbk (frame, this);
 
 	return 0;
 }
@@ -728,7 +728,8 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
         afr_set_read_child (this, local->loc.inode, sh->source);
 
         if (sh->background) {
-                sh->unwind (frame, this);
+                sh->unwind (sh->orig_frame, this);
+                sh->unwound = _gf_true;
         }
 
 	afr_sh_data_sync_prepare (frame, this);
@@ -790,7 +791,8 @@ afr_sh_data_fstat (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh    = &local->self_heal;
 
-	call_count = local->child_count;
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 
 	local->call_count = call_count;
 
@@ -868,7 +870,8 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh    = &local->self_heal;
 
-	call_count = local->child_count;
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 
 	local->call_count = call_count;
 	
@@ -1142,7 +1145,7 @@ afr_self_heal_data (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	if (local->need_data_self_heal && priv->data_self_heal) {
+	if (sh->need_data_self_heal && priv->data_self_heal) {
 		afr_sh_data_open (frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,

@@ -199,7 +199,7 @@ out:
 
 
 int
-afr_up_down_flush_sh_completion_cbk (call_frame_t *frame, xlator_t *this)
+afr_up_down_flush_sh_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local = NULL;
 
@@ -222,30 +222,18 @@ afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh    = &local->self_heal;
 
-        sh->calling_fop = GF_FOP_FLUSH;
-
-//        sh->healing_fd = local->fd;
-
-//        sh->healing_fd_opened = _gf_true;
-
-        local->cont.lookup.inode = local->fd->inode;
-
         inode_path (local->fd->inode, NULL, (char **)&local->loc.path);
         local->loc.name   = strrchr (local->loc.path, '/');
         local->loc.inode  = inode_ref (local->fd->inode);
         local->loc.parent = inode_parent (local->fd->inode, 0, NULL);
 
-        sh->data_lock_held    = _gf_true;
+        sh->data_lock_held      = _gf_true;
+        sh->need_data_self_heal = _gf_true;
+        sh->mode                = local->fd->inode->st_mode;
+        sh->background          = _gf_false;
+        sh->unwind              = afr_up_down_flush_sh_unwind;
 
-        local->need_data_self_heal     = _gf_true;
-        local->cont.lookup.buf.st_mode = local->fd->inode->st_mode;
-        local->child_count             = afr_up_children_count (priv->child_count,
-                                                                local->child_up);
-
-        sh->flush_self_heal_cbk = afr_up_down_flush_sh_completion_cbk;
-
-        afr_self_heal (frame, this, afr_up_down_flush_sh_completion_cbk,
-                       _gf_false);
+        afr_self_heal (frame, this);
 
         return 0;
 }

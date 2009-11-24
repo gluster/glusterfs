@@ -81,7 +81,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 			local->loc.path);
 		sh->completion_cbk (frame, this);
 	} else {
-		if (S_ISREG (local->cont.lookup.buf.st_mode)) {
+		if (S_ISREG (sh->mode)) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"proceeding to data check on %s",
 				local->loc.path);
@@ -89,7 +89,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 			return 0;
 		}
 
-		if (S_ISDIR (local->cont.lookup.buf.st_mode)) {
+		if (S_ISDIR (sh->mode)) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"proceeding to entry check on %s",
 				local->loc.path);
@@ -668,7 +668,8 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	call_count = local->child_count;
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 	local->call_count = call_count;
 	
 	xattr_req = dict_new();
@@ -769,7 +770,8 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	call_count = local->child_count;
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 	local->call_count = call_count;
 
 	for (i = 0; i < priv->child_count; i++) {
@@ -809,7 +811,7 @@ afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	if (local->need_metadata_self_heal && priv->metadata_self_heal) {
+	if (local->self_heal.need_metadata_self_heal && priv->metadata_self_heal) {
 		afr_sh_metadata_lock (frame, this);
 	} else {
 		afr_sh_metadata_done (frame, this);
