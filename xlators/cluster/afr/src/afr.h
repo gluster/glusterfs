@@ -219,6 +219,7 @@ typedef struct _afr_local {
                         ino_t ino;
                         ino_t parent_ino;
 			dict_t *xattr;
+                        gf_boolean_t is_revalidate;
 		} lookup;
 
 		struct {
