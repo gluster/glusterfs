@@ -19,12 +19,12 @@
 
 #include "dict.h"
 #include "byte-order.h"
+#include "common-utils.h"
 
 #include "afr.h"
 #include "afr-transaction.h"
 
 #include <signal.h>
-#include <alloca.h>
 
 
 #define LOCKED_NO       0x0        /* no lock held */
