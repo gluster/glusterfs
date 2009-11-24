@@ -205,31 +205,78 @@ afr_writev_done (call_frame_t *frame, xlator_t *this)
 
 
 int
+afr_do_writev (call_frame_t *frame, xlator_t *this)
+{
+        call_frame_t * transaction_frame = NULL;
+        afr_local_t *  local             = NULL;
+
+        int op_ret   = -1;
+        int op_errno = 0;
+
+        local = frame->local;
+
+	transaction_frame = copy_frame (frame);
+	if (!transaction_frame) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory.");
+                op_errno = ENOMEM;
+		goto out;
+	}
+
+	transaction_frame->local = local;
+        frame->local = NULL;
+
+	local->op = GF_FOP_WRITE;
+
+	local->transaction.fop    = afr_writev_wind;
+	local->transaction.done   = afr_writev_done;
+	local->transaction.unwind = afr_writev_unwind;
+
+	local->transaction.main_frame = frame;
+	if (local->fd->flags & O_APPEND) {
+		local->transaction.start   = 0;
+		local->transaction.len     = 0;
+	} else {
+		local->transaction.start   = local->cont.writev.offset;
+		local->transaction.len     = iov_length (local->cont.writev.vector,
+                                                         local->cont.writev.count);
+	}
+
+	afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+
+        op_ret = 0;
+out:
+	if (op_ret == -1) {
+		if (transaction_frame)
+			AFR_STACK_DESTROY (transaction_frame);
+		AFR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL, NULL);
+	}
+
+        return 0;
+}
+
+
+int
 afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, 
 	    struct iovec *vector, int32_t count, off_t offset,
             struct iobref *iobref)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-	call_frame_t   *transaction_frame = NULL;
 
 	int ret = -1;
 
 	int op_ret   = -1;
 	int op_errno = 0;
 
+        uint64_t ctx;
+        afr_fd_ctx_t *fd_ctx = NULL;
+
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
-
-	transaction_frame = copy_frame (frame);
-	if (!transaction_frame) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory.");
-		goto out;
-	}
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
@@ -239,37 +286,38 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		goto out;
 	}
 
-	transaction_frame->local = local;
+        frame->local = local;
 
-	local->op = GF_FOP_WRITE;
 	local->cont.writev.vector     = iov_dup (vector, count);
 	local->cont.writev.count      = count;
 	local->cont.writev.offset     = offset;
 	local->cont.writev.ino        = fd->inode->ino;
         local->cont.writev.iobref     = iobref_ref (iobref);
 
-	local->transaction.fop    = afr_writev_wind;
-	local->transaction.done   = afr_writev_done;
-	local->transaction.unwind = afr_writev_unwind;
-
 	local->fd                = fd_ref (fd);
 
-	local->transaction.main_frame = frame;
-	if (fd->flags & O_APPEND) {
-		local->transaction.start   = 0;
-		local->transaction.len     = 0;
-	} else {
-		local->transaction.start   = offset;
-		local->transaction.len     = iov_length (vector, count);
-	}
+        ret = fd_ctx_get (fd, this, &ctx);
+        if (ret < 0) {
+                goto out;
+        }
 
-	afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        if (fd_ctx->down_count < priv->down_count) {
+                local->up_down_flush_cbk = afr_do_writev;
+                afr_up_down_flush (frame, this, fd, AFR_CHILD_DOWN_FLUSH);
+
+        } else if (fd_ctx->up_count < priv->up_count) {
+                local->up_down_flush_cbk = afr_do_writev;
+                afr_up_down_flush (frame, this, fd, AFR_CHILD_UP_FLUSH);
+
+        } else {
+                afr_do_writev (frame, this);
+        }
 
 	op_ret = 0;
 out:
 	if (op_ret == -1) {
-		if (transaction_frame)
-			AFR_STACK_DESTROY (transaction_frame);
 		AFR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL, NULL);
 	}
 
@@ -648,6 +696,52 @@ afr_ftruncate_done (call_frame_t *frame, xlator_t *this)
 
 
 int
+afr_do_ftruncate (call_frame_t *frame, xlator_t *this)
+{
+        call_frame_t * transaction_frame = NULL;
+        afr_local_t *  local             = NULL;
+
+        int op_ret   = -1;
+        int op_errno = 0;
+
+        local = frame->local;
+
+	transaction_frame = copy_frame (frame);
+	if (!transaction_frame) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory.");
+		goto out;
+	}
+
+        transaction_frame->local = local;
+        frame->local = NULL;
+
+	local->op = GF_FOP_FTRUNCATE;
+
+	local->transaction.fop    = afr_ftruncate_wind;
+	local->transaction.done   = afr_ftruncate_done;
+	local->transaction.unwind = afr_ftruncate_unwind;
+
+	local->transaction.main_frame = frame;
+
+	local->transaction.start   = 0;
+	local->transaction.len     = local->cont.ftruncate.offset;
+
+	afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+
+        op_ret = 0;
+out:
+	if (op_ret == -1) {
+		if (transaction_frame)
+			AFR_STACK_DESTROY (transaction_frame);
+		AFR_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, NULL, NULL);
+	}
+
+        return 0;
+}
+
+
+int
 afr_ftruncate (call_frame_t *frame, xlator_t *this,
 	       fd_t *fd, off_t offset)
 {
@@ -660,18 +754,14 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 	int op_ret   = -1;
 	int op_errno = 0;
 
+        uint64_t ctx;
+        afr_fd_ctx_t *fd_ctx = NULL;
+
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
 
 	priv = this->private;
-
-	transaction_frame = copy_frame (frame);
-	if (!transaction_frame) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory.");
-		goto out;
-	}
 
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
@@ -681,25 +771,26 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 		goto out;
 	}
 
-	transaction_frame->local = local;
-
-	local->op = GF_FOP_FTRUNCATE;
-	local->op_ret = -1;
+        frame->local = local;
 
 	local->cont.ftruncate.offset  = offset;
 	local->cont.ftruncate.ino     = fd->inode->ino;
 
-	local->transaction.fop    = afr_ftruncate_wind;
-	local->transaction.done   = afr_ftruncate_done;
-	local->transaction.unwind = afr_ftruncate_unwind;
-
 	local->fd = fd_ref (fd);
 
-	local->transaction.main_frame = frame;
-	local->transaction.start   = 0;
-	local->transaction.len     = offset;
+        ret = fd_ctx_get (fd, this, &ctx);
+        if (ret < 0) {
+                goto out;
+        }
 
-	afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        if (fd_ctx->down_count < priv->down_count) {
+                local->up_down_flush_cbk = afr_do_ftruncate;
+                afr_up_down_flush (frame, this, fd, AFR_CHILD_DOWN_FLUSH);
+        } else {
+                afr_do_ftruncate (frame, this);
+        }
 
 	op_ret = 0;
 out:

@@ -69,12 +69,17 @@ typedef struct _afr_private {
 	unsigned int entry_lock_server_count;
 
 	unsigned int wait_count;      /* # of servers to wait for success */
+
+        uint64_t up_count;      /* number of CHILD_UPs we have seen */
+        uint64_t down_count;    /* number of CHILD_DOWNs we have seen */
 } afr_private_t;
 
 typedef struct {
         /* Is this a self-heal triggered to forcibly merge the
            directories? */
         gf_boolean_t forced_merge;
+
+        glusterfs_fop_t calling_fop;
 
 	/* array of stat's, one for each child */
 	struct stat *buf;
@@ -124,6 +129,8 @@ typedef struct {
         gf_boolean_t data_lock_held;      /* set by caller: true if caller
                                              has already acquired 0-0 lock */
 
+        int (*flush_self_heal_cbk) (call_frame_t *frame, xlator_t *this);
+
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
@@ -168,6 +175,12 @@ afr_index_for_transaction_type (afr_transaction_type type)
 }
 
 
+typedef enum {
+        AFR_CHILD_UP_FLUSH,
+        AFR_CHILD_DOWN_FLUSH,
+} afr_flush_type;
+
+
 typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;
@@ -203,8 +216,11 @@ typedef struct _afr_local {
 	
 	dict_t  *xattr_req;
 	int      open_fd_count;
+
 	int32_t  inodelk_count;
 	int32_t  entrylk_count;
+
+        int (*up_down_flush_cbk) (call_frame_t *, xlator_t *);
 
 	/* 
 	   This struct contains the arguments for the "continuation"
@@ -503,8 +519,10 @@ typedef struct _afr_local {
 
 
 typedef struct {
-        unsigned char pre_op_done;
+        unsigned char *pre_op_done;
         unsigned char *child_failed;
+        uint64_t up_count;   /* number of CHILD_UPs this fd has seen */
+        uint64_t down_count; /* number of CHILD_DOWNs this fd has seen */
 } afr_fd_ctx_t;
 
 
@@ -560,8 +578,18 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this);
 int
 afr_frame_return (call_frame_t *frame);
 
+uint64_t
+afr_is_split_brain (xlator_t *this, inode_t *inode);
+
 void
 afr_set_split_brain (xlator_t *this, inode_t *inode);
+
+int
+afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
+          fd_t *fd, int32_t wbflags);
+
+int
+afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, afr_flush_type type);
 
 void
 afr_set_opendir_done (xlator_t *this, inode_t *inode);

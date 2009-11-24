@@ -1379,7 +1379,8 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 
         memcpy (lc, l, sizeof (afr_local_t));
 
-        loc_copy (&lc->loc, &l->loc);
+        if (l->loc.path)
+                loc_copy (&lc->loc, &l->loc);
 
         lc->child_up  = memdup (l->child_up, priv->child_count);
         if (l->xattr_req)
@@ -1412,12 +1413,16 @@ afr_bgsh_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 "background self-heal completed");
 
         if (!sh->unwound) {
-                AFR_STACK_UNWIND (lookup, sh->orig_frame,
-                                  local->op_ret, local->op_errno,
-                                  local->cont.lookup.inode,
-                                  &local->cont.lookup.buf,
-                                  local->cont.lookup.xattr,
-                                  &local->cont.lookup.postparent);
+                if (sh->calling_fop == GF_FOP_LOOKUP) {
+                        AFR_STACK_UNWIND (lookup, sh->orig_frame,
+                                          local->op_ret, local->op_errno,
+                                          local->cont.lookup.inode,
+                                          &local->cont.lookup.buf,
+                                          local->cont.lookup.xattr,
+                                          &local->cont.lookup.postparent);
+                } else {
+                        sh->flush_self_heal_cbk (sh->orig_frame, this);
+                }
         }
 
         LOCK (&priv->lock);
@@ -1450,12 +1455,16 @@ afr_bgsh_unwind (call_frame_t *bgsh_frame, xlator_t *this)
 
         sh->unwound = _gf_true;
 
-        AFR_STACK_UNWIND (lookup, sh->orig_frame,
-                          local->op_ret, local->op_errno,
-                          local->cont.lookup.inode,
-                          &local->cont.lookup.buf,
-                          local->cont.lookup.xattr,
-                          &local->cont.lookup.postparent);
+        if (sh->calling_fop == GF_FOP_LOOKUP) {
+                AFR_STACK_UNWIND (lookup, sh->orig_frame,
+                                  local->op_ret, local->op_errno,
+                                  local->cont.lookup.inode,
+                                  &local->cont.lookup.buf,
+                                  local->cont.lookup.xattr,
+                                  &local->cont.lookup.postparent);
+        } else {
+                sh->flush_self_heal_cbk (sh->orig_frame, this);
+        }
 
 	return 0;
 }
@@ -1463,7 +1472,8 @@ afr_bgsh_unwind (call_frame_t *bgsh_frame, xlator_t *this)
 
 int
 afr_self_heal (call_frame_t *frame, xlator_t *this,
-	       int (*completion_cbk) (call_frame_t *, xlator_t *))
+	       int (*completion_cbk) (call_frame_t *, xlator_t *),
+               int bgsh)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
@@ -1498,13 +1508,18 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
         sh_frame->local = sh_local;
         sh              = &sh_local->self_heal;
 
-        sh->background     = _gf_true;
         sh->orig_frame     = frame;
 
-        if (completion_cbk == NULL)
-                sh->completion_cbk = afr_bgsh_completion_cbk;
+        if (bgsh)
+                sh->background     = _gf_true;
         else
+                sh->background     = _gf_false;
+
+        if (completion_cbk == NULL) {
+                sh->completion_cbk = afr_bgsh_completion_cbk;
+        } else {
                 sh->completion_cbk = completion_cbk;
+        }
 
         sh->unwind         = afr_bgsh_unwind;
 

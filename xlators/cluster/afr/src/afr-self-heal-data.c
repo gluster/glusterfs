@@ -80,7 +80,7 @@ afr_sh_data_done (call_frame_t *frame, xlator_t *this)
 		"self heal of %s completed",
 		local->loc.path);
 
-	sh->completion_cbk (frame, this);
+	sh->completion_cbk (sh->orig_frame, this);
 
 	return 0;
 }

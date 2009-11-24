@@ -165,7 +165,8 @@ out:
                                         local->loc.path);
 
                                 afr_self_heal (frame, this,
-                                               afr_examine_dir_completion_cbk);
+                                               afr_examine_dir_completion_cbk,
+                                               _gf_true);
                         } else {
                                 afr_set_opendir_done (this, local->fd->inode);
 
