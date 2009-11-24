@@ -59,7 +59,10 @@ afr_examine_dir_completion_cbk (call_frame_t *frame, xlator_t *this)
 
         afr_set_opendir_done (this, local->fd->inode, 1);
 
-        AFR_STACK_UNWIND (opendir, sh->orig_frame, local->op_ret,
+        /* let self-heal's local cleanup free this */
+        local->cont.opendir.checksum = NULL;
+
+        AFR_STACK_UNWIND (opendir, frame, local->op_ret,
                           local->op_errno, local->fd);
 
         return 0;
