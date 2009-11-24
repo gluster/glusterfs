@@ -57,7 +57,7 @@ afr_examine_dir_completion_cbk (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh    = &local->self_heal;
 
-        afr_set_opendir_done (this, local->fd->inode, 1);
+        afr_set_opendir_done (this, local->fd->inode);
 
         /* let self-heal's local cleanup free this */
         local->cont.opendir.checksum = NULL;
@@ -167,7 +167,7 @@ out:
                                 afr_self_heal (frame, this,
                                                afr_examine_dir_completion_cbk);
                         } else {
-                                afr_set_opendir_done (this, local->fd->inode, 1);
+                                afr_set_opendir_done (this, local->fd->inode);
 
                                 AFR_STACK_UNWIND (opendir, frame, local->op_ret,
                                                   local->op_errno, local->fd);

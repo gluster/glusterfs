@@ -88,7 +88,7 @@ out:
 
 
 void
-afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain)
+afr_set_split_brain (xlator_t *this, inode_t *inode)
 {
         uint64_t ctx = 0;
         int      ret = 0;
@@ -104,7 +104,7 @@ afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain)
                 }
 
                 ctx = (~AFR_ICTX_SPLIT_BRAIN_MASK & ctx)
-                        | (split_brain & AFR_ICTX_SPLIT_BRAIN_MASK);
+                        | (0xFFFFFFFFFFFFFFFFULL & AFR_ICTX_SPLIT_BRAIN_MASK);
 
                 __inode_ctx_put (inode, this, ctx);
         }
@@ -142,7 +142,7 @@ out:
 
 
 void
-afr_set_opendir_done (xlator_t *this, inode_t *inode, int32_t opendir_done)
+afr_set_opendir_done (xlator_t *this, inode_t *inode)
 {
         uint64_t ctx = 0;
         int      ret = 0;
@@ -158,7 +158,7 @@ afr_set_opendir_done (xlator_t *this, inode_t *inode, int32_t opendir_done)
                 }
 
                 ctx = (~AFR_ICTX_OPENDIR_DONE_MASK & ctx)
-                        | (opendir_done & AFR_ICTX_OPENDIR_DONE_MASK);
+                        | (0xFFFFFFFFFFFFFFFFULL & AFR_ICTX_OPENDIR_DONE_MASK);
 
                 __inode_ctx_put (inode, this, ctx);
         }
@@ -474,9 +474,7 @@ afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 
 	if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode, 1);
-	} else {
-                afr_set_split_brain (this, local->cont.lookup.inode, 0);
+                afr_set_split_brain (this, local->cont.lookup.inode);
 	}
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,

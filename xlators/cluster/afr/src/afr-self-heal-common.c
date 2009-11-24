@@ -1405,9 +1405,7 @@ afr_bgsh_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         sh    = &local->self_heal;
 
 	if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode, 1);
-	} else {
-                afr_set_split_brain (this, local->cont.lookup.inode, 0);
+                afr_set_split_brain (this, local->cont.lookup.inode);
 	}
 
         gf_log (this->name, GF_LOG_TRACE,
@@ -1444,9 +1442,7 @@ afr_bgsh_unwind (call_frame_t *bgsh_frame, xlator_t *this)
         sh    = &local->self_heal;
 
 	if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode, 1);
-	} else {
-                afr_set_split_brain (this, local->cont.lookup.inode, 0);
+                afr_set_split_brain (this, local->cont.lookup.inode);
 	}
 
         gf_log (this->name, GF_LOG_TRACE,
