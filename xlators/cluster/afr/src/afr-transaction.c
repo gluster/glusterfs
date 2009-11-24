@@ -597,8 +597,10 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t *   local = NULL;
-	
+
 	int call_count = -1;
+
+        int (*post_post_op) (call_frame_t *, xlator_t *);
 
 	priv  = this->private;
 	local = frame->local;
@@ -610,11 +612,23 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		if (afr_lock_server_count (priv, local->transaction.type) == 0) {
-			local->transaction.done (frame, this);
-		} else {
-			afr_unlock (frame, this);
-		}
+                if (local->transaction.post_post_op) {
+                        post_post_op = local->transaction.post_post_op;
+
+                        if (afr_lock_server_count (priv, local->transaction.type) == 0) {
+                                local->transaction.post_post_op = local->transaction.done;
+                        } else {
+                                local->transaction.post_post_op = afr_unlock;
+                        }
+
+                        post_post_op (frame, this);
+                } else {
+                        if (afr_lock_server_count (priv, local->transaction.type) == 0) {
+                                local->transaction.done (frame, this);
+                        } else {
+                                afr_unlock (frame, this);
+                        }
+                }
 	}
 
 	return 0;	

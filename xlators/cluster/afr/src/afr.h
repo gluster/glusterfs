@@ -493,6 +493,9 @@ typedef struct _afr_local {
 		int (*resume) (call_frame_t *frame, xlator_t *this);
 
 		int (*unwind) (call_frame_t *frame, xlator_t *this);
+
+                /* post-op hook */
+                int (*post_post_op) (call_frame_t *frame, xlator_t *this);
 	} transaction;
 
 	afr_self_heal_t self_heal;
