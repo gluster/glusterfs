@@ -521,18 +521,14 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		if (op_ret == -1) {
 			if (op_errno == ENOENT)
 				local->enoent_count++;
-			
-			if (op_errno != ENOTCONN) {
-                                if (local->op_errno != ESTALE)
-                                        local->op_errno = op_errno;
-                        }
 
-                        if (op_errno == ESTALE) {
+                        local->op_errno = op_errno;
+
+                        if (local->cont.lookup.is_revalidate) {
                                 /* no matter what other subvolumes return for
-                                 * this call, ESTALE _must_ be sent to parent
+                                 * this call, errno _must_ be sent to parent
                                  */
-                                local->op_ret = -1;
-                                local->op_errno = ESTALE;
+                                local->op_ret   = -1;
                         }
 			goto unlock;
 		}
@@ -576,15 +572,15 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		/* inode number should be preserved across revalidates */
 
 		if (local->success_count == 0) {
-                        if (local->op_errno != ESTALE)
-                                local->op_ret   = op_ret;
-				
+                        if (!local->cont.lookup.is_revalidate)
+                                local->op_ret = op_ret;
+
 			local->cont.lookup.inode = inode;
 			local->cont.lookup.xattr = dict_ref (xattr);
                         local->cont.lookup.postparent = *postparent;
 
 			*lookup_buf = *buf;
-                        
+
                         lookup_buf->st_ino = afr_itransform (buf->st_ino,
                                                              priv->child_count,
                                                              child_index);
@@ -628,9 +624,6 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                                    lookup has succeeded on the read child.
                                    So use its inode number
                                 */
-                                if (local->op_errno != ESTALE)
-                                        local->op_ret = op_ret;
-
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
                                 
@@ -693,7 +686,9 @@ unlock:
 		     || local->need_entry_self_heal)
 		    && (!local->open_fd_count &&
                         !local->inodelk_count &&
-                        !local->entrylk_count)) {
+                        !local->entrylk_count)
+                    && ((!local->cont.lookup.is_revalidate)
+                        || (local->op_ret != -1))) {
 
 			if (!local->cont.lookup.inode->st_mode) {
 				/* fix for RT #602 */
@@ -725,6 +720,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	int            ret = -1;
 	int            i = 0;
 
+        int call_count = 0;
+
         uint64_t       ctx;
 
 	int32_t        op_errno = 0;
@@ -748,7 +745,10 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         if (ret == 0) {
                 /* lookup is a revalidate */
 
-                local->read_child_index = afr_read_child (this, loc->inode);
+                local->op_ret                    = 0;
+                local->cont.lookup.is_revalidate = _gf_true;
+                local->read_child_index          = afr_read_child (this,
+                                                                   loc->inode);
         } else {
                 LOCK (&priv->read_child_lock);
                 {
@@ -758,11 +758,20 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 UNLOCK (&priv->read_child_lock);
         }
 
-	local->call_count = priv->child_count;
-
 	local->child_up = memdup (priv->child_up, priv->child_count);
+
+	local->call_count = afr_up_children_count (priv->child_count,
+                                                   local->child_up);
+        call_count = local->call_count;
+
 	local->child_count = afr_up_children_count (priv->child_count,
 						    local->child_up);
+
+        if (local->call_count == 0) {
+                ret      = -1;
+                op_errno = ENOTCONN;
+                goto out;
+        }
 
 	/* By default assume ENOTCONN. On success it will be set to 0. */
 	local->op_errno = ENOTCONN;
@@ -784,10 +793,14 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
 
 	for (i = 0; i < priv->child_count; i++) {
-		STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
-				   priv->children[i],
-				   priv->children[i]->fops->lookup,
-				   loc, local->xattr_req);
+                if (local->child_up[i]) {
+                        STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->lookup,
+                                           loc, local->xattr_req);
+                        if (!--call_count)
+                                break;
+                }
 	}
 
 	ret = 0;
