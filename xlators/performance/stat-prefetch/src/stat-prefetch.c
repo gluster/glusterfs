@@ -253,11 +253,7 @@ __sp_get_cache_fd (xlator_t *this, fd_t *fd)
 
         fd_ctx = (void *)(long) value;
 
-        LOCK (&fd_ctx->lock);
-        {
-                        cache = fd_ctx->cache;
-        }
-        UNLOCK (&fd_ctx->lock);
+        cache = fd_ctx->cache;
 
 out:
         return cache;
@@ -317,9 +313,6 @@ sp_fd_ctx_init (void)
         sp_fd_ctx_t *fd_ctx = NULL;
 
         fd_ctx = CALLOC (1, sizeof (*fd_ctx));
-        if (fd_ctx) {
-                LOCK_INIT (&fd_ctx->lock);
-        }
 
         return fd_ctx;
 }
@@ -367,19 +360,16 @@ sp_del_cache_fd (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        ret = fd_ctx_get (fd, this, &value);
-        if (ret == -1) {
-                goto out;
-        }
-
-        fd_ctx = (void *)(long) value;
-
-        LOCK (&fd_ctx->lock);
+        LOCK (&fd->lock);
         {
-                cache = fd_ctx->cache;
-                fd_ctx->cache = NULL;
+                ret = __fd_ctx_get (fd, this, &value);
+                if (ret == 0) {
+                        fd_ctx = (void *)(long) value;
+                        cache = fd_ctx->cache;
+                        fd_ctx->cache = NULL;
+                }
         }
-        UNLOCK (&fd_ctx->lock);
+        UNLOCK (&fd->lock);
 
 out:
         return cache;
@@ -434,15 +424,11 @@ __sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
                 }
         }
 
-        LOCK (&fd_ctx->lock);
-        { 
-                if (fd_ctx->cache) {
-                        sp_cache_free (fd_ctx->cache);
-                }
-
-                fd_ctx->cache = cache;
+        if (fd_ctx->cache) {
+                sp_cache_free (fd_ctx->cache);
         }
-        UNLOCK (&fd_ctx->lock);
+
+        fd_ctx->cache = cache;
 
 out:
         return ret;
