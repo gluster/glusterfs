@@ -277,7 +277,7 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 	if (sh->locked_nodes)
 		FREE (sh->locked_nodes);
 
-	if (sh->healing_fd) {
+	if (sh->healing_fd && !sh->healing_fd_opened) {
 		fd_unref (sh->healing_fd);
 		sh->healing_fd = NULL;
 	}
@@ -694,7 +694,10 @@ unlock:
 					lookup_buf->st_mode;
 			}
 
-			afr_self_heal (frame, this, NULL);
+                        local->self_heal.calling_fop = GF_FOP_LOOKUP;
+
+			afr_self_heal (frame, this, NULL, _gf_true);
+
 		} else {
 			AFR_STACK_UNWIND (lookup, frame, local->op_ret,
 					  local->op_errno,
@@ -845,6 +848,15 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
+                fd_ctx->pre_op_done = CALLOC (sizeof (*fd_ctx->pre_op_done),
+                                              priv->child_count);
+                if (!fd_ctx->pre_op_done) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        op_ret = -ENOMEM;
+                        goto unlock;
+                }
+
                 fd_ctx->child_failed = CALLOC (sizeof (*fd_ctx->child_failed),
                                                priv->child_count);
                 
@@ -856,6 +868,9 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
+                fd_ctx->up_count   = priv->up_count;
+                fd_ctx->down_count = priv->down_count;
+
                 ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
                 if (ret < 0) {
                         op_ret = ret;
@@ -866,149 +881,6 @@ unlock:
 out:
         return ret;
 }
-
-
-int
-afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-			int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                        struct stat *postbuf)
-{
-	afr_local_t * local = frame->local;
-        int ret = 0;
-
-        ret = afr_fd_ctx_set (this, local->fd);
-
-        if (ret < 0) {
-                local->op_ret   =   -1;
-                local->op_errno = -ret;
-        }
-
-	AFR_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
-			  local->fd);
-	return 0;
-}
-
-
-int
-afr_open_cbk (call_frame_t *frame, void *cookie,
-	      xlator_t *this, int32_t op_ret, int32_t op_errno,
-	      fd_t *fd)
-{
-	afr_local_t *  local = NULL;
-	afr_private_t * priv = NULL;
-
-        int ret = 0;
-
-	int call_count = -1;
-	
-	priv  = this->private;
-	local = frame->local;
-
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			local->op_errno = op_errno;
-		}
-
-		if (op_ret >= 0) {
-			local->op_ret = op_ret;
-		}
-	}
-	UNLOCK (&frame->lock);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		if ((local->cont.open.flags & O_TRUNC)
-		    && (local->op_ret >= 0)) {
-			STACK_WIND (frame, afr_open_ftruncate_cbk,
-				    this, this->fops->ftruncate,
-				    fd, 0);
-		} else {
-                        ret = afr_fd_ctx_set (this, fd);
-
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "could not set fd ctx for fd=%p",
-                                        fd);
-
-                                local->op_ret   = -1;
-                                local->op_errno = -ret;
-                        }
-
-                        AFR_STACK_UNWIND (open, frame, local->op_ret,
-                                          local->op_errno, local->fd);
-		}
-	}
-
-	return 0;
-}
-
-
-int
-afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-          fd_t *fd, int32_t wbflags)
-{
-	afr_private_t * priv  = NULL;
-	afr_local_t *   local = NULL;
-
-	int     i = 0;
-	int   ret = -1;
-
-	int32_t call_count = 0;	
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
-	int32_t wind_flags = flags & (~O_TRUNC);
-
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (this, out);
-	VALIDATE_OR_GOTO (this->private, out);
-	VALIDATE_OR_GOTO (loc, out);
-
-	priv = this->private;
-
-        if (afr_is_split_brain (this, loc->inode)) {
-		/* self-heal failed */
-		op_errno = EIO;
-		goto out;
-	}
-
-	ALLOC_OR_GOTO (local, afr_local_t, out);
-
-	ret = AFR_LOCAL_INIT (local, priv);
-	if (ret < 0) {
-		op_errno = -ret;
-		goto out;
-	}
-
-	frame->local = local;
-	call_count   = local->call_count;
-
-	local->cont.open.flags = flags;
-	local->fd = fd_ref (fd);
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, afr_open_cbk, (void *) (long) i,
-					   priv->children[i],
-					   priv->children[i]->fops->open,
-					   loc, wind_flags, fd, wbflags);
-			
-			if (!--call_count)
-				break;
-		}
-	}
-
-	op_ret = 0;
-out:
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (open, frame, op_ret, op_errno, fd);
-	}
-
-	return 0;
-}
-
-/* }}} */
 
 /* {{{ flush */
 
@@ -2385,6 +2257,12 @@ notify (xlator_t *this, int32_t event,
 
 		child_up[i] = 1;
 
+                LOCK (&priv->lock);
+                {
+                        priv->up_count++;
+                }
+                UNLOCK (&priv->lock);
+
 		/* 
 		   if all the children were down, and one child came up, 
 		   send notify to parent
@@ -2408,6 +2286,12 @@ notify (xlator_t *this, int32_t event,
 		i = find_child_index (this, data);
 
 		child_up[i] = 0;
+
+                LOCK (&priv->lock);
+                {
+                        priv->down_count++;
+                }
+                UNLOCK (&priv->lock);
 		
 		/* 
 		   if all children are down, and this was the last to go down,

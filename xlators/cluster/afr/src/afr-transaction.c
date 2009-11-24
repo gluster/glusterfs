@@ -134,6 +134,34 @@ out:
 
 
 static void
+__mark_pre_op_done_on_fd (call_frame_t *frame, xlator_t *this, int child_index)
+{
+        afr_local_t *local = NULL;
+
+        uint64_t       ctx;
+        afr_fd_ctx_t * fd_ctx = NULL;
+        int ret = 0;
+
+        local = frame->local;
+
+        ret = fd_ctx_get (local->fd, this, &ctx);
+
+        if (ret < 0)
+                goto out;
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        if ((local->op == GF_FOP_WRITE)
+            || (local->op == GF_FOP_FTRUNCATE)) {
+                fd_ctx->pre_op_done[child_index] = 1;
+        }
+
+out:
+        return;
+}
+
+
+static void
 __mark_down_children (int32_t *pending[], int child_count, 
                       unsigned char *child_up, afr_transaction_type type)
 {
@@ -168,9 +196,14 @@ __is_first_write_on_fd (xlator_t *this, fd_t *fd)
 {
         int op_ret     = 0;
         int _ret       = -1;
+        int i          = 0;
 
         uint64_t       ctx;
         afr_fd_ctx_t * fd_ctx = NULL;
+
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
 
         LOCK (&fd->lock);
         {
@@ -185,9 +218,12 @@ __is_first_write_on_fd (xlator_t *this, fd_t *fd)
 
                 fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-                if (fd_ctx->pre_op_done == 0) {
-                        fd_ctx->pre_op_done = 1;
-                        op_ret = 1;
+                op_ret = 1;
+                for (i = 0; i < priv->child_count; i++) {
+                        if (fd_ctx->pre_op_done[i] == 0)
+                                continue;
+
+                        op_ret = 0;
                 }
         }
 out:
@@ -198,7 +234,7 @@ out:
 
 
 static int
-__if_fd_pre_op_done (xlator_t *this, fd_t *fd)
+__if_fd_pre_op_done (xlator_t *this, fd_t *fd, int child_index)
 {
         int op_ret = 0;
         int _ret   = -1;
@@ -216,8 +252,7 @@ __if_fd_pre_op_done (xlator_t *this, fd_t *fd)
 
                 fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-                if (fd_ctx->pre_op_done) {
-                        fd_ctx->pre_op_done = 0;
+                if (fd_ctx->pre_op_done[child_index]) {
                         op_ret = 1;
                 }
         }
@@ -225,6 +260,43 @@ out:
         UNLOCK (&fd->lock);
 
         return op_ret;
+}
+
+
+static int
+afr_pre_op_done_count (xlator_t *this, fd_t *fd, unsigned char *child_up)
+{
+        int i = 0;
+        int count = 0;
+
+        int _ret = 0;
+        uint64_t       ctx;
+        afr_fd_ctx_t * fd_ctx = NULL;
+
+        afr_private_t *priv = NULL;
+
+        priv = this->private;
+
+        LOCK (&fd->lock);
+        {
+                _ret = __fd_ctx_get (fd, this, &ctx);
+
+                if (_ret < 0) {
+                        goto out;
+                }
+
+                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+                for (i = 0; i < priv->child_count; i++) {
+                        if (fd_ctx->pre_op_done[i] && child_up[i]) {
+                                count++;
+                        }
+                }
+        }
+out:
+        UNLOCK (&fd->lock);
+
+        return count;
 }
 
 
@@ -326,7 +398,7 @@ __changelog_needed_post_op (call_frame_t *frame, xlator_t *this)
                         break;
 
                 case GF_FOP_FLUSH:
-                        op_ret = __if_fd_pre_op_done (this, local->fd);
+                        op_ret = 1;
                         break;
 
                 default:
@@ -665,11 +737,15 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 dict_ref (xattr[i]);
         }
 
-	call_count = afr_up_children_count (priv->child_count, local->child_up); 
+        if (local->op == GF_FOP_FLUSH) {
+                call_count = afr_pre_op_done_count (this, local->fd, local->child_up);
+        } else {
+                call_count = afr_up_children_count (priv->child_count, local->child_up); 
 
-	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
-		call_count *= 2;
-	}
+                if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
+                        call_count *= 2;
+                }
+        }
 
 	local->call_count = call_count;		
 
@@ -696,20 +772,33 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 			switch (local->transaction.type) {
 			case AFR_DATA_TRANSACTION:
 			case AFR_METADATA_TRANSACTION:
-			case AFR_FLUSH_TRANSACTION:
 			{
 				if (local->fd)
 					STACK_WIND (frame, afr_changelog_post_op_cbk,
-						    priv->children[i], 
+						    priv->children[i],
 						    priv->children[i]->fops->fxattrop,
-						    local->fd, 
+						    local->fd,
 						    GF_XATTROP_ADD_ARRAY, xattr[i]);
-				else 
+				else
+					STACK_WIND (frame, afr_changelog_post_op_cbk,
+						    priv->children[i],
+						    priv->children[i]->fops->xattrop,
+						    &local->loc,
+						    GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                call_count--;
+			}
+			break;
+
+			case AFR_FLUSH_TRANSACTION:
+			{
+				if (__if_fd_pre_op_done (this, local->fd, i)) {
 					STACK_WIND (frame, afr_changelog_post_op_cbk,
 						    priv->children[i], 
-						    priv->children[i]->fops->xattrop,
-						    &local->loc, 
+						    priv->children[i]->fops->fxattrop,
+						    local->fd,
 						    GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                        call_count--;
+                                }
 			}
 			break;
 
@@ -756,11 +845,12 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 						    priv->children[i]->fops->xattrop,
 						    &local->transaction.parent_loc, 
 						    GF_XATTROP_ADD_ARRAY, xattr[i]);
+                                call_count--;
 			}
 			break;
 			}
 
-			if (!--call_count)
+			if (!call_count)
 				break;
 		}
 	}
@@ -789,6 +879,10 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	LOCK (&frame->lock);
 	{
+                if (op_ret == 0) {
+                        __mark_pre_op_done_on_fd (frame, this, child_index);
+                }
+
 		if (op_ret == -1) {
 			local->child_up[child_index] = 0;
 			
