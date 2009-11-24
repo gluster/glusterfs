@@ -37,25 +37,25 @@
 
 struct sp_cache {
         rbthash_table_t *table;
-        uint64_t    expected_offset;    /* Offset where the next read will
-                                         * happen.
-                                         */
-        gf_lock_t   lock;
-        unsigned long miss;
-        unsigned long hits;
+        uint64_t         expected_offset;    /* Offset where the next read will
+                                              * happen.
+                                              */
+        gf_lock_t        lock;
+        unsigned long    miss;
+        unsigned long    hits;
+        uint32_t         ref;
 };
 typedef struct sp_cache sp_cache_t;
 
 struct sp_fd_ctx {
         sp_cache_t *cache;
-        inode_t    *parent_inode;       /* 
+        inode_t    *parent_inode;       /*
                                          * inode corresponding to dirname (path)
                                          */
         char       *name;               /*
-                                         * basename of path on which this fd is 
+                                         * basename of path on which this fd is
                                          * opened
                                          */
-        gf_lock_t    lock;
 };
 typedef struct sp_fd_ctx sp_fd_ctx_t;
 
