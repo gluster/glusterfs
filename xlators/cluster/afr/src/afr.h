@@ -118,6 +118,12 @@ typedef struct {
         /* private data for the particular self-heal algorithm */
         void *private;
 
+        gf_boolean_t healing_fd_opened;   /* set by caller: true if caller
+                                             has already opened fd */
+
+        gf_boolean_t data_lock_held;      /* set by caller: true if caller
+                                             has already acquired 0-0 lock */
+
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
