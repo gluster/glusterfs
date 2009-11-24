@@ -551,10 +551,10 @@ int
 afr_frame_return (call_frame_t *frame);
 
 void
-afr_set_split_brain (xlator_t *this, inode_t *inode, int32_t split_brain);
+afr_set_split_brain (xlator_t *this, inode_t *inode);
 
 void
-afr_set_opendir_done (xlator_t *this, inode_t *inode, int32_t opendir_done);
+afr_set_opendir_done (xlator_t *this, inode_t *inode);
 
 uint64_t
 afr_is_opendir_done (xlator_t *this, inode_t *inode);
