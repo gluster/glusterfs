@@ -358,7 +358,7 @@ out:
 }
 
 
-static int
+int
 afr_lock_server_count (afr_private_t *priv, afr_transaction_type type)
 {
 	int ret = 0;

@@ -917,12 +917,14 @@ afr_sh_data_lookup (call_frame_t *frame, xlator_t *this)
 
 
 int
+afr_sh_data_lock_rec (call_frame_t *frame, xlator_t *this, int child_index);
+
+int
 afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
-	int              call_count = 0;
 	int              child_index = (long) cookie;
 
 	/* TODO: what if lock fails? */
@@ -933,15 +935,16 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	LOCK (&frame->lock);
 	{
 		if (op_ret == -1) {
-			sh->op_failed = 1;
-
                         sh->locked_nodes[child_index] = 0;
+
 			gf_log (this->name, GF_LOG_DEBUG,
 				"locking of %s on child %d failed: %s",
 				local->loc.path, child_index,
 				strerror (op_errno));
 		} else {
                         sh->locked_nodes[child_index] = 1;
+                        sh->lock_count++;
+
 			gf_log (this->name, GF_LOG_TRACE,
 				"inode of %s on child %d locked",
 				local->loc.path, child_index);
@@ -949,16 +952,61 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 	UNLOCK (&frame->lock);
 
-	call_count = afr_frame_return (frame);
+        afr_sh_data_lock_rec (frame, this, child_index + 1);
 
-	if (call_count == 0) {
-		if (sh->op_failed) {
-			afr_sh_data_finish (frame, this);
-			return 0;
-		}
+	return 0;
+}
 
-		afr_sh_data_lookup (frame, this);
+
+int
+afr_sh_data_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
+{
+	struct flock flock;			
+	int i = 0;				
+
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+	afr_self_heal_t * sh  = NULL;
+
+	local = frame->local;
+	sh = &local->self_heal;
+	priv = this->private;
+
+	flock.l_start = 0;
+	flock.l_len   = 0;
+	flock.l_type  = F_WRLCK;			
+
+	/* skip over children that are down */
+	while ((child_index < priv->child_count)
+	       && !local->child_up[child_index])
+		child_index++;
+
+	if ((child_index == priv->child_count) &&
+	    sh->lock_count == 0) {
+
+		gf_log (this->name, GF_LOG_DEBUG,
+			"unable to lock on even one child");
+
+                afr_sh_data_done (frame, this);
+		return 0;
 	}
+
+        if ((child_index == priv->child_count)
+            || (sh->lock_count == afr_lock_server_count (priv, AFR_DATA_TRANSACTION))) {
+                afr_sh_data_lookup (frame, this);
+                return 0;
+        }
+
+        gf_log (this->name, GF_LOG_TRACE,
+                "locking %s on subvolume %s",
+                local->loc.path, priv->children[i]->name);
+
+        STACK_WIND_COOKIE (frame, afr_sh_data_lock_cbk,
+                           (void *) (long) child_index,
+                           priv->children[i],
+                           priv->children[i]->fops->inodelk,
+                           this->name,
+                           &local->loc, F_SETLKW, &flock);
 
 	return 0;
 }
@@ -967,45 +1015,20 @@ afr_sh_data_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_sh_data_lock (call_frame_t *frame, xlator_t *this)
 {
-	struct flock flock;			
-	int i = 0;				
-	int call_count = 0;		     
-
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 	afr_self_heal_t * sh  = NULL;
 
+        int i = 0;
 
 	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+	sh    = &local->self_heal;
+	priv  = this->private;
 
-	call_count = local->child_count;
+        for (i = 0; i < priv->child_count; i++)
+                sh->locked_nodes[i] = 0;
 
-	local->call_count = call_count;		
-
-	flock.l_start = 0;
-	flock.l_len   = 0;
-	flock.l_type  = F_WRLCK;			
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"locking %s on subvolume %s",
-				local->loc.path, priv->children[i]->name);
-
-			STACK_WIND_COOKIE (frame, afr_sh_data_lock_cbk,
-					   (void *) (long) i,
-					   priv->children[i], 
-					   priv->children[i]->fops->inodelk,
-                                           this->name,
-					   &local->loc, F_SETLK, &flock); 
-			if (!--call_count)
-				break;
-		}
-	}
-
-	return 0;
+        return afr_sh_data_lock_rec (frame, this, 0);
 }
 
 

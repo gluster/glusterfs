@@ -95,6 +95,7 @@ typedef struct {
 	int active_sinks;
 	int *success;
 	int *locked_nodes;
+        int lock_count;
 
         mode_t impunging_entry_mode;
         const char *linkname;
