@@ -1239,8 +1239,10 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
 	int             ret = -1;
 
 	local = frame->local;
-	call_count = local->child_count;
-	priv = this->private;
+	priv  = this->private;
+
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 
 	local->call_count = call_count;
 	
@@ -1346,7 +1348,8 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 
 	afr_build_parent_loc (&sh->parent_loc, &local->loc);
 
-	call_count = local->child_count;
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 
 	local->call_count = call_count;
 
@@ -1395,11 +1398,11 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 
 
 int
-afr_bgsh_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
+afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 {
-        afr_private_t *priv  = NULL;
-	afr_local_t *local   = NULL;
-        afr_self_heal_t *sh  = NULL;
+        afr_private_t *   priv  = NULL;
+	afr_local_t *     local = NULL;
+        afr_self_heal_t * sh    = NULL;
 
         priv  = this->private;
 	local = bgsh_frame->local;
@@ -1413,23 +1416,24 @@ afr_bgsh_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 "background self-heal completed");
 
         if (!sh->unwound) {
-                if (sh->calling_fop == GF_FOP_LOOKUP) {
-                        AFR_STACK_UNWIND (lookup, sh->orig_frame,
-                                          local->op_ret, local->op_errno,
-                                          local->cont.lookup.inode,
-                                          &local->cont.lookup.buf,
-                                          local->cont.lookup.xattr,
-                                          &local->cont.lookup.postparent);
-                } else {
-                        sh->flush_self_heal_cbk (sh->orig_frame, this);
-                }
+                sh->unwind (sh->orig_frame, this);
         }
 
-        LOCK (&priv->lock);
-        {
-                priv->background_self_heals_started--;
+        if (sh->background) {
+                LOCK (&priv->lock);
+                {
+                        priv->background_self_heals_started--;
+                }
+                UNLOCK (&priv->lock);
         }
-        UNLOCK (&priv->lock);
+
+        /*
+         * XXX Hack: Due to memcpy'ing of local, some pointers will
+         * also have ended up in bgsh_frame's local. We shouldn't free
+         * them. So set them to NULL here.
+         */
+
+        local->cont.writev.vector = NULL;
 
         AFR_STACK_DESTROY (bgsh_frame);
 
@@ -1438,48 +1442,12 @@ afr_bgsh_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 
 
 int
-afr_bgsh_unwind (call_frame_t *bgsh_frame, xlator_t *this)
-{
-	afr_local_t *local   = NULL;
-        afr_self_heal_t *sh  = NULL;
-
-	local = bgsh_frame->local;
-        sh    = &local->self_heal;
-
-	if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode);
-	}
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "unwinding lookup and continuing self-heal in the background");
-
-        sh->unwound = _gf_true;
-
-        if (sh->calling_fop == GF_FOP_LOOKUP) {
-                AFR_STACK_UNWIND (lookup, sh->orig_frame,
-                                  local->op_ret, local->op_errno,
-                                  local->cont.lookup.inode,
-                                  &local->cont.lookup.buf,
-                                  local->cont.lookup.xattr,
-                                  &local->cont.lookup.postparent);
-        } else {
-                sh->flush_self_heal_cbk (sh->orig_frame, this);
-        }
-
-	return 0;
-}
-
-
-int
-afr_self_heal (call_frame_t *frame, xlator_t *this,
-	       int (*completion_cbk) (call_frame_t *, xlator_t *),
-               int bgsh)
+afr_self_heal (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 	int              i = 0;
-        int background     = 0;
 
         call_frame_t *sh_frame = NULL;
         afr_local_t  *sh_local = NULL;
@@ -1487,48 +1455,44 @@ afr_self_heal (call_frame_t *frame, xlator_t *this,
 	local = frame->local;
 	priv  = this->private;
 
-        LOCK (&priv->lock);
-        {
-                if (priv->background_self_heals_started < priv->background_self_heal_count) {
-                        priv->background_self_heals_started++;
-                        background = 1;
+        if (local->self_heal.background) {
+                LOCK (&priv->lock);
+                {
+                        if (priv->background_self_heals_started
+                            > priv->background_self_heal_count) {
+
+                                local->self_heal.background = _gf_false;
+
+                        } else {
+                                priv->background_self_heals_started++;
+                        }
                 }
+                UNLOCK (&priv->lock);
         }
-        UNLOCK (&priv->lock);
 
         gf_log (this->name, GF_LOG_TRACE,
                 "performing self heal on %s (metadata=%d data=%d entry=%d)",
                 local->loc.path,
-                local->need_metadata_self_heal,
-                local->need_data_self_heal,
-                local->need_entry_self_heal);
+                local->self_heal.need_metadata_self_heal,
+                local->self_heal.need_data_self_heal,
+                local->self_heal.need_entry_self_heal);
 
         sh_frame        = copy_frame (frame);
         sh_local        = afr_local_copy (local, this);
         sh_frame->local = sh_local;
         sh              = &sh_local->self_heal;
 
-        sh->orig_frame     = frame;
+        sh->orig_frame  = frame;
 
-        if (bgsh)
-                sh->background     = _gf_true;
-        else
-                sh->background     = _gf_false;
+        sh->completion_cbk = afr_self_heal_completion_cbk;
 
-        if (completion_cbk == NULL) {
-                sh->completion_cbk = afr_bgsh_completion_cbk;
-        } else {
-                sh->completion_cbk = completion_cbk;
-        }
 
-        sh->unwind         = afr_bgsh_unwind;
-
-	sh->buf = CALLOC (priv->child_count, sizeof (struct stat));
-	sh->child_errno = CALLOC (priv->child_count, sizeof (int));
-	sh->success = CALLOC (priv->child_count, sizeof (int));
-	sh->xattr = CALLOC (priv->child_count, sizeof (dict_t *));
-	sh->sources = CALLOC (sizeof (*sh->sources), priv->child_count);
-	sh->locked_nodes = CALLOC (sizeof (*sh->locked_nodes), priv->child_count);
+	sh->buf          = CALLOC (priv->child_count, sizeof (struct stat));
+	sh->child_errno  = CALLOC (priv->child_count, sizeof (int));
+	sh->success      = CALLOC (priv->child_count, sizeof (int));
+	sh->xattr        = CALLOC (priv->child_count, sizeof (dict_t *));
+	sh->sources      = CALLOC (priv->child_count, sizeof (*sh->sources));
+	sh->locked_nodes = CALLOC (priv->child_count, sizeof (*sh->locked_nodes));
 
 	sh->pending_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
 	for (i = 0; i < priv->child_count; i++) {

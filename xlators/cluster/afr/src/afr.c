@@ -467,7 +467,7 @@ afr_deitransform (ino64_t ino, int child_count)
 
 
 int
-afr_self_heal_cbk (call_frame_t *frame, xlator_t *this)
+afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 
@@ -532,13 +532,13 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 		}
 
 		if (afr_sh_has_metadata_pending (xattr, child_index, this))
-			local->need_metadata_self_heal = 1;
+			local->self_heal.need_metadata_self_heal = _gf_true;
 
 		if (afr_sh_has_entry_pending (xattr, child_index, this))
-			local->need_entry_self_heal = 1;
+			local->self_heal.need_entry_self_heal = _gf_true;
 
 		if (afr_sh_has_data_pending (xattr, child_index, this))
-			local->need_data_self_heal = 1;
+			local->self_heal.need_data_self_heal = _gf_true;
 
 		ret = dict_get_uint32 (xattr, GLUSTERFS_OPEN_FD_COUNT,
 				       &open_fd_count);
@@ -603,17 +603,17 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			if (PERMISSION_DIFFERS (buf, lookup_buf)) {
 				/* mismatching permissions */
-				local->need_metadata_self_heal = 1;
+				local->self_heal.need_metadata_self_heal = _gf_true;
 			}
 
 			if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
 				/* mismatching permissions */
-				local->need_metadata_self_heal = 1;
+				local->self_heal.need_metadata_self_heal = _gf_true;
 			}
 
 			if (SIZE_DIFFERS (buf, lookup_buf)
 			    && S_ISREG (buf->st_mode)) {
-				local->need_data_self_heal = 1;
+				local->self_heal.need_data_self_heal = _gf_true;
 			}
 
                         if (child_index == local->read_child_index) {
@@ -667,21 +667,21 @@ unlock:
 		}
 
 		if (local->success_count && local->enoent_count) {
-			local->need_metadata_self_heal = 1;
-			local->need_data_self_heal = 1;
-			local->need_entry_self_heal = 1;
+			local->self_heal.need_metadata_self_heal = _gf_true;
+			local->self_heal.need_data_self_heal     = _gf_true;
+			local->self_heal.need_entry_self_heal    = _gf_true;
 		}
 
 		if (local->success_count) {
 			/* check for split-brain case in previous lookup */
 			if (afr_is_split_brain (this,
                                                 local->cont.lookup.inode))
-				local->need_data_self_heal = 1;
+				local->self_heal.need_data_self_heal = _gf_true;
 		}
 
-		if ((local->need_metadata_self_heal
-		     || local->need_data_self_heal
-		     || local->need_entry_self_heal)
+		if ((local->self_heal.need_metadata_self_heal
+		     || local->self_heal.need_data_self_heal
+		     || local->self_heal.need_entry_self_heal)
 		    && (!local->open_fd_count &&
                         !local->inodelk_count &&
                         !local->entrylk_count)
@@ -694,9 +694,11 @@ unlock:
 					lookup_buf->st_mode;
 			}
 
-                        local->self_heal.calling_fop = GF_FOP_LOOKUP;
+                        local->self_heal.background = _gf_true;
+                        local->self_heal.mode       = local->cont.lookup.buf.st_mode;
+                        local->self_heal.unwind     = afr_self_heal_lookup_unwind;
 
-			afr_self_heal (frame, this, NULL, _gf_true);
+			afr_self_heal (frame, this);
 
 		} else {
 			AFR_STACK_UNWIND (lookup, frame, local->op_ret,
@@ -764,9 +766,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	local->call_count = afr_up_children_count (priv->child_count,
                                                    local->child_up);
         call_count = local->call_count;
-
-	local->child_count = afr_up_children_count (priv->child_count,
-						    local->child_up);
 
         if (local->call_count == 0) {
                 ret      = -1;

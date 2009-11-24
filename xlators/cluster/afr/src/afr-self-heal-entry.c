@@ -2347,7 +2347,8 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
         sh->source = source;
 
         if (sh->background) {
-                sh->unwind (frame, this);
+                sh->unwind (sh->orig_frame, this);
+                sh->unwound = _gf_true;
         }
 
 heal:
@@ -2410,7 +2411,8 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh    = &local->self_heal;
 
-	call_count = local->child_count;
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 
 	local->call_count = call_count;
 	
@@ -2507,7 +2509,8 @@ afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
 	sh = &local->self_heal;
 	priv = this->private;
 
-	call_count = local->child_count;
+	call_count = afr_up_children_count (priv->child_count,
+                                            local->child_up);
 
 	local->call_count = call_count;		
 
@@ -2545,7 +2548,7 @@ afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	sh = &local->self_heal;
 
-	if (local->need_entry_self_heal && priv->entry_self_heal) {
+	if (local->self_heal.need_entry_self_heal && priv->entry_self_heal) {
 		afr_sh_entry_lock (frame, this);
 	} else {
 		gf_log (this->name, GF_LOG_TRACE,

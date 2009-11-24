@@ -75,11 +75,37 @@ typedef struct _afr_private {
 } afr_private_t;
 
 typedef struct {
-        /* Is this a self-heal triggered to forcibly merge the
-           directories? */
-        gf_boolean_t forced_merge;
+        /* External interface: These are variables (some optional) that
+           are set by whoever has triggered self-heal */
 
-        glusterfs_fop_t calling_fop;
+        gf_boolean_t need_data_self_heal;
+        gf_boolean_t need_metadata_self_heal;
+        gf_boolean_t need_entry_self_heal;
+
+        gf_boolean_t forced_merge;        /* Is this a self-heal triggered to
+                                             forcibly merge the directories? */
+
+        gf_boolean_t healing_fd_opened;   /* true if caller has already
+                                             opened fd */
+
+        gf_boolean_t data_lock_held;      /* true if caller has already
+                                             acquired 0-0 lock */
+
+	fd_t *healing_fd;                 /* set if callers has opened fd */
+
+        gf_boolean_t background;          /* do self-heal in background
+                                             if possible */
+
+        mode_t mode;                      /* st_mode of the entry we're doing
+                                             self-heal on */
+
+        /* Function to call to unwind. If self-heal is being done in the
+           background, this function will be called as soon as possible. */
+
+        int (*unwind) (call_frame_t *frame, xlator_t *this);
+
+        /* End of external interface members */
+
 
 	/* array of stat's, one for each child */
 	struct stat *buf;
@@ -105,7 +131,6 @@ typedef struct {
         mode_t impunging_entry_mode;
         const char *linkname;
 
-	fd_t *healing_fd;
 	int   op_failed;
 
 	int   file_has_holes;
@@ -117,23 +142,16 @@ typedef struct {
 
         call_frame_t *orig_frame;
         gf_boolean_t unwound;
-        gf_boolean_t background;   /* is this self-heal in the background? */
-        int (*unwind) (call_frame_t *frame, xlator_t *this);
 
         /* private data for the particular self-heal algorithm */
         void *private;
-
-        gf_boolean_t healing_fd_opened;   /* set by caller: true if caller
-                                             has already opened fd */
-
-        gf_boolean_t data_lock_held;      /* set by caller: true if caller
-                                             has already acquired 0-0 lock */
 
         int (*flush_self_heal_cbk) (call_frame_t *frame, xlator_t *this);
 
 	int (*completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_completion_cbk) (call_frame_t *frame, xlator_t *this);
         int (*algo_abort_cbk) (call_frame_t *frame, xlator_t *this);
+
 	call_frame_t *sh_frame;
 } afr_self_heal_t;
 
@@ -186,9 +204,6 @@ typedef struct _afr_local {
 	unsigned int success_count;
 	unsigned int enoent_count;
 
-	unsigned int need_metadata_self_heal;
-	unsigned int need_entry_self_heal;
-	unsigned int need_data_self_heal;
 	unsigned int govinda_gOvinda;
 
 	unsigned int read_child_index;
@@ -210,7 +225,6 @@ typedef struct _afr_local {
 	glusterfs_fop_t fop;
 
 	unsigned char *child_up; 
-	int            child_count;
 
 	int32_t *child_errno;
 	
