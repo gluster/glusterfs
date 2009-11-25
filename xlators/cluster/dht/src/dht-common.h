@@ -131,6 +131,8 @@ struct dht_conf {
         gf_boolean_t   unhashed_sticky_bit;
 	struct timeval last_stat_fetch;
         gf_lock_t      layout_lock;
+        void          *private;     /* Can be used by wrapper xlators over
+                                       dht */
 };
 typedef struct dht_conf dht_conf_t;
 
