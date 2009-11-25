@@ -917,10 +917,7 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         cache = sp_get_cache_fd (this, fd);
         if (cache) {
                 if (off != cache->expected_offset) {
-                        cache = sp_del_cache_fd (this, fd);
-                        if (cache) {
-                                sp_cache_free (cache);
-                        }
+                        sp_cache_remove_entry (cache, NULL, 1);
                 }
         }
 
@@ -928,7 +925,7 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (ret == -1) {
                 goto unwind;
         }
-  
+
         ret = sp_cache_remove_parent_entry (frame, this, path);
         if (ret < 0) {
                 errno = -ret;
