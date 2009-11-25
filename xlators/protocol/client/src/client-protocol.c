@@ -60,9 +60,9 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 int
 protocol_client_post_handshake (call_frame_t *frame, xlator_t *this);
 
-static gf_op_t gf_fops[];
-static gf_op_t gf_mops[];
-static gf_op_t gf_cbks[];
+static gf_op_t gf_fops[GF_FOP_MAXVALUE];
+static gf_op_t gf_mops[GF_MOP_MAXVALUE];
+static gf_op_t gf_cbks[GF_CBK_MAXVALUE];
 
 
 transport_t *
@@ -537,7 +537,6 @@ out:
         STACK_DESTROY (frame->root);
         return 0;
 }
-
 
 int
 protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
@@ -5603,7 +5602,8 @@ unwind:
 
 
 int
-client_log_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen)
+client_log_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
+                struct iobuf *iobuf)
 {
         gf_mop_log_rsp_t *     rsp      = NULL;
 
@@ -6424,7 +6424,7 @@ static gf_op_t gf_fops[] = {
         [GF_FOP_XATTROP]        =  client_xattrop_cbk,
         [GF_FOP_FXATTROP]       =  client_fxattrop_cbk,
         [GF_FOP_SETATTR]        =  client_setattr_cbk,
-        [GF_FOP_FSETATTR]        =  client_fsetattr_cbk,
+        [GF_FOP_FSETATTR]       =  client_fsetattr_cbk
 };
 
 static gf_op_t gf_mops[] = {
@@ -6434,6 +6434,7 @@ static gf_op_t gf_mops[] = {
         [GF_MOP_SETSPEC]          =  client_setspec_cbk,
         [GF_MOP_GETSPEC]          =  client_getspec_cbk,
         [GF_MOP_PING]             =  client_ping_cbk,
+        [GF_MOP_LOG]              =  client_log_cbk
 };
 
 static gf_op_t gf_cbks[] = {
