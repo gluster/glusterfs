@@ -1201,7 +1201,12 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
+        uint64_t      ctx;
+        afr_fd_ctx_t *fd_ctx;
+
 	struct flock flock;
+
+        int ret = 0;
 
 	loc_t * lower  = NULL;
 	loc_t * higher = NULL;
@@ -1216,10 +1221,38 @@ int afr_lock_rec (call_frame_t *frame, xlator_t *this, int child_index)
 	flock.l_len   = local->transaction.len;
 	flock.l_type  = F_WRLCK;
 
-	/* skip over children that are down */
-	while ((child_index < priv->child_count)
-	       && !local->child_up[child_index])
-		child_index++;
+        if (local->fd) {
+                ret = fd_ctx_get (local->fd, this, &ctx);
+
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "unable to get fd ctx for fd=%p",
+                                local->fd);
+
+                        local->op_ret   = -1;
+                        local->op_errno = EINVAL;
+
+                        afr_unlock (frame, this);
+
+                        return 0;
+                }
+
+                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+                /* skip over children that or down
+                   or don't have the fd open */
+
+                while ((child_index < priv->child_count)
+                       && (!local->child_up[child_index]
+                           || !fd_ctx->opened_on[child_index]))
+
+                        child_index++;
+        } else {
+                /* skip over children that are down */
+                while ((child_index < priv->child_count)
+                       && !local->child_up[child_index])
+                        child_index++;
+        }
 
 	if ((child_index == priv->child_count) &&
 	    local->transaction.lock_count == 0) {

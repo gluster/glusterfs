@@ -126,6 +126,9 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
 
+        uint64_t      ctx;
+        afr_fd_ctx_t *fd_ctx;
+
         int ret = 0;
 
 	int call_count = -1;
@@ -153,6 +156,20 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->op_ret   = -1;
                                 local->op_errno = -ret;
                         }
+
+                        ret = fd_ctx_get (fd, this, &ctx);
+
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "could not get fd ctx for fd=%p", fd);
+                                local->op_ret   = -1;
+                                local->op_errno = -ret;
+                        }
+
+                        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+                        fd_ctx->opened_on[child_index] = 1;
+                        fd_ctx->flags                  = local->cont.create.flags;
 
                         if (local->success_count == 0) {
 				local->cont.create.buf        = *buf;
