@@ -27,7 +27,7 @@
 
 /* TODO: all 'TODO's in dht.c holds good */
 
-int 
+int
 nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int op_ret, int op_errno,
                        inode_t *inode, struct stat *stbuf, dict_t *xattr,
@@ -137,7 +137,7 @@ out:
 		op_errno = EINVAL;
 		goto err;
 	}
-		
+
 	STACK_WIND (frame, dht_lookup_cbk,
 		    local->hashed_subvol, local->hashed_subvol->fops->lookup,
 		    &local->loc, local->xattr_req);
@@ -199,7 +199,7 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
 	hashed_subvol = dht_subvol_get_hashed (this, &local->loc);
 	cached_subvol = dht_subvol_get_cached (this, local->loc.inode);
-	
+
 	local->cached_subvol = cached_subvol;
 	local->hashed_subvol = hashed_subvol;
 
@@ -227,16 +227,16 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
-		
+
 		/* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
 		 *       revalidates directly go to the cached-subvolume.
 		 */
-		ret = dict_set_uint32 (local->xattr_req, 
+		ret = dict_set_uint32 (local->xattr_req,
 				       "trusted.glusterfs.dht", 4 * 4);
 
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
-			
+
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
 				    loc, local->xattr_req);
@@ -246,16 +246,16 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 		}
 	} else {
         do_fresh_lookup:
-		ret = dict_set_uint32 (local->xattr_req, 
+		ret = dict_set_uint32 (local->xattr_req,
 				       "trusted.glusterfs.dht", 4 * 4);
 
-		ret = dict_set_uint32 (local->xattr_req, 
+		ret = dict_set_uint32 (local->xattr_req,
 				       "trusted.glusterfs.dht.linkto", 256);
 
 		/* Send it to only local volume */
 		STACK_WIND (frame, nufa_local_lookup_cbk,
-			    conf->local_volume, 
-			    conf->local_volume->fops->lookup,
+			    (xlator_t *)conf->private,
+			    ((xlator_t *)conf->private)->fops->lookup,
 			    loc, local->xattr_req);
 	}
 
@@ -268,40 +268,40 @@ err:
 }
 
 int
-nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie, 
+nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 				 xlator_t *this, int op_ret, int op_errno,
                                  inode_t *inode, struct stat *stbuf,
                                  struct stat *preparent,
                                  struct stat *postparent)
 {
- 	dht_local_t  *local = NULL;
- 	call_frame_t *prev = NULL;
+	dht_local_t  *local = NULL;
+	call_frame_t *prev = NULL;
 	dht_conf_t   *conf  = NULL;
-	
- 	local = frame->local;
- 	prev  = cookie;
- 	conf  = this->private;
-	
- 	if (op_ret == -1)
- 		goto err;
-	
- 	STACK_WIND (frame, dht_create_cbk,
- 		    local->cached_subvol, local->cached_subvol->fops->create,
- 		    &local->loc, local->flags, local->mode, local->fd);
-	
- 	return 0;
-	
+
+	local = frame->local;
+	prev  = cookie;
+	conf  = this->private;
+
+	if (op_ret == -1)
+		goto err;
+
+	STACK_WIND (frame, dht_create_cbk,
+		    local->cached_subvol, local->cached_subvol->fops->create,
+		    &local->loc, local->flags, local->mode, local->fd);
+
+	return 0;
+
  err:
- 	DHT_STACK_UNWIND (create, frame, -1, op_errno,
-                          NULL, NULL, NULL, NULL, NULL);	
- 	return 0;
+	DHT_STACK_UNWIND (create, frame, -1, op_errno,
+                          NULL, NULL, NULL, NULL, NULL);
+	return 0;
 }
 
 int
 nufa_create (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
- 	dht_local_t *local = NULL;
+	dht_local_t *local = NULL;
 	dht_conf_t  *conf  = NULL;
 	xlator_t    *subvol = NULL;
         xlator_t    *avail_subvol = NULL;
@@ -312,7 +312,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
 
- 	conf  = this->private; 	
+	conf  = this->private;
 
         dht_get_du_info (frame, this, loc);
 
@@ -333,13 +333,13 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-        avail_subvol = conf->local_volume;
-        if (dht_is_subvol_filled (this, conf->local_volume)) {
-                avail_subvol = 
-                        dht_free_disk_available_subvol (this, 
-                                                        conf->local_volume);
+        avail_subvol = conf->private;
+        if (dht_is_subvol_filled (this, (xlator_t *)conf->private)) {
+                avail_subvol =
+                        dht_free_disk_available_subvol (this,
+                                                        (xlator_t *)conf->private);
         }
-                
+
         if (subvol != avail_subvol) {
                 /* create a link file instead of actual file */
                 ret = loc_copy (&local->loc, loc);
@@ -349,13 +349,13 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                                 op_errno = ENOMEM;
                                 goto err;
                 }
-                
+
                 local->fd = fd_ref (fd);
                 local->mode = mode;
                 local->flags = flags;
 
                 local->cached_subvol = avail_subvol;
-                dht_linkfile_create (frame, 
+                dht_linkfile_create (frame,
                                      nufa_create_linkfile_create_cbk,
                                      avail_subvol, subvol, loc);
                 return 0;
@@ -363,11 +363,11 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
         gf_log (this->name, GF_LOG_TRACE,
                 "creating %s on %s", loc->path, subvol->name);
-        
+
         STACK_WIND (frame, dht_create_cbk,
                     subvol, subvol->fops->create,
                     loc, flags, mode, fd);
-        
+
         return 0;
 
 err:
@@ -384,26 +384,26 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct stat *stbuf, struct stat *preparent,
                          struct stat *postparent)
 {
- 	dht_local_t  *local = NULL;
- 	call_frame_t *prev = NULL;
+	dht_local_t  *local = NULL;
+	call_frame_t *prev = NULL;
 	dht_conf_t   *conf  = NULL;
-	
- 	local = frame->local;
- 	prev  = cookie;
- 	conf  = this->private;
- 	
- 	if (op_ret >= 0) {
- 		STACK_WIND (frame, dht_newfile_cbk,
- 			    local->cached_subvol, 
- 			    local->cached_subvol->fops->mknod,
- 			    &local->loc, local->mode, local->rdev);
-		
- 		return 0;
- 	}
-	
- 	DHT_STACK_UNWIND (link, frame, op_ret, op_errno,
+
+	local = frame->local;
+	prev  = cookie;
+	conf  = this->private;
+
+	if (op_ret >= 0) {
+		STACK_WIND (frame, dht_newfile_cbk,
+			    local->cached_subvol,
+			    local->cached_subvol->fops->mknod,
+			    &local->loc, local->mode, local->rdev);
+
+		return 0;
+	}
+
+	DHT_STACK_UNWIND (link, frame, op_ret, op_errno,
                           inode, stbuf, preparent, postparent);
- 	return 0;
+	return 0;
 }
 
 
@@ -411,7 +411,7 @@ int
 nufa_mknod (call_frame_t *frame, xlator_t *this,
 	    loc_t *loc, mode_t mode, dev_t rdev)
 {
- 	dht_local_t *local = NULL;
+	dht_local_t *local = NULL;
 	dht_conf_t  *conf  = NULL;
 	xlator_t    *subvol = NULL;
         xlator_t    *avail_subvol = NULL;
@@ -422,7 +422,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
 
- 	conf  = this->private; 	
+	conf  = this->private;
 
         dht_get_du_info (frame, this, loc);
 
@@ -444,31 +444,31 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 	}
 
         /* Consider the disksize in consideration */
-        avail_subvol = conf->local_volume;
-        if (dht_is_subvol_filled (this, conf->local_volume)) {
-                avail_subvol = 
-                        dht_free_disk_available_subvol (this, 
-                                                        conf->local_volume);
+        avail_subvol = conf->private;
+        if (dht_is_subvol_filled (this, (xlator_t *)conf->private)) {
+                avail_subvol =
+                        dht_free_disk_available_subvol (this,
+                                                        (xlator_t *)conf->private);
         }
 
- 	if (avail_subvol != subvol) {
- 		/* Create linkfile first */
- 		ret = loc_copy (&local->loc, loc);
- 		if (ret == -1) {
- 			gf_log (this->name, GF_LOG_ERROR,
- 				"Out of memory");
- 			op_errno = ENOMEM;
- 			goto err;
- 		}
- 
-		local->mode = mode;
- 		local->rdev = rdev;
- 		local->cached_subvol = avail_subvol;
+	if (avail_subvol != subvol) {
+		/* Create linkfile first */
+		ret = loc_copy (&local->loc, loc);
+		if (ret == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"Out of memory");
+			op_errno = ENOMEM;
+			goto err;
+		}
 
- 		dht_linkfile_create (frame, nufa_mknod_linkfile_cbk,
+		local->mode = mode;
+		local->rdev = rdev;
+		local->cached_subvol = avail_subvol;
+
+		dht_linkfile_create (frame, nufa_mknod_linkfile_cbk,
                                      avail_subvol, subvol, loc);
- 		return 0;
- 	}
+		return 0;
+	}
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"creating %s on %s", loc->path, subvol->name);
@@ -547,7 +547,7 @@ init (xlator_t *this)
 			"NUFA needs more than one subvolume");
 		return -1;
 	}
-  
+
 	if (!this->parents) {
 		gf_log (this->name, GF_LOG_WARNING,
 			"dangling volume. check volfile");
@@ -565,7 +565,7 @@ init (xlator_t *this)
 	if (dict_get_str (this->options, "lookup-unhashed",
 			  &temp_str) == 0) {
 		gf_string2boolean (temp_str,
- 				   &conf->search_unhashed);
+				   &conf->search_unhashed);
 	}
 
         ret = dht_init_subvolumes (this, conf);
@@ -579,6 +579,7 @@ init (xlator_t *this)
         }
 
 	LOCK_INIT (&conf->subvolume_lock);
+	LOCK_INIT (&conf->layout_lock);
 
 	conf->gen = 1;
 
@@ -606,7 +607,7 @@ init (xlator_t *this)
 	}
 
 	if (!trav) {
-		gf_log (this->name, GF_LOG_ERROR, 
+		gf_log (this->name, GF_LOG_ERROR,
 			"Could not find subvolume named '%s'. "
 			"Please define volume with the name as the hostname "
 			"or override it with 'option local-volume-name'",
@@ -614,7 +615,7 @@ init (xlator_t *this)
 		goto err;
 	}
 	/* The volume specified exists */
-	conf->local_volume = trav->xlator;
+	conf->private = trav->xlator;
 
         conf->min_free_disk = 10;
         conf->disk_unit = 'p';
@@ -700,6 +701,7 @@ struct xlator_fops fops = {
 	.lk          = dht_lk,
 	.opendir     = dht_opendir,
 	.readdir     = dht_readdir,
+	.readdirp    = dht_readdirp,
 	.fsyncdir    = dht_fsyncdir,
 	.symlink     = dht_symlink,
 	.unlink      = dht_unlink,
@@ -727,18 +729,16 @@ struct xlator_mops mops = {
 
 
 struct xlator_cbks cbks = {
-//	.release    = dht_release,
-//      .releasedir = dht_releasedir,
 	.forget     = dht_forget
 };
 
 
 struct volume_options options[] = {
-	{ .key  = {"local-volume-name"}, 
-	  .type = GF_OPTION_TYPE_XLATOR 
+	{ .key  = {"local-volume-name"},
+	  .type = GF_OPTION_TYPE_XLATOR
 	},
-        { .key  = {"lookup-unhashed"}, 
-	  .type = GF_OPTION_TYPE_BOOL 
+        { .key  = {"lookup-unhashed"},
+	  .type = GF_OPTION_TYPE_BOOL
 	},
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
