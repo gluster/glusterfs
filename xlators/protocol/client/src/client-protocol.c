@@ -4881,11 +4881,12 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 gf_log (frame->this->name, GF_LOG_DEBUG,
                                         "LOOKUP %"PRId64"/%s (%s): "
                                         "inode number changed from "
-                                        "%"PRId64" to %"PRId64,
-                                        local->loc.parent->ino,
+                                        "{%"PRId64",%"PRId64"} to {%"PRId64",%"PRId64"}",
+                                        local->loc.parent ?
+                                        local->loc.parent->ino : (uint64_t) 0,
                                         local->loc.name,
                                         local->loc.path,
-                                        oldino, stbuf.st_ino);
+                                        oldgen, oldino, stbuf.st_dev, stbuf.st_ino);
                                 goto fail;
                         }
 
@@ -4896,7 +4897,8 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                         "LOOKUP %"PRId64"/%s (%s) : "
                                         "failed to set remote inode "
                                         "number to inode ctx",
-                                        local->loc.parent->ino,
+                                        local->loc.parent ?
+                                        local->loc.parent->ino : (uint64_t) 0,
                                         local->loc.name,
                                         local->loc.path);
                         }
