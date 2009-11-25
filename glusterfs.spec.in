@@ -172,6 +172,7 @@ fi
 %if 0%{!?_without_fusermount:1}
 %exclude %{_bindir}/fusermount-glusterfs 
 %endif
+%{_datadir}/glusterfs
 %{_bindir}/glusterfs-volgen
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*

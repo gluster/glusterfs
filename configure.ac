@@ -124,6 +124,7 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterfsd-Redhat
                 extras/init.d/glusterfsd-SuSE
 		extras/benchmarking/Makefile
+                extras/volgen/Makefile
 		contrib/Makefile
 		contrib/fuse-util/Makefile
 		glusterfs.spec])
