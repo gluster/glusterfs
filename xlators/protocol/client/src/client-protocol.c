@@ -3268,7 +3268,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
         GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
 
-        if (loc->ino != 1) {
+        if (loc->ino != 1 && loc->parent) {
                 ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
                 if (loc->parent->ino && ret < 0) {
                         gf_log (this->name, GF_LOG_TRACE,
