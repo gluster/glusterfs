@@ -1,0 +1,184 @@
+#!/usr/bin/python
+
+import getopt, sys, os, string
+import subprocess
+
+if not "/usr/share/glusterfs" in sys.path:
+    sys.path.append("/usr/share/glusterfs")
+
+from CreateVolfile import *
+from CreateBooster import *
+
+def print_usage (name):
+    spaces = ' ' * (len(name) + 1)
+    print name, "--name <volume-name>"
+    print "%s[--raid 0|1]" % spaces
+    print "%s[--transport tcp,ib-verbs]" % spaces
+    print "%s[--port <port>]" % spaces
+    print "%s[--ibdev <lid>]" % spaces
+    print "%s[--auth <ip-range>]" % spaces
+    print "%s[--conf-dir <confdir>]" % spaces
+    print "%s[--usage]" % spaces
+    print "%s[--nfs]" % spaces
+    print "%s[--cifs]" % spaces
+    print "%s[--version]" % spaces
+    print "%shost1:<export> host2:<export> ... hostN:<exportNN>" % spaces
+    return
+
+def print_version (version):
+    print "glusterfs-volgen %s: A tool to generate volume files for GlusterFS." % version
+    print "Copyright (C) 2009 Gluster, Inc. <http://www.gluster.com>"
+    print """License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law."""
+
+
+def main ():
+
+    needs_upgrade = None
+    needs_nfs = None
+    needs_cifs = None
+    version_num ="3.0"
+    _volume_name = None
+    _server_chain = {}
+    _server = None
+    _transports = ['tcp']
+    _transport = None
+    _port = 6996
+    _auth_param = "*"
+    _ib_dev = 1
+    _raid_type = None
+    node = None
+    _conf_dir = None
+
+    try:
+        (opt, args) = getopt.getopt (sys.argv[1:], "r:t:p:n:a:i:ch",
+                                     ["raid=",
+                                      "transport=",
+                                      "port=",
+                                      "name=",
+                                      "auth=",
+                                      "ibdev=",
+                                      "conf-dir=",
+                                      "nfs",
+                                      "cifs",
+                                      "usage",
+                                      "version",
+                                      "help"])
+
+    except getopt.GetoptError, (msg, opt):
+        print msg
+        sys.exit (1)
+
+    for (o, val) in opt:
+        if o == '--usage' or o == '--help':
+            print_usage (sys.argv[0])
+            sys.exit (0)
+
+        if o == '-n' or o == '--name':
+            _volume_name = val
+
+        if o == '--nfs':
+            needs_nfs = 1
+
+        if o == '--cifs':
+            needs_cifs = 1
+
+        if o == '-t' or o == '--transport':
+            if not val:
+                print "--transport: option " + val + \
+                    " is not valid transport type"
+                sys.exit (1)
+            _transports = val.split(',')
+
+        if o == '-a' or o == '--auth':
+            _auth_param = val
+
+        if o == '-p' or o == '--port':
+            _port = int(val)
+
+        if o == '-r' or o == '--raid':
+            if (val != "1" and val != "0"):
+                print "--raid: option " + val + " is not valid raid type"
+                sys.exit (1)
+            _raid_type = int (val)
+
+        if o == '-i' or o == '--ibdev':
+            _ib_dev = int(val)
+
+        if o == '-v' or o == '--version':
+            print_version (version_num)
+            sys.exit (0)
+
+        if o == '-c' or o == '--conf-dir':
+            _conf_dir = val
+
+    if _volume_name is None:
+        print "Volume name is mandatory, please provide volume name.. exiting"
+        print_usage(sys.argv[0])
+        sys.exit(1)
+
+    _tmp = []
+    for server in args:
+        if server not in _tmp:
+            _tmp.append (server)
+        else:
+            print "Duplicate arguments detected (%s)" % server
+            sys.exit(1)
+
+        node = server.split(':')[0]
+        _server_chain[node] = []
+
+    for server in args:
+        node = server.split(':')[0]
+        if server.split(':')[1] not in _server_chain [node]:
+            if server.split(':')[1][0] != '/':
+                print "Absolute export path required for %s" % server
+                sys.exit(1)
+            _server_chain [node].append (server.split(':')[1])
+
+    num_servers = len (_server_chain.keys())
+
+    if num_servers is 0:
+        print "no servers provided, exiting"
+        print_usage(sys.argv[0])
+        sys.exit (1)
+
+    print num_servers
+
+
+    for _server in _server_chain.keys():
+        create_exp = CreateVolfile (_server_chain, _server,
+                                    _volume_name, None,
+                                    _transports, _port,
+                                    _auth_param, _ib_dev,
+                                    _conf_dir, None)
+        try:
+            create_exp.create_export_volfile ()
+        except IOError, (errno, strerror):
+            print "Got %s creating server volfiles for %s" % (strerror, _server)
+
+    for _transport in _transports:
+        create_mnt = CreateVolfile (_server_chain, None,
+                                    _volume_name, _transport,
+                                    _transports, _port,
+                                    _auth_param, _ib_dev,
+                                    _conf_dir, args)
+        try:
+            create_mnt.create_mount_volfile (_raid_type)
+        except IOError, (errno, strerror):
+            print "Got %s creating client volfiles for transport '%s'" % (strerror, _transport)
+
+
+    for _server in _server_chain.keys():
+        for export_dir in _server_chain[_server]:
+            commonobj = CreateBooster (_volume_name, export_dir)
+            if needs_nfs is 1 or needs_cifs is 1:
+                commonobj.configure_booster_fstab ()
+            if needs_nfs is 1:
+                commonobj.configure_nfs_booster ()
+            if needs_cifs is 1:
+                commonobj.configure_cifs_booster ()
+    return
+
+main ()
