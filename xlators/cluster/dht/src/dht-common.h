@@ -117,7 +117,6 @@ struct dht_conf {
 	gf_lock_t      subvolume_lock;
         int            subvolume_cnt;
         xlator_t     **subvolumes;
-	xlator_t      *local_volume;     /* Needed by NUFA */
 	char          *subvolume_status;
 	dht_layout_t **file_layouts;
 	dht_layout_t **dir_layouts;
