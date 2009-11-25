@@ -856,6 +856,15 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
+                fd_ctx->opened_on = CALLOC (sizeof (*fd_ctx->opened_on),
+                                            priv->child_count);
+                if (!fd_ctx->opened_on) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        op_ret = -ENOMEM;
+                        goto unlock;
+                }
+
                 fd_ctx->child_failed = CALLOC (sizeof (*fd_ctx->child_failed),
                                                priv->child_count);
                 

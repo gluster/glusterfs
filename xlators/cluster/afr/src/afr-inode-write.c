@@ -228,6 +228,8 @@ afr_do_writev (call_frame_t *frame, xlator_t *this)
 
 	local->op = GF_FOP_WRITE;
 
+        local->success_count      = 0;
+
 	local->transaction.fop    = afr_writev_wind;
 	local->transaction.done   = afr_writev_done;
 	local->transaction.unwind = afr_writev_unwind;

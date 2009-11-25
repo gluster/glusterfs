@@ -261,6 +261,7 @@ typedef struct _afr_local {
 
 		struct {
 			int32_t flags;
+                        int32_t wbflags;
 		} open;
 
 		struct {
@@ -534,7 +535,10 @@ typedef struct _afr_local {
 
 typedef struct {
         unsigned char *pre_op_done;
+        unsigned char *opened_on;     /* which subvolumes the fd is open on */
         unsigned char *child_failed;
+        int flags;
+        int32_t wbflags;
         uint64_t up_count;   /* number of CHILD_UPs this fd has seen */
         uint64_t down_count; /* number of CHILD_DOWNs this fd has seen */
 } afr_fd_ctx_t;
