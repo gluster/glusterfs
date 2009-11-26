@@ -291,7 +291,7 @@ resolve_entry_simple (call_frame_t *frame)
                 /* simple resolution is decisive - request was for a
                    stale handle */
                 resolve->op_ret   = -1;
-                resolve->op_errno = ESTALE;
+                resolve->op_errno = ENOENT;
                 ret = -1;
                 goto out;
         }
@@ -403,7 +403,7 @@ resolve_inode_simple (call_frame_t *frame)
 
         if (inode->ino != 1 && inode->generation != resolve->gen) {
                 resolve->op_ret      = -1;
-                resolve->op_errno    = ESTALE;
+                resolve->op_errno    = ENOENT;
                 ret = -1;
                 goto out;
         }
@@ -574,14 +574,19 @@ int
 resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn)
 {
         server_state_t    *state = NULL;
+        xlator_t          *this  = NULL;
 
         state = CALL_STATE (frame);
         state->resume_fn = fn;
+
+        this = frame->this;
 
         gf_log (BOUND_XL (frame)->name, GF_LOG_DEBUG,
                 "RESOLVE %s() on %s %s",
                 gf_fop_list[frame->root->op],
                 state->resolve.path, state->resolve2.path);
+
+        print_server_state (frame, state, this, 1);
 
         server_resolve_all (frame);
 
