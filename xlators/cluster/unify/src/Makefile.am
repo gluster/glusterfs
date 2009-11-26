@@ -1,6 +1,6 @@
 
 xlator_LTLIBRARIES = unify.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/legacy/cluster
 
 unify_la_LDFLAGS = -module -avoidversion
 
