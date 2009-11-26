@@ -107,6 +107,7 @@ typedef struct {
 	pthread_mutex_t   mutex;
 	struct list_head  conns;
         gf_boolean_t      verify_volfile_checksum;
+        gf_boolean_t      trace;
 } server_conf_t;
 
 

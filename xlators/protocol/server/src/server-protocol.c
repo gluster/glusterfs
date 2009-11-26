@@ -43,6 +43,143 @@
 #include "statedump.h"
 #include "md5.h"
 
+void
+print_resolve_vars (char *str, int size, server_resolve_t *resolve)
+{
+        int filled = 0;
+
+        if (!resolve) {
+                snprintf (str, size, "<nul>");
+                return;
+        }
+
+        if (resolve->fd_no)
+                filled += snprintf (str + filled, size - filled, "fd_no: %"PRId64" ", resolve->fd_no);
+        if (resolve->ino)
+                filled += snprintf (str + filled, size - filled, "ino: %llu ",
+                          (unsigned long long) resolve->ino);
+        if (resolve->gen)
+                filled += snprintf (str + filled, size - filled, "gen: %"PRIu64" ", resolve->gen);
+        if (resolve->par)
+                filled += snprintf (str + filled, size - filled, "par: %llu ",
+                          (unsigned long long) resolve->par);
+        if (resolve->path)
+                filled += snprintf (str + filled, size - filled, "path: %s ", resolve->path);
+        if (resolve->bname)
+                filled += snprintf (str + filled, size - filled, "bname: %s ", resolve->bname);
+        if (resolve->resolved)
+                filled += snprintf (str + filled, size - filled, "resolved: %s ", resolve->resolved);
+        if (resolve->comp_count)
+                filled += snprintf (str + filled, size - filled, "comp_count: %d ", resolve->comp_count);
+
+}
+
+void
+print_loc_vars (char *str, int size, loc_t *loc)
+{
+        int filled = 0;
+
+        if (!loc) {
+                snprintf (str, size, "<nul>");
+                return;
+        }
+
+        if (loc->path)
+                filled += snprintf (str + filled, size - filled, "path: %s ", loc->path);
+        if (loc->name)
+                snprintf (str + filled, size - filled, "name: %s ", loc->name);
+        if (loc->ino)
+                snprintf (str + filled, size - filled, "ino: %llu ",
+                          (unsigned long long) loc->ino);
+
+
+}
+
+void
+print_state_vars (char *str, int size, server_state_t *state)
+{
+        int filled = 0;
+
+        if (state->trans)
+                filled = snprintf (str + filled, size - filled, "transport: %p ", state->trans);
+        if (state->bound_xl)
+                filled += snprintf (str + filled, size - filled, "xlator: %s ",state->bound_xl->name);
+        if (state->valid)
+                filled += snprintf (str + filled, size - filled, "valid: %d ", state->valid);
+        if (state->flags)
+                filled += snprintf (str + filled, size - filled, "flags: %d ", state->flags);
+        if (state->wbflags)
+                filled += snprintf (str + filled, size - filled, "wbflags: %d ", state->wbflags);
+        if (state->size)
+                filled += snprintf (str + filled, size - filled, "size: %Zu ", state->size);
+        if (state->offset)
+                filled += snprintf (str + filled, size - filled, "offset: %llu ",
+                          (unsigned long long) state->offset);
+        if (state->cmd)
+                filled += snprintf (str + filled, size - filled, "cmd: %d ", state->cmd);
+        if (state->type)
+                filled += snprintf (str + filled, size - filled, "type: %d ", state->type);
+        if (state->name)
+                filled += snprintf (str + filled, size - filled, "name: %s ", state->name);
+        if (state->mask)
+                filled += snprintf (str + filled, size - filled, "mask: %d ", state->mask);
+        if (state->volume)
+                filled += snprintf (str + filled, size - filled, "volume: %s ", state->volume);
+
+}
+
+void
+print_server_state (call_frame_t *frame, server_state_t *state, xlator_t *this, int request)
+{
+        server_conf_t *conf             = NULL;
+        char          resolve_vars[256];
+        char          resolve2_vars[256];
+        char          loc_vars[256];
+        char          loc2_vars[256];
+        char          other_vars[512];
+
+        memset (resolve_vars, '\0', 256);
+        memset (resolve2_vars, '\0', 256);
+        memset (loc_vars, '\0', 256);
+        memset (loc2_vars, '\0', 256);
+        memset (other_vars, '\0', 512);
+
+        conf = this->private;
+        if (!conf->trace)
+                return;
+
+        if (request) {
+
+                print_resolve_vars (resolve_vars, 256, &state->resolve);
+                print_resolve_vars (resolve2_vars, 256, &state->resolve2);
+
+                print_loc_vars (loc_vars, 256, &state->loc);
+                print_loc_vars (loc2_vars, 256, &state->loc2);
+
+                print_state_vars (other_vars, 512, state);
+
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "[REQUEST] resolve = {%s} resolve2 = {%s} loc = {%s}"
+                        " loc2 = {%s} State Vars = {%s}",
+                        strlen (resolve_vars)  ? resolve_vars  : "<nul>",
+                        strlen (resolve2_vars) ? resolve2_vars : "<nul>",
+                        strlen (loc_vars)      ? loc_vars      : "<nul>",
+                        strlen (loc2_vars)     ? loc2_vars     : "<nul>",
+                        strlen (other_vars)    ? other_vars    : "<nul>"
+                        );
+        } else {
+
+                print_loc_vars (loc_vars, 256, &state->loc);
+                print_state_vars (other_vars, 512, state);
+
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "[REPLY] loc = {%s}  State Vars = {%s}",
+                        strlen (loc_vars) ? loc_vars : "<nul>",
+                        strlen (other_vars) ? other_vars : "<nul>"
+                        );
+        }
+
+}
 
 static void
 protocol_server_reply (call_frame_t *frame, int type, int op,
@@ -55,13 +192,18 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
         transport_t    *trans = NULL;
         int             ret = 0;
 
+        xlator_t       *this = NULL;
+
         bound_xl = BOUND_XL (frame);
         state    = CALL_STATE (frame);
         trans    = state->trans;
+        this     = frame->this;
 
         hdr->callid = hton64 (frame->root->unique);
         hdr->type   = hton32 (type);
         hdr->op     = hton32 (op);
+
+        print_server_state (frame, state, this, 0);
 
         ret = transport_submit (trans, (char *)hdr, hdrlen, vector,
                                 count, iobref);
@@ -3791,7 +3933,8 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-int server_readdirp_resume (call_frame_t *frame, xlator_t *bound_xl)
+int
+server_readdirp_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t  *state = NULL;
 
@@ -3843,7 +3986,8 @@ server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
 }
 
 
-int server_readdir_resume (call_frame_t *frame, xlator_t *bound_xl)
+int
+ server_readdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t  *state = NULL;
 
@@ -3895,7 +4039,8 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
-int server_fsyncdir_resume (call_frame_t *frame, xlator_t *bound_xl)
+int
+server_fsyncdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
 
@@ -4600,7 +4745,8 @@ server_rename (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
-int server_lk_resume (call_frame_t *frame, xlator_t *bound_xl)
+int
+server_lk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
 
@@ -6258,6 +6404,7 @@ init (xlator_t *this)
         transport_t   *trans = NULL;
         server_conf_t *conf = NULL;
         data_t        *data = NULL;
+        data_t        *trace = NULL;
 
         if (this->children == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -6332,6 +6479,16 @@ init (xlator_t *this)
                         conf->verify_volfile_checksum = 1;
                 }
         }
+
+        trace = dict_get (this->options, "trace");
+	if (trace) {
+		if (gf_string2boolean (trace->data,
+				       &conf->trace) == -1) {
+			gf_log (this->name, GF_LOG_ERROR,
+				"'trace' takes on only boolean values.");
+			return -1;
+		}
+	}
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -6517,5 +6674,9 @@ struct volume_options options[] = {
         { .key   = {"verify-volfile-checksum"},
           .type  = GF_OPTION_TYPE_BOOL
         },
+        { .key   = {"trace"},
+          .type  = GF_OPTION_TYPE_BOOL
+        },
+
         { .key   = {NULL} },
 };

@@ -66,4 +66,7 @@ gf_del_locker (struct _lock_table *table, const char *volume,
 int32_t
 gf_direntry_to_bin (dir_entry_t *head, char *bufferp);
 
+void
+print_server_state (call_frame_t *frame, server_state_t *state, xlator_t *this, int request);
+
 #endif /* __SERVER_HELPERS_H__ */
