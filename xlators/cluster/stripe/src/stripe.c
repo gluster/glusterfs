@@ -3661,7 +3661,13 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "dangling volume. check volfile ");
         }
-  
+
+        if (count == 1) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "stripe configured with only one \"subvolumes\" option."
+                        " please check the volume. exiting");
+                goto out;
+        }
         priv = CALLOC (1, sizeof (stripe_private_t));
         if (!priv)
                 goto out;
