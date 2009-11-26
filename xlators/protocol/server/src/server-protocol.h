@@ -188,6 +188,7 @@ struct _server_state {
 	dict_t           *dict;
 	struct flock      flock;
         const char       *volume;
+        dir_entry_t      *entry;
 };
 
 

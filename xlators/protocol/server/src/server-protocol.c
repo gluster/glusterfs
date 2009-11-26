@@ -3692,6 +3692,27 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
+int
+server_getdents_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_getdents_cbk,
+                    bound_xl,
+                    bound_xl->fops->getdents,
+                    state->fd, state->size, state->offset, state->flags);
+
+        return 0;
+err:
+        server_getdents_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL, 0);
+        return 0;
+}
 
 int
 server_getdents (call_frame_t *frame, xlator_t *bound_xl,
@@ -3706,40 +3727,15 @@ server_getdents (call_frame_t *frame, xlator_t *bound_xl,
 
         req   = gf_param (hdr);
         state = CALL_STATE(frame);
-        {
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
 
-                state->size = ntoh32 (req->size);
-                state->offset = ntoh64 (req->offset);
-                state->flags = ntoh32 (req->flags);
-        }
+        state->resolve.type = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->size = ntoh32 (req->size);
+        state->offset = ntoh64 (req->offset);
+        state->flags = ntoh32 (req->flags);
 
+        resolve_and_resume (frame, server_getdents_resume);
 
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
-
-                server_getdents_cbk (frame, NULL, frame->this, -1, EBADF,
-                                     NULL, 0);
-                goto out;
-        }
-
-        gf_log (bound_xl->name, GF_LOG_TRACE,
-                "%"PRId64": GETDENTS \'fd=%"PRId64" (%"PRId64"); "
-                "offset=%"PRId64"; size=%"PRId64,
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino,
-                state->offset, (int64_t)state->size);
-
-        STACK_WIND (frame, server_getdents_cbk,
-                    bound_xl,
-                    bound_xl->fops->getdents,
-                    state->fd, state->size, state->offset, state->flags);
-out:
         return 0;
 }
 
@@ -3795,7 +3791,25 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int server_readdirp_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t  *state = NULL;
 
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_readdirp_cbk, bound_xl,
+                    bound_xl->fops->readdirp, state->fd, state->size,
+                    state->offset);
+
+        return 0;
+err:
+        server_readdirp_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL);
+        return 0;
+}
 
 /*
  * server_readdirp - readdirp function for server protocol
@@ -3817,42 +3831,38 @@ server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
 
         req   = gf_param (hdr);
         state = CALL_STATE(frame);
-        {
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
 
-                state->size   = ntoh32 (req->size);
-                state->offset = ntoh64 (req->offset);
-        }
+        state->resolve.type = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->size   = ntoh32 (req->size);
+        state->offset = ntoh64 (req->offset);
 
+        resolve_and_resume (frame, server_readdirp_resume);
 
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
-
-                server_readdirp_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
-                goto out;
-        }
-
-        gf_log (bound_xl->name, GF_LOG_TRACE,
-                "%"PRId64": READDIRP \'fd=%"PRId64" (%"PRId64"); "
-                "offset=%"PRId64"; size=%"PRId64,
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino,
-                state->offset, (int64_t)state->size);
-
-        STACK_WIND (frame, server_readdirp_cbk, bound_xl,
-                    bound_xl->fops->readdirp, state->fd, state->size,
-                    state->offset);
-out:
         return 0;
 }
 
 
+int server_readdir_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t  *state = NULL;
 
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_readdir_cbk,
+                    bound_xl,
+                    bound_xl->fops->readdir,
+                    state->fd, state->size, state->offset);
+
+        return 0;
+err:
+        server_readdir_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                            state->resolve.op_errno, NULL);
+        return 0;
+}
 /*
  * server_readdir - readdir function for server protocol
  * @frame: call frame
@@ -3874,42 +3884,38 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
 
         req   = gf_param (hdr);
         state = CALL_STATE(frame);
-        {
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
 
-                state->size   = ntoh32 (req->size);
-                state->offset = ntoh64 (req->offset);
-        }
+        state->resolve.type = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->size   = ntoh32 (req->size);
+        state->offset = ntoh64 (req->offset);
 
+        resolve_and_resume (frame, server_readdir_resume);
 
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
-
-                server_readdir_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
-                goto out;
-        }
-
-        gf_log (bound_xl->name, GF_LOG_TRACE,
-                "%"PRId64": READDIR \'fd=%"PRId64" (%"PRId64"); "
-                "offset=%"PRId64"; size=%"PRId64,
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino,
-                state->offset, (int64_t)state->size);
-
-        STACK_WIND (frame, server_readdir_cbk,
-                    bound_xl,
-                    bound_xl->fops->readdir,
-                    state->fd, state->size, state->offset);
-out:
         return 0;
 }
 
+int server_fsyncdir_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
 
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_fsyncdir_cbk,
+                    bound_xl,
+                    bound_xl->fops->fsyncdir,
+                    state->fd, state->flags);
+        return 0;
+
+err:
+        server_fsyncdir_cbk (frame, NULL, frame->this,
+                             state->resolve.op_ret,
+                             state->resolve.op_errno);
+        return 0;
+}
 
 /*
  * server_fsyncdir - fsyncdir function for server protocol
@@ -3932,34 +3938,13 @@ server_fsyncdir (call_frame_t *frame, xlator_t *bound_xl,
 
         req   = gf_param (hdr);
         state = CALL_STATE(frame);
-        {
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
 
-                state->flags = ntoh32 (req->data);
-        }
+        state->resolve.type = RESOLVE_MUST;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->flags = ntoh32 (req->data);
 
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
+        resolve_and_resume (frame, server_fsyncdir_resume);
 
-                server_fsyncdir_cbk (frame, NULL, frame->this, -1, EBADF);
-                goto out;
-        }
-
-        gf_log (bound_xl->name, GF_LOG_TRACE,
-                "%"PRId64": FSYNCDIR \'fd=%"PRId64" (%"PRId64")\'",
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino);
-
-        STACK_WIND (frame, server_fsyncdir_cbk,
-                    bound_xl,
-                    bound_xl->fops->fsyncdir,
-                    state->fd, state->flags);
-out:
         return 0;
 }
 
@@ -4190,6 +4175,28 @@ server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
+int
+server_finodelk_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_finodelk_cbk,
+                    BOUND_XL(frame),
+                    BOUND_XL(frame)->fops->finodelk,
+                    state->volume, state->fd, state->cmd, &state->flock);
+
+        return 0;
+err:
+        server_finodelk_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno);
+
+        return 0;
+}
 
 int
 server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
@@ -4204,64 +4211,42 @@ server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
 
         req   = gf_param (hdr);
         state = CALL_STATE(frame);
-        {
-                state->volume = strdup (req->volume);
 
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
+        state->resolve.type = RESOLVE_EXACT;
+        state->volume = strdup (req->volume);
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->cmd = ntoh32 (req->cmd);
 
-                state->cmd = ntoh32 (req->cmd);
-                switch (state->cmd) {
-                case GF_LK_GETLK:
-                        state->cmd = F_GETLK;
-                        break;
-                case GF_LK_SETLK:
-                        state->cmd = F_SETLK;
-                        break;
-                case GF_LK_SETLKW:
-                        state->cmd = F_SETLKW;
-                        break;
-                }
-
-                state->type = ntoh32 (req->type);
-
-                gf_flock_to_flock (&req->flock, &state->flock);
-
-                switch (state->type) {
-                case GF_LK_F_RDLCK:
-                        state->flock.l_type = F_RDLCK;
-                        break;
-                case GF_LK_F_WRLCK:
-                        state->flock.l_type = F_WRLCK;
-                        break;
-                case GF_LK_F_UNLCK:
-                        state->flock.l_type = F_UNLCK;
-                        break;
-                }
-
+        switch (state->cmd) {
+        case GF_LK_GETLK:
+                state->cmd = F_GETLK;
+                break;
+        case GF_LK_SETLK:
+                state->cmd = F_SETLK;
+                break;
+        case GF_LK_SETLKW:
+                state->cmd = F_SETLKW;
+                break;
         }
 
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
+        state->type = ntoh32 (req->type);
 
-                server_finodelk_cbk (frame, NULL, frame->this,
-                                     -1, EBADF);
-                return -1;
+        gf_flock_to_flock (&req->flock, &state->flock);
+
+        switch (state->type) {
+        case GF_LK_F_RDLCK:
+                state->flock.l_type = F_RDLCK;
+                break;
+        case GF_LK_F_WRLCK:
+                state->flock.l_type = F_WRLCK;
+                break;
+        case GF_LK_F_UNLCK:
+                state->flock.l_type = F_UNLCK;
+                break;
         }
 
-        gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-                "%"PRId64": FINODELK \'fd=%"PRId64" (%"PRId64")\'",
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino);
+        resolve_and_resume (frame, server_finodelk_resume);
 
-        STACK_WIND (frame, server_finodelk_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->finodelk,
-                    state->volume, state->fd, state->cmd, &state->flock);
         return 0;
 }
 
@@ -4322,6 +4307,28 @@ server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
+int
+server_fentrylk_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_fentrylk_cbk,
+                    BOUND_XL(frame),
+                    BOUND_XL(frame)->fops->fentrylk,
+                    state->volume, state->fd, state->name,
+                    state->cmd, state->type);
+
+        return 0;
+err:
+        server_fentrylk_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno);
+        return 0;
+}
 
 int
 server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
@@ -4338,42 +4345,20 @@ server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
 
         req   = gf_param (hdr);
         state = CALL_STATE(frame);
-        {
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
+        vollen = STRLEN_0(req->volume + namelen);
 
-                state->cmd  = ntoh32 (req->cmd);
-                state->type = ntoh32 (req->type);
-                namelen = ntoh64 (req->namelen);
+        state->resolve.type = RESOLVE_EXACT;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->cmd  = ntoh32 (req->cmd);
+        state->type = ntoh32 (req->type);
+        namelen = ntoh64 (req->namelen);
+        if (namelen)
+                state->name = req->name;
+        state->volume = strdup (req->volume + namelen);
 
-                if (namelen)
-                        state->name = req->name;
 
-                vollen = STRLEN_0(req->volume + namelen);
-                state->volume = strdup (req->volume + namelen);
-        }
+        resolve_and_resume (frame, server_finodelk_resume);
 
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
-
-                server_fentrylk_cbk (frame, NULL, frame->this, -1, EBADF);
-                return -1;
-        }
-
-        gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-                "%"PRId64": FENTRYLK \'fd=%"PRId64" (%"PRId64")\'",
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino);
-
-        STACK_WIND (frame, server_fentrylk_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->fentrylk,
-                    state->volume, state->fd, state->name,
-                    state->cmd, state->type);
         return 0;
 }
 
@@ -4615,6 +4600,29 @@ server_rename (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
+int server_lk_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_lk_cbk,
+                    BOUND_XL(frame),
+                    BOUND_XL(frame)->fops->lk,
+                    state->fd, state->cmd, &state->flock);
+
+        return 0;
+
+err:
+        server_lk_cbk (frame, NULL, frame->this,
+                       state->resolve.op_ret,
+                       state->resolve.op_errno,
+                       NULL);
+        return 0;
+}
 
 /*
  * server_lk - lk function for server protocol
@@ -4630,7 +4638,6 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
            gf_hdr_common_t *hdr, size_t hdrlen,
            struct iobuf *iobuf)
 {
-        struct flock         lock = {0, };
         gf_fop_lk_req_t     *req = NULL;
         server_state_t      *state = NULL;
         server_connection_t *conn = NULL;
@@ -4639,25 +4646,10 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 
         req   = gf_param (hdr);
         state = CALL_STATE (frame);
-        {
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
 
-                state->cmd =  ntoh32 (req->cmd);
-                state->type = ntoh32 (req->type);
-        }
-
-
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
-
-                server_lk_cbk (frame, NULL, frame->this, -1, EBADF, NULL);
-                goto out;
-        }
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->cmd =  ntoh32 (req->cmd);
+        state->type = ntoh32 (req->type);
 
         switch (state->cmd) {
         case GF_LK_GETLK:
@@ -4673,13 +4665,13 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 
         switch (state->type) {
         case GF_LK_F_RDLCK:
-                lock.l_type = F_RDLCK;
+                state->flock.l_type = F_RDLCK;
                 break;
         case GF_LK_F_WRLCK:
-                lock.l_type = F_WRLCK;
+                state->flock.l_type = F_WRLCK;
                 break;
         case GF_LK_F_UNLCK:
-                lock.l_type = F_UNLCK;
+                state->flock.l_type = F_UNLCK;
                 break;
         default:
                 gf_log (bound_xl->name, GF_LOG_ERROR,
@@ -4688,22 +4680,34 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
                 break;
         }
 
-        gf_flock_to_flock (&req->flock, &lock);
+        gf_flock_to_flock (&req->flock, &state->flock);
 
-        gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
-                "%"PRId64": LK \'fd=%"PRId64" (%"PRId64")\'",
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino);
+        resolve_and_resume (frame, server_lk_resume);
 
-        STACK_WIND (frame, server_lk_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->lk,
-                    state->fd, state->cmd, &lock);
-out:
         return 0;
 }
 
 
+int
+server_setdents_resume(call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0)
+                goto err;
+
+        STACK_WIND (frame, server_setdents_cbk,
+                    BOUND_XL(frame),
+                    BOUND_XL(frame)->fops->setdents,
+                    state->fd, state->flags, state->entry, state->nr_count);
+
+        return 0;
+err:
+        server_setdents_cbk (frame, NULL, frame->this, state->resolve.op_ret, state->resolve.op_errno);
+        return 0;
+}
 /*
  * server_writedir -
  *
@@ -4735,22 +4739,10 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
         req   = gf_param (hdr);
         state = CALL_STATE(frame);
 
+        state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = ntoh64 (req->fd);
-        if (state->resolve.fd_no >= 0)
-                state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                             state->resolve.fd_no);
-
         state->nr_count = ntoh32 (req->count);
 
-        if (state->fd == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64": unresolved fd",
-                        state->resolve.fd_no);
-
-                server_setdents_cbk (frame, NULL, frame->this, -1, EBADF);
-
-                goto out;
-        }
 
         if (iobuf == NULL) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
@@ -4853,15 +4845,8 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
                 prev = trav;
         }
 
-        gf_log (bound_xl->name, GF_LOG_TRACE,
-                "%"PRId64": SETDENTS \'fd=%"PRId64" (%"PRId64"); count=%"PRId64,
-                frame->root->unique, state->resolve.fd_no, state->fd->inode->ino,
-                (int64_t)state->nr_count);
-
-        STACK_WIND (frame, server_setdents_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->setdents,
-                    state->fd, state->flags, entry, state->nr_count);
+        state->entry = entry;
+        resolve_and_resume (frame, server_setdents_resume);
 
 
         /* Free the variables allocated in this fop here */
@@ -5181,31 +5166,53 @@ server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int
+server_checksum_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+        int             op_ret = 0;
+        int             op_errno = 0;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0) {
+                op_ret   = state->resolve.op_ret;
+                op_errno = state->resolve.op_errno;
+                goto err;
+        }
+
+        STACK_WIND (frame, server_checksum_cbk,
+                    BOUND_XL(frame),
+                    BOUND_XL(frame)->fops->checksum,
+                    &state->loc, state->flags);
+
+        return 0;
+err:
+        server_checksum_cbk (frame, NULL, frame->this, state->resolve.op_ret,
+                             state->resolve.op_errno, NULL, NULL);
+
+        return 0;
+}
 
 int
 server_checksum (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-        loc_t                  loc = {0,};
-        int32_t                flag = 0;
         gf_fop_checksum_req_t *req = NULL;
+        server_state_t        *state = NULL;
 
         req = gf_param (hdr);
+        state = CALL_STATE (frame);
 
-        loc.path  = req->path;
-        loc.ino   = ntoh64 (req->ino);
-        loc.inode = NULL;
-        flag      = ntoh32 (req->flag);
+        state->resolve.type = RESOLVE_MAY;
+        state->resolve.path = strdup (req->path);
+        state->resolve.gen = ntoh64 (req->gen);
+        state->resolve.ino = ntoh64 (req->ino);
+        state->flags = ntoh32 (req->flag);
 
-        gf_log (bound_xl->name, GF_LOG_TRACE,
-                "%"PRId64": CHECKSUM \'%s (%"PRId64")\'",
-                frame->root->unique, loc.path, loc.ino);
+        resolve_and_resume (frame, server_checksum_resume);
 
-        STACK_WIND (frame, server_checksum_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->checksum,
-                    &loc, flag);
         return 0;
 }
 
@@ -5243,6 +5250,33 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
+int
+server_rchecksum_resume (call_frame_t *frame, xlator_t *bound_xl)
+{
+        server_state_t *state = NULL;
+        int             op_ret = 0;
+        int             op_errno = 0;
+
+        state = CALL_STATE (frame);
+
+        if (state->resolve.op_ret != 0) {
+                op_ret   = state->resolve.op_ret;
+                op_errno = state->resolve.op_errno;
+                goto err;
+        }
+
+        STACK_WIND (frame, server_rchecksum_cbk,
+                    bound_xl,
+                    bound_xl->fops->rchecksum,
+                    state->fd, state->offset, state->size);
+
+        return 0;
+err:
+        server_rchecksum_cbk (frame, NULL, frame->this, -1, EINVAL, 0, NULL);
+
+        return 0;
+
+}
 
 int
 server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
@@ -5258,29 +5292,16 @@ server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
         req = gf_param (hdr);
 
         state = CALL_STATE(frame);
-        {
-                state->resolve.fd_no = ntoh64 (req->fd);
-                if (state->resolve.fd_no >= 0)
-                        state->fd = gf_fd_fdptr_get (conn->fdtable,
-                                                     state->resolve.fd_no);
 
-                state->offset = ntoh64 (req->offset);
-                state->size   = ntoh32 (req->len);
-        }
+        state->resolve.type = RESOLVE_MAY;
+        state->resolve.fd_no = ntoh64 (req->fd);
+        state->offset = ntoh64 (req->offset);
+        state->size   = ntoh32 (req->len);
 
         GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
 
-        gf_log (bound_xl->name, GF_LOG_TRACE,
-                "%"PRId64": RCHECKSUM \'fd=%"PRId64" (%"PRId64"); "
-                "offset=%"PRId64"\'",
-                frame->root->unique, state->resolve.fd_no,
-                state->fd->inode->ino,
-                state->offset);
+        resolve_and_resume (frame, server_rchecksum_resume);
 
-        STACK_WIND (frame, server_rchecksum_cbk,
-                    bound_xl,
-                    bound_xl->fops->rchecksum,
-                    state->fd, state->offset, state->size);
         return 0;
 fail:
         server_rchecksum_cbk (frame, NULL, frame->this, -1, EINVAL, 0, NULL);
