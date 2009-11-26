@@ -170,7 +170,7 @@ def generate_volume_files ():
     try:
         create_booster.configure_booster ()
     except IOError, (errno, strerror):
-        print "Got %s creating booster configuration '%s'" % (strerror, export_dir)
+        print "Got %s creating booster configuration" % (strerror)
 
 def main ():
 
