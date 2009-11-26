@@ -78,6 +78,12 @@ struct sp_inode_ctx {
 };
 typedef struct sp_inode_ctx sp_inode_ctx_t;
 
+struct sp_private {
+        struct mem_pool  *mem_pool;
+        gf_lock_t        lock;
+};
+typedef struct sp_private sp_private_t;
+
 void sp_local_free (sp_local_t *local);
 
 #define SP_STACK_UNWIND(op, frame, params ...) do { \
