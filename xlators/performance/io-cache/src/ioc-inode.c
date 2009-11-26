@@ -177,16 +177,6 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
         no_of_pages = (table->cache_size / table->page_size)
                 + ((table->cache_size % table->page_size) ? 1 : 0);
 
-	/* initialize the list for pages */
-        ioc_inode->cache.page_table = rbthash_table_init (IOC_PAGE_TABLE_BUCKET_COUNT,
-                                                          ioc_hashfn, NULL,
-                                                          no_of_pages);
-        if (ioc_inode->cache.page_table == NULL) {
-                FREE (ioc_inode);
-                ioc_inode = NULL;
-                goto out;
-        }
-
 	INIT_LIST_HEAD (&ioc_inode->cache.page_lru);
 
 	ioc_table_lock (table);

@@ -79,9 +79,21 @@ err:
 }
 
 
+/*
+ * rbthash_table_init - Initialize a RBT based hash table
+ * @buckets - Number of buckets in the hash table
+ * @hfunc   - hashing function
+ * @dfunc   - destroyer for data in the RBT
+ * @expected_entries - Number of entries expected in RBT. Mutually exclusive
+ * with entrypool.
+ * @entrypool -  Memory pool in lieu of expected_entries.
+ */
+
 rbthash_table_t *
-rbthash_table_init (int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc,
-                    unsigned long expected_entries)
+rbthash_table_init (int buckets, rbt_hasher_t hfunc,
+                    rbt_data_destroyer_t dfunc,
+                    unsigned long expected_entries,
+                    struct mem_pool *entrypool)
 {
         rbthash_table_t         *newtab = NULL;
         int                     ret = -1;
@@ -90,6 +102,19 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc,
                 gf_log (GF_RBTHASH, GF_LOG_ERROR, "Hash function not given");
                 return NULL;
         }
+
+        if (!entrypool && !expected_entries) {
+                gf_log (GF_RBTHASH, GF_LOG_ERROR,
+                        "Both mem-pool and expected entries not provided");
+                return NULL;
+        }
+
+        if (entrypool && expected_entries) {
+                gf_log (GF_RBTHASH, GF_LOG_ERROR,
+                        "Both mem-pool and expected entries are provided");
+                return NULL;
+        }
+
 
         newtab = CALLOC (1, sizeof (*newtab));
         if (!newtab)
@@ -101,10 +126,17 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc,
                 goto free_newtab;
         }
 
-        newtab->entrypool =  mem_pool_new (rbthash_entry_t, expected_entries);
-        if (!newtab->entrypool) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR,"Failed to allocate mem-pool");
-                goto free_buckets;
+        if (expected_entries) {
+                newtab->entrypool =
+                        mem_pool_new (rbthash_entry_t, expected_entries);
+                if (!newtab->entrypool) {
+                        gf_log (GF_RBTHASH, GF_LOG_ERROR,
+                                "Failed to allocate mem-pool");
+                        goto free_buckets;
+                }
+                newtab->pool_alloced = _gf_true;
+        } else {
+                newtab->entrypool = entrypool;
         }
 
         LOCK_INIT (&newtab->tablelock);
@@ -113,13 +145,16 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc, rbt_data_destroyer_t dfunc,
 
         if (ret == -1) {
                 gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to init buckets");
-                mem_pool_destroy (newtab->entrypool);
-        } else
+                if (newtab->pool_alloced)
+                        mem_pool_destroy (newtab->entrypool);
+        } else {
                 gf_log (GF_RBTHASH, GF_LOG_TRACE, "Inited hash table: buckets:"
                         " %d", buckets);
+        }
 
         newtab->hashfunc = hfunc;
         newtab->dfunc = dfunc;
+
 free_buckets:
         if (ret == -1)
                 FREE (newtab->buckets);
@@ -132,7 +167,6 @@ free_newtab:
 
         return newtab;
 }
-
 
 rbthash_entry_t *
 rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
@@ -381,7 +415,8 @@ rbthash_table_destroy (rbthash_table_t *tbl)
                 return;
 
         rbthash_table_destroy_buckets (tbl);
-        mem_pool_destroy (tbl->entrypool);
+        if (tbl->pool_alloced)
+                mem_pool_destroy (tbl->entrypool);
 
         FREE (tbl->buckets);
         FREE (tbl);

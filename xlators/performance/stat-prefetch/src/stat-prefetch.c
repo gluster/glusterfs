@@ -171,10 +171,12 @@ sp_cache_init (void)
 
         cache = CALLOC (1, sizeof (*cache));
         if (cache) {
-                cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
-                                                   sp_hashfn,
-                                                   free,
-                                                   GF_SP_CACHE_ENTRIES_EXPECTED);
+                cache->table =
+                        rbthash_table_init (GF_SP_CACHE_BUCKETS,
+                                            sp_hashfn,
+                                            free,
+                                            GF_SP_CACHE_ENTRIES_EXPECTED,
+                                            NULL);
                 if (cache->table == NULL) {
                         FREE (cache);
                         cache = NULL;
@@ -216,7 +218,8 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                         cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
                                                            sp_hashfn,
                                                            free,
-                                                           GF_SP_CACHE_ENTRIES_EXPECTED);
+                                                           GF_SP_CACHE_ENTRIES_EXPECTED,
+                                                           NULL);
                         if (cache->table == NULL) {
                                 cache->table = table;
                         } else {

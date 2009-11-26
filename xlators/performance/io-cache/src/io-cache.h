@@ -41,7 +41,7 @@
 
 #define IOC_PAGE_SIZE    (1024 * 128)   /* 128KB */
 #define IOC_CACHE_SIZE   (32 * 1024 * 1024)
-#define IOC_PAGE_TABLE_BUCKET_COUNT 4096
+#define IOC_PAGE_TABLE_BUCKET_COUNT 1
 
 struct ioc_table;
 struct ioc_local;
@@ -169,6 +169,7 @@ struct ioc_table {
 	uint32_t         inode_count;
 	int32_t          cache_timeout;
 	int32_t          max_pri;
+        struct mem_pool  *mem_pool;
 };
 
 typedef struct ioc_table ioc_table_t;
@@ -332,4 +333,6 @@ ioc_prune (ioc_table_t *table);
 int32_t
 ioc_need_prune (ioc_table_t *table);
 
+inline uint32_t
+ioc_hashfn (void *data, int len);
 #endif /* __IO_CACHE_H */

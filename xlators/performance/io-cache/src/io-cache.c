@@ -891,6 +891,13 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	ioc_inode_t  *ioc_inode = NULL;
 	ioc_local_t  *local = NULL;
 	uint32_t     weight = 0;
+        ioc_table_t  *table = NULL;
+        uint32_t     num_pages = 0;
+        int32_t      op_errno = -1;
+
+        if (!this) {
+                goto out;
+        }
 
 	inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
 	ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
@@ -902,6 +909,47 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                             offset);
 		return 0;
 	}
+
+
+        table = this->private;
+
+        if (!table) {
+                gf_log (this->name, GF_LOG_ERROR, "table is null");
+                op_errno = EINVAL;
+                goto out;
+        }
+
+
+        ioc_table_lock (table);
+        if (!table->mem_pool) {
+
+                num_pages = (table->cache_size / table->page_size)
+                        + ((table->cache_size % table->page_size) ? 1 : 0);
+
+                table->mem_pool
+                        =  mem_pool_new (rbthash_entry_t, num_pages);
+
+                if (!table->mem_pool) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unable to allocate mem_pool");
+                        op_errno = ENOMEM;
+                        ioc_table_unlock (table);
+                        goto out;
+                }
+        }
+        ioc_table_unlock (table);
+
+        if (!ioc_inode->cache.page_table) {
+                ioc_inode->cache.page_table
+                        = rbthash_table_init (IOC_PAGE_TABLE_BUCKET_COUNT,
+                                              ioc_hashfn, NULL, 0,
+                                              table->mem_pool);
+
+                if (ioc_inode->cache.page_table == NULL) {
+                        op_errno = ENOMEM;
+                        goto out;
+                }
+        }
 
 	if (!fd_ctx_get (fd, this, NULL)) {
 		/* disable caching for this fd, go ahead with normal readv */
@@ -915,9 +963,8 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	local = (ioc_local_t *) CALLOC (1, sizeof (ioc_local_t));
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0, NULL,
-                                     NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto out;
         }
 
 	INIT_LIST_HEAD (&local->fill_list);
@@ -943,8 +990,11 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	ioc_table_unlock (ioc_inode->table);
 
 	ioc_dispatch_requests (frame, ioc_inode, fd, offset, size);
-  
 	return 0;
+
+out:
+        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
+        return 0;
 }
 
 /*
