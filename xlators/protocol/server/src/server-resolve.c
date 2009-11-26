@@ -229,7 +229,7 @@ resolve_path_deep (call_frame_t *frame)
         this  = frame->this;
         resolve = state->resolve_now;
 
-        gf_log (BOUND_XL (frame)->name, GF_LOG_WARNING,
+        gf_log (BOUND_XL (frame)->name, GF_LOG_DEBUG,
                 "RESOLVE %s() seeking deep resolution of %s",
                 gf_fop_list[frame->root->op], resolve->path);
 
