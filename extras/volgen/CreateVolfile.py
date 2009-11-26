@@ -7,24 +7,28 @@ cache_size = "1GB"
 
 class CreateVolfile:
 
-    def __init__ (self, servers, server, volume_name,
-                  transport, transports, port, auth_param,
-                  ib_port, confdir, args):
-        self.hosts = servers
+    def __init__ (self, server_dict, server, transport,
+                  transports, options, server_array):
+
+        self.host_dict = server_dict
         self.host = server
-        self.volume_name = volume_name
+        self.volume_name = options.volume_name
         self.transport = transport
         self.transports = transports
-        self.gfs_port = port
-        self.gfs_ib_port = port + 1
-        self.auth_parameters = auth_param
-        self.ib_devport = ib_port
-        self.num_servers = len (self.hosts.keys())
-        self.conf_dir = confdir
-        self.arguments = args
+        self.gfs_port = options.port
+        self.gfs_ib_port = options.port + 1
+        self.auth_parameters = options.auth_param
+        self.raid_type = options.raid_type
+        self.ib_devport = options.ib_dev
+        self.num_servers = len (self.host_dict.keys())
+        self.conf_dir = options.conf_dir
+        self.host_array = server_array
+        self.unused = options.unused
+        self.debug = options.debug
 
-    def create_mount_volfile (self, raid_type):
+    def create_mount_volfile (self):
 
+        raid_type = self.raid_type
 
         if self.conf_dir:
             mount_fd = file ("%s/%s-%s.vol" % (self.conf_dir,
@@ -35,9 +39,6 @@ class CreateVolfile:
                                             str(self.transport)), "w")
 
         print "Generating client volfiles.. for transport '%s'" % (self.transport)
-
-        num_stripe = 4
-        num_replica = 2
 
 
         cmdline = string.join (sys.argv, ' ')
@@ -52,9 +53,9 @@ class CreateVolfile:
 
         mount_fd.write ("# TRANSPORT-TYPE %s\n" % self.transport)
         subvolumes = []
-        for host in self.hosts.keys():
+        for host in self.host_dict.keys():
             i = 1
-            for exports in self.hosts[host]:
+            for exports in self.host_dict[host]:
                 mount_fd.write ("volume %s-%s\n" % (host,i))
                 mount_fd.write ("    type protocol/client\n")
                 mount_fd.write ("    option transport-type %s\n" %
@@ -88,24 +89,13 @@ class CreateVolfile:
                 i += 1
 
         exportlist = {}
-        for entry in self.arguments:
+        for entry in self.host_array:
             node = entry.split(':')[0]
             if not exportlist.has_key(node):
                 exportlist[node] = 1
             else:
                 exportlist[node] += 1
             subvolumes.append(str(node) + '-' + str(exportlist[node]))
-
-
-        if raid_type == 1:
-            if (len(subvolumes) % num_replica) != 0:
-                print "raid type (%d) and number of volumes (%d) invalid" % (raid_type, len(subvolumes))
-                sys.exit (1)
-
-        if raid_type == 0:
-            if (len(subvolumes) % num_stripe) != 0:
-                print "raid type (%d) and number of volumes (%d) invalid" % (raid_type, len(subvolumes))
-                sys.exit (1)
 
         # Stripe section.. if given
         if raid_type is 0:
@@ -115,6 +105,10 @@ class CreateVolfile:
             while index < max_stripe_idx:
                 mount_fd.write ("volume stripe-%d\n" % index)
                 mount_fd.write ("    type cluster/stripe\n")
+                if self.unused:
+                    mount_fd.write ("#    option block-size 128k\n")
+                    mount_fd.write ("#    option use-xattr no\n")
+
                 mount_fd.write ("    subvolumes %s %s %s %s\n" %
                                 (subvolumes[stripe_idx],
                                  subvolumes[stripe_idx+1],
@@ -156,6 +150,11 @@ class CreateVolfile:
         if len (subvolumes) > 1:
             mount_fd.write ("volume distribute\n")
             mount_fd.write ("    type cluster/distribute\n")
+            if self.unused:
+                mount_fd.write("# option unhashed-sticky-bit yes # Used for migrating data while adding new nodes\n")
+                mount_fd.write("# option min-free-disk 5% # Minimum free disk available on the volume\n")
+
+
             mount_fd.write ("    subvolumes %s\n" %
                                  string.join (subvolumes,' '))
             mount_fd.write ("end-volume\n\n")
@@ -164,13 +163,42 @@ class CreateVolfile:
         mount_fd.write ("volume writebehind\n")
         mount_fd.write ("    type performance/write-behind\n")
         mount_fd.write ("    option cache-size 4MB\n")
+        if self.unused:
+            mount_fd.write ("#   option enable-trickling-writes yes # Flush final write calls when network is free\n")
+            mount_fd.write ("#   option enable-O_SYNC yes # Enable O_SYNC for write-behind\n")
+            mount_fd.write ("#   option disable-for-first-nbytes 1 # Disable first nbytes with very small initial writes\n")
+
         mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
         mount_fd.write ("end-volume\n\n")
 
-        mount_fd.write ("volume io-cache\n")
+        mount_fd.write ("volume readahead\n")
+        mount_fd.write ("    type performance/read-ahead\n")
+        mount_fd.write ("    option page-count 4\n")
+
+        if self.unused:
+            mount_fd.write ("#   option force-atime-update yes # force updating atimes, default off\n")
+        mount_fd.write ("    subvolumes writebehind\n")
+        mount_fd.write ("end-volume\n\n")
+
+        mount_fd.write ("volume iocache\n")
         mount_fd.write ("    type performance/io-cache\n")
         mount_fd.write ("    option cache-size %s\n" % cache_size)
-        mount_fd.write ("    subvolumes writebehind\n")
+        mount_fd.write ("    option cache-timeout 1\n")
+        if self.unused:
+            mount_fd.write ("#   option priority *.html:1,abc*:2 # Priority list for iocaching files\n")
+        mount_fd.write ("    subvolumes readahead\n")
+        mount_fd.write ("end-volume\n\n")
+
+        mount_fd.write ("volume quickread\n")
+        mount_fd.write ("    type performance/quick-read\n")
+        mount_fd.write ("    option cache-timeout 1\n")
+        mount_fd.write ("    option max-file-size 64kB\n")
+        mount_fd.write ("    subvolumes iocache\n")
+        mount_fd.write ("end-volume\n\n")
+
+        mount_fd.write ("volume statprefetch\n")
+        mount_fd.write ("    type performance/stat-prefetch\n")
+        mount_fd.write ("    subvolumes quickread\n")
         mount_fd.write ("end-volume\n\n")
 
         return
@@ -195,20 +223,35 @@ class CreateVolfile:
         exp_fd.write ("# $ %s\n\n" % cmdline)
         total_bricks = []
         i=1
-        for export in self.hosts[self.host]:
+        for export in self.host_dict[self.host]:
             exp_fd.write ("volume posix%d\n" % i)
             exp_fd.write ("  type storage/posix\n")
+            if self.unused:
+                exp_fd.write("# option o-direct enable # (default: disable) boolean type only\n")
+                exp_fd.write("# option export-statfs-size no # (default: yes) boolean type only\n")
+                exp_fd.write("# option mandate-attribute off # (default: on) boolean type only\n")
+                exp_fd.write("# option span-devices 8 # (default: 0) integer value\n")
+                exp_fd.write("# option background-unlink yes # (default: no) boolean type\n")
+
             exp_fd.write ("  option directory %s\n" % export)
             exp_fd.write ("end-volume\n\n")
 
             exp_fd.write ("volume locks%d\n" % i)
             exp_fd.write ("    type features/locks\n")
+            if self.unused:
+                exp_fd.write ("#   option mandatory on # Default off, used in specific applications\n")
+
             exp_fd.write ("    subvolumes posix%d\n" % i)
             exp_fd.write ("end-volume\n\n")
 
             exp_fd.write ("volume brick%d\n" % i)
             exp_fd.write ("    type performance/io-threads\n")
             exp_fd.write ("    option thread-count 8\n")
+            if self.unused:
+                exp_fd.write ("#    option autoscaling yes # Heuristic for autoscaling threads on demand\n")
+                exp_fd.write ("#    option min-threads 2 # min count for thread pool\n")
+                exp_fd.write ("#    option max-threads 64 # max count for thread pool\n")
+
             exp_fd.write ("    subvolumes locks%d\n" % i)
             exp_fd.write ("end-volume\n\n")
 
