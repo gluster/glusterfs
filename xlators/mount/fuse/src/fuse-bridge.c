@@ -3238,7 +3238,7 @@ fuse_priv_dump (xlator_t  *this)
                             private->direct_io_mode);
         gf_proc_dump_write("xlator.mount.fuse.entry_timeout", "%lf",
                             private->entry_timeout);
-        gf_proc_dump_write("xlator.mount.fuse.entry_timeout", "%lf",
+        gf_proc_dump_write("xlator.mount.fuse.attribute_timeout", "%lf",
                             private->attribute_timeout);
         gf_proc_dump_write("xlator.mount.fuse.first_call", "%d",
                             (int)private->first_call);
