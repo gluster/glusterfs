@@ -377,7 +377,7 @@ transport_unref (transport_t *this)
 	pthread_mutex_unlock (&this->lock);
 
 	if (refcount == 0) {
-		this->xl->notify (this->xl, GF_EVENT_TRANSPORT_CLEANUP, this);
+		xlator_notify (this->xl, GF_EVENT_TRANSPORT_CLEANUP, this);
 		transport_destroy (this);
 	}
 	
@@ -411,7 +411,7 @@ transport_peerproc (void *trans_data)
 
                 trans->handover.msg = msg;
 
-                trans->xl->notify (trans->xl, GF_EVENT_POLLIN, trans);
+                xlator_notify (trans->xl, GF_EVENT_POLLIN, trans);
 
                 FREE (msg);
         }
