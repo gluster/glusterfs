@@ -6162,7 +6162,7 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         }
 
         if (op_ret < 0) {
-                gf_log (trans->xl->name, GF_LOG_DEBUG,
+                gf_log (trans->xl->name, GF_LOG_ERROR,
                         "SETVOLUME on remote-host failed: %s",
                         remote_error ? remote_error : strerror (op_errno));
                 errno = op_errno;
