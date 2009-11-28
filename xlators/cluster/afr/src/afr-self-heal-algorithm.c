@@ -698,15 +698,11 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
 
                 sh->op_failed = 1;
-
-                sh_diff_loop_return (rw_frame, this, loop_state);
-
-                return 0;
+        } else {
+                memcpy ((void *) sh_priv->checksum + loop_state->child_index * MD5_DIGEST_LEN,
+                        strong_checksum,
+                        MD5_DIGEST_LEN);
         }
-
-        memcpy ((void *) sh_priv->checksum + loop_state->child_index * MD5_DIGEST_LEN,
-                strong_checksum,
-                MD5_DIGEST_LEN);
 
         call_count = afr_frame_return (rw_frame);
 
@@ -732,7 +728,7 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                         }
                 }
 
-                if (write_needed) {
+                if (write_needed && !sh->op_failed) {
                         sh_diff_read (rw_frame, this, loop_state);
                 } else {
                         sh->offset += sh_priv->block_size;
