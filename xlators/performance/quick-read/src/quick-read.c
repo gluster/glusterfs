@@ -2274,14 +2274,14 @@ struct xlator_dumpops dumpops = {
 };
 
 struct volume_options options[] = {
-        { .key  = {"cache-timeout"}, 
+        { .key  = {"cache-timeout"},
           .type = GF_OPTION_TYPE_INT,
           .min = 1,
           .max = 60
         },
-        { .key  = {"max-file-size"}, 
-          .type = GF_OPTION_TYPE_SIZET, 
+        { .key  = {"max-file-size"},
+          .type = GF_OPTION_TYPE_SIZET,
           .min  = 0,
-          .max  = 1 * GF_UNIT_MB 
+          .max  = 1 * GF_UNIT_KB * 1000,
         },
 };
