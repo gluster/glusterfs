@@ -127,6 +127,10 @@ performance/io-cache:
 	* page-size	            GF_OPTION_TYPE_SIZET  (16 * GF_UNIT_KB)-(4 * GF_UNIT_MB) 
         * cache-size                GF_OPTION_TYPE_SIZET  (4 * GF_UNIT_MB)-(6 * GF_UNIT_GB)
 
+performance/quick-read:
+        * cache-timeout             GF_OPTION_TYPE_INT    1-60
+        * max-file-size             GF_OPTION_TYPE_SIZET  0-(1000 * GF_UNIT_KB)
+
 auth:
 - addr:
 	* auth.addr.*.allow	    GF_OPTION_TYPE_ANY 
