@@ -5444,13 +5444,7 @@ server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
         state->offset = ntoh64 (req->offset);
         state->size   = ntoh32 (req->len);
 
-        GF_VALIDATE_OR_GOTO(bound_xl->name, state->fd, fail);
-
         resolve_and_resume (frame, server_rchecksum_resume);
-
-        return 0;
-fail:
-        server_rchecksum_cbk (frame, NULL, frame->this, -1, EINVAL, 0, NULL);
 
         return 0;
 }
