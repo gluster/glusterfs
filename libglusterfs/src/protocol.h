@@ -925,6 +925,14 @@ typedef struct {
 typedef struct {
 } __attribute__((packed)) gf_mop_ping_rsp_t;
 
+typedef struct {
+	uint32_t  flags;
+        char buf[0];
+} __attribute__((packed)) gf_mop_notify_req_t;
+typedef struct {
+	uint32_t  flags;
+        char buf[0];
+} __attribute__((packed)) gf_mop_notify_rsp_t;
 
 typedef struct {
 	uint64_t ino;
