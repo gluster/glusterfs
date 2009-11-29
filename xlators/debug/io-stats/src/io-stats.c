@@ -1393,7 +1393,7 @@ process_call_list (io_stats_private_t *priv, const char *list, int include)
 int32_t
 init (xlator_t *this)
 {
-        dict_t *options = this->options;
+        dict_t *options = NULL;
         char *includes = NULL, *excludes = NULL;
         io_stats_private_t *priv = NULL;
         size_t size = 0;
@@ -1415,6 +1415,7 @@ init (xlator_t *this)
         priv = CALLOC (1, sizeof(*priv));
         ERR_ABORT (priv);
 
+        options = this->options;
         includes = data_to_str (dict_get (options, "include-ops"));
         excludes = data_to_str (dict_get (options, "exclude-ops"));
 

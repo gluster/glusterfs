@@ -2423,7 +2423,7 @@ process_call_list (const char *list, int include)
 int32_t 
 init (xlator_t *this)
 {
-  dict_t *options = this->options;
+  dict_t *options = NULL;
   char *includes = NULL, *excludes = NULL;
   
   if (!this)
@@ -2440,6 +2440,7 @@ init (xlator_t *this)
   }
   
   
+  options = this->options;
   includes = data_to_str (dict_get (options, "include-ops"));
   excludes = data_to_str (dict_get (options, "exclude-ops"));
   

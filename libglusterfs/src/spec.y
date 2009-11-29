@@ -518,6 +518,7 @@ parse_backtick (FILE *srcfp, FILE *dstfp)
 					result = realloc (result,
                                                           2 * cmd_buf_size);
                                         if (result == NULL) {
+                                                free (cmd);
                                                 return -1;
                                         }
                                 }

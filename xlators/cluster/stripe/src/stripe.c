@@ -3594,8 +3594,10 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
         while (stripe_str) {
                 dup_str = strdup (stripe_str);
                 stripe_opt = CALLOC (1, sizeof (struct stripe_options));
-                if (!stripe_opt)
+                if (!stripe_opt) {
+                        FREE (dup_str);
                         goto out;
+                }
 
                 pattern = strtok_r (dup_str, ":", &tmp_str1);
                 num = strtok_r (NULL, ":", &tmp_str1);
