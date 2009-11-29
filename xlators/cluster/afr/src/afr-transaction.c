@@ -255,6 +255,7 @@ __if_fd_pre_op_done (xlator_t *this, fd_t *fd, int child_index)
                 if (fd_ctx->pre_op_done[child_index]) {
                         op_ret = 1;
                 }
+                fd_ctx->pre_op_done[child_index] = 0;
         }
 out:
         UNLOCK (&fd->lock);
