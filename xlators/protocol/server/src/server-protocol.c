@@ -43,8 +43,28 @@
 #include "statedump.h"
 #include "md5.h"
 
+
 void
-print_resolve_vars (char *str, int size, server_resolve_t *resolve)
+print_caller (char *str, int size, call_frame_t *frame)
+{
+        int              filled = 0;
+        server_state_t  *state = NULL;
+        transport_t     *trans = NULL;
+
+        state = CALL_STATE (frame);
+        trans = state->trans;
+
+        filled += snprintf (str + filled, size - filled,
+                            " Callid=%"PRId64", Client=%s",
+                            frame->root->unique,
+                            trans->peerinfo.identifier);
+
+        return;
+}
+
+
+void
+server_print_resolve (char *str, int size, server_resolve_t *resolve)
 {
         int filled = 0;
 
@@ -53,29 +73,33 @@ print_resolve_vars (char *str, int size, server_resolve_t *resolve)
                 return;
         }
 
-        if (resolve->fd_no)
-                filled += snprintf (str + filled, size - filled, "fd_no: %"PRId64" ", resolve->fd_no);
+        filled += snprintf (str + filled, size - filled,
+                            " Resolve={");
+        if (resolve->fd_no != -1)
+                filled += snprintf (str + filled, size - filled,
+                                    "fd=%"PRId64",", (uint64_t) resolve->fd_no);
         if (resolve->ino)
-                filled += snprintf (str + filled, size - filled, "ino: %llu ",
-                          (unsigned long long) resolve->ino);
-        if (resolve->gen)
-                filled += snprintf (str + filled, size - filled, "gen: %"PRIu64" ", resolve->gen);
+                filled += snprintf (str + filled, size - filled,
+                                    "ino=%"PRIu64",", (uint64_t) resolve->ino);
         if (resolve->par)
-                filled += snprintf (str + filled, size - filled, "par: %llu ",
-                          (unsigned long long) resolve->par);
-        if (resolve->path)
-                filled += snprintf (str + filled, size - filled, "path: %s ", resolve->path);
+                filled += snprintf (str + filled, size - filled,
+                                    "par=%"PRIu64",", (uint64_t) resolve->par);
+        if (resolve->gen)
+                filled += snprintf (str + filled, size - filled,
+                                    "gen=%"PRIu64",", (uint64_t) resolve->gen);
         if (resolve->bname)
-                filled += snprintf (str + filled, size - filled, "bname: %s ", resolve->bname);
-        if (resolve->resolved)
-                filled += snprintf (str + filled, size - filled, "resolved: %s ", resolve->resolved);
-        if (resolve->comp_count)
-                filled += snprintf (str + filled, size - filled, "comp_count: %d ", resolve->comp_count);
+                filled += snprintf (str + filled, size - filled,
+                                    "bname=%s,", resolve->bname);
+        if (resolve->path)
+                filled += snprintf (str + filled, size - filled,
+                                    "path=%s", resolve->path);
 
+        filled += snprintf (str + filled, size - filled, "}");
 }
 
+
 void
-print_loc_vars (char *str, int size, loc_t *loc)
+server_print_loc (char *str, int size, loc_t *loc)
 {
         int filled = 0;
 
@@ -84,102 +108,203 @@ print_loc_vars (char *str, int size, loc_t *loc)
                 return;
         }
 
+        filled += snprintf (str + filled, size - filled,
+                            " Loc={");
+
         if (loc->path)
-                filled += snprintf (str + filled, size - filled, "path: %s ", loc->path);
-        if (loc->name)
-                snprintf (str + filled, size - filled, "name: %s ", loc->name);
-        if (loc->ino)
-                snprintf (str + filled, size - filled, "ino: %llu ",
-                          (unsigned long long) loc->ino);
+                filled += snprintf (str + filled, size - filled,
+                                    "path=%s,", loc->path);
+        if (loc->inode)
+                filled += snprintf (str + filled, size - filled,
+                                    "inode=%p,", loc->inode);
+        if (loc->parent)
+                filled += snprintf (str + filled, size - filled,
+                                    "parent=%p", loc->parent);
 
-
+        filled += snprintf (str + filled, size - filled, "}");
 }
 
+
 void
-print_state_vars (char *str, int size, server_state_t *state)
+server_print_params (char *str, int size, server_state_t *state)
 {
         int filled = 0;
 
-        if (state->trans)
-                filled = snprintf (str + filled, size - filled, "transport: %p ", state->trans);
-        if (state->bound_xl)
-                filled += snprintf (str + filled, size - filled, "xlator: %s ",state->bound_xl->name);
-        if (state->valid)
-                filled += snprintf (str + filled, size - filled, "valid: %d ", state->valid);
-        if (state->flags)
-                filled += snprintf (str + filled, size - filled, "flags: %d ", state->flags);
-        if (state->wbflags)
-                filled += snprintf (str + filled, size - filled, "wbflags: %d ", state->wbflags);
-        if (state->size)
-                filled += snprintf (str + filled, size - filled, "size: %Zu ", state->size);
-        if (state->offset)
-                filled += snprintf (str + filled, size - filled, "offset: %llu ",
-                          (unsigned long long) state->offset);
-        if (state->cmd)
-                filled += snprintf (str + filled, size - filled, "cmd: %d ", state->cmd);
-        if (state->type)
-                filled += snprintf (str + filled, size - filled, "type: %d ", state->type);
-        if (state->name)
-                filled += snprintf (str + filled, size - filled, "name: %s ", state->name);
-        if (state->mask)
-                filled += snprintf (str + filled, size - filled, "mask: %d ", state->mask);
-        if (state->volume)
-                filled += snprintf (str + filled, size - filled, "volume: %s ", state->volume);
+        filled += snprintf (str + filled, size - filled,
+                            " Params={");
 
+        if (state->fd)
+                filled += snprintf (str + filled, size - filled,
+                                    "fd=%p,", state->fd);
+        if (state->valid)
+                filled += snprintf (str + filled, size - filled,
+                                    "valid=%d,", state->valid);
+        if (state->flags)
+                filled += snprintf (str + filled, size - filled,
+                                    "flags=%d,", state->flags);
+        if (state->wbflags)
+                filled += snprintf (str + filled, size - filled,
+                                    "wbflags=%d,", state->wbflags);
+        if (state->size)
+                filled += snprintf (str + filled, size - filled,
+                                    "size=%Zu,", state->size);
+        if (state->offset)
+                filled += snprintf (str + filled, size - filled,
+                                    "offset=%"PRId64",", state->offset);
+        if (state->cmd)
+                filled += snprintf (str + filled, size - filled,
+                                    "cmd=%d,", state->cmd);
+        if (state->type)
+                filled += snprintf (str + filled, size - filled,
+                                    "type=%d,", state->type);
+        if (state->name)
+                filled += snprintf (str + filled, size - filled,
+                                    "name=%s,", state->name);
+        if (state->mask)
+                filled += snprintf (str + filled, size - filled,
+                                    "mask=%d,", state->mask);
+        if (state->volume)
+                filled += snprintf (str + filled, size - filled,
+                                    "volume=%s,", state->volume);
+
+        filled += snprintf (str + filled, size - filled,
+                            "bound_xl=%s}", state->bound_xl->name);
 }
 
-void
-print_server_state (call_frame_t *frame, server_state_t *state, xlator_t *this, int request)
+
+int
+server_resolve_is_empty (server_resolve_t *resolve)
 {
-        server_conf_t *conf             = NULL;
-        char          resolve_vars[256];
-        char          resolve2_vars[256];
-        char          loc_vars[256];
-        char          loc2_vars[256];
-        char          other_vars[512];
+        if (resolve->fd_no != -1)
+                return 0;
+
+        if (resolve->ino != 0)
+                return 0;
+
+        if (resolve->gen != 0)
+                return 0;
+
+        if (resolve->par != 0)
+                return 0;
+
+        if (resolve->path != 0)
+                return 0;
+
+        if (resolve->bname != 0)
+                return 0;
+
+        return 1;
+}
+
+
+void
+server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
+{
+        server_conf_t   *conf = NULL;
+        server_state_t  *state = NULL;
+        xlator_t        *this = NULL;
+        char             caller[512];
+        char             fdstr[32];
+        char            *op = "UNKNOWN";
+
+        this = frame->this;
+        conf = this->private;
+
+        if (!conf->trace)
+                return;
+
+        state = CALL_STATE (frame);
+
+        print_caller (caller, 256, frame);
+
+        switch (frame->root->type) {
+        case GF_OP_TYPE_FOP_REQUEST:
+        case GF_OP_TYPE_FOP_REPLY:
+                op = gf_fop_list[frame->root->op];
+                break;
+        case GF_OP_TYPE_MOP_REQUEST:
+        case GF_OP_TYPE_MOP_REPLY:
+                op = gf_mop_list[frame->root->op];
+                break;
+        case GF_OP_TYPE_CBK_REQUEST:
+        case GF_OP_TYPE_CBK_REPLY:
+                op = gf_cbk_list[frame->root->op];
+                break;
+        }
+
+        fdstr[0] = '\0';
+        if (state->fd)
+                snprintf (fdstr, 128, " fd=%p", state->fd);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "%s%s => (%d, %d)%s",
+                op, caller, op_ret, op_errno, fdstr);
+}
+
+
+void
+server_print_request (call_frame_t *frame)
+{
+        server_conf_t   *conf = NULL;
+        xlator_t        *this = NULL;
+        server_state_t  *state = NULL;
+        char             resolve_vars[256];
+        char             resolve2_vars[256];
+        char             loc_vars[256];
+        char             loc2_vars[256];
+        char             other_vars[512];
+        char             caller[512];
+        char            *op = "UNKNOWN";
+
+        this = frame->this;
+        conf = this->private;
+
+        state = CALL_STATE (frame);
+
+        if (!conf->trace)
+                return;
 
         memset (resolve_vars, '\0', 256);
         memset (resolve2_vars, '\0', 256);
         memset (loc_vars, '\0', 256);
         memset (loc2_vars, '\0', 256);
-        memset (other_vars, '\0', 512);
+        memset (other_vars, '\0', 256);
 
-        conf = this->private;
-        if (!conf->trace)
-                return;
+        print_caller (caller, 256, frame);
 
-        if (request) {
-
-                print_resolve_vars (resolve_vars, 256, &state->resolve);
-                print_resolve_vars (resolve2_vars, 256, &state->resolve2);
-
-                print_loc_vars (loc_vars, 256, &state->loc);
-                print_loc_vars (loc2_vars, 256, &state->loc2);
-
-                print_state_vars (other_vars, 512, state);
-
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "[REQUEST] resolve = {%s} resolve2 = {%s} loc = {%s}"
-                        " loc2 = {%s} State Vars = {%s}",
-                        strlen (resolve_vars)  ? resolve_vars  : "<nul>",
-                        strlen (resolve2_vars) ? resolve2_vars : "<nul>",
-                        strlen (loc_vars)      ? loc_vars      : "<nul>",
-                        strlen (loc2_vars)     ? loc2_vars     : "<nul>",
-                        strlen (other_vars)    ? other_vars    : "<nul>"
-                        );
-        } else {
-
-                print_loc_vars (loc_vars, 256, &state->loc);
-                print_state_vars (other_vars, 512, state);
-
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "[REPLY] loc = {%s}  State Vars = {%s}",
-                        strlen (loc_vars) ? loc_vars : "<nul>",
-                        strlen (other_vars) ? other_vars : "<nul>"
-                        );
+        if (!server_resolve_is_empty (&state->resolve)) {
+                server_print_resolve (resolve_vars, 256, &state->resolve);
+                server_print_loc (loc_vars, 256, &state->loc);
         }
 
+        if (!server_resolve_is_empty (&state->resolve2)) {
+                server_print_resolve (resolve2_vars, 256, &state->resolve2);
+                server_print_loc (loc2_vars, 256, &state->loc2);
+        }
+
+        server_print_params (other_vars, 512, state);
+
+        switch (frame->root->type) {
+        case GF_OP_TYPE_FOP_REQUEST:
+        case GF_OP_TYPE_FOP_REPLY:
+                op = gf_fop_list[frame->root->op];
+                break;
+        case GF_OP_TYPE_MOP_REQUEST:
+        case GF_OP_TYPE_MOP_REPLY:
+                op = gf_mop_list[frame->root->op];
+                break;
+        case GF_OP_TYPE_CBK_REQUEST:
+        case GF_OP_TYPE_CBK_REPLY:
+                op = gf_cbk_list[frame->root->op];
+                break;
+        }
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "%s%s%s%s%s%s%s",
+                gf_fop_list[frame->root->op], caller,
+                resolve_vars, loc_vars, resolve2_vars, loc2_vars, other_vars);
 }
+
 
 static void
 protocol_server_reply (call_frame_t *frame, int type, int op,
@@ -203,7 +328,8 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
         hdr->type   = hton32 (type);
         hdr->op     = hton32 (op);
 
-        print_server_state (frame, state, this, 0);
+        server_print_reply (frame, ntoh32 (hdr->rsp.op_ret),
+                            gf_error_to_errno (ntoh32 (hdr->rsp.op_errno)));
 
         ret = transport_submit (trans, (char *)hdr, hdrlen, vector,
                                 count, iobref);
