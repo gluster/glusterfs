@@ -195,6 +195,9 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
         
         call_count--;
 
+        if (call_count == 0)
+                return 0;
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->sources[i] || !local->child_up[i])
 			continue;
