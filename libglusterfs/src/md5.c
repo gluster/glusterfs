@@ -294,6 +294,8 @@ int main(int argc, char *argv[])
 		while ((i = fread(buf, 1, sizeof buf, f)) > 0)
 			md5_update(&ctx, buf, i);
 
+		fclose(f);
+
 		md5_result(&ctx, md5sum);
 
 		for (j = 0; j < MD5_DIGEST_LEN; j++)
