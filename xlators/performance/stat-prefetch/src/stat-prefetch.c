@@ -109,9 +109,6 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
 
                 if (!(inode_ctx->looked_up || inode_ctx->lookup_in_progress)) {
-                        *need_lookup = 1;
-                        inode_ctx->lookup_in_progress = 1;
-
                         if (frame->local == NULL) {
                                 local = CALLOC (1, sizeof (*local));
                                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
@@ -130,6 +127,9 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                         goto unlock;
                                 }
                         }
+
+                        *need_lookup = 1;
+                        inode_ctx->lookup_in_progress = 1;
                 } 
 
                 if (inode_ctx->looked_up) {
