@@ -154,6 +154,11 @@ out:
         return 0;
 }
 
+int32_t
+trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, inode_t *inode,
+                        struct stat *stbuf, struct stat *preparent,
+                        struct stat *postparent);
 
 int32_t
 trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -227,6 +232,18 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
+int
+trash_common_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct stat *stbuf,
+                         struct stat *preoldparent, struct stat *postoldparent,
+                         struct stat *prenewparent, struct stat *postnewparent)
+{
+        TRASH_STACK_UNWIND (frame, op_ret, op_errno, stbuf, preoldparent,
+                            postoldparent, prenewparent, postnewparent);
+        return 0;
+}
+
+
 int32_t
 trash_unlink_stat_cbk (call_frame_t *frame,  void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct stat *buf)
@@ -278,6 +295,246 @@ fail:
 
 }
 
+int32_t
+trash_rename_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, struct stat *buf,
+                         struct stat *preoldparent, struct stat *postoldparent,
+                         struct stat *prenewparent, struct stat *postnewparent)
+{
+        trash_local_t *local    = NULL;
+        char          *tmp_str  = NULL;
+        char          *dir_name = NULL;
+        char          *tmp_path = NULL;
+        loc_t          tmp_loc  = {0,};
+
+        local = frame->local;
+        if ((op_ret == -1) && (op_errno == ENOENT)) {
+                tmp_str  = strdup (local->newpath);
+                if (!tmp_str) {
+                        gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                }
+                dir_name = dirname (tmp_str);
+
+                /* check for the errno, if its ENOENT create directory and call
+                 * rename later
+                 */
+                tmp_path = strdup (dir_name);
+                if (!tmp_path) {
+                        gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                }
+                tmp_loc.path = tmp_path;
+
+                /* TODO: create the directory with proper permissions */
+                STACK_WIND_COOKIE (frame, trash_rename_mkdir_cbk, tmp_path,
+                                   this->children->xlator,
+                                   this->children->xlator->fops->mkdir,
+                                   &tmp_loc, 0755);
+
+                free (tmp_str);
+                return 0;
+        }
+
+        if ((op_ret == -1) && (op_errno == ENOTDIR)) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "target(%s) exists, cannot keep the dest entry(%s): "
+                        "renaming", local->newpath, local->origpath);
+        } else if ((op_ret == -1) && (op_errno == EISDIR)) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "target(%s) exists as a directory, cannot keep the "
+                        "copy (%s), renaming", local->newpath, local->origpath);
+        }
+
+        STACK_WIND (frame, trash_common_rename_cbk,
+                    this->children->xlator,
+                    this->children->xlator->fops->rename, &local->loc,
+                    &local->newloc);
+
+        return 0;
+}
+
+
+int32_t
+trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, inode_t *inode,
+                        struct stat *stbuf, struct stat *preparent,
+                        struct stat *postparent)
+{
+        trash_local_t *local = NULL;
+        char          *tmp_str = NULL;
+        char          *tmp_path = NULL;
+        char          *tmp_dirname = NULL;
+        char          *dir_name = NULL;
+        int32_t        count = 0;
+        loc_t          tmp_loc = {0,};
+
+        local   = frame->local;
+        tmp_str = strdup (local->newpath);
+        if (!tmp_str) {
+                gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+        }
+
+        if ((op_ret == -1) && (op_errno == ENOENT)) {
+                tmp_dirname = strchr (tmp_str, '/');
+                while (tmp_dirname) {
+                        count = tmp_dirname - tmp_str;
+                        if (count == 0)
+                                count = 1;
+
+                        tmp_dirname = strchr (tmp_str + count + 1, '/');
+
+                        tmp_path = strndup (local->newpath, count);
+                        if (!tmp_path) {
+                                gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                        }
+
+                        tmp_loc.path = tmp_path;
+
+                        /* TODO: create the directory with proper permissions */
+                        STACK_WIND_COOKIE (frame, trash_rename_mkdir_cbk,
+                                           tmp_path,  this->children->xlator,
+                                           this->children->xlator->fops->mkdir,
+                                           &tmp_loc, 0755);
+                }
+
+                goto out;
+        }
+
+        dir_name = dirname (tmp_str);
+        if (strcmp ((char*)cookie, dir_name) == 0) {
+                tmp_loc.path = local->newpath;
+
+                STACK_WIND (frame, trash_rename_rename_cbk,
+                            this->children->xlator,
+                            this->children->xlator->fops->rename,
+                            &local->newloc, &tmp_loc);
+        }
+
+out:
+        free (cookie); /* strdup (dir_name) was sent here :) */
+        free (tmp_str);
+
+        return 0;
+}
+
+int32_t
+trash_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, inode_t *inode,
+                         struct stat *buf, dict_t *xattr,
+                         struct stat *postparent)
+{
+        trash_private_t *priv = NULL;
+        trash_local_t   *local = NULL;
+        loc_t            tmp_loc = {0,};
+
+        local = frame->local;
+        priv  = this->private;
+
+        if (op_ret == -1) {
+                STACK_WIND (frame, trash_common_rename_cbk,
+                            this->children->xlator,
+                            this->children->xlator->fops->rename,
+                            &local->loc, &local->newloc);
+                return 0;
+        }
+        if ((buf->st_size == 0) ||
+            (buf->st_size > priv->max_trash_file_size)) {
+                /* if the file is too big or zero, just unlink it */
+
+                if (buf->st_size > priv->max_trash_file_size) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s: file size too big (%"GF_PRI_SIZET") to "
+                                "move into trash directory",
+                                local->newloc.path, buf->st_size);
+                }
+
+                STACK_WIND (frame, trash_common_rename_cbk,
+                            this->children->xlator,
+                            this->children->xlator->fops->rename,
+                            &local->loc, &local->newloc);
+                return 0;
+        }
+
+        tmp_loc.path = local->newpath;
+
+        STACK_WIND (frame, trash_rename_rename_cbk,
+                    this->children->xlator,
+                    this->children->xlator->fops->rename,
+                    &local->newloc, &tmp_loc);
+
+        return 0;
+}
+
+
+int32_t
+trash_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
+              loc_t *newloc)
+{
+        trash_elim_pattern_t  *trav  = NULL;
+        trash_private_t *priv = NULL;
+        trash_local_t   *local = NULL;
+        struct tm       *tm = NULL;
+        char             timestr[256] = {0,};
+        time_t           utime = 0;
+        int32_t          match = 0;
+
+        priv = this->private;
+        if (priv->eliminate) {
+                trav = priv->eliminate;
+                while (trav) {
+                        if (fnmatch(trav->pattern, newloc->name, 0) == 0) {
+                                match++;
+                                break;
+                        }
+                        trav = trav->next;
+                }
+        }
+
+        if ((strncmp (oldloc->path, priv->trash_dir,
+                      strlen (priv->trash_dir)) == 0) || match) {
+                /* Trying to rename from the trash dir,
+                   do the actual rename */
+                STACK_WIND (frame, trash_common_rename_cbk,
+                            this->children->xlator,
+                            this->children->xlator->fops->rename,
+                            oldloc, newloc);
+
+                return 0;
+        }
+
+        local = CALLOC (1, sizeof (trash_local_t));
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                TRASH_STACK_UNWIND (frame, -1, ENOMEM,
+                                    NULL, NULL, NULL, NULL, NULL);
+                return 0;
+        }
+
+        frame->local = local;
+        loc_copy (&local->loc, oldloc);
+
+        loc_copy (&local->newloc, newloc);
+
+        strcpy (local->origpath, newloc->path);
+        strcpy (local->newpath, priv->trash_dir);
+        strcat (local->newpath, newloc->path);
+
+        {
+                /* append timestamp to file name */
+                /* TODO: can we make it optional? */
+                utime = time (NULL);
+                tm    = localtime (&utime);
+                strftime (timestr, 256, ".%Y-%m-%d-%H%M%S", tm);
+                strcat (local->newpath, timestr);
+        }
+
+        /* Send a lookup call on newloc, to ensure we are not
+           overwriting */
+        STACK_WIND (frame, trash_rename_lookup_cbk,
+                    this->children->xlator,
+                    this->children->xlator->fops->lookup, newloc, 0);
+
+        return 0;
+}
 
 int32_t
 trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
@@ -467,6 +724,7 @@ fini (xlator_t *this)
 
 struct xlator_fops fops = {
         .unlink = trash_unlink,
+        .rename = trash_rename,
 };
 
 struct xlator_mops mops = {
