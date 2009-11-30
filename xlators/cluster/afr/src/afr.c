@@ -487,25 +487,180 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this)
 }
 
 
-int
-afr_lookup_cbk (call_frame_t *frame, void *cookie,
-		xlator_t *this,	int32_t op_ret,	int32_t op_errno,
-                inode_t *inode,	struct stat *buf, dict_t *xattr,
-                struct stat *postparent)
+static void
+afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
+                          int child_index, dict_t *xattr)
 {
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
-	struct stat *   lookup_buf = NULL;
-        
-	int             call_count      = -1;
-	int             child_index     = -1;
-        int             first_up_child  = -1;
-
 	uint32_t        open_fd_count = 0;
         uint32_t        inodelk_count = 0;
         uint32_t        entrylk_count = 0;
 
-	int             ret = 0;
+        int ret = 0;
+
+        if (afr_sh_has_metadata_pending (xattr, child_index, this))
+                local->self_heal.need_metadata_self_heal = _gf_true;
+
+        if (afr_sh_has_entry_pending (xattr, child_index, this))
+                local->self_heal.need_entry_self_heal = _gf_true;
+
+        if (afr_sh_has_data_pending (xattr, child_index, this))
+                local->self_heal.need_data_self_heal = _gf_true;
+
+        ret = dict_get_uint32 (xattr, GLUSTERFS_OPEN_FD_COUNT,
+                               &open_fd_count);
+        if (ret == 0)
+                local->open_fd_count += open_fd_count;
+
+        ret = dict_get_uint32 (xattr, GLUSTERFS_INODELK_COUNT,
+                               &inodelk_count);
+        if (ret == 0)
+                local->inodelk_count += inodelk_count;
+
+        ret = dict_get_uint32 (xattr, GLUSTERFS_ENTRYLK_COUNT,
+                               &entrylk_count);
+        if (ret == 0)
+                local->entrylk_count += entrylk_count;
+}
+
+
+static void
+afr_lookup_self_heal_check (afr_local_t *local, struct stat *buf,
+                            struct stat *lookup_buf)
+{
+        if (FILETYPE_DIFFERS (buf, lookup_buf)) {
+                /* mismatching filetypes with same name
+                   -- Govinda !! GOvinda !!!
+                */
+
+                gf_log ("afr", GF_LOG_TRACE,
+                        "file %s is govinda!", local->loc.path);
+
+                local->govinda_gOvinda = 1;
+        }
+
+        if (PERMISSION_DIFFERS (buf, lookup_buf)) {
+                /* mismatching permissions */
+                local->self_heal.need_metadata_self_heal = _gf_true;
+        }
+
+        if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
+                /* mismatching permissions */
+                local->self_heal.need_metadata_self_heal = _gf_true;
+        }
+
+        if (SIZE_DIFFERS (buf, lookup_buf)
+            && S_ISREG (buf->st_mode)) {
+                local->self_heal.need_data_self_heal = _gf_true;
+        }
+
+}
+
+
+static void
+afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
+{
+        afr_local_t *local = NULL;
+
+        local = frame->local;
+
+        local->cont.lookup.postparent.st_ino  = local->cont.lookup.parent_ino;
+
+        if (local->cont.lookup.ino) {
+                local->cont.lookup.buf.st_ino = local->cont.lookup.ino;
+        }
+
+        if (local->op_ret == 0) {
+                /* KLUDGE: assuming DHT will not itransform in 
+                   revalidate */
+                if (local->cont.lookup.inode->ino)
+                        local->cont.lookup.buf.st_ino = 
+                                local->cont.lookup.inode->ino;
+        }
+
+        if (local->success_count && local->enoent_count) {
+                local->self_heal.need_metadata_self_heal = _gf_true;
+                local->self_heal.need_data_self_heal     = _gf_true;
+                local->self_heal.need_entry_self_heal    = _gf_true;
+        }
+
+        if (local->success_count) {
+                /* check for split-brain case in previous lookup */
+                if (afr_is_split_brain (this,
+                                        local->cont.lookup.inode))
+                        local->self_heal.need_data_self_heal = _gf_true;
+        }
+
+        if ((local->self_heal.need_metadata_self_heal
+             || local->self_heal.need_data_self_heal
+             || local->self_heal.need_entry_self_heal)
+            && (!local->open_fd_count &&
+                !local->inodelk_count &&
+                !local->entrylk_count)
+            && ((!local->cont.lookup.is_revalidate)
+                || (local->op_ret != -1))) {
+
+                if (!local->cont.lookup.inode->st_mode) {
+                        /* fix for RT #602 */
+                        local->cont.lookup.inode->st_mode =
+                                lookup_buf->st_mode;
+                }
+
+                local->self_heal.background = _gf_true;
+                local->self_heal.mode       = local->cont.lookup.buf.st_mode;
+                local->self_heal.unwind     = afr_self_heal_lookup_unwind;
+
+                afr_self_heal (frame, this);
+
+        } else {
+                AFR_STACK_UNWIND (lookup, frame, local->op_ret,
+                                  local->op_errno,
+                                  local->cont.lookup.inode, 
+                                  &local->cont.lookup.buf,
+                                  local->cont.lookup.xattr,
+                                  &local->cont.lookup.postparent);
+        }
+}
+
+
+/*
+ * During a lookup, some errors are more "important" than
+ * others in that they must be given higher priority while
+ * returning to the user.
+ *
+ * The hierarchy is ESTALE > ENOENT > others
+ *
+ */
+
+static gf_boolean_t
+__error_more_important (int32_t old_errno, int32_t new_errno)
+{
+        gf_boolean_t ret = _gf_true;
+
+        /* Nothing should ever overwrite ESTALE */
+        if (old_errno == ESTALE)
+                ret = _gf_false;
+
+        /* Nothing should overwrite ENOENT, except ESTALE */
+        else if ((old_errno == ENOENT) && (new_errno != ESTALE))
+                ret = _gf_false;
+
+        return ret;
+}
+
+
+int
+afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
+                      xlator_t *this,  int32_t op_ret,	int32_t op_errno,
+                      inode_t *inode,	struct stat *buf, dict_t *xattr,
+                      struct stat *postparent)
+{
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+	struct stat *   lookup_buf = NULL;
+
+	int             call_count      = -1;
+	int             child_index     = -1;
+        int             first_up_child  = -1;
 
 	child_index = (long) cookie;
 	priv = this->private;
@@ -514,43 +669,23 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 	{
 		local = frame->local;
 
-		lookup_buf = &local->cont.lookup.buf;
+                lookup_buf = &local->cont.lookup.buf;
 
 		if (op_ret == -1) {
 			if (op_errno == ENOENT)
 				local->enoent_count++;
 
-                        local->op_errno = op_errno;
+                        if (__error_more_important (local->op_errno, op_errno))
+                                local->op_errno = op_errno;
 
-                        if (local->cont.lookup.is_revalidate) {
-                                /* no matter what other subvolumes return for
-                                 * this call, errno _must_ be sent to parent
-                                 */
-                                local->op_ret   = -1;
+                        if (local->op_errno == ESTALE) {
+                                local->op_ret = -1;
                         }
-			goto unlock;
+
+                        goto unlock;
 		}
 
-		if (afr_sh_has_metadata_pending (xattr, child_index, this))
-			local->self_heal.need_metadata_self_heal = _gf_true;
-
-		if (afr_sh_has_entry_pending (xattr, child_index, this))
-			local->self_heal.need_entry_self_heal = _gf_true;
-
-		if (afr_sh_has_data_pending (xattr, child_index, this))
-			local->self_heal.need_data_self_heal = _gf_true;
-
-		ret = dict_get_uint32 (xattr, GLUSTERFS_OPEN_FD_COUNT,
-				       &open_fd_count);
-		local->open_fd_count += open_fd_count;
-
-                ret = dict_get_uint32 (xattr, GLUSTERFS_INODELK_COUNT,
-                                       &inodelk_count);
-                local->inodelk_count += inodelk_count;
-
-                ret = dict_get_uint32 (xattr, GLUSTERFS_ENTRYLK_COUNT,
-                                       &entrylk_count);
-                local->entrylk_count += entrylk_count;
+                afr_lookup_collect_xattr (local, this, child_index, xattr);
 
                 first_up_child = afr_first_up_child (priv);
 
@@ -561,23 +696,15 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
                                                 first_up_child);
                 }
 
-		/* in case of revalidate, we need to send stat of the
-		 * child whose stat was sent during the first lookup.
-		 * (so that time stamp does not vary with revalidate.
-		 * in case it is down, stat of the fist success will
-		 * be replied */
-
-		/* inode number should be preserved across revalidates */
-
 		if (local->success_count == 0) {
-                        if (!local->cont.lookup.is_revalidate)
+                        if (local->op_errno != ESTALE)
                                 local->op_ret = op_ret;
 
 			local->cont.lookup.inode = inode;
 			local->cont.lookup.xattr = dict_ref (xattr);
                         local->cont.lookup.postparent = *postparent;
 
-			*lookup_buf = *buf;
+                        *lookup_buf = *buf;
 
                         lookup_buf->st_ino = afr_itransform (buf->st_ino,
                                                              priv->child_count,
@@ -585,46 +712,25 @@ afr_lookup_cbk (call_frame_t *frame, void *cookie,
 
                         if (priv->read_child >= 0) {
                                 afr_set_read_child (this,
-                                                    local->cont.lookup.inode, 
+                                                    local->cont.lookup.inode,
                                                     priv->read_child);
                         } else {
                                 afr_set_read_child (this,
-                                                    local->cont.lookup.inode, 
+                                                    local->cont.lookup.inode,
                                                     child_index);
                         }
 
 		} else {
-			if (FILETYPE_DIFFERS (buf, lookup_buf)) {
-				/* mismatching filetypes with same name
-				   -- Govinda !! GOvinda !!!
-				*/
-				local->govinda_gOvinda = 1;
-			}
-
-			if (PERMISSION_DIFFERS (buf, lookup_buf)) {
-				/* mismatching permissions */
-				local->self_heal.need_metadata_self_heal = _gf_true;
-			}
-
-			if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
-				/* mismatching permissions */
-				local->self_heal.need_metadata_self_heal = _gf_true;
-			}
-
-			if (SIZE_DIFFERS (buf, lookup_buf)
-			    && S_ISREG (buf->st_mode)) {
-				local->self_heal.need_data_self_heal = _gf_true;
-			}
+                        afr_lookup_self_heal_check (local, buf, lookup_buf);
 
                         if (child_index == local->read_child_index) {
-                                
-                                /* 
+                                /*
                                    lookup has succeeded on the read child.
                                    So use its inode number
                                 */
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
-                                
+
                                 local->cont.lookup.inode = inode;
                                 local->cont.lookup.xattr = dict_ref (xattr);
                                 local->cont.lookup.postparent = *postparent;
@@ -652,62 +758,133 @@ unlock:
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-                local->cont.lookup.postparent.st_ino  = local->cont.lookup.parent_ino;
+                afr_lookup_done (frame, this, lookup_buf);
+	}
 
-                if (local->cont.lookup.ino) {
-                        local->cont.lookup.buf.st_ino = local->cont.lookup.ino;
+	return 0;
+}
+
+
+int
+afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
+                           xlator_t *this, int32_t op_ret, int32_t op_errno,
+                           inode_t *inode, struct stat *buf, dict_t *xattr,
+                           struct stat *postparent)
+{
+	afr_local_t *   local = NULL;
+	afr_private_t * priv  = NULL;
+	struct stat *   lookup_buf = NULL;
+        
+	int             call_count      = -1;
+	int             child_index     = -1;
+        int             first_up_child  = -1;
+
+	child_index = (long) cookie;
+	priv = this->private;
+
+	LOCK (&frame->lock);
+	{
+		local = frame->local;
+
+		lookup_buf = &local->cont.lookup.buf;
+
+		if (op_ret == -1) {
+			if (op_errno == ENOENT)
+				local->enoent_count++;
+
+                        if (__error_more_important (local->op_errno, op_errno))
+                            local->op_errno = op_errno;
+
+                            if (local->op_errno == ESTALE) {
+                                    local->op_ret = -1;
+                            }
+
+                            goto unlock;
                 }
 
-		if (local->op_ret == 0) {
-			/* KLUDGE: assuming DHT will not itransform in 
-			   revalidate */
-			if (local->cont.lookup.inode->ino)
-				local->cont.lookup.buf.st_ino = 
-					local->cont.lookup.inode->ino;
-		}
+                afr_lookup_collect_xattr (local, this, child_index, xattr);
 
-		if (local->success_count && local->enoent_count) {
-			local->self_heal.need_metadata_self_heal = _gf_true;
-			local->self_heal.need_data_self_heal     = _gf_true;
-			local->self_heal.need_entry_self_heal    = _gf_true;
-		}
+                first_up_child = afr_first_up_child (priv);
 
-		if (local->success_count) {
-			/* check for split-brain case in previous lookup */
-			if (afr_is_split_brain (this,
-                                                local->cont.lookup.inode))
-				local->self_heal.need_data_self_heal = _gf_true;
-		}
+                if (child_index == first_up_child) {
+                        local->cont.lookup.ino = 
+                                afr_itransform (buf->st_ino,
+                                                priv->child_count,
+                                                first_up_child);
+                }
 
-		if ((local->self_heal.need_metadata_self_heal
-		     || local->self_heal.need_data_self_heal
-		     || local->self_heal.need_entry_self_heal)
-		    && (!local->open_fd_count &&
-                        !local->inodelk_count &&
-                        !local->entrylk_count)
-                    && ((!local->cont.lookup.is_revalidate)
-                        || (local->op_ret != -1))) {
+		/* in case of revalidate, we need to send stat of the
+		 * child whose stat was sent during the first lookup.
+		 * (so that time stamp does not vary with revalidate.
+		 * in case it is down, stat of the fist success will
+		 * be replied */
 
-			if (!local->cont.lookup.inode->st_mode) {
-				/* fix for RT #602 */
-				local->cont.lookup.inode->st_mode =
-					lookup_buf->st_mode;
-			}
+		/* inode number should be preserved across revalidates */
 
-                        local->self_heal.background = _gf_true;
-                        local->self_heal.mode       = local->cont.lookup.buf.st_mode;
-                        local->self_heal.unwind     = afr_self_heal_lookup_unwind;
+		if (local->success_count == 0) {
+                        if (local->op_errno != ESTALE)
+                                local->op_ret = op_ret;
 
-			afr_self_heal (frame, this);
+			local->cont.lookup.inode = inode;
+			local->cont.lookup.xattr = dict_ref (xattr);
+                        local->cont.lookup.postparent = *postparent;
+
+			*lookup_buf = *buf;
+
+                        lookup_buf->st_ino = afr_itransform (buf->st_ino,
+                                                             priv->child_count,
+                                                             child_index);
+
+                        if (priv->read_child >= 0) {
+                                afr_set_read_child (this,
+                                                    local->cont.lookup.inode, 
+                                                    priv->read_child);
+                        } else {
+                                afr_set_read_child (this,
+                                                    local->cont.lookup.inode, 
+                                                    child_index);
+                        }
 
 		} else {
-			AFR_STACK_UNWIND (lookup, frame, local->op_ret,
-					  local->op_errno,
-					  local->cont.lookup.inode, 
-					  &local->cont.lookup.buf,
-					  local->cont.lookup.xattr,
-                                          &local->cont.lookup.postparent);
+                        afr_lookup_self_heal_check (local, buf, lookup_buf);
+
+                        if (child_index == local->read_child_index) {
+
+                                /*
+                                   lookup has succeeded on the read child.
+                                   So use its inode number
+                                */
+                                if (local->cont.lookup.xattr)
+                                        dict_unref (local->cont.lookup.xattr);
+
+                                local->cont.lookup.inode = inode;
+                                local->cont.lookup.xattr = dict_ref (xattr);
+                                local->cont.lookup.postparent = *postparent;
+
+                                *lookup_buf = *buf;
+
+                                if (priv->read_child >= 0) {
+                                        afr_set_read_child (this,
+                                                            local->cont.lookup.inode,
+                                                            priv->read_child);
+                                } else {
+                                        afr_set_read_child (this,
+                                                            local->cont.lookup.inode,
+                                                            local->read_child_index);
+                                }
+                        }
+
 		}
+
+		local->success_count++;
+	}
+unlock:
+	UNLOCK (&frame->lock);
+
+	call_count = afr_frame_return (frame);
+
+	if (call_count == 0) {
+                afr_lookup_done (frame, this, lookup_buf);
 	}
 
 	return 0;
@@ -722,6 +899,8 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 	afr_local_t   *local = NULL;
 	int            ret = -1;
 	int            i = 0;
+
+        fop_lookup_cbk_t callback;
 
         int call_count = 0;
 
@@ -748,11 +927,14 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         if (ret == 0) {
                 /* lookup is a revalidate */
 
-                local->op_ret                    = 0;
+                callback = afr_revalidate_lookup_cbk;
+
                 local->cont.lookup.is_revalidate = _gf_true;
                 local->read_child_index          = afr_read_child (this,
                                                                    loc->inode);
         } else {
+                callback = afr_fresh_lookup_cbk;
+
                 LOCK (&priv->read_child_lock);
                 {
                         local->read_child_index = (++priv->read_child_rr)
@@ -794,7 +976,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
-                        STACK_WIND_COOKIE (frame, afr_lookup_cbk, (void *) (long) i,
+                        STACK_WIND_COOKIE (frame, callback, (void *) (long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->lookup,
                                            loc, local->xattr_req);

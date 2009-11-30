@@ -1113,6 +1113,10 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
 		} else {
 			if (type) {
 				if (type != (sh->buf[i].st_mode & S_IFMT))
+                                        gf_log (this->name, GF_LOG_TRACE,
+                                                "file %s is govinda!",
+                                                local->loc.path);
+
 					govinda_gOvinda = 1;
 			} else {
 				sh->source = i;
