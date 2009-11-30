@@ -26,6 +26,12 @@
 
 
 int32_t
+trash_ftruncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno,
+                           struct iovec *vector, int32_t count,
+                           struct stat *stbuf, struct iobref *iobuf);
+
+int32_t
 trash_truncate_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
                            struct stat *prebuf, struct stat *postbuf);
@@ -1048,6 +1054,356 @@ out:
         return 0;
 }
 
+int32_t
+trash_ftruncate_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno,
+                            struct stat *preparent, struct stat *postparent)
+{
+        trash_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s: failed to unlink new file: %s",
+                        local->newloc.path, strerror(op_errno));
+
+        }
+
+        STACK_WIND (frame, trash_common_unwind_buf_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->ftruncate,
+                    local->fd, local->fop_offset);
+
+        return 0;
+}
+
+int32_t
+trash_ftruncate_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno,
+                            struct stat *prebuf, struct stat *postbuf)
+{
+        trash_local_t *local = NULL;
+
+        local = frame->local;
+
+        if (op_ret == -1) {
+                STACK_WIND (frame, trash_ftruncate_unlink_cbk,
+                            FIRST_CHILD(this), FIRST_CHILD(this)->fops->unlink,
+                            &local->newloc);
+                return 0;
+        }
+
+        if (local->cur_offset < local->fsize) {
+                local->cur_offset += GF_BLOCK_READV_SIZE;
+                STACK_WIND (frame, trash_ftruncate_readv_cbk,
+                            FIRST_CHILD(this), FIRST_CHILD(this)->fops->readv,
+                            local->fd, (size_t)GF_BLOCK_READV_SIZE,
+                            local->cur_offset);
+                return 0;
+        }
+
+        STACK_WIND (frame, trash_common_unwind_buf_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->ftruncate, local->fd,
+                    local->fop_offset);
+
+        return 0;
+}
+
+
+int32_t
+trash_ftruncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno,
+                           struct iovec *vector, int32_t count,
+                           struct stat *stbuf, struct iobref *iobuf)
+{
+        trash_local_t *local = NULL;
+
+        local = frame->local;
+        local->fsize = stbuf->st_size;
+
+        if (op_ret == -1) {
+                STACK_WIND (frame, trash_ftruncate_unlink_cbk,
+                            FIRST_CHILD(this), FIRST_CHILD(this)->fops->unlink,
+                            &local->newloc);
+                return 0;
+        }
+
+        STACK_WIND (frame, trash_ftruncate_writev_cbk,
+                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->writev,
+                    local->newfd, vector, count, local->cur_offset, NULL);
+
+        return 0;
+}
+
+
+int32_t
+trash_ftruncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                            int32_t op_ret, int32_t op_errno, fd_t *fd,
+                            inode_t *inode, struct stat *buf,
+                            struct stat *preparent, struct stat *postparent)
+{
+        trash_local_t *local = NULL;
+        char          *tmp_str = NULL;
+        char          *dir_name = NULL;
+        char          *tmp_path = NULL;
+        loc_t          tmp_loc = {0,};
+
+        local = frame->local;
+
+        if ((op_ret == -1) && (op_errno == ENOENT)) {
+                tmp_str = strdup (local->newpath);
+                if (!tmp_str) {
+                        gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                }
+                dir_name = dirname (tmp_str);
+
+                tmp_path = strdup (dir_name);
+                if (!tmp_path) {
+                        gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                }
+                tmp_loc.path = tmp_path;
+
+                /* TODO: create the directory with proper permissions */
+                STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
+                                   tmp_path, FIRST_CHILD(this),
+                                   FIRST_CHILD(this)->fops->mkdir,
+                                   &tmp_loc, 0755);
+                free (tmp_str);
+                return 0;
+        }
+
+        if (op_ret == -1) {
+                STACK_WIND (frame, trash_common_unwind_buf_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->ftruncate,
+                            local->fd, local->fop_offset);
+                return 0;
+        }
+
+        STACK_WIND (frame, trash_ftruncate_readv_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readv, local->fd,
+                    (size_t)GF_BLOCK_READV_SIZE, local->cur_offset);
+
+        return 0;
+}
+
+
+int32_t
+trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno, inode_t *inode,
+                           struct stat *stbuf, struct stat *preparent,
+                           struct stat *postparent)
+{
+        trash_local_t       *local = NULL;
+        char                *tmp_str = NULL;
+        char                *tmp_path = NULL;
+        char                *tmp_dirname = NULL;
+        char                *dir_name = NULL;
+        int32_t              count = 0;
+        int32_t              flags = 0;
+        int32_t              loop_count = 0;
+        int                  i = 0;
+        loc_t                tmp_loc = {0,};
+
+        local   = frame->local;
+        if (!local)
+                return 0;
+
+        loop_count = local->loop_count;
+
+        tmp_str = strdup (local->newpath);
+        if (!tmp_str) {
+                gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+        }
+
+        if ((op_ret == -1) && (op_errno == ENOENT)) {
+                tmp_dirname = strchr (tmp_str, '/');
+                while (tmp_dirname) {
+                        count = tmp_dirname - tmp_str;
+                        if (count == 0)
+                                count = 1;
+                        i++;
+                        if (i > loop_count)
+                                break;
+                        tmp_dirname = strchr (tmp_str + count + 1, '/');
+                }
+                tmp_path = strndup (local->newpath, count);
+                if (!tmp_path) {
+                        gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                }
+                tmp_loc.path = tmp_path;
+                STACK_WIND_COOKIE (frame, trash_ftruncate_mkdir_cbk,
+                                   tmp_path, this->children->xlator,
+                                   this->children->xlator->fops->mkdir,
+                                   &tmp_loc, 0755);
+
+                goto out;
+        }
+
+        if (op_ret == 0) {
+                dir_name = dirname (tmp_str);
+                if (strcmp ((char*)cookie, dir_name) == 0) {
+                        flags = O_CREAT|O_EXCL|O_WRONLY;
+
+                        //Call create again once directory structure is created.
+                        STACK_WIND (frame, trash_ftruncate_create_cbk,
+                                    FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->create,
+                                    &local->newloc, flags,
+                                    local->loc.inode->st_mode, local->newfd);
+                        goto out;
+                }
+        }
+
+        LOCK (&frame->lock);
+        {
+                loop_count = ++local->loop_count;
+        }
+        UNLOCK (&frame->lock);
+        tmp_dirname = strchr (tmp_str, '/');
+        while (tmp_dirname) {
+                count = tmp_dirname - tmp_str;
+                if (count == 0)
+                        count = 1;
+
+                i++;
+                if ((i > loop_count) || (count > PATH_MAX))
+                        break;
+                tmp_dirname = strchr (tmp_str + count + 1, '/');
+        }
+        tmp_path = strndup (local->newpath, count);
+        if (!tmp_path) {
+                gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+        }
+        tmp_loc.path = tmp_path;
+
+        STACK_WIND_COOKIE (frame, trash_ftruncate_mkdir_cbk, tmp_path,
+                           this->children->xlator,
+                           this->children->xlator->fops->mkdir,
+                           &tmp_loc, 0755);
+
+out:
+        free (cookie); /* strdup (dir_name) was sent here :) */
+        free (tmp_str);
+
+        return 0;
+}
+
+
+int32_t
+trash_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+        trash_private_t *priv  = NULL;
+        trash_local_t   *local = NULL;
+
+        priv  = this->private;
+        local = frame->local;
+
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%s: %s",local->newloc.path, strerror(op_errno));
+
+                TRASH_STACK_UNWIND (frame, -1, op_errno, buf, NULL);
+                return 0;
+        }
+        if ((buf->st_size == 0) || (buf->st_size > priv->max_trash_file_size))
+        {
+                STACK_WIND (frame, trash_common_unwind_buf_cbk,
+                            this->children->xlator,
+                            this->children->xlator->fops->ftruncate,
+                            local->fd, local->fop_offset);
+                return 0;
+        }
+
+
+        STACK_WIND (frame, trash_ftruncate_create_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->create, &local->newloc,
+                    ( O_CREAT | O_EXCL | O_WRONLY ),
+                    local->loc.inode->st_mode, local->newfd);
+
+        return 0;
+}
+
+int32_t
+trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
+{
+        trash_elim_pattern_t  *trav = NULL;
+        trash_private_t       *priv = NULL;
+        trash_local_t         *local = NULL;
+        dentry_t              *dir_entry = NULL;
+        struct tm             *tm = NULL;
+        char                  *pathbuf = NULL;
+        inode_t               *newinode = NULL;
+        time_t                 utime = 0;
+        char                   timestr[256];
+        int32_t                retval = 0;
+        int32_t                match = 0;
+
+        priv = this->private;
+
+        dir_entry = __dentry_search_arbit (fd->inode);
+        retval = inode_path (fd->inode, NULL, &pathbuf);
+
+        if (priv->eliminate) {
+                trav = priv->eliminate;
+                while (trav) {
+                        if (fnmatch(trav->pattern, dir_entry->name, 0) == 0) {
+                                match++;
+                                break;
+                        }
+                        trav = trav->next;
+                }
+        }
+
+        if ((strncmp (pathbuf, priv->trash_dir,
+                      strlen (priv->trash_dir)) == 0) ||
+            (offset >= priv->max_trash_file_size) ||
+            (!retval) ||
+            match) {
+                STACK_WIND (frame, trash_common_unwind_buf_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->ftruncate,
+                            fd, offset);
+                return 0;
+        }
+
+        local = CALLOC (1, sizeof (trash_local_t));
+        if (!local) {
+                gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                TRASH_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        utime = time (NULL);
+        tm    = localtime (&utime);
+        strftime (timestr, 256, ".%Y-%m-%d-%H%M%S", tm);
+
+        strcpy (local->newpath, priv->trash_dir);
+        strcat (local->newpath, pathbuf);
+        strcat (local->newpath, timestr);
+
+        local->fd = fd_ref (fd);
+        newinode = inode_new (fd->inode->table);
+        local->newfd = fd_create (newinode, frame->root->pid);
+        frame->local=local;
+
+        local->newloc.inode = newinode;
+        local->newloc.path = local->newpath;
+
+        local->loc.inode = inode_ref (fd->inode);
+        local->loc.ino   = fd->inode->ino;
+        local->loc.path  = pathbuf;
+
+        local->fop_offset = offset;
+        local->cur_offset = offset;
+
+        STACK_WIND (frame, trash_ftruncate_fstat_cbk, this->children->xlator,
+                    this->children->xlator->fops->fstat, fd);
+
+        return 0;
+}
+
 /**
  * trash_init -
  */
@@ -1166,6 +1522,7 @@ struct xlator_fops fops = {
         .unlink    = trash_unlink,
         .rename    = trash_rename,
         .truncate  = trash_truncate,
+        .ftruncate = trash_ftruncate,
 };
 
 struct xlator_mops mops = {
