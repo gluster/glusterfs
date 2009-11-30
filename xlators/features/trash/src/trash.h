@@ -77,4 +77,13 @@ struct trash_priv {
 };
 typedef struct trash_priv trash_private_t;
 
+#define TRASH_STACK_UNWIND(frame, params ...) do {     \
+		trash_local_t *__local = NULL;         \
+		__local = frame->local;                \
+		frame->local = NULL;		       \
+		STACK_UNWIND (frame, params);          \
+		trash_local_wipe (__local);	       \
+	} while (0)
+
+
 #endif /* __TRASH_H__ */
