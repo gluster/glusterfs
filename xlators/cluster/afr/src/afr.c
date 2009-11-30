@@ -567,14 +567,18 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
 
         if (local->cont.lookup.ino) {
                 local->cont.lookup.buf.st_ino = local->cont.lookup.ino;
+                local->cont.lookup.buf.st_dev = local->cont.lookup.gen;
         }
 
         if (local->op_ret == 0) {
                 /* KLUDGE: assuming DHT will not itransform in 
                    revalidate */
-                if (local->cont.lookup.inode->ino)
+                if (local->cont.lookup.inode->ino) {
                         local->cont.lookup.buf.st_ino = 
                                 local->cont.lookup.inode->ino;
+                        local->cont.lookup.buf.st_dev =
+                                local->cont.lookup.inode->generation;
+                }
         }
 
         if (local->success_count && local->enoent_count) {
@@ -694,6 +698,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                 afr_itransform (buf->st_ino,
                                                 priv->child_count,
                                                 first_up_child);
+                        local->cont.lookup.gen = buf->st_dev;
                 }
 
 		if (local->success_count == 0) {
@@ -709,7 +714,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                         lookup_buf->st_ino = afr_itransform (buf->st_ino,
                                                              priv->child_count,
                                                              child_index);
-
                         if (priv->read_child >= 0) {
                                 afr_set_read_child (this,
                                                     local->cont.lookup.inode,
@@ -811,6 +815,7 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                 afr_itransform (buf->st_ino,
                                                 priv->child_count,
                                                 first_up_child);
+                        local->cont.lookup.gen = buf->st_dev;
                 }
 
 		/* in case of revalidate, we need to send stat of the
