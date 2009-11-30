@@ -254,6 +254,7 @@ typedef struct _afr_local {
                         struct stat read_child_buf;
                         struct stat postparent;
                         ino_t ino;
+                        uint64_t gen;
                         ino_t parent_ino;
 			dict_t *xattr;
                         gf_boolean_t is_revalidate;
@@ -404,6 +405,7 @@ typedef struct _afr_local {
 		
 		struct {
 			ino_t ino;
+                        uint64_t gen;
                         ino_t parent_ino;
 			fd_t *fd;
 			int32_t flags;
@@ -417,6 +419,7 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
+                        uint64_t gen;
                         ino_t parent_ino;
 			dev_t dev;
 			mode_t mode;
@@ -429,6 +432,7 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
+                        uint64_t gen;
                         ino_t parent_ino;
 			int32_t mode;
 			inode_t *inode;
@@ -468,6 +472,7 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
+                        uint64_t gen;
                         ino_t parent_ino;
 			inode_t *inode;
 			struct stat buf;
@@ -478,6 +483,7 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
+                        uint64_t gen;
                         ino_t parent_ino;
 			inode_t *inode;
 			struct stat buf;
