@@ -801,7 +801,7 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         sp_cache_t     *cache           = NULL;
         struct stat     postparent      = {0, }, buf = {0, };
         int32_t         ret             = -1, op_ret = -1, op_errno = EINVAL; 
-        sp_inode_ctx_t *inode_ctx       = NULL;
+        sp_inode_ctx_t *inode_ctx       = NULL, *parent_inode_ctx = NULL;
         sp_local_t     *local           = NULL;
 
         if (loc == NULL || loc->inode == NULL) {
@@ -850,8 +850,8 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                 if (ret == 0) {
                         ret = inode_ctx_get (loc->parent, this, &value);
                         if ((ret == 0) && (value != 0)) {
-                                inode_ctx = (void *)(long)value;
-                                postparent = inode_ctx->stbuf;
+                                parent_inode_ctx = (void *)(long)value;
+                                postparent = parent_inode_ctx->stbuf;
                                 buf = dirent->d_stat;
                                 op_ret = 0;
                                 op_errno = 0;
@@ -867,8 +867,8 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                         if (ret == 0) {
                                 ret = inode_ctx_get (loc->parent, this, &value);
                                 if ((ret == 0) && (value != 0)) {
-                                        inode_ctx = (void *)(long)value;
-                                        postparent = inode_ctx->stbuf;
+                                        parent_inode_ctx = (void *)(long)value;
+                                        postparent = parent_inode_ctx->stbuf;
                                         buf = dirent->d_stat;
                                         op_ret = 0;
                                         op_errno = 0;
