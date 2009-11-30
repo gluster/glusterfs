@@ -166,7 +166,7 @@ def generate_volume_files ():
             print "Got %s creating client volfiles for transport '%s'" % (strerror, transport)
 
 
-    create_booster = CreateBooster (options)
+    create_booster = CreateBooster (options, transports)
     try:
         create_booster.configure_booster ()
     except IOError, (errno, strerror):
