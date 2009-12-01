@@ -921,35 +921,44 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
         ioc_table_lock (table);
-        if (!table->mem_pool) {
-
-                num_pages = (table->cache_size / table->page_size)
-                        + ((table->cache_size % table->page_size) ? 1 : 0);
-
-                table->mem_pool
-                        =  mem_pool_new (rbthash_entry_t, num_pages);
-
+        {
                 if (!table->mem_pool) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Unable to allocate mem_pool");
-                        op_errno = ENOMEM;
-                        ioc_table_unlock (table);
-                        goto out;
+
+                        num_pages = (table->cache_size / table->page_size)
+                                + ((table->cache_size % table->page_size) 
+                                ? 1 : 0);
+
+                        table->mem_pool
+                                =  mem_pool_new (rbthash_entry_t, num_pages);
+
+                        if (!table->mem_pool) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Unable to allocate mem_pool");
+                                op_errno = ENOMEM;
+                                ioc_table_unlock (table);
+                                goto out;
+                        }
                 }
         }
         ioc_table_unlock (table);
 
-        if (!ioc_inode->cache.page_table) {
-                ioc_inode->cache.page_table
-                        = rbthash_table_init (IOC_PAGE_TABLE_BUCKET_COUNT,
-                                              ioc_hashfn, NULL, 0,
-                                              table->mem_pool);
+        ioc_inode_lock (ioc_inode);
+        {
+                if (!ioc_inode->cache.page_table) {
+                        ioc_inode->cache.page_table
+                                = rbthash_table_init 
+                                                (IOC_PAGE_TABLE_BUCKET_COUNT,
+                                                 ioc_hashfn, NULL, 0,
+                                                 table->mem_pool);
 
-                if (ioc_inode->cache.page_table == NULL) {
-                        op_errno = ENOMEM;
-                        goto out;
+                        if (ioc_inode->cache.page_table == NULL) {
+                                op_errno = ENOMEM;
+                                ioc_inode_unlock (ioc_inode);
+                                goto out;
+                        }
                 }
         }
+        ioc_inode_unlock (ioc_inode);
 
 	if (!fd_ctx_get (fd, this, NULL)) {
 		/* disable caching for this fd, go ahead with normal readv */
