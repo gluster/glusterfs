@@ -3729,25 +3729,23 @@ out:
 
 
 ssize_t
-libgf_client_readv (libglusterfs_client_ctx_t *ctx, 
-                    fd_t *fd,
-                    const struct iovec *dst_vector,
-                    int dst_count,
-                    off_t offset)
+libgf_client_iobuf_readv (libglusterfs_client_ctx_t *ctx, fd_t *fd,
+                          const struct iovec *dst_vector, int count,
+                          size_t size, off_t offset, int *idx,
+                          off_t *vec_offset)
 {
-        call_stub_t *stub = NULL;
-        struct iovec *src_vector;
-        int src_count = 0;
-        int32_t op_ret = -1;
-        libgf_client_local_t *local = NULL;
-        size_t size = 0;
-        int32_t i = 0;
-        struct stat     *stbuf = NULL;
+        call_stub_t          *stub       = NULL;
+        struct iovec         *src_vector = NULL;
+        int32_t               op_ret     = -1;
+        libgf_client_local_t *local      = NULL;
+        int                   src        = 0, dst = 0;
+        int                   src_count  = 0, dst_count = 0;
+        int                   len        = 0, src_len = 0, dst_len = 0;
+        off_t                 src_offset = 0, dst_offset = 0;
+        struct stat          *stbuf      = NULL;
 
-        for (i = 0; i < dst_count; i++)
-        {
-                size += dst_vector[i].iov_len;
-        }
+        dst = *idx;
+        dst_offset = *vec_offset;
 
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
@@ -3759,12 +3757,7 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
         src_count = stub->args.readv_cbk.count;
         src_vector = stub->args.readv_cbk.vector;
         if (op_ret > 0) {
-                int src = 0, dst = 0;
-                off_t src_offset = 0, dst_offset = 0;
-    
                 while ((size != 0) && (dst < dst_count) && (src < src_count)) {
-                        int len = 0, src_len, dst_len;
-   
                         src_len = src_vector[src].iov_len - src_offset;
                         dst_len = dst_vector[dst].iov_len - dst_offset;
 
@@ -3773,7 +3766,7 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
                                 len = size;
                         }
 
-                        memcpy (dst_vector[dst].iov_base + dst_offset, 
+                        memcpy (dst_vector[dst].iov_base + dst_offset,
 				src_vector[src].iov_base + src_offset, len);
 
                         size -= len;
@@ -3795,13 +3788,48 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx,
                 libgf_transform_iattr (ctx, fd->inode, stbuf);
                 libgf_invalidate_iattr_cache (fd->inode, LIBGF_UPDATE_STAT);
         }
- 
+
+        *idx = dst;
+        *vec_offset = dst_offset;
+
 	call_stub_destroy (stub);
         return op_ret;
 }
 
 
-ssize_t 
+ssize_t
+libgf_client_readv (libglusterfs_client_ctx_t *ctx, fd_t *fd,
+                    const struct iovec *dst_vector, int dst_count, off_t offset)
+{
+        int32_t               op_ret     = -1;
+        size_t                size       = 0, tmp = 0;
+        int                   i          = 0;
+        int                   dst_idx    = 0;
+        off_t                 dst_offset = 0;
+
+        for (i = 0; i < dst_count; i++)
+        {
+                size += dst_vector[i].iov_len;
+        }
+
+        while (size != 0) {
+                tmp = ((size > LIBGF_IOBUF_SIZE) ? LIBGF_IOBUF_SIZE : size);
+                op_ret = libgf_client_iobuf_readv (ctx, fd, dst_vector,
+                                                   dst_count, tmp, offset,
+                                                   &dst_idx, &dst_offset);
+                if (op_ret <= 0) {
+                        break;
+                }
+
+                offset += op_ret;
+                size -= op_ret;
+        }
+
+        return op_ret;
+}
+
+
+ssize_t
 glusterfs_readv (glusterfs_file_t fd, const struct iovec *vec, int count)
 {
         int32_t op_ret = -1;
