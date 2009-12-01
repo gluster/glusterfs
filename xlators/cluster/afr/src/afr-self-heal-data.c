@@ -642,7 +642,9 @@ afr_sh_data_sync_prepare (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
+	afr_local_t     *local      = NULL;
+        afr_local_t *    orig_local = NULL;
+
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 	int              nsources = 0;
@@ -717,7 +719,8 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 	if (FILE_HAS_HOLES (&sh->buf[source]))
 		sh->file_has_holes = 1;
 
-        local->cont.lookup.buf.st_size = sh->buf[source].st_size;
+        orig_local = sh->orig_frame->local;
+        orig_local->cont.lookup.buf.st_size = sh->buf[source].st_size;
 
 	/* detect changes not visible through pending flags -- JIC */
 	for (i = 0; i < priv->child_count; i++) {
