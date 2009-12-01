@@ -351,13 +351,13 @@ do_mode_libglusterfsclient_iface_fileio_write (struct state *state)
         char block[state->block_size];
 
         for (i=0; i<state->count; i++) {
-                long fd = 0;
+                glusterfs_file_t fd = 0;
                 char filename[512];
 
                 sprintf (filename, "/%s.%06ld", state->prefix, i);
 
-                fd = glusterfs_open (state->libglusterfsclient_context,
-                                     filename, O_CREAT|O_WRONLY, 0);
+                fd = glusterfs_glh_open (state->libglusterfsclient_context,
+                                         filename, O_CREAT|O_WRONLY, 0);
 
                 if (fd == 0) {
                         fprintf (stderr, "open(%s) => %s\n", filename, strerror (errno));
@@ -385,21 +385,23 @@ do_mode_libglusterfsclient_iface_fileio_read (struct state *state)
         char block[state->block_size];
 
         for (i=0; i<state->count; i++) {
-                long fd = 0;
+                glusterfs_file_t fd = 0;
                 char filename[512];
 
                 sprintf (filename, "/%s.%06ld", state->prefix, i);
 
-                fd = glusterfs_open (state->libglusterfsclient_context,
-                                     filename, O_RDONLY, 0);
+                fd = glusterfs_glh_open (state->libglusterfsclient_context,
+                                         filename, O_RDONLY, 0);
 
                 if (fd == 0) {
-                        fprintf (stderr, "glusterfs_open(%s) => %s\n", filename, strerror (errno));
+                        fprintf (stderr, "glusterfs_glh_open(%s) => %s\n",
+                                 filename, strerror (errno));
                         break;
                 }
                 ret = glusterfs_read (fd, block, state->block_size);
                 if (ret == -1) {
-                        fprintf (stderr, "glusterfs_read(%s) => %s\n", filename, strerror (errno));
+                        fprintf (stderr, "glusterfs_read(%s) => %s\n", filename,
+                                 strerror (errno));
                         glusterfs_close (fd);
                         break;
                 }
@@ -443,12 +445,14 @@ do_mode_libglusterfsclient_iface_xattr_write (struct state *state)
 
                 sprintf (key, "glusterfs.file.%s.%06ld", bname, i);
 
-                ret = glusterfs_setxattr (state->libglusterfsclient_context,
-                                          dname, key, block, state->block_size, 0);
+                ret = glusterfs_glh_setxattr (state->libglusterfsclient_context,
+                                              dname, key, block,
+                                              state->block_size, 0);
 
                 if (ret < 0) {
-                        fprintf (stderr, "glusterfs_setxattr (%s, %s, %p) => %s\n",
-                                 dname, key, block, strerror (errno));
+                        fprintf (stderr, "glusterfs_glh_setxattr (%s, %s, %p) "
+                                 "=> %s\n", dname, key, block,
+                                 strerror (errno));
                         break;
                 }
                 state->io_size += state->block_size;
@@ -478,18 +482,20 @@ do_mode_libglusterfsclient_iface_xattr_read (struct state *state)
 
                 sprintf (key, "glusterfs.file.%s.%06ld", bname, i);
 
-                ret = glusterfs_getxattr (state->libglusterfsclient_context,
-                                          dname, key, block, state->block_size);
+                ret = glusterfs_glh_getxattr (state->libglusterfsclient_context,
+                                              dname, key, block,
+                                              state->block_size);
 
                 if (ret < 0) {
-                        fprintf (stderr, "glusterfs_getxattr (%s, %s, %p) => %s\n",
-                                 dname, key, block, strerror (errno));
+                        fprintf (stderr, "glusterfs_glh_getxattr (%s, %s, %p) "
+                                 "=> %s\n", dname, key, block,
+                                 strerror (errno));
                         break;
                 }
                 state->io_size += ret;
         }
 
-        return i;  
+        return i;
 }
 
 
@@ -522,7 +528,7 @@ do_mode_posix (struct state *state)
 int
 do_mode_libglusterfsclient (struct state *state)
 {
-        glusterfs_init_ctx_t ctx = {
+        glusterfs_init_params_t ctx = {
                 .logfile = "/dev/stderr",
                 .loglevel = "error",
                 .lookup_timeout = 60,
@@ -531,14 +537,16 @@ do_mode_libglusterfsclient (struct state *state)
 
 	ctx.specfile = state->specfile;
         if (state->specfile) {
-                state->libglusterfsclient_context = glusterfs_init (&ctx);
+                state->libglusterfsclient_context = glusterfs_init (&ctx, 1);
 
                 if (!state->libglusterfsclient_context) {
-                        fprintf (stdout, "Unable to initialize glusterfs context, skipping libglusterfsclient mode\n");
+                        fprintf (stdout, "Unable to initialize glusterfs "
+                                 "context, skipping libglusterfsclient mode\n");
                         return -1;
                 }
         } else {
-                fprintf (stdout, "glusterfs volume specification file not provided, skipping libglusterfsclient mode\n");
+                fprintf (stdout, "glusterfs volume specification file not "
+                         "provided, skipping libglusterfsclient mode\n");
                 return -1;
         }
 
