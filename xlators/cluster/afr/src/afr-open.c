@@ -455,7 +455,7 @@ afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         local->op = GF_FOP_FLUSH;
 
-        local->fd = fd_ref (local->fd);
+//        local->fd = fd_ref (local->fd);
 
         local->transaction.fop          = afr_up_down_flush_wind;
         local->transaction.done         = afr_up_down_flush_done;
