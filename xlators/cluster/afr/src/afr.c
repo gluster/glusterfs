@@ -332,8 +332,20 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	FREE (local->child_up);
 
 	{ /* lookup */
-		if (local->cont.lookup.xattr)
-			dict_unref (local->cont.lookup.xattr);
+                if (local->cont.lookup.xattrs) {
+                        for (i = 0; i < priv->child_count; i++) {
+                                if (local->cont.lookup.xattrs[i]) {
+                                        dict_unref (local->cont.lookup.xattrs[i]);
+                                        local->cont.lookup.xattrs[i] = NULL;
+                                }
+                        }
+                        FREE (local->cont.lookup.xattrs);
+                        local->cont.lookup.xattrs = NULL;
+                }
+
+		if (local->cont.lookup.xattr) {
+                        dict_unref (local->cont.lookup.xattr);
+                }
 	}
 
 	{ /* getxattr */
@@ -559,6 +571,9 @@ afr_lookup_self_heal_check (afr_local_t *local, struct stat *buf,
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
 {
+        int unwind = 1;
+        int source = -1;
+
         afr_local_t *local = NULL;
 
         local = frame->local;
@@ -597,25 +612,44 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
         if ((local->self_heal.need_metadata_self_heal
              || local->self_heal.need_data_self_heal
              || local->self_heal.need_entry_self_heal)
-            && (!local->open_fd_count &&
-                !local->inodelk_count &&
-                !local->entrylk_count)
             && ((!local->cont.lookup.is_revalidate)
                 || (local->op_ret != -1))) {
 
-                if (!local->cont.lookup.inode->st_mode) {
-                        /* fix for RT #602 */
-                        local->cont.lookup.inode->st_mode =
-                                lookup_buf->st_mode;
+                if (local->open_fd_count
+                    || local->inodelk_count
+                    || local->entrylk_count) {
+
+                        /* Someone else is doing self-heal on this file.
+                           So just make a best effort to set the read-subvolume
+                           and return */
+
+                        if (S_ISREG (local->cont.lookup.inode->st_mode)) {
+                                source = afr_self_heal_get_source (this, local, local->cont.lookup.xattrs);
+
+                                if (source >= 0) {
+                                        afr_set_read_child (this,
+                                                            local->cont.lookup.inode,
+                                                            source);
+                                }
+                        }
+                } else {
+                        if (!local->cont.lookup.inode->st_mode) {
+                                /* fix for RT #602 */
+                                local->cont.lookup.inode->st_mode =
+                                        lookup_buf->st_mode;
+                        }
+
+                        local->self_heal.background = _gf_true;
+                        local->self_heal.mode       = local->cont.lookup.buf.st_mode;
+                        local->self_heal.unwind     = afr_self_heal_lookup_unwind;
+
+                        unwind = 0;
+
+                        afr_self_heal (frame, this);
                 }
+        }
 
-                local->self_heal.background = _gf_true;
-                local->self_heal.mode       = local->cont.lookup.buf.st_mode;
-                local->self_heal.unwind     = afr_self_heal_lookup_unwind;
-
-                afr_self_heal (frame, this);
-
-        } else {
+        if (unwind) {
                 AFR_STACK_UNWIND (lookup, frame, local->op_ret,
                                   local->op_errno,
                                   local->cont.lookup.inode, 
@@ -705,9 +739,10 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                         if (local->op_errno != ESTALE)
                                 local->op_ret = op_ret;
 
-			local->cont.lookup.inode = inode;
-			local->cont.lookup.xattr = dict_ref (xattr);
-                        local->cont.lookup.postparent = *postparent;
+			local->cont.lookup.inode               = inode;
+			local->cont.lookup.xattr               = dict_ref (xattr);
+			local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
+                        local->cont.lookup.postparent          = *postparent;
 
                         *lookup_buf = *buf;
 
@@ -735,9 +770,11 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
 
-                                local->cont.lookup.inode = inode;
                                 local->cont.lookup.xattr = dict_ref (xattr);
-                                local->cont.lookup.postparent = *postparent;
+
+                                local->cont.lookup.inode               = inode;
+                                local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
+                                local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
 
@@ -830,9 +867,10 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                         if (local->op_errno != ESTALE)
                                 local->op_ret = op_ret;
 
-			local->cont.lookup.inode = inode;
-			local->cont.lookup.xattr = dict_ref (xattr);
-                        local->cont.lookup.postparent = *postparent;
+			local->cont.lookup.inode               = inode;
+			local->cont.lookup.xattr               = dict_ref (xattr);
+			local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
+                        local->cont.lookup.postparent          = *postparent;
 
 			*lookup_buf = *buf;
 
@@ -859,12 +897,14 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                    lookup has succeeded on the read child.
                                    So use its inode number
                                 */
+
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
 
-                                local->cont.lookup.inode = inode;
-                                local->cont.lookup.xattr = dict_ref (xattr);
-                                local->cont.lookup.postparent = *postparent;
+                                local->cont.lookup.inode               = inode;
+                                local->cont.lookup.xattr               = dict_ref (xattr);
+                                local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
+                                local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
 
@@ -949,6 +989,9 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         }
 
 	local->child_up = memdup (priv->child_up, priv->child_count);
+
+        local->cont.lookup.xattrs = CALLOC (priv->child_count,
+                                            sizeof (*local->cont.lookup.xattr));
 
 	local->call_count = afr_up_children_count (priv->child_count,
                                                    local->child_up);

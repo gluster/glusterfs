@@ -46,6 +46,9 @@ int
 afr_self_heal_metadata (call_frame_t *frame, xlator_t *this);
 
 int
+afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr);
+
+int
 afr_self_heal (call_frame_t *frame, xlator_t *this);
 
 #endif /* __AFR_SELF_HEAL_H__ */

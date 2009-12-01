@@ -257,6 +257,7 @@ typedef struct _afr_local {
                         uint64_t gen;
                         ino_t parent_ino;
 			dict_t *xattr;
+			dict_t **xattrs;
                         gf_boolean_t is_revalidate;
 		} lookup;
 
