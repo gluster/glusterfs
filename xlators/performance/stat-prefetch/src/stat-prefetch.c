@@ -577,6 +577,7 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_stub_t         *stub        = NULL, *tmp = NULL;
         sp_local_t          *local       = NULL;
         sp_cache_t          *cache       = NULL;
+        int                  need_unwind = 0;
 
         INIT_LIST_HEAD (&waiting_ops);
 
@@ -594,6 +595,9 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         sp_cache_unref (cache);
                 }
         }
+
+        if (local && local->is_lookup)
+                need_unwind = 1;
 
         ret = inode_ctx_get (inode, this, &value);
         if (ret == 0) {
@@ -626,7 +630,7 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
-        if ((local != NULL) && (local->is_lookup)) {
+        if (need_unwind) {
                 SP_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, buf,
                                  dict, postparent);
         }
