@@ -3540,7 +3540,7 @@ glusterfs_lremovexattr (glusterfs_handle_t handle,
         return -1;
 }
 
-int 
+int
 glusterfs_fremovexattr (glusterfs_file_t fd, 
                         const char *name)
 {
@@ -3567,19 +3567,16 @@ libgf_client_readv_cbk (call_frame_t *frame,
         return 0;
 }
 
-int 
-libgf_client_read (libglusterfs_client_ctx_t *ctx, 
-                   fd_t *fd,
-                   void *buf, 
-                   size_t size, 
-                   off_t offset)
+int
+libgf_client_iobuf_read (libglusterfs_client_ctx_t *ctx, fd_t *fd, void *buf,
+                         size_t size, off_t offset)
 {
-        call_stub_t *stub;
-        struct iovec *vector;
-        int32_t op_ret = -1;
-        int count = 0;
+        call_stub_t          *stub = NULL;
+        struct iovec         *vector = NULL;
+        int32_t               op_ret = -1;
+        int                   count = 0;
         libgf_client_local_t *local = NULL;
-        struct stat     *stbuf = NULL;
+        struct stat          *stbuf = NULL;
 
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
@@ -3594,7 +3591,7 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
                 int i = 0;
                 op_ret = 0;
                 while (size && (i < count)) {
-                        int len = (size < vector[i].iov_len) ? 
+                        int len = (size < vector[i].iov_len) ?
                                 size : vector[i].iov_len;
                         memcpy (buf, vector[i++].iov_base, len);
                         buf += len;
@@ -3612,10 +3609,31 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx,
         return op_ret;
 }
 
-ssize_t 
-glusterfs_read (glusterfs_file_t fd, 
-                void *buf, 
-                size_t nbytes)
+int
+libgf_client_read (libglusterfs_client_ctx_t *ctx, fd_t *fd, void *buf,
+                   size_t size, off_t offset)
+{
+        int32_t op_ret = -1;
+        size_t  tmp   = 0;
+
+        while (size != 0) {
+                tmp = ((size > LIBGF_IOBUF_SIZE) ? LIBGF_IOBUF_SIZE :
+                       size);
+                op_ret = libgf_client_iobuf_read (ctx, fd, buf, tmp, offset);
+                if (op_ret <= 0) {
+                        break;
+                }
+
+                size -= op_ret;
+                offset += op_ret;
+                buf = (char *)buf + op_ret;
+        }
+
+        return op_ret;
+}
+
+ssize_t
+glusterfs_read (glusterfs_file_t fd, void *buf, size_t nbytes)
 {
         int32_t op_ret = -1;
         off_t offset = 0;
@@ -3665,7 +3683,6 @@ glusterfs_read (glusterfs_file_t fd,
 out:
         return op_ret;
 }
-
 
 ssize_t
 libgf_client_iobuf_readv (libglusterfs_client_ctx_t *ctx, fd_t *fd,
