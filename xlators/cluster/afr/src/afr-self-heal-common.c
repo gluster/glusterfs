@@ -1393,7 +1393,9 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 
         lc = CALLOC (1, sizeof (afr_local_t));
 
-        memcpy (lc, l, sizeof (afr_local_t));
+//        memcpy (lc, l, sizeof (afr_local_t));
+
+        lc->self_heal = l->self_heal;
 
         if (l->loc.path)
                 loc_copy (&lc->loc, &l->loc);
@@ -1403,8 +1405,8 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
                 lc->xattr_req = dict_copy_with_ref (l->xattr_req, NULL);
 
         lc->cont.lookup.inode = l->cont.lookup.inode;
-        if (l->cont.lookup.xattr)
-                lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
+//      if (l->cont.lookup.xattr)
+//            lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
 
         return lc;
 }
@@ -1439,14 +1441,6 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 }
                 UNLOCK (&priv->lock);
         }
-
-        /*
-         * XXX Hack: Due to memcpy'ing of local, some pointers will
-         * also have ended up in bgsh_frame's local. We shouldn't free
-         * them. So set them to NULL here.
-         */
-
-        local->cont.writev.vector = NULL;
 
         AFR_STACK_DESTROY (bgsh_frame);
 

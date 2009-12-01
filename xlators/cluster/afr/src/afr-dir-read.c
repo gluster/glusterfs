@@ -59,9 +59,6 @@ afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this)
 
         afr_set_opendir_done (this, local->fd->inode);
 
-        /* let self-heal's local cleanup free this */
-        local->cont.opendir.checksum = NULL;
-
         AFR_STACK_UNWIND (opendir, frame, local->op_ret,
                           local->op_errno, local->fd);
 
@@ -152,11 +149,6 @@ out:
                 if (call_count == 0) {
                         if (__checksums_differ (local->cont.opendir.checksum,
                                                 priv->child_count)) {
-
-                                /* self-heal will call AFR_STACK_DESTROY and
-                                   thus unref local->fd, so ref it here */
-
-                                local->fd = fd_ref (local->fd);
 
                                 sh->need_entry_self_heal  = _gf_true;
                                 sh->forced_merge          = _gf_true;
