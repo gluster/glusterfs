@@ -364,10 +364,13 @@ afr_sh_mark_if_size_differs (afr_self_heal_t *sh, int child_count)
 
         for (i = 0; i < child_count; i++) {
                 for (j = 0; j < child_count; j++) {
+                        if (!sh->buf)
+                                break;
+
                         if (SIZE_DIFFERS (&sh->buf[i], &sh->buf[j])
                             && (pending_matrix[i][j] == 0)
                             && (pending_matrix[j][i] == 0)) {
-                                
+
                                 pending_matrix[i][j] = 1;
                                 pending_matrix[j][i] = 1;
 
@@ -387,7 +390,7 @@ afr_sh_mark_biggest_fool_as_source (afr_self_heal_t *sh,
 {
         int i = 0;
         int biggest = 0;
-        
+
         for (i = 0; i < child_count; i++) {
                 if (characters[i].type == AFR_NODE_FOOL) {
                         biggest = i;
@@ -398,7 +401,10 @@ afr_sh_mark_biggest_fool_as_source (afr_self_heal_t *sh,
         for (i = 0; i < child_count; i++) {
                 if (characters[i].type != AFR_NODE_FOOL)
                         continue;
-                
+
+                if (!sh->buf)
+                        break;
+
                 if (SIZE_GREATER (&sh->buf[i], &sh->buf[biggest])) {
                         biggest = i;
                 }
@@ -417,6 +423,9 @@ afr_sh_mark_biggest_as_source (afr_self_heal_t *sh, int child_count)
         int i;
 
         for (i = 0; i < child_count; i++) {
+                if (!sh->buf)
+                        break;
+
                 if (SIZE_GREATER (&sh->buf[i], &sh->buf[biggest])) {
                         biggest = i;
                 }

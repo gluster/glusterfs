@@ -742,6 +742,38 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
 
 int
+afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
+{
+	afr_self_heal_t *sh   = NULL;
+	afr_private_t   *priv = NULL;
+
+	int              nsources = 0;
+	int              source = 0;
+	int              i = 0;
+
+	sh   = &local->self_heal;
+	priv = this->private;
+
+	sh->pending_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
+	for (i = 0; i < priv->child_count; i++) {
+		sh->pending_matrix[i] = CALLOC (sizeof (int32_t),
+						priv->child_count);
+	}
+	sh->sources      = CALLOC (priv->child_count, sizeof (*sh->sources));
+
+	afr_sh_build_pending_matrix (priv, sh->pending_matrix, xattr,
+				     priv->child_count, AFR_DATA_TRANSACTION);
+
+	nsources = afr_sh_mark_sources (sh, priv->child_count,
+                                        AFR_SELF_HEAL_DATA);
+
+	source = afr_sh_select_source (sh->sources, priv->child_count);
+
+	return source;
+}
+
+
+int
 afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
                        struct stat *buf)
