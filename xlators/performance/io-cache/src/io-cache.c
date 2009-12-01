@@ -30,13 +30,24 @@
 #include <assert.h>
 #include <sys/time.h>
 
-extern int ioc_log2_page_size;
+int ioc_log2_page_size;
 
 uint32_t
 ioc_get_priority (ioc_table_t *table, const char *path);
 
 uint32_t
 ioc_get_priority (ioc_table_t *table, const char *path);
+
+
+inline uint32_t
+ioc_hashfn (void *data, int len)
+{
+        off_t offset;
+
+        offset = *(off_t *) data;
+
+        return (offset >> ioc_log2_page_size);
+}
 
 inline ioc_inode_t *
 ioc_inode_reupdate (ioc_inode_t *ioc_inode)

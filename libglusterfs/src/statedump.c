@@ -18,13 +18,15 @@
 */
 
 #include <stdarg.h>
-#include <malloc.h>
 #include "glusterfs.h"
 #include "logging.h"
 #include "iobuf.h"
 #include "statedump.h"
 #include "stack.h"
 
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif /* MALLOC_H */
 
 static pthread_mutex_t  gf_proc_dump_mutex;
 static int gf_dump_fd = -1;

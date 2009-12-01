@@ -24,17 +24,7 @@
 
 #include "io-cache.h"
 
-int ioc_log2_page_size;
-
-inline uint32_t
-ioc_hashfn (void *data, int len)
-{
-        off_t offset;
-
-        offset = *(off_t *) data;
-
-        return (offset >> ioc_log2_page_size);
-}
+extern int ioc_log2_page_size;
 
 /*
  * str_to_ptr - convert a string to pointer
