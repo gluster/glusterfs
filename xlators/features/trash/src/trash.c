@@ -111,7 +111,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 break;
                         tmp_dirname = strchr (tmp_str + count + 1, '/');
                 }
-                tmp_path = strndup (local->newpath, count);
+                tmp_path = memdup (local->newpath, count);
                 if (!tmp_path) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -154,7 +154,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         break;
                 tmp_dirname = strchr (tmp_str + count + 1, '/');
         }
-        tmp_path = strndup (local->newpath, count);
+        tmp_path = memdup (local->newpath, count);
         if (!tmp_path) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
         }
@@ -410,7 +410,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         tmp_dirname = strchr (tmp_str + count + 1, '/');
 
-                        tmp_path = strndup (local->newpath, count);
+                        tmp_path = memdup (local->newpath, count);
                         if (!tmp_path) {
                                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                         }
@@ -866,7 +866,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 break;
                         tmp_dirname = strchr (tmp_str + count + 1, '/');
                 }
-                tmp_path = strndup (local->newpath, count);
+                tmp_path = memdup (local->newpath, count);
                 if (!tmp_path) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -909,7 +909,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         break;
                 tmp_dirname = strchr (tmp_str + count + 1, '/');
         }
-        tmp_path = strndup (local->newpath, count);
+        tmp_path = memdup (local->newpath, count);
         if (!tmp_path) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
         }
@@ -1227,7 +1227,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 break;
                         tmp_dirname = strchr (tmp_str + count + 1, '/');
                 }
-                tmp_path = strndup (local->newpath, count);
+                tmp_path = memdup (local->newpath, count);
                 if (!tmp_path) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -1271,7 +1271,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         break;
                 tmp_dirname = strchr (tmp_str + count + 1, '/');
         }
-        tmp_path = strndup (local->newpath, count);
+        tmp_path = memdup (local->newpath, count);
         if (!tmp_path) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
         }

@@ -29,7 +29,7 @@ struct afr_sh_algorithm {
         afr_sh_algo_fn fn;
 };
 
-struct afr_sh_algorithm afr_self_heal_algorithms[3];
+extern struct afr_sh_algorithm afr_self_heal_algorithms[3];
 
 typedef struct {
         gf_lock_t lock;
