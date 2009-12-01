@@ -39,7 +39,7 @@
  * bump the protocol version by "0.1" 
  */
 
-#define GF_PROTOCOL_VERSION "2.1"
+#define GF_PROTOCOL_VERSION "3.0"
 
 struct gf_stat {
 	uint64_t ino;
