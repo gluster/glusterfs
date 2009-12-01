@@ -1387,15 +1387,29 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 {
         afr_private_t *priv = NULL;
-        afr_local_t *lc     = NULL;
+        afr_local_t   *lc     = NULL;
+        afr_self_heal_t *sh = NULL;
+        afr_self_heal_t *shc = NULL;
+
 
         priv = this->private;
 
+        sh = &l->self_heal;
+
         lc = CALLOC (1, sizeof (afr_local_t));
+        shc = &lc->self_heal;
 
-//        memcpy (lc, l, sizeof (afr_local_t));
-
-        lc->self_heal = l->self_heal;
+        shc->unwind = sh->unwind;
+        shc->need_data_self_heal = sh->need_data_self_heal;
+        shc->need_metadata_self_heal = sh->need_metadata_self_heal;
+        shc->need_entry_self_heal = sh->need_entry_self_heal;
+        shc->forced_merge = sh->forced_merge;
+        shc->healing_fd_opened = sh->healing_fd_opened;
+        shc->data_lock_held = sh->data_lock_held;
+        if (sh->healing_fd)
+                shc->healing_fd = fd_ref (sh->healing_fd);
+        shc->background = sh->background;
+        shc->mode = sh->mode;
 
         if (l->loc.path)
                 loc_copy (&lc->loc, &l->loc);
@@ -1404,9 +1418,10 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         if (l->xattr_req)
                 lc->xattr_req = dict_copy_with_ref (l->xattr_req, NULL);
 
-        lc->cont.lookup.inode = l->cont.lookup.inode;
-//      if (l->cont.lookup.xattr)
-//            lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
+        if (l->cont.lookup.inode)
+                lc->cont.lookup.inode = inode_ref (l->cont.lookup.inode);
+        if (l->cont.lookup.xattr)
+                lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
 
         return lc;
 }
