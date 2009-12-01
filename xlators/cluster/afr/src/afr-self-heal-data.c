@@ -762,7 +762,8 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
 		sh->pending_matrix[i] = CALLOC (sizeof (int32_t),
 						priv->child_count);
 	}
-	sh->sources      = CALLOC (priv->child_count, sizeof (*sh->sources));
+
+	sh->sources = CALLOC (priv->child_count, sizeof (*sh->sources));
 
 	afr_sh_build_pending_matrix (priv, sh->pending_matrix, xattr,
 				     priv->child_count, AFR_DATA_TRANSACTION);
