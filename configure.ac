@@ -227,12 +227,11 @@ AC_SUBST(FUSE_CLIENT_SUBDIR)
 
 # FUSERMOUNT section
 AC_ARG_ENABLE([fusermount],
-              AC_HELP_STRING([--disable-fusermount],
+              AC_HELP_STRING([--enable-fusermount],
                              [Do not build fusermount]))
 
 BUILD_FUSERMOUNT="no"
-
-if test "x$enable_fusermount" != "xno"; then
+if test "x$enable_fusermount" = "xyes"; then
   FUSERMOUNT_SUBDIR="contrib"
   BUILD_FUSERMOUNT="yes"
   AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
