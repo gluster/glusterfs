@@ -1354,7 +1354,7 @@ janitor_walker (const char *fpath, const struct stat *sb,
 }
 
 
-#define JANITOR_SLEEP_DURATION          2
+#define JANITOR_SLEEP_DURATION          600
 
 static void *
 posix_janitor_thread_proc (void *data)
