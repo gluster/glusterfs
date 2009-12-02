@@ -114,6 +114,11 @@ struct posix_private {
 */
         uint64_t        gen_seq;
         gf_lock_t       gen_lock;
+
+/* janitor thread which cleans up /.trash (created by replicate) */
+        pthread_t       janitor;
+        gf_boolean_t    janitor_present;
+        char *          trash_path;
 };
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)

@@ -961,7 +961,7 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	frame->local = local;
 
-        if (!strcmp (loc->path, "/" AFR_TRASH_DIR)) {
+        if (!strcmp (loc->path, "/" GF_REPLICATE_TRASH_DIR)) {
                 op_errno = ENOENT;
                 goto out;
         }

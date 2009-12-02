@@ -532,8 +532,8 @@ afr_sh_entry_expunge_rename_cbk (call_frame_t *expunge_frame, void *cookie,
 static void
 init_trash_loc (loc_t *trash_loc, inode_table_t *table)
 {
-        trash_loc->path   = strdup ("/" AFR_TRASH_DIR);
-        trash_loc->name   = AFR_TRASH_DIR;
+        trash_loc->path   = strdup ("/" GF_REPLICATE_TRASH_DIR);
+        trash_loc->name   = GF_REPLICATE_TRASH_DIR;
         trash_loc->parent = table->root;
         trash_loc->inode  = inode_new (table);
 }
@@ -545,9 +545,9 @@ make_trash_path (const char *path)
         char *c  = NULL;
         char *tp = NULL;
 
-        tp = CALLOC (strlen ("/" AFR_TRASH_DIR) + strlen (path) + 1, sizeof (char));
+        tp = CALLOC (strlen ("/" GF_REPLICATE_TRASH_DIR) + strlen (path) + 1, sizeof (char));
 
-        strcpy (tp, AFR_TRASH_DIR);
+        strcpy (tp, GF_REPLICATE_TRASH_DIR);
         strcat (tp, path);
 
         c = strchr (tp, '/') + 1;
@@ -615,7 +615,7 @@ afr_sh_entry_expunge_mkdir_cbk (call_frame_t *expunge_frame, void *cookie, xlato
 
         if (op_ret != 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "mkdir of /" AFR_TRASH_DIR " failed on %s",
+                        "mkdir of /" GF_REPLICATE_TRASH_DIR " failed on %s",
                         priv->children[active_src]->name);
 
                 goto out;
@@ -624,7 +624,7 @@ afr_sh_entry_expunge_mkdir_cbk (call_frame_t *expunge_frame, void *cookie, xlato
         /* mkdir successful */
 
         trash_inode = inode_link (inode, expunge_local->loc.inode->table->root,
-                                  AFR_TRASH_DIR, buf);
+                                  GF_REPLICATE_TRASH_DIR, buf);
 
         afr_sh_entry_expunge_rename (expunge_frame, this, active_src,
                                      trash_inode);
@@ -662,7 +662,7 @@ afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie
                 init_trash_loc (&trash_loc, expunge_local->loc.inode->table);
 
                 gf_log (this->name, GF_LOG_TRACE,
-                        "creating directory " AFR_TRASH_DIR " on subvolume %s",
+                        "creating directory " GF_REPLICATE_TRASH_DIR " on subvolume %s",
                         priv->children[active_src]->name);
 
                 STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_mkdir_cbk,
@@ -677,7 +677,7 @@ afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie
 
         if (op_ret != 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "lookup of /" AFR_TRASH_DIR " failed on %s",
+                        "lookup of /" GF_REPLICATE_TRASH_DIR " failed on %s",
                         priv->children[active_src]->name);
                 goto out;
         }
@@ -685,7 +685,7 @@ afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie
         /* lookup successful */
 
         trash_inode = inode_link (inode, expunge_local->loc.inode->table->root,
-                                  AFR_TRASH_DIR, buf);
+                                  GF_REPLICATE_TRASH_DIR, buf);
 
         afr_sh_entry_expunge_rename (expunge_frame, this, active_src,
                                      trash_inode);
@@ -713,7 +713,7 @@ afr_sh_entry_expunge_lookup_trash (call_frame_t *expunge_frame, xlator_t *this,
 
         root = expunge_local->loc.inode->table->root;
 
-        trash = inode_grep (root->table, root, AFR_TRASH_DIR);
+        trash = inode_grep (root->table, root, GF_REPLICATE_TRASH_DIR);
 
         if (trash) {
                 /* inode is in cache, so no need to mkdir */
@@ -728,7 +728,7 @@ afr_sh_entry_expunge_lookup_trash (call_frame_t *expunge_frame, xlator_t *this,
         init_trash_loc (&trash_loc, expunge_local->loc.inode->table);
 
 	gf_log (this->name, GF_LOG_TRACE,
-		"looking up /" AFR_TRASH_DIR " on %s",
+		"looking up /" GF_REPLICATE_TRASH_DIR " on %s",
                 priv->children[active_src]->name);
 
 	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_lookup_trash_cbk,
@@ -934,7 +934,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 	if ((strcmp (name, ".") == 0)
 	    || (strcmp (name, "..") == 0)
             || ((strcmp (local->loc.path, "/") == 0)
-                && (strcmp (name, AFR_TRASH_DIR) == 0))) {
+                && (strcmp (name, GF_REPLICATE_TRASH_DIR) == 0))) {
 
                 gf_log (this->name, GF_LOG_TRACE,
 			"skipping inspection of %s under %s",
@@ -1927,7 +1927,7 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 	if ((strcmp (entry->d_name, ".") == 0)
 	    || (strcmp (entry->d_name, "..") == 0)
             || ((strcmp (local->loc.path, "/") == 0)
-                && (strcmp (entry->d_name, AFR_TRASH_DIR) == 0))) {
+                && (strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR) == 0))) {
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"skipping inspection of %s under %s",

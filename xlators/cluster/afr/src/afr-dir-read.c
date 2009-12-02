@@ -361,7 +361,7 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
                                                        child_index);
 
                         if ((local->fd->inode == local->fd->inode->table->root)
-                            && !strcmp (entry->d_name, AFR_TRASH_DIR)) {
+                            && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
                                 list_del_init (&entry->list);
                                 FREE (entry);
                         }
@@ -405,7 +405,7 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         entry->d_stat.st_ino = inum;
 
                         if ((local->fd->inode == local->fd->inode->table->root)
-                            && !strcmp (entry->d_name, AFR_TRASH_DIR)) {
+                            && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
                                 list_del_init (&entry->list);
                                 FREE (entry);
                         }
