@@ -3110,6 +3110,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         size_t   size           = 0;
         size_t   remaining_size = 0;
         char     key[1024]      = {0,};
+        char     gen_key[1024]  = {0,};
         char *   value          = NULL;
         char *   list           = NULL;
         char *   real_path      = NULL;
@@ -3189,6 +3190,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        ret = snprintf (gen_key, 1023, "trusted.%s.gen", this->name);
+
         size = sys_llistxattr (real_path, list, size);
 
         remaining_size = size;
@@ -3214,7 +3217,9 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                         break;
 
                 value [op_ret] = '\0';
-                dict_set (dict, key, data_from_dynptr (value, op_ret));
+                if (strcmp (key, gen_key) != 0)
+                        dict_set (dict, key, data_from_dynptr (value, op_ret));
+
                 remaining_size -= strlen (key) + 1;
                 list_offset += strlen (key) + 1;
 
