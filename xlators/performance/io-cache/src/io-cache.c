@@ -192,19 +192,21 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	inode_ctx_get (inode, this, &tmp_ioc_inode);
 	ioc_inode = (ioc_inode_t *)(long)tmp_ioc_inode;
 	if (ioc_inode) {
+		ioc_inode_lock (ioc_inode);
+		{
+                        if (ioc_inode->mtime == 0) {
+                                ioc_inode->mtime = stbuf->st_mtime;
+                        }
+		}
+		ioc_inode_unlock (ioc_inode);
+
 		cache_still_valid = ioc_cache_still_valid (ioc_inode, 
 							   stbuf);
 		
 		if (!cache_still_valid) {
 			ioc_inode_flush (ioc_inode);
 		} 
-		/* update the time-stamp of revalidation */
-		ioc_inode_lock (ioc_inode);
-		{
-			gettimeofday (&ioc_inode->tv, NULL);
-		}
-		ioc_inode_unlock (ioc_inode);
-		
+
 		ioc_table_lock (ioc_inode->table);
 		{
 			list_move_tail (&ioc_inode->inode_lru,
@@ -534,6 +536,11 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			weight = ioc_get_priority (table, path);
 
 			ioc_inode = ioc_inode_update (table, inode, weight);
+                        ioc_inode_lock (ioc_inode);
+                        {
+                                ioc_inode->mtime = buf->st_mtime;
+                        }
+                        ioc_inode_unlock (ioc_inode);
 
                         inode_ctx_put (fd->inode, this,
                                        (uint64_t)(long)ioc_inode);

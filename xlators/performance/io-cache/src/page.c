@@ -334,6 +334,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	size_t      page_size = 0;
 	ioc_waitq_t *waitq = NULL;
         size_t      iobref_page_size = 0;
+        char        zero_filled = 0;
 
         local = frame->local;
         offset = local->pending_offset;
@@ -343,22 +344,26 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	trav_offset = offset;  
 	payload_size = op_ret;
 
+        zero_filled = ((op_ret >=0)
+                       && (stbuf->st_mtime == 0));
+
+
 	ioc_inode_lock (ioc_inode);
 	{
-		if (op_ret == -1 || 
-		    (op_ret >= 0 && 
-		     !ioc_cache_still_valid(ioc_inode, stbuf))) {
+		if (op_ret == -1 ||
+		    !(zero_filled ||
+                      ioc_cache_still_valid(ioc_inode, stbuf))) {
 			gf_log (ioc_inode->table->xl->name, GF_LOG_TRACE,
 				"cache for inode(%p) is invalid. flushing "
 				"all pages", ioc_inode);
 			destroy_size = __ioc_inode_flush (ioc_inode);
-		} 
-    
-		if (op_ret >= 0)
-			ioc_inode->mtime = stbuf->st_mtime;
-    
+		}
+
+		if ((op_ret >= 0) && !zero_filled)
+                        ioc_inode->mtime = stbuf->st_mtime;
+
 		gettimeofday (&ioc_inode->tv, NULL);
-    
+
 		if (op_ret < 0) {
 			/* error, readv returned -1 */
 			page = ioc_page_get (ioc_inode, offset);
