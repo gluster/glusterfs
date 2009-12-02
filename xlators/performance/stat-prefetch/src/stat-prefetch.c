@@ -585,7 +585,12 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local == NULL) {
                 op_ret = -1;
                 op_errno = EINVAL;
-        } else if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "local is NULL, but it is "
+                        "needed to find and resume operations waiting on "
+                        "lookup");
+                goto out;
+        }
+        if (op_ret == -1) {
                 cache = sp_get_cache_inode (this, local->loc.parent,
                                             frame->root->pid);
 
@@ -596,12 +601,12 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 
-        if (local && local->is_lookup)
+        if (local->is_lookup)
                 need_unwind = 1;
 
-        ret = inode_ctx_get (inode, this, &value);
+        ret = inode_ctx_get (local->loc.inode, this, &value);
         if (ret == 0) {
-                inode_ctx = (sp_inode_ctx_t *)(long)value; 
+                inode_ctx = (sp_inode_ctx_t *)(long)value;
                 if (inode_ctx == NULL) {
                         op_ret = -1;
                         op_errno = EINVAL;
