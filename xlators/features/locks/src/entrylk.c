@@ -513,9 +513,20 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 
 	pthread_mutex_lock (&pinode->mutex);
 	{
-		if (list_empty (&dom->entrylk_list)) {
-			goto unlock;
-		}
+                list_for_each_entry_safe (lock, tmp, &dom->blocked_entrylks,
+                                          blocked_locks) {
+                        if (lock->trans != trans)
+                                continue;
+
+                        list_del_init (&lock->blocked_locks);
+
+			gf_log (this->name, GF_LOG_TRACE,
+                                "releasing lock on  held by "
+                                "{transport=%p}",trans);
+
+			FREE (lock->basename);
+			FREE (lock);
+                }
 
 		list_for_each_entry_safe (lock, tmp, &dom->entrylk_list,
 					  domain_list) {
@@ -526,7 +537,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 
 			gf_log (this->name, GF_LOG_TRACE,
                                 "releasing lock on  held by "
-                                "{transport=%p}",trans);;
+                                "{transport=%p}",trans);
 
 			FREE (lock->basename);
 			FREE (lock);
@@ -535,7 +546,7 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 		__grant_blocked_entry_locks (this, pinode, dom, &granted);
 
 	}
-unlock:
+
 	pthread_mutex_unlock (&pinode->mutex);
 
 	list_for_each_entry_safe (lock, tmp, &granted, blocked_locks) {

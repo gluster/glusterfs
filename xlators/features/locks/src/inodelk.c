@@ -307,10 +307,12 @@ __grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t
 	pl_inode_lock_t *bl = NULL;
 	pl_inode_lock_t *tmp = NULL;
 
-	list_for_each_entry_safe (bl, tmp, &dom->blocked_inodelks, blocked_locks) {
+        struct list_head blocked_list;
 
-                if (__inodelk_grantable (dom, bl))
-                        continue;
+        INIT_LIST_HEAD (&blocked_list);
+        list_splice_init (&dom->blocked_inodelks, &blocked_list);
+
+	list_for_each_entry_safe (bl, tmp, &blocked_list, blocked_locks) {
 
 		list_del_init (&bl->blocked_locks);
 
@@ -368,19 +370,12 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
 
         pthread_mutex_lock (&pinode->mutex);
         {
-                if (list_empty (&dom->inodelk_list)) {
-                        goto unlock;
-                }
 
-                list_for_each_entry_safe (l, tmp, &dom->inodelk_list, list) {
+                list_for_each_entry_safe (l, tmp, &dom->blocked_inodelks, blocked_locks) {
                         if (l->transport != trans)
                                 continue;
 
-                        __delete_inode_lock (l);
-
-			grant_blocked_inode_locks (this, pinode, l, dom);
-
-                        __destroy_inode_lock (l);
+                        list_del_init (&l->blocked_locks);
 
                         if (inode_path (inode, NULL, &path) < 0) {
                                 gf_log (this->name, GF_LOG_TRACE,
@@ -393,6 +388,34 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                                 "{transport=%p, pid=%"PRId64"}",
                                 path, trans,
                                 (uint64_t) l->client_pid);
+
+                        FREE (l);
+
+                }
+
+                list_for_each_entry_safe (l, tmp, &dom->inodelk_list, list) {
+                        if (l->transport != trans)
+                                continue;
+
+                        __delete_inode_lock (l);
+
+			grant_blocked_inode_locks (this, pinode, l, dom);
+
+                        if (inode_path (inode, NULL, &path) < 0) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "inode_path failed");
+                                goto unlock;
+                        }
+
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "releasing lock on %s held by "
+                                "{transport=%p, pid=%"PRId64"}",
+                                path, trans,
+                                (uint64_t) l->client_pid);
+
+
+                        __destroy_inode_lock (l);
+
 
                 }
         }
