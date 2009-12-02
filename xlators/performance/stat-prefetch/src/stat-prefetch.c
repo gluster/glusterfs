@@ -733,7 +733,8 @@ out:
 
 
 int32_t
-sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this, char *path)
+sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this,
+                              inode_table_t *itable, char *path)
 {
         char       *parent    = NULL, *grand_parent = NULL, *cpy = NULL;
         inode_t    *inode_gp  = NULL;
@@ -747,8 +748,7 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this, char *path)
         }
 
         if (grand_parent && strcmp (grand_parent, "/")) {
-                inode_gp = inode_from_path (frame->root->frames.this->itable,
-                                            grand_parent);
+                inode_gp = inode_from_path (itable, grand_parent);
                 if (inode_gp) {
                         cache_gp = sp_get_cache_inode (this, inode_gp,
                                                        frame->root->pid);
@@ -1124,7 +1124,8 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 goto unwind;
         }
 
-        ret = sp_cache_remove_parent_entry (frame, this, path);
+        ret = sp_cache_remove_parent_entry (frame, this, fd->inode->table,
+                                            path);
 
         FREE (path);
 
@@ -1399,7 +1400,8 @@ sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
+                                            (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1627,7 +1629,8 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
+                                            (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1726,7 +1729,8 @@ sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
+                                            (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1824,7 +1828,8 @@ sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
+                                            (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1922,7 +1927,8 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, out,
                                         op_errno, EINVAL);
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)newloc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, newloc->parent->table,
+                                            (char *)newloc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -2373,7 +2379,8 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 sp_cache_unref (cache);
         }
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, loc->parent->table,
+                                            (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -2493,7 +2500,8 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 sp_cache_unref (cache);
         }
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)loc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
+                                            (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -2781,13 +2789,15 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
                 sp_cache_unref (cache);
         }
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)oldloc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, oldloc->parent->table,
+                                            (char *)oldloc->path);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
-        ret = sp_cache_remove_parent_entry (frame, this, (char *)newloc->path);
+        ret = sp_cache_remove_parent_entry (frame, this, newloc->parent->table,
+                                            (char *)newloc->path);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
