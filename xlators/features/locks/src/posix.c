@@ -1037,6 +1037,191 @@ out:
 	return 0;
 }
 
+void
+pl_dump_lock (char *str, int size, struct flock *flock, uint64_t owner)
+{
+        char *type_str = NULL;
+
+        switch (flock->l_type) {
+        case F_RDLCK:
+                type_str = "READ";
+                break;
+        case F_WRLCK:
+                type_str = "WRITE";
+                break;
+        case F_UNLCK:
+                type_str = "UNLOCK";
+                break;
+        default:
+                type_str = "UNKNOWN";
+                break;
+        }
+
+        snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu",
+                  type_str, (unsigned long long) flock->l_start,
+                  (unsigned long long) flock->l_len,
+                  (unsigned long long) flock->l_pid,
+                  (unsigned long long) owner);
+
+
+}
+
+void
+__dump_entrylks (pl_inode_t *pl_inode)
+{
+        pl_dom_list_t   *dom  = NULL;
+        pl_entry_lock_t *lock = NULL;
+        int             count = 0;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+
+        char tmp[256];
+
+        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
+
+                count = 0;
+
+                gf_proc_dump_build_key(key,
+                                       "xlator.feature.locks.lock-dump.domain",
+                                       "domain");
+                gf_proc_dump_write(key, "%s", dom->domain);
+
+                list_for_each_entry (lock, &dom->entrylk_list, domain_list) {
+
+                        gf_proc_dump_build_key(key,
+                                               "xlator.feature.locks.lock-dump.domain.entrylk",
+                                               "entrylk[%d](ACTIVE)",count );
+                        snprintf (tmp, 256," %s on %s",
+                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : 
+                                  "ENTRYLK_WRLCK", lock->basename);
+
+                        gf_proc_dump_write(key, tmp);
+
+                        count++;
+                }
+
+                list_for_each_entry (lock, &dom->blocked_entrylks, blocked_locks) {
+
+                        gf_proc_dump_build_key(key,
+                                               "xlator.feature.locks.lock-dump.domain.entrylk",
+                                               "entrylk[%d](BLOCKED)",count );
+                        snprintf (tmp, 256," %s on %s state = Blocked",
+                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : 
+                                  "ENTRYLK_WRLCK", lock->basename);
+
+                        gf_proc_dump_write(key, tmp);
+
+                        count++;
+                }
+
+        }
+
+}
+
+void
+dump_entrylks (pl_inode_t *pl_inode)
+{
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                __dump_entrylks (pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+}
+
+void
+__dump_inodelks (pl_inode_t *pl_inode)
+{
+        pl_dom_list_t   *dom  = NULL;
+        pl_inode_lock_t *lock = NULL;
+        int             count = 0;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+
+        char tmp[256];
+
+        list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
+
+                count = 0;
+
+                gf_proc_dump_build_key(key,
+                                       "xlator.feature.locks.lock-dump.domain",
+                                       "domain");
+                gf_proc_dump_write(key, "%s", dom->domain);
+
+                list_for_each_entry (lock, &dom->inodelk_list, list) {
+
+                        gf_proc_dump_build_key(key,
+                                               "xlator.feature.locks.lock-dump.domain.inodelk",
+                                               "inodelk[%d](ACTIVE)",count );
+
+                        pl_dump_lock (tmp, 256, &lock->user_flock, lock->owner);
+                        gf_proc_dump_write(key, tmp);
+
+                        count++;
+                }
+
+                list_for_each_entry (lock, &dom->blocked_inodelks, blocked_locks) {
+
+                        gf_proc_dump_build_key(key,
+                                               "xlator.feature.locks.lock-dump.domain.inodelk",
+                                               "inodelk[%d](BLOCKED)",count );
+                        pl_dump_lock (tmp, 256, &lock->user_flock, lock->owner);
+                        gf_proc_dump_write(key, tmp);
+
+                        count++;
+                }
+
+        }
+
+}
+
+void
+dump_inodelks (pl_inode_t *pl_inode)
+{
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                __dump_inodelks (pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+}
+
+void
+__dump_posixlks (pl_inode_t *pl_inode)
+{
+        posix_lock_t    *lock = NULL;
+        int             count = 0;
+        char            key[GF_DUMP_MAX_BUF_LEN];
+
+        char tmp[256];
+
+      list_for_each_entry (lock, &pl_inode->ext_list, list) {
+
+              gf_proc_dump_build_key(key,
+                                     "xlator.feature.locks.lock-dump.domain.posixlk",
+                                     "posixlk[%d](%s)",
+                                     lock->blocked ? "BLOCKED" : "ACTIVE",
+                                     count );
+              pl_dump_lock (tmp, 256, &lock->user_flock, lock->owner);
+              gf_proc_dump_write(key, tmp);
+
+              count++;
+        }
+
+
+
+}
+
+void
+dump_posixlks (pl_inode_t *pl_inode)
+{
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                __dump_posixlks (pl_inode);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
+
+}
+
 int32_t
 pl_dump_inode_priv (xlator_t *this, inode_t *inode)
 {
@@ -1045,6 +1230,8 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
         uint64_t        tmp_pl_inode = 0;
         pl_inode_t      *pl_inode = NULL;
         char            key[GF_DUMP_MAX_BUF_LEN];
+
+        int count      = 0;
 
         if (!inode)
                 return -1;
@@ -1063,6 +1250,32 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
                                "xlator.feature.locks.inode",
                                "%ld.mandatory",inode->ino);
         gf_proc_dump_write(key, "%d", pl_inode->mandatory);
+
+
+                count = get_entrylk_count (this, inode);
+                gf_proc_dump_build_key(key,
+                                       "xlator.feature.locks.entrylk-count",
+                                       "%ld.entrylk-count", inode->ino);
+                gf_proc_dump_write(key, "%d", count);
+
+                dump_entrylks(pl_inode);
+
+                count = get_inodelk_count (this, inode);
+                gf_proc_dump_build_key(key,
+                                       "xlator.feature.locks.inodelk-count",
+                                       "%ld.inodelk-count", inode->ino);
+                gf_proc_dump_write(key, "%d", count);
+
+                dump_inodelks(pl_inode);
+
+                count = get_posixlk_count (this, inode);
+                gf_proc_dump_build_key(key,
+                                       "xlator.feature.locks.posixlk-count",
+                                       "%ld.posixlk-count", inode->ino);
+                gf_proc_dump_write(key, "%d", count);
+
+                dump_posixlks(pl_inode);
+
 
         return 0;
 }
