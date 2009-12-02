@@ -772,6 +772,77 @@ out:
         return inode_ctx;
 }
 
+
+int32_t
+sp_lookup_helper (call_frame_t *frame,xlator_t *this, loc_t *loc,
+                  dict_t *xattr_req)
+{
+        uint64_t        value     = 0;
+        sp_inode_ctx_t *inode_ctx = NULL;
+        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        call_stub_t    *stub      = NULL;
+        char            can_wind  = 0;
+
+        ret = inode_ctx_get (loc->inode, this, &value);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
+                        "(%p)", loc->inode);
+                op_errno = EINVAL;
+                goto unwind;
+        }
+
+        inode_ctx = (sp_inode_ctx_t *)(long) value;
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
+                                        EINVAL);
+
+        stub = fop_lookup_stub (frame, sp_lookup_helper, loc,
+                                xattr_req);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, stub, unwind,
+                                        op_errno, ENOMEM);
+
+        LOCK (&inode_ctx->lock);
+        {
+                op_ret = inode_ctx->op_ret;
+                op_errno = inode_ctx->op_errno;
+                if (op_ret == 0) {
+                        if (!inode_ctx->lookup_in_progress) {
+                                inode_ctx->lookup_in_progress = 1;
+                                can_wind = 1;
+                        } else {
+                                list_add_tail (&stub->list,
+                                               &inode_ctx->waiting_ops);
+                                stub = NULL;
+                        }
+                }
+        }
+        UNLOCK (&inode_ctx->lock);
+
+        if (op_ret == -1) {
+                goto unwind;
+        }
+
+        if (can_wind) {
+                STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->lookup, loc,
+                            xattr_req);
+        }
+
+        if (stub != NULL) {
+                call_stub_destroy (stub);
+        }
+
+        return 0;
+
+unwind:
+        SP_STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
+        if (stub != NULL) {
+                call_stub_destroy (stub);
+        }
+
+        return 0;
+}
+
+
 /* 
  * TODO: implement sending lookups for every fop done on this path. As of now
  * lookup on the path is sent only for the first fop on this path.
@@ -785,11 +856,12 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         int32_t         ret             = -1, op_ret = -1, op_errno = EINVAL; 
         sp_cache_t     *cache           = NULL;
         struct stat     buf             = {0, };
-        char            entry_cached    = 0;
+        char            entry_cached    = 0, can_wind = 0;
         char            xattr_req_empty = 1;
         sp_inode_ctx_t *inode_ctx       = NULL;
         uint64_t        value           = 0;
         sp_local_t     *local           = NULL;
+        call_stub_t    *stub            = NULL;
 
         if (loc == NULL || loc->inode == NULL) {
                 goto unwind;
@@ -867,14 +939,10 @@ wind:
                         sp_cache_unref (cache);
                 }
 
-                LOCK (&inode_ctx->lock);
-                {
-                        if (!(inode_ctx->looked_up
-                              || inode_ctx->lookup_in_progress)) {
-                                inode_ctx->lookup_in_progress = 1;
-                        }
-                }
-                UNLOCK (&inode_ctx->lock);
+                stub = fop_lookup_stub (frame, sp_lookup_helper, loc,
+                                        xattr_req);
+                GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, stub, unwind,
+                                                op_errno, ENOMEM);
 
                 local = CALLOC (1, sizeof (*local));
                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local,
@@ -892,9 +960,33 @@ wind:
 
                 local->is_lookup = 1;
 
-                STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
-     
+                LOCK (&inode_ctx->lock);
+                {
+                        if (inode_ctx->lookup_in_progress) {
+                                list_add_tail (&stub->list,
+                                               &inode_ctx->waiting_ops);
+                                stub = NULL;
+                        } else {
+                                can_wind = 1;
+                        }
+
+                        if (!(inode_ctx->looked_up
+                              || inode_ctx->lookup_in_progress)) {
+                                inode_ctx->lookup_in_progress = 1;
+                        }
+                }
+                UNLOCK (&inode_ctx->lock);
+
+                if (can_wind) {
+                        STACK_WIND (frame, sp_lookup_cbk, FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->lookup, loc,
+                                    xattr_req);
+                }
+
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+
                 return 0;
         }
 
