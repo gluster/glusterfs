@@ -179,8 +179,10 @@ stripe_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            ((call_frame_t *)cookie)->this) {
                                 local->pre_buf.st_ino    = prebuf->st_ino;
                                 local->pre_buf.st_mtime  = prebuf->st_mtime;
+                                local->pre_buf.st_ctime  = prebuf->st_ctime;
                                 local->post_buf.st_ino   = postbuf->st_ino;
                                 local->post_buf.st_mtime = postbuf->st_mtime;
+                                local->post_buf.st_ctime = postbuf->st_ctime;
                         }
                         local->pre_buf.st_blocks += prebuf->st_blocks;
                         if (local->pre_buf.st_size < prebuf->st_size)
@@ -261,10 +263,14 @@ stripe_stack_unwind_unlink_cbk (call_frame_t *frame, void *cookie,
                                         preparent->st_ino;
                                 local->pre_parent_buf.st_mtime  = 
                                         preparent->st_mtime;
+                                local->pre_parent_buf.st_ctime  =
+                                        preparent->st_ctime;
                                 local->post_parent_buf.st_ino   = 
                                         postparent->st_ino;
                                 local->post_parent_buf.st_mtime = 
                                         postparent->st_mtime;
+                                local->post_parent_buf.st_ctime =
+                                        postparent->st_ctime;
                         }
                         local->pre_parent_buf.st_blocks += preparent->st_blocks;
                         if (local->pre_parent_buf.st_size < preparent->st_size)
@@ -343,8 +349,10 @@ stripe_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            ((call_frame_t *)cookie)->this) {
                                 local->pre_buf.st_ino    = prebuf->st_ino;
                                 local->pre_buf.st_mtime  = prebuf->st_mtime;
+                                local->pre_buf.st_ctime  = prebuf->st_ctime;
                                 local->post_buf.st_ino   = postbuf->st_ino;
                                 local->post_buf.st_mtime = postbuf->st_mtime;
+                                local->post_buf.st_ctime = postbuf->st_ctime;
                         }
                         local->pre_buf.st_blocks += prebuf->st_blocks;
                         if (local->pre_buf.st_size < prebuf->st_size)
@@ -434,6 +442,7 @@ stripe_stack_unwind_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 /* Always, pass the inode number of 
                                    first child to the above layer */
                                 local->post_buf.st_ino = buf->st_ino;
+                                local->post_buf.st_ctime = buf->st_ctime;
                                 local->post_buf.st_mtime = buf->st_mtime;
                         }
 
@@ -532,11 +541,14 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
                             ((call_frame_t *)cookie)->this) {
                                 local->post_buf.st_ino   = buf->st_ino;
                                 local->post_buf.st_mtime = buf->st_mtime;
+                                local->post_buf.st_ctime = buf->st_ctime;
 
                                 local->pre_parent_buf.st_ino = preparent->st_ino;
                                 local->pre_parent_buf.st_mtime = preparent->st_mtime;
+                                local->pre_parent_buf.st_ctime = preparent->st_ctime;
                                 local->post_parent_buf.st_ino = postparent->st_ino;
                                 local->post_parent_buf.st_mtime = postparent->st_mtime;
+                                local->post_parent_buf.st_ctime = postparent->st_ctime;
                         }
                         local->post_buf.st_blocks += buf->st_blocks;
                         if (local->post_buf.st_size < buf->st_size)
@@ -625,8 +637,10 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (FIRST_CHILD(this) == prev->this) {
                                 local->post_buf.st_ino = buf->st_ino;
                                 local->post_buf.st_mtime = buf->st_mtime;
+                                local->post_buf.st_ctime = buf->st_ctime;
                                 local->post_parent_buf.st_ino = postparent->st_ino;
                                 local->post_parent_buf.st_mtime = postparent->st_mtime;
+                                local->post_parent_buf.st_ctime = postparent->st_mtime;
                                 if (local->dict)
                                         dict_unref (local->dict);
                                 local->dict = dict_ref (dict);
@@ -972,16 +986,18 @@ stripe_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                                 local->pre_buf.st_ino   = preop->st_ino;
                                 local->pre_buf.st_mtime = preop->st_mtime;
+                                local->pre_buf.st_ctime = preop->st_ctime;
 
                                 local->stbuf.st_ino   = postop->st_ino;
                                 local->stbuf.st_mtime = postop->st_mtime;
+                                local->stbuf.st_ctime = postop->st_ctime;
                         }
 
                         local->pre_buf.st_blocks += preop->st_blocks;
                         local->stbuf.st_blocks     += postop->st_blocks;
 
 
-                        if (local->stbuf.st_size < preop->st_size)
+                        if (local->pre_buf.st_size < preop->st_size)
                                 local->pre_buf.st_size = preop->st_size;
                         if (local->stbuf.st_size < postop->st_size)
                                 local->stbuf.st_size = postop->st_size;
@@ -1199,12 +1215,12 @@ stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         stripe_local_t *local = NULL;
         xlator_list_t  *trav = NULL;
 
+        local = frame->local;
+        trav = this->children;
+
         if (op_ret == -1) {
                 goto unwind;
         }
-
-        local = frame->local;
-        trav = this->children;
 
         local->post_buf = *buf;
         local->pre_parent_buf = *preoldparent;
@@ -1214,8 +1230,8 @@ stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local->op_ret = 0;
         local->call_count--;
-        trav = trav->next; /* Skip first child */
 
+        trav = trav->next; /* Skip first child */
         while (trav) {
                 STACK_WIND (frame, stripe_stack_rename_cbk,
                             trav->xlator, trav->xlator->fops->rename,
@@ -1225,9 +1241,14 @@ stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
  unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, buf, preoldparent, 
+        if (local->loc.path)
+                loc_wipe (&local->loc);
+        if (local->loc2.path)
+                loc_wipe (&local->loc2);
+
+       STACK_UNWIND (frame, op_ret, op_errno, buf, preoldparent,
                       postoldparent, prenewparent, postnewparent);
-        return 0;
+       return 0;
 }
 /**
  * stripe_rename - 
@@ -1269,7 +1290,7 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         loc_copy (&local->loc2, newloc);
 
         local->call_count = priv->child_count;
-  
+
         frame->local = local;
 
         STACK_WIND (frame, stripe_first_rename_cbk, trav->xlator,
@@ -1348,7 +1369,6 @@ stripe_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 int32_t
 stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        int               send_fop_to_all = 0;
         xlator_list_t    *trav = NULL;
         stripe_local_t   *local = NULL;
         stripe_private_t *priv = NULL;
@@ -1368,35 +1388,27 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto err;
         }
  
-        if (S_ISREG (loc->inode->st_mode))
-                send_fop_to_all = 1;
+        /* Don't unlink a file if a node is down */
+        if (priv->nodes_down) {
+                op_errno = ENOTCONN;
+                goto err;
+        }
 
-        if (!send_fop_to_all) {
-                STACK_WIND (frame, stripe_common_remove_cbk, trav->xlator,
-                            trav->xlator->fops->unlink, loc);
-        } else {
-                /* Don't unlink a file if a node is down */
-                if (priv->nodes_down) {
-                        op_errno = ENOTCONN;
-                        goto err;
-                }
+        /* Initialization */
+        local = CALLOC (1, sizeof (stripe_local_t));
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->op_ret = -1;
+        frame->local = local;
+        local->call_count = priv->child_count;
 
-                /* Initialization */
-                local = CALLOC (1, sizeof (stripe_local_t));
-                if (!local) {
-                        op_errno = ENOMEM;
-                        goto err;
-                }
-                local->op_ret = -1;
-                frame->local = local;
-                local->call_count = priv->child_count;
-    
-                while (trav) {
-                        STACK_WIND (frame, stripe_stack_unwind_unlink_cbk,
-                                    trav->xlator, trav->xlator->fops->unlink,
-                                    loc);
-                        trav = trav->next;
-                }
+        while (trav) {
+                STACK_WIND (frame, stripe_stack_unwind_unlink_cbk,
+                            trav->xlator, trav->xlator->fops->unlink,
+                            loc);
+                trav = trav->next;
         }
 
         return 0;
@@ -2082,11 +2094,14 @@ stripe_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             ((call_frame_t *)cookie)->this) {
                                 local->post_buf.st_ino   = buf->st_ino;
                                 local->post_buf.st_mtime = buf->st_mtime;
+                                local->post_buf.st_ctime = buf->st_ctime;
 
                                 local->pre_parent_buf.st_ino = preparent->st_ino;
                                 local->pre_parent_buf.st_mtime = preparent->st_mtime;
+                                local->pre_parent_buf.st_ctime = preparent->st_ctime;
                                 local->post_parent_buf.st_ino = postparent->st_ino;
                                 local->post_parent_buf.st_mtime = postparent->st_mtime;
+                                local->post_parent_buf.st_ctime = postparent->st_ctime;
                         }
                         local->post_buf.st_blocks += buf->st_blocks;
                         if (local->post_buf.st_size < buf->st_size)
