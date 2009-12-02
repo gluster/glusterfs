@@ -203,6 +203,8 @@ typedef enum {
 #define GF_SET_EPOCH_TIME     0x8 /* used by afr dir lookup selfheal */
 
 
+#define GF_REPLICATE_TRASH_DIR          ".trash"
+
 struct _xlator_cmdline_option {
 	struct list_head cmd_args;
 	char *volume;

@@ -29,6 +29,7 @@
 #include <sys/resource.h>
 #include <errno.h>
 #include <libgen.h>
+#include <pthread.h>
 #include <ftw.h>
 
 #ifndef GF_BSD_HOST_OS
@@ -50,7 +51,7 @@
 #include "syscall.h"
 #include "statedump.h"
 #include "locking.h"
-#include <libgen.h>
+#include "timer.h"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -1322,6 +1323,95 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
+
+static int
+janitor_walker (const char *fpath, const struct stat *sb,
+                int typeflag, struct FTW *ftwbuf)
+{
+        switch (sb->st_mode & S_IFMT) {
+        case S_IFREG:
+        case S_IFBLK:
+        case S_IFLNK:
+        case S_IFCHR:
+        case S_IFIFO:
+        case S_IFSOCK:
+                gf_log (THIS->name, GF_LOG_TRACE,
+                        "unlinking %s", fpath);
+                unlink (fpath);
+                break;
+
+        case S_IFDIR:
+                if (ftwbuf->level) { /* don't remove top level dir */
+                        gf_log (THIS->name, GF_LOG_TRACE,
+                                "removing directory %s", fpath);
+
+                        rmdir (fpath);
+                }
+                break;
+        }
+
+        return FTW_CONTINUE;
+}
+
+
+#define JANITOR_SLEEP_DURATION          2
+
+static void *
+posix_janitor_thread_proc (void *data)
+{
+        xlator_t *            this = NULL;
+        struct posix_private *priv = NULL;
+
+        this = data;
+        priv = this->private;
+
+        THIS = this;
+
+        while (1) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "janitor woke up, cleaning out /" GF_REPLICATE_TRASH_DIR);
+
+                nftw (priv->trash_path,
+                      janitor_walker,
+                      32,
+                      FTW_DEPTH | FTW_PHYS);
+
+                sleep (JANITOR_SLEEP_DURATION);
+        }
+
+        return NULL;
+}
+
+
+static void
+posix_spawn_janitor_thread (xlator_t *this)
+{
+        struct posix_private *priv = NULL;
+        int ret = 0;
+
+        priv = this->private;
+
+        LOCK (&priv->lock);
+        {
+                if (!priv->janitor_present) {
+                        ret = pthread_create (&priv->janitor, NULL,
+                                              posix_janitor_thread_proc, this);
+
+                        if (ret < 0) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "spawning janitor thread failed: %s",
+                                        strerror (errno));
+                                goto unlock;
+                        }
+
+                        priv->janitor_present = _gf_true;
+                }
+        }
+unlock:
+        UNLOCK (&priv->lock);
+}
+
+
 int32_t
 posix_mkdir (call_frame_t *frame, xlator_t *this,
              loc_t *loc, mode_t mode)
@@ -1382,6 +1472,14 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                         "mkdir of %s failed: %s", loc->path, 
                         strerror (op_errno));
                 goto out;
+        }
+
+        if (!strcmp (loc->path, "/" GF_REPLICATE_TRASH_DIR)) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "got mkdir %s, spawning janitor thread",
+                        loc->path);
+
+                posix_spawn_janitor_thread (this);
         }
 
 #ifndef HAVE_SET_FSID
@@ -4737,6 +4835,21 @@ init (xlator_t *this)
 
         _private->base_path = strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
+
+        _private->trash_path = CALLOC (1, _private->base_path_length
+                                       + strlen ("/")
+                                       + strlen (GF_REPLICATE_TRASH_DIR)
+                                       + 1);
+
+        if (!_private->trash_path) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory.");
+                ret = -1;
+                goto out;
+        }
+
+        strncpy (_private->trash_path, _private->base_path, _private->base_path_length);
+        strcat (_private->trash_path, "/" GF_REPLICATE_TRASH_DIR);
 
         LOCK_INIT (&_private->lock);
 
