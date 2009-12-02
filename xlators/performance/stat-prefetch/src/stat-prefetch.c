@@ -19,8 +19,8 @@
 
 #include "stat-prefetch.h"
 
-#define GF_SP_CACHE_BUCKETS 4096
-
+#define GF_SP_CACHE_BUCKETS 1
+#define GF_SP_CACHE_ENTRIES_EXPECTED 1048576
 
 sp_cache_t *
 sp_cache_ref (sp_cache_t *cache)
@@ -164,15 +164,25 @@ sp_hashfn (void *data, int len)
 }
  
 sp_cache_t *
-sp_cache_init (void)
+sp_cache_init (xlator_t *this)
 {
-        sp_cache_t *cache = NULL;
+        sp_cache_t      *cache = NULL;
+        sp_private_t    *priv = NULL;
+
+        priv = this->private;
+
+        if (!priv)
+                goto out;
+
+        if (!priv->mem_pool)
+                goto out;
+
 
         cache = CALLOC (1, sizeof (*cache));
         if (cache) {
                 cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
-                                                   sp_hashfn,
-                                                   free);
+                                                   sp_hashfn, free,
+                                                   0, priv->mem_pool);
                 if (cache->table == NULL) {
                         FREE (cache);
                         cache = NULL;
@@ -180,6 +190,7 @@ sp_cache_init (void)
                 }
 
                 LOCK_INIT (&cache->lock);
+                cache->this = this;
         }
 
 out:
@@ -202,10 +213,22 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
 {
         int32_t          ret   = -1;
         rbthash_table_t *table = NULL;
+        xlator_t        *this;
+        sp_private_t    *priv = NULL;
 
         if ((cache == NULL) || ((name == NULL) && !remove_all)) {
                 goto out;
         }
+
+        this = cache->this;
+
+        if (this == NULL)
+                goto out;
+
+        if (this->private == NULL)
+                goto out;
+
+        priv = this->private;
 
         LOCK (&cache->lock);
         {
@@ -213,7 +236,9 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                         table = cache->table;
                         cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
                                                            sp_hashfn,
-                                                           free);
+                                                           free,
+                                                           0,
+                                                           priv->mem_pool);
                         if (cache->table == NULL) {
                                 cache->table = table;
                         } else {
@@ -1001,13 +1026,18 @@ int32_t
 sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
-        sp_local_t *local       = NULL;
-        sp_cache_t *cache       = NULL;
-        fd_t       *fd          = NULL;
-        int32_t     ret         = 0;
-        char        was_present = 1;
+        sp_local_t      *local       = NULL;
+        sp_cache_t      *cache       = NULL;
+        fd_t            *fd          = NULL;
+        int32_t         ret         = 0;
+        char            was_present = 1;
+        sp_private_t    *priv = NULL;
 
         if (op_ret == -1) {
+                goto out;
+        }
+
+        if (!this->private) {
                 goto out;
         }
 
@@ -1018,12 +1048,25 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         fd = local->fd;
 
+        priv = this->private;
+
+        LOCK (&priv->lock);
+        {
+                if (!priv->mem_pool)
+                        priv->mem_pool =  mem_pool_new (rbthash_entry_t,
+                                                GF_SP_CACHE_ENTRIES_EXPECTED);
+        }
+        UNLOCK (&priv->lock);
+
+        if (!priv->mem_pool)
+                goto out;
+
         LOCK (&fd->lock);
         {
                 cache = __sp_get_cache_fd (this, fd);
                 if (cache == NULL) {
                         was_present = 0;
-                        cache = sp_cache_init ();
+                        cache = sp_cache_init (this);
                         if (cache == NULL) {
                                 goto unlock;
                         }
@@ -4029,7 +4072,9 @@ sp_release (xlator_t *this, fd_t *fd)
 int32_t 
 init (xlator_t *this)
 {
-        int32_t ret = -1;
+        int32_t         ret = -1;
+        sp_private_t    *priv = NULL;
+
         if (!this->children || this->children->next) {
                 gf_log ("stat-prefetch",
                         GF_LOG_ERROR,
@@ -4037,6 +4082,11 @@ init (xlator_t *this)
                         "node", this->name);
                 goto out;
         }
+
+        priv = CALLOC (1, sizeof(sp_private_t));
+        LOCK_INIT (&priv->lock);
+
+        this->private = priv;
 
         ret = 0;
 out:

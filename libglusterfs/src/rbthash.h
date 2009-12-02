@@ -23,6 +23,7 @@
 #include "locking.h"
 #include "mem-pool.h"
 #include "logging.h"
+#include "common-utils.h"
 
 #include <pthread.h>
 
@@ -52,11 +53,13 @@ typedef struct rbthash_table {
         struct rbthash_bucket   *buckets;
         rbt_hasher_t            hashfunc;
         rbt_data_destroyer_t    dfunc;
+        gf_boolean_t            pool_alloced;
 } rbthash_table_t;
 
 extern rbthash_table_t *
 rbthash_table_init (int buckets, rbt_hasher_t hfunc,
-                    rbt_data_destroyer_t dfunc);
+                    rbt_data_destroyer_t dfunc, unsigned long expected_entries,
+                    struct mem_pool *entrypool);
 
 extern int
 rbthash_insert (rbthash_table_t *tbl, void *data, void *key, int keylen);

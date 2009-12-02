@@ -44,6 +44,7 @@ struct sp_cache {
         unsigned long    miss;
         unsigned long    hits;
         uint32_t         ref;
+        xlator_t         *this;
 };
 typedef struct sp_cache sp_cache_t;
 
@@ -76,6 +77,12 @@ struct sp_local {
         char   is_lookup;
 };
 typedef struct sp_local sp_local_t;
+
+struct sp_private {
+        struct mem_pool  *mem_pool;
+        gf_lock_t        lock;
+};
+typedef struct sp_private sp_private_t;
 
 
 void sp_local_free (sp_local_t *local);
