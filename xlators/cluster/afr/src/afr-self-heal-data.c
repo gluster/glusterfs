@@ -95,12 +95,20 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_self_heal_t *sh = NULL;
 	int              call_count = 0;
 
+        int child_index = (long) cookie;
+
 	local = frame->local;
 	sh = &local->self_heal;
 	priv = this->private;
 
 	LOCK (&frame->lock);
 	{
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "flush or setattr failed on %s on subvolume %s: %s",
+                                local->loc.path, priv->children[child_index]->name,
+                                strerror (op_errno));
+                }
 	}
 	UNLOCK (&frame->lock);
 

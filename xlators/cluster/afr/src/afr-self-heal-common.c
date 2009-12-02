@@ -838,6 +838,12 @@ sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
 
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "setattr on %s failed: %s",
+                        local->loc.path, strerror (op_errno));
+        }
+
         call_count = afr_frame_return (frame);
         
         if (call_count == 0) {
