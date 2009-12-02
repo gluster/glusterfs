@@ -143,7 +143,8 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
     %{buildroot}%{_includedir}/glusterfs/
 
 # Remove unwanted files from all the shared libraries
-find %{buildroot}%{_libdir}/glusterfs -name '*.la' | xargs rm -f
+find %{buildroot}%{_libdir} -name '*.la' | xargs rm -f
+find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -197,8 +198,6 @@ fi
 %{_includedir}/glusterfs
 %{_includedir}/libglusterfsclient.h
 %exclude %{_includedir}/glusterfs/y.tab.h
-%exclude %{_libdir}/*.la
-%exclude %{_libdir}/*.a
 %{_libdir}/*.so
 
 %changelog
