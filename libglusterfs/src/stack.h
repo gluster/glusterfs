@@ -266,6 +266,7 @@ copy_frame (call_frame_t *frame)
 	newstack->frames.this = frame->this;
 	newstack->frames.root = newstack;
 	newstack->pool = oldstack->pool;
+        newstack->lk_owner = oldstack->lk_owner;
 
 	LOCK_INIT (&newstack->frames.lock);
 
