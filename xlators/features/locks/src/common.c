@@ -120,8 +120,9 @@ __pl_inode_is_empty (pl_inode_t *pl_inode)
 void
 pl_print_locker (char *str, int size, xlator_t *this, call_frame_t *frame)
 {
-        snprintf (str, size, "Pid=%llu, Transport=%p, Frame=%llu",
+        snprintf (str, size, "Pid=%llu, lk-owner=%llu, Transport=%p, Frame=%llu",
                   (unsigned long long) frame->root->pid,
+                  (unsigned long long) frame->root->lk_owner,
                   (void *)frame->root->trans,
                   (unsigned long long) frame->root->unique);
 }
@@ -162,7 +163,8 @@ pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc)
 
 
 void
-pl_print_lock (char *str, int size, int cmd, struct flock *flock)
+pl_print_lock (char *str, int size, int cmd,
+               struct flock *flock, uint64_t owner)
 {
         char *cmd_str = NULL;
         char *type_str = NULL;
@@ -209,10 +211,12 @@ pl_print_lock (char *str, int size, int cmd, struct flock *flock)
                 break;
         }
 
-        snprintf (str, size, "cmd=%s, type=%s, start=%llu, len=%llu, pid=%llu",
+        snprintf (str, size, "lock=FCNTL, cmd=%s, type=%s, "
+                  "start=%llu, len=%llu, pid=%llu, lk-owner=%llu",
                   cmd_str, type_str, (unsigned long long) flock->l_start,
                   (unsigned long long) flock->l_len,
-                  (unsigned long long) flock->l_pid);
+                  (unsigned long long) flock->l_pid,
+                  (unsigned long long) owner);
 }
 
 
@@ -235,7 +239,7 @@ pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
         if (domain)
                 pl_print_inodelk (pl_lock, 256, cmd, flock, domain);
         else
-                pl_print_lock (pl_lock, 256, cmd, flock);
+                pl_print_lock (pl_lock, 256, cmd, flock, frame->root->lk_owner);
 
         gf_log (this->name, GF_LOG_NORMAL,
                 "[REQUEST] Locker = {%s} Lockee = {%s} Lock = {%s}",
@@ -285,7 +289,7 @@ pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
         if (domain)
                 pl_print_inodelk (pl_lock, 256, cmd, flock, domain);
         else
-                pl_print_lock (pl_lock, 256, cmd, flock);
+                pl_print_lock (pl_lock, 256, cmd, flock, frame->root->lk_owner);
 
         pl_print_verdict (verdict, 32, op_ret, op_errno);
 
@@ -315,7 +319,7 @@ pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
         if (domain)
                 pl_print_inodelk (pl_lock, 256, cmd, flock, domain);
         else
-                pl_print_lock (pl_lock, 256, cmd, flock);
+                pl_print_lock (pl_lock, 256, cmd, flock, frame->root->lk_owner);
 
         gf_log (this->name, GF_LOG_NORMAL,
                 "[BLOCKED] Locker = {%s} Lockee = {%s} Lock = {%s}",
