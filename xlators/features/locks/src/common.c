@@ -783,9 +783,10 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, struct list_head *g
                         posix_lock_to_flock (l, &conf->user_flock);
 
                         gf_log (this->name, GF_LOG_TRACE,
-                                "%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
+                                "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Granted",
                                 l->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                 l->client_pid,
+                                l->owner,
                                 l->user_flock.l_start,
                                 l->user_flock.l_len);
 
@@ -842,17 +843,19 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
         {
                 if (__is_lock_grantable (pl_inode, lock)) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "%s (pid=%d) %"PRId64" - %"PRId64" => OK",
+                                "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => OK",
                                 lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                 lock->client_pid,
+                                lock->owner,
                                 lock->user_flock.l_start,
                                 lock->user_flock.l_len);
                         __insert_and_merge (pl_inode, lock);
                 } else if (can_block) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
+                                "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Blocked",
                                 lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                 lock->client_pid,
+                                lock->owner,
                                 lock->user_flock.l_start,
                                 lock->user_flock.l_len);
                         lock->blocked = 1;
@@ -860,9 +863,10 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                         ret = -1;
                 } else {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
+                                "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => NOK",
                                 lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                 lock->client_pid,
+                                lock->owner,
                                 lock->user_flock.l_start,
                                 lock->user_flock.l_len);
                         errno = EAGAIN;

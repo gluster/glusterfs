@@ -6154,6 +6154,7 @@ get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
         frame->root->unique      = ntoh64 (hdr->callid);      /* which call */
         frame->root->gid         = ntoh32 (hdr->req.gid);
         frame->root->pid         = ntoh32 (hdr->req.pid);
+        frame->root->lk_owner    = ntoh64 (hdr->req.lk_owner);
         server_decode_groups (frame, hdr);
 
         return frame;

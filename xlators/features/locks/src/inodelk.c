@@ -214,9 +214,10 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 		list_add_tail (&lock->blocked_locks, &dom->blocked_inodelks);
 
                 gf_log (this->name, GF_LOG_TRACE,
-                        "%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
+                        "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Blocked",
                         lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                         lock->client_pid,
+                        lock->owner,
                         lock->user_flock.l_start,
                         lock->user_flock.l_len);
 
@@ -234,9 +235,10 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                 gf_log (this->name, GF_LOG_TRACE,
                         "Lock is grantable, but blocking to prevent starvation");
 		gf_log (this->name, GF_LOG_TRACE,
-                        "%s (pid=%d) %"PRId64" - %"PRId64" => Blocked",
+                        "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Blocked",
                         lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                         lock->client_pid,
+                        lock->owner,
                         lock->user_flock.l_start,
                         lock->user_flock.l_len);
 
@@ -320,9 +322,10 @@ __grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t
 
 		if (bl_ret == 0) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "%s (pid=%d) %"PRId64" - %"PRId64" => Granted",
+                                "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Granted",
                                 bl->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                 bl->client_pid,
+                                bl->owner,
                                 bl->user_flock.l_start,
                                 bl->user_flock.l_len);
 
@@ -451,17 +454,19 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 			ret = __lock_inodelk (this, pl_inode, lock, can_block, dom);
 			if (ret == 0)
 				gf_log (this->name, GF_LOG_TRACE,
-                                        "%s (pid=%d) %"PRId64" - %"PRId64" => OK",
+                                        "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => OK",
                                         lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                         lock->client_pid,
+                                        lock->owner,
                                         lock->fl_start,
                                         lock->fl_end);
 
 			if (ret == -EAGAIN)
 				gf_log (this->name, GF_LOG_TRACE,
-					"%s (pid=%d) %"PRId64" - %"PRId64" => NOK",
+                                        "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => NOK",
 					lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 					lock->client_pid,
+                                        lock->owner,
 					lock->user_flock.l_start,
 					lock->user_flock.l_len);
 

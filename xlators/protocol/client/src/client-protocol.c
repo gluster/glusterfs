@@ -590,6 +590,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                         hdr->req.uid = hton32 (frame->root->uid);
                         hdr->req.gid = hton32 (frame->root->gid);
                         hdr->req.pid = hton32 (frame->root->pid);
+                        hdr->req.lk_owner = hton64 (frame->root->lk_owner);
                         client_encode_groups (frame, hdr);
                 }
 

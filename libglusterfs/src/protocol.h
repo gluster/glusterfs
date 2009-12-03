@@ -977,6 +977,8 @@ typedef struct {
          * in gid.
          */
         uint32_t groups[GF_REQUEST_MAXGROUPS];
+
+        uint64_t lk_owner;
 } __attribute__ ((packed)) gf_hdr_req_t;
 
 
