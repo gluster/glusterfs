@@ -234,6 +234,44 @@ unwind:
         return 0;
 }
 
+static void
+delete_locks_of_fd (xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
+{
+       posix_lock_t *tmp = NULL;
+       posix_lock_t *l = NULL;
+
+       struct list_head blocked_list;
+
+       INIT_LIST_HEAD (&blocked_list);
+
+       pthread_mutex_lock (&pl_inode->mutex);
+       {
+
+               list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
+                       if ((l->fd == fd)) {
+                               if (l->blocked) {
+                                       list_move_tail (&l->list, &blocked_list);
+                                       continue;
+                               }
+                               __delete_lock (pl_inode, l);
+                               __destroy_lock (l);
+                       }
+               }
+
+       }
+       pthread_mutex_unlock (&pl_inode->mutex);
+
+       list_for_each_entry_safe (l, tmp, &blocked_list, list) {
+               list_del_init(&l->list);
+               STACK_UNWIND_STRICT (lk, l->frame, -1, EAGAIN, &l->user_flock);
+               __destroy_lock (l);
+       }
+
+        grant_blocked_locks (this, pl_inode);
+
+        do_blocked_rw (pl_inode);
+
+}
 
 static void
 __delete_locks_of_owner (pl_inode_t *pl_inode,
@@ -270,10 +308,12 @@ int
 pl_flush (call_frame_t *frame, xlator_t *this,
           fd_t *fd)
 {
-        posix_locks_private_t *priv = NULL;
+        posix_locks_private_t *priv     = NULL;
         pl_inode_t            *pl_inode = NULL;
+        uint64_t              owner     = -1;
 
         priv = this->private;
+        owner = frame->root->lk_owner;
 
         pl_inode = pl_inode_get (this, fd->inode);
 
@@ -285,10 +325,21 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 
         pl_trace_flush (this, frame, fd);
 
+        if (owner == 0) {
+                /* Handle special case when protocol/server sets lk-owner to zero.
+                 * This usually happens due to a client disconnection. Hence, free
+                 * all locks opened with this fd.
+                 */
+                gf_log (this->name, GF_LOG_TRACE,
+			"Releasing all locks with fd %p", fd);
+                delete_locks_of_fd (this, pl_inode, fd);
+                goto wind;
+
+        }
         pthread_mutex_lock (&pl_inode->mutex);
         {
                 __delete_locks_of_owner (pl_inode, frame->root->trans,
-                                         frame->root->lk_owner);
+                                         owner);
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
@@ -296,6 +347,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
 
         do_blocked_rw (pl_inode);
 
+wind:
         STACK_WIND (frame, pl_flush_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->flush, fd);
         return 0;
@@ -455,6 +507,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                 region.fl_start   = offset;
                 region.fl_end     = offset + size - 1;
                 region.transport  = frame->root->trans;
+                region.fd         = fd;
                 region.client_pid = frame->root->pid;
                 region.owner      = frame->root->lk_owner;
 
@@ -551,6 +604,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 region.fl_start   = offset;
                 region.fl_end     = offset + iov_length (vector, count) - 1;
                 region.transport  = frame->root->trans;
+                region.fd         = fd;
                 region.client_pid = frame->root->pid;
                 region.owner      = frame->root->lk_owner;
 
@@ -642,7 +696,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        reqlock = new_posix_lock (flock, transport, client_pid, owner);
+        reqlock = new_posix_lock (flock, transport, client_pid,
+                                  owner, fd);
 
         if (!reqlock) {
                 gf_log (this->name, GF_LOG_ERROR,

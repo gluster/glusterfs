@@ -425,7 +425,8 @@ out:
 
 /* Create a new posix_lock_t */
 posix_lock_t *
-new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid, uint64_t owner)
+new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
+                uint64_t owner, fd_t *fd)
 {
 	posix_lock_t *lock = NULL;
 
@@ -443,6 +444,7 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid, u
 		lock->fl_end = flock->l_start + flock->l_len - 1;
 
 	lock->transport  = transport;
+        lock->fd         = fd;
 	lock->client_pid = client_pid;
         lock->owner      = owner;
 
@@ -686,6 +688,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 sum->fl_type    = lock->fl_type;
                                 sum->transport  = lock->transport;
+                                sum->fd         = lock->fd;
                                 sum->client_pid = lock->client_pid;
                                 sum->owner      = lock->owner;
 
@@ -701,6 +704,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 sum->fl_type    = conf->fl_type;
                                 sum->transport  = conf->transport;
+                                sum->fd         = conf->fd;
                                 sum->client_pid = conf->client_pid;
                                 sum->owner      = conf->owner;
 
