@@ -76,6 +76,7 @@ struct __pl_inode_lock {
 
         transport_t       *transport;     /* to identify client node */
         pid_t              client_pid;    /* pid of client process */
+        uint64_t           owner;
 };
 typedef struct __pl_inode_lock pl_inode_lock_t;
 
