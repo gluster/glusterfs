@@ -234,7 +234,7 @@ server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
 
         fdstr[0] = '\0';
         if (state->fd)
-                snprintf (fdstr, 128, " fd=%p", state->fd);
+                snprintf (fdstr, 32, " fd=%p", state->fd);
 
         gf_log (this->name, GF_LOG_NORMAL,
                 "%s%s => (%d, %d)%s",
