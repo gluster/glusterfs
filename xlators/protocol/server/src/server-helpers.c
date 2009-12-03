@@ -594,6 +594,7 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                         
                         tmp_frame->root->pid = 0;
                         tmp_frame->root->trans = conn;
+                        tmp_frame->root->lk_owner = 0;
                         STACK_WIND (tmp_frame,
                                     server_connection_cleanup_flush_cbk,
                                     bound_xl, bound_xl->fops->flush, fd);
