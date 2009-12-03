@@ -3401,7 +3401,7 @@ init (xlator_t *this_xl)
 
         ret = dict_get_double (options, "attribute-timeout",
                                &priv->attribute_timeout);
-        if (!priv->attribute_timeout)
+        if (ret != 0)
                 priv->attribute_timeout = 1.0; /* default */
 
         ret = dict_get_double (options, "entry-timeout",
