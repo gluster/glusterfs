@@ -539,6 +539,24 @@ out:
 }
 
 int
+client_encode_groups (call_frame_t *frame, gf_hdr_common_t *hdr)
+{
+        int     i = 0;
+        if ((!frame) || (!hdr))
+                return -1;
+
+        hdr->req.ngrps = hton32 (frame->root->ngrps);
+        if (frame->root->ngrps == 0)
+                return 0;
+
+        for (; i < frame->root->ngrps; ++i)
+                hdr->req.groups[i] = hton32 (frame->root->groups[i]);
+
+        return 0;
+}
+
+
+int
 protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                       int type, int op,
                       gf_hdr_common_t *hdr, size_t hdrlen,
@@ -572,6 +590,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                         hdr->req.uid = hton32 (frame->root->uid);
                         hdr->req.gid = hton32 (frame->root->gid);
                         hdr->req.pid = hton32 (frame->root->pid);
+                        client_encode_groups (frame, hdr);
                 }
 
                 if (conn->connected == 0)

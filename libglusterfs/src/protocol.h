@@ -959,10 +959,24 @@ typedef struct {
 typedef struct { } __attribute__((packed)) gf_cbk_forget_rsp_t;
 
 
+/* This corresponds to the max 16 number of group IDs that are sent through an
+ * RPC request. Since NFS is the only one going to set this, we can be safe
+ * in keeping this size hardcoded.
+ */
+#define GF_REQUEST_MAXGROUPS    16
+
 typedef struct {
 	uint32_t pid;
 	uint32_t uid;
 	uint32_t gid;
+
+        /* Number of groups being sent through the array above. */
+        uint32_t ngrps;
+
+        /* Array of groups to which the uid belongs apart from the primary group
+         * in gid.
+         */
+        uint32_t groups[GF_REQUEST_MAXGROUPS];
 } __attribute__ ((packed)) gf_hdr_req_t;
 
 

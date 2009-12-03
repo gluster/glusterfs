@@ -6108,6 +6108,26 @@ out:
         return frame;
 }
 
+
+int
+server_decode_groups (call_frame_t *frame, gf_hdr_common_t *hdr)
+{
+        int     i = 0;
+
+        if ((!frame) || (!hdr))
+                return 0;
+
+        frame->root->ngrps = ntoh32 (hdr->req.ngrps);
+        if (frame->root->ngrps == 0)
+                return 0;
+
+        for (; i < frame->root->ngrps; ++i)
+                frame->root->groups[i] = ntoh32 (hdr->req.groups[i]);
+
+        return 0;
+}
+
+
 /*
  * get_frame_for_call - create a frame into the capable of
  *                      generating and replying the reply packet by itself.
@@ -6134,6 +6154,7 @@ get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
         frame->root->unique      = ntoh64 (hdr->callid);      /* which call */
         frame->root->gid         = ntoh32 (hdr->req.gid);
         frame->root->pid         = ntoh32 (hdr->req.pid);
+        server_decode_groups (frame, hdr);
 
         return frame;
 }

@@ -42,6 +42,7 @@ typedef struct _call_pool_t call_pool_t;
 #include "list.h"
 #include "common-utils.h"
 #include "globals.h"
+#include "protocol.h"
 
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
@@ -92,6 +93,8 @@ struct _call_stack_t {
 	uid_t                         uid;
 	gid_t                         gid;
 	pid_t                         pid;
+        uint32_t                      ngrps;
+        uint32_t                      groups[GF_REQUEST_MAXGROUPS];
 	call_frame_t                  frames;
 
 	int32_t                       op;
@@ -253,6 +256,9 @@ copy_frame (call_frame_t *frame)
 	newstack->uid = oldstack->uid;
 	newstack->gid = oldstack->gid;
 	newstack->pid = oldstack->pid;
+        newstack->ngrps = oldstack->ngrps;
+        memcpy (newstack->groups, oldstack->groups,
+                sizeof (uint32_t) * GF_REQUEST_MAXGROUPS);
 	newstack->unique = oldstack->unique;
 
 	newstack->frames.this = frame->this;
