@@ -1792,21 +1792,49 @@ libgf_resolved_path_handle (const char *path, char *vpath)
         char                    *respath = NULL;
         struct vmp_entry        *entry = NULL;
         glusterfs_handle_t      handle = NULL;
+        char                    *tmp = NULL;
 
         if ((!path) || (!vpath))
                 return NULL;
 
-        respath = libgf_resolve_path_light ((char *)path);
-        if (respath == NULL) {
-                return NULL;
+        /* We only want compaction before VMP entry search because the
+         * VMP cannot be search unless we have an absolute path.
+         * For absolute paths, we search for VMP first, then perform the
+         * path compaction on the  given virtual path.
+         */
+        if (!libgf_path_absolute (path)) {
+                respath = libgf_resolve_path_light ((char *)path);
+                if (respath == NULL)
+                        return NULL;
         }
 
-        entry = libgf_vmp_search_entry (respath);
-        if (!entry)
-                goto free_respath;
+        /* This condition is needed because in case of absolute paths, the path
+         * would already include the VMP and we want to ensure that any path
+         * compaction that happens does not exclude the VMP. In the absence of
+         * this condition an absolute path might get compacted to "/", i.e.
+         * exclude the VMP, and the search will fail.
+         *
+         * For relative paths, respath will aleady include a potential VMP
+         * as a consequence of us prepending the CWD in resolve_light above.
+         */
+        if (libgf_path_absolute (path)) {
+                entry = libgf_vmp_search_entry ((char *)path);
+                if (!entry)
+                        goto free_respath;
+                tmp = libgf_vmp_virtual_path (entry, path, vpath);
+                if (!tmp)
+                        goto free_respath;
 
-        if (!libgf_vmp_virtual_path (entry, respath, vpath))
-                goto free_respath;
+                respath = libgf_resolve_path_light (vpath);
+                strcpy (vpath, respath);
+        } else {
+                entry = libgf_vmp_search_entry (respath);
+                if (!entry)
+                        goto free_respath;
+                tmp = libgf_vmp_virtual_path (entry, respath, vpath);
+                if (!tmp)
+                        goto free_respath;
+        }
 
         handle = entry->handle;
 free_respath:
@@ -7348,6 +7376,7 @@ glusterfs_realpath (const char *path, char *resolved_path)
         char                    *res   = NULL;
         char                     vpath[PATH_MAX];
         glusterfs_handle_t       h     = NULL;
+        char                    *realp = NULL;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, path, out);
 
@@ -7359,13 +7388,30 @@ glusterfs_realpath (const char *path, char *resolved_path)
                 goto out;
         }
 
+        realp = CALLOC (PATH_MAX, sizeof (char));
+        if (!realp)
+                goto out;
+
+        libgf_vmp_search_vmp (h, realp, PATH_MAX);
         res = glusterfs_glh_realpath (h, vpath, resolved_path);
         if (!res)
                 goto out;
 
+        /* This copy is needed to ensure that when we return the real resolved
+         * path, we return a path that accounts for the app's view of the
+         * path, i.e. it starts with the VMP, in case this is an absolute path.
+         */
+        if (libgf_path_absolute (path)) {
+                strcat (realp, resolved_path);
+                strcpy (resolved_path, realp);
+        }
+
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, resolved %s", path,
                 resolved_path);
 out:
+        if (realp)
+                FREE (realp);
+
         return res;
 }
 
