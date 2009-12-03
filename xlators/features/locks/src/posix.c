@@ -77,7 +77,7 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 static int
 truncate_allowed (pl_inode_t *pl_inode,
                   transport_t *transport, pid_t client_pid,
-                  off_t offset)
+                  uint64_t owner, off_t offset)
 {
         posix_lock_t *l = NULL;
         posix_lock_t  region = {.list = {0, }, };
@@ -87,6 +87,7 @@ truncate_allowed (pl_inode_t *pl_inode,
         region.fl_end     = LLONG_MAX;
         region.transport  = transport;
         region.client_pid = client_pid;
+        region.owner      = owner;
 
         pthread_mutex_lock (&pl_inode->mutex);
         {
@@ -142,7 +143,8 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (priv->mandatory
             && pl_inode->mandatory
             && !truncate_allowed (pl_inode, frame->root->trans,
-                                  frame->root->pid, local->offset)) {
+                                  frame->root->pid, frame->root->lk_owner,
+                                  local->offset)) {
                 op_ret   = -1;
                 op_errno = EAGAIN;
                 goto unwind;
@@ -454,6 +456,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                 region.fl_end     = offset + size - 1;
                 region.transport  = frame->root->trans;
                 region.client_pid = frame->root->pid;
+                region.owner      = frame->root->lk_owner;
 
                 pthread_mutex_lock (&pl_inode->mutex);
                 {
@@ -549,6 +552,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 region.fl_end     = offset + iov_length (vector, count) - 1;
                 region.transport  = frame->root->trans;
                 region.client_pid = frame->root->pid;
+                region.owner      = frame->root->lk_owner;
 
                 pthread_mutex_lock (&pl_inode->mutex);
                 {
@@ -614,6 +618,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 {
         transport_t           *transport = NULL;
         pid_t                  client_pid = 0;
+        uint64_t               owner      = 0;
         posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
         int                    op_ret = 0;
@@ -625,6 +630,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
         transport  = frame->root->trans;
         client_pid = frame->root->pid;
+        owner      = frame->root->lk_owner;
         priv       = this->private;
 
         pl_inode = pl_inode_get (this, fd->inode);
@@ -636,7 +642,8 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        reqlock = new_posix_lock (flock, transport, client_pid);
+        reqlock = new_posix_lock (flock, transport, client_pid, owner);
+
         if (!reqlock) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");

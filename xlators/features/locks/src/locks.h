@@ -51,6 +51,7 @@ struct __posix_lock {
 
         transport_t       *transport;     /* to identify client node */
         pid_t              client_pid;    /* pid of client process */
+        uint64_t           owner;         /* lock owner from fuse */
 };
 typedef struct __posix_lock posix_lock_t;
 

@@ -422,7 +422,7 @@ out:
 
 /* Create a new posix_lock_t */
 posix_lock_t *
-new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
+new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid, uint64_t owner)
 {
 	posix_lock_t *lock = NULL;
 
@@ -441,6 +441,7 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid)
 
 	lock->transport  = transport;
 	lock->client_pid = client_pid;
+        lock->owner      = owner;
 
 	INIT_LIST_HEAD (&lock->list);
 
@@ -508,8 +509,10 @@ locks_overlap (posix_lock_t *l1, posix_lock_t *l2)
 int
 same_owner (posix_lock_t *l1, posix_lock_t *l2)
 {
-	return ((l1->client_pid == l2->client_pid) &&
-		(l1->transport  == l2->transport));
+
+                return ((l1->owner == l2->owner) &&
+                        (l1->transport  == l2->transport));
+
 }
 
 
@@ -681,6 +684,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                 sum->fl_type    = lock->fl_type;
                                 sum->transport  = lock->transport;
                                 sum->client_pid = lock->client_pid;
+                                sum->owner      = lock->owner;
 
                                 __delete_lock (pl_inode, conf);
                                 __destroy_lock (conf);
@@ -695,6 +699,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
                                 sum->fl_type    = conf->fl_type;
                                 sum->transport  = conf->transport;
                                 sum->client_pid = conf->client_pid;
+                                sum->owner      = conf->owner;
 
                                 v = subtract_locks (sum, lock);
 
