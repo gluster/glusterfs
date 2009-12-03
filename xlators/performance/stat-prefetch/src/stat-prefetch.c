@@ -619,7 +619,7 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         inode_ctx->op_errno = op_errno;
                         inode_ctx->looked_up = 1;
                         inode_ctx->lookup_in_progress = 0;
-                        if (S_ISDIR (buf->st_mode) && (op_ret == 0)) {
+                        if ((op_ret == 0) && S_ISDIR (buf->st_mode)) {
                                 memcpy (&inode_ctx->stbuf, buf,
                                         sizeof (*buf));
                         }
