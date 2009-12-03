@@ -121,7 +121,7 @@ inodelk_overlap (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 /* Returns true if the 2 inodelks have the same owner */
 static int same_inodelk_owner (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 {
-	return ((l1->client_pid == l2->client_pid) &&
+	return ((l1->owner == l2->owner) &&
                 (l1->transport  == l2->transport));
 }
 
@@ -361,10 +361,12 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
         pl_inode_t * pinode = NULL;
 
         struct list_head granted;
+        struct list_head released;
 
         char *path = NULL;
 
         INIT_LIST_HEAD (&granted);
+        INIT_LIST_HEAD (&released);
 
         pinode = pl_inode_get (this, inode);
 
@@ -389,7 +391,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
                                 path, trans,
                                 (uint64_t) l->client_pid);
 
-                        FREE (l);
+                        list_add (&l->blocked_locks, &released);
 
                 }
 
@@ -424,6 +426,13 @@ unlock:
                 FREE (path);
 
         pthread_mutex_unlock (&pinode->mutex);
+
+        list_for_each_entry_safe (l, tmp, &released, blocked_locks) {
+                list_del_init (&l->blocked_locks);
+
+                STACK_UNWIND_STRICT (inodelk, l->frame, -1, EAGAIN);
+                FREE (l);
+        }
 
 	return 0;
 }
@@ -479,7 +488,9 @@ out:
 
 /* Create a new inode_lock_t */
 pl_inode_lock_t *
-new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid, const char *volume)
+new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
+                uint64_t owner, const char *volume)
+
 {
 	pl_inode_lock_t *lock = NULL;
 
@@ -498,6 +509,7 @@ new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid, c
 
 	lock->transport  = transport;
 	lock->client_pid = client_pid;
+        lock->owner      = owner;
 	lock->volume     = volume;
 
 	INIT_LIST_HEAD (&lock->list);
@@ -518,6 +530,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 	int     can_block = 0;
 	transport_t *           transport  = NULL;
 	pid_t                   client_pid = -1;
+        uint64_t                owner      = -1;
 	pl_inode_t *            pinode     = NULL;
 	pl_inode_lock_t *          reqlock    = NULL;
 	pl_dom_list_t *		dom	   = NULL;
@@ -535,6 +548,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 
 	transport  = frame->root->trans;
 	client_pid = frame->root->pid;
+        owner      = (uint64_t) frame->root;
 
 	pinode = pl_inode_get (this, inode);
 	if (!pinode) {
@@ -558,7 +572,8 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 		goto unwind;
 	}
 
-	reqlock = new_inode_lock (flock, transport, client_pid, volume);
+	reqlock = new_inode_lock (flock, transport, client_pid, owner, volume);
+
 	if (!reqlock) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory.");
