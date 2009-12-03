@@ -103,7 +103,8 @@ pl_print_inodelk (char *str, int size, int cmd, struct flock *flock, const char 
                 break;
         }
 
-        snprintf (str, size, "cmd=%s, type=%s, domain: %s, start=%llu, len=%llu, pid=%llu",
+        snprintf (str, size, "lock=INODELK, cmd=%s, type=%s, "
+                  "domain: %s, start=%llu, len=%llu, pid=%llu",
                   cmd_str, type_str, domain,
                   (unsigned long long) flock->l_start,
                   (unsigned long long) flock->l_len,
@@ -235,7 +236,7 @@ __lock_inodelk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
                 gf_log (this->name, GF_LOG_TRACE,
                         "Lock is grantable, but blocking to prevent starvation");
 		gf_log (this->name, GF_LOG_TRACE,
-                        "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Blocked",
+                        "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => Blocked",
                         lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                         lock->client_pid,
                         lock->owner,
@@ -322,7 +323,7 @@ __grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t
 
 		if (bl_ret == 0) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Granted",
+                                "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => Granted",
                                 bl->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                 bl->client_pid,
                                 bl->owner,
@@ -390,9 +391,10 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
 
                         gf_log (this->name, GF_LOG_TRACE,
                                 "releasing lock on %s held by "
-                                "{transport=%p, pid=%"PRId64"}",
+                                "{transport=%p, pid=%"PRId64" lk-owner=%"PRIu64"}",
                                 path, trans,
-                                (uint64_t) l->client_pid);
+                                (uint64_t) l->client_pid,
+                                l->owner);
 
                         list_add (&l->blocked_locks, &released);
 
@@ -414,9 +416,10 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
 
                         gf_log (this->name, GF_LOG_TRACE,
                                 "releasing lock on %s held by "
-                                "{transport=%p, pid=%"PRId64"}",
+                                "{transport=%p, pid=%"PRId64" lk-owner=%"PRIu64"}",
                                 path, trans,
-                                (uint64_t) l->client_pid);
+                                (uint64_t) l->client_pid,
+                                l->owner);
 
 
                         __destroy_inode_lock (l);
@@ -454,7 +457,7 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 			ret = __lock_inodelk (this, pl_inode, lock, can_block, dom);
 			if (ret == 0)
 				gf_log (this->name, GF_LOG_TRACE,
-                                        "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => OK",
+                                        "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => OK",
                                         lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                         lock->client_pid,
                                         lock->owner,
@@ -463,7 +466,7 @@ pl_inode_setlk (xlator_t *this, pl_inode_t *pl_inode, pl_inode_lock_t *lock,
 
 			if (ret == -EAGAIN)
 				gf_log (this->name, GF_LOG_TRACE,
-                                        "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => NOK",
+                                        "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => NOK",
 					lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 					lock->client_pid,
                                         lock->owner,
@@ -553,7 +556,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 
 	transport  = frame->root->trans;
 	client_pid = frame->root->pid;
-        owner      = (uint64_t) frame->root;
+        owner      = (uint64_t) (long)frame->root;
 
 	pinode = pl_inode_get (this, inode);
 	if (!pinode) {
@@ -666,10 +669,12 @@ __get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode)
 
 			gf_log (this->name, GF_LOG_DEBUG,
                                 " XATTR DEBUG"
-				" domain: %s %s (pid=%d) %"PRId64" - %"PRId64" state = Active",
+				" domain: %s %s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" "
+                                "state = Active",
                                 dom->domain,
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
+                                lock->owner,
 				lock->user_flock.l_start,
 				lock->user_flock.l_len);
 
@@ -680,10 +685,12 @@ __get_inodelk_count (xlator_t *this, pl_inode_t *pl_inode)
 
 			gf_log (this->name, GF_LOG_DEBUG,
                                 " XATTR DEBUG"
-				" domain: %s %s (pid=%d) %"PRId64" - %"PRId64" state = Blocked",
+				" domain: %s %s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" "
+                                "state = Blocked",
                                 dom->domain,
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
+                                lock->owner,
 				lock->user_flock.l_start,
 				lock->user_flock.l_len);
 

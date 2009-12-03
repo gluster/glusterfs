@@ -188,7 +188,7 @@ pl_print_entrylk (char *str, int size, entrylk_cmd cmd, entrylk_type type,
                 break;
         }
 
-        snprintf (str, size, "cmd=%s, type=%s, basename=%s, domain: %s",
+        snprintf (str, size, "lock=ENTRYLK, cmd=%s, type=%s, basename=%s, domain: %s",
                   cmd_str, type_str, basename, domain);
 }
 
@@ -325,7 +325,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
 	trans = frame->root->trans;
         client_pid = frame->root->pid;
-        owner      = (uint64_t)frame->root;
+        owner      = (uint64_t)(long)frame->root;
 
 	lock = new_entrylk_lock (pinode, basename, type, trans, client_pid, owner, dom->domain);
 	if (!lock) {
@@ -618,7 +618,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
         entrylk_trace_in (this, frame, volume, fd, loc, basename, cmd, type);
 
 	pid       = frame->root->pid;
-        owner     = (uint64_t) frame->root;
+        owner     = (uint64_t)(long) frame->root;
 	transport = frame->root->trans;
 
 	if (pid == 0) {

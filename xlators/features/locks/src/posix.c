@@ -237,7 +237,7 @@ unwind:
 
 static void
 __delete_locks_of_owner (pl_inode_t *pl_inode,
-                         transport_t *transport, pid_t pid)
+                         transport_t *transport, uint64_t owner)
 {
         posix_lock_t *tmp = NULL;
         posix_lock_t *l = NULL;
@@ -246,7 +246,7 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
 
         list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
                 if ((l->transport == transport)
-                    && (l->client_pid == pid)) {
+                    && (l->owner == owner)) {
                         __delete_lock (pl_inode, l);
                         __destroy_lock (l);
                 }
@@ -288,7 +288,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
         pthread_mutex_lock (&pl_inode->mutex);
         {
                 __delete_locks_of_owner (pl_inode, frame->root->trans,
-                                         frame->root->pid);
+                                         frame->root->lk_owner);
         }
         pthread_mutex_unlock (&pl_inode->mutex);
 
@@ -804,9 +804,10 @@ __get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
 
 			gf_log (this->name, GF_LOG_DEBUG,
                                 " XATTR DEBUG"
-				"%s (pid=%d) %"PRId64" - %"PRId64" state: %s",
+				"%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" state: %s",
 				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
 				lock->client_pid,
+                                lock->owner,
 				lock->user_flock.l_start,
 				lock->user_flock.l_len,
                                 lock->blocked == 1 ? "Blocked" : "Active");
