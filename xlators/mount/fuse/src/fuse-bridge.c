@@ -168,6 +168,7 @@ typedef struct {
         char           is_revalidate;
         int32_t        callcount;
         gf_lock_t      lock;
+        uint64_t       lk_owner;
 } fuse_state_t;
 
 
@@ -282,6 +283,20 @@ get_state (xlator_t *this, fuse_in_header_t *finh)
 }
 
 
+void
+set_lock_owner (fuse_state_t *state, xlator_t *this,
+                uint64_t owner, uint64_t pid)
+{
+        fuse_private_t        *priv = NULL;
+
+        priv = this->private;
+
+        if (priv->proto_minor >= 9)
+                state->lk_owner = owner;
+        else
+                state->lk_owner = pid;
+}
+
 static call_frame_t *
 get_call_frame_for_req (fuse_state_t *state)
 {
@@ -301,10 +316,11 @@ get_call_frame_for_req (fuse_state_t *state)
                 return NULL;
 
         if (finh) {
-                frame->root->uid    = finh->uid;
-                frame->root->gid    = finh->gid;
-                frame->root->pid    = finh->pid;
-                frame->root->unique = finh->unique;
+                frame->root->uid      = finh->uid;
+                frame->root->gid      = finh->gid;
+                frame->root->pid      = finh->pid;
+                frame->root->lk_owner = state->lk_owner;
+                frame->root->unique   = finh->unique;
         }
 
         frame->root->type = GF_OP_TYPE_FOP_REQUEST;
@@ -1039,6 +1055,8 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
 
         ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
+
+        set_lock_owner (state, this, fsi->lock_owner, (uint64_t) finh->pid);
 
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -1888,11 +1906,14 @@ fuse_readv (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fd_t         *fd = NULL;
 
         GET_STATE (this, finh, state);
+
         state->size = fri->size;
         state->off = fri->offset;
 
         fd = FH_TO_FD (fri->fh);
         state->fd = fd;
+
+        set_lock_owner (state, this, fri->lock_owner, (uint64_t) finh->pid);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": READ (%p, size=%"PRIu32", offset=%"PRIu64")",
@@ -1965,6 +1986,8 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
         vector.iov_base = msg;
         vector.iov_len  = fwi->size;
 
+        set_lock_owner (state, this, fwi->lock_owner, (uint64_t) finh->pid);
+
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": WRITE (%p, size=%"PRIu32", offset=%"PRId64")",
                 finh->unique, fd, fwi->size, fwi->offset);
@@ -2003,6 +2026,8 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if (fd)
                 fd->flush_unique = finh->unique;
 
+        set_lock_owner (state, this, ffi->lock_owner, (uint64_t) finh->pid);
+
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": FLUSH %p", finh->unique, fd);
 
@@ -2026,6 +2051,9 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
         fd = FH_TO_FD (fri->fh);
         state->fd = fd;
+
+        set_lock_owner (state, this, fri->lock_owner, (uint64_t) finh->pid);
+
 #ifdef  GF_LINUX_HOST_OS
         /* This is an ugly Linux specific hack, relying on subtle
          * implementation details.
@@ -2800,6 +2828,8 @@ fuse_getlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->fd = fd;
         convert_fuse_file_lock (&fli->lk, &lock);
 
+        set_lock_owner (state, this, fli->owner, (uint64_t) finh->pid);
+
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": GETLK %p", finh->unique, fd);
 
@@ -2861,6 +2891,8 @@ fuse_setlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->finh = finh;
         state->fd = fd;
         convert_fuse_file_lock (&fli->lk, &lock);
+
+        set_lock_owner (state, this, fli->owner, (uint64_t) finh->pid);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": SETLK%s %p", finh->unique,

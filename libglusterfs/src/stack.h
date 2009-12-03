@@ -95,6 +95,8 @@ struct _call_stack_t {
 	pid_t                         pid;
         uint32_t                      ngrps;
         uint32_t                      groups[GF_REQUEST_MAXGROUPS];
+        uint64_t                      lk_owner;
+
 	call_frame_t                  frames;
 
 	int32_t                       op;
