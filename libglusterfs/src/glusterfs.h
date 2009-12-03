@@ -202,8 +202,11 @@ typedef enum {
 #define GF_SET_DIR_ONLY       0x4
 #define GF_SET_EPOCH_TIME     0x8 /* used by afr dir lookup selfheal */
 
+/* Directory into which replicate self-heal will move deleted files and
+   directories into. The storage/posix janitor thread will periodically
+   clean up this directory */
 
-#define GF_REPLICATE_TRASH_DIR          ".trash"
+#define GF_REPLICATE_TRASH_DIR          ".landfill"
 
 struct _xlator_cmdline_option {
 	struct list_head cmd_args;
