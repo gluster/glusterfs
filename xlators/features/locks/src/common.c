@@ -264,7 +264,7 @@ pl_print_verdict (char *str, int size, int op_ret, int op_errno)
                 }
         }
 
-        snprintf (str, size, verdict);
+        snprintf (str, size, "%s", verdict);
 }
 
 

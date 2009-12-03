@@ -814,7 +814,8 @@ write (int fd, const void *buf, size_t count)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        gf_log ("booster", GF_LOG_TRACE, "write: fd %d, count %d", fd, count);
+        gf_log ("booster", GF_LOG_TRACE, "write: fd %d, count %"GF_PRI_SIZET,
+                fd, count);
 
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
@@ -866,8 +867,8 @@ pwrite (int fd, const void *buf, size_t count, unsigned long offset)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        gf_log ("booster", GF_LOG_TRACE, "pwrite: fd %d, count %d, offset %lu",
-                fd, count, offset);
+        gf_log ("booster", GF_LOG_TRACE, "pwrite: fd %d, count %"GF_PRI_SIZET
+                ", offset %lu", fd, count, offset);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
 
         if (!glfs_fd) {
@@ -893,10 +894,10 @@ pwrite64 (int fd, const void *buf, size_t count, uint64_t offset)
         int ret;
         glusterfs_file_t glfs_fd = 0;
 
-        gf_log ("booster", GF_LOG_TRACE, "pwrite64: fd %d, count %d, offset %"
-                PRIu64, fd, count, offset);
+        gf_log ("booster", GF_LOG_TRACE, "pwrite64: fd %d, count %"GF_PRI_SIZET
+                ", offset %"PRIu64, fd, count, offset);
         glfs_fd = booster_fdptr_get (booster_fdtable, fd);
-  
+
         if (!glfs_fd) {
                 gf_log ("booster", GF_LOG_TRACE, "Not a booster fd");
                 if (real_pwrite64 == NULL) {
@@ -2611,7 +2612,8 @@ sendfile (int out_fd, int in_fd, off_t *offset, size_t count)
         ssize_t                     ret = -1;
 
         gf_log ("booster", GF_LOG_TRACE, "sendfile: in fd %d, out fd %d, offset"
-                " %"PRIu64", count %d", in_fd, out_fd, *offset, count);
+                " %"PRIu64", count %"GF_PRI_SIZET, in_fd, out_fd, *offset,
+                count);
         /*
          * handle sendfile in booster only if in_fd corresponds to a glusterfs
          * file handle 
@@ -2641,7 +2643,8 @@ sendfile64 (int out_fd, int in_fd, off_t *offset, size_t count)
         ssize_t                     ret = -1;
 
         gf_log ("booster", GF_LOG_TRACE, "sendfile64: in fd %d, out fd %d,"
-                " offset %"PRIu64", count %d", in_fd, out_fd, *offset, count);
+                " offset %"PRIu64", count %"GF_PRI_SIZET, in_fd, out_fd,
+                *offset, count);
         /*
          * handle sendfile in booster only if in_fd corresponds to a glusterfs
          * file handle 

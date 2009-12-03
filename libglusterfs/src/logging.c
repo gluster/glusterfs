@@ -429,9 +429,11 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
 	struct tm   *tm = NULL;
 	char         timestr[256];
 
-        char        *str1, *str2, *msg;
-        size_t       len = 0;
-        int          ret = 0;
+        char        *str1 = NULL;
+        char        *str2 = NULL;
+        char        *msg  = NULL;
+        size_t       len  = 0;
+        int          ret  = 0;
 
 	static char *level_strings[] = {"",  /* NONE */
 					"C", /* CRITICAL */
@@ -516,18 +518,18 @@ log:
 unlock:
 	pthread_mutex_unlock (&logfile_mutex);
 
-        if ((ret != -1) && __central_log_enabled && 
-            ((glusterfs_central_log_flag_get ()) == 0)) {
-                
-                glusterfs_central_log_flag_set ();
-                {
-                        gf_log_central (msg);
-                }
-                glusterfs_central_log_flag_unset ();
-        }
+        if (msg) {
+                if ((ret != -1) && __central_log_enabled &&
+                    ((glusterfs_central_log_flag_get ()) == 0)) {
 
-        if (msg)
+                        glusterfs_central_log_flag_set ();
+                        {
+                                gf_log_central (msg);
+                        }
+                        glusterfs_central_log_flag_unset ();
+                }
                 FREE (msg);
+        }
 
         if (str1)
                 FREE (str1);
