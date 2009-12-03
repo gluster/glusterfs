@@ -3219,6 +3219,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 value [op_ret] = '\0';
                 if (strcmp (key, gen_key) != 0)
                         dict_set (dict, key, data_from_dynptr (value, op_ret));
+                else
+                        FREE (value);
 
                 remaining_size -= strlen (key) + 1;
                 list_offset += strlen (key) + 1;
