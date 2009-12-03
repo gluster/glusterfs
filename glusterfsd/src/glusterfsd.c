@@ -320,7 +320,7 @@ _add_fuse_mount (xlator_t *graph)
                         "failed to set mount-point to options dictionary");
         }
 
-        if (cmd_args->fuse_attribute_timeout)
+        if (cmd_args->fuse_attribute_timeout >= 0)
                 ret = dict_set_double (top->options, ZR_ATTR_TIMEOUT_OPT,
                                        cmd_args->fuse_attribute_timeout);
         if (cmd_args->fuse_entry_timeout)
@@ -1110,6 +1110,7 @@ main (int argc, char *argv[])
         /* parsing command line arguments */
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
         cmd_args->fuse_direct_io_mode_flag = _gf_true;
+        cmd_args->fuse_attribute_timeout = -1;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
 
