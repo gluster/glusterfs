@@ -110,6 +110,7 @@ struct __entry_lock {
 
         transport_t      *trans;
         pid_t             client_pid;    /* pid of client process */
+        uint64_t          owner;
 };
 typedef struct __entry_lock pl_entry_lock_t;
 

@@ -35,7 +35,8 @@
 
 static pl_entry_lock_t *
 new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
-		  transport_t *trans, pid_t client_pid, const char *volume)
+		  transport_t *trans, pid_t client_pid, uint64_t owner, const char *volume)
+
 {
 	pl_entry_lock_t *newlock = NULL;
 
@@ -49,7 +50,7 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
 	newlock->trans          = trans;
 	newlock->volume         = volume;
         newlock->client_pid     = client_pid;
-
+        newlock->owner          = owner;
 
 	INIT_LIST_HEAD (&newlock->domain_list);
 	INIT_LIST_HEAD (&newlock->blocked_locks);
@@ -82,7 +83,8 @@ names_conflict (const char *n1, const char *n2)
 static int
 __same_entrylk_owner (pl_entry_lock_t *l1, pl_entry_lock_t *l2)
 {
-        return ((l1->client_pid == l2->client_pid) &&
+
+        return ((l1->owner == l2->owner) &&
 		(l1->trans  == l2->trans));
 }
 
@@ -313,17 +315,19 @@ int
 __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 	     call_frame_t *frame, pl_dom_list_t *dom, xlator_t *this, int nonblock)
 {
-	pl_entry_lock_t *lock    = NULL;
-	pl_entry_lock_t *conf    = NULL;
-	transport_t     *trans   = NULL;
-        pid_t        client_pid = 0;
+	pl_entry_lock_t *lock       = NULL;
+	pl_entry_lock_t *conf       = NULL;
+	transport_t     *trans      = NULL;
+        pid_t            client_pid = 0;
+        uint64_t         owner      = 0;
 
 	int ret = -EINVAL;
 
 	trans = frame->root->trans;
         client_pid = frame->root->pid;
+        owner      = (uint64_t)frame->root;
 
-	lock = new_entrylk_lock (pinode, basename, type, trans, client_pid, dom->domain);
+	lock = new_entrylk_lock (pinode, basename, type, trans, client_pid, owner, dom->domain);
 	if (!lock) {
 		ret = -ENOMEM;
 		goto out;
@@ -508,8 +512,10 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 	pl_entry_lock_t  *lock = NULL;
 	pl_entry_lock_t  *tmp = NULL;
 	struct list_head  granted;
+        struct list_head  released;
 
 	INIT_LIST_HEAD (&granted);
+        INIT_LIST_HEAD (&released);
 
 	pthread_mutex_lock (&pinode->mutex);
 	{
@@ -524,8 +530,8 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
                                 "releasing lock on  held by "
                                 "{transport=%p}",trans);
 
-			FREE (lock->basename);
-			FREE (lock);
+                        list_add (&lock->blocked_locks, &released);
+
                 }
 
 		list_for_each_entry_safe (lock, tmp, &dom->entrylk_list,
@@ -548,6 +554,17 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 	}
 
 	pthread_mutex_unlock (&pinode->mutex);
+
+        list_for_each_entry_safe (lock, tmp, &released, blocked_locks) {
+                list_del_init (&lock->blocked_locks);
+
+                STACK_UNWIND_STRICT (entrylk, lock->frame, -1, EAGAIN);
+
+                if (lock->basename)
+                        FREE (lock->basename);
+                FREE (lock);
+
+        }
 
 	list_for_each_entry_safe (lock, tmp, &granted, blocked_locks) {
 		list_del_init (&lock->blocked_locks);
@@ -572,12 +589,13 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 	int32_t op_errno = 0;
 
 	transport_t * transport = NULL;
-	pid_t pid = -1;
+	pid_t         pid       = -1;
+        uint64_t      owner     = -1;
 
-	pl_inode_t *       pinode = NULL;
-	int                ret    = -1;
-	pl_entry_lock_t   *unlocked = NULL;
-	char               unwind = 1;
+	pl_inode_t *     pinode   = NULL;
+	int              ret      = -1;
+	pl_entry_lock_t *unlocked = NULL;
+	char             unwind   = 1;
 
 	pl_dom_list_t	  *dom = NULL;
 
@@ -600,6 +618,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
         entrylk_trace_in (this, frame, volume, fd, loc, basename, cmd, type);
 
 	pid       = frame->root->pid;
+        owner     = (uint64_t) frame->root;
 	transport = frame->root->trans;
 
 	if (pid == 0) {
