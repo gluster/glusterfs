@@ -166,7 +166,7 @@ typedef struct {
         dict_t        *dict;
         char          *name;
         char           is_revalidate;
-        int32_t        callcount;
+        gf_boolean_t   truncate_needed;
         gf_lock_t      lock;
         uint64_t       lk_owner;
 } fuse_state_t;
@@ -200,67 +200,6 @@ free_state (fuse_state_t *state)
 #endif
         FREE (state);
         state = NULL;
-}
-
-
-static int
-__can_fuse_return (fuse_state_t *state,
-                   char success)
-{
-        int ret = 0;
-
-        if (success) {
-                if ((state->callcount == 0)
-                    || (state->callcount == 1))
-                        ret = 1;
-                else
-                        ret = 0;
-        } else {
-                if (state->callcount != -1)
-                        ret = 1;
-                else
-                        ret = 0;
-        }
-
-        return ret;
-}
-
-
-static void
-__fuse_mark_return (fuse_state_t *state,
-                    char success)
-{
-        if (success) {
-                if (state->callcount == 2)
-                        state->callcount--;
-                else
-                        state->callcount = 0;
-        } else {
-                if (state->callcount == 2)
-                        state->callcount = -1;
-                else
-                        state->callcount = 0;
-        }
-
-        return;
-}
-
-
-static int
-can_fuse_return (fuse_state_t *state,
-                 char success)
-{
-        int ret = 0;
-
-        LOCK(&state->lock);
-        {
-                ret = __can_fuse_return (state, success);
-
-                __fuse_mark_return (state, success);
-        }
-        UNLOCK(&state->lock);
-
-        return ret;
 }
 
 
@@ -735,14 +674,11 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR",
                         strerror (op_errno));
 
-                if (can_fuse_return (state, 0))
-                        send_fuse_err (this, finh, op_errno);
+                send_fuse_err (this, finh, op_errno);
         }
 
-        if (state->callcount == 0) {
-                free_state (state);
-                STACK_DESTROY (frame->root);
-        }
+        free_state (state);
+        STACK_DESTROY (frame->root);
 
         return 0;
 }
@@ -788,14 +724,11 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR",
                         strerror (op_errno));
 
-                if (can_fuse_return (state, 0))
-                        send_fuse_err (this, finh, op_errno);
+                send_fuse_err (this, finh, op_errno);
         }
 
-        if (state->callcount == 0) {
-                free_state (state);
-                STACK_DESTROY (frame->root);
-        }
+        free_state (state);
+        STACK_DESTROY (frame->root);
 
         return 0;
 }
@@ -935,6 +868,21 @@ out:
 }
 
 
+static void
+fuse_do_truncate (fuse_state_t *state, size_t size)
+{
+        if (state->fd) {
+                FUSE_FOP (state, fuse_truncate_cbk, GF_FOP_FTRUNCATE,
+                          ftruncate, state->fd, size);
+        } else {
+                FUSE_FOP (state, fuse_truncate_cbk, GF_FOP_TRUNCATE,
+                          truncate, &state->loc, size);
+        }
+
+        return;
+}
+
+
 static int
 fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
@@ -944,6 +892,8 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_in_header_t *finh;
         fuse_private_t   *priv = NULL;
         struct fuse_attr_out fao;
+
+        int op_done = 0;
 
         priv  = this->private;
         state = frame->root->state;
@@ -965,13 +915,16 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
                 fao.attr_valid_nsec =
-                  calc_timeout_nsec (priv->attribute_timeout);
+                        calc_timeout_nsec (priv->attribute_timeout);
 
-                if (can_fuse_return (state, 1)) {
+                if (state->truncate_needed) {
+                        fuse_do_truncate (state, state->size);
+                } else {
                         priv->proto_minor >= 9 ?
                                 send_fuse_obj (this, finh, &fao) :
                                 send_fuse_data (this, finh, &fao,
                                                 FUSE_COMPAT_ATTR_OUT_SIZE);
+                        op_done = 1;
                 }
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -980,31 +933,16 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         state->loc.path ? state->loc.path : "ERR",
                         strerror (op_errno));
 
-                if (can_fuse_return (state, 0))
-                        send_fuse_err (this, finh, op_errno);
+                send_fuse_err (this, finh, op_errno);
+                op_done = 1;
         }
 
-        if (state->callcount == 0) {
+        if (op_done) {
                 free_state (state);
                 STACK_DESTROY (frame->root);
         }
 
         return 0;
-}
-
-
-static void
-fuse_do_truncate (fuse_state_t *state, struct fuse_setattr_in *fsi)
-{
-        if (state->fd) {
-                FUSE_FOP (state, fuse_truncate_cbk, GF_FOP_FTRUNCATE,
-                          ftruncate, state->fd, fsi->size);
-        } else {
-                FUSE_FOP (state, fuse_truncate_cbk, GF_FOP_TRUNCATE,
-                          truncate, &state->loc, fsi->size);
-        }
-
-        return;
 }
 
 
@@ -1077,20 +1015,16 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         valid = fsi->valid;
 
-        if ((fsi->valid & FATTR_SIZE)
-            && ((fsi->valid & (FATTR_MASK)) != FATTR_SIZE)) {
-                state->callcount = 2;
-        }
-
         if (fsi->valid & FATTR_FH) {
                 state->fd = FH_TO_FD (fsi->fh);
         }
 
-        if (fsi->valid & FATTR_SIZE) {
-                fuse_do_truncate (state, fsi);
-        }
-
         if ((valid & (FATTR_MASK)) != FATTR_SIZE) {
+                if (valid & FATTR_SIZE) {
+                        state->size            = fsi->size;
+                        state->truncate_needed = _gf_true;
+                }
+
                 attr.st_size  = fsi->size;
                 attr.st_atime = fsi->atime;
                 attr.st_mtime = fsi->mtime;
@@ -1117,7 +1051,10 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                                   setattr, &state->loc, &attr,
                                   fattr_to_gf_set_attr (fsi->valid));
                 }
+        } else {
+                fuse_do_truncate (state, fsi->size);
         }
+
 }
 
 
