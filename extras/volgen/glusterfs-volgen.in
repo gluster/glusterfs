@@ -27,10 +27,14 @@ def args2dict(args):
 
     keyvalue = {}
     for arg in args:
+        if int(arg.find(':')) == -1:
+            continue
         first = arg.split(':')[0]
         keyvalue[first] = []
 
     for arg in args:
+        if int(arg.find(':')) == -1:
+            continue
         first = arg.split(':')[0]
         if arg.split(':')[1] not in keyvalue[first]:
             if arg.split(':')[1][0] != '/':
@@ -43,7 +47,11 @@ def args2dict(args):
 def args2array(args):
 
     array = []
-    array = args
+
+    for arg in args:
+        if int(arg.find(':')) == -1:
+            continue
+        array.append(arg)
 
     return array
 
