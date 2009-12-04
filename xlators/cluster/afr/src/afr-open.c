@@ -430,6 +430,8 @@ afr_up_down_flush_done (call_frame_t *frame, xlator_t *this)
 out:
         UNLOCK (&local->fd->lock);
 
+        afr_local_transaction_cleanup (local, this);
+
         local->up_down_flush_cbk (frame, this);
 
 	return 0;
