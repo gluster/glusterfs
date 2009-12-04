@@ -125,6 +125,7 @@ AC_CONFIG_FILES([Makefile
                 extras/init.d/glusterfsd-SuSE
 		extras/benchmarking/Makefile
                 extras/volgen/Makefile
+                extras/volgen/glusterfs-volgen
 		glusterfs.spec])
 
 AC_CANONICAL_HOST
