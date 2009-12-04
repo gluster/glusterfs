@@ -2549,6 +2549,7 @@ fuse_thread_proc (void *data)
                 }
 
                 if (res == -1) {
+                        iobuf_unref (iobuf);
                         if (errno != EINTR) {
                                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                         "fuse_chan_receive() returned -1 (%d)", errno);
