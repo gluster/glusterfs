@@ -230,7 +230,7 @@ out:
 int32_t
 sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
                       call_stub_t *stub, char *need_unwind, char *need_lookup,
-                      char *can_wind, int32_t *error)
+                      char *can_wind, int32_t *error, glusterfs_fop_t caller)
 {
         int32_t         ret          = -1, op_errno = -1;
         sp_local_t     *local        = NULL;
@@ -251,7 +251,7 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
+                        "(%p) (caller %d)", loc->inode, caller);
                 *can_wind = 1;
                 *need_unwind = 0;
                 op_errno = 0;
@@ -1330,7 +1330,7 @@ sp_chmod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno, GF_FOP_CHMOD);
 
 out:
         if (need_unwind) {
@@ -1452,7 +1452,7 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno, GF_FOP_OPEN);
 out:
         if (need_unwind) {
                 SP_STACK_UNWIND (frame, -1, op_errno, fd);
@@ -1642,7 +1642,8 @@ sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_OPENDIR);
 
 out:
         if (need_unwind) {
@@ -1976,7 +1977,7 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         }
 
         sp_process_inode_ctx (frame, this, oldloc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno, GF_FOP_LINK);
 
 out:
         if (need_unwind) {
@@ -2102,7 +2103,7 @@ sp_chown (call_frame_t *frame, xlator_t *this, loc_t *loc, uid_t uid, gid_t gid)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno, GF_FOP_CHOWN);
 
 out:
         if (need_unwind) {
@@ -2228,7 +2229,8 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_TRUNCATE);
 
 out:
         if (need_unwind) {
@@ -2357,7 +2359,8 @@ sp_utimens (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_UTIMENS);
 
 out:
         if (need_unwind) {
@@ -2456,7 +2459,8 @@ sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_READLINK);
 
 out:
         if (need_unwind) {
@@ -2562,7 +2566,8 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_UNLINK);
 
 out:
         if (need_unwind) {
@@ -2683,7 +2688,8 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_RMDIR);
 
 out:
         if (need_unwind) {
@@ -2983,7 +2989,7 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         ret = sp_process_inode_ctx (frame, this, oldloc, stub, &need_unwind,
                                     &old_inode_need_lookup, &old_inode_can_wind,
-                                    &op_errno);
+                                    &op_errno, GF_FOP_RENAME);
         if (ret == -1) {
                 goto out;
         }
@@ -3000,7 +3006,8 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 ret = sp_process_inode_ctx (frame, this, newloc, stub,
                                             &need_unwind,
                                             &new_inode_need_lookup,
-                                            &new_inode_can_wind, &op_errno);
+                                            &new_inode_can_wind, &op_errno,
+                                            GF_FOP_RENAME);
                 if (ret == -1) {
                         ret = inode_ctx_get (oldloc->inode, this, &value);
                         if (ret == -1) {
@@ -3126,7 +3133,8 @@ sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_SETXATTR);
 
 out:
         if (need_unwind) {
@@ -3218,7 +3226,8 @@ sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_REMOVEXATTR);
 
 out:
         if (need_unwind) {
@@ -3447,7 +3456,8 @@ sp_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
         }
                                 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_CHECKSUM);
 
 out:
         if (need_unwind) {
@@ -3547,7 +3557,8 @@ sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_XATTROP);
 
 out:
         if (need_unwind) {
@@ -3662,7 +3673,8 @@ sp_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_STAT);
 
 out:
         if (need_unwind) {
@@ -3740,7 +3752,8 @@ sp_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_ACCESS);
 
 out:
         if (need_unwind) {
@@ -3828,7 +3841,8 @@ sp_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name)
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_GETXATTR);
 
 out:
         if (need_unwind) {
@@ -3909,7 +3923,8 @@ sp_inodelk (call_frame_t *frame, xlator_t *this, const char *volume, loc_t *loc,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_INODELK);
 
 out:
         if (need_unwind) {
@@ -3993,7 +4008,8 @@ sp_entrylk (call_frame_t *frame, xlator_t *this, const char *volume, loc_t *loc,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno);
+                              &need_lookup, &can_wind, &op_errno,
+                              GF_FOP_ENTRYLK);
 
 out:
         if (need_unwind) {
