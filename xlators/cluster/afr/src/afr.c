@@ -289,18 +289,11 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 }
 
 
-void 
-afr_local_cleanup (afr_local_t *local, xlator_t *this)
+void
+afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 {
-        int i;
+        int             i = 0;
         afr_private_t * priv = NULL;
-
-	if (!local)
-		return;
-
-	afr_local_sh_cleanup (local, this);
-
-	FREE (local->child_errno);
 
         priv = this->private;
 
@@ -311,17 +304,35 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
         FREE (local->pending);
 
-	loc_wipe (&local->loc);
-	loc_wipe (&local->newloc);
-
 	FREE (local->transaction.locked_nodes);
 	FREE (local->transaction.child_errno);
+	FREE (local->child_errno);
 
 	FREE (local->transaction.basename);
 	FREE (local->transaction.new_basename);
 
-	loc_wipe (&local->transaction.parent_loc);	
+	loc_wipe (&local->transaction.parent_loc);
 	loc_wipe (&local->transaction.new_parent_loc);
+}
+
+
+void
+afr_local_cleanup (afr_local_t *local, xlator_t *this)
+{
+        int i;
+        afr_private_t * priv = NULL;
+
+	if (!local)
+		return;
+
+	afr_local_sh_cleanup (local, this);
+
+        afr_local_transaction_cleanup (local, this);
+
+        priv = this->private;
+
+	loc_wipe (&local->loc);
+	loc_wipe (&local->newloc);
 
 	if (local->fd)
 		fd_unref (local->fd);
@@ -1421,6 +1432,12 @@ afr_release (xlator_t *this, fd_t *fd)
         if (fd_ctx) {
                 if (fd_ctx->child_failed)
                         FREE (fd_ctx->child_failed);
+
+                if (fd_ctx->pre_op_done)
+                        FREE (fd_ctx->pre_op_done);
+
+                if (fd_ctx->opened_on)
+                        FREE (fd_ctx->opened_on);
 
                 FREE (fd_ctx);
         }
