@@ -4717,6 +4717,8 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         weak_checksum = gf_rsync_weak_checksum (buf, len);
         gf_rsync_strong_checksum (buf, len, strong_checksum);
 
+        FREE (buf);
+
         op_ret = 0;
 out:
         STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno,
