@@ -841,14 +841,13 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
                struct stat *buf, dict_t *dict)
 {
-        sp_inode_ctx_t      *inode_ctx   = NULL;
-        uint64_t             value       = 0;
         int                  ret         = 0;
         struct list_head     waiting_ops = {0, };
         call_stub_t         *stub        = NULL, *tmp = NULL;
         sp_local_t          *local       = NULL;
         sp_cache_t          *cache       = NULL;
         char                 need_unwind = 0;
+        char                 looked_up   = 0, lookup_in_progress = 0;
 
         INIT_LIST_HEAD (&waiting_ops);
 
@@ -877,30 +876,15 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 need_unwind = 1;
         }
 
-        ret = inode_ctx_get (local->loc.inode, this, &value);
-        if (ret == 0) {
-                inode_ctx = (sp_inode_ctx_t *)(long)value;
-                if (inode_ctx == NULL) {
-                        op_ret = -1;
-                        op_errno = EINVAL;
-                        goto out;
-                }
+        lookup_in_progress = 0;
+        looked_up = 1;
+        ret = sp_update_inode_ctx (this, local->loc.inode, &op_ret, &op_errno,
+                                   &lookup_in_progress, &looked_up,
+                                   &waiting_ops, &op_errno);
 
-                LOCK (&inode_ctx->lock);
-                {
-                        inode_ctx->op_ret = op_ret;
-                        inode_ctx->op_errno = op_errno;
-                        inode_ctx->looked_up = 1;
-                        inode_ctx->lookup_in_progress = 0;
-                        list_splice_init (&inode_ctx->waiting_ops,
-                                          &waiting_ops);
-                }
-                UNLOCK (&inode_ctx->lock);
-
-                list_for_each_entry_safe (stub, tmp, &waiting_ops, list) {
-                        list_del_init (&stub->list);
-                        call_resume (stub);
-                }
+        list_for_each_entry_safe (stub, tmp, &waiting_ops, list) {
+                list_del_init (&stub->list);
+                call_resume (stub);
         }
 
 out:
