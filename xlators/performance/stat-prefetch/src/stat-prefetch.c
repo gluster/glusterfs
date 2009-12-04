@@ -270,11 +270,6 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         LOCK (&inode_ctx->lock);
         {
-                if (inode_ctx->op_ret == -1) {
-                        op_errno = inode_ctx->op_errno;
-                        goto unlock;
-                }
-
                 if (!(inode_ctx->looked_up || inode_ctx->lookup_in_progress)) {
                         if (frame->local == NULL) {
                                 local = CALLOC (1, sizeof (*local));
@@ -1079,10 +1074,6 @@ wind:
                                 stub = NULL;
                         } else {
                                 can_wind = 1;
-                        }
-
-                        if (!(inode_ctx->looked_up
-                              || inode_ctx->lookup_in_progress)) {
                                 inode_ctx->lookup_in_progress = 1;
                         }
                 }
