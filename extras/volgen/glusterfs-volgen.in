@@ -3,8 +3,10 @@
 import getopt, sys, os, string
 from optparse import OptionParser,OptionGroup,make_option
 
-if not "/usr/share/glusterfs" in sys.path:
-    sys.path.append("/usr/share/glusterfs")
+prefix = "@prefix@"
+
+if not (prefix + "/share/glusterfs") in sys.path:
+    sys.path.append(prefix + "/share/glusterfs")
 
 from CreateVolfile import *
 from CreateBooster import *
