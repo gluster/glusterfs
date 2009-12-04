@@ -692,6 +692,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                         "CREATE %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent inode",
                         loc->parent->ino, loc->name, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + baselen);
@@ -715,7 +716,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, fd, NULL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, fd, NULL, NULL);
         return 0;
 
 }
@@ -762,6 +763,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                         "OPEN %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen);
@@ -785,7 +787,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, fd);
+        STACK_UNWIND (frame, -1, ENOENT, fd);
         return 0;
 
 }
@@ -819,6 +821,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         "STAT %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen);
@@ -840,7 +843,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, NULL);
         return 0;
 
 }
@@ -874,6 +877,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
                         "READLINK %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen);
@@ -896,7 +900,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, NULL);
         return 0;
 
 }
@@ -941,6 +945,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                         "MKNOD %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent",
                         loc->parent->ino, loc->name, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + baselen);
@@ -965,7 +970,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, loc->inode, NULL);
         return 0;
 
 }
@@ -1008,6 +1013,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
                         "MKDIR %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent",
                         loc->parent->ino, loc->name, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + baselen);
@@ -1031,7 +1037,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, loc->inode, NULL);
         return 0;
 
 }
@@ -1065,6 +1071,7 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         "UNLINK %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent",
                         loc->parent->ino, loc->name, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + baselen);
@@ -1087,7 +1094,7 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL);
+        STACK_UNWIND (frame, -1, ENOENT);
         return 0;
 
 }
@@ -1121,6 +1128,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         "RMDIR %"PRId64"/%s (%s): failed to get remote inode "
                         "number for parent",
                         loc->parent->ino, loc->name, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + baselen);
@@ -1143,7 +1151,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL);
+        STACK_UNWIND (frame, -1, ENOENT);
         return 0;
 
 }
@@ -1190,6 +1198,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
                         "SYMLINK %"PRId64"/%s (%s): failed to get remote inode"
                         " number parent",
                         loc->parent->ino, loc->name, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + baselen + newlen);
@@ -1212,7 +1221,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, loc->inode, NULL);
         return 0;
 
 }
@@ -1254,6 +1263,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                         "RENAME %"PRId64"/%s (%s): failed to get remote inode "
                         "number for source parent",
                         oldloc->parent->ino, oldloc->name, oldloc->path);
+                goto unwind;
         }
 
         ret = inode_ctx_get2 (newloc->parent, this, &newpar, &newgen);
@@ -1292,7 +1302,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, NULL);
         return 0;
 
 }
@@ -1341,6 +1351,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                         "failed to get remote inode number for source inode",
                         newloc->parent->ino, newloc->name, newloc->path,
                         oldloc->ino, oldloc->path);
+                goto unwind;
         }
 
         ret = inode_ctx_get2 (newloc->parent, this, &newpar, &newgen);
@@ -1350,6 +1361,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                         "failed to get remote inode number destination parent",
                         newloc->parent->ino, newloc->name, newloc->path,
                         oldloc->ino, oldloc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, oldpathlen + newpathlen + newbaselen);
@@ -1375,7 +1387,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, oldloc->inode, NULL);
         return 0;
 }
 
@@ -1408,6 +1420,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                         "TRUNCATE %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen);
@@ -1430,7 +1443,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, NULL);
         return 0;
 
 }
@@ -1471,7 +1484,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 gf_log (this->name, GF_LOG_TRACE,
                         "(%"PRId64"): failed to get fd ctx, EBADFD",
                         fd->inode->ino);
-                STACK_UNWIND (frame, -1, EINVAL, NULL, 0, NULL);
+                STACK_UNWIND (frame, -1, EBADFD, NULL, 0, NULL);
                 return 0;
         }
 
@@ -1811,6 +1824,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         "XATTROP %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, dict_len + pathlen);
@@ -1839,7 +1853,7 @@ unwind:
         if (hdr)
                 free (hdr);
 
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, NULL);
         return 0;
 }
 
@@ -1968,6 +1982,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         "SETXATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, dict_len + pathlen);
@@ -2000,7 +2015,7 @@ unwind:
         if (hdr)
                 free (hdr);
 
-        STACK_UNWIND (frame, -1, EINVAL);
+        STACK_UNWIND (frame, -1, ENOENT);
         return 0;
 }
 
@@ -2127,6 +2142,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         "GETXATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + namelen);
@@ -2151,7 +2167,7 @@ unwind:
         if (hdr)
                 free (hdr);
 
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, NULL);
         return 0;
 }
 
@@ -2267,6 +2283,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         "REMOVEXATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + namelen);
@@ -2288,7 +2305,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL);
+        STACK_UNWIND (frame, -1, ENOENT);
         return 0;
 }
 
@@ -2328,6 +2345,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         "OPENDIR %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         pathlen = STRLEN_0 (loc->path);
@@ -2351,7 +2369,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, fd);
+        STACK_UNWIND (frame, -1, ENOENT, fd);
         return 0;
 
 }
@@ -2649,6 +2667,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
                         "ACCESS %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         pathlen = STRLEN_0 (loc->path);
@@ -2674,7 +2693,7 @@ unwind:
         if (hdr)
                 free (hdr);
 
-        STACK_UNWIND (frame, -1, EINVAL);
+        STACK_UNWIND (frame, -1, ENOENT);
         return 0;
 
 }
@@ -2946,6 +2965,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                         "INODELK %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         if (cmd == F_GETLK || cmd == F_GETLK64)
@@ -3138,6 +3158,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
                         "ENTRYLK %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen + vollen + namelen);
@@ -3168,7 +3189,7 @@ unwind:
         if (hdr)
                 free (hdr);
 
-        STACK_UNWIND (frame, -1, EINVAL);
+        STACK_UNWIND (frame, -1, ENOENT);
         return 0;
 
 }
@@ -3295,6 +3316,8 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                 "LOOKUP %"PRId64"/%s (%s): failed to get "
                                 "remote inode number for parent",
                                 loc->parent->ino, loc->name, loc->path);
+                        op_errno = ENOENT;
+                        goto unwind;
                 }
                 GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
                 baselen = STRLEN_0 (loc->name);
@@ -3520,6 +3543,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         "SETATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         hdrlen = gf_hdr_len (req, pathlen);
@@ -3542,7 +3566,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         return ret;
 unwind:
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, ENOENT, NULL);
         return 0;
 }
 
@@ -5663,6 +5687,7 @@ client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
                         "CHECKSUM %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                goto unwind;
         }
 
         req->ino  = hton64 (ino);
@@ -5676,6 +5701,9 @@ client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
+unwind:
+        STACK_UNWIND (frame, -1, ENOENT, NULL, NULL);
+        return 0;
 }
 
 
