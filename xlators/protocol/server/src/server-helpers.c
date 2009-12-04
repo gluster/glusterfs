@@ -802,11 +802,6 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 			free (locker);
 		}
 
-		state = CALL_STATE (frame);
-		if (state)
-			free (state);
-		STACK_DESTROY (frame->root);
-
 		pthread_mutex_lock (&(conn->lock));
 		{
 			if (conn->fdtable) {
@@ -835,6 +830,11 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         FREE (fdentries);
                 }
 	}
+
+        state = CALL_STATE (frame);
+        if (state)
+                free (state);
+        STACK_DESTROY (frame->root);
 
 	gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",
 		conn->id);
