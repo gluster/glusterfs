@@ -831,13 +831,15 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 }
 	}
 
-        state = CALL_STATE (frame);
-        if (state)
-                free (state);
-        STACK_DESTROY (frame->root);
+        if (frame) {
+                state = CALL_STATE (frame);
+                if (state)
+                        free (state);
+                STACK_DESTROY (frame->root);
+        }
 
-	gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",
-		conn->id);
+        gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",
+                conn->id);
 
 	FREE (conn->id);
 	FREE (conn);
