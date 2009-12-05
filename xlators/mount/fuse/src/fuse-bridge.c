@@ -780,6 +780,7 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "%"PRIu64": GETATTR %"PRIu64" (%s) (fuse_loc_fill() returned NULL inode)",
                         finh->unique, finh->nodeid, state->loc.path);
                 send_fuse_err (this, finh, ENOENT);
+                free_state (state);
                 return;
         }
 
@@ -2605,6 +2606,7 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 #ifdef DISABLE_POSIX_ACL
         if (!strncmp (name, "system.", 7)) {
                 send_fuse_err (this, finh, ENODATA);
+                FREE (finh);
                 return;
         }
 #endif
