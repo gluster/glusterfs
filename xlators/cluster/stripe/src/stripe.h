@@ -87,19 +87,28 @@ struct stripe_local; /* this itself is used inside the structure; */
 
 struct stripe_local {
         struct stripe_local *next;
-        call_frame_t        *orig_frame; 
-        
+        call_frame_t        *orig_frame;
+
         stripe_fd_ctx_t     *fctx;
 
         /* Used by _cbk functions */
         struct stat          stbuf;
         struct stat          pre_buf;
         struct stat          post_buf;
-        struct stat          pre_parent_buf;
-        struct stat          post_parent_buf;
+        struct stat          preparent;
+        struct stat          postparent;
 
-        struct stat          pre_newparent_buf;
-        struct stat          post_newparent_buf;
+        off_t                stbuf_size;
+        off_t                prebuf_size;
+        off_t                postbuf_size;
+        off_t                preparent_size;
+        off_t                postparent_size;
+
+        blkcnt_t             stbuf_blocks;
+        blkcnt_t             prebuf_blocks;
+        blkcnt_t             postbuf_blocks;
+        blkcnt_t             preparent_blocks;
+        blkcnt_t             postparent_blocks;
 
         struct readv_replies *replies;
         struct statvfs       statvfs_buf;
@@ -116,7 +125,7 @@ struct stripe_local {
         int32_t              wind_count; /* used instead of child_cound 
                                             in case of read and write */
         int32_t              op_ret;
-        int32_t              op_errno; 
+        int32_t              op_errno;
         int32_t              count;
         int32_t              flags;
         char                *name;
