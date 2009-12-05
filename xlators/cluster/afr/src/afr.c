@@ -357,6 +357,10 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 		if (local->cont.lookup.xattr) {
                         dict_unref (local->cont.lookup.xattr);
                 }
+
+                if (local->cont.lookup.inode) {
+                        inode_unref (local->cont.lookup.inode);
+                }
 	}
 
 	{ /* getxattr */
@@ -750,7 +754,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                         if (local->op_errno != ESTALE)
                                 local->op_ret = op_ret;
 
-			local->cont.lookup.inode               = inode;
+			local->cont.lookup.inode               = inode_ref (inode);
 			local->cont.lookup.xattr               = dict_ref (xattr);
 			local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                         local->cont.lookup.postparent          = *postparent;
@@ -783,7 +787,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
 
                                 local->cont.lookup.xattr = dict_ref (xattr);
 
-                                local->cont.lookup.inode               = inode;
+                                local->cont.lookup.inode               = inode_ref (inode);
                                 local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                                 local->cont.lookup.postparent          = *postparent;
 
@@ -878,7 +882,7 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                         if (local->op_errno != ESTALE)
                                 local->op_ret = op_ret;
 
-			local->cont.lookup.inode               = inode;
+			local->cont.lookup.inode               = inode_ref (inode);
 			local->cont.lookup.xattr               = dict_ref (xattr);
 			local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                         local->cont.lookup.postparent          = *postparent;
@@ -912,7 +916,7 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
 
-                                local->cont.lookup.inode               = inode;
+                                local->cont.lookup.inode               = inode_ref (inode);
                                 local->cont.lookup.xattr               = dict_ref (xattr);
                                 local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                                 local->cont.lookup.postparent          = *postparent;
