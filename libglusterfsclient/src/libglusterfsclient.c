@@ -7919,7 +7919,7 @@ glusterfs_chdir (const char *path)
         }
 
         if ((handle == NULL) || (op_ret == 0)) {
-                libgf_client_chdir (path);
+                op_ret = libgf_client_chdir (path);
         }
 
 out:
