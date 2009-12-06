@@ -284,74 +284,6 @@ AC_SUBST(IBVERBS_SUBDIR)
 # end IBVERBS section
 
 
-# Berkely-DB section
-# storage/bdb requires Berkeley-DB version 4.6.21 or higher
-_GLFS_DB_VERSION_MAJOR=4
-_GLFS_DB_VERSION_MINOR=6
-_GLFS_DB_VERSION_PATCH=21
-AC_ARG_ENABLE([db],
-	      AC_HELP_STRING([--disable-bdb],
-			     [Do not build the Berkeley-DB translator]))
-
-if test "x$enable_bdb" != "xno"; then
-   AC_CHECK_HEADERS([db.h],
-                    [HAVE_BDB="yes"],
-                    [HAVE_BDB="no"])
-   if test "x$HAVE_BDB" = "xyes"; then
-      AC_CHECK_LIB([db],
-                   [db_create],
-	           [HAVE_BDB="yes"],
-	           [HAVE_BDB="no"])
-   fi
-
-   if test "x$HAVE_BDB" = "xyes"; then
-      AC_TRY_COMPILE([#include <db.h>],
-	 	      #if (DB_VERSION_MAJOR < $_GLFS_DB_VERSION_MAJOR) ||\
-		          (DB_VERSION_MAJOR == $_GLFS_DB_VERSION_MAJOR && \
-		           DB_VERSION_MINOR < $_GLFS_DB_VERSION_MINOR) || \
-		          (DB_VERSION_MAJOR == $_GLFS_DB_VERSION_MAJOR && \
-		           DB_VERSION_MINOR == $_GLFS_DB_VERSION_MINOR && \
-			   DB_VERSION_PATCH < $_GLFS_DB_VERSION_PATCH)
-		      #error "bdb older than required"
-		      #endif
-		      ,
-		     [HAVE_BDB_VERSION="yes"],
-		     [HAVE_BDB_VERSION="no"])
-
-      dnl check for DB->stat having 4 arguments.
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <db.h>]], 
-			[[DB *bdb; bdb->stat (NULL, NULL, NULL, 0);]])],
-		  	[HAVE_BDB_VERSION=yes], [HAVE_BDB_VERSION=no])
-
-      dnl check for DBC->c_get presence. 
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <db.h>]],
-                        [[DBC *cursor; cursor->get (NULL, NULL, NULL, 0);]])],
-		        [HAVE_BDB_CURSOR_GET=yes], [HAVE_BDB_CURSOR_GET=no])
-
-   fi		     
-fi
-
-if test "x$HAVE_BDB_CURSOR_GET" = "xyes" -a "x$HAVE_BDB_VERSION" = "xyes"; then
-   AC_DEFINE(HAVE_BDB_CURSOR_GET, 1, [Berkeley-DB version has cursor->get()])
-fi
-
-if test "x$enable_bdb" = "xyes" -a "x$HAVE_BDB" = "xno" -a "x$HAVE_BDB_VERSION" = "xno" -a "x$HAVE_BDB_CURSOR_GET" = "xno"; then
-   echo "Berkeley-DB requested but not found. glusterfs bdb feature requires db version 4.6.21 or higher"
-   exit 1
-fi
-
-
-BUILD_BDB=no
-if test "x$enable_bdb" != "xno" -a "x$HAVE_BDB" = "xyes"; then
-      BDB_SUBDIR=bdb	       
-      BUILD_BDB=yes
-fi
-
-
-
-AC_SUBST(BDB_SUBDIR)
-# end BDB section
-
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
 
@@ -493,7 +425,6 @@ echo "==========================="
 echo "FUSE client        : $BUILD_FUSE_CLIENT"
 echo "Infiniband verbs   : $BUILD_IBVERBS"
 echo "epoll IO multiplex : $BUILD_EPOLL"
-echo "Berkeley-DB        : $BUILD_BDB"
 echo "libglusterfsclient : $BUILD_LIBGLUSTERFSCLIENT"
 echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
 echo "fusermount         : $BUILD_FUSERMOUNT"
