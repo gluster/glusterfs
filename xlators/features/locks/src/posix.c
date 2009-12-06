@@ -1345,15 +1345,9 @@ init (xlator_t *this)
         priv = CALLOC (1, sizeof (*priv));
 
         mandatory = dict_get (this->options, "mandatory-locks");
-        if (mandatory) {
-                if (gf_string2boolean (mandatory->data,
-                                       &priv->mandatory) == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "'mandatory-locks' takes on only boolean "
-                                "values.");
-                        return -1;
-                }
-        }
+        if (mandatory)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "mandatory locks not supported in this minor release.");
 
 	trace = dict_get (this->options, "trace");
 	if (trace) {
