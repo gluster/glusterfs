@@ -373,6 +373,7 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
         rbthash_table_t *table = NULL;
         xlator_t        *this;
         sp_private_t    *priv = NULL;
+        void            *data = NULL;
 
         if ((cache == NULL) || ((name == NULL) && !remove_all)) {
                 goto out;
@@ -404,7 +405,9 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                                 ret = 0;
                         }
                 } else {
-                        rbthash_remove (cache->table, name, strlen (name));
+                        data = rbthash_remove (cache->table, name,
+                                               strlen (name));
+                        FREE (data);
                         ret = 0;
                 }
         }
