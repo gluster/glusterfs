@@ -42,7 +42,7 @@ struct __posix_lock {
         short              blocked;    /* waiting to acquire */
         struct flock       user_flock; /* the flock supplied by the user */
         xlator_t          *this;       /* required for blocked locks */
-        fd_t              *fd;
+        unsigned long      fd_num;
 
         call_frame_t      *frame;
 
