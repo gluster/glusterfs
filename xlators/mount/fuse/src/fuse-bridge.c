@@ -1943,7 +1943,7 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         /* See comment by similar code in fuse_settatr */
         priv = this->private;
-        if (priv->proto_minor >= 9 && fwi->write_flags & FUSE_READ_LOCKOWNER)
+        if (priv->proto_minor >= 9 && fwi->write_flags & FUSE_WRITE_LOCKOWNER)
                 state->lk_owner = fwi->lock_owner;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
