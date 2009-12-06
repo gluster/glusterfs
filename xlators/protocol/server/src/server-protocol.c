@@ -1610,7 +1610,7 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (state->bound_xl->name, GF_LOG_DEBUG,
                         "%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s "
                         " ==> %"PRId32" (%s)",
-                        frame->root->unique, inode->ino,
+                        frame->root->unique, state->loc2.inode->ino,
                         state->loc2.parent->ino,
                         state->loc2.name, state->loc.parent->ino,
                         state->loc.name,
