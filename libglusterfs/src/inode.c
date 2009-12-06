@@ -276,6 +276,7 @@ __inode_destroy (inode_t *inode)
 {
         int          index = 0;
         xlator_t    *xl = NULL;
+        xlator_t    *old_THIS = NULL;
 
         if (!inode->_ctx)
                 goto noctx;
@@ -283,8 +284,11 @@ __inode_destroy (inode_t *inode)
         for (index = 0; index < inode->table->xl->ctx->xl_count; index++) {
                 if (inode->_ctx[index].key) {
                         xl = (xlator_t *)(long)inode->_ctx[index].key;
+                        old_THIS = THIS;
+                        THIS = xl;
                         if (xl->cbks->forget)
                                 xl->cbks->forget (xl, inode);
+                        THIS = old_THIS;
                 }
         }
 

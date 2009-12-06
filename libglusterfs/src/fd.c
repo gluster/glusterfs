@@ -385,6 +385,7 @@ fd_destroy (fd_t *fd)
 {
         xlator_t    *xl = NULL;
 	int i = 0;
+        xlator_t    *old_THIS = NULL;
 
         if (fd == NULL){
                 gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
@@ -402,16 +403,22 @@ fd_destroy (fd_t *fd)
 		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
 			if (fd->_ctx[i].key) {
 				xl = (xlator_t *)(long)fd->_ctx[i].key;
+                                old_THIS = THIS;
+                                THIS = xl;
 				if (xl->cbks->releasedir)
 					xl->cbks->releasedir (xl, fd);
+                                THIS = old_THIS;
 			}
 		}
         } else {
 		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
 			if (fd->_ctx[i].key) {
 				xl = (xlator_t *)(long)fd->_ctx[i].key;
+                                old_THIS = THIS;
+                                THIS = xl;
 				if (xl->cbks->release)
 					xl->cbks->release (xl, fd);
+                                THIS = old_THIS;
 			}
 		}
         }
