@@ -353,6 +353,7 @@ sp_cache_init (xlator_t *this)
                 }
 
                 LOCK_INIT (&cache->lock);
+                cache->this = this;
         }
 
 out:
@@ -383,7 +384,7 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                 goto out;
         }
 
-        this = THIS;
+        this = cache->this;
 
         if (this == NULL)
                 goto out;

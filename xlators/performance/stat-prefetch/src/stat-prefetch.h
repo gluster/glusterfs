@@ -37,6 +37,7 @@
 
 struct sp_cache {
         rbthash_table_t *table;
+        xlator_t        *this;
         uint64_t         expected_offset;    /* Offset where the next read will
                                               * happen.
                                               */
