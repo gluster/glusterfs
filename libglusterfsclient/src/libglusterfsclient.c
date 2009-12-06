@@ -3703,22 +3703,29 @@ libgf_client_read (libglusterfs_client_ctx_t *ctx, fd_t *fd, void *buf,
                    size_t size, off_t offset)
 {
         int32_t op_ret = -1;
+        int32_t ret = 0;
         size_t  tmp   = 0;
 
         while (size != 0) {
                 tmp = ((size > LIBGF_IOBUF_SIZE) ? LIBGF_IOBUF_SIZE :
                        size);
                 op_ret = libgf_client_iobuf_read (ctx, fd, buf, tmp, offset);
-                if (op_ret <= 0) {
+                if (op_ret < 0) {
+                        ret = op_ret;
                         break;
                 }
+
+                ret += op_ret;
+
+                if (op_ret < tmp)
+                        break;
 
                 size -= op_ret;
                 offset += op_ret;
                 buf = (char *)buf + op_ret;
         }
 
-        return op_ret;
+        return ret;
 }
 
 ssize_t
