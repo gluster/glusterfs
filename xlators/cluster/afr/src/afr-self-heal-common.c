@@ -1413,8 +1413,10 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         shc->forced_merge = sh->forced_merge;
         shc->healing_fd_opened = sh->healing_fd_opened;
         shc->data_lock_held = sh->data_lock_held;
-        if (sh->healing_fd)
+        if (sh->healing_fd && !sh->healing_fd_opened)
                 shc->healing_fd = fd_ref (sh->healing_fd);
+        else
+                shc->healing_fd = sh->healing_fd;
         shc->background = sh->background;
         shc->mode = sh->mode;
 
