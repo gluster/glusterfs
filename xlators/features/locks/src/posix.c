@@ -248,7 +248,7 @@ delete_locks_of_fd (xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
        {
 
                list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
-                       if ((l->fd == fd)) {
+                       if ((l->fd_num == fd_to_fdnum(fd))) {
                                if (l->blocked) {
                                        list_move_tail (&l->list, &blocked_list);
                                        continue;
@@ -368,6 +368,14 @@ int
 pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
+        int dummy = 1;
+        int ret = -1;
+
+        ret = fd_ctx_set (fd, this, dummy);
+        if (ret != 0)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "fd_ctx_set failed");
+
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 
         return 0;
@@ -517,7 +525,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                 region.fl_start   = offset;
                 region.fl_end     = offset + size - 1;
                 region.transport  = frame->root->trans;
-                region.fd         = fd;
+                region.fd_num     = fd_to_fdnum(fd);
                 region.client_pid = frame->root->pid;
                 region.owner      = frame->root->lk_owner;
 
@@ -614,7 +622,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 region.fl_start   = offset;
                 region.fl_end     = offset + iov_length (vector, count) - 1;
                 region.transport  = frame->root->trans;
-                region.fd         = fd;
+                region.fd_num     = fd_to_fdnum(fd);
                 region.client_pid = frame->root->pid;
                 region.owner      = frame->root->lk_owner;
 
@@ -736,9 +744,9 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 #endif
         case F_SETLKW:
                 can_block = 1;
-                reqlock->frame = frame;
-                reqlock->this  = this;
-                reqlock->fd    = fd;
+                reqlock->frame  = frame;
+                reqlock->this   = this;
+                reqlock->fd_num = fd_to_fdnum(fd);
 
                 /* fall through */
 
@@ -859,6 +867,27 @@ pl_forget (xlator_t *this,
         return 0;
 }
 
+int
+pl_release (xlator_t *this, fd_t *fd)
+{
+        pl_inode_t *pl_inode     = NULL;
+        uint64_t    tmp_pl_inode = 0;
+        int         ret          = -1;
+
+	ret = inode_ctx_get (fd->inode, this, &tmp_pl_inode);
+        if (ret != 0)
+                goto out;
+
+        pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
+
+        gf_log (this->name, GF_LOG_TRACE,
+                "Releasing all locks with fd %p", fd);
+
+        delete_locks_of_fd (this, pl_inode, fd);
+
+out:
+        return ret;
+}
 static int32_t
 __get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
 {
@@ -1420,6 +1449,7 @@ struct xlator_dumpops dumpops = {
 
 struct xlator_cbks cbks = {
         .forget      = pl_forget,
+        .release     = pl_release,
 };
 
 

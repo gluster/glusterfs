@@ -96,6 +96,11 @@ found:
         return dom;
 }
 
+unsigned long
+fd_to_fdnum (fd_t *fd)
+{
+        return ((unsigned long) fd);
+}
 
 int
 __pl_inode_is_empty (pl_inode_t *pl_inode)
@@ -445,7 +450,7 @@ new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
 		lock->fl_end = flock->l_start + flock->l_len - 1;
 
 	lock->transport  = transport;
-        lock->fd         = fd;
+        lock->fd_num     = fd_to_fdnum (fd);
 	lock->client_pid = client_pid;
         lock->owner      = owner;
 
@@ -689,7 +694,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 sum->fl_type    = lock->fl_type;
                                 sum->transport  = lock->transport;
-                                sum->fd         = lock->fd;
+                                sum->fd_num     = lock->fd_num;
                                 sum->client_pid = lock->client_pid;
                                 sum->owner      = lock->owner;
 
@@ -705,7 +710,7 @@ __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock)
 
                                 sum->fl_type    = conf->fl_type;
                                 sum->transport  = conf->transport;
-                                sum->fd         = conf->fd;
+                                sum->fd_num     = conf->fd_num;
                                 sum->client_pid = conf->client_pid;
                                 sum->owner      = conf->owner;
 

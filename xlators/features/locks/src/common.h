@@ -110,4 +110,7 @@ pl_print_locker (char *str, int size, xlator_t *this, call_frame_t *frame);
 void
 pl_print_inodelk (char *str, int size, int cmd, struct flock *flock, const char *domain);
 
+unsigned long
+fd_to_fdnum (fd_t *fd);
+
 #endif /* __COMMON_H__ */
