@@ -2935,7 +2935,7 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret == 0) {
                 dht_layout_set (this, local->inode, layout);
 		local->stbuf.st_ino = local->st_ino;
-                local->stbuf.st_ino = local->st_dev;
+                local->stbuf.st_dev = local->st_dev;
                 if (local->loc.parent) {
                         local->preparent.st_ino = local->loc.parent->ino;
                         local->postparent.st_ino = local->loc.parent->ino;
