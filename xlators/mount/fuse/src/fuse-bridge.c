@@ -2049,6 +2049,7 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 do_flush ? " (FLUSH implied)" : "");
 
         if (do_flush) {
+                state->lk_owner = (uint64_t)-1;
                 FUSE_FOP (state, fuse_err_cbk, GF_FOP_FLUSH, flush, fd);
                 fd_unref (fd);
         } else {
