@@ -32,6 +32,8 @@ int
 resolve_entry_simple (call_frame_t *frame);
 int
 resolve_inode_simple (call_frame_t *frame);
+int
+resolve_path_simple (call_frame_t *frame);
 
 int
 component_count (const char *path)
@@ -148,8 +150,10 @@ resolve_deep_continue (call_frame_t *frame)
 
         if (resolve->par)
                 ret = resolve_entry_simple (frame);
-        else
+        else if (resolve->ino)
                 ret = resolve_inode_simple (frame);
+        else if (resolve->path)
+                ret = resolve_path_simple (frame);
 
         resolve_loc_touchup (frame);
 
@@ -246,6 +250,62 @@ resolve_path_deep (call_frame_t *frame)
         return 0;
 }
 
+
+int
+resolve_path_simple (call_frame_t *frame)
+{
+        server_state_t       *state = NULL;
+        xlator_t             *this = NULL;
+        server_resolve_t     *resolve = NULL;
+        struct resolve_comp  *components = NULL;
+        int                   ret = -1;
+        int                   par_idx = 0;
+        int                   ino_idx = 0;
+        int                   i = 0;
+
+        state = CALL_STATE (frame);
+        this  = frame->this;
+        resolve = state->resolve_now;
+        components = resolve->components;
+
+        if (!components) {
+                resolve->op_ret   = -1;
+                resolve->op_errno = ENOENT;
+                goto out;
+        }
+
+        for (i = 0; components[i].basename; i++) {
+                par_idx = ino_idx;
+                ino_idx = i;
+        }
+
+        if (!components[par_idx].inode) {
+                resolve->op_ret    = -1;
+                resolve->op_errno  = ENOENT;
+                goto out;
+        }
+
+        if (!components[ino_idx].inode && resolve->type == RESOLVE_MUST) {
+                resolve->op_ret    = -1;
+                resolve->op_errno  = ENOENT;
+                goto out;
+        }
+
+        if (components[ino_idx].inode && resolve->type == RESOLVE_NOT) {
+                resolve->op_ret    = -1;
+                resolve->op_errno  = EEXIST;
+                goto out;
+        }
+
+        if (components[ino_idx].inode)
+                state->loc_now->inode  = inode_ref (components[ino_idx].inode);
+        state->loc_now->parent = inode_ref (components[par_idx].inode);
+
+        ret = 0;
+
+out:
+        return ret;
+}
 
 /*
   Check if the requirements are fulfilled by entries in the inode cache itself
@@ -503,7 +563,11 @@ server_resolve (call_frame_t *frame)
 
                 server_resolve_inode (frame);
 
-        } else {
+        } else if (resolve->path) {
+
+                resolve_path_deep (frame);
+
+        } else  {
 
                 resolve->op_ret = -1;
                 resolve->op_errno = EINVAL;
