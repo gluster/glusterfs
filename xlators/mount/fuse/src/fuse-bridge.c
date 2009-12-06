@@ -222,20 +222,6 @@ get_state (xlator_t *this, fuse_in_header_t *finh)
 }
 
 
-void
-set_lock_owner (fuse_state_t *state, xlator_t *this,
-                uint64_t owner, uint64_t pid)
-{
-        fuse_private_t        *priv = NULL;
-
-        priv = this->private;
-
-        if (priv->proto_minor >= 9)
-                state->lk_owner = owner;
-        else
-                state->lk_owner = pid;
-}
-
 static call_frame_t *
 get_call_frame_for_req (fuse_state_t *state)
 {
@@ -998,6 +984,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         struct stat attr = {0, };
 
+        fuse_private_t  *priv = NULL;
         fuse_state_t *state = NULL;
         int32_t       ret   = -1;
         int32_t       valid = 0;
@@ -1006,7 +993,22 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
 
-        set_lock_owner (state, this, fsi->lock_owner, (uint64_t) finh->pid);
+        /*
+         * This is just stub code demonstrating how to retrieve
+         * lock_owner in setattr, according to the FUSE proto.
+         * We do not make use of ATM. Its purpose is supporting
+         * mandatory locking, but getting that right is further
+         * down the road. Cf.
+         *
+         * http://thread.gmane.org/gmane.comp.file-systems.fuse.devel/
+         * 4962/focus=4982
+         *
+         * http://git.kernel.org/?p=linux/kernel/git/torvalds/
+         * linux-2.6.git;a=commit;h=v2.6.23-5896-gf333211
+         */
+        priv = this->private;
+        if (priv->proto_minor >= 9 && fsi->valid & FATTR_LOCKOWNER)
+                state->lk_owner = fsi->lock_owner;
 
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
@@ -1851,6 +1853,7 @@ fuse_readv (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_read_in *fri = msg;
 
+        fuse_private_t  *priv = NULL;
         fuse_state_t *state = NULL;
         fd_t         *fd = NULL;
 
@@ -1862,7 +1865,10 @@ fuse_readv (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fd = FH_TO_FD (fri->fh);
         state->fd = fd;
 
-        set_lock_owner (state, this, fri->lock_owner, (uint64_t) finh->pid);
+        /* See comment by similar code in fuse_settatr */
+        priv = this->private;
+        if (priv->proto_minor >= 9 && fri->read_flags & FUSE_READ_LOCKOWNER)
+                state->lk_owner = fri->lock_owner;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": READ (%p, size=%"PRIu32", offset=%"PRIu64")",
@@ -1935,7 +1941,10 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
         vector.iov_base = msg;
         vector.iov_len  = fwi->size;
 
-        set_lock_owner (state, this, fwi->lock_owner, (uint64_t) finh->pid);
+        /* See comment by similar code in fuse_settatr */
+        priv = this->private;
+        if (priv->proto_minor >= 9 && fwi->write_flags & FUSE_READ_LOCKOWNER)
+                state->lk_owner = fwi->lock_owner;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": WRITE (%p, size=%"PRIu32", offset=%"PRId64")",
@@ -1975,7 +1984,7 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if (fd)
                 fd->flush_unique = finh->unique;
 
-        set_lock_owner (state, this, ffi->lock_owner, (uint64_t) finh->pid);
+        state->lk_owner = ffi->lock_owner;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": FLUSH %p", finh->unique, fd);
@@ -2000,8 +2009,6 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
         fd = FH_TO_FD (fri->fh);
         state->fd = fd;
-
-        set_lock_owner (state, this, fri->lock_owner, (uint64_t) finh->pid);
 
 #ifdef  GF_LINUX_HOST_OS
         /* This is an ugly Linux specific hack, relying on subtle
@@ -2778,7 +2785,7 @@ fuse_getlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->fd = fd;
         convert_fuse_file_lock (&fli->lk, &lock);
 
-        set_lock_owner (state, this, fli->owner, (uint64_t) finh->pid);
+        state->lk_owner = fli->owner;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": GETLK %p", finh->unique, fd);
@@ -2851,7 +2858,7 @@ fuse_setlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->fd = fd;
         convert_fuse_file_lock (&fli->lk, &lock);
 
-        set_lock_owner (state, this, fli->owner, (uint64_t) finh->pid);
+        state->lk_owner = fli->owner;
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": SETLK%s %p", finh->unique,
