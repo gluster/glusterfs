@@ -210,7 +210,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
         UNLOCK (&conf->subvolume_lock);
 
         if (subvol_filled) {
-                if (!(conf->du_stats[i].log++ % GF_UNIVERSAL_ANSWER)) {
+                if (!(conf->du_stats[i].log++ % (GF_UNIVERSAL_ANSWER * 10))) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "disk space on subvolume '%s' is getting "
                                 "full (%.2f %%), consider adding more nodes", 
