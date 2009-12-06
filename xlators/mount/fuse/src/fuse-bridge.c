@@ -494,6 +494,17 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 linked_inode = inode_link (inode, state->loc.parent,
                                            state->loc.name, buf);
 
+                if (linked_inode != inode) {
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "%s(%s) inode (ptr=%p, ino=%"PRId64", "
+                                "gen=%"PRId64") found conflict (ptr=%p, "
+                                "ino=%"PRId64", gen=%"PRId64")",
+                                gf_fop_list[frame->root->op],
+                                state->loc.path, inode, inode->ino,
+                                inode->generation, linked_inode,
+                                linked_inode->ino, linked_inode->generation);
+                }
+
                 inode_lookup (linked_inode);
 
                 /* TODO: make these timeouts configurable (via meta?) */
@@ -1644,7 +1655,7 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            state->loc.name, buf);
 
                 if (linked_inode != inode) {
-                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "create(%s) inode (ptr=%p, ino=%"PRId64", "
                                 "gen=%"PRId64") found conflict (ptr=%p, "
                                 "ino=%"PRId64", gen=%"PRId64")",
