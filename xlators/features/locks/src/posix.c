@@ -285,6 +285,16 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
         list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
                 if ((l->transport == transport)
                     && (l->owner == owner)) {
+			gf_log ("posix-locks", GF_LOG_TRACE,
+                                " Flushing lock"
+				"%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" state: %s",
+				l->fl_type == F_UNLCK ? "Unlock" : "Lock",
+				l->client_pid,
+                                l->owner,
+				l->user_flock.l_start,
+				l->user_flock.l_len,
+                                l->blocked == 1 ? "Blocked" : "Active");
+
                         __delete_lock (pl_inode, l);
                         __destroy_lock (l);
                 }
@@ -1199,8 +1209,8 @@ __dump_posixlks (pl_inode_t *pl_inode)
               gf_proc_dump_build_key(key,
                                      "xlator.feature.locks.lock-dump.domain.posixlk",
                                      "posixlk[%d](%s)",
-                                     lock->blocked ? "BLOCKED" : "ACTIVE",
-                                     count );
+                                     count,
+                                     lock->blocked ? "BLOCKED" : "ACTIVE");
               pl_dump_lock (tmp, 256, &lock->user_flock, lock->owner);
               gf_proc_dump_write(key, tmp);
 
