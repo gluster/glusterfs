@@ -2460,7 +2460,7 @@ init (xlator_t *this)
 
         /* configure 'options aggregate-size <size>' */
         conf->aggregate_size = WB_AGGREGATE_SIZE;
-        conf->disable_till = 0;
+        conf->disable_till = 1;
         ret = dict_get_str (options, "disable-for-first-nbytes", 
                             &str);
         if (ret == 0) {
