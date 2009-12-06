@@ -136,8 +136,10 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_stat_merge (this, &local->postparent, postparent,
                                 prev->this);
 
-		if (prev->this == local->hashed_subvol)
+		if (prev->this == local->hashed_subvol) {
 			local->st_ino = local->stbuf.st_ino;
+                        local->st_dev = local->stbuf.st_dev;
+                }
 
         }
 unlock:
@@ -167,6 +169,7 @@ unlock:
 			
 			if (local->st_ino) {
 				local->stbuf.st_ino = local->st_ino;
+                                local->stbuf.st_dev = local->st_dev;
 			} else {
 				gf_log (this->name, GF_LOG_DEBUG,
 					"could not find hashed subvol for %s",
