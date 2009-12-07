@@ -6,7 +6,7 @@ END-INFO-DIR-ENTRY
 
    This is the user manual for GlusterFS 2.0.
 
-   Copyright (C) 2007-2009 <Z> Research, Inc. Permission is granted to
+   Copyright (C) 2007-2009 Gluster, Inc. Permission is granted to
 copy, distribute and/or modify this document under the terms of the GNU
 Free Documentation License, Version 1.2 or any later version published
 by the Free Software Foundation; with no Invariant Sections, no
@@ -21,7 +21,7 @@ GlusterFS 2.0 User Guide
 
 This is the user manual for GlusterFS 2.0.
 
-   Copyright (C) 2007-2009 <Z> Research, Inc. Permission is granted to
+   Copyright (C) 2007-2009 Gluster, Inc. Permission is granted to
 copy, distribute and/or modify this document under the terms of the GNU
 Free Documentation License, Version 1.2 or any later version published
 by the Free Software Foundation; with no Invariant Sections, no
@@ -130,7 +130,7 @@ suggestions.  A huge thanks to them all.
 
    Patrick Negri - for TCP non-blocking connect.
         http://gluster.org/core-team.php (<list-hacking@gluster.com>)
-                                                           <Z> Research
+                                                          Gluster 
 
 
 File: user-guide.info,  Node: Introduction,  Next: Installation and Invocation,  Prev: Acknowledgements,  Up: Top
@@ -168,7 +168,7 @@ channel on Freenode (<irc.freenode.net>).
    The GlusterFS documentation wiki is also useful:
 <http://gluster.org/docs/index.php/GlusterFS>
 
-   For commercial support, you can contact <Z> Research at: 
+   For commercial support, you can contact Gluster at: 
 
      3194 Winding Vista Common
      Fremont, CA 94539

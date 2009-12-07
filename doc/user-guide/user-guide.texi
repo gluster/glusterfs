@@ -10,7 +10,7 @@
 @copying
 This is the user manual for GlusterFS 2.0.
 
-Copyright @copyright{} 2007-2009 @email{@b{Z}} Research, Inc. Permission is granted to
+Copyright @copyright{} 2007-2009 @email{@b{Gluster}} , Inc. Permission is granted to
 copy, distribute and/or modify this document under the terms of the
 @acronym{GNU} Free Documentation License, Version 1.2 or any later
 version published by the Free Software Foundation; with no Invariant
@@ -23,8 +23,7 @@ Documentation License''.
 @title GlusterFS 2.0 User Guide [DRAFT]
 @subtitle January 15, 2008
 @author http://gluster.org/core-team.php
-@author @email{@b{Z}} @b{Research}
-
+@author @email{@b{Gluster}} 
 @page
 @vskip 0pt plus 1filll
 @insertcopying
@@ -143,7 +142,7 @@ Jacques Mattheij - for Europe mirror.
 Patrick Negri - for TCP non-blocking connect.
 @flushright
 http://gluster.org/core-team.php (@email{list-hacking@@gluster.com})
-@email{@b{Z}} Research
+@email{@b{Gluster}} 
 @end flushright
 
 @node Introduction
@@ -178,7 +177,7 @@ channel on Freenode (@indicateurl{irc.freenode.net}).
 The GlusterFS documentation wiki is also useful: @*
 @indicateurl{http://gluster.org/docs/index.php/GlusterFS}
 
-For commercial support, you can contact @email{@b{Z}} Research at:
+For commercial support, you can contact @email{@b{Gluster}} at:
 @cindex commercial support
 @cindex Gluster, Inc.
 
