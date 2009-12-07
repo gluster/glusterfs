@@ -285,7 +285,8 @@ resolve_path_simple (call_frame_t *frame)
                 goto out;
         }
 
-        if (!components[ino_idx].inode && resolve->type == RESOLVE_MUST) {
+        if (!components[ino_idx].inode &&
+            (resolve->type == RESOLVE_MUST || resolve->type == RESOLVE_EXACT)) {
                 resolve->op_ret    = -1;
                 resolve->op_errno  = ENOENT;
                 goto out;
