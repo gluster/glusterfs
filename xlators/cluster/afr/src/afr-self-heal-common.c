@@ -834,6 +834,8 @@ sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         afr_local_t *local = NULL;
 
+        loc_t *parent_loc = cookie;
+
         int call_count = 0;
 
         local = frame->local;
@@ -842,6 +844,11 @@ sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "setattr on %s failed: %s",
                         local->loc.path, strerror (op_errno));
+        }
+
+        if (parent_loc) {
+                loc_wipe (parent_loc);
+                FREE (parent_loc);
         }
 
         call_count = afr_frame_return (frame);
@@ -868,6 +875,8 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 	call_frame_t    *setattr_frame = NULL;
 	int              call_count = 0;
 	int              child_index = 0;
+
+        loc_t *parent_loc = NULL;
 
 	struct stat     stbuf;
         int32_t valid;
@@ -901,16 +910,27 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
                 
                 setattr_frame->local = CALLOC (1, sizeof (afr_local_t));
 
-                ((afr_local_t *)setattr_frame->local)->call_count = 1;
+                ((afr_local_t *)setattr_frame->local)->call_count = 2;
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"setattr (%s) on subvolume %s",
 			local->loc.path, priv->children[child_index]->name);
 
-		STACK_WIND (setattr_frame, sh_destroy_cbk,
-			    priv->children[child_index],
-			    priv->children[child_index]->fops->setattr,
-			    &local->loc, &stbuf, valid);
+		STACK_WIND_COOKIE (setattr_frame, sh_destroy_cbk,
+                                   (void *) (long) 0,
+                                   priv->children[child_index],
+                                   priv->children[child_index]->fops->setattr,
+                                   &local->loc, &stbuf, valid);
+
+                valid      = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
+                parent_loc = CALLOC (1, sizeof (*parent_loc));
+                afr_build_parent_loc (parent_loc, &local->loc);
+
+                STACK_WIND_COOKIE (setattr_frame, sh_destroy_cbk,
+                                   (void *) (long) parent_loc,
+                                   priv->children[child_index],
+                                   priv->children[child_index]->fops->setattr,
+                                   parent_loc, &sh->parentbuf, valid);
 	}
 
 	call_count = afr_frame_return (frame);
@@ -1224,7 +1244,7 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 				buf->st_mode);
 
 			local->self_heal.buf[child_index] = *buf;
-
+                        local->self_heal.parentbuf        = *postparent;
 		} else {
 			gf_log (this->name, GF_LOG_TRACE,
 				"path %s on subvolume %s => -1 (%s)",
