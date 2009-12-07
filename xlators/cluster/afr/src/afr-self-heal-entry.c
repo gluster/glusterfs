@@ -2346,11 +2346,6 @@ afr_sh_entry_fix (call_frame_t *frame, xlator_t *this)
 
         sh->source = source;
 
-        if (sh->background) {
-                sh->unwind (sh->orig_frame, this);
-                sh->unwound = _gf_true;
-        }
-
 heal:
 	afr_sh_entry_sync_prepare (frame, this);
 
