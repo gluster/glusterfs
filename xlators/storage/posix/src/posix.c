@@ -4811,7 +4811,7 @@ init (xlator_t *this)
 					       &tmp_bool) == -1) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"wrong option provided for key "
-					"\"mandate-xattr\"");
+					"\"mandate-attribute\"");
 				ret = -1;
 				goto out;
 			}
