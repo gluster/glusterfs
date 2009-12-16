@@ -320,6 +320,9 @@ int
 dht_stat_merge (xlator_t *this, struct stat *to,
 		struct stat *from, xlator_t *subvol)
 {
+        if (!from || !to)
+                return 0;
+
 	to->st_dev      = from->st_dev;
 
 	dht_itransform (this, subvol, from->st_ino, &to->st_ino);
