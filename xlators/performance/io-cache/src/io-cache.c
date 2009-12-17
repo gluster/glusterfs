@@ -1433,6 +1433,9 @@ fini (xlator_t *this)
 {
 	ioc_table_t *table = this->private;
 
+        if (table == NULL)
+                return;
+
 	pthread_mutex_destroy (&table->table_lock);
 	FREE (table);
 
