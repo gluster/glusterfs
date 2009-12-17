@@ -852,6 +852,9 @@ fini (xlator_t *this)
 {
 	ra_conf_t *conf = this->private;
 
+        if (conf == NULL)
+                return;
+
 	pthread_mutex_destroy (&conf->conf_lock);
 	FREE (conf);
 

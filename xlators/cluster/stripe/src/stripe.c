@@ -3241,7 +3241,12 @@ fini (xlator_t *this)
 {
 	stripe_private_t *priv = this->private;
 	struct stripe_options *prev = NULL;
-	struct stripe_options *trav = priv->pattern;
+	struct stripe_options *trav = NULL;
+
+        if (priv == NULL)
+                return;
+
+        trav = priv->pattern;
 	while (trav) {
 		prev = trav;
 		trav = trav->next;
