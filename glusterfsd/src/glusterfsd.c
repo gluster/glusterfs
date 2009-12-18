@@ -928,7 +928,7 @@ cleanup_and_exit (int signum)
         gf_log ("glusterfs", GF_LOG_WARNING, "shutting down");
 
         if (ctx->pidfp) {
-                flock (fileno (ctx->pidfp), LOCK_UN);
+                lockf (fileno (ctx->pidfp), F_ULOCK, 0);
                 fclose (ctx->pidfp);
                 ctx->pidfp = NULL;
         }
@@ -1201,7 +1201,8 @@ main (int argc, char *argv[])
 #ifdef DEBUG
         mtrace ();
 #endif
-        signal (SIGUSR1, (sighandler_t) gf_proc_dump_info);
+
+        signal (SIGUSR1, gf_proc_dump_info);
         signal (SIGSEGV, gf_print_trace);
         signal (SIGABRT, gf_print_trace);
         signal (SIGPIPE, SIG_IGN);
@@ -1285,8 +1286,8 @@ main (int argc, char *argv[])
                                 /* do cleanup and exit ?! */
                                 return -1;
                         }
-                        ret = flock (fileno (ctx->pidfp),
-                                     (LOCK_EX | LOCK_NB));
+                        ret = lockf (fileno (ctx->pidfp),
+                                     (F_LOCK | F_TLOCK), 0);
                         if (ret == -1) {
                                 gf_log ("glusterfs", GF_LOG_ERROR,
                                         "Is another instance of %s running?",
@@ -1305,7 +1306,7 @@ main (int argc, char *argv[])
                                         "unable to truncate file %s. %s.",
                                         cmd_args->pid_file,
                                         strerror (errno));
-                                flock (fileno (ctx->pidfp), LOCK_UN);
+                                lockf (fileno (ctx->pidfp), F_ULOCK, 0);
                                 fclose (ctx->pidfp);
                                 if (write (pipe_fd[1], &gf_failure,
                                            sizeof (int)) < 0) {

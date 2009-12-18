@@ -218,7 +218,49 @@ enum {
 
 #define lutimes(filename,times)              utimes(filename,times)
 
+#ifndef SEEK_SET
+#define SEEK_SET 0
+#endif
+
+enum {
+        DT_UNKNOWN = 0,
+# define DT_UNKNOWN	DT_UNKNOWN
+        DT_FIFO = 1,
+# define DT_FIFO	DT_FIFO
+        DT_CHR = 2,
+# define DT_CHR		DT_CHR
+        DT_DIR = 4,
+# define DT_DIR		DT_DIR
+        DT_BLK = 6,
+# define DT_BLK		DT_BLK
+        DT_REG = 8,
+# define DT_REG		DT_REG
+        DT_LNK = 10,
+# define DT_LNK		DT_LNK
+        DT_SOCK = 12,
+# define DT_SOCK	DT_SOCK
+        DT_WHT = 14
+# define DT_WHT		DT_WHT
+};
+
+#ifndef _PATH_MOUNTED
+ #define _PATH_MOUNTED "/etc/mtab"
+#endif
+
+#ifndef O_ASYNC
+  #ifdef FASYNC
+    #define O_ASYNC FASYNC
+  #else
+    #define O_ASYNC 0
+  #endif
+#endif
+
+#ifndef FTW_CONTINUE
+  #define FTW_CONTINUE 0
+#endif
+
 int asprintf(char **string_ptr, const char *format, ...); 
+
 char* strsep(char** str, const char* delims);
 int solaris_listxattr(const char *path, char *list, size_t size);
 int solaris_removexattr(const char *path, const char* key);
