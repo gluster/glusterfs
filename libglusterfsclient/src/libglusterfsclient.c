@@ -44,7 +44,9 @@
 #include "libglusterfsclient-internals.h"
 #include "compat.h"
 #include "compat-errno.h"
+#ifndef GF_SOLARIS_HOST_OS
 #include <sys/vfs.h>
+#endif
 #include <utime.h>
 #include <sys/param.h>
 #include <list.h>

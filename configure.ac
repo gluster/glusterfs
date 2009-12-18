@@ -376,6 +376,8 @@ case $host_os in
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	GF_GLUSTERFS_LDFLAGS="-lnsl -lresolv -lsocket"
 	GF_BOOSTER_SUBDIR=""
+        BUILD_FUSE_CLIENT=no
+        FUSE_CLIENT_SUBDIR=""
 	;;
      *bsd*)
         GF_HOST_OS="GF_BSD_HOST_OS"

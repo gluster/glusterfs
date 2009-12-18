@@ -28,6 +28,7 @@
 
 #include <stdint.h>
 #include <stdio.h>  
+#include <stdarg.h>
 
 #define GF_PRI_FSBLK       PRId64
 #define GF_PRI_BLKSIZE     "ld"
