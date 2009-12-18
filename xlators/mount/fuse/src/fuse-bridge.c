@@ -991,7 +991,14 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
 
-        ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
+        if (fsi->valid & FATTR_FH &&
+            !(fsi->valid & (FATTR_ATIME|FATTR_MTIME)))
+                /* We need no loc if kernel sent us an fd and
+                 * we are not fiddling with times */
+                ret = 1;
+        else
+                ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0,
+                                     NULL);
 
         /*
          * This is just stub code demonstrating how to retrieve
@@ -1010,7 +1017,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if (priv->proto_minor >= 9 && fsi->valid & FATTR_LOCKOWNER)
                 state->lk_owner = fsi->lock_owner;
 
-        if ((state->loc.inode == NULL) ||
+        if ((state->loc.inode == NULL && ret == 0) ||
             (ret < 0)) {
 
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
