@@ -1352,6 +1352,9 @@ dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_local_t *local = NULL;
 
         local = frame->local;
+        if (op_ret == -1)
+                goto err;
+
         if (local) {
                 sbuf->st_ino = local->st_ino;
         } else {
@@ -1359,6 +1362,7 @@ dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
         }
 
+err:
         DHT_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, sbuf);
 
         return 0;
