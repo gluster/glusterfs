@@ -2195,11 +2195,12 @@ out:
 int
 _dict_serialize (dict_t *this, char *buf)
 {
-	int           ret    = -1;
-	data_pair_t * pair   = NULL;
-	int32_t       count  = 0;
-	int32_t       keylen = 0;
-	int32_t       vallen = 0;
+	int           ret     = -1;
+	data_pair_t * pair    = NULL;
+	int32_t       count   = 0;
+	int32_t       keylen  = 0;
+	int32_t       vallen  = 0;
+	int32_t       netword = 0;
 	
 	if (!buf) {
 		gf_log ("dict", GF_LOG_ERROR,
@@ -2213,7 +2214,8 @@ _dict_serialize (dict_t *this, char *buf)
 		goto out;
 	}
 
-	*(int32_t *) buf = hton32 (count);
+	netword = hton32 (count);
+	memcpy (buf, &netword, sizeof(netword));
 	buf += DICT_HDR_LEN;
 	pair = this->members_list;
 
@@ -2231,7 +2233,8 @@ _dict_serialize (dict_t *this, char *buf)
 		}
 
 		keylen  = strlen (pair->key);
-		*(int32_t *) buf = hton32 (keylen);
+		netword = hton32 (keylen);
+		memcpy (buf, &netword, sizeof(netword));
 		buf += DICT_DATA_HDR_KEY_LEN;
 
 		if (!pair->value) {
@@ -2241,7 +2244,8 @@ _dict_serialize (dict_t *this, char *buf)
 		}
 
 		vallen  = pair->value->len;
-		*(int32_t *) buf = hton32 (vallen);
+		netword = hton32 (vallen);
+		memcpy (buf, &netword, sizeof(netword));
 		buf += DICT_DATA_HDR_VAL_LEN;
 
 		memcpy (buf, pair->key, keylen);
@@ -2354,7 +2358,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 	char   * key     = NULL;
 	int32_t  keylen  = 0;
 	int32_t  vallen  = 0;
-
+	int32_t  hostord = 0;
 
 	buf = orig_buf;
 
@@ -2388,7 +2392,8 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 		goto out;
 	}
 
-	count = ntoh32 (*(int32_t *) buf);
+	memcpy (&hostord, buf, sizeof(hostord));
+	count = ntoh32 (hostord);
 	buf += DICT_HDR_LEN;
 
 	if (count < 0) {
@@ -2402,22 +2407,32 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 
 	for (i = 0; i < count; i++) {
 		if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_DEBUG,
+				"No room for keylen (size %d).",
+				DICT_DATA_HDR_KEY_LEN);
 			gf_log ("dict", GF_LOG_ERROR,
 				"undersized buffer passsed");
 			goto out;
 		}
-		keylen = ntoh32 (*(int32_t *) buf);
+		memcpy (&hostord, buf, sizeof(hostord));
+		keylen = ntoh32 (hostord);
 		buf += DICT_DATA_HDR_KEY_LEN;
 
 		if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_DEBUG,
+				"No room for vallen (size %d).",
+				DICT_DATA_HDR_VAL_LEN);
 			gf_log ("dict", GF_LOG_ERROR,
 				"undersized buffer passsed");
 			goto out;
 		}
-		vallen = ntoh32 (*(int32_t *) buf);
+		memcpy (&hostord, buf, sizeof(hostord));
+		vallen = ntoh32 (hostord);
 		buf += DICT_DATA_HDR_VAL_LEN;
 
 		if ((buf + keylen) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_DEBUG,
+				"No room for key (size %d).", keylen);
 			gf_log ("dict", GF_LOG_ERROR,
 				"undersized buffer passsed");
 			goto out;
@@ -2426,6 +2441,8 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 		buf += keylen + 1;  /* for '\0' */
 
 		if ((buf + vallen) > (orig_buf + size)) {
+			gf_log ("dict", GF_LOG_DEBUG,
+				"No room for value (size %d).", vallen);
 			gf_log ("dict", GF_LOG_ERROR,
 				"undersized buffer passsed");
 			goto out;
