@@ -526,7 +526,7 @@ new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
 	return lock;
 }
 
-/* Common inodelk code called form pl_inodelk and pl_finodelk */
+/* Common inodelk code called from pl_inodelk and pl_finodelk */
 int
 pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                    const char *volume, inode_t *inode, int32_t cmd,
@@ -540,12 +540,12 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 	pid_t                   client_pid = -1;
         uint64_t                owner      = -1;
 	pl_inode_t *            pinode     = NULL;
-	pl_inode_lock_t *          reqlock    = NULL;
+	pl_inode_lock_t *       reqlock    = NULL;
 	pl_dom_list_t *		dom	   = NULL;
 
 	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (inode, out);
-	VALIDATE_OR_GOTO (flock, out);
+	VALIDATE_OR_GOTO (inode, unwind);
+	VALIDATE_OR_GOTO (flock, unwind);
 
 	if ((flock->l_start < 0) || (flock->l_len < 0)) {
 		op_errno = EINVAL;
@@ -628,8 +628,11 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
         op_ret = 0;
 
 unwind:
-        pl_update_refkeeper (this, inode);
-        pl_trace_out (this, frame, fd, loc, cmd, flock, op_ret, op_errno, volume);
+	if ((inode != NULL) && (flock !=NULL)) {
+		pl_update_refkeeper (this, inode);
+		pl_trace_out (this, frame, fd, loc, cmd, flock, op_ret, op_errno, volume);
+	}
+
         STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
 out:
         return 0;
