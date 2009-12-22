@@ -2277,6 +2277,7 @@ stripe_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int32_t         callcnt = 0;
         stripe_local_t *local = frame->local;
+        fd_t           *local_fd = NULL;
 
         LOCK (&frame->lock);
         {
@@ -2297,8 +2298,11 @@ stripe_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
+                local_fd = local->fd;
                 STACK_UNWIND (frame, local->op_ret, local->op_errno, 
                               local->fd);
+                if (local_fd)
+                        fd_unref (local_fd);
         }
 
         return 0;
@@ -2338,6 +2342,7 @@ stripe_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         }
         frame->local = local;
         local->call_count = priv->child_count;
+        local->fd = fd_ref (fd);
 
         while (trav) {
                 STACK_WIND (frame, stripe_opendir_cbk, trav->xlator,
