@@ -2598,6 +2598,19 @@ fcntl (int fd, int cmd, ...)
                  */
                 /* case F_DUPFD_CLOEXEC: */
 	case F_GETFD:
+                if (glfs_fd != NULL) {
+                        ret = booster_get_close_on_exec (booster_fdtable, fd)
+                                ? FD_CLOEXEC : 0;
+                } else {
+                        if (real_fcntl == NULL) {
+                                ret = -1;
+                                errno = ENOSYS;
+                        } else {
+                                ret = real_fcntl (fd, cmd);
+                        }
+                }
+                break;
+
 	case F_GETFL:
 	case F_GETOWN:
 	case F_GETSIG:
@@ -2617,6 +2630,19 @@ fcntl (int fd, int cmd, ...)
 		break;
 
 	case F_SETFD:
+                if (glfs_fd != NULL) {
+                        booster_set_close_on_exec (booster_fdtable, fd);
+                        ret = 0;
+                } else {
+                        if (real_fcntl == NULL) {
+                                ret = -1;
+                                errno = ENOSYS;
+                        } else {
+                                ret = real_fcntl (fd, cmd);
+                        }
+                }
+                break;
+
 	case F_SETFL:
 	case F_SETOWN:
 	case F_SETSIG:
