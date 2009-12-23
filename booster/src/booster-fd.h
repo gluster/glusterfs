@@ -43,14 +43,25 @@ struct _fd {
 };
 typedef struct _fd fd_t;
 
+struct _booster_fd_set {
+        unsigned long fd_bits[0];
+};
+typedef struct _booster_fd_set booster_fd_set_t;
 
 struct _booster_fdtable {
-        int             refcount;
-        unsigned int    max_fds;
-        gf_lock_t       lock;
+        booster_fd_set_t *close_on_exec;
+        int               refcount;
+        unsigned int      max_fds;
+        gf_lock_t         lock;
         fd_t            **fds;
 };
 typedef struct _booster_fdtable booster_fdtable_t;
+
+void
+booster_set_close_on_exec (booster_fdtable_t *fdtable, int fd);
+
+int
+booster_get_close_on_exec (booster_fdtable_t *fdtable, int fd);
 
 extern int
 booster_fd_unused_get (booster_fdtable_t *fdtable, fd_t *fdptr, int fd);
