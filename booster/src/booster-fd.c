@@ -54,13 +54,34 @@ gf_roundup_power_of_two (uint nr)
         return result;
 }
 
+#define BOOSTER_NFDBITS (sizeof (unsigned long))
+
+#define BOOSTER_FDMASK(d)             (1UL << ((d) % BOOSTER_NFDBITS))
+#define BOOSTER_FDELT(d)              (d / BOOSTER_NFDBITS)
+#define BOOSTER_FD_SET(set, d)        (set->fd_bits[BOOSTER_FDELT(d)] |= BOOSTER_FDMASK(d))
+#define BOOSTER_FD_CLR(set, d)        (set->fd_bits[BOOSTER_FDELT(d)] &= ~BOOSTER_FDMASK(d))
+#define BOOSTER_FD_ISSET(set, d)      (set->fd_bits[BOOSTER_FDELT(d)] & BOOSTER_FDMASK(d))
+
+inline int
+booster_get_close_on_exec (booster_fdtable_t *fdtable, int fd)
+{
+        return BOOSTER_FD_ISSET(fdtable->close_on_exec, fd);
+}
+
+inline void
+booster_set_close_on_exec (booster_fdtable_t *fdtable, int fd)
+{
+        BOOSTER_FD_SET(fdtable->close_on_exec, fd);
+}
+
 int
 booster_fdtable_expand (booster_fdtable_t *fdtable, uint nr)
 {
-        fd_t    **oldfds = NULL;
+        fd_t    **oldfds = NULL, **tmp = NULL;
         uint    oldmax_fds = -1;
         uint    cpy = 0;
-        int32_t ret = -1;
+        int32_t ret = -1, bytes = 0;
+        booster_fd_set_t *oldclose_on_exec = NULL;
 
         if (fdtable == NULL || nr < 0) {
                 gf_log ("booster-fd", GF_LOG_ERROR, "Invalid argument");
@@ -75,6 +96,7 @@ booster_fdtable_expand (booster_fdtable_t *fdtable, uint nr)
 
         oldfds = fdtable->fds;
         oldmax_fds = fdtable->max_fds;
+        oldclose_on_exec = fdtable->close_on_exec;
 
         fdtable->fds = CALLOC (nr, sizeof (fd_t *));
         if (fdtable->fds == NULL) {
@@ -92,11 +114,32 @@ booster_fdtable_expand (booster_fdtable_t *fdtable, uint nr)
                 memcpy (fdtable->fds, oldfds, cpy);
         }
 
+        /* nr will be either less than 8 or a multiple of 8 */
+        bytes = nr/8;
+        bytes = bytes ? bytes : 1;
+        fdtable->close_on_exec = CALLOC (bytes, 1);
+        if (fdtable->close_on_exec == NULL) {
+                gf_log ("booster-fd", GF_LOG_ERROR, "Memory allocation "
+                        "failed");
+                tmp = fdtable->fds;
+                fdtable->fds = oldfds;
+                oldfds = tmp;
+                ret = -1;
+                goto out;
+        }
+
+        if (oldclose_on_exec != NULL) {
+                bytes = oldmax_fds/8;
+                cpy = bytes ? bytes : 1;
+                memcpy (fdtable->close_on_exec, oldclose_on_exec, cpy);
+        }
         gf_log ("booster-fd", GF_LOG_TRACE, "FD-table expanded: Old: %d,New: %d"
                 , oldmax_fds, nr);
         ret = 0;
+
 out:
         FREE (oldfds);
+        FREE (oldclose_on_exec);
 
         return ret;
 }
