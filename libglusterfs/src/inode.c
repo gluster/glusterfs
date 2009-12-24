@@ -425,17 +425,29 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
         dentry_t      *newd = NULL;
 
         newd = (void *) CALLOC (1, sizeof (*newd));
+        if (newd == NULL) {
+                gf_log ("inode", GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
 
         INIT_LIST_HEAD (&newd->inode_list);
         INIT_LIST_HEAD (&newd->hash);
 
+        newd->name = strdup (name);
+        if (newd->name == NULL) {
+                gf_log ("inode", GF_LOG_ERROR, "out of memory");
+                FREE (newd);
+                newd = NULL;
+                goto out;
+        }
+
         if (parent)
                 newd->parent = __inode_ref (parent);
-        newd->name = strdup (name);
 
         list_add (&newd->inode_list, &inode->dentry_list);
         newd->inode = inode;
 
+out:
         return newd;
 }
 
@@ -446,8 +458,10 @@ __inode_create (inode_table_t *table)
         inode_t  *newi = NULL;
 
         newi = (void *) CALLOC (1, sizeof (*newi));
-        if (!newi)
-                return NULL;
+        if (!newi) {
+                gf_log ("inode", GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
 
         newi->table = table;
 
@@ -458,13 +472,20 @@ __inode_create (inode_table_t *table)
         INIT_LIST_HEAD (&newi->hash);
         INIT_LIST_HEAD (&newi->dentry_list);
 
+        newi->_ctx = CALLOC (1, (sizeof (struct _inode_ctx) *
+                                 table->xl->ctx->xl_count));
+        if (newi->_ctx == NULL) {
+                gf_log ("inode", GF_LOG_ERROR, "out of memory");
+                LOCK_DESTROY (&newi->lock);
+                FREE (newi);
+                newi = NULL;
+                goto out;
+        }
 
         list_add (&newi->list, &table->lru);
         table->lru_size++;
 
-        newi->_ctx = CALLOC (1, (sizeof (struct _inode_ctx) *
-                                 table->xl->ctx->xl_count));
-
+out:
         return newi;
 }
 
@@ -477,7 +498,9 @@ inode_new (inode_table_t *table)
         pthread_mutex_lock (&table->lock);
         {
                 inode = __inode_create (table);
-                __inode_ref (inode);
+                if (inode != NULL) {
+                        __inode_ref (inode);
+                }
         }
         pthread_mutex_unlock (&table->lock);
 
@@ -1080,9 +1103,14 @@ inode_from_path (inode_table_t *itable, const char *path)
         char     *strtokptr = NULL;
 
         /* top-down approach */
+        pathname = strdup (path);
+        if (pathname == NULL) {
+                gf_log ("inode", GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
         root = itable->root;
         parent = inode_ref (root);
-        pathname = strdup (path);
         component = strtok_r (pathname, "/", &strtokptr);
 
         if (component == NULL)
@@ -1116,6 +1144,7 @@ inode_from_path (inode_table_t *itable, const char *path)
         if (pathname)
                 free (pathname);
 
+out:
         return inode;
 }
 
