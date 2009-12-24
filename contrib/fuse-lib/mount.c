@@ -125,6 +125,21 @@ fuse_mnt_add_mount (const char *progname, const char *fsname,
                 char templ[] = "/tmp/fusermountXXXXXX";
                 char *tmp;
 
+                /* mtab update done async, just log if fails */
+                res = fork ();
+                if (res)
+                        exit (res == -1 ? 1 : 0);
+                res = fork ();
+                if (res) {
+                        if (res != -1)
+                                res = waitpid (res, &status, 0);
+                        if (res == -1)
+                                GFFUSE_LOGERR ("%s: /etc/mtab update failed",
+                                               progname);
+
+                        exit (0);
+                }
+
                 sigprocmask (SIG_SETMASK, &oldmask, NULL);
                 setuid (geteuid ());
 
