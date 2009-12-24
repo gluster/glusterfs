@@ -4906,6 +4906,7 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                         local->loc.name,
                                         local->loc.path,
                                         oldgen, oldino, stbuf.st_dev, stbuf.st_ino);
+                                op_errno = ESTALE;
                                 goto fail;
                         }
 
