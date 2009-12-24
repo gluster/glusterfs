@@ -46,6 +46,9 @@ typedef struct {
         gf_lock_t lock;
         unsigned int loops_running;
         off_t offset;
+
+        int32_t total_blocks;
+        int32_t diff_blocks;
 } afr_sh_algo_diff_private_t;
 
 #endif /* __AFR_SELF_HEAL_ALGORITHM_H__ */

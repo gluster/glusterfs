@@ -728,6 +728,14 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                         }
                 }
 
+                LOCK (&sh_priv->lock);
+                {
+                        sh_priv->total_blocks++;
+                        if (write_needed)
+                                sh_priv->diff_blocks++;
+                }
+                UNLOCK (&sh_priv->lock);
+
                 if (write_needed && !sh->op_failed) {
                         sh_diff_read (rw_frame, this, loop_state);
                 } else {
@@ -856,9 +864,15 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
 	if (sh_priv->offset >= sh->file_size) {
                 if (sh_priv->loops_running == 0) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "full self-heal completed on %s",
+                                "diff self-heal completed on %s",
                                 local->loc.path);
 
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "diff self-heal on %s: %d blocks of %d were different (%.2f%%)",
+                                local->loc.path, sh_priv->diff_blocks,
+                                sh_priv->total_blocks,
+                                ((sh_priv->diff_blocks * 1.0)/sh_priv->total_blocks) * 100);
 
                         sh_diff_private_cleanup (frame, this);
                         local->self_heal.algo_completion_cbk (frame, this);
