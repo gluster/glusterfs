@@ -4685,6 +4685,8 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
+        memset (strong_checksum, 0, MD5_DIGEST_LEN);
+
         buf = CALLOC (1, len);
         if (!buf) {
                 op_errno = ENOMEM;
