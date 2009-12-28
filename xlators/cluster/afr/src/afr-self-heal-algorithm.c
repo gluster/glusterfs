@@ -411,18 +411,68 @@ sh_diff_private_cleanup (call_frame_t *frame, xlator_t *this)
         afr_self_heal_t *           sh      = NULL;
         afr_sh_algo_diff_private_t *sh_priv = NULL;
 
+        int i;
+
         priv  = this->private;
         local = frame->local;
         sh    = &local->self_heal;
 
         sh_priv = sh->private;
 
+        for (i = 0; i < priv->data_self_heal_window_size; i++) {
+                if (sh_priv->loops[i]) {
+                        if (sh_priv->loops[i]->write_needed)
+                                FREE (sh_priv->loops[i]->write_needed);
+
+                        if (sh_priv->loops[i]->checksum)
+                                FREE (sh_priv->loops[i]->checksum);
+                }
+        }
+
         if (sh_priv) {
-                if (sh_priv->checksum)
-                        FREE (sh_priv->checksum);
+                if (sh_priv->loops)
+                        FREE (sh_priv->loops);
 
                 FREE (sh_priv);
         }
+
+
+}
+
+
+static uint32_t
+__make_cookie (int loop_index, int child_index)
+{
+        uint32_t ret = (loop_index << 16) | child_index;
+        return ret;
+}
+
+
+static int
+__loop_index (uint32_t cookie)
+{
+        return (cookie & 0xFFFF0000) >> 16;
+}
+
+
+static int
+__child_index (uint32_t cookie)
+{
+        return (cookie & 0x0000FFFF);
+}
+
+
+static void
+sh_diff_loop_state_reset (struct sh_diff_loop_state *loop_state, int child_count)
+{
+        loop_state->active = _gf_false;
+//        loop_state->offset = 0;
+
+        memset (loop_state->write_needed,
+                0, sizeof (*loop_state->write_needed) * child_count);
+
+        memset (loop_state->checksum,
+                0, MD5_DIGEST_LEN * child_count);
 }
 
 
@@ -439,13 +489,6 @@ sh_diff_number_of_writes_needed (unsigned char *write_needed, int child_count)
 
         return writes;
 }
-
-
-struct sh_diff_loop_state {
-        off_t   offset;
-        int32_t child_index;
-        unsigned char *write_needed;
-};
 
 
 static int
@@ -475,23 +518,17 @@ sh_diff_loop_return (call_frame_t *rw_frame, xlator_t *this,
         sh       = &sh_local->self_heal;
         sh_priv  = sh->private;
 
-        LOCK (&sh_priv->lock);
-        {
-                sh_priv->loops_running--;
-        }
-        UNLOCK (&sh_priv->lock);
-
         gf_log (this->name, GF_LOG_TRACE,
                 "loop for offset %"PRId64" returned", loop_state->offset);
 
-        AFR_STACK_DESTROY (rw_frame);
-
-        if (loop_state) {
-                if (loop_state->write_needed)
-                        FREE (loop_state->write_needed);
-
-                FREE (loop_state);
+        LOCK (&sh_priv->lock);
+        {
+                sh_priv->loops_running--;
+                sh_diff_loop_state_reset (loop_state, priv->child_count);
         }
+        UNLOCK (&sh_priv->lock);
+
+        AFR_STACK_DESTROY (rw_frame);
 
         sh_diff_loop_driver (sh_frame, this);
 
@@ -512,9 +549,12 @@ sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
 	afr_local_t * sh_local  = NULL;
 	afr_self_heal_t *sh     = NULL;
 
-        struct sh_diff_loop_state *loop_state = (struct sh_diff_loop_state *) cookie;
+        afr_sh_algo_diff_private_t *sh_priv;
+        struct sh_diff_loop_state *loop_state;
 
-	int call_count = 0;
+	int call_count  = 0;
+        int child_index = 0;
+        int loop_index  = 0;
 
 	priv     = this->private;
 	rw_local = rw_frame->local;
@@ -523,10 +563,15 @@ sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
         sh_frame = rw_sh->sh_frame;
         sh_local = sh_frame->local;
         sh       = &sh_local->self_heal;
+        sh_priv  = sh->private;
+
+        child_index = __child_index ((uint32_t) (long) cookie);
+        loop_index  = __loop_index ((uint32_t) (long) cookie);
+        loop_state  = sh_priv->loops[loop_index];
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"wrote %d bytes of data from %s to child %d, offset %"PRId64"",
-		op_ret, sh_local->loc.path, loop_state->child_index,
+		op_ret, sh_local->loc.path, child_index,
                 loop_state->offset);
 
 	LOCK (&sh_frame->lock);
@@ -535,7 +580,7 @@ sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
 			gf_log (this->name, GF_LOG_DEBUG,
 				"write to %s failed on subvolume %s (%s)",
 				sh_local->loc.path,
-				priv->children[loop_state->child_index]->name,
+				priv->children[child_index]->name,
 				strerror (op_errno));
 
 			sh->op_failed = 1;
@@ -569,7 +614,10 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
 	afr_local_t * sh_local  = NULL;
 	afr_self_heal_t *sh     = NULL;
 
-        struct sh_diff_loop_state *loop_state = (struct sh_diff_loop_state *) cookie;
+        int loop_index;
+        struct sh_diff_loop_state *loop_state;
+
+        uint32_t wcookie;
 
 	int i = 0;
 	int call_count = 0;
@@ -583,6 +631,9 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
         sh       = &sh_local->self_heal;
         sh_priv  = sh->private;
 
+        loop_index = __loop_index ((uint32_t) (long) cookie);
+        loop_state = sh_priv->loops[loop_index];
+
 	call_count = sh_diff_number_of_writes_needed (loop_state->write_needed,
                                                       priv->child_count);
 
@@ -592,7 +643,8 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
 		"read %d bytes of data from %s, offset %"PRId64"",
 		op_ret, sh_local->loc.path, sh->offset);
 
-	if (op_ret <= 0) {
+	if ((op_ret <= 0) ||
+            (call_count == 0)) {
                 sh_diff_loop_return (rw_frame, this, loop_state);
 
 		return 0;
@@ -608,8 +660,10 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
 
 	for (i = 0; i < priv->child_count; i++) {
                 if (loop_state->write_needed[i]) {
+                        wcookie = __make_cookie (loop_index, i);
+
                         STACK_WIND_COOKIE (rw_frame, sh_diff_write_cbk,
-                                           (void *) (long) loop_state,
+                                           (void *) (long) wcookie,
                                            priv->children[i],
                                            priv->children[i]->fops->writev,
                                            sh->healing_fd, vector, count,
@@ -627,17 +681,20 @@ out:
 
 static int
 sh_diff_read (call_frame_t *rw_frame, xlator_t *this,
-              struct sh_diff_loop_state *loop_state)
+              int loop_index)
 {
 	afr_private_t *   priv     = NULL;
 	afr_local_t *     rw_local = NULL;
 	afr_self_heal_t * rw_sh    = NULL;
 
         afr_sh_algo_diff_private_t * sh_priv = NULL;
+        struct sh_diff_loop_state *loop_state;
 
         call_frame_t *sh_frame  = NULL;
 	afr_local_t * sh_local  = NULL;
 	afr_self_heal_t *sh     = NULL;
+
+        uint32_t cookie;
 
 	priv     = this->private;
 	rw_local = rw_frame->local;
@@ -648,8 +705,12 @@ sh_diff_read (call_frame_t *rw_frame, xlator_t *this,
         sh       = &sh_local->self_heal;
         sh_priv  = sh->private;
 
+        loop_state = sh_priv->loops[loop_index];
+
+        cookie = __make_cookie (loop_index, sh->source);
+
 	STACK_WIND_COOKIE (rw_frame, sh_diff_read_cbk,
-			   (void *) (long) loop_state,
+			   (void *) (long) cookie,
 			   priv->children[sh->source],
 			   priv->children[sh->source]->fops->readv,
 			   sh->healing_fd, sh_priv->block_size,
@@ -674,7 +735,9 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
 
         afr_sh_algo_diff_private_t * sh_priv = NULL;
 
-        struct sh_diff_loop_state *loop_state = (struct sh_diff_loop_state *) cookie;
+        int loop_index = 0;
+        int child_index = 0;
+        struct sh_diff_loop_state *loop_state;
 
         int call_count   = 0;
         int i            = 0;
@@ -691,15 +754,20 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
 
         sh_priv = sh->private;
 
+        child_index = __child_index ((uint32_t) (long) cookie);
+        loop_index  = __loop_index ((uint32_t) (long) cookie);
+
+        loop_state  = sh_priv->loops[loop_index];
+
         if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "checksum on %s failed on subvolume %s (%s)",
-                        sh_local->loc.path, priv->children[loop_state->child_index]->name,
+                        sh_local->loc.path, priv->children[child_index]->name,
                         strerror (op_errno));
 
                 sh->op_failed = 1;
         } else {
-                memcpy ((void *) sh_priv->checksum + loop_state->child_index * MD5_DIGEST_LEN,
+                memcpy (loop_state->checksum + child_index * MD5_DIGEST_LEN,
                         strong_checksum,
                         MD5_DIGEST_LEN);
         }
@@ -711,8 +779,8 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                         if (sh->sources[i] || !sh_local->child_up[i])
                                 continue;
 
-                        if (memcmp ((const void *) sh_priv->checksum + (i * MD5_DIGEST_LEN),
-                                    (const void *) sh_priv->checksum + (sh->source * MD5_DIGEST_LEN),
+                        if (memcmp (loop_state->checksum + (i * MD5_DIGEST_LEN),
+                                    loop_state->checksum + (sh->source * MD5_DIGEST_LEN),
                                     MD5_DIGEST_LEN)) {
                                 /*
                                    Checksums differ, so this block
@@ -737,7 +805,7 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
                 UNLOCK (&sh_priv->lock);
 
                 if (write_needed && !sh->op_failed) {
-                        sh_diff_read (rw_frame, this, loop_state);
+                        sh_diff_read (rw_frame, this, loop_index);
                 } else {
                         sh->offset += sh_priv->block_size;
 
@@ -746,6 +814,32 @@ sh_diff_checksum_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
         }
 
         return 0;
+}
+
+
+static int
+sh_diff_find_unused_loop (afr_sh_algo_diff_private_t *sh_priv, int max)
+{
+        int i;
+
+        LOCK (&sh_priv->lock);
+        {
+                for (i = 0; i < max; i++) {
+                        if (sh_priv->loops[i]->active == _gf_false) {
+                                sh_priv->loops[i]->active = _gf_true;
+                                break;
+                        }
+                }
+        }
+        UNLOCK (&sh_priv->lock);
+
+        if (i == max) {
+                gf_log ("[sh-diff]", GF_LOG_ERROR,
+                        "no free loops found! This shouldn't happen. Please"
+                        " report this to gluster-devel@nongnu.org");
+        }
+
+        return i;
 }
 
 
@@ -762,6 +856,8 @@ sh_diff_checksum (call_frame_t *frame, xlator_t *this, off_t offset)
 
         call_frame_t *rw_frame = NULL;
 
+        uint32_t cookie;
+        int loop_index = 0;
         struct sh_diff_loop_state *loop_state = NULL;
 
         int32_t op_errno = 0;
@@ -791,29 +887,35 @@ sh_diff_checksum (call_frame_t *frame, xlator_t *this, off_t offset)
 
         rw_local->call_count = call_count;
 
-        loop_state = CALLOC (1, sizeof (*loop_state));
-        loop_state->child_index  = sh->source;
+        loop_index = sh_diff_find_unused_loop (sh_priv, priv->data_self_heal_window_size);
+
+        loop_state = sh_priv->loops[loop_index];
         loop_state->offset       = offset;
-        loop_state->write_needed = CALLOC (priv->child_count,
-                                           sizeof (*loop_state->write_needed));
+
+        /* we need to send both the loop index and child index,
+           so squeeze them both into a 32-bit number */
+
+        cookie = __make_cookie (loop_index, sh->source);
 
         STACK_WIND_COOKIE (rw_frame, sh_diff_checksum_cbk,
-                           (void *) (long) loop_state,
+                           (void *) (long) cookie,
                            priv->children[sh->source],
                            priv->children[sh->source]->fops->rchecksum,
                            sh->healing_fd,
-                           sh->offset, sh_priv->block_size);
+                           offset, sh_priv->block_size);
 
         for (i = 0; i < priv->child_count; i++) {
                 if (sh->sources[i] || !local->child_up[i])
                         continue;
 
+                cookie = __make_cookie (loop_index, i);
+
                 STACK_WIND_COOKIE (rw_frame, sh_diff_checksum_cbk,
-                                   (void *) (long) loop_state,
+                                   (void *) (long) cookie,
                                    priv->children[i],
                                    priv->children[i]->fops->rchecksum,
                                    sh->healing_fd,
-                                   sh->offset, sh_priv->block_size);
+                                   offset, sh_priv->block_size);
 
                 if (!--call_count)
                         break;
@@ -926,13 +1028,13 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
         afr_self_heal_t *           sh      = NULL;
         afr_sh_algo_diff_private_t *sh_priv = NULL;
 
+        int i;
+
         priv  = this->private;
         local = frame->local;
         sh    = &local->self_heal;
 
         sh_priv = CALLOC (1, sizeof (*sh_priv));
-
-        sh_priv->checksum = CALLOC (priv->child_count, MD5_DIGEST_LEN);
 
         sh_priv->block_size = this->ctx->page_size;
 
@@ -941,6 +1043,18 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
         LOCK_INIT (&sh_priv->lock);
 
         local->call_count = 0;
+
+        sh_priv->loops = CALLOC (priv->data_self_heal_window_size,
+                                 sizeof (*sh_priv->loops));
+
+        for (i = 0; i < priv->data_self_heal_window_size; i++) {
+                sh_priv->loops[i]               = CALLOC (1, sizeof (*sh_priv->loops[i]));
+
+                sh_priv->loops[i]->checksum     = CALLOC (priv->child_count,
+                                                          MD5_DIGEST_LEN);
+                sh_priv->loops[i]->write_needed = CALLOC (priv->child_count,
+                                                          sizeof (*sh_priv->loops[i]->write_needed));
+        }
 
         sh_diff_loop_driver (frame, this);
 

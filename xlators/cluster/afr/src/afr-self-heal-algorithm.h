@@ -37,10 +37,14 @@ typedef struct {
         off_t offset;
 } afr_sh_algo_full_private_t;
 
-typedef struct {
-        uint8_t *checksum;     /* array of MD5 checksums for each child
-                                  Each checksum is MD5_DIGEST_LEN bytes long */
+struct sh_diff_loop_state {
+        off_t   offset;
+        unsigned char *write_needed;
+        uint8_t *checksum;
+        gf_boolean_t active;
+};
 
+typedef struct {
         size_t block_size;
 
         gf_lock_t lock;
@@ -49,6 +53,8 @@ typedef struct {
 
         int32_t total_blocks;
         int32_t diff_blocks;
+
+        struct sh_diff_loop_state **loops;
 } afr_sh_algo_diff_private_t;
 
 #endif /* __AFR_SELF_HEAL_ALGORITHM_H__ */
