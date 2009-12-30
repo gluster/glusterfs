@@ -1013,16 +1013,21 @@ int
 set_log_file_path (cmd_args_t *cmd_args)
 {
         int   i = 0;
+        int   j = 0;
         int   ret = 0;
         int   port = 0;
         char *tmp_ptr = NULL;
         char  tmp_str[1024] = {0,};
 
         if (cmd_args->mount_point) {
-                for (i = 1; i < strlen (cmd_args->mount_point); i++) {
-                        tmp_str[i-1] = cmd_args->mount_point[i];
+                j = 0;
+                i = 0;
+                if (cmd_args->mount_point[0] == '/')
+                        i = 1;
+                for (; i < strlen (cmd_args->mount_point); i++,j++) {
+                        tmp_str[j] = cmd_args->mount_point[i];
                         if (cmd_args->mount_point[i] == '/')
-                                tmp_str[i-1] = '-';
+                                tmp_str[j] = '-';
                 }
                 ret = asprintf (&cmd_args->log_file,
                                 DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
@@ -1035,10 +1040,14 @@ set_log_file_path (cmd_args_t *cmd_args)
         }
 
         if (cmd_args->volume_file) {
-                for (i = 0; i < strlen (cmd_args->volume_file); i++) {
-                        tmp_str[i] = cmd_args->volume_file[i];
+                j = 0;
+                i = 0;
+                if (cmd_args->volume_file[0] == '/')
+                        i = 1;
+                for (; i < strlen (cmd_args->volume_file); i++,j++) {
+                        tmp_str[j] = cmd_args->volume_file[i];
                         if (cmd_args->volume_file[i] == '/')
-                                tmp_str[i] = '-';
+                                tmp_str[j] = '-';
                 }
                 ret = asprintf (&cmd_args->log_file,
                                 DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
