@@ -1074,6 +1074,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                         close (fd);
                 else
                         inode_ctx_put (loc->inode, this, (uint64_t) fd);
+
+		fd = -1;
         }
 fail:
         if (fd != -1)
