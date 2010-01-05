@@ -2398,6 +2398,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 #ifdef DISABLE_POSIX_ACL
         if (!strncmp (name, "system.", 7)) {
                 send_fuse_err (this, finh, EOPNOTSUPP);
+                FREE (finh);
                 return;
         }
 #endif
