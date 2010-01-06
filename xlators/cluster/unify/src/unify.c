@@ -4458,17 +4458,6 @@ init (xlator_t *this)
 				parent = parent->next;
 			parent->next = xlparent;
 		}
-		/* Initialize the namespace volume */
-		if (!ns_xl->ready) {
-			ret = xlator_tree_init (ns_xl);
-			if (ret) {
-				gf_log (this->name, GF_LOG_ERROR, 
-					"initializing namespace node failed, "
-					"Exiting");
-			FREE (_private);
-			return -1;
-			}
-		}
 	}
 
 	/* Tell namespace node that init is done */
