@@ -1445,12 +1445,12 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 
         lc->child_up  = memdup (l->child_up, priv->child_count);
         if (l->xattr_req)
-                lc->xattr_req = dict_copy_with_ref (l->xattr_req, NULL);
+                lc->xattr_req = dict_ref (l->xattr_req);
 
         if (l->cont.lookup.inode)
                 lc->cont.lookup.inode = inode_ref (l->cont.lookup.inode);
         if (l->cont.lookup.xattr)
-                lc->cont.lookup.xattr = dict_copy_with_ref (l->cont.lookup.xattr, NULL);
+                lc->cont.lookup.xattr = dict_ref (l->cont.lookup.xattr);
 
         return lc;
 }
