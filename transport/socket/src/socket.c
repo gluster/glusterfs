@@ -1409,6 +1409,9 @@ socket_init (transport_t *this)
         }
 
         optstr = NULL;
+        
+        // By default, we enable NODELAY
+        priv->nodelay = 1;
         if (dict_get (this->xl->options, "transport.socket.nodelay")) {
                 optstr = data_to_str (dict_get (this->xl->options,
                                                 "transport.socket.nodelay"));
@@ -1419,8 +1422,6 @@ socket_init (transport_t *this)
                                  "boolean options, not taking any action");
                         tmp_bool = 1;
                 }
-                // By default, we enable NODELAY
-                priv->nodelay = 1;
                 if (!tmp_bool) {
                         priv->nodelay = 0;
                         gf_log (this->xl->name, GF_LOG_DEBUG,
