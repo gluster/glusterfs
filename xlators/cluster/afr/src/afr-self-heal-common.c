@@ -437,6 +437,27 @@ afr_sh_mark_biggest_as_source (afr_self_heal_t *sh, int child_count)
 }
 
 
+static int
+afr_sh_mark_lowest_uid_as_source (afr_self_heal_t *sh, int child_count)
+{
+        uid_t smallest = 0;
+        int i;
+
+        for (i = 0; i < child_count; i++) {
+                if (!sh->buf)
+                        break;
+
+                if (sh->buf[i].st_uid < sh->buf[smallest].st_uid) {
+                        smallest = i;
+                }
+        }
+
+        sh->sources[smallest] = 1;
+
+        return 1;
+}
+
+
 int
 afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                      afr_self_heal_type type)
@@ -484,6 +505,13 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
 
         if (type == AFR_SELF_HEAL_DATA) {
                 size_differs = afr_sh_mark_if_size_differs (sh, child_count);
+        }
+
+        if ((type == AFR_SELF_HEAL_METADATA)
+            && afr_sh_all_nodes_innocent (characters, child_count)) {
+
+                nsources = afr_sh_mark_lowest_uid_as_source (sh, child_count);
+                goto out;
         }
 
         if (afr_sh_all_nodes_innocent (characters, child_count)) {
