@@ -3857,7 +3857,7 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx, fd_t *fd,
                     const struct iovec *dst_vector, int dst_count, off_t offset)
 {
         int32_t               op_ret     = -1;
-        size_t                size       = 0, tmp = 0;
+        size_t                size       = 0, tmp = 0, ret = 0;
         int                   i          = 0;
         int                   dst_idx    = 0;
         off_t                 dst_offset = 0;
@@ -3878,9 +3878,10 @@ libgf_client_readv (libglusterfs_client_ctx_t *ctx, fd_t *fd,
 
                 offset += op_ret;
                 size -= op_ret;
+                ret += op_ret;
         }
 
-        return op_ret;
+        return ret;
 }
 
 
