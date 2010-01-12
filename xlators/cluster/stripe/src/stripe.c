@@ -515,7 +515,93 @@ stripe_stack_unwind_inode_cbk (call_frame_t *frame, void *cookie,
         return 0;
 }
 
-int32_t 
+int32_t
+stripe_sh_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     struct stat *preop, struct stat *postop)
+{
+        int             callcnt = -1;
+        stripe_local_t *local   = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                loc_wipe (&local->loc);
+                STACK_DESTROY (frame->root);
+        }
+        return 0;
+}
+
+int32_t
+stripe_sh_make_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno, inode_t *inode,
+                          struct stat *buf, struct stat *preparent,
+                          struct stat *postparent)
+{
+        stripe_local_t *local = NULL;
+
+        local = frame->local;
+
+        STACK_WIND (frame, stripe_sh_chown_cbk, ((call_frame_t *)cookie)->this,
+                    ((call_frame_t *)cookie)->this->fops->setattr, &local->loc,
+                    &local->stbuf, (GF_SET_ATTR_UID | GF_SET_ATTR_GID));
+
+        return 0;
+}
+
+int32_t
+stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
+                        stripe_local_t *local)
+{
+        xlator_list_t    *trav   = NULL;
+        call_frame_t     *rframe = NULL;
+        stripe_local_t   *rlocal = NULL;
+        stripe_private_t *priv   = NULL;
+
+        if (!(S_ISREG (local->stbuf.st_mode) ||
+              S_ISDIR (local->stbuf.st_mode)))
+                return 0;
+
+        priv = this->private;
+        trav = this->children;
+        rframe = copy_frame (frame);
+        if (!rframe) {
+                goto out;
+        }
+        rlocal = CALLOC (1, sizeof (stripe_local_t));
+        if (!rlocal) {
+                goto out;
+        }
+        rframe->local = rlocal;
+        rlocal->call_count = priv->child_count;
+        loc_copy (&rlocal->loc, &local->loc);
+        memcpy (&rlocal->stbuf, &local->stbuf, sizeof (struct stat));
+
+        while (trav) {
+                if (S_ISREG (local->stbuf.st_mode)) {
+                        STACK_WIND (rframe, stripe_sh_make_entry_cbk,
+                                    trav->xlator, trav->xlator->fops->mknod,
+                                    &local->loc, local->stbuf.st_mode, 0);
+                }
+                if (S_ISDIR (local->stbuf.st_mode)) {
+                        STACK_WIND (rframe, stripe_sh_make_entry_cbk,
+                                    trav->xlator, trav->xlator->fops->mkdir,
+                                    &local->loc, local->stbuf.st_mode);
+                }
+                trav = trav->next;
+        }
+
+out:
+        return 0;
+}
+
+int32_t
 stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct stat *buf, dict_t *dict, struct stat *postparent)
@@ -543,16 +629,10 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->op_errno = op_errno;
                         if ((op_errno == ENOTCONN) || (op_errno == ESTALE))
                                 local->failed = 1;
-                        /* TODO: bring in self-heal ability */
-                        /* 
-                         * if (local->op_ret == 0) {
-                         *       if (S_ISREG (local->stbuf.st_mode) || 
-                         *           S_ISDIR (local->stbuf.st_mode))
-                         *               local->entry_self_heal_needed = 1;
-                         * }
-                         */
+                        if (op_errno == ENOENT)
+                                local->entry_self_heal_needed = 1;
                 }
- 
+
                 if (op_ret >= 0) {
                         local->op_ret = 0;
 
@@ -574,6 +654,9 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
+                if (local->op_ret == 0 && local->entry_self_heal_needed)
+                        stripe_entry_self_heal (frame, this, local);
+
                 if (local->failed)
                         local->op_ret = -1;
 
@@ -586,6 +669,9 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->postparent.st_blocks = local->postparent_blocks;
                         local->postparent.st_size   = local->postparent_size;
                 }
+
+                loc_wipe (&local->loc);
+
                 STACK_UNWIND (frame, local->op_ret, local->op_errno,
                               local->inode, &local->stbuf, local->dict,
                               &local->postparent);
@@ -628,6 +714,7 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
         local->op_ret = -1;
         frame->local = local;
+        loc_copy (&local->loc, loc);
 
         /* Everytime in stripe lookup, all child nodes 
            should be looked up */
