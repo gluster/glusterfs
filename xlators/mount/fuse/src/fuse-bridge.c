@@ -2959,8 +2959,10 @@ fuse_enosys (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
 
 static void
-fuse_discard (xlator_t *this, fuse_in_header_t *finh, void *msg)
+fuse_destroy (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
+        send_fuse_err (this, finh, 0);
+
         FREE (finh);
 }
 
@@ -3459,7 +3461,7 @@ init (xlator_t *this_xl)
         for (i = 0; i < FUSE_713_OP_HIGH; i++)
                 fuse_ops[i] = fuse_enosys;
         fuse_ops[FUSE_INIT]        = fuse_init;
-        fuse_ops[FUSE_DESTROY]     = fuse_discard;
+        fuse_ops[FUSE_DESTROY]     = fuse_destroy;
         fuse_ops[FUSE_LOOKUP]      = fuse_lookup;
         fuse_ops[FUSE_FORGET]      = fuse_forget;
         fuse_ops[FUSE_GETATTR]     = fuse_getattr;
