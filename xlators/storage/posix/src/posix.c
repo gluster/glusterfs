@@ -1101,6 +1101,8 @@ posix_releasedir (xlator_t *this,
 	uint64_t          tmp_pfd  = 0;
         int               ret      = 0;
 
+        struct posix_private *priv = NULL;
+
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (fd, out);
 
@@ -1121,15 +1123,15 @@ posix_releasedir (xlator_t *this,
                 goto out;
         }
 
-        ret = closedir (pfd->dir);
-        if (ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "closedir on %p failed: %s", pfd->dir,
-                        strerror (errno));
-                goto out;
+        priv = this->private;
+
+        pthread_mutex_lock (&priv->janitor_lock);
+        {
+                INIT_LIST_HEAD (&pfd->list);
+                list_add_tail (&pfd->list, &priv->janitor_fds);
+                pthread_cond_signal (&priv->janitor_cond);
         }
-        pfd->dir = NULL;
+        pthread_mutex_unlock (&priv->janitor_lock);
 
         if (!pfd->path) {
                 op_errno = EBADFD;
@@ -1142,12 +1144,6 @@ posix_releasedir (xlator_t *this,
         op_ret = 0;
 
  out:
-        if (pfd) {
-                if (pfd->path)
-                        FREE (pfd->path);
-		FREE (pfd);
-        }
-
         return 0;
 }
 
@@ -1356,11 +1352,48 @@ janitor_walker (const char *fpath, const struct stat *sb,
 
 #define JANITOR_SLEEP_DURATION          600
 
+
+static struct posix_fd *
+janitor_get_next_fd (xlator_t *this)
+{
+        struct posix_private *priv = NULL;
+        struct posix_fd *pfd = NULL;
+
+        struct timespec timeout;
+
+        priv = this->private;
+
+        pthread_mutex_lock (&priv->janitor_lock);
+        {
+                if (list_empty (&priv->janitor_fds)) {
+                        time (&timeout.tv_sec);
+                        timeout.tv_sec += JANITOR_SLEEP_DURATION;
+                        timeout.tv_nsec = 0;
+
+                        pthread_cond_timedwait (&priv->janitor_cond,
+                                                &priv->janitor_lock,
+                                                &timeout);
+                        goto unlock;
+                }
+
+                pfd = list_entry (priv->janitor_fds.next, struct posix_fd,
+                                  list);
+
+                list_del (priv->janitor_fds.next);
+        }
+unlock:
+        pthread_mutex_unlock (&priv->janitor_lock);
+
+        return pfd;
+}
+
+
 static void *
 posix_janitor_thread_proc (void *data)
 {
         xlator_t *            this = NULL;
         struct posix_private *priv = NULL;
+        struct posix_fd *pfd;
 
         this = data;
         priv = this->private;
@@ -1376,7 +1409,23 @@ posix_janitor_thread_proc (void *data)
                       32,
                       FTW_DEPTH | FTW_PHYS);
 
-                sleep (JANITOR_SLEEP_DURATION);
+                pfd = janitor_get_next_fd (this);
+                if (pfd) {
+                        if (pfd->dir == NULL) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "janitor: closing file fd=%d", pfd->fd);
+                                close (pfd->fd);
+                        } else {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "janitor: closing dir fd=%p", pfd->dir);
+                                closedir (pfd->dir);
+                        }
+
+                        if (pfd->path)
+                                FREE (pfd->path);
+
+                        FREE (pfd);
+                }
         }
 
         return NULL;
@@ -1472,14 +1521,6 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                         "mkdir of %s failed: %s", loc->path, 
                         strerror (op_errno));
                 goto out;
-        }
-
-        if (!strcmp (loc->path, "/" GF_REPLICATE_TRASH_DIR)) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "got mkdir %s, spawning janitor thread",
-                        loc->path);
-
-                posix_spawn_janitor_thread (this);
         }
 
 #ifndef HAVE_SET_FSID
@@ -2737,13 +2778,13 @@ posix_release (xlator_t *this,
 
         _fd = pfd->fd;
 
-	op_ret = close (_fd);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "close failed on fd=%p: %s", fd, strerror (op_errno));
-		goto out;
+        pthread_mutex_lock (&priv->janitor_lock);
+        {
+                INIT_LIST_HEAD (&pfd->list);
+                list_add_tail (&pfd->list, &priv->janitor_fds);
+                pthread_cond_signal (&priv->janitor_cond);
         }
+        pthread_mutex_unlock (&priv->janitor_lock);
 
         if (pfd->dir) {
 		op_ret = -1;
@@ -2763,9 +2804,6 @@ posix_release (xlator_t *this,
         op_ret = 0;
 
  out:
-	if (pfd)
-		FREE (pfd);
-
         return 0;
 }
 
@@ -4983,9 +5021,13 @@ init (xlator_t *this)
                 }
         }
 #endif
-
         this->private = (void *)_private;
 
+        pthread_mutex_init (&_private->janitor_lock, NULL);
+        pthread_cond_init (&_private->janitor_cond, NULL);
+        INIT_LIST_HEAD (&_private->janitor_fds);
+
+        posix_spawn_janitor_thread (this);
  out:
         return ret;
 }
