@@ -61,7 +61,9 @@ struct posix_fd {
 	char *  path;    /* used by setdents/getdents */
 	DIR *   dir;     /* handle returned by the kernel */
         int     flushwrites;
+        struct list_head list; /* to add to the janitor list */
 };
+
 
 struct posix_private {
 	char   *base_path;
@@ -75,6 +77,10 @@ struct posix_private {
   
 	struct timeval prev_fetch_time;
 	struct timeval init_time;
+
+        struct list_head janitor_fds;
+        pthread_cond_t janitor_cond;
+        pthread_mutex_t janitor_lock;
 
 	int32_t max_read;            /* */
 	int32_t max_write;           /* */
