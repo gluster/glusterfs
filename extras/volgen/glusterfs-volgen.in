@@ -82,7 +82,7 @@ def generate_volume_files ():
     group.add_option("--nfs", action="store_true", dest="need_nfs",
                 default=False, help="booster nfs reexport")
     group.add_option("--cifs", action="store_true", dest="need_cifs",
-                default=False, help="booster cifs reexport"),
+                default=False, help="booster cifs reexport")
     parse.add_option_group(group)
 
     # CIFS option list
@@ -100,7 +100,7 @@ def generate_volume_files ():
     group.add_option("--ibdev", type="int", dest="ib_dev",
                      default=1, help="Infiniband device number <N>")
     group.add_option("-c", "--conf-dir", dest="conf_dir",
-                     help="output directory for volume files"),
+                     help="output directory for volume files")
     parse.add_option_group(group)
 
     group = OptionGroup(parse, "Extra Options")
