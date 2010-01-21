@@ -78,6 +78,8 @@ struct posix_private {
 	struct timeval prev_fetch_time;
 	struct timeval init_time;
 
+        time_t last_landfill_check;
+        int32_t janitor_sleep_duration;
         struct list_head janitor_fds;
         pthread_cond_t janitor_cond;
         pthread_mutex_t janitor_lock;

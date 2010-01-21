@@ -1350,9 +1350,6 @@ janitor_walker (const char *fpath, const struct stat *sb,
 }
 
 
-#define JANITOR_SLEEP_DURATION          600
-
-
 static struct posix_fd *
 janitor_get_next_fd (xlator_t *this)
 {
@@ -1367,7 +1364,7 @@ janitor_get_next_fd (xlator_t *this)
         {
                 if (list_empty (&priv->janitor_fds)) {
                         time (&timeout.tv_sec);
-                        timeout.tv_sec += JANITOR_SLEEP_DURATION;
+                        timeout.tv_sec += priv->janitor_sleep_duration;
                         timeout.tv_nsec = 0;
 
                         pthread_cond_timedwait (&priv->janitor_cond,
@@ -1395,19 +1392,26 @@ posix_janitor_thread_proc (void *data)
         struct posix_private *priv = NULL;
         struct posix_fd *pfd;
 
+        time_t now;
+
         this = data;
         priv = this->private;
 
         THIS = this;
 
         while (1) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "janitor woke up, cleaning out /" GF_REPLICATE_TRASH_DIR);
+                time (&now);
+                if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "janitor cleaning out /" GF_REPLICATE_TRASH_DIR);
 
-                nftw (priv->trash_path,
-                      janitor_walker,
-                      32,
-                      FTW_DEPTH | FTW_PHYS);
+                        nftw (priv->trash_path,
+                              janitor_walker,
+                              32,
+                              FTW_DEPTH | FTW_PHYS);
+
+                        priv->last_landfill_check = now;
+                }
 
                 pfd = janitor_get_next_fd (this);
                 if (pfd) {
@@ -4806,6 +4810,9 @@ init (xlator_t *this)
 	data_t *               tmp_data = NULL;
         uint64_t               time64   = 0;
 
+        int dict_ret = 0;
+        int32_t janitor_sleep;
+
         dir_data = dict_get (this->options, "directory");
 
         if (this->children) {
@@ -4986,9 +4993,21 @@ init (xlator_t *this)
         }
         _private->st_device = CALLOC (1, (sizeof (dev_t) * 
                                           _private->num_devices_to_span));
-        
+
         /* Start with the base */
         _private->st_device[0] = buf.st_dev;
+
+        _private->janitor_sleep_duration = 600;
+
+	dict_ret = dict_get_int32 (this->options, "janitor-sleep-duration",
+                                   &janitor_sleep);
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Setting janitor sleep duration to %d.",
+			janitor_sleep);
+
+		_private->janitor_sleep_duration = janitor_sleep;
+	}
 
         LOCK_INIT (&_private->gen_lock);
         time64 = time (NULL);
@@ -5114,6 +5133,8 @@ struct volume_options options[] = {
 	{ .key  = {"span-devices"},
 	  .type = GF_OPTION_TYPE_INT },
         { .key  = {"background-unlink"},
-          .type = GF_OPTION_TYPE_BOOL }, 
+          .type = GF_OPTION_TYPE_BOOL },
+        { .key  = {"janitor-sleep-duration"},
+          .type = GF_OPTION_TYPE_INT },
 	{ .key  = {NULL} }
 };
