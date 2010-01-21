@@ -2445,7 +2445,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		/* locking has succeeded on all nodes that are up */
 		
 		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-			      &local->cont.lk.flock);
+                                  lock);
 	}
 
 	return 0;
