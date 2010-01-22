@@ -421,7 +421,7 @@ transport_peerproc (void *trans_data)
 int
 transport_setpeer (transport_t *trans, transport_t *peer_trans)
 {
-        trans->peer_trans = peer_trans;
+        trans->peer_trans = transport_ref (peer_trans);
 
         INIT_LIST_HEAD (&trans->handover.msgs);
         pthread_cond_init (&trans->handover.cond, NULL);
@@ -429,7 +429,7 @@ transport_setpeer (transport_t *trans, transport_t *peer_trans)
         pthread_create (&trans->handover.thread, NULL,
                         transport_peerproc, trans);
 
-        peer_trans->peer_trans = trans;
+        peer_trans->peer_trans = transport_ref (trans);
 
         INIT_LIST_HEAD (&peer_trans->handover.msgs);
         pthread_cond_init (&peer_trans->handover.cond, NULL);
