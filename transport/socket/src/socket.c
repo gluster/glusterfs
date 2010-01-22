@@ -947,6 +947,7 @@ socket_connect (transport_t *this)
         socklen_t                sockaddr_len = 0;
 	glusterfs_ctx_t         *ctx = NULL;
         int                      on = 1;
+        sa_family_t              sa_family = {0, };
 
         priv = this->private;
 	ctx = this->xl->ctx;
@@ -970,6 +971,11 @@ socket_connect (transport_t *this)
                 goto err;
         }
 
+        ret = client_fill_address_family (this, &sa_family);
+        if (ret == -1) {
+                goto err;
+        }
+
         ret = socket_client_get_remote_sockaddr (this, SA (&sockaddr),
                                                  &sockaddr_len);
         if (ret == -1) {
@@ -988,9 +994,7 @@ socket_connect (transport_t *this)
                 memcpy (&this->peerinfo.sockaddr, &sockaddr, sockaddr_len);
                 this->peerinfo.sockaddr_len = sockaddr_len;
 
-                priv->sock = socket (SA (&sockaddr)->sa_family,
-				     SOCK_STREAM, 0);
-
+                priv->sock = socket (sa_family, SOCK_STREAM, 0);
                 if (priv->sock == -1) {
                         gf_log (this->xl->name, GF_LOG_ERROR,
                                 "socket creation failed (%s)",
@@ -1097,6 +1101,7 @@ socket_listen (transport_t *this)
         peer_info_t             *myinfo = NULL;
 	glusterfs_ctx_t         *ctx = NULL;
         int                      on = 1;
+        sa_family_t              sa_family = {0, };
 
 	priv   = this->private;
 	myinfo = &this->myinfo;
@@ -1114,9 +1119,13 @@ socket_listen (transport_t *this)
                 return ret;
         }
 
+        ret = server_fill_address_family (this, &sa_family);
+        if (ret == -1) {
+                return ret;
+        }
+
         ret = socket_server_get_local_sockaddr (this, SA (&sockaddr), 
                                                 &sockaddr_len);
-
         if (ret == -1) {
                 return ret;
         }
@@ -1132,9 +1141,7 @@ socket_listen (transport_t *this)
                 memcpy (&myinfo->sockaddr, &sockaddr, sockaddr_len);
                 myinfo->sockaddr_len = sockaddr_len;
 
-                priv->sock = socket (SA (&sockaddr)->sa_family,
-				     SOCK_STREAM, 0);
-
+                priv->sock = socket (sa_family, SOCK_STREAM, 0);
                 if (priv->sock == -1) {
                         gf_log (this->xl->name, GF_LOG_ERROR,
                                 "socket creation failed (%s)",

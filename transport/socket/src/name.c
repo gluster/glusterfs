@@ -119,10 +119,15 @@ err:
         return ret;
 }
 
-static int32_t
-client_fill_address_family (transport_t *this, struct sockaddr *sockaddr)
+int32_t
+client_fill_address_family (transport_t *this, sa_family_t *sa_family)
 {
-        data_t *address_family_data = NULL;
+        data_t  *address_family_data = NULL;
+        int32_t  ret = -1;
+
+        if (sa_family == NULL) {
+                goto out;
+        }
 
         address_family_data = dict_get (this->xl->options, 
                                         "transport.address-family");
@@ -141,43 +146,45 @@ client_fill_address_family (transport_t *this, struct sockaddr *sockaddr)
                                 "transport.unix.connect-path:%s)", 
                                 data_to_str (remote_host_data), 
                                 data_to_str (connect_path_data));
-                        return -1;
+                        goto out;
                 } 
 
                 if (remote_host_data) {
                         gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "address-family not specified, guessing it "
                                 "to be inet/inet6");
-                        sockaddr->sa_family = AF_UNSPEC;
+                        *sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->xl->name, GF_LOG_DEBUG,
                                 "address-family not specified, guessing it "
                                 "to be unix");
-                        sockaddr->sa_family = AF_UNIX;
+                        *sa_family = AF_UNIX;
                 }
 
         } else {
                 char *address_family = data_to_str (address_family_data);
                 if (!strcasecmp (address_family, "unix")) {
-                        sockaddr->sa_family = AF_UNIX;
+                        *sa_family = AF_UNIX;
                 } else if (!strcasecmp (address_family, "inet")) {
-                        sockaddr->sa_family = AF_INET;
+                        *sa_family = AF_INET;
                 } else if (!strcasecmp (address_family, "inet6")) {
-                        sockaddr->sa_family = AF_INET6;
+                        *sa_family = AF_INET6;
                 } else if (!strcasecmp (address_family, "inet-sdp")) {
-                        sockaddr->sa_family = AF_INET_SDP;
+                        *sa_family = AF_INET_SDP;
                 } else if (!strcasecmp (address_family, "inet/inet6")
                            || !strcasecmp (address_family, "inet6/inet")) {
-                        sockaddr->sa_family = AF_UNSPEC;
+                        *sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->xl->name, GF_LOG_ERROR,
                                 "unknown address-family (%s) specified", 
                                 address_family);
-                        return -1;
+                        goto out;
                 }
         }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 static int32_t
@@ -459,9 +466,8 @@ socket_client_get_remote_sockaddr (transport_t *this,
                                    socklen_t *sockaddr_len)
 {
         int32_t ret = 0;
-        char is_inet_sdp = 0;
 
-        ret = client_fill_address_family (this, sockaddr);
+        ret = client_fill_address_family (this, &sockaddr->sa_family);
         if (ret) {
                 ret = -1;
                 goto err;
@@ -471,17 +477,11 @@ socket_client_get_remote_sockaddr (transport_t *this,
         {
         case AF_INET_SDP:
                 sockaddr->sa_family = AF_INET;
-                is_inet_sdp = 1;
 
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
                 ret = af_inet_client_get_remote_sockaddr (this, sockaddr, sockaddr_len);
-
-                if (is_inet_sdp) {
-                        sockaddr->sa_family = AF_INET_SDP;
-                }
-
                 break;
 
         case AF_UNIX:
@@ -499,13 +499,14 @@ err:
 }
 
 int32_t
-socket_server_get_local_sockaddr (transport_t *this, 
-                                  struct sockaddr *addr, 
-                                  socklen_t *addr_len)
+server_fill_address_family (transport_t *this, sa_family_t *sa_family)
 {
         data_t *address_family_data = NULL;
-        int32_t ret = 0;
-        char is_inet_sdp = 0;
+        int32_t ret = -1;
+
+        if (sa_family == NULL) {
+                goto out;
+        }
 
         address_family_data = dict_get (this->xl->options, 
                                         "transport.address-family");
@@ -514,41 +515,53 @@ socket_server_get_local_sockaddr (transport_t *this,
                 address_family = data_to_str (address_family_data);
 
                 if (!strcasecmp (address_family, "inet")) {
-                        addr->sa_family = AF_INET;
+                        *sa_family = AF_INET;
                 } else if (!strcasecmp (address_family, "inet6")) {
-                        addr->sa_family = AF_INET6;
+                        *sa_family = AF_INET6;
                 } else if (!strcasecmp (address_family, "inet-sdp")) {
-                        addr->sa_family = AF_INET_SDP;
+                        *sa_family = AF_INET_SDP;
                 } else if (!strcasecmp (address_family, "unix")) {
-                        addr->sa_family = AF_UNIX;
+                        *sa_family = AF_UNIX;
                 } else if (!strcasecmp (address_family, "inet/inet6")
                            || !strcasecmp (address_family, "inet6/inet")) {
-                        addr->sa_family = AF_UNSPEC;
+                        *sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->xl->name, GF_LOG_ERROR,
                                 "unknown address family (%s) specified", address_family);
-                        ret = -1;
-                        goto err;
+                        goto out;
                 }
         } else {
                 gf_log (this->xl->name, GF_LOG_DEBUG,
                         "option address-family not specified, defaulting to inet/inet6");
-                addr->sa_family = AF_UNSPEC;
+                *sa_family = AF_UNSPEC;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+socket_server_get_local_sockaddr (transport_t *this, 
+                                  struct sockaddr *addr, 
+                                  socklen_t *addr_len)
+{
+        int32_t ret = -1;
+
+        ret = server_fill_address_family (this, &addr->sa_family);
+        if (ret == -1) {
+                goto err;
         }
 
         switch (addr->sa_family)
         {
         case AF_INET_SDP:
-                is_inet_sdp = 1;
                 addr->sa_family = AF_INET;
 
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
                 ret = af_inet_server_get_local_sockaddr (this, addr, addr_len);
-                if (is_inet_sdp && !ret) {
-                        addr->sa_family = AF_INET_SDP;
-                }
                 break;
 
         case AF_UNIX:
