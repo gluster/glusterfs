@@ -954,8 +954,9 @@ bdb_dbenv_init (xlator_t *this,
         }
 
         ret = 0;
-#if (DB_VERSION_MAJOR == 4 &&                   \
-     DB_VERSION_MINOR == 7)
+
+#if ((DB_VERSION_MAJOR > 4) || \
+    (DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 7))
         if (private->log_auto_remove) {
                 ret = dbenv->log_set_config (dbenv, DB_LOG_AUTO_REMOVE, 1);
         } else {
