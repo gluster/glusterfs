@@ -51,6 +51,7 @@ dht_layout_new (xlator_t *this, int cnt)
 		goto out;
 	}
 
+        layout->type = DHT_HASH_TYPE_DM;
 	layout->cnt = cnt;
         if (conf)
                 layout->gen = conf->gen;
