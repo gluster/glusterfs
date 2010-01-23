@@ -2456,8 +2456,11 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         } else {
                 if (state->is_revalidate && op_errno == ENOENT) {
-                        inode_unlink (state->loc.inode, state->loc.parent,
-                                      state->loc.name);
+                        if (state->loc.inode->ino != 1) {
+                                inode_unlink (state->loc.inode,
+                                              state->loc.parent,
+                                              state->loc.name);
+                        }
                 }
 
                 gf_log (this->name,
