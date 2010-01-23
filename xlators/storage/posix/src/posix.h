@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <pthread.h>
 #include <time.h>
 
 #ifdef linux
@@ -50,6 +51,7 @@
 #include "xlator.h"
 #include "inode.h"
 #include "compat.h"
+#include "timer.h"
 
 /**
  * posix_fd - internal structure common to file and directory fd's
@@ -70,6 +72,7 @@ struct posix_private {
 	int32_t base_path_length;
 
         gf_lock_t lock;
+        pthread_mutex_t mutex;
 
         char   hostname[256];
         /* Statistics, provides activity of the server */
@@ -117,6 +120,11 @@ struct posix_private {
         int             num_devices_to_span;
         dev_t          *st_device;
 
+        pthread_t       fsping;
+	gf_timer_t     *fsping_timer;
+	int             fsping_timeout;
+	int             fs_state;
+
 /* a global generation number sequence is used to assign generation numbers in 
    sequence.
 */
@@ -128,6 +136,9 @@ struct posix_private {
         gf_boolean_t    janitor_present;
         char *          trash_path;
 };
+
+#define POSIX_FSPING_SLEEP_TIME 10
+#define POSIX_FSPING_TIMEOUT 10
 
 #define POSIX_BASE_PATH(this) (((struct posix_private *)this->private)->base_path)
 

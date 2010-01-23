@@ -870,10 +870,6 @@ xlator_tree_init (xlator_t *xl)
 */
 	ret = xlator_init_rec (top);
 
-	if (ret == 0 && top->notify) {
-		top->notify (top, GF_EVENT_PARENT_UP, NULL);
-	}
-
 	return ret;
 }
 
