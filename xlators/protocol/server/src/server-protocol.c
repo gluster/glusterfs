@@ -6121,6 +6121,9 @@ server_decode_groups (call_frame_t *frame, gf_hdr_common_t *hdr)
         if (frame->root->ngrps == 0)
                 return 0;
 
+        if (frame->root->ngrps > GF_REQUEST_MAXGROUPS)
+                return -1;
+
         for (; i < frame->root->ngrps; ++i)
                 frame->root->groups[i] = ntoh32 (hdr->req.groups[i]);
 
