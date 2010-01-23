@@ -2278,7 +2278,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	size_t               hdrlen = 0;
 	int32_t              gf_errno = 0;
 	int32_t              ret = -1;
-        loc_t                loc = {0,};
 
 	state = CALL_STATE(frame);
 	if ((op_errno == ESTALE) && (op_ret == -1)) {
@@ -2290,14 +2289,13 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				inode_unref (state->loc.inode);
 			state->loc.inode = inode_new (BOUND_XL(frame)->itable);
 		}
-		loc.inode = state->loc.inode;
-		loc.path = state->path;
+
 		state->is_revalidate = 2;
 
 		STACK_WIND (frame, server_lookup_cbk,
 			    BOUND_XL(frame),
 			    BOUND_XL(frame)->fops->lookup,
-			    &loc,
+			    &state->loc,
 			    state->xattr_req);
 		return 0;
 	}
