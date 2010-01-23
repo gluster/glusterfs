@@ -339,7 +339,7 @@ save_frame (transport_t *trans, call_frame_t *frame,
 
         saved_frames_put (conn->saved_frames, frame, op, type, callid);
 
-        if (conn->timer == NULL) {
+        if (conn->timer == NULL && conn->frame_timeout) {
                 timeout.tv_sec  = 10;
                 timeout.tv_usec = 0;
                 conn->timer = gf_timer_call_after (trans->xl->ctx, timeout,
@@ -439,6 +439,9 @@ client_start_ping (void *data)
         this  = trans->xl;
         conf  = this->private;
         conn  = trans->xl_private;
+
+        if (!conn->ping_timeout)
+                return;
 
         pthread_mutex_lock (&conn->lock);
         {
@@ -7128,12 +7131,12 @@ struct volume_options options[] = {
         },
         { .key   = {"frame-timeout"},
           .type  = GF_OPTION_TYPE_TIME,
-          .min   = 5,
-          .max   = 1013,
+          .min   = 0,
+          .max   = 86400,
         },
         { .key   = {"ping-timeout"},
           .type  = GF_OPTION_TYPE_TIME,
-          .min   = 5,
+          .min   = 1,
           .max   = 1013,
         },
         { .key   = {NULL} },
