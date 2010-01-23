@@ -645,13 +645,14 @@ out:
 
 
 int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn)
+server_connection_cleanup (xlator_t *this, server_connection_t *conn, transport_t *trans)
 {
         char                do_cleanup = 0;
 	struct _lock_table *ltable = NULL;
         fdentry_t          *fdentries = NULL;
         uint32_t            fd_count = 0;
         int                 ret = 0; 
+        int                 i = 0;
 
         if (conn == NULL) {
                 goto out;
@@ -659,6 +660,12 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
 
         pthread_mutex_lock (&conn->lock);
         {
+                for (i = 0; i < TRANSPORTS_PER_SERVER_CONN; i++) {
+                        if (conn->transports[i] == trans) {
+                                conn->transports[i] = NULL;
+                                transport_unref (trans);
+                        }
+                }
                 conn->active_transports--;
                 if (conn->active_transports == 0) {
 			if (conn->ltable) {
@@ -850,11 +857,12 @@ out:
 
 
 server_connection_t *
-server_connection_get (xlator_t *this, const char *id)
+server_connection_get (xlator_t *this, const char *id, transport_t *trans)
 {
 	server_connection_t *conn = NULL;
 	server_connection_t *trav = NULL;
 	server_conf_t       *conf = NULL;
+        int                  i = 0;
 
 	conf = this->private;
 
@@ -878,10 +886,30 @@ server_connection_get (xlator_t *this, const char *id)
 
 			list_add (&conn->list, &conf->conns);
 		}
+                if (conn->active_transports == TRANSPORTS_PER_SERVER_CONN) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Maximum number of connections allowed is %d",
+                                TRANSPORTS_PER_SERVER_CONN);
+                        goto unlock;
+                }
+
+                for (i = 0; i < TRANSPORTS_PER_SERVER_CONN; i++) {
+                        if (!conn->transports[i])
+                                break;
+                }
+
+                if (i == TRANSPORTS_PER_SERVER_CONN) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Could not find a vacant slot");
+                        goto unlock;
+                }
+
+                conn->transports[i] = transport_ref (trans);
 
 		conn->ref++;
                 conn->active_transports++;
 	}
+unlock:
 	pthread_mutex_unlock (&conf->mutex);
 
 	return conn;
@@ -917,4 +945,84 @@ server_connection_put (xlator_t *this, server_connection_t *conn)
 
 out:
 	return;
+}
+
+void
+server_child_down (xlator_t *this, xlator_t *bound_xl)
+{
+        server_conf_t       *conf = NULL;
+        server_connection_t *trav = NULL;
+        transport_t         *trans = NULL;
+        int                  subvol_idx = 0;
+        int                  i = 0;
+        xlator_list_t       *xltrav = NULL;
+
+        conf = this->private;
+
+        if (conf == NULL)
+                return;
+
+        xltrav = this->children;
+
+        while (xltrav) {
+                if (xltrav->xlator == bound_xl)
+                        break;
+                xltrav = xltrav->next;
+                subvol_idx++;
+	}
+        gf_log (this->name, GF_LOG_DEBUG,
+                "subvolume %s(%d) went down", bound_xl->name, subvol_idx);
+
+        conf->subvol_list[subvol_idx] = 0;
+
+        pthread_mutex_lock (&conf->mutex);
+        {
+        if (!list_empty(&conf->conns)) {
+                list_for_each_entry (trav, &conf->conns, list) {
+                        if (bound_xl == trav->bound_xl) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "disonnecting conn=%p", trav);
+                                for (i = 0; i < TRANSPORTS_PER_SERVER_CONN; i++)
+                                {
+                                        trans = trav->transports[i];
+                                        if (trans == NULL)
+                                                continue;
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "disconnecting %p(%d)", 
+                                                trans, i);
+                                        transport_disconnect (trans);
+                                }
+                        }
+                }
+        }
+        }
+        pthread_mutex_unlock (&conf->mutex);
+}
+
+void
+server_child_up (xlator_t *this, xlator_t *bound_xl)
+{
+	server_conf_t       *conf = NULL;
+	int                  subvol_idx = 0;
+	xlator_list_t       *xltrav = NULL;
+
+	conf = this->private;
+
+	if (conf == NULL)
+		return;
+
+	xltrav = this->children;
+
+	while (xltrav) {
+		if (bound_xl == xltrav->xlator) {
+			break;
+		}
+		subvol_idx++;
+                xltrav = xltrav->next;
+	}
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "subvolume %s(%d) came up", bound_xl->name, subvol_idx);
+
+        conf->subvol_list[subvol_idx] = 1;
 }

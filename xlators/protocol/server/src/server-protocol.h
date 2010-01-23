@@ -37,6 +37,7 @@
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
+#define TRANSPORTS_PER_SERVER_CONN 2
 
 typedef struct _server_state server_state_t;
 
@@ -64,6 +65,7 @@ struct _server_connection {
 	char               *id;
 	int                 ref;
         int                 active_transports;
+	transport_t        *transports[TRANSPORTS_PER_SERVER_CONN];
 	pthread_mutex_t     lock;
 	char                disconnected;
 	fdtable_t          *fdtable; 
@@ -75,7 +77,7 @@ typedef struct _server_connection server_connection_t;
 
 
 server_connection_t *
-server_connection_get (xlator_t *this, const char *id);
+server_connection_get (xlator_t *this, const char *id, transport_t *trans);
 
 void
 server_connection_put (xlator_t *this, server_connection_t *conn);
@@ -84,7 +86,7 @@ int
 server_connection_destroy (xlator_t *this, server_connection_t *conn);
 
 int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn);
+server_connection_cleanup (xlator_t *this, server_connection_t *conn, transport_t *trans);
 
 int
 server_nop_cbk (call_frame_t *frame, void *cookie,
@@ -107,6 +109,7 @@ typedef struct {
 	pthread_mutex_t   mutex;
 	struct list_head  conns;
         gf_boolean_t      verify_volfile_checksum;
+        char             *subvol_list;
         gf_boolean_t      trace;
 } server_conf_t;
 
