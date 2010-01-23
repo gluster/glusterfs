@@ -607,6 +607,31 @@ _xlator_graph_init (xlator_t *xl)
 }
 
 int
+glusterfs_graph_parent_up (xlator_t *graph)
+{
+        xlator_t *trav = NULL;
+        int       ret = -1;
+
+        trav = graph;
+
+        while (trav->prev)
+                trav = trav->prev;
+
+        while (trav) {
+                if (!xlator_has_parent (trav)) {
+                        ret = trav->notify (trav, GF_EVENT_PARENT_UP, trav);
+                }
+
+                if (ret)
+                        break;
+
+                trav = trav->next;
+        }
+
+        return ret;
+}
+
+int
 glusterfs_graph_init (xlator_t *graph, int fuse)
 {
         volume_opt_list_t *vol_opt = NULL;
@@ -1366,7 +1391,7 @@ main (int argc, char *argv[])
         }
 
         /* Send PARENT_UP notify to all the translators now */
-        graph->notify (graph, GF_EVENT_PARENT_UP, ctx->graph);
+        glusterfs_graph_parent_up (graph);
 
         gf_log ("glusterfs", GF_LOG_NORMAL, "Successfully started");
 

@@ -926,6 +926,8 @@ struct _xlator {
 	void             *private;
 };
 
+#define xlator_has_parent(xl) (xl->parents != NULL)
+
 int validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt);
 
 int32_t xlator_set_type (xlator_t *xl, const char *type);
