@@ -6151,7 +6151,7 @@ client_setvolume_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_ret   = ntoh32 (hdr->rsp.op_ret);
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
-        if ((op_ret < 0) && (op_errno == ENOTCONN)) {
+        if (op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "setvolume failed (%s)",
                         strerror (op_errno));
