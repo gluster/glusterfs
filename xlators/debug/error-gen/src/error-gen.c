@@ -1321,30 +1321,24 @@ error_gen_flush (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-error_gen_fsync_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-                     struct stat *prebuf,
+
+int
+error_gen_fsync_cbk (call_frame_t *frame, void *cookie,
+		     xlator_t *this, int32_t op_ret,
+		     int32_t op_errno, struct stat *prebuf,
                      struct stat *postbuf)
 {
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno);
+	STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
-int32_t
-error_gen_fsync (call_frame_t *frame,
-		 xlator_t *this,
-		 fd_t *fd,
-		 int32_t flags)
+
+int
+error_gen_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
-	int             op_errno = 0;
+	int              op_errno = 0;
         eg_t            *egp = NULL;
-        int             enable = 1;
+        int              enable = 1;
 
         egp = this->private;
         enable = egp->enable[ERR_FSYNC];
@@ -1354,16 +1348,14 @@ error_gen_fsync (call_frame_t *frame,
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno);
+		STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL);
 		return 0;
 	}
 
-	STACK_WIND (frame,
-		    error_gen_fsync_cbk,
+	STACK_WIND (frame, error_gen_fsync_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->fsync,
-		    fd,
-		    flags);
+		    fd, flags);
 	return 0;
 }
 
