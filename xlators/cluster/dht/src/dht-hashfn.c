@@ -29,11 +29,6 @@
 #include "hashfn.h"
 
 
-typedef enum {
-	DHT_HASH_TYPE_DM,
-} dht_hashfn_type_t;
-
-
 int
 dht_hash_compute_internal (int type, const char *name, uint32_t *hash_p)
 {

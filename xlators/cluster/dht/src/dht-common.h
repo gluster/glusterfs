@@ -50,6 +50,11 @@ struct dht_layout {
 typedef struct dht_layout dht_layout_t;
 
 
+typedef enum {
+	DHT_HASH_TYPE_DM,
+} dht_hashfn_type_t;
+
+
 struct dht_local {
 	int                      call_cnt;
 	loc_t                    loc;
