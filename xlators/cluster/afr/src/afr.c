@@ -2065,7 +2065,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				   priv->children[child_index],
 				   priv->children[child_index]->fops->lk,
 				   local->fd, local->cont.lk.cmd, 
-				   &local->cont.lk.flock);
+				   lock);
 	} else if (local->op_ret == -1) {
 		/* all nodes have gone down */
 		
