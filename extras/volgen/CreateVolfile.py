@@ -4,7 +4,7 @@ import subprocess
 num_replica = 2
 num_stripe = 4
 #Cachesize calculator
-cache_size = "`grep 'MemTotal' /proc/meminfo  | awk '{print $2 * 0.2}'`"
+cache_size = "`grep 'MemTotal' /proc/meminfo  | awk '{print $2 * 0.2 / 1024}' | cut -f1 -d.`"
 
 class CreateVolfile:
 
@@ -184,7 +184,7 @@ class CreateVolfile:
 
         mount_fd.write ("volume iocache\n")
         mount_fd.write ("    type performance/io-cache\n")
-        mount_fd.write ("    option cache-size %sKB\n" % cache_size)
+        mount_fd.write ("    option cache-size %sMB\n" % cache_size)
         mount_fd.write ("    option cache-timeout 1\n")
         if self.unused:
             mount_fd.write ("#   option priority *.html:1,abc*:2 # Priority list for iocaching files\n")
