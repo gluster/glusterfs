@@ -141,6 +141,7 @@ struct ioc_cache {
 
 struct ioc_inode {
 	struct ioc_table      *table;
+        off_t                  st_size;
         struct ioc_cache       cache;        
 	struct list_head       inode_list; /*
                                             * list of inodes, maintained by
@@ -159,6 +160,8 @@ struct ioc_table {
 	uint64_t         page_size;
 	uint64_t         cache_size;
 	uint64_t         cache_used;
+        int64_t          min_file_size;
+        int64_t          max_file_size;
 	struct list_head inodes; /* list of inodes cached */
 	struct list_head active; 
 	struct list_head *inode_lru;
