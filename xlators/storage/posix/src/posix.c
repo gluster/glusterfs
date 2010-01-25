@@ -1125,6 +1125,13 @@ posix_releasedir (xlator_t *this,
 
         priv = this->private;
 
+        if (!pfd->path) {
+                op_errno = EBADFD;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "pfd->path was NULL. fd=%p pfd=%p",
+                        fd, pfd);
+        }
+
         pthread_mutex_lock (&priv->janitor_lock);
         {
                 INIT_LIST_HEAD (&pfd->list);
@@ -1132,14 +1139,6 @@ posix_releasedir (xlator_t *this,
                 pthread_cond_signal (&priv->janitor_cond);
         }
         pthread_mutex_unlock (&priv->janitor_lock);
-
-        if (!pfd->path) {
-                op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "pfd->path was NULL. fd=%p pfd=%p",
-                        fd, pfd);
-                goto out;
-        }
 
         op_ret = 0;
 
@@ -2782,6 +2781,14 @@ posix_release (xlator_t *this,
 
         _fd = pfd->fd;
 
+        if (pfd->dir) {
+		op_ret = -1;
+                op_errno = EBADF;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "pfd->dir is %p (not NULL) for file fd=%p",
+                        pfd->dir, fd);
+        }
+
         pthread_mutex_lock (&priv->janitor_lock);
         {
                 INIT_LIST_HEAD (&pfd->list);
@@ -2789,15 +2796,6 @@ posix_release (xlator_t *this,
                 pthread_cond_signal (&priv->janitor_cond);
         }
         pthread_mutex_unlock (&priv->janitor_lock);
-
-        if (pfd->dir) {
-		op_ret = -1;
-                op_errno = EBADF;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "pfd->dir is %p (not NULL) for file fd=%p",
-                        pfd->dir, fd);
-                goto out;
-        }
 
         LOCK (&priv->lock);
         {
