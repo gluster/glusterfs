@@ -52,6 +52,8 @@ struct quota_priv {
 	uint32_t   current_free_disk;          /* current free disk space available, in % */
 	uint32_t   refresh_interval;           /* interval in seconds */
 	uint32_t   min_disk_last_updated_time; /* used for interval calculation */	
+
+        dict_t     *dict;                     /* dictionary pointer used while syncing disk usage */
 };
 
 
@@ -788,12 +790,17 @@ int
 quota_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		    int32_t op_ret, int32_t op_errno)
 {
+        struct quota_priv *priv = NULL;
+
+        priv = this->private;
+
 	if (op_ret == -1) {
 		gf_log (this->name, GF_LOG_CRITICAL, 
 			"failed to set the disk-usage value: %s",
 			strerror (op_errno));
 	} 
 
+        dict_unref (priv->dict);
 	STACK_DESTROY (frame->root);
 	return 0;
 }
@@ -904,6 +911,9 @@ gf_quota_cache_sync (xlator_t *this)
 	frame = create_frame (this, this->ctx->pool);
 	dict_set (dict, "trusted.glusterfs-quota-du", 
 		  data_from_uint64 (priv->current_disk_usage));
+
+        dict_ref (dict);
+        priv->dict = dict;
 
 	STACK_WIND (frame, quota_setxattr_cbk,
 		    this->children->xlator,
