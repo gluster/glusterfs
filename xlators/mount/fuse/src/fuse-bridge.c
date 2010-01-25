@@ -2135,23 +2135,26 @@ d_type_from_stat (struct stat *buf)
 {
         unsigned char d_type;
 
-        if (buf->st_mode & S_IFREG) {
-                d_type = DT_REG;
+        if (S_ISLNK (buf->st_mode)) {
+                d_type = DT_LNK;
 
-        } else if (buf->st_mode & S_IFDIR) {
+        } else if (S_ISDIR (buf->st_mode)) {
                 d_type = DT_DIR;
 
-        } else if (buf->st_mode & S_IFIFO) {
+        } else if (S_ISFIFO (buf->st_mode)) {
                 d_type = DT_FIFO;
 
-        } else if (buf->st_mode & S_IFSOCK) {
+        } else if (S_ISSOCK (buf->st_mode)) {
                 d_type = DT_SOCK;
 
-        } else if (buf->st_mode & S_IFCHR) {
+        } else if (S_ISCHR (buf->st_mode)) {
                 d_type = DT_CHR;
 
-        } else if (buf->st_mode & S_IFBLK) {
+        } else if (S_ISBLK (buf->st_mode)) {
                 d_type = DT_BLK;
+
+        } else if (S_ISREG (buf->st_mode)) {
+                d_type = DT_REG;
 
         } else {
                 d_type = DT_UNKNOWN;
