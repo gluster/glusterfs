@@ -69,10 +69,4 @@ gf_direntry_to_bin (dir_entry_t *head, char *bufferp);
 void
 server_print_request (call_frame_t *frame);
 
-void
-server_child_up (xlator_t *this, xlator_t *bound_xl);
-
-void
-server_child_down (xlator_t *this, xlator_t *bound_xl);
-
 #endif /* __SERVER_HELPERS_H__ */

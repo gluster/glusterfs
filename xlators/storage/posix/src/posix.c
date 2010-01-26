@@ -4701,119 +4701,6 @@ posix_inode (xlator_t *this)
         return 0;
 }
 
-void 
-posix_fsping_timer_expired (void *data)
-{
-        xlator_t *this = NULL;
-        struct posix_private *priv = NULL;
-
-        this = data;
-        priv = this->private;
-
-        pthread_mutex_lock (&priv->mutex);
-        {
-                if (priv->fsping_timer) {
-                        gf_timer_call_cancel (this->ctx,
-                                              priv->fsping_timer);
-                        priv->fsping_timer = NULL;
-                }
-
-                if (priv->fs_state) {
-                        priv->fs_state = 0;
-                        default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
-                }
-        }
-        pthread_mutex_unlock (&priv->mutex);
-}
-
-void
-posix_fsping (void *arg);
-
-void *
-posix_fsping_statvfs (void *arg)
-{
-        int ret = -1;
-        xlator_t *this = NULL;
-        char *root_path = NULL;
-        struct statvfs buf = {0, };
-        struct posix_private *priv = NULL;
-        struct timeval delta = {0, };
-
-        this = arg;
-        priv = this->private;
-        root_path = POSIX_BASE_PATH (this);
-
-        ret = statvfs (root_path, &buf);
-
-        pthread_mutex_lock (&priv->mutex);
-        {
-                if (priv->fsping_timer) {
-                        gf_timer_call_cancel (this->ctx,
-                                              priv->fsping_timer);
-                        priv->fsping_timer = NULL;
-                }
-                if (ret == 0) {
-                        if (priv->fs_state == 0) {
-                                priv->fs_state = 1;
-                                default_notify (this, GF_EVENT_CHILD_UP,
-                                                NULL);
-                        }
-                } else {
-                        if (priv->fs_state) {
-                                priv->fs_state = 0;
-                                default_notify (this, GF_EVENT_CHILD_DOWN,
-                                                NULL);
-                        }
-                }
-        }
-        pthread_mutex_unlock (&priv->mutex);
-
-        delta.tv_sec = POSIX_FSPING_SLEEP_TIME;
-        priv->fsping_timer =
-                gf_timer_call_after (this->ctx,
-                                     delta,
-                                     posix_fsping,
-                                     (void *) this);
-        if (priv->fsping_timer == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "unable to register timer");
-        }
-        return NULL;
-}
-
-void
-posix_fsping (void *arg)
-{
-        xlator_t *this = NULL;
-        struct posix_private *priv = NULL;
-        struct timeval delta = {0, };
-
-        this = arg;
-        priv = this->private;
-
-        delta.tv_sec = priv->fsping_timeout;
-        delta.tv_usec = 0;
-
-        if (priv->fsping_timer) {
-                gf_timer_call_cancel (this->ctx,
-                                      priv->fsping_timer);
-        }
-        priv->fsping_timer =
-                gf_timer_call_after (this->ctx,
-                                     delta,
-                                     posix_fsping_timer_expired,
-                                     (void *) this);
-
-        if (priv->fsping_timer == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "unable to register timer");
-                /*FIXME: handle error*/
-        }
-        pthread_create (&priv->fsping,
-                        NULL,
-                        posix_fsping_statvfs,
-                        this);
-}
 
 int32_t
 posix_rchecksum (call_frame_t *frame, xlator_t *this,
@@ -4891,15 +4778,12 @@ notify (xlator_t *this,
         void *data,
         ...)
 {
-	struct posix_private *priv = NULL;
-
-	priv = this->private;
-
         switch (event)
                 {
                 case GF_EVENT_PARENT_UP:
                         {
-                                posix_fsping ((void *)this);
+                                /* Tell the parent that posix xlator is up */
+                                default_notify (this, GF_EVENT_CHILD_UP, data);
                         }
                         break;
                 default:
@@ -4923,9 +4807,9 @@ init (xlator_t *this)
         data_t *               dir_data = NULL;
 	data_t *               tmp_data = NULL;
         uint64_t               time64   = 0;
-        int                    dict_ret = -1;
-        int                    fsping_timeout = -1;
-        int32_t                janitor_sleep;
+
+        int dict_ret = 0;
+        int32_t janitor_sleep;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -5022,7 +4906,6 @@ init (xlator_t *this)
         strcat (_private->trash_path, "/" GF_REPLICATE_TRASH_DIR);
 
         LOCK_INIT (&_private->lock);
-        pthread_mutex_init (&_private->mutex, NULL);
 
         ret = gethostname (_private->hostname, 256);
         if (ret < 0) {
@@ -5037,17 +4920,6 @@ init (xlator_t *this)
                 _private->max_read = 1;
                 _private->max_write = 1;
         }
-
-        _private->fsping_timeout = POSIX_FSPING_TIMEOUT;
-        dict_ret = dict_get_int32 (this->options,
-                                   "fsping-timeout",
-                                   &fsping_timeout);
-
-        if (dict_ret == 0) {
-                _private->fsping_timeout = fsping_timeout;
-        }
-        gf_log (this->name, GF_LOG_DEBUG,
-                "fsping-timeout set to %d", _private->fsping_timeout);
 
         _private->export_statfs = 1;
         tmp_data = dict_get (this->options, "export-statfs-size");
@@ -5182,7 +5054,6 @@ fini (xlator_t *this)
 {
         struct posix_private *priv = this->private;
         sys_lremovexattr (priv->base_path, "trusted.glusterfs.test");
-        pthread_mutex_destroy (&priv->mutex);
         FREE (priv);
         return;
 }
@@ -5258,8 +5129,6 @@ struct volume_options options[] = {
 	{ .key  = {"mandate-attribute"},
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {"span-devices"},
-	  .type = GF_OPTION_TYPE_INT },
-	{ .key  = {"fsping-timeout"},
 	  .type = GF_OPTION_TYPE_INT },
         { .key  = {"background-unlink"},
           .type = GF_OPTION_TYPE_BOOL },
