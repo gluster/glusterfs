@@ -35,6 +35,8 @@
 #include "defaults.h"
 
 
+int glusterfs_graph_parent_up (xlator_t *graph);
+
 static int 
 fetch_cbk (call_frame_t *frame,
 	   void *cookie,
@@ -207,6 +209,8 @@ get_shrub (glusterfs_ctx_t *ctx,
 
 	if (xlator_tree_init (top) != 0)
 		return NULL;
+
+        glusterfs_graph_parent_up (top);
 	
 	return top;
 }
