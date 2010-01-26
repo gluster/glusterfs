@@ -5657,8 +5657,6 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
         char                        *volfile_key = NULL;
         uint32_t                     checksum = 0;
         int32_t                      lru_limit = 1024;
-	xlator_list_t               *xltrav = NULL;
-	int                          subvol_idx = 0;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -5700,7 +5698,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
         }
 
 
-        conn = server_connection_get (frame->this, process_uuid, trans);
+        conn = server_connection_get (frame->this, process_uuid);
         if (trans->xl_private != conn)
                 trans->xl_private = conn;
 
@@ -5866,22 +5864,6 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 
         ret = dict_set_uint64 (reply, "transport-ptr",
                                ((uint64_t) (long) trans));
-
-	xltrav = frame->this->children;
-	while (xltrav) {
-                if (xltrav->xlator == xl)
-                        break;
-		xltrav = xltrav->next;
-		subvol_idx++;
-	}
-
-	if (conf->subvol_list[subvol_idx] == 0) {
-		gf_log (xl->name, GF_LOG_DEBUG,
-			"subvolume %d down (filesystem not accesible), failed to setvolume", subvol_idx);
-		op_ret = -1;
-		op_errno = ENOTCONN;
-                goto fail;
-	}
 
 fail:
         dict_len = dict_serialized_length (reply);
@@ -6571,8 +6553,6 @@ init (xlator_t *this)
         server_conf_t *conf = NULL;
         data_t        *data = NULL;
         data_t        *trace = NULL;
- 	int            i = 0;
- 	xlator_list_t *xltrav = NULL;
 
         if (this->children == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -6657,15 +6637,6 @@ init (xlator_t *this)
 			return -1;
 		}
 	}
-
-        xltrav = this->children;
-
-	while (xltrav) {
-		i++;
-		xltrav = xltrav->next;
-	}
-
-	conf->subvol_list = calloc (i, sizeof (char));
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -6768,12 +6739,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         }
 
         switch (event) {
- 	case GF_EVENT_CHILD_DOWN:
- 		server_child_down (this, data);
- 		break;
- 	case GF_EVENT_CHILD_UP:
- 		server_child_up (this, data);
- 		break;
         case GF_EVENT_POLLIN:
                 ret = protocol_server_pollin (this, trans);
                 break;
@@ -6794,7 +6759,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                          * FIXME: shouldn't we check for return value?
                          * what should be done if cleanup fails?
                          */
-                        server_connection_cleanup (this, trans->xl_private, trans);
+                        server_connection_cleanup (this, trans->xl_private);
                 }
         }
         break;
