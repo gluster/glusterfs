@@ -971,13 +971,8 @@ socket_connect (transport_t *this)
                 goto err;
         }
 
-        ret = client_fill_address_family (this, &sa_family);
-        if (ret == -1) {
-                goto err;
-        }
-
         ret = socket_client_get_remote_sockaddr (this, SA (&sockaddr),
-                                                 &sockaddr_len);
+                                                 &sockaddr_len, &sa_family);
         if (ret == -1) {
                 /* logged inside client_get_remote_sockaddr */
                 goto err;
@@ -1119,13 +1114,8 @@ socket_listen (transport_t *this)
                 return ret;
         }
 
-        ret = server_fill_address_family (this, &sa_family);
-        if (ret == -1) {
-                return ret;
-        }
-
         ret = socket_server_get_local_sockaddr (this, SA (&sockaddr), 
-                                                &sockaddr_len);
+                                                &sockaddr_len, &sa_family);
         if (ret == -1) {
                 return ret;
         }
