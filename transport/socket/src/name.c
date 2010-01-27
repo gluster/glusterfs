@@ -462,11 +462,19 @@ client_bind (transport_t *this,
 }
 
 int32_t
-socket_client_get_remote_sockaddr (transport_t *this, 
+socket_client_get_remote_sockaddr (transport_t *this,
                                    struct sockaddr *sockaddr, 
-                                   socklen_t *sockaddr_len)
+                                   socklen_t *sockaddr_len,
+                                   sa_family_t *sa_family)
 {
         int32_t ret = 0;
+
+        if ((sockaddr == NULL) || (sockaddr_len == NULL)
+            || (sa_family == NULL)) {
+                ret = -1;
+                goto err;
+        }
+
 
         ret = client_fill_address_family (this, &sockaddr->sa_family);
         if (ret) {
@@ -474,6 +482,8 @@ socket_client_get_remote_sockaddr (transport_t *this,
                 goto err;
         }
  
+        *sa_family = sockaddr->sa_family;
+
         switch (sockaddr->sa_family)
         {
         case AF_INET_SDP:
@@ -497,6 +507,10 @@ socket_client_get_remote_sockaddr (transport_t *this,
                 ret = -1;
         }
   
+        if (*sa_family == AF_UNSPEC) {
+                *sa_family = sockaddr->sa_family;
+        }
+
 err:
         return ret;
 }
@@ -547,16 +561,21 @@ out:
 
 
 int32_t
-socket_server_get_local_sockaddr (transport_t *this, 
-                                  struct sockaddr *addr, 
-                                  socklen_t *addr_len)
+socket_server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, 
+                                  socklen_t *addr_len, sa_family_t *sa_family)
 {
         int32_t ret = -1;
+
+        if ((addr == NULL) || (addr_len == NULL) || (sa_family == NULL)) {
+                goto err;
+        }
 
         ret = server_fill_address_family (this, &addr->sa_family);
         if (ret == -1) {
                 goto err;
         }
+
+        *sa_family = addr->sa_family;
 
         switch (addr->sa_family)
         {
@@ -572,6 +591,10 @@ socket_server_get_local_sockaddr (transport_t *this,
         case AF_UNIX:
                 ret = af_unix_server_get_local_sockaddr (this, addr, addr_len);
                 break;
+        }
+
+        if (*sa_family == AF_UNSPEC) {
+                *sa_family = addr->sa_family;
         }
 
 err:
