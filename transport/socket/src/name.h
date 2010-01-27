@@ -29,20 +29,14 @@ client_bind (transport_t *this,
              int sock);
 
 int32_t
-client_fill_address_family (transport_t *this, sa_family_t *sa_family);
-
-int32_t
-server_fill_address_family (transport_t *this, sa_family_t *sa_family);
-
-int32_t
 socket_client_get_remote_sockaddr (transport_t *this, 
                                    struct sockaddr *sockaddr, 
-                                   socklen_t *sockaddr_len);
+                                   socklen_t *sockaddr_len,
+                                   sa_family_t *sa_family);
 
 int32_t
-socket_server_get_local_sockaddr (transport_t *this, 
-                                  struct sockaddr *addr, 
-                                  socklen_t *addr_len);
+socket_server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, 
+                                  socklen_t *addr_len, sa_family_t *sa_family);
 
 int32_t
 get_transport_identifiers (transport_t *this);
