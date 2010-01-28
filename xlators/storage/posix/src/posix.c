@@ -199,19 +199,33 @@ posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
         int   i        = 0;
         int   ret      = -1;
         ino_t temp_ino = 0;
-        
+        int r;
+        struct stat export_buf;
+
         for (i = 0; i < priv->num_devices_to_span; i++) {
-                if (buf->st_dev == priv->st_device[i])
+                if (buf->st_dev == priv->st_device[i]) {
                         break;
+                }
                 if (priv->st_device[i] == 0) {
                         priv->st_device[i] = buf->st_dev;
                         break;
                 }
         }
         
-        if (i == priv->num_devices_to_span)
-                goto out;
-                
+        if (i == priv->num_devices_to_span) {
+                r = lstat (priv->base_path, &export_buf);
+                if ((r != 0) || (buf->st_dev != export_buf.st_dev)) {
+                        goto out;
+                }
+
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "device number for exported volume %s has changed "
+                        "since init --- assuming done by automount",
+                        priv->base_path);
+
+                priv->st_device[0] = export_buf.st_dev;
+        }
+
         temp_ino = (buf->st_ino * priv->num_devices_to_span) + i;
 
         buf->st_ino = temp_ino;
@@ -239,7 +253,10 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
                 return -1;
 
         ret = posix_scale_st_ino (priv, &stbuf);
-        if (ret == -1) {
+        if ((ret == -1) && !strcmp (path, "..")) {
+                /* stat on ../ might land us outside the export directory,
+                   so don't panic */
+
                 gf_log (this->name, GF_LOG_WARNING,
                         "Access to %s (on dev %lld) is crossing device (%lld)",
                         path, (unsigned long long) stbuf.st_dev,
