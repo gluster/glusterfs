@@ -161,7 +161,9 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 #define is_last_call(cnt) (cnt == 0)
 
 #define DHT_LINKFILE_MODE (S_ISVTX)
-#define check_is_linkfile(i,s,x) ((s->st_mode & ~S_IFMT) == DHT_LINKFILE_MODE)
+#define check_is_linkfile(i,s,x) (                              \
+                ((s->st_mode & ~S_IFMT) == DHT_LINKFILE_MODE) && \
+                (s->st_size == 0))
 
 #define check_is_dir(i,s,x) (S_ISDIR(s->st_mode))
 
