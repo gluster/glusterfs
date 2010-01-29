@@ -2504,7 +2504,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_ERROR,
                         "aggregate-size(%"PRIu64") cannot be more than "
                         "window-size"
-                        "(%"PRIu64")", conf->window_size, conf->aggregate_size);
+                        "(%"PRIu64")", conf->aggregate_size, conf->window_size);
                 FREE (conf);
                 return -1;
         }
