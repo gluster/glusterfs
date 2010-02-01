@@ -1189,12 +1189,46 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 struct stat *postparent)
 {
 	dht_local_t  *local = NULL;
-	int           this_call_cnt = 0;
-	call_frame_t *prev = NULL;
-
+	call_frame_t *prev  = NULL;
 
 	local = frame->local;
-	prev = cookie;
+	prev  = cookie;
+
+	LOCK (&frame->lock);
+	{
+		if (op_ret == -1) {
+                        local->op_ret   = -1;
+			local->op_errno = op_errno;
+			gf_log (this->name, GF_LOG_DEBUG,
+				"subvolume %s returned -1 (%s)",
+				prev->this->name, strerror (op_errno));
+			goto unlock;
+		}
+
+		local->op_ret = 0;
+	}
+unlock:
+	UNLOCK (&frame->lock);
+
+        DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
+                          preparent, postparent);
+
+        return 0;
+}
+
+
+int
+dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno, struct stat *preparent,
+                         struct stat *postparent)
+{
+	dht_local_t  *local = NULL;
+	call_frame_t *prev = NULL;
+
+        xlator_t *cached_subvol = NULL;
+
+	local = frame->local;
+	prev  = cookie;
 
 	LOCK (&frame->lock);
 	{
@@ -1211,11 +1245,27 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 unlock:
 	UNLOCK (&frame->lock);
 
-	this_call_cnt = dht_frame_return (frame);
-	if (is_last_call (this_call_cnt))
-		DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
-                                  NULL, NULL);
+        if (op_ret == -1)
+                goto err;
 
+        cached_subvol = dht_subvol_get_cached (this, local->loc.inode);
+        if (!cached_subvol) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "no cached subvolume for path=%s",
+                        local->loc.path);
+                local->op_errno = EINVAL;
+                goto err;
+        }
+
+        STACK_WIND (frame, dht_unlink_cbk,
+                    cached_subvol, cached_subvol->fops->unlink,
+                    &local->loc);
+
+        return 0;
+
+err:
+        DHT_STACK_UNWIND (unlink, frame, -1, local->op_errno,
+                          NULL, NULL);
         return 0;
 }
 
@@ -2599,22 +2649,18 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		goto err;
 	}
 
-	local->call_cnt = 1;
-	if (hashed_subvol != cached_subvol)
-		local->call_cnt++;
-
-	STACK_WIND (frame, dht_unlink_cbk,
-		    cached_subvol, cached_subvol->fops->unlink, loc);
-
-	if (hashed_subvol != cached_subvol)
-		STACK_WIND (frame, dht_unlink_cbk,
+	if (hashed_subvol != cached_subvol) {
+		STACK_WIND (frame, dht_unlink_linkfile_cbk,
 			    hashed_subvol, hashed_subvol->fops->unlink, loc);
+        } else {
+                STACK_WIND (frame, dht_unlink_cbk,
+                            cached_subvol, cached_subvol->fops->unlink, loc);
+        }
 
 	return 0;
-
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
-	DHT_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+	DHT_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL);
 
 	return 0;
 }
