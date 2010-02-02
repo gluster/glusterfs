@@ -1842,6 +1842,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         _fd = open (real_path, flags, 0);
         if (_fd == -1) {
+                op_ret   = -1;
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
                         "open on %s: %s", real_path, strerror (op_errno));
