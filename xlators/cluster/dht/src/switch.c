@@ -887,9 +887,11 @@ init (xlator_t *this)
                 goto err;
         }
 
-	conf->search_unhashed = 1;
+	conf->search_unhashed =  GF_DHT_LOOKUP_UNHASHED_AUTO;
 	if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
-		gf_string2boolean (temp_str, &conf->search_unhashed);
+                /* If option is not "auto", other options _should_ be boolean */
+                if (strcasecmp (temp_str, "auto"))
+                        gf_string2boolean (temp_str, &conf->search_unhashed);
 	}
 
 	conf->unhashed_sticky_bit = 0;
@@ -1039,11 +1041,13 @@ struct xlator_cbks cbks = {
 
 
 struct volume_options options[] = {
+        { .key  = {"lookup-unhashed"},
+          .value = {"auto", "yes", "no", "enable", "disable", "1", "0",
+                    "on", "off"},
+	  .type = GF_OPTION_TYPE_STR
+	},
 	{ .key  = {"pattern.switch.case"},
 	  .type = GF_OPTION_TYPE_ANY
-	},
-        { .key  = {"lookup-unhashed"},
-	  .type = GF_OPTION_TYPE_BOOL
 	},
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,

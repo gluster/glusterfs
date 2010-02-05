@@ -667,6 +667,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_t        *loc           = NULL;
         call_frame_t *prev          = NULL;
         int           ret           = 0;
+        uint64_t      tmp_layout    = 0;
+        dht_layout_t *parent_layout = NULL;
 
         conf  = this->private;
 
@@ -675,11 +677,21 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc   = &local->loc;
 
 	if (ENTRY_MISSING (op_ret, op_errno)) {
-		if (conf->search_unhashed) {
+                if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
 			local->op_errno = ENOENT;
 			dht_lookup_everywhere (frame, this, loc);
 			return 0;
 		}
+                if ((conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) &&
+                    (loc->parent)) {
+                        ret = inode_ctx_get (loc->parent, this, &tmp_layout);
+                        parent_layout = (dht_layout_t *)(long)tmp_layout;
+                        if (parent_layout->search_unhashed) {
+                                local->op_errno = ENOENT;
+                                dht_lookup_everywhere (frame, this, loc);
+                                return 0;
+                        }
+                }
 	}
 
  	if (op_ret == 0) {
@@ -2096,14 +2108,19 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 	xlator_t     *next_subvol = NULL;
         off_t         next_offset = 0;
 	int           count = 0;
-
+        dht_layout_t *layout = 0;
+        dht_conf_t   *conf   = NULL;
+        xlator_t     *subvol = 0;
 
 	INIT_LIST_HEAD (&entries.list);
 	prev = cookie;
 	local = frame->local;
+	conf  = this->private;
 
 	if (op_ret < 0)
 		goto done;
+
+        layout = dht_layout_get (this, local->fd->inode);
 
 	list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
@@ -2121,6 +2138,16 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                         goto unwind;
                 }
 
+                /* Do this if conf->search_unhashed is set to "auto" */
+                if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
+                        subvol = dht_layout_search (this, layout,
+                                                    orig_entry->d_name);
+                        if (!subvol || (subvol != prev->this)) {
+                                /* TODO: Count the number of entries which need
+                                   linkfile to prove its existance in fs */
+                                layout->search_unhashed++;
+                        }
+                }
                 entry->d_stat = orig_entry->d_stat;
 
                 dht_itransform (this, prev->this, orig_entry->d_ino,
@@ -2183,14 +2210,19 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	xlator_t     *next_subvol = NULL;
         off_t         next_offset = 0;
 	int           count = 0;
-
+        dht_layout_t *layout = 0;
+        dht_conf_t   *conf   = NULL;
+        xlator_t     *subvol = 0;
 
 	INIT_LIST_HEAD (&entries.list);
 	prev = cookie;
 	local = frame->local;
+	conf  = this->private;
 
 	if (op_ret < 0)
 		goto done;
+
+        layout = dht_layout_get (this, local->fd->inode);
 
 	list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
@@ -2206,6 +2238,17 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
                         goto unwind;
+                }
+
+                /* Do this if conf->search_unhashed is set to "auto" */
+                if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
+                        subvol = dht_layout_search (this, layout,
+                                                    orig_entry->d_name);
+                        if (!subvol || (subvol != prev->this)) {
+                                /* TODO: Count the number of entries which need
+                                   linkfile to prove its existance in fs */
+                                layout->search_unhashed++;
+                        }
                 }
 
                 dht_itransform (this, prev->this, orig_entry->d_ino,
