@@ -261,6 +261,7 @@ enum {
 
 int asprintf(char **string_ptr, const char *format, ...); 
 
+int vasprintf (char **result, const char *format, va_list args);
 char* strsep(char** str, const char* delims);
 int solaris_listxattr(const char *path, char *list, size_t size);
 int solaris_removexattr(const char *path, const char* key);
