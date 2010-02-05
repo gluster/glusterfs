@@ -25,6 +25,8 @@
 #ifndef _DHT_H
 #define _DHT_H
 
+#define GF_DHT_LOOKUP_UNHASHED_ON   1
+#define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
 				       xlator_t *this,
@@ -37,6 +39,7 @@ struct dht_layout {
         int               gen;
 	int               type;
         int               ref;   /* use with dht_conf_t->layout_lock */
+        int               search_unhashed;
         struct {
 		int       err;   /* 0 = normal
 				   -1 = dir exists and no xattr
