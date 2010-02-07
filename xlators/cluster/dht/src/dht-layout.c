@@ -276,14 +276,17 @@ out:
 
 int
 dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
-		       int pos, int32_t *disk_layout)
+		       int pos, void *disk_layout_raw)
 {
 	int      cnt = 0;
 	int      type = 0;
 	int      start_off = 0;
 	int      stop_off = 0;
+        int      disk_layout[4];
 
 	/* TODO: assert disk_layout_ptr is of required length */
+
+        memcpy (disk_layout, disk_layout_raw, sizeof (disk_layout));
 
 	cnt  = ntoh32 (disk_layout[0]);
 	if (cnt != 1) {
@@ -316,7 +319,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	int      i     = 0;
 	int      ret   = -1;
 	int      err   = -1;
-	int32_t *disk_layout = NULL;
+	void    *disk_layout_raw = NULL;
 
 
 	if (op_ret != 0) {
@@ -339,7 +342,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	if (xattr) {
 		/* during lookup and not mkdir */
 		ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
-				    VOID(&disk_layout));
+				    &disk_layout_raw);
 	}
 
 	if (ret != 0) {
@@ -351,7 +354,7 @@ dht_layout_merge (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 		goto out;
 	}
 
-	ret = dht_disk_layout_merge (this, layout, i, disk_layout);
+	ret = dht_disk_layout_merge (this, layout, i, disk_layout_raw);
 	if (ret != 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"layout merge from subvolume %s failed",
@@ -607,7 +610,8 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	int       ret = 0;
         int       err = 0;
         int       dict_ret = 0;
-	int32_t  *disk_layout = NULL;
+	int32_t   disk_layout[4];
+        void     *disk_layout_raw = NULL;
 	int32_t   count = -1;
 	uint32_t  start_off = -1;
 	uint32_t  stop_off = -1;
@@ -641,8 +645,8 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 	}
 
 	dict_ret = dict_get_ptr (xattr, "trusted.glusterfs.dht",
-                                 VOID(&disk_layout));
-	
+                                 &disk_layout_raw);
+
 	if (dict_ret < 0) {
                 if (err == 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -650,7 +654,9 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
                         ret = -1;
                 }
 		goto out;
-	} 
+	}
+
+        memcpy (disk_layout, disk_layout_raw, sizeof (disk_layout));
 
 	count  = ntoh32 (disk_layout[0]);
 	if (count != 1) {
