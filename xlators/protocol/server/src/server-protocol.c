@@ -5195,10 +5195,14 @@ size_t
 build_volfile_path (xlator_t *this, const char *key, char *path,
                     size_t path_len)
 {
-        int   ret = -1;
-        int   free_filename = 0;
-        char *filename = NULL;
-        char  data_key[256] = {0,};
+        int             ret = -1;
+        int             free_filename = 0;
+        int             free_conf_dir = 0;
+        char            *filename = NULL;
+        char            *conf_dir = CONFDIR;
+        struct stat      buf      = {0,};
+        data_t *         conf_dir_data = NULL;
+        char             data_key[256] = {0,};
 
         /* Inform users that this option is changed now */
         ret = dict_get_str (this->options, "client-volume-filename",
@@ -5216,24 +5220,54 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
         if (key && !filename) {
                 sprintf (data_key, "volume-filename.%s", key);
                 ret = dict_get_str (this->options, data_key, &filename);
+
                 if (ret < 0) {
-                        /* Make sure that key doesn't contain
-                         * "../" in path
-                         */
-                        if (!strstr (key, "../")) {
-                                ret = asprintf (&filename, "%s/%s.vol",
-                                                CONFDIR, key);
-                                if (-1 == ret) {
+
+                        conf_dir_data = dict_get (this->options, "conf-dir");
+                        if (conf_dir_data) {
+                                /* Check whether the specified directory exists,
+                                   or directory specified is non standard */
+                                ret = stat (conf_dir_data->data, &buf);
+                                if ((ret != 0) || !S_ISDIR (buf.st_mode)) {
                                         gf_log (this->name, GF_LOG_ERROR,
-                                                "asprintf failed to get "
-                                                "volume file path");
-                                } else {
-                                        free_filename = 1;
+                                                "Directory '%s' doesn't"
+                                                "exist, exiting.",
+                                                conf_dir_data->data);
+                                        ret = -1;
+                                        goto out;
                                 }
-                        } else {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "%s: invalid key", key);
+                                /* Make sure that conf-dir doesn't
+                                 * contain ".." in path
+                                 */
+                                if (strstr (conf_dir_data->data, "..")) {
+                                        ret = -1;
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: invalid conf_dir",
+                                                conf_dir_data->data);
+                                        goto out;
+                                }
+
+                                /* Make sure that key doesn't
+                                 * contain "../" in path
+                                 */
+
+                                if (strstr (key, "../")) {
+                                        ret = -1;
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: invalid key", key);
+                                        goto out;
+                                }
+
+                                conf_dir = strdup (conf_dir_data->data);
+                                free_conf_dir = 1;
                         }
+
+                        ret = asprintf (&filename, "%s/%s.vol",
+                                        conf_dir, key);
+                        if (-1 == ret)
+                                goto out;
+
+                        free_filename = 1;
                 }
         }
 
@@ -5244,16 +5278,20 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "no default volume filename given, "
                                 "defaulting to %s", DEFAULT_VOLUME_FILE_PATH);
-
                         filename = DEFAULT_VOLUME_FILE_PATH;
                 }
         }
 
         ret = -1;
+
         if ((filename) && (path_len > strlen (filename))) {
                 strcpy (path, filename);
                 ret = strlen (filename);
         }
+
+out:
+        if (free_conf_dir)
+                free (conf_dir);
 
         if (free_filename)
                 free (filename);
@@ -6824,6 +6862,9 @@ struct volume_options options[] = {
         },
         { .key   = {"trace"},
           .type  = GF_OPTION_TYPE_BOOL
+        },
+        { .key   = {"conf-dir"},
+          .type  = GF_OPTION_TYPE_PATH,
         },
 
         { .key   = {NULL} },
