@@ -818,7 +818,7 @@ error_gen_readv (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL);
+		STACK_UNWIND (frame, -1, op_errno, NULL, 0, NULL, NULL);
 		return 0;
 	}
 
@@ -1093,7 +1093,7 @@ error_gen_setdents (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL, 0);
+		STACK_UNWIND (frame, -1, op_errno);
 		return 0;
 	}
 
@@ -1352,7 +1352,7 @@ error_gen_removexattr (call_frame_t *frame,
 	op_errno = error_gen(this);
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
+		STACK_UNWIND (frame, -1, op_errno);
 		return 0;
 	}
 
