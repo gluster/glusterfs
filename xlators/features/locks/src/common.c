@@ -359,6 +359,24 @@ pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd)
 }
 
 void
+pl_trace_release (xlator_t *this, fd_t *fd)
+{
+        posix_locks_private_t  *priv = NULL;
+        char                    pl_lockee[256];
+
+        priv = this->private;
+
+        if (!priv->trace)
+                return;
+
+        pl_print_lockee (pl_lockee, 256, fd, NULL);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "[RELEASE] Lockee = {%s}", pl_lockee);
+}
+
+
+void
 pl_update_refkeeper (xlator_t *this, inode_t *inode)
 {
         pl_inode_t *pl_inode  = NULL;
