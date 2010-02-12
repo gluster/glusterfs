@@ -303,6 +303,46 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
         return;
 }
 
+int32_t
+pl_opendir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     fd_t *fd)
+{
+        int dummy = 1;
+        int ret = -1;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        ret = fd_ctx_set (fd, this, dummy);
+        if (ret != 0)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting context for fd=%p in locks failed.", fd);
+
+unwind:
+	STACK_UNWIND_STRICT (opendir,
+                             frame,
+                             op_ret,
+                             op_errno,
+                             fd);
+	return 0;
+}
+
+int32_t 
+pl_opendir (call_frame_t *frame, xlator_t *this,
+	     loc_t *loc, fd_t *fd)
+{
+	STACK_WIND (frame,
+		    pl_opendir_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->opendir,
+		    loc, fd);
+	return 0;
+
+}
 
 int
 pl_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -371,11 +411,15 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int dummy = 1;
         int ret = -1;
 
+        if (op_ret < 0)
+                goto unwind;
+
         ret = fd_ctx_set (fd, this, dummy);
         if (ret != 0)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "fd_ctx_set failed");
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting context for fd=%p in locks failed.", fd);
 
+unwind:
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 
         return 0;
@@ -401,6 +445,18 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
                fd_t *fd, inode_t *inode, struct stat *buf,
                struct stat *preparent, struct stat *postparent)
 {
+        int dummy = 1;
+        int ret = -1;
+
+        if (op_ret < 0)
+                goto unwind;
+
+        ret = fd_ctx_set (fd, this, dummy);
+        if (ret != 0)
+                gf_log (this->name, GF_LOG_ERROR,
+                        "setting context for fd=%p in locks failed.", fd);
+
+unwind:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
 
@@ -746,7 +802,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                 can_block = 1;
                 reqlock->frame  = frame;
                 reqlock->this   = this;
-                reqlock->fd_num = fd_to_fdnum(fd);
 
                 /* fall through */
 
@@ -920,6 +975,8 @@ pl_release (xlator_t *this, fd_t *fd)
                 goto out;
 
         pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
+
+        pl_trace_release (this, fd);
 
         gf_log (this->name, GF_LOG_TRACE,
                 "Releasing all locks with fd %p", fd);
@@ -1478,6 +1535,7 @@ struct xlator_fops fops = {
         .entrylk     = pl_entrylk,
         .fentrylk    = pl_fentrylk,
         .flush       = pl_flush,
+        .opendir     = pl_opendir,
 };
 
 
