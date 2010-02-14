@@ -627,7 +627,8 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         strerror (op_errno));
                         if (local->op_errno != ESTALE)
                                 local->op_errno = op_errno;
-                        if ((op_errno == ENOTCONN) || (op_errno == ESTALE))
+                        if ((op_errno == ENOTCONN) || (op_errno == ESTALE) ||
+                                        (FIRST_CHILD(this) == prev->this))
                                 local->failed = 1;
                         if (op_errno == ENOENT)
                                 local->entry_self_heal_needed = 1;
