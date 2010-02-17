@@ -62,19 +62,8 @@ class CreateVolfile:
                 mount_fd.write ("    type protocol/client\n")
                 mount_fd.write ("    option transport-type %s\n" %
                                 self.transport)
-                command = "dig %s | grep '^%s'" % (host, host)
-                ps = subprocess.Popen(command,
-                                      shell=True,
-                                      stdout=subprocess.PIPE,
-                                      stdin=subprocess.PIPE,
-                                      stderr=subprocess.PIPE,
-                                      close_fds=True)
-                ipaddress = host
-                if ps.wait() == 0:
-                    output = ps.communicate()
-                    ipaddress = output[0].split()[-1]
 
-                mount_fd.write ("    option remote-host %s\n" % ipaddress)
+                mount_fd.write ("    option remote-host %s\n" % host)
                 if self.transport == 'ib-verbs':
                     mount_fd.write ("    option transport.ib-verbs.port %d\n" %
                                     self.ib_devport)
