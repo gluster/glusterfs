@@ -101,6 +101,11 @@ def generate_volume_files ():
                      default=1, help="Infiniband device number <N>")
     group.add_option("-c", "--conf-dir", dest="conf_dir",
                      help="output directory for volume files")
+    group.add_option("--volume-size-server", dest="size_server",
+                     help="volume size for each server")
+    group.add_option("--volume-size-client", dest="size_client",
+                     help="volume size for each client")
+
     parse.add_option_group(group)
 
     group = OptionGroup(parse, "Extra Options")
