@@ -26,6 +26,8 @@ class CreateVolfile:
         self.host_array = server_array
         self.unused = options.unused
         self.debug = options.debug
+        self.volume_size_server = options.size_server
+        self.volume_size_client = options.size_client
 
     def create_mount_volfile (self):
 
@@ -151,6 +153,18 @@ class CreateVolfile:
             mount_fd.write ("end-volume\n\n")
             subvolumes[0] = "distribute"
 
+        if self.volume_size_client:
+            mount_fd.write ("volume quota\n")
+            mount_fd.write ("    type features/quota\n")
+            mount_fd.write ("    option disk-usage-limit %s\n" % self.volume_size_client)
+            if self.unused:
+                mount_fd.write ("#  option minimum-free-disk-limit 10GB "
+                                "# minimum free disk value (default) 0\n")
+                mount_fd.write ("#  option refresh-interval 10\n")
+            mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
+            mount_fd.write ("end-volume\n\n")
+
+
         mount_fd.write ("volume writebehind\n")
         mount_fd.write ("    type performance/write-behind\n")
         mount_fd.write ("    option cache-size 4MB\n")
@@ -158,8 +172,11 @@ class CreateVolfile:
             mount_fd.write ("#   option enable-trickling-writes yes # Flush final write calls when network is free\n")
             mount_fd.write ("#   option enable-O_SYNC yes # Enable O_SYNC for write-behind\n")
             mount_fd.write ("#   option disable-for-first-nbytes 1 # Disable first nbytes with very small initial writes\n")
+        if self.volume_size_client:
+            mount_fd.write ("    subvolumes quota\n")
+        else:
+            mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
 
-        mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
         mount_fd.write ("end-volume\n\n")
 
         mount_fd.write ("volume readahead\n")
@@ -191,6 +208,8 @@ class CreateVolfile:
         mount_fd.write ("    type performance/stat-prefetch\n")
         mount_fd.write ("    subvolumes quickread\n")
         mount_fd.write ("end-volume\n\n")
+
+
 
         return
 
@@ -227,12 +246,26 @@ class CreateVolfile:
             exp_fd.write ("  option directory %s\n" % export)
             exp_fd.write ("end-volume\n\n")
 
+            if self.volume_size_server:
+                exp_fd.write ("volume quota%d\n" % i)
+                exp_fd.write ("  type features/quota\n")
+                exp_fd.write ("  option disk-usage-limit %s\n" % self.volume_size_server)
+                if self.unused:
+                    exp_fd.write ("#  option minimum-free-disk-limit 10GB "
+                                  "# minimum free disk value (default) 0\n")
+                    exp_fd.write ("#  option refresh-interval 10\n")
+                exp_fd.write ("  subvolumes posix%d\n" % i)
+                exp_fd.write ("end-volume\n\n")
+
+
             exp_fd.write ("volume locks%d\n" % i)
             exp_fd.write ("    type features/locks\n")
             if self.unused:
                 exp_fd.write ("#   option mandatory on # Default off, used in specific applications\n")
-
-            exp_fd.write ("    subvolumes posix%d\n" % i)
+            if self.volume_size_server:
+                exp_fd.write ("    subvolumes quota%d\n" % i)
+            else:
+                exp_fd.write ("    subvolumes posix%d\n" % i)
             exp_fd.write ("end-volume\n\n")
 
             exp_fd.write ("volume brick%d\n" % i)
