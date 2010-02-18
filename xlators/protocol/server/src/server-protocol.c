@@ -3099,7 +3099,7 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
 
         if (iobuf) {
                 iobref = iobref_new ();
-                iobref_add (iobref, state->iobuf);
+                iobref_add (iobref, iobuf);
 
                 state->iobuf = iobuf;
                 state->iobref = iobref;
