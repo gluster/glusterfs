@@ -351,18 +351,19 @@ fuse_mount_fusermount (const char *mountpoint, const char *opts)
 static
 #endif
 int
-fuse_mnt_umount (const char *progname, const char *mnt, int lazy)
+fuse_mnt_umount (const char *progname, const char *abs_mnt,
+                 const char *rel_mnt, int lazy)
 {
         int res;
         int status;
         sigset_t blockmask;
         sigset_t oldmask;
 
-        if (!mtab_needs_update (mnt)) {
-                res = umount2 (mnt, lazy ? 2 : 0);
+        if (!mtab_needs_update (abs_mnt)) {
+                res = umount2 (rel_mnt, lazy ? 2 : 0);
                 if (res == -1)
                         GFFUSE_LOGERR ("%s: failed to unmount %s: %s",
-                                       progname, mnt, strerror (errno));
+                                       progname, abs_mnt, strerror (errno));
                 return res;
         }
 
@@ -383,7 +384,7 @@ fuse_mnt_umount (const char *progname, const char *mnt, int lazy)
         if (res == 0) {
                 sigprocmask (SIG_SETMASK, &oldmask, NULL);
                 setuid (geteuid ());
-                execl ("/bin/umount", "/bin/umount", "-i", mnt,
+                execl ("/bin/umount", "/bin/umount", "-i", rel_mnt,
                       lazy ? "-l" : NULL, NULL);
                 GFFUSE_LOGERR ("%s: failed to execute /bin/umount: %s",
                                progname, strerror (errno));
@@ -483,7 +484,7 @@ gf_fuse_unmount (const char *mountpoint, int fd)
         }
 
         if (geteuid () == 0) {
-                fuse_mnt_umount ("fuse", mountpoint, 1);
+                fuse_mnt_umount ("fuse", mountpoint, mountpoint, 1);
                 return;
         }
 
