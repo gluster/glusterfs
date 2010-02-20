@@ -3080,16 +3080,15 @@ fuse_thread_proc (void *data)
                         ret = pthread_cond_timedwait (&priv->child_up_cond,
                                                 &priv->child_up_mutex,
                                                 &timeout);
-                        if (ret != 0)
-                                break;
-
+                        if (ret != 0) {
+			          gf_log (this->name, GF_LOG_DEBUG,
+					  " pthread_cond_timedout returned non zero value"
+					  " ret: %d errno: %d", ret, errno);
+				  break;
+			}
                 }
         }
         pthread_mutex_unlock (&priv->child_up_mutex);
-
-        gf_log (this->name, GF_LOG_DEBUG,
-                " pthread_cond_timedout returned non zero value"
-                " ret: %d errno: %d", ret, errno);
 
         for (;;) {
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
