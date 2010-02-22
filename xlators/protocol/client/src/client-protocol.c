@@ -433,6 +433,7 @@ client_start_ping (void *data)
         call_frame_t        *dummy_frame = NULL;
         size_t               hdrlen = -1;
         gf_mop_ping_req_t   *req = NULL;
+        int                  frame_count = 0;
 
 
         trans = data;
@@ -445,32 +446,34 @@ client_start_ping (void *data)
 
         pthread_mutex_lock (&conn->lock);
         {
-                if ((conn->saved_frames->count == 0) ||
-                    !conn->connected) {
+                if (conn->ping_timer)
+                        gf_timer_call_cancel (trans->xl->ctx, conn->ping_timer);
+
+                conn->ping_timer = NULL;
+                conn->ping_started = 0;
+
+                if (conn->saved_frames)
+                        /* treat the case where conn->saved_frames is NULL
+                           as no pending frames */
+                        frame_count = conn->saved_frames->count;
+
+                if ((frame_count == 0) || !conn->connected) {
                         /* using goto looked ugly here,
                          * hence getting out this way */
-                        if (conn->ping_timer)
-                                gf_timer_call_cancel (trans->xl->ctx,
-                                                      conn->ping_timer);
-                        conn->ping_timer = NULL;
-                        conn->ping_started = 0;
                         /* unlock */
                         pthread_mutex_unlock (&conn->lock);
                         return;
                 }
 
-                if (conn->saved_frames->count < 0) {
+                if (frame_count < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "saved_frames->count is %"PRId64,
                                 conn->saved_frames->count);
                         conn->saved_frames->count = 0;
                 }
+
                 timeout.tv_sec = conn->ping_timeout;
                 timeout.tv_usec = 0;
-
-                if (conn->ping_timer)
-                        gf_timer_call_cancel (trans->xl->ctx,
-                                              conn->ping_timer);
 
                 conn->ping_timer =
                         gf_timer_call_after (trans->xl->ctx, timeout,
