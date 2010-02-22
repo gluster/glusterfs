@@ -168,7 +168,8 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		loc_wipe (&local->loc);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
+                             prebuf, postbuf);
 	return 0;
 }
 
@@ -241,7 +242,8 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		fd_unref (local->fd);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
+                             prebuf, postbuf);
 	return 0;
 }
 
@@ -312,7 +314,8 @@ quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_quota_usage_add (this, buf->st_blocks * 512);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
 	return 0;
 }
 
@@ -329,7 +332,8 @@ quota_mknod (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_ERROR, 
 			"min-free-disk limit (%u) crossed, current available is %u",
 			priv->min_free_disk_limit, priv->current_free_disk);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL);
+		STACK_UNWIND_STRICT (mknod, frame, -1, ENOSPC, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
 	}
 
@@ -337,7 +341,8 @@ quota_mknod (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_ERROR, 
 			"Disk usage limit (%"PRIu64") crossed, current usage is %"PRIu64"",
 			priv->disk_usage_limit, priv->current_disk_usage);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL);
+		STACK_UNWIND_STRICT (mknod, frame, -1, ENOSPC, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
         }
 
@@ -363,7 +368,8 @@ quota_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_quota_usage_subtract (this, buf->st_blocks * 512);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
 	return 0;
 }
 
@@ -379,7 +385,8 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 		gf_log (this->name, GF_LOG_ERROR, 
 			"min-free-disk limit (%u) crossed, current available is %u",
 			priv->min_free_disk_limit, priv->current_free_disk);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL);
+		STACK_UNWIND_STRICT (mkdir, frame, -1, ENOSPC, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
 		
 	}
@@ -388,7 +395,8 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 		gf_log (this->name, GF_LOG_ERROR, 
 			"Disk usage limit (%"PRIu64") crossed, current usage is %"PRIu64"",
 			priv->disk_usage_limit, priv->current_disk_usage);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL);
+		STACK_UNWIND_STRICT (mkdir, frame, -1, ENOSPC, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
         }
 
@@ -418,7 +426,7 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		loc_wipe (&local->loc);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent, postparent);
 	return 0;
 }
 
@@ -492,7 +500,7 @@ quota_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		loc_wipe (&local->loc);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno);
+	STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent, postparent);
 	return 0;
 }
 
@@ -560,7 +568,8 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		gf_quota_usage_add (this, buf->st_blocks * 512);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
 	return 0;
 }
 
@@ -577,7 +586,8 @@ quota_symlink (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_ERROR, 
 			"min-free-disk limit (%u) crossed, current available is %u",
 			priv->min_free_disk_limit, priv->current_free_disk);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL);
+		STACK_UNWIND_STRICT (symlink, frame, -1, ENOSPC, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
 		
 	}
@@ -585,7 +595,8 @@ quota_symlink (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_ERROR, 
 			"Disk usage limit (%"PRIu64") crossed, current usage is %"PRIu64"",
 			priv->disk_usage_limit, priv->current_disk_usage);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL);
+		STACK_UNWIND_STRICT (symlink, frame, -1, ENOSPC, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
         }
 
@@ -612,7 +623,8 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		ret = fd_ctx_set (fd, this, 1);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
+	STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
+                             preparent, postparent);
 	return 0;
 }
 
@@ -629,7 +641,8 @@ quota_create (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_ERROR, 
 			"min-free-disk limit (%u) crossed, current available is %u",
 			priv->min_free_disk_limit, priv->current_free_disk);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL, NULL);
+		STACK_UNWIND_STRICT (create, frame, -1, ENOSPC, NULL, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
 		
 	}
@@ -637,7 +650,8 @@ quota_create (call_frame_t *frame, xlator_t *this,
 		gf_log (this->name, GF_LOG_ERROR, 
 			"Disk usage limit (%"PRIu64") crossed, current usage is %"PRIu64"",
 			priv->disk_usage_limit, priv->current_disk_usage);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL, NULL, NULL);
+		STACK_UNWIND_STRICT (create, frame, -1, ENOSPC, NULL, NULL, NULL,
+                                     NULL, NULL);
 		return 0;
         }
 
@@ -658,7 +672,7 @@ quota_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (op_ret >= 0)
 		ret = fd_ctx_set (fd, this, 1);
 
-	STACK_UNWIND (frame, op_ret, op_errno, fd);
+	STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 	return 0;
 }
 
@@ -696,7 +710,7 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		iobref_unref (local->iobref);
 	}
 
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 
@@ -720,7 +734,8 @@ quota_writev_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if (iovlen > (buf->st_blksize - (buf->st_size % buf->st_blksize))) {
 				fd_unref (local->fd);
 				iobref_unref (local->iobref);
-				STACK_UNWIND (frame, -1, ENOSPC, NULL);
+				STACK_UNWIND_STRICT (writev, frame, -1, ENOSPC,
+                                                     NULL, NULL);
 				return 0;
 			}
 		}
@@ -751,7 +766,8 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		gf_log (this->name, GF_LOG_ERROR, 
 			"min-free-disk limit (%u) crossed, current available is %u",
 			priv->min_free_disk_limit, priv->current_free_disk);
-		STACK_UNWIND (frame, -1, ENOSPC, NULL);
+		STACK_UNWIND_STRICT (writev, frame, -1, ENOSPC,
+                                     NULL, NULL);
 		return 0;
 	}
 
@@ -844,7 +860,7 @@ quota_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		statvfs->f_bfree = statvfs->f_bavail = 0;
 
 unwind:
-	STACK_UNWIND (frame, op_ret, op_errno, statvfs);
+	STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, statvfs);
 	return 0;
 }
 
