@@ -2120,7 +2120,10 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 	if (op_ret < 0)
 		goto done;
 
-        layout = dht_layout_get (this, local->fd->inode);
+        if (!local->layout)
+                local->layout = layout = dht_layout_get (this, local->fd->inode);
+        else
+                layout = local->layout;
 
 	list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
