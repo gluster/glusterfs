@@ -1462,7 +1462,7 @@ init (xlator_t *this)
         ret = 0;
 
         ctx = this->ctx;
-        ioc_log2_page_size = gf_log2 (ctx->page_size);
+        ioc_log2_page_size = log_base2 (ctx->page_size);
 
 out:
         if (ret == -1) {
