@@ -488,13 +488,28 @@ client_start_ping (void *data)
 
         hdrlen = gf_hdr_len (req, 0);
         hdr    = gf_hdr_new (req, 0);
+        if (!hdr)
+                goto err;
 
         dummy_frame = create_frame (this, this->ctx->pool);
+
+        if (!dummy_frame)
+                goto err;
+
         dummy_frame->local = trans;
 
         ret = protocol_client_xfer (dummy_frame, this, trans,
                                     GF_OP_TYPE_MOP_REQUEST, GF_MOP_PING,
                                     hdr, hdrlen, NULL, 0, NULL);
+        return;
+err:
+        if (hdr)
+                FREE (hdr);
+
+        if (dummy_frame)
+                STACK_DESTROY (dummy_frame->root);
+
+        return;
 }
 
 
