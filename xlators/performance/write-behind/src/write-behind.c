@@ -77,6 +77,7 @@ typedef struct wb_request {
                         char write_behind;
                         char stack_wound;
                         char got_reply;
+                        char virgin;
                 }write_request;
                 
                 struct {
@@ -236,6 +237,8 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
                 request->write_size = iov_length (vector, count);
                 local->op_ret = request->write_size;
                 local->op_errno = 0;
+
+                request->flags.write_request.virgin = 1;
         }
 
         LOCK (&file->lock);
@@ -1653,10 +1656,51 @@ out:
 }
 
 
-inline void
+inline int
 __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
 {
-        char *ptr = NULL;
+        char          *ptr    = NULL;
+        struct iobuf  *iobuf  = NULL;
+        struct iobref *iobref = NULL;
+        int            ret    = -1;
+
+        if (holder->flags.write_request.virgin) {
+                iobuf = iobuf_get (request->file->this->ctx->iobuf_pool);
+                if (iobuf == NULL) {
+                        gf_log (request->file->this->name, GF_LOG_ERROR,
+                                "out of memory");
+                        goto out;
+                }
+
+                iobref = iobref_new ();
+                if (iobref == NULL) {
+                        iobuf_unref (iobuf);
+                        gf_log (request->file->this->name, GF_LOG_ERROR,
+                                "out of memory");
+                        goto out;
+                }
+                                                                          
+                ret = iobref_add (iobref, iobuf);
+                if (ret != 0) {
+                        iobuf_unref (iobuf);
+                        iobref_unref (iobref);
+                        gf_log (request->file->this->name, GF_LOG_DEBUG,
+                                "cannot add iobuf (%p) into iobref (%p)",
+                                iobuf, iobref);
+                        goto out;
+                }
+                                                                          
+                iov_unload (iobuf->ptr, holder->stub->args.writev.vector,
+                            holder->stub->args.writev.count);
+                holder->stub->args.writev.vector[0].iov_base = iobuf->ptr;
+                                                                          
+                iobref_unref (holder->stub->args.writev.iobref);
+                holder->stub->args.writev.iobref = iobref;
+                                                                          
+                iobuf_unref (iobuf);
+
+                holder->flags.write_request.virgin = 0;
+        }
 
         ptr = holder->stub->args.writev.vector[0].iov_base + holder->write_size;
 
@@ -1670,7 +1714,9 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
         request->flags.write_request.stack_wound = 1;
         list_move_tail (&request->list, &request->file->passive_requests);
 
-        return;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -1681,6 +1727,7 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
         off_t         offset_expected = 0;
         size_t        space_left      = 0;
         wb_request_t *request         = NULL, *tmp = NULL, *holder = NULL;
+        int           ret             = 0;
 
         list_for_each_entry_safe (request, tmp, requests, list) {
                 if ((request->stub == NULL)
@@ -1707,7 +1754,11 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
                         space_left = page_size - holder->write_size;
 
                         if (space_left >= request->write_size) {
-                                __wb_copy_into_holder (holder, request);
+                                ret = __wb_copy_into_holder (holder, request);
+                                if (ret != 0) {
+                                        break;
+                                }
+                                
                                 __wb_request_unref (request);
                         } else {
                                 holder = request;
