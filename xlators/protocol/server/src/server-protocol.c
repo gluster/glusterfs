@@ -5239,7 +5239,8 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
                                 /* Make sure that conf-dir doesn't
                                  * contain ".." in path
                                  */
-                                if (strstr (conf_dir_data->data, "..")) {
+                                if ((gf_strstr (conf_dir_data->data,
+                                                "/", "..")) == -1) {
                                         ret = -1;
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "%s: invalid conf_dir",
@@ -5251,7 +5252,7 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
                                  * contain "../" in path
                                  */
 
-                                if (strstr (key, "../")) {
+                                if ((gf_strstr (key, "/", "..")) == -1) {
                                         ret = -1;
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "%s: invalid key", key);

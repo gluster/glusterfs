@@ -313,6 +313,8 @@ int gf_string2uint16 (const char *str, uint16_t *n);
 int gf_string2uint32 (const char *str, uint32_t *n);
 int gf_string2uint64 (const char *str, uint64_t *n);
 
+int gf_strstr (const char *str, const char *delim, const char *match);
+
 int gf_string2ulong_base10 (const char *str, unsigned long *n);
 int gf_string2uint_base10 (const char *str, unsigned int *n);
 int gf_string2uint8_base10 (const char *str, uint8_t *n);
