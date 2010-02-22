@@ -3676,7 +3676,6 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
                 path  = strdup (loc->path);
                 inode = loc->inode;
         } else {
-                inode_path (fd->inode, NULL, &path);
                 inode = fd->inode;
         }
 
@@ -3703,10 +3702,16 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
                                                             "Extended attributes not "
                                                             "supported by filesystem");
                                 } else 	{
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "getxattr failed on %s while doing "
-                                                "xattrop: %s", path,
-                                                strerror (op_errno));
+                                        if (loc)
+                                                gf_log (this->name, GF_LOG_ERROR,
+                                                        "getxattr failed on %s while doing "
+                                                        "xattrop: %s", path,
+                                                        strerror (op_errno));
+                                        else
+                                                gf_log (this->name, GF_LOG_ERROR,
+                                                        "fgetxattr failed on fd=%d while doing "
+                                                        "xattrop: %s", _fd,
+                                                        strerror (op_errno));
                                 }
 
                                 op_ret = -1;
@@ -3746,10 +3751,17 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 
 		op_errno = errno;
 		if (size == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"setxattr failed on %s while doing xattrop: "
-                                "key=%s (%s)", path,
-				trav->key, strerror (op_errno));
+                        if (loc)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "setxattr failed on %s while doing xattrop: "
+                                        "key=%s (%s)", path,
+                                        trav->key, strerror (op_errno));
+                        else
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "fsetxattr failed on fd=%d while doing xattrop: "
+                                        "key=%s (%s)", _fd,
+                                        trav->key, strerror (op_errno));
+
 			op_ret = -1;
 			goto out;
 		} else {
@@ -3757,10 +3769,17 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 					     trav->value->len);
 
 			if (size != 0) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"dict_set_bin failed (path=%s): "
-                                        "key=%s (%s)", path,
-					trav->key, strerror (-size));
+                                if (loc)
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "dict_set_bin failed (path=%s): "
+                                                "key=%s (%s)", path,
+                                                trav->key, strerror (-size));
+                                else
+                                        gf_log (this->name, GF_LOG_DEBUG,
+                                                "dict_set_bin failed (fd=%d): "
+                                                "key=%s (%s)", _fd,
+                                                trav->key, strerror (-size));
+
 				op_ret = -1;
 				op_errno = EINVAL;
 				goto out;
