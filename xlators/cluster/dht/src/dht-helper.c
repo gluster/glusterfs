@@ -139,7 +139,7 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
 		fd_unref (local->fd);
 		local->fd = NULL;
 	}
-	
+
 	if (local->xattr_req)
 		dict_unref (local->xattr_req);
 
@@ -184,6 +184,7 @@ basestr (const char *str)
         return basestr;
 }
 
+
 xlator_t *
 dht_first_up_subvol (xlator_t *this)
 {
@@ -192,7 +193,7 @@ dht_first_up_subvol (xlator_t *this)
 	int         i = 0;
 
 	conf = this->private;
-	
+
 	LOCK (&conf->subvolume_lock);
 	{
 		for (i = 0; i < conf->subvolume_cnt; i++) {
@@ -203,9 +204,10 @@ dht_first_up_subvol (xlator_t *this)
 		}
 	}
 	UNLOCK (&conf->subvolume_lock);
-	
+
 	return child;
 }
+
 
 xlator_t *
 dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
@@ -342,4 +344,42 @@ dht_stat_merge (xlator_t *this, struct stat *to,
 	set_if_greater (to->st_ctime, from->st_ctime);
 
 	return 0;
+}
+
+
+int
+dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
+{
+        if (!child) {
+                goto err;
+        }
+
+        if (strcmp (parent->path, "/") == 0)
+                asprintf ((char **)&child->path, "/%s", name);
+        else
+                asprintf ((char **)&child->path, "%s/%s", parent->path, name);
+
+        if (!child->path) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto err;
+        }
+
+        child->name = strrchr (child->path, '/');
+        if (child->name)
+                child->name++;
+
+        child->parent = inode_ref (parent->inode);
+        child->inode = inode_new (parent->inode->table);
+
+        if (!child->inode) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto err;
+        }
+
+        return 0;
+err:
+        loc_wipe (child);
+        return -1;
 }

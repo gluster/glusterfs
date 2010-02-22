@@ -3344,22 +3344,209 @@ err:
 
 
 int
-dht_rmdir_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		       int op_ret, int op_errno, gf_dirent_t *entries)
+dht_rmdir_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                               int op_ret, int op_errno, struct stat *preparent,
+                               struct stat *postparent)
+{
+        dht_local_t    *local = NULL;
+        call_frame_t   *prev = NULL;
+        xlator_t       *src = NULL;
+        call_frame_t   *main_frame = NULL;
+        dht_local_t    *main_local = NULL;
+        int             this_call_cnt = 0;
+
+        local  = frame->local;
+        prev   = cookie;
+        src    = prev->this;
+
+        main_frame = local->main_frame;
+        main_local = main_frame->local;
+
+        if (op_ret == 0) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "unlinked linkfile %s on %s",
+                        local->loc.path, src->name);
+        } else {
+                main_local->op_ret   = -1;
+                main_local->op_errno = op_errno;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "unlink of %s on %s failed (%s)",
+                        local->loc.path, src->name, strerror (op_errno));
+        }
+
+        this_call_cnt = dht_frame_return (main_frame);
+        if (is_last_call (this_call_cnt))
+                dht_rmdir_do (main_frame, this);
+
+        DHT_STACK_DESTROY (frame);
+        return 0;
+}
+
+
+int
+dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int op_ret, int op_errno, inode_t *inode,
+                      struct stat *stbuf, dict_t *xattr, struct stat *parent)
+{
+        dht_local_t    *local = NULL;
+        call_frame_t   *prev = NULL;
+        xlator_t       *src = NULL;
+        call_frame_t   *main_frame = NULL;
+        dht_local_t    *main_local = NULL;
+        int             this_call_cnt = 0;
+
+        local = frame->local;
+        prev  = cookie;
+        src   = prev->this;
+
+        main_frame = local->main_frame;
+        main_local = main_frame->local;
+
+        if (op_ret != 0)
+                goto err;
+
+        if (check_is_linkfile (inode, stbuf, xattr) == 0) {
+                main_local->op_ret  = -1;
+                main_local->op_errno = ENOTEMPTY;
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s on %s found to be not a linkfile (mode=0%o)",
+                        local->loc.path, src->name, stbuf->st_mode);
+                goto err;
+        }
+
+        STACK_WIND (frame, dht_rmdir_linkfile_unlink_cbk,
+                    src, src->fops->unlink, &local->loc);
+        return 0;
+err:
+
+        this_call_cnt = dht_frame_return (main_frame);
+        if (is_last_call (this_call_cnt))
+                dht_rmdir_do (main_frame, this);
+
+        DHT_STACK_DESTROY (frame);
+        return 0;
+}
+
+
+int
+dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
+                           gf_dirent_t *entries, xlator_t *src)
+{
+        int                 ret = 0;
+        int                 build_ret = 0;
+        gf_dirent_t        *trav = NULL;
+        call_frame_t       *lookup_frame = NULL;
+        dht_local_t        *lookup_local = NULL;
+        dht_local_t        *local = NULL;
+
+        local = frame->local;
+
+        list_for_each_entry (trav, &entries->list, list) {
+                if (strcmp (trav->d_name, ".") == 0)
+                        continue;
+                if (strcmp (trav->d_name, "..") == 0)
+                        continue;
+                if (check_is_linkfile (NULL, (&trav->d_stat), NULL) == 1) {
+                        ret++;
+                        continue;
+                }
+
+                /* this entry is either a directory which is neither "." nor "..",
+                   or a non directory which is not a linkfile. the directory is to
+                   be treated as non-empty
+                */
+                return 0;
+        }
+
+        list_for_each_entry (trav, &entries->list, list) {
+                if (strcmp (trav->d_name, ".") == 0)
+                        continue;
+                if (strcmp (trav->d_name, "..") == 0)
+                        continue;
+
+                lookup_frame = NULL;
+                lookup_local = NULL;
+
+                lookup_frame = copy_frame (frame);
+                if (!lookup_frame) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of Memory");
+                        /* out of memory, let the rmdir fail
+                           (as non-empty, unfortunately) */
+                        goto err;
+                }
+
+                lookup_local = CALLOC (sizeof (*local), 1);
+                if (!lookup_local) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of Memory");
+                        goto err;
+                }
+
+                lookup_frame->local = lookup_local;
+                lookup_local->main_frame = frame;
+
+                build_ret = dht_build_child_loc (this, &lookup_local->loc,
+                                                 &local->loc, trav->d_name);
+                if (build_ret != 0)
+                        goto err;
+
+                gf_log (this->name, GF_LOG_TRACE,
+                        "looking up %s on %s",
+                        lookup_local->loc.path, src->name);
+
+                LOCK (&frame->lock);
+                {
+                        local->call_cnt++;
+                }
+                UNLOCK (&frame->lock);
+
+                STACK_WIND (lookup_frame, dht_rmdir_lookup_cbk,
+                            src, src->fops->lookup,
+                            &lookup_local->loc, NULL);
+                ret++;
+        }
+
+        return ret;
+err:
+        DHT_STACK_DESTROY (lookup_frame);
+        return 0;
+}
+
+
+int
+dht_rmdir_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int op_ret, int op_errno, gf_dirent_t *entries)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = -1;
 	call_frame_t *prev = NULL;
+        xlator_t     *src = NULL;
+        int           ret = 0;
 
 	local = frame->local;
 	prev  = cookie;
+        src   = prev->this;
 
 	if (op_ret > 2) {
-		gf_log (this->name, GF_LOG_TRACE,
-			"readdir on %s for %s returned %d entries",
-			prev->this->name, local->loc.path, op_ret);
-		local->op_ret = -1;
-		local->op_errno = ENOTEMPTY;
+                ret = dht_rmdir_is_subvol_empty (frame, this, entries, src);
+
+                switch (ret) {
+                case 0: /* non linkfiles exist */
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "readdir on %s for %s returned %d entries",
+                                prev->this->name, local->loc.path, op_ret);
+                        local->op_ret = -1;
+                        local->op_errno = ENOTEMPTY;
+                        break;
+                default:
+                        /* @ret number of linkfiles are getting unlinked */
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "readdir on %s for %s found %d linkfiles",
+                                prev->this->name, local->loc.path, ret);
+                        break;
+                }
 	}
 
 	this_call_cnt = dht_frame_return (frame);
@@ -3392,8 +3579,8 @@ dht_rmdir_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto err;
 	}
 
-	STACK_WIND (frame, dht_rmdir_readdir_cbk,
-		    prev->this, prev->this->fops->readdir,
+	STACK_WIND (frame, dht_rmdir_readdirp_cbk,
+		    prev->this, prev->this->fops->readdirp,
 		    local->fd, 4096, 0);
 
 	return 0;
