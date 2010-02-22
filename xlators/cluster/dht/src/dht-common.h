@@ -70,7 +70,7 @@ struct dht_local {
 	struct stat              stbuf;
         struct stat              prebuf;
         struct stat              preoldparent;
-        struct stat              postoldparent; 
+        struct stat              postoldparent;
         struct stat              preparent;
         struct stat              postparent;
 	struct statvfs           statvfs;
@@ -89,6 +89,7 @@ struct dht_local {
 	char                     need_selfheal;
         int                      file_count;
         int                      dir_count;
+        call_frame_t            *main_frame;
 	struct {
 		fop_mknod_cbk_t  linkfile_cbk;
 		struct stat      stbuf;
@@ -154,7 +155,7 @@ struct dht_disk_layout {
 	} list[1];
 };
 typedef struct dht_disk_layout dht_disk_layout_t;
- 
+
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_fs_root(loc) (strcmp (loc->path, "/") == 0)
@@ -268,5 +269,7 @@ int dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout);
 void dht_layout_unref (xlator_t *this, dht_layout_t *layout);
 dht_layout_t *dht_layout_ref (xlator_t *this, dht_layout_t *layout);
 xlator_t *dht_first_up_subvol (xlator_t *this);
+
+int dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name);
 
 #endif /* _DHT_H */
