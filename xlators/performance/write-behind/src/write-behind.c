@@ -1653,69 +1653,71 @@ out:
 }
 
 
+inline void
+__wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
+{
+        char *ptr = NULL;
+
+        ptr = holder->stub->args.writev.vector[0].iov_base + holder->write_size;
+
+        iov_unload (ptr,
+                    request->stub->args.writev.vector,
+                    request->stub->args.writev.count);
+
+        holder->stub->args.writev.vector[0].iov_len += request->write_size;
+        holder->write_size += request->write_size;
+
+        request->flags.write_request.stack_wound = 1;
+        list_move_tail (&request->list, &request->file->passive_requests);
+
+        return;
+}
+
+
 /* this procedure assumes that write requests have only one vector to write */
 void
 __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
 {
-
         off_t         offset_expected = 0;
-        size_t        space_left      = 0, *iov_len = NULL, *write_size = NULL;
-        char         *ptr             = NULL, first_request = 1;
-        wb_request_t *request         = NULL, *tmp = NULL;
+        size_t        space_left      = 0;
+        wb_request_t *request         = NULL, *tmp = NULL, *holder = NULL;
 
         list_for_each_entry_safe (request, tmp, requests, list) {
                 if ((request->stub == NULL)
                     || (request->stub->fop != GF_FOP_WRITE)
                     || (request->flags.write_request.stack_wound)) {
-                        space_left = 0;
-                        ptr = NULL;
-                        first_request = 1;
+                        holder = NULL;
                         continue;
                 }
 
                 if (request->flags.write_request.write_behind) {
-                        if (first_request) {
-                                first_request = 0;
-                                offset_expected = request->stub->args.writev.off;
-                        }
-                        
-                        if (request->stub->args.writev.off != offset_expected) {
-                                offset_expected = request->stub->args.writev.off
-                                        + request->write_size;
-                                space_left = page_size - request->write_size;
-                                ptr = request->stub->args.writev.vector[0].iov_base
-                                        + request->write_size;
-                                iov_len = &request->stub->args.writev.vector[0].iov_len;
-                                write_size = &request->write_size;
+                        if (holder == NULL) {
+                                holder = request;
                                 continue;
                         }
 
+                        offset_expected = holder->stub->args.writev.off
+                                + holder->write_size;
+
+                        if (request->stub->args.writev.off != offset_expected) {
+                                holder = request;
+                                continue;
+                        }
+
+                        space_left = page_size - holder->write_size;
+
                         if (space_left >= request->write_size) {
-                                iov_unload (ptr,
-                                            request->stub->args.writev.vector,
-                                            request->stub->args.writev.count);
-                                space_left -= request->write_size;
-                                ptr += request->write_size;
-                                *iov_len = *iov_len + request->write_size;
-                                *write_size = *write_size + request->write_size;
-
-                                list_move_tail (&request->list,
-                                                &request->file->passive_requests);
-
+                                __wb_copy_into_holder (holder, request);
                                 __wb_request_unref (request);
                         } else {
-                                space_left = page_size - request->write_size;
-                                ptr = request->stub->args.writev.vector[0].iov_base
-                                        + request->write_size;
-                                iov_len = &request->stub->args.writev.vector[0].iov_len;
-                                write_size = &request->write_size;
+                                holder = request;
                         }
                 } else { 
                         break;
                 }
-
-                offset_expected += request->write_size;
         }
+
+        return;
 }
 
 
