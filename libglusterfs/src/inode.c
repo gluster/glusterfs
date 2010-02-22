@@ -677,6 +677,17 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
 
         link_inode = inode;
 
+        if (stbuf->st_ino == 1 && inode != table->root) {
+                gf_log (table->name, GF_LOG_ERROR,
+                        "inode_link called with stbuf->st_ino = 1. "
+                        "inode=%"PRId64"/%"PRId64 "parent=%"PRId64"/%"PRId64
+                        " name=%s",
+                        inode ? inode->generation:0 , inode ? inode->ino:0,
+                        parent ? parent->generation:0 , parent ? parent->ino:0,
+                        name);
+                return link_inode;
+        }
+
         if (!__is_inode_hashed (inode)) {
                 inode->ino        = stbuf->st_ino;
                 inode->st_mode    = stbuf->st_mode;
@@ -901,7 +912,7 @@ inode_path (inode_t *inode, const char *name, char **bufp)
                         i ++; /* "/" */
                         i += strlen (trav->name);
                         if (i > PATH_MAX) {
-                                gf_log ("inode", GF_LOG_CRITICAL,
+                                gf_log (table->name, GF_LOG_CRITICAL,
                                         "possible infinite loop detected, "
                                         "forcing break. name=(%s)", name);
                                 ret = -ENOENT;
@@ -1026,8 +1037,8 @@ __inode_table_init_root (inode_table_t *table)
         stbuf.st_ino = 1;
         stbuf.st_mode = S_IFDIR|0755;
 
-        __inode_link (root, NULL, NULL, &stbuf);
         table->root = root;
+        __inode_link (root, NULL, NULL, &stbuf);
 }
 
 
