@@ -797,11 +797,18 @@ int
 quota_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		    int32_t op_ret, int32_t op_errno)
 {
+        dict_t            *dict = NULL;
+
 	if (op_ret == -1) {
 		gf_log (this->name, GF_LOG_CRITICAL, 
 			"failed to set the disk-usage value: %s",
 			strerror (op_errno));
 	} 
+
+        if (cookie) {
+                dict = (dict_t *) cookie;
+                dict_unref (dict);
+        }
 
 	STACK_DESTROY (frame->root);
 	return 0;
@@ -914,10 +921,13 @@ gf_quota_cache_sync (xlator_t *this)
 	dict_set (dict, "trusted.glusterfs-quota-du", 
 		  data_from_uint64 (priv->current_disk_usage));
 
-	STACK_WIND (frame, quota_setxattr_cbk,
-		    this->children->xlator,
-		    this->children->xlator->fops->setxattr,
-		    &loc, dict, 0);
+        dict_ref (dict);
+
+	STACK_WIND_COOKIE (frame, quota_setxattr_cbk,
+                           (void *) (dict_t *) dict,
+                           this->children->xlator,
+                           this->children->xlator->fops->setxattr,
+                           &loc, dict, 0);
 }
 
 
