@@ -58,11 +58,11 @@ struct dnscache6 {
 
 
 int
-gf_log2 (unsigned long x)
+log_base2 (unsigned long x)
 {
         int val = 0;
 
-        while (x != 1) {
+        while (x > 1) {
                 x /= 2;
                 val++;
         }
