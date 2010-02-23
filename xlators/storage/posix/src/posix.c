@@ -1362,7 +1362,7 @@ janitor_walker (const char *fpath, const struct stat *sb,
                 break;
         }
 
-        return FTW_CONTINUE;
+        return 0;   /* 0 = FTW_CONTINUE */
 }
 
 
