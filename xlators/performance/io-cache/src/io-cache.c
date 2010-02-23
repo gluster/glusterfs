@@ -188,9 +188,6 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	uint32_t      weight = 0xffffffff;
 	const char   *path = NULL;
         ioc_local_t  *local = NULL;
-	
-	if (op_ret != 0) 
-		goto out;
 
         local = frame->local;
         if (local == NULL) {
@@ -198,6 +195,9 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
+
+	if (op_ret != 0) 
+		goto out;
 
         path = local->file_loc.path;
 
@@ -243,6 +243,10 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ioc_table_unlock (ioc_inode->table);
 
 out:
+        if (local != NULL) {
+                loc_wipe (&local->file_loc);
+        }
+
 	STACK_UNWIND (frame, op_ret, op_errno, inode, stbuf, dict);
 	return 0;
 }
@@ -252,7 +256,7 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	    dict_t *xattr_req)
 {
         ioc_local_t *local  = NULL;
-        int32_t      op_errno = -1;
+        int32_t      op_errno = -1, ret = -1;
 
         local = CALLOC (1, sizeof (ioc_local_t));
         if (local == NULL) {
@@ -261,10 +265,14 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto unwind;
         }
 
-	local->file_loc.path = loc->path;
-	local->file_loc.inode = loc->inode;
-
         frame->local = local;
+        ret = loc_copy (&local->file_loc, loc);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
 
 	STACK_WIND (frame, ioc_lookup_cbk, FIRST_CHILD (this),
 		    FIRST_CHILD (this)->fops->lookup, loc, xattr_req);
@@ -272,6 +280,10 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	return 0;
 
 unwind:
+        if (local != NULL) {
+                loc_wipe (&local->file_loc);
+        }
+
         STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL);
         return 0;
 }
