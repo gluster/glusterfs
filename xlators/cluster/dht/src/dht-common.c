@@ -2070,7 +2070,11 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 	if (op_ret < 0)
 		goto done;
 
-        layout = dht_layout_get (this, local->fd->inode);
+        if (!local->layout)
+                local->layout = layout = dht_layout_get (this, local->fd->inode);
+        else
+                layout = local->layout;
+
 	list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
 
@@ -2180,40 +2184,27 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	list_for_each_entry (orig_entry, (&orig_entries->list), list) {
                 next_offset = orig_entry->d_off;
 
-                if (check_is_linkfile (NULL, (&orig_entry->d_stat), NULL)
-                    || (check_is_dir (NULL, (&orig_entry->d_stat), NULL)
-                        && (prev->this != dht_first_up_subvol (this)))) {
-                        continue;
-                }
+                subvol = dht_layout_search (this, layout, orig_entry->d_name);
 
-                entry = gf_dirent_for_name (orig_entry->d_name);
-                if (!entry) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        goto unwind;
-                }
-
-                /* Do this if conf->search_unhashed is set to "auto" */
-                if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
-                        subvol = dht_layout_search (this, layout,
-                                                    orig_entry->d_name);
-                        if (!subvol || (subvol != prev->this)) {
-                                /* TODO: Count the number of entries which need
-                                   linkfile to prove its existance in fs */
-                                layout->search_unhashed++;
+                if (!subvol || (subvol != prev->this)) {
+                        entry = gf_dirent_for_name (orig_entry->d_name);
+                        if (!entry) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Out of memory");
+                                goto unwind;
                         }
+
+                        dht_itransform (this, prev->this, orig_entry->d_ino,
+                                        &entry->d_ino);
+                        dht_itransform (this, prev->this, orig_entry->d_off,
+                                        &entry->d_off);
+
+                        entry->d_type = orig_entry->d_type;
+                        entry->d_len  = orig_entry->d_len;
+
+                        list_add_tail (&entry->list, &entries.list);
+                        count++;
                 }
-
-                dht_itransform (this, prev->this, orig_entry->d_ino,
-                                &entry->d_ino);
-                dht_itransform (this, prev->this, orig_entry->d_off,
-                                &entry->d_off);
-
-                entry->d_type = orig_entry->d_type;
-                entry->d_len  = orig_entry->d_len;
-
-                list_add_tail (&entry->list, &entries.list);
-                count++;
 	}
 	op_ret = count;
 
