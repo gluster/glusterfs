@@ -24,6 +24,7 @@
 #include "common-utils.h"
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/uio.h>
 
 /* Lets try to define the new anonymous mapping
  * flag, in case the system is still using the
@@ -107,6 +108,13 @@ struct iobuf_pool *iobuf_pool_new (size_t arena_size, size_t page_size);
 void iobuf_pool_destroy (struct iobuf_pool *iobuf_pool);
 struct iobuf *iobuf_get (struct iobuf_pool *iobuf_pool);
 void iobuf_unref (struct iobuf *iobuf);
+struct iobuf *iobuf_ref (struct iobuf *iobuf);
+void iobuf_pool_destroy (struct iobuf_pool *iobuf_pool);
+void iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
+
+#define iobuf_ptr(iob) ((iob)->ptr)
+#define iobpool_pagesize(iobpool) ((iobpool)->page_size)
+#define iobuf_pagesize(iob) (iobpool_pagesize((iob)->iobuf_arena->iobuf_pool))
 
 
 struct iobref {
