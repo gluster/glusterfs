@@ -28,6 +28,10 @@
 #include "defaults.h"
 #include "common-utils.h"
 
+#ifndef MAX_IOVEC
+#define MAX_IOVEC 16
+#endif
+
 struct quota_local {
 	struct stat    stbuf;
 	inode_t       *inode;
@@ -35,7 +39,7 @@ struct quota_local {
 	fd_t          *fd;
 	off_t          offset;
 	int32_t        count;
-	struct iovec  *vector;
+	struct iovec   vector[MAX_IOVEC];
 	struct iobref *iobref;
 	loc_t          loc;
 };
@@ -753,7 +757,8 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
               struct iobref *iobref)
 {
 	struct quota_local *local = NULL;
-	struct quota_priv  *priv = NULL;
+	struct quota_priv  *priv  = NULL;
+        int                 i     = 0;
 
 	priv = this->private;
 
@@ -770,8 +775,12 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		local = CALLOC (1, sizeof (struct quota_local));
 		local->fd     = fd_ref (fd);
 		local->iobref = iobref_ref (iobref);
-		local->vector = vector;
-		local->count  = count;
+                for (i = 0; i < count; i++) {
+                        local->vector[i].iov_base = vector[i].iov_base;
+                        local->vector[i].iov_len = vector[i].iov_len;
+                }
+
+                local->count = count;
 		local->offset = off;
 		frame->local  = local;
 
