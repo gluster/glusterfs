@@ -1217,6 +1217,8 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
+                preparent->st_ino = local->loc.parent->ino;
+                postparent->st_ino = local->loc.parent->ino;
 		local->op_ret = 0;
 	}
 unlock:
