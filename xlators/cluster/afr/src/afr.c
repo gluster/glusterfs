@@ -1003,6 +1003,9 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 UNLOCK (&priv->read_child_lock);
         }
 
+        if (loc->parent)
+                local->cont.lookup.parent_ino = loc->parent->ino;
+
 	local->child_up = memdup (priv->child_up, priv->child_count);
 
         local->cont.lookup.xattrs = CALLOC (priv->child_count,
