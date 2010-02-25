@@ -558,12 +558,18 @@ trace_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char *statstr = NULL;
 
         if (trace_fop_names[GF_FOP_READLINK].enabled) {
-                statstr = trace_stat_to_str (stbuf);
 
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": (op_ret=%d, op_errno=%d, buf=%s, "
-                        "stbuf = { %s })",
-                        frame->root->unique, op_ret, op_errno, buf, statstr);
+                if (op_ret == 0) {
+                        statstr = trace_stat_to_str (stbuf);
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (op_ret=%d, op_errno=%d, buf=%s, "
+                                "stbuf = { %s })",
+                                frame->root->unique, op_ret, op_errno, buf,
+                                statstr);
+                } else
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "%"PRId64": (op_ret=%d, op_errno=%d",
+                                frame->root->unique, op_ret, op_errno);
 
                 if (statstr)
                         FREE (statstr);
