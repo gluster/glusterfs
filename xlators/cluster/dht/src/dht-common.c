@@ -69,6 +69,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
                         local->postparent.st_ino = local->loc.parent->ino;
 	}
 
+        WIPE (&local->postparent);
+
 	DHT_STACK_UNWIND (lookup, frame, ret, local->op_errno, local->inode,
 			  &local->stbuf, local->xattr, &local->postparent);
 
@@ -310,7 +312,9 @@ unlock:
 			local->op_ret = -1;
 			local->op_errno = ESTALE;
 		}
-			
+
+                WIPE (&local->postparent);
+
 		DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
@@ -356,6 +360,8 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                 local->postparent.st_ino = local->loc.parent->ino;
 
 unwind:
+        WIPE (&local->postparent);
+
 	DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 			  local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
@@ -501,6 +507,8 @@ unlock:
                                 local->postparent.st_ino =
                                         local->loc.parent->ino;
 
+                        WIPE (&local->postparent);
+
                         DHT_STACK_UNWIND (lookup, frame, local->op_ret,
                                           local->op_errno, local->inode,
                                           &local->stbuf, local->xattr,
@@ -609,6 +617,8 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 	}
 
 out:
+        WIPE (postparent);
+
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
 
@@ -757,7 +767,10 @@ out:
          * correct values. since, postparent corresponds to a directory these 
          * two members should have values equal to sum of corresponding values
          * from each of the subvolume. See dht_stat_merge for reference.
-         */ 
+         */
+
+        WIPE (postparent);
+
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
         return 0;
@@ -1223,6 +1236,9 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 unlock:
 	UNLOCK (&frame->lock);
+
+        WIPE (postparent);
+        WIPE (preparent);
 
         DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
                           preparent, postparent);
@@ -2491,6 +2507,9 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->loc.parent) {
                 preparent->st_ino = local->loc.parent->ino;
                 postparent->st_ino = local->loc.parent->ino;
+
+                WIPE (preparent);
+                WIPE (postparent);
         }
 
         ret = dht_layout_preset (this, prev->this, inode);
@@ -2778,6 +2797,9 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         preparent->st_ino = local->loc2.parent->ino;
         postparent->st_ino = local->loc2.parent->ino;
 
+        WIPE (preparent);
+        WIPE (postparent);
+
 out:
         DHT_STACK_UNWIND (link, frame, op_ret, op_errno, inode, stbuf, preparent,
                           postparent);
@@ -2918,6 +2940,9 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (local->loc.parent) {
                 preparent->st_ino = local->loc.parent->ino;
                 postparent->st_ino = local->loc.parent->ino;
+
+                WIPE (preparent);
+                WIPE (postparent);
         }
 
         ret = dht_layout_preset (this, prev->this, inode);
@@ -3070,6 +3095,9 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
                 if (local->loc.parent) {
                         local->preparent.st_ino = local->loc.parent->ino;
                         local->postparent.st_ino = local->loc.parent->ino;
+
+                        WIPE (&local->preparent);
+                        WIPE (&local->postparent);
                 }
 	}
 
@@ -3344,6 +3372,9 @@ unlock:
                                         local->loc.parent->ino;
                                 local->postparent.st_ino =
                                         local->loc.parent->ino;
+
+                                WIPE (&local->preparent);
+                                WIPE (&local->postparent);
                         }
 
 			DHT_STACK_UNWIND (rmdir, frame, local->op_ret,

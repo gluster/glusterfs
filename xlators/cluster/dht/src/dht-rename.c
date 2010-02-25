@@ -82,6 +82,11 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 local->preparent.st_ino = local->loc2.parent->ino;
                 local->postparent.st_ino = local->loc2.parent->ino;
 
+                WIPE (&local->preoldparent);
+                WIPE (&local->postoldparent);
+                WIPE (&local->preparent);
+                WIPE (&local->postparent);
+
 		DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
 				  &local->stbuf, &local->preoldparent,
                                   &local->postoldparent,
@@ -256,6 +261,11 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			prev->this->name, strerror (op_errno));
 	}
 
+        WIPE (&local->preoldparent);
+        WIPE (&local->postoldparent);
+        WIPE (&local->preparent);
+        WIPE (&local->postparent);
+
 	if (is_last_call (this_call_cnt))
 		DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
 				  &local->stbuf, &local->preoldparent,
@@ -368,6 +378,11 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
 unwind:
+        WIPE (&local->preoldparent);
+        WIPE (&local->postoldparent);
+        WIPE (&local->preparent);
+        WIPE (&local->postparent);
+
 	DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
 			  &local->stbuf, &local->preoldparent,
                           &local->postoldparent, &local->preparent,
@@ -445,6 +460,11 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 
 unwind:
+        WIPE (&local->preoldparent);
+        WIPE (&local->postoldparent);
+        WIPE (&local->preparent);
+        WIPE (&local->postparent);
+
 	DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
 			  &local->stbuf, &local->preoldparent,
                           &local->postoldparent, &local->preparent,

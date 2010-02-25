@@ -156,6 +156,8 @@ struct dht_disk_layout {
 };
 typedef struct dht_disk_layout dht_disk_layout_t;
 
+#define WIPE(statp) do { typeof(*statp) z = {0,}; if (statp) *statp = z; } while (0)
+
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_fs_root(loc) (strcmp (loc->path, "/") == 0)
