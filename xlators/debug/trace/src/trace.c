@@ -2090,9 +2090,6 @@ init (xlator_t *this)
         if (gf_log_get_loglevel () < GF_LOG_NORMAL)
                 gf_log_set_loglevel (GF_LOG_NORMAL);
 
-        /* Set this translator's inode table pointer to child node's pointer. */
-        this->itable = FIRST_CHILD (this)->itable;
-
         return 0;
 }
 
