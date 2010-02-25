@@ -2168,6 +2168,15 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 count++;
 	}
 	op_ret = count;
+        /* We need to ensure that only the last subvolume's end-of-directory
+         * notification is respected so that directory reading does not stop
+         * before all subvolumes have been read. That could happen because the
+         * posix for each subvolume sends a ENOENT on end-of-directory but in
+         * distribute we're not concerned only with a posix's view of the
+         * directory but the aggregated namespace' view of the directory.
+         */
+        if (prev->this != dht_last_up_subvol (this))
+                op_errno = 0;
 
 done:
 	if (count == 0) {
@@ -2258,6 +2267,15 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 	op_ret = count;
+        /* We need to ensure that only the last subvolume's end-of-directory
+         * notification is respected so that directory reading does not stop
+         * before all subvolumes have been read. That could happen because the
+         * posix for each subvolume sends a ENOENT on end-of-directory but in
+         * distribute we're not concerned only with a posix's view of the
+         * directory but the aggregated namespace' view of the directory.
+         */
+        if (prev->this != dht_last_up_subvol (this))
+                op_errno = 0;
 
 done:
 	if (count == 0) {

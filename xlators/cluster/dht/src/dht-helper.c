@@ -208,6 +208,27 @@ dht_first_up_subvol (xlator_t *this)
 	return child;
 }
 
+xlator_t *
+dht_last_up_subvol (xlator_t *this)
+{
+        dht_conf_t *conf = NULL;
+        xlator_t   *child = NULL;
+        int         i = 0;
+
+        conf = this->private;
+        LOCK (&conf->subvolume_lock);
+        {
+                for (i = conf->subvolume_cnt-1; i >= 0; i--) {
+                        if (conf->subvolume_status[i]) {
+                                child = conf->subvolumes[i];
+                                break;
+                        }
+                }
+        }
+        UNLOCK (&conf->subvolume_lock);
+
+        return child;
+}
 
 xlator_t *
 dht_subvol_get_hashed (xlator_t *this, loc_t *loc)
