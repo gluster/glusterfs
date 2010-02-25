@@ -4513,6 +4513,9 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         }
 
         op_ret = count;
+        errno = 0;
+        if ((!readdir (dir) && (errno == 0)))
+                op_errno = ENOENT;
 
  out:
         STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, &entries);
