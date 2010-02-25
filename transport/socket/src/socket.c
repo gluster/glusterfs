@@ -299,6 +299,8 @@ __socket_ioq_new (transport_t *this, char *buf, int len,
 
         /* TODO: use mem-pool */
         entry = CALLOC (1, sizeof (*entry));
+        if (!entry)
+                return NULL;
 
         assert (count <= (MAX_IOVEC-2));
 
@@ -1319,6 +1321,8 @@ socket_submit (transport_t *this, char *buf, int len,
 
                 priv->submit_log = 0;
                 entry = __socket_ioq_new (this, buf, len, vector, count, iobref);
+                if (!entry)
+                        goto unlock;
 
                 if (list_empty (&priv->ioq)) {
                         ret = __socket_ioq_churn_entry (this, entry);
