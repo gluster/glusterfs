@@ -2530,7 +2530,13 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-	op_ret = vec.iov_len;
+        /* Hack to notify higher layers of EOF. */
+        if (stbuf.st_size == 0)
+                op_errno = ENOENT;
+        else if ((offset + vec.iov_len) == stbuf.st_size)
+                op_errno = ENOENT;
+
+        op_ret = vec.iov_len;
 out:
 
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
