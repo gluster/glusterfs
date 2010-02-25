@@ -581,7 +581,7 @@ trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_LOOKUP].enabled) {
                 if (op_ret >= 0) {
                         statstr = trace_stat_to_str (buf);
-                        postparentstr = trace_stat_to_str (buf);
+                        postparentstr = trace_stat_to_str (postparent);
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, ino=%"PRIu64", "
