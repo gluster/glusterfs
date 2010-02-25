@@ -2634,6 +2634,7 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
 	xlator_t    *subvol = NULL;
 	int          op_errno = -1;
         dht_local_t *local = NULL;
+        int          ret = -1;
 
 
 	VALIDATE_OR_GOTO (frame, err);
@@ -2656,6 +2657,13 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
 		op_errno = ENOENT;
 		goto err;
 	}
+
+        ret = loc_copy (&local->loc, loc);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_TRACE, "Failed to copy loc");
+                op_errno = ENOMEM;
+                goto err;
+        }
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"creating %s on %s", loc->path, subvol->name);
