@@ -46,6 +46,13 @@
 #define GF_SET_ATTR_ATIME 0x10
 #define GF_SET_ATTR_MTIME 0x20
 
+#define gf_attr_mode_set(mode)  ((mode) & GF_SET_ATTR_MODE)
+#define gf_attr_uid_set(mode)   ((mode) & GF_SET_ATTR_UID)
+#define gf_attr_gid_set(mode)   ((mode) & GF_SET_ATTR_GID)
+#define gf_attr_size_set(mode)  ((mode) & GF_SET_ATTR_SIZE)
+#define gf_attr_atime_set(mode) ((mode) & GF_SET_ATTR_ATIME)
+#define gf_attr_mtime_set(mode) ((mode) & GF_SET_ATTR_MTIME)
+
 struct _xlator;
 typedef struct _xlator xlator_t;
 struct _dir_entry_t;
