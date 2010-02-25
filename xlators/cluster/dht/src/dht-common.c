@@ -1716,6 +1716,15 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       struct iovec *vector, int count, struct stat *stbuf,
                struct iobref *iobref)
 {
+        dht_local_t     *local = frame->local;
+
+        if (!local) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+        stbuf->st_ino = local->st_ino;
+out:
         DHT_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                           iobref);
 
@@ -1729,7 +1738,7 @@ dht_readv (call_frame_t *frame, xlator_t *this,
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
-
+        dht_local_t  *local = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1743,6 +1752,14 @@ dht_readv (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+        local = dht_local_init (frame);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                op_errno = ENOMEM;
+                goto err;
+        }
+
+        local->st_ino = fd->inode->ino;
 	STACK_WIND (frame, dht_readv_cbk,
 		    subvol, subvol->fops->readv,
 		    fd, size, off);
