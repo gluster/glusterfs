@@ -740,3 +740,12 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 
         return;
 }
+
+
+void
+iobuf_to_iovec(struct iobuf *iob, struct iovec *iov)
+{
+        iov->iov_base = iobuf_ptr (iob);
+        iov->iov_len =  iobuf_pagesize (iob);
+}
+
