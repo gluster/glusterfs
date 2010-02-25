@@ -401,6 +401,9 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		return 0;
 	}
 
+        WIPE (postparent);
+        WIPE (preparent);
+
 	DHT_STACK_UNWIND (link, frame, op_ret, op_errno,
                           inode, stbuf, preparent, postparent);
 	return 0;
