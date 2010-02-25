@@ -57,6 +57,7 @@ struct {
         int enabled;
 } trace_fop_names[GF_FOP_MAXVALUE];
 
+int trace_log_level = GF_LOG_NORMAL;
 
 static char *
 trace_stat_to_str (struct stat *stbuf)
@@ -2048,6 +2049,7 @@ init (xlator_t *this)
 {
         dict_t *options = NULL;
         char *includes = NULL, *excludes = NULL;
+        char *forced_loglevel = NULL;
 
         if (!this)
                 return -1;
@@ -2087,8 +2089,30 @@ init (xlator_t *this)
         if (excludes)
                 process_call_list (excludes, 0);
 
-        if (gf_log_get_loglevel () < GF_LOG_NORMAL)
-                gf_log_set_loglevel (GF_LOG_NORMAL);
+        if (dict_get (options, "force-log-level")) {
+                forced_loglevel = data_to_str (dict_get (options,
+                                               "force-log-level"));
+                if (!forced_loglevel)
+                        goto setloglevel;
+
+                if (strcmp (forced_loglevel, "NORMAL") == 0)
+                        trace_log_level = GF_LOG_NORMAL;
+                else if (strcmp (forced_loglevel, "TRACE") == 0)
+                        trace_log_level = GF_LOG_TRACE;
+                else if (strcmp (forced_loglevel, "ERROR") == 0)
+                        trace_log_level = GF_LOG_ERROR;
+                else if (strcmp (forced_loglevel, "DEBUG") == 0)
+                        trace_log_level = GF_LOG_DEBUG;
+                else if (strcmp (forced_loglevel, "WARNING") == 0)
+                        trace_log_level = GF_LOG_WARNING;
+                else if (strcmp (forced_loglevel, "CRITICAL") == 0)
+                        trace_log_level = GF_LOG_CRITICAL;
+                else if (strcmp (forced_loglevel, "NONE") == 0)
+                        trace_log_level = GF_LOG_NONE;
+        }
+
+setloglevel:
+        gf_log_set_loglevel (trace_log_level);
 
         return 0;
 }
