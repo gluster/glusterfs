@@ -136,7 +136,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dht_stat_merge (this, &local->postparent, postparent,
                                 prev->this);
 
-		if (prev->this == local->hashed_subvol) {
+                if (prev->this == dht_first_up_subvol (this)) {
 			local->st_ino = local->stbuf.st_ino;
                         local->st_dev = local->stbuf.st_dev;
                 }
