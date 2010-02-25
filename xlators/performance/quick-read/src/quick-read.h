@@ -48,6 +48,7 @@ struct qr_fd_ctx {
         char              open_in_transit;
         char             *path;
         int               flags;
+        int               wbflags;
         struct list_head  waiting_ops;
         gf_lock_t         lock;
 };

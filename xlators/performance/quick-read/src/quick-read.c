@@ -441,6 +441,7 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         qr_fd_ctx->path = strdup (loc->path);
         qr_fd_ctx->flags = flags;
+        qr_fd_ctx->wbflags = wbflags;
 
         ret = fd_ctx_set (fd, this, (uint64_t)(long)qr_fd_ctx);
         if (ret == -1) {
@@ -710,7 +711,7 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open,
-                            &loc, flags, fd, 0);
+                            &loc, flags, fd, qr_fd_ctx->wbflags);
                         
                 qr_loc_wipe (&loc);
         } else if (can_wind) {
@@ -951,7 +952,7 @@ out:
 
                         STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->open,
-                                    &loc, flags, fd, 0);
+                                    &loc, flags, fd, qr_fd_ctx->wbflags);
                         
                         qr_loc_wipe (&loc);
                 } else if (can_wind) {
@@ -1085,7 +1086,8 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
@@ -1178,7 +1180,8 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
@@ -1279,7 +1282,8 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
@@ -1377,7 +1381,7 @@ out:
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, open_flags,
-                            fd, 0);
+                            fd, qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         } 
@@ -1477,7 +1481,8 @@ out:
                 }
                 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
@@ -1648,7 +1653,8 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
@@ -1747,7 +1753,8 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
                 
                 qr_loc_wipe (&loc);
         }
@@ -1841,7 +1848,7 @@ out:
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->open, &loc, open_flags,
-                            fd, 0);
+                            fd, qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
@@ -1986,7 +1993,8 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
@@ -2082,7 +2090,8 @@ out:
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open, &loc, flags, fd, 0);
+                            FIRST_CHILD(this)->fops->open, &loc, flags, fd,
+                            qr_fd_ctx->wbflags);
 
                 qr_loc_wipe (&loc);
         }
