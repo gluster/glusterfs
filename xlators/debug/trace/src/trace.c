@@ -76,11 +76,15 @@ trace_stat_to_str (struct stat *stbuf)
                   localtime (&stbuf->st_ctime));
 
         asprint_ret_value = asprintf (&statstr,
-                                      "st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
+                                      "st_ino=%"PRIu64", st_dev=%"PRIu64
+                                      ", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
                                       "st_uid=%d, st_gid=%d, st_size=%"PRId64", st_blocks=%"PRId64
                                       ", st_atime=%s, st_mtime=%s, st_ctime=%s",
-                                      stbuf->st_ino, stbuf->st_mode, stbuf->st_nlink, stbuf->st_uid,
-                                      stbuf->st_gid, stbuf->st_size, stbuf->st_blocks, atime_buf,
+                                      stbuf->st_ino, stbuf->st_dev,
+                                      stbuf->st_mode, stbuf->st_nlink,
+                                      stbuf->st_uid,
+                                      stbuf->st_gid, stbuf->st_size,
+                                      stbuf->st_blocks, atime_buf,
                                       mtime_buf, ctime_buf);
 
         if (asprint_ret_value < 0)
