@@ -49,6 +49,25 @@ gf_dirent_nb_size (gf_dirent_t *entries)
 	return (sizeof (struct gf_dirent_nb) + strlen (entries->d_name) + 1);
 }
 
+gf_dirent_t *
+gf_dirent_for_namelen (int len)
+{
+	gf_dirent_t *gf_dirent = NULL;
+
+	/* TODO: use mem-pool */
+	gf_dirent = CALLOC (len, sizeof(char));
+	if (!gf_dirent)
+		return NULL;
+
+	INIT_LIST_HEAD (&gf_dirent->list);
+
+	gf_dirent->d_off = 0;
+	gf_dirent->d_ino = -1;
+	gf_dirent->d_type = 0;
+
+	return gf_dirent;
+}
+
 
 gf_dirent_t *
 gf_dirent_for_name (const char *name)
