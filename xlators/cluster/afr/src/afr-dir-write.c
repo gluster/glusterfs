@@ -1067,7 +1067,7 @@ afr_link (call_frame_t *frame, xlator_t *this,
 	local->cont.link.ino = oldloc->inode->ino;
 
         if (oldloc->parent)
-                local->cont.link.parent_ino = oldloc->parent->ino;
+                local->cont.link.parent_ino = newloc->parent->ino;
 
 	local->transaction.fop    = afr_link_wind;
 	local->transaction.done   = afr_link_done;
