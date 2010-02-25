@@ -511,6 +511,9 @@ fd_lookup (inode_t *inode, pid_t pid)
         fd_t *fd = NULL;
         fd_t *iter_fd = NULL;
 
+        if (!inode)
+                return NULL;
+
         LOCK (&inode->lock);
         {
                 if (list_empty (&inode->fd_list)) {
