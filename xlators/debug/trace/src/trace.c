@@ -205,12 +205,12 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, *buf {st_dev=%"GF_PRI_DEV", "
+                                "%"PRId64": (op_ret=%d, op_errno=%d, *buf {st_dev=%"GF_PRI_DEV", "
                                 "st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
                                 "st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
                                 "st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", "
                                 "st_blocks=%"PRId64", st_atime=%s, st_mtime=%s, st_ctime=%s})",
-                                frame->root->unique, op_ret, buf->st_dev, buf->st_ino,
+                                frame->root->unique, op_ret, op_errno, buf->st_dev, buf->st_ino,
                                 buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid,
                                 buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks,
                                 atime_buf, mtime_buf, ctime_buf);
