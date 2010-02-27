@@ -42,7 +42,7 @@ struct iot_conf;
 
 #define MAX_IDLE_SKEW                   4       /* In secs */
 #define skew_sec_idle_time(sec)         ((sec) + (random () % MAX_IDLE_SKEW))
-#define IOT_DEFAULT_IDLE                180     /* In secs. */
+#define IOT_DEFAULT_IDLE                120     /* In secs. */
 
 #define IOT_MIN_THREADS         1
 #define IOT_DEFAULT_THREADS     8

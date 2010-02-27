@@ -79,7 +79,7 @@ iot_worker (void *data)
         this = conf->this;
         THIS = this;
 
-        while (1) {
+        for (;;) {
                 sleep_till.tv_sec = time (NULL) + conf->idle_time;
 
                 pthread_mutex_lock (&conf->mutex);
@@ -92,7 +92,7 @@ iot_worker (void *data)
                                                               &sleep_till);
                                 conf->sleep_count--;
 
-                                if (ret == -1 && errno == ETIMEDOUT) {
+                                if (ret == ETIMEDOUT) {
                                         timeout = 1;
                                         break;
                                 }
@@ -102,6 +102,9 @@ iot_worker (void *data)
                                 if (conf->curr_count > IOT_MIN_THREADS) {
                                         conf->curr_count--;
                                         bye = 1;
+                                        gf_log (conf->this->name, GF_LOG_DEBUG,
+                                                "timeout, terminated. conf->curr_count=%d",
+                                                conf->curr_count);
                                 } else {
                                         timeout = 0;
                                 }
@@ -811,7 +814,7 @@ iot_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 	stub = fop_readv_stub (frame, iot_readv_wrapper, fd, size, offset);
 	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, 
+		gf_log (this->name, GF_LOG_ERROR,
 			"cannot create readv call stub"
                         "(out of memory)");
                 ret = -ENOMEM;
@@ -2049,7 +2052,7 @@ __iot_workers_scale (iot_conf_t *conf)
                 scale = IOT_MIN_THREADS;
 
         if (log2 > conf->max_count)
-                scale = IOT_MAX_THREADS;
+                scale = conf->max_count;
 
         if (conf->curr_count < scale) {
                 diff = scale - conf->curr_count;
@@ -2059,10 +2062,14 @@ __iot_workers_scale (iot_conf_t *conf)
                 diff --;
 
                 ret = pthread_create (&thread, &conf->w_attr, iot_worker, conf);
-                if (ret == 0)
+                if (ret == 0) {
                         conf->curr_count++;
-                else
+                        gf_log (conf->this->name, GF_LOG_DEBUG,
+                                "scaled threads to %d (queue_size=%d/%d)",
+                                conf->curr_count, conf->queue_size, scale);
+                } else {
                         break;
+                }
         }
 
         return diff;
