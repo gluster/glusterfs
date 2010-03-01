@@ -26,8 +26,7 @@ afr_opendir (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, fd_t *fd);
 
 int32_t
-afr_closedir (call_frame_t *frame, xlator_t *this,
-	      fd_t *fd);
+afr_releasedir (xlator_t *this, fd_t *fd);
 
 int32_t
 afr_readdir (call_frame_t *frame, xlator_t *this,
