@@ -67,6 +67,8 @@ typedef struct _afr_private {
 	unsigned int metadata_lock_server_count;
 	unsigned int entry_lock_server_count;
 
+	gf_boolean_t strict_readdir;
+
 	unsigned int wait_count;      /* # of servers to wait for success */
 
         uint64_t up_count;      /* number of CHILD_UPs we have seen */
@@ -327,6 +329,7 @@ typedef struct _afr_local {
 			size_t size;
 			off_t offset;
 
+                        gf_boolean_t failed;
 			int last_tried;
 		} readdir;
 
@@ -547,6 +550,10 @@ typedef struct {
         int32_t wbflags;
         uint64_t up_count;   /* number of CHILD_UPs this fd has seen */
         uint64_t down_count; /* number of CHILD_DOWNs this fd has seen */
+
+        int32_t last_tried;
+        gf_boolean_t failed_over;
+        struct list_head entries; /* needed for readdir failover */
 } afr_fd_ctx_t;
 
 

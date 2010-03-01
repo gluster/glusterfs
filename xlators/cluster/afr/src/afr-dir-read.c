@@ -24,6 +24,7 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <string.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -219,6 +220,7 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 	afr_local_t * local  = NULL;
 
 	int call_count = -1;
+        int ret        = 0;
 
 	LOCK (&frame->lock);
 	{
@@ -234,30 +236,33 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-                if ((local->op_ret == 0) &&
-                    !afr_is_opendir_done (this, fd->inode)) {
+                if (local->op_ret == 0) {
+                        ret = afr_fd_ctx_set (this, local->fd);
 
-                        /*
-                         * This is the first opendir on this inode. We need
-                         * to check if the directory's entries are the same
-                         * on all subvolumes. This is needed in addition
-                         * to regular entry self-heal because the readdir
-                         * call is sent only to the first subvolume, and
-                         * thus files that exist only there will never be healed
-                         * otherwise (assuming changelog shows no anamolies).
-                         */
+                        if (!afr_is_opendir_done (this, fd->inode)) {
 
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "reading contents of directory %s looking for mismatch",
-                                local->loc.path);
+                                /*
+                                 * This is the first opendir on this inode. We need
+                                 * to check if the directory's entries are the same
+                                 * on all subvolumes. This is needed in addition
+                                 * to regular entry self-heal because the readdir
+                                 * call is sent only to the first subvolume, and
+                                 * thus files that exist only there will never be healed
+                                 * otherwise (assuming changelog shows no anamolies).
+                                 */
 
-                        afr_examine_dir (frame, this);
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "reading contents of directory %s looking for mismatch",
+                                        local->loc.path);
 
-                } else {
-                        AFR_STACK_UNWIND (opendir, frame, local->op_ret,
-                                          local->op_errno, local->fd);
+                                afr_examine_dir (frame, this);
+
+                        } else {
+                                AFR_STACK_UNWIND (opendir, frame, local->op_ret,
+                                                  local->op_errno, local->fd);
+                        }
                 }
-	}
+        }
 
 	return 0;
 }
@@ -333,6 +338,120 @@ out:
  * Applicable to: readdir
  */
 
+
+struct entry_name {
+        char *name;
+        struct list_head list;
+};
+
+
+static gf_boolean_t
+remembered_name (const char *name, struct list_head *entries)
+{
+        struct entry_name *e;
+        gf_boolean_t ret = _gf_false;
+
+        list_for_each_entry (e, entries, list) {
+                if (!strcmp (name, e->name)) {
+                        ret = _gf_true;
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
+}
+
+
+static void
+afr_remember_entries (gf_dirent_t *entries, fd_t *fd)
+{
+	struct entry_name *n       = NULL;
+	gf_dirent_t *      entry   = NULL;
+
+	int ret = 0;
+
+	uint64_t      ctx;
+	afr_fd_ctx_t *fd_ctx;
+
+	ret = fd_ctx_get (fd, THIS, &ctx);
+	if (ret < 0) {
+		gf_log (THIS->name, GF_LOG_DEBUG,
+			"could not get fd ctx for fd=%p", fd);
+		return;
+	}
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+	list_for_each_entry (entry, &entries->list, list) {
+		n = CALLOC (1, sizeof (*n));
+		n->name = strdup (entry->d_name);
+		INIT_LIST_HEAD (&n->list);
+
+		list_add (&n->list, &fd_ctx->entries);
+	}
+}
+
+
+static off_t
+afr_filter_entries (gf_dirent_t *entries, fd_t *fd)
+{
+	gf_dirent_t *entry, *tmp;
+	int ret = 0;
+
+	uint64_t      ctx;
+	afr_fd_ctx_t *fd_ctx;
+
+	off_t offset;
+
+	ret = fd_ctx_get (fd, THIS, &ctx);
+	if (ret < 0) {
+		gf_log (THIS->name, GF_LOG_DEBUG,
+			"could not get fd ctx for fd=%p", fd);
+		return -1;
+	}
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+	list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+		offset = entry->d_off;
+
+		if (remembered_name (entry->d_name, &fd_ctx->entries)) {
+			list_del (&entry->list);
+			FREE (entry);
+		}
+	}
+
+	return offset;
+}
+
+
+static void
+afr_forget_entries (fd_t *fd)
+{
+	struct entry_name *entry, *tmp;
+	int ret = 0;
+
+	uint64_t      ctx;
+	afr_fd_ctx_t *fd_ctx;
+
+	ret = fd_ctx_get (fd, THIS, &ctx);
+	if (ret < 0) {
+		gf_log (THIS->name, GF_LOG_DEBUG,
+			"could not get fd ctx for fd=%p", fd);
+		return;
+	}
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+	list_for_each_entry_safe (entry, tmp, &fd_ctx->entries, list) {
+		FREE (entry->name);
+		list_del (&entry->list);
+		FREE (entry);
+	}
+}
+
+
 int32_t
 afr_readdir_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -383,10 +502,18 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t **     children = NULL;
         ino_t           inum = 0;
 
+        int call_child = 0;
+        int ret        = 0;
+
         gf_dirent_t * entry = NULL;
         gf_dirent_t * tmp   = NULL;
 
         int child_index = -1;
+
+        uint64_t      ctx;
+        afr_fd_ctx_t *fd_ctx;
+
+	off_t offset = 0;
 
         priv     = this->private;
         children = priv->children;
@@ -395,23 +522,88 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         child_index = (long) cookie;
 
-        if (op_ret != -1) {
-                list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                        inum = afr_itransform (entry->d_ino, priv->child_count,
-                                               child_index);
-                        entry->d_ino = inum;
-                        inum  = afr_itransform (entry->d_stat.st_ino,
-                                                priv->child_count, child_index);
-                        entry->d_stat.st_ino = inum;
+	if (priv->strict_readdir) {
+		ret = fd_ctx_get (local->fd, this, &ctx);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"could not get fd ctx for fd=%p", local->fd);
+			op_ret   = -1;
+			op_errno = -ret;
+			goto out;
+		}
 
-                        if ((local->fd->inode == local->fd->inode->table->root)
-                            && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
-                                list_del_init (&entry->list);
-                                FREE (entry);
-                        }
+		fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+		if (child_went_down (op_ret, op_errno)) {
+			if (all_tried (child_index, priv->child_count)) {
+				goto out;
+			}
+
+			call_child = ++child_index;
+
+			gf_log (this->name, GF_LOG_TRACE,
+				"starting readdir afresh on child %d, offset %"PRId64,
+				call_child, (uint64_t) 0);
+
+			fd_ctx->failed_over = _gf_true;
+
+			STACK_WIND_COOKIE (frame, afr_readdirp_cbk,
+					   (void *) (long) call_child,
+					   children[call_child],
+					   children[call_child]->fops->readdirp, local->fd,
+					   local->cont.readdir.size, 0);
+			return 0;
+		}
+	}
+
+        list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+                inum = afr_itransform (entry->d_ino, priv->child_count,
+                                       child_index);
+                entry->d_ino = inum;
+                inum  = afr_itransform (entry->d_stat.st_ino,
+                                        priv->child_count, child_index);
+                entry->d_stat.st_ino = inum;
+
+                if ((local->fd->inode == local->fd->inode->table->root)
+                    && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
+                        list_del_init (&entry->list);
+                        FREE (entry);
                 }
         }
 
+	if (priv->strict_readdir) {
+		if (fd_ctx->failed_over) {
+			if (list_empty (&entries->list)) {
+				goto out;
+			}
+
+			offset = afr_filter_entries (entries, local->fd);
+
+			afr_remember_entries (entries, local->fd);
+
+			if (list_empty (&entries->list)) {
+				/* All the entries we got were duplicate. We
+				   shouldn't send an empty list now, because
+				   that'll make the application stop reading. So
+				   try to get more entries */
+
+				gf_log (this->name, GF_LOG_TRACE,
+					"trying to fetch non-duplicate entries from offset %"PRId64", child %s",
+					offset, children[child_index]->name);
+
+				STACK_WIND_COOKIE (frame, afr_readdirp_cbk,
+						   (void *) (long) child_index,
+						   children[child_index],
+						   children[child_index]->fops->readdirp,
+						   local->fd, local->cont.readdir.size, offset);
+				return 0;
+			}
+		} else {
+			afr_remember_entries (entries, local->fd);
+		}
+	}
+
+out:
         AFR_STACK_UNWIND (readdirp, frame, op_ret, op_errno, entries);
 
         return 0;
@@ -426,6 +618,9 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
 	xlator_t **     children   = NULL;
 	int             call_child = 0;
 	afr_local_t     *local     = NULL;
+
+        uint64_t      ctx;
+        afr_fd_ctx_t *fd_ctx;
 
 	int ret = -1;
 
@@ -445,7 +640,7 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
 		op_errno = -ret;
 		goto out;
 	}
-						
+
 	frame->local = local;
 
 	call_child = afr_first_up_child (priv);
@@ -458,7 +653,29 @@ afr_do_readdir (call_frame_t *frame, xlator_t *this,
 
         local->fd                  = fd_ref (fd);
         local->cont.readdir.size   = size;
-        local->cont.readdir.offset = offset;
+
+	if (priv->strict_readdir) {
+		ret = fd_ctx_get (fd, this, &ctx);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"could not get fd ctx for fd=%p", fd);
+			op_errno = -ret;
+			goto out;
+		}
+
+		fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+		if (fd_ctx->last_tried != call_child) {
+			gf_log (this->name, GF_LOG_TRACE,
+				"first up child has changed from %d to %d, restarting readdir from offset 0",
+				fd_ctx->last_tried, call_child);
+
+			fd_ctx->failed_over = _gf_true;
+			offset = 0;
+		}
+
+		fd_ctx->last_tried = call_child;
+	}
 
         if (whichop == GF_FOP_READDIR)
                 STACK_WIND_COOKIE (frame, afr_readdir_cbk,
@@ -539,6 +756,15 @@ out:
 		AFR_STACK_UNWIND (getdents, frame, op_ret, op_errno,
                                   entry, count);
 	}
+
+	return 0;
+}
+
+
+int32_t
+afr_releasedir (xlator_t *this, fd_t *fd)
+{
+	afr_forget_entries (fd);
 
 	return 0;
 }
