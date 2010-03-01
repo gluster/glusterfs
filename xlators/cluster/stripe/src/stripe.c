@@ -2831,9 +2831,17 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 main_local->replies[index].op_errno = op_errno;
                 if (op_ret >= 0) {
                         main_local->replies[index].stbuf  = *stbuf;
-                        main_local->replies[index].count  = count;
-                        main_local->replies[index].vector = 
-                                iov_dup (vector, count);
+                        if ((main_local->wind_count >= 2) &&
+                            (index < (main_local->wind_count -1)) &&
+                            (op_ret < local->readv_size)) {
+                                /* refer to bug :p #536 on bugs.gluster.com */
+                                main_local->readv_pendingsize =
+                                        (local->readv_size - op_ret);
+                        } else {
+                                main_local->replies[index].count  = count;
+                                main_local->replies[index].vector =
+                                        iov_dup (vector, count);
+                        }
 
                         if (!main_local->iobref)
                                 main_local->iobref = iobref_new ();
@@ -2850,28 +2858,74 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 struct iobref *iobref = NULL;
 
                 op_ret = 0;
+                /* FIXME: notice that st_ino, and st_dev (gen) will be
+                 * different than what inode will have. Make sure this doesn't
+                 * cause any bugs at higher levels */
                 memcpy (&tmp_stbuf, &main_local->replies[0].stbuf, 
                         sizeof (struct stat));
                 for (index=0; index < main_local->wind_count; index++) {
-                        /* TODO: check whether each stripe returned 'expected'
-                         * number of bytes 
-                         */
+                        /* check whether each stripe returned
+                         * 'expected' number of bytes */
                         if (main_local->replies[index].op_ret == -1) {
                                 op_ret = -1;
                                 op_errno = main_local->replies[index].op_errno;
                                 break;
                         }
-                        op_ret += main_local->replies[index].op_ret;
-                        final_count += main_local->replies[index].count;
-                        /* TODO: Do I need to send anything more in stbuf? */
-                        if (tmp_stbuf.st_size < 
+                        /* ANSWER-ME: Do we need to send anything more in stbuf?
+                         */
+                        if (tmp_stbuf.st_size <
                             main_local->replies[index].stbuf.st_size) {
-                                tmp_stbuf.st_size = 
+                                tmp_stbuf.st_size =
                                         main_local->replies[index].stbuf.st_size;
                         }
+
+                        /* TODO: Should I handle a case where there is a hole
+                         * in a read request which spans across two nodes?
+                         * for now, Solving bug(536) without addressing that
+                         * case */
+                        if ((index < (main_local->wind_count - 1)) &&
+                            (main_local->replies[index+1].op_ret > 0) &&
+                            (main_local->readv_pendingsize)) {
+                                /* Fill in zeroes */
+                                struct iovec *tmp_vec   = NULL;
+                                struct iobuf *iobuf     = NULL;
+                                int           tmp_count = 0;
+
+                                tmp_count = main_local->replies[index].count;
+                                tmp_vec = CALLOC (1, ((tmp_count + 1) *
+                                                      sizeof (struct iovec)));
+                                memcpy (tmp_vec,
+                                        main_local->replies[index].vector,
+                                        sizeof (struct iovec) * tmp_count);
+
+                                iobuf = iobuf_get (this->ctx->iobuf_pool);
+                                if (!iobuf) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Out of memory.");
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        goto done;
+                                }
+                                memset (iobuf->ptr, 0,
+                                        main_local->readv_pendingsize);
+                                iobref_add (main_local->iobref, iobuf);
+
+                                tmp_vec[tmp_count].iov_base = iobuf->ptr;
+                                tmp_vec[tmp_count].iov_len =
+                                        main_local->readv_pendingsize;
+
+                                main_local->replies[index].count++;
+                                main_local->replies[index].op_ret +=
+                                        main_local->readv_pendingsize;
+
+                                FREE (main_local->replies[index].vector);
+                                main_local->replies[index].vector = tmp_vec;
+                        }
+                        op_ret += main_local->replies[index].op_ret;
+                        final_count += main_local->replies[index].count;
                 }
                 if (op_ret != -1) {
-                        final_vec = CALLOC (final_count, 
+                        final_vec = CALLOC (final_count,
                                             sizeof (struct iovec));
                         if (!final_vec) {
                                 op_ret = -1;
@@ -2988,6 +3042,7 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 
                 rlocal->node_index = index - off_index;
                 rlocal->orig_frame = frame;
+                rlocal->readv_size = frame_size;
                 rframe->local = rlocal;
                 idx = (index % fctx->stripe_count);
                 STACK_WIND (rframe, stripe_readv_cbk, fctx->xl_array[idx],

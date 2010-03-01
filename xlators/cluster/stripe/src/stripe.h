@@ -119,6 +119,8 @@ struct stripe_local {
         int8_t               failed;
         int8_t               unwind;
 
+        size_t               readv_size;
+        int32_t              readv_pendingsize;
         int32_t              entry_count;
         int32_t              node_index;
         int32_t              call_count;
