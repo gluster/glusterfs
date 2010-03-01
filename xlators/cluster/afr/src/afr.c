@@ -1128,6 +1128,8 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 if (ret < 0) {
                         op_ret = ret;
                 }
+
+                INIT_LIST_HEAD (&fd_ctx->entries);
         }
 unlock:
         UNLOCK (&fd->lock);
@@ -2693,11 +2695,12 @@ init (xlator_t *this)
 	int             ret         = -1;
 	int             op_errno    = 0;
 
-	char * read_subvol = NULL;
-	char * fav_child   = NULL;
-	char * self_heal   = NULL;
-        char * algo        = NULL;
-	char * change_log  = NULL;
+	char * read_subvol     = NULL;
+	char * fav_child       = NULL;
+	char * self_heal       = NULL;
+        char * algo            = NULL;
+	char * change_log      = NULL;
+	char * strict_readdir  = NULL;
 
         int32_t background_count  = 0;
 	int32_t lock_server_count = 1;
@@ -2893,6 +2896,20 @@ init (xlator_t *this)
 		priv->entry_lock_server_count = lock_server_count;
 	}
 
+	priv->strict_readdir = _gf_false;
+
+	dict_ret = dict_get_str (this->options, "strict-readdir",
+				 &strict_readdir);
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (strict_readdir, &priv->strict_readdir);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Invalid 'option strict-readdir %s'. "
+				"Defaulting to strict-readdir as 'off'.",
+				strict_readdir);
+		}
+	}
+
 	trav = this->children;
 	while (trav) {
 		if (!read_ret && !strcmp (read_subvol, trav->xlator->name)) {
@@ -3037,7 +3054,8 @@ struct xlator_dumpops dumpops = {
 
 
 struct xlator_cbks cbks = {
-        .release     = afr_release,
+	.release     = afr_release,
+	.releasedir  = afr_releasedir,
 };
 
 
@@ -3089,6 +3107,9 @@ struct volume_options options[] = {
 	{ .key  = {"entry-lock-server-count"},  
 	  .type = GF_OPTION_TYPE_INT,
 	  .min  = 0
+	},
+	{ .key  = {"strict-readdir"},
+	  .type = GF_OPTION_TYPE_BOOL,
 	},
 	{ .key  = {NULL} },
 };
