@@ -35,7 +35,10 @@
 #include "list.h"
 #include <stdlib.h>
 #include "locking.h"
+#include "compat.h"
+#ifndef GF_SOLARIS_HOST_OS
 #include <semaphore.h>
+#endif
 
 #define min(a,b) ((a)<(b)?(a):(b))
 #define max(a,b) ((a)>(b)?(a):(b))
