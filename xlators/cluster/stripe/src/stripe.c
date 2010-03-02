@@ -2073,7 +2073,7 @@ stripe_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 callcnt = --local->call_count;
 
                 if (op_ret == -1) {
-                        local->failed = 1;
+              
                         gf_log (this->name, GF_LOG_DEBUG, 
                                 "%s returned error %s",
                                 ((call_frame_t *)cookie)->this->name, 
