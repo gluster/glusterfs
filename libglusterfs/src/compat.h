@@ -182,6 +182,7 @@ int32_t gf_darwin_compat_setxattr (dict_t *dict);
 #include <sys/fcntl.h>
 #include <libgen.h>
 #include <sys/mkdev.h>
+#include <synch.h>
 
 #ifndef lchmod
 #define lchmod chmod
@@ -257,6 +258,22 @@ enum {
 
 #ifndef FTW_CONTINUE
   #define FTW_CONTINUE 0
+#endif
+
+#ifndef sem_t
+  #define sem_t sema_t
+#endif
+
+#ifndef sem_init
+  #define sem_init(sem, pshared, value) sema_init (sem, pshared, value, NULL)
+#endif
+
+#ifndef sem_post
+  #define sem_post sema_post
+#endif
+
+#ifndef sem_timedwait
+  #define sem_timedwait sema_timedwait
 #endif
 
 int asprintf(char **string_ptr, const char *format, ...); 
