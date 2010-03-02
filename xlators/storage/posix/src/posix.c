@@ -265,6 +265,15 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
                 return -1;
         }
 
+#ifndef GF_LINUX_HOST_OS
+        if (!S_ISDIR (stbuf.st_mode) && !S_ISREG (stbuf.st_mode)) {
+                stbuf.st_dev = (typeof(stbuf.st_dev))stbuf.st_mtime;
+                if (stbuf_p)
+                        *stbuf_p = stbuf;
+                return 0;
+        }
+#endif /* !GF_LINUX_HOST_OS */
+
         ret = snprintf (gen_key, 1024, "trusted.%s.gen", this->name);
 
         if (ret == 1024)
@@ -289,7 +298,7 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
 
         if (ret >= 0) {
                 ret = 0;
-                stbuf.st_dev = gen_val;
+                stbuf.st_dev = (typeof(stbuf.st_dev))gen_val;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
         }
@@ -324,6 +333,12 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
                 return -1;
         }
 
+#ifndef GF_LINUX_HOST_OS
+        if (!S_ISDIR (stbuf.st_mode) && !S_ISREG (stbuf.st_mode)) {
+                stbuf.st_dev = (typeof(stbuf.st_dev))stbuf.st_mtime;
+                return 0;
+        }
+#endif /* !GF_LINUX_HOST_OS */
 
         ret = snprintf (gen_key, 1024, "trusted.%s.gen", this->name);
 
@@ -349,7 +364,7 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
 
         if (ret >= 0) {
                 ret = 0;
-                stbuf.st_dev = gen_val;
+                stbuf.st_dev = (typeof(stbuf.st_dev))gen_val;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
         }
