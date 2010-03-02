@@ -56,6 +56,8 @@ struct quota_priv {
 	uint32_t   current_free_disk;          /* current free disk space available, in % */
 	uint32_t   refresh_interval;           /* interval in seconds */
 	uint32_t   min_disk_last_updated_time; /* used for interval calculation */	
+
+	loc_t      root_loc;		     /* Store '/' loc_t to make xattr calls */
 };
 
 
@@ -72,14 +74,6 @@ quota_statvfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	STACK_DESTROY (frame->root);
 	return 0;
-}
-
-
-static void
-build_root_loc (xlator_t *this, loc_t *loc)
-{
-        memset (loc, 0, sizeof (*loc));
-	loc->path = "/";
 }
 
 
@@ -119,16 +113,17 @@ gf_quota_update_current_free_disk (xlator_t *this)
 {
 	call_frame_t *frame = NULL;
 	call_pool_t   *pool = NULL;
-	loc_t          loc;
+
+	struct quota_priv *priv = NULL;
 
 	pool  = this->ctx->pool;
 	frame = create_frame (this, pool);
   
-	build_root_loc (this, &loc);
+	priv = this->private;
 
 	STACK_WIND (frame, quota_statvfs_cbk,
 		    this->children->xlator,
-		    this->children->xlator->fops->statfs, &loc);
+		    this->children->xlator->fops->statfs, &(priv->root_loc));
 
 	return ;
 }
@@ -708,7 +703,7 @@ quota_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (priv->disk_usage_limit) {
 		if (op_ret >= 0) { 
 			gf_quota_usage_add (this, (postbuf->st_blocks -
-						   local->stbuf.st_blocks) * 512);
+						   prebuf->st_blocks) * 512);
 		}
 		fd_unref (local->fd);
 		iobref_unref (local->iobref);
@@ -915,16 +910,17 @@ gf_quota_get_disk_usage (xlator_t *this)
 {
 	call_frame_t *frame = NULL;
 	call_pool_t  *pool = NULL;
-	loc_t         loc;
+
+	struct quota_priv *priv = NULL;
 
 	pool = this->ctx->pool;
 	frame = create_frame (this, pool);
-	build_root_loc (this, &loc);
+	priv = this->private;
 
 	STACK_WIND (frame, quota_getxattr_cbk,
 		    this->children->xlator,
 		    this->children->xlator->fops->getxattr,
-		    &loc,
+		    &(priv->root_loc),
 		    "trusted.glusterfs-quota-du");
 	return ;
 }
@@ -936,11 +932,10 @@ gf_quota_cache_sync (xlator_t *this)
 	struct quota_priv *priv = NULL;
 	call_frame_t      *frame = NULL;
 	dict_t            *dict = get_new_dict ();
-	loc_t              loc;
+
 
 
 	priv = this->private;
-	build_root_loc (this, &loc);
 
 	frame = create_frame (this, this->ctx->pool);
 	dict_set (dict, "trusted.glusterfs-quota-du", 
@@ -952,7 +947,7 @@ gf_quota_cache_sync (xlator_t *this)
                            (void *) (dict_t *) dict,
                            this->children->xlator,
                            this->children->xlator->fops->setxattr,
-                           &loc, dict, 0);
+                           &(priv->root_loc), dict, 0);
 }
 
 
@@ -972,25 +967,58 @@ notify (xlator_t *this,
 	void *data,
 	...)
 {
-	struct quota_priv *priv = this->private;
-	
-	switch (event)
-	{
-	case GF_EVENT_CHILD_UP:
-		if (priv->only_first_time) {
-			priv->only_first_time = 0;
-			if (priv->disk_usage_limit) {
-				gf_quota_get_disk_usage (this);
-			}
-		}
-	default:
-		default_notify (this, event, data);
-		break;
-	}
-
+	default_notify (this, event, data);
 	return 0;
 }
 
+int32_t
+quota_lookup_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    inode_t *inode,
+		    struct stat *buf,
+                    dict_t *dict,
+                    struct stat *postparent)
+{
+	STACK_UNWIND (frame,
+		      op_ret,
+		      op_errno,
+		      inode,
+		      buf,
+                      dict,
+                      postparent);
+	return 0;
+}
+
+int32_t
+quota_lookup (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		dict_t *xattr_req)
+{
+	struct quota_priv *priv = NULL;
+
+	priv = this->private;
+
+	if (priv->only_first_time) {
+		if (strcmp (loc->path, "/") == 0) {
+			loc_copy(&(priv->root_loc), loc); 
+			priv->only_first_time = 0;
+			if (priv->disk_usage_limit)
+				gf_quota_get_disk_usage (this);
+		}
+	}
+
+	STACK_WIND (frame,
+		    quota_lookup_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->lookup,
+		    loc,
+		    xattr_req);
+	return 0;
+ }
 
 int32_t 
 init (xlator_t *this)
@@ -1071,6 +1099,7 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
 	.create      = quota_create,
 	.open        = quota_open,
+	.lookup	     = quota_lookup,
 	.truncate    = quota_truncate,
 	.ftruncate   = quota_ftruncate,
 	.writev      = quota_writev,
