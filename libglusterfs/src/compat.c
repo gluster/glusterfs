@@ -403,8 +403,10 @@ vasprintf (char **result, const char *format, va_list args)
   int total_width = strlen (format) + 1;
   va_list ap;
 
-  /* this is not really portable but works under Windows */
-  memcpy ( &ap, &args, sizeof (va_list));
+  /* vasprintf does not work on Solaris when memcpy is called on va_list pointers.
+   * Replacing it with va_copy which works on Solaris
+   */
+  va_copy (ap, args);
 
   while (*p != '\0')
     {
@@ -474,6 +476,9 @@ vasprintf (char **result, const char *format, va_list args)
 	    }
 	}
     }
+
+  va_end (ap);
+
   *result = malloc (total_width);
   if (*result != NULL)
     return vsprintf (*result, format, args);
