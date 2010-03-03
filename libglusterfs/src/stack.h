@@ -104,6 +104,15 @@ struct _call_stack_t {
 };
 
 
+#define frame_set_uid_gid(frm, u, g)                                    \
+        do {                                                            \
+                if (frm) {                                              \
+                        (frm)->root->uid = u;                           \
+                        (frm)->root->gid = g;                           \
+                        (frm)->root->ngrps = 0;                         \
+                }                                                       \
+        } while (0);                                                    \
+
 static inline void
 FRAME_DESTROY (call_frame_t *frame)
 {
