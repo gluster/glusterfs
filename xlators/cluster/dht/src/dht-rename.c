@@ -277,6 +277,75 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
+dht_rename_cleanup (call_frame_t *frame)
+{
+	dht_local_t *local = NULL;
+	xlator_t    *this = NULL;
+	xlator_t    *src_hashed = NULL;
+	xlator_t    *src_cached = NULL;
+	xlator_t    *dst_hashed = NULL;
+	xlator_t    *dst_cached = NULL;
+	int          call_cnt = 0;
+
+
+	local = frame->local;
+	this  = frame->this;
+
+	src_hashed = local->src_hashed;
+	src_cached = local->src_cached;
+	dst_hashed = local->dst_hashed;
+	dst_cached = local->dst_cached;
+
+	if (src_cached == dst_cached)
+		goto nolinks;
+
+	if (dst_hashed != src_hashed && dst_hashed != src_cached)
+		call_cnt++;
+
+	if (src_cached != dst_hashed)
+		call_cnt++;
+
+	local->call_cnt = call_cnt;
+
+        if (!call_cnt)
+                goto nolinks;
+
+	if (dst_hashed != src_hashed && dst_hashed != src_cached) {
+		gf_log (this->name, GF_LOG_TRACE,
+			"unlinking linkfile %s @ %s => %s",
+			local->loc.path, dst_hashed->name, src_cached->name);
+                STACK_WIND (frame, dht_rename_unlink_cbk,
+                            dst_hashed, dst_hashed->fops->unlink,
+                            &local->loc);
+	}
+
+	if (src_cached != dst_hashed) {
+		gf_log (this->name, GF_LOG_TRACE,
+			"unlinking link %s => %s (%s)", local->loc.path,
+			local->loc2.path, src_cached->name);
+		STACK_WIND (frame, dht_rename_unlink_cbk,
+			    src_cached, src_cached->fops->unlink,
+			    &local->loc2);
+	}
+
+        return 0;
+
+nolinks:
+        WIPE (&local->preoldparent);
+        WIPE (&local->postoldparent);
+        WIPE (&local->preparent);
+        WIPE (&local->postparent);
+
+	DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
+			  &local->stbuf, &local->preoldparent,
+                          &local->postoldparent, &local->preparent,
+                          &local->postparent);
+
+        return 0;
+}
+
+
+int
 dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int32_t op_ret, int32_t op_errno, struct stat *stbuf,
                 struct stat *preoldparent, struct stat *postoldparent,
@@ -304,7 +373,7 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			strerror (op_errno));
 		local->op_ret   = op_ret;
 		local->op_errno = op_errno;
-		goto unwind;
+		goto cleanup;
 	}
 
         dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
@@ -389,6 +458,11 @@ unwind:
                           &local->postparent);
 
 	return 0;
+
+cleanup:
+        dht_rename_cleanup (frame);
+
+        return 0;
 }
 
 
@@ -452,23 +526,15 @@ dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
 		if (local->op_ret == -1)
-			goto unwind;
+			goto cleanup;
 		
 		dht_do_rename (frame);
 	}
 
 	return 0;
 
-unwind:
-        WIPE (&local->preoldparent);
-        WIPE (&local->postoldparent);
-        WIPE (&local->preparent);
-        WIPE (&local->postparent);
-
-	DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
-			  &local->stbuf, &local->preoldparent,
-                          &local->postoldparent, &local->preparent,
-                          &local->postparent);
+cleanup:
+        dht_rename_cleanup (frame);
 
 	return 0;
 }
