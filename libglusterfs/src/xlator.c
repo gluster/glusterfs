@@ -190,7 +190,8 @@ valid_ipv6_address (char *address, int length)
         {
                 hex_numbers++;
                 value = strtol (prev, &endptr, 16);
-                if ((value > 0xffff) || (value < 0) || (endptr != NULL)) {
+                if ((value > 0xffff) || (value < 0)
+                    || (endptr != NULL && *endptr != '\0')) {
                         ret = 0;
                         goto out;
                 }
