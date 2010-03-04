@@ -1219,6 +1219,8 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		local->op_ret = 0;
+                local->postparent = *postparent;
+                local->preparent = *preparent;
 	}
 unlock:
 	UNLOCK (&frame->lock);
@@ -1226,7 +1228,7 @@ unlock:
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt))
 		DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
-                                  NULL, NULL);
+                                  &local->preparent, &local->postparent);
 
         return 0;
 }
