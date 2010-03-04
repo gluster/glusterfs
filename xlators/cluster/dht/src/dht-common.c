@@ -1236,15 +1236,18 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 preparent->st_ino = local->loc.parent->ino;
                 postparent->st_ino = local->loc.parent->ino;
 		local->op_ret = 0;
+
+                local->postparent = *postparent;
+                local->preparent = *preparent;
+
+                WIPE (&local->postparent);
+                WIPE (&local->preparent);
 	}
 unlock:
 	UNLOCK (&frame->lock);
 
-        WIPE (postparent);
-        WIPE (preparent);
-
         DHT_STACK_UNWIND (unlink, frame, local->op_ret, local->op_errno,
-                          preparent, postparent);
+                          &local->preparent, &local->postparent);
 
         return 0;
 }
