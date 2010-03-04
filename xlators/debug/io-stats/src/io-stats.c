@@ -45,8 +45,9 @@ do {                                                            \
 
 struct io_stats_io_count {
         size_t  size;
-        int64_t hits;        
+        int64_t hits;
 };
+
 typedef enum {
         GF_IO_STAT_BLK_SIZE_1K,
         GF_IO_STAT_BLK_SIZE_2K,
@@ -67,63 +68,48 @@ struct io_stats_private {
                 uint32_t hits;
         } fop_records[GF_FOP_MAXVALUE];
         struct io_stats_io_count read[GF_IO_STAT_BLK_SIZE_MAX + 1];
-        struct io_stats_io_count write[GF_IO_STAT_BLK_SIZE_MAX + 1];        
+        struct io_stats_io_count write[GF_IO_STAT_BLK_SIZE_MAX + 1];
 };
 typedef struct io_stats_private io_stats_private_t;
 
-int32_t
-io_stats_create_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     fd_t *fd,
-                     inode_t *inode,
-                     struct stat *buf,
-                     struct stat *preparent,
-                     struct stat *postparent)
+
+int
+io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, fd_t *fd,
+                     inode_t *inode, struct stat *buf,
+                     struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf,
-                      preparent, postparent);
+        STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
-int32_t
-io_stats_open_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   fd_t *fd)
+
+int
+io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
         return 0;
 }
 
-int32_t
-io_stats_stat_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   struct stat *buf)
+
+int
+io_stats_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
         return 0;
 }
 
-int32_t
-io_stats_readv_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct iovec *vector,
-                    int32_t count,
-                    struct stat *buf,
-                    struct iobref *iobref)
+
+int
+io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    struct iovec *vector, int32_t count,
+                    struct stat *buf, struct iobref *iobref)
 {
-        int i = 0;
+        int                 i = 0;
         io_stats_private_t *priv = NULL;
 
         priv = this->private;
@@ -137,310 +123,233 @@ io_stats_readv_cbk (call_frame_t *frame,
                 priv->read[i].hits++;
         }
 
-        STACK_UNWIND (frame, op_ret, op_errno, vector, count, buf, iobref);
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
+                             vector, count, buf, iobref);
         return 0;
 }
 
-int32_t
-io_stats_writev_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct stat *prebuf,
-                     struct stat *postbuf)
+
+int
+io_stats_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     struct stat *prebuf, struct stat *postbuf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
 
-int32_t
-io_stats_getdents_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno,
-                       dir_entry_t *entries,
-                       int32_t count)
+
+int
+io_stats_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+                       dir_entry_t *entries, int32_t count)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, entries, count);
+        STACK_UNWIND_STRICT (getdents, frame, op_ret, op_errno, entries, count);
         return 0;
 }
 
-int32_t
+
+int
 io_stats_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, buf);
         return 0;
 }
 
 
-int32_t
-io_stats_readdir_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      gf_dirent_t *buf)
+int
+io_stats_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, buf);
         return 0;
 }
 
-int32_t
-io_stats_fsync_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct stat *prebuf,
-                    struct stat *postbuf)
+
+int
+io_stats_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    struct stat *prebuf, struct stat *postbuf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
 
-int32_t
-io_stats_setattr_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      struct stat *preop,
-                      struct stat *postop)
+
+int
+io_stats_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno,
+                      struct stat *preop, struct stat *postop)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
+        STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
         return 0;
 }
 
-int32_t
-io_stats_unlink_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct stat *preparent,
-                     struct stat *postparent)
+
+int
+io_stats_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent, postparent);
         return 0;
 }
 
-int32_t
-io_stats_rename_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct stat *buf,
-                     struct stat *preoldparent,
-                     struct stat *postoldparent,
-                     struct stat *prenewparent,
-                     struct stat *postnewparent)
+
+int
+io_stats_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct stat *buf,
+                     struct stat *preoldparent, struct stat *postoldparent,
+                     struct stat *prenewparent, struct stat *postnewparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf,
-                      preoldparent, postoldparent,
-                      prenewparent, postnewparent);
+        STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
+                             preoldparent, postoldparent,
+                             prenewparent, postnewparent);
         return 0;
 }
 
-int32_t
-io_stats_readlink_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno,
-                       const char *buf,
+
+int
+io_stats_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, const char *buf,
                        struct stat *sbuf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf, sbuf);
-        return 0;
-}
-
-int32_t
-io_stats_lookup_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     inode_t *inode,
-                     struct stat *buf,
-                     dict_t *xattr,
-                     struct stat *postparent)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr,
-                      postparent);
-        return 0;
-}
-
-int32_t
-io_stats_symlink_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      inode_t *inode,
-                      struct stat *buf,
-                      struct stat *preparent,
-                      struct stat *postparent)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
-                      preparent, postparent);
-        return 0;
-}
-
-int32_t
-io_stats_mknod_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    inode_t *inode,
-                    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
-                      preparent, postparent);
+        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, buf, sbuf);
         return 0;
 }
 
 
-int32_t
-io_stats_mkdir_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    inode_t *inode,
-                    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent)
+int
+io_stats_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno,
+                     inode_t *inode, struct stat *buf,
+                     dict_t *xattr, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
-                      preparent, postparent);
-        return 0;
-}
-
-int32_t
-io_stats_link_cbk (call_frame_t *frame,
-                   void *cookie,
-                   xlator_t *this,
-                   int32_t op_ret,
-                   int32_t op_errno,
-                   inode_t *inode,
-                   struct stat *buf,
-                   struct stat *preparent,
-                   struct stat *postparent)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf,
-                      preparent, postparent);
-        return 0;
-}
-
-int32_t
-io_stats_flush_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno)
-{
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xattr,
+                             postparent);
         return 0;
 }
 
 
-int32_t
-io_stats_opendir_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      fd_t *fd)
+int
+io_stats_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno,
+                      inode_t *inode, struct stat *buf,
+                      struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, fd);
+        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
-int32_t
-io_stats_rmdir_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct stat *preparent,
-                    struct stat *postparent)
+
+int
+io_stats_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    inode_t *inode, struct stat *buf,
+                    struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
-int32_t
-io_stats_truncate_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno,
-                       struct stat *prebuf,
-                       struct stat *postbuf)
+
+int
+io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    inode_t *inode, struct stat *buf,
+                    struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
-int32_t
-io_stats_utimens_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      struct stat *buf)
+
+int
+io_stats_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno,
+                   inode_t *inode, struct stat *buf,
+                   struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
         return 0;
 }
 
-int32_t
-io_stats_statfs_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno,
-                     struct statvfs *buf)
+
+int
+io_stats_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
         return 0;
 }
 
-int32_t
-io_stats_setxattr_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno)
+
+int
+io_stats_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
         return 0;
 }
 
-int32_t
-io_stats_getxattr_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno,
-                       dict_t *dict)
-{
-        io_stats_private_t *priv = this->private;
-        int i = 0;
-        char keycont[] = "trusted.glusterfs.hits." /* 23 chars */
-                         "0123456789"
-                         "0123456789"
-                         "0123456789"
-                         "0123456789";
-        int ret = -1;
 
+int
+io_stats_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno,
+                    struct stat *preparent, struct stat *postparent)
+{
+        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent, postparent);
+        return 0;
+}
+
+
+int
+io_stats_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+                       struct stat *prebuf, struct stat *postbuf)
+{
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf, postbuf);
+        return 0;
+}
+
+
+int
+io_stats_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct statvfs *buf)
+{
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf);
+        return 0;
+}
+
+
+int
+io_stats_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+io_stats_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        io_stats_private_t *priv = NULL;
+        int                 i = 0;
+        char                keycont[] = "trusted.glusterfs.hits." /* 23 chars */
+                "0123456789"
+                "0123456789"
+                "0123456789"
+                "0123456789";
+        int                 ret = -1;
+
+        priv = this->private;
         memset (keycont + 23, '\0', 40);
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++) {
@@ -467,162 +376,130 @@ io_stats_getxattr_cbk (call_frame_t *frame,
         return 0;
 }
 
-int32_t
-io_stats_removexattr_cbk (call_frame_t *frame,
-                          void *cookie,
-                          xlator_t *this,
-                          int32_t op_ret,
-                          int32_t op_errno)
+
+int
+io_stats_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno);
         return 0;
 }
 
 
-int32_t
-io_stats_fsyncdir_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno)
+int
+io_stats_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
-        return 0;
-}
-
-int32_t
-io_stats_access_cbk (call_frame_t *frame,
-                     void *cookie,
-                     xlator_t *this,
-                     int32_t op_ret,
-                     int32_t op_errno)
-{
-        STACK_UNWIND (frame, op_ret, op_errno);
-        return 0;
-}
-
-int32_t
-io_stats_ftruncate_cbk (call_frame_t *frame,
-                        void *cookie,
-                        xlator_t *this,
-                        int32_t op_ret,
-                        int32_t op_errno,
-                        struct stat *prebuf,
-                        struct stat *postbuf)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
-        return 0;
-}
-
-int32_t
-io_stats_fstat_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct stat *buf)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, buf);
-        return 0;
-}
-
-int32_t
-io_stats_lk_cbk (call_frame_t *frame,
-                 void *cookie,
-                 xlator_t *this,
-                 int32_t op_ret,
-                 int32_t op_errno,
-                 struct flock *lock)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, lock);
+        STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno);
         return 0;
 }
 
 
-int32_t
-io_stats_setdents_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno)
+int
+io_stats_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
 {
-        STACK_UNWIND (frame, op_ret, op_errno);
-        return 0;
-}
-
-int32_t
-io_stats_entrylk_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno)
-{
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
         return 0;
 }
 
 
-int32_t
-io_stats_xattrop_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno,
-                      dict_t *dict)
+int
+io_stats_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno,
+                        struct stat *prebuf, struct stat *postbuf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, dict);
-        return 0;
-}
-
-int32_t
-io_stats_fxattrop_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno,
-                       dict_t *dict)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, dict);
-        return 0;
-}
-
-int32_t
-io_stats_inodelk_cbk (call_frame_t *frame,
-                      void *cookie,
-                      xlator_t *this,
-                      int32_t op_ret,
-                      int32_t op_errno)
-{
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
 
 
-int32_t
+int
+io_stats_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct stat *buf)
+{
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
+        return 0;
+}
+
+
+int
+io_stats_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                 int32_t op_ret, int32_t op_errno, struct flock *lock)
+{
+        STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
+        return 0;
+}
+
+
+int
+io_stats_setdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (setdents, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+io_stats_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
+io_stats_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, dict);
+        return 0;
+}
+
+
+int
+io_stats_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        STACK_UNWIND_STRICT (fxattrop, frame, op_ret, op_errno, dict);
+        return 0;
+}
+
+
+int
+io_stats_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
+{
+        STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
+        return 0;
+}
+
+
+int
 io_stats_entrylk (call_frame_t *frame, xlator_t *this,
                   const char *volume, loc_t *loc, const char *basename,
                   entrylk_cmd cmd, entrylk_type type)
 {
         BUMP_HIT(ENTRYLK);
 
-        STACK_WIND (frame,
-                    io_stats_entrylk_cbk,
+        STACK_WIND (frame, io_stats_entrylk_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->entrylk,
                     volume, loc, basename, cmd, type);
         return 0;
 }
 
-int32_t
-io_stats_inodelk (call_frame_t *frame,
-                  xlator_t *this,
+
+int
+io_stats_inodelk (call_frame_t *frame, xlator_t *this,
                   const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
 {
 
         BUMP_HIT(INODELK);
 
-        STACK_WIND (frame,
-                    io_stats_inodelk_cbk,
+        STACK_WIND (frame, io_stats_inodelk_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->inodelk,
                     volume, loc, cmd, flock);
@@ -630,27 +507,23 @@ io_stats_inodelk (call_frame_t *frame,
 }
 
 
-int32_t
-io_stats_finodelk_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno)
+int
+io_stats_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno)
 {
 
-        STACK_UNWIND (frame, op_ret, op_errno);
+        STACK_UNWIND_STRICT (finodelk, frame, op_ret, op_errno);
         return 0;
 }
 
-int32_t
-io_stats_finodelk (call_frame_t *frame,
-                   xlator_t *this,
+
+int
+io_stats_finodelk (call_frame_t *frame, xlator_t *this,
                    const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
         BUMP_HIT(FINODELK);
 
-        STACK_WIND (frame,
-                    io_stats_finodelk_cbk,
+        STACK_WIND (frame, io_stats_finodelk_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->finodelk,
                     volume, fd, cmd, flock);
@@ -658,12 +531,9 @@ io_stats_finodelk (call_frame_t *frame,
 }
 
 
-int32_t
-io_stats_xattrop (call_frame_t *frame,
-                  xlator_t *this,
-                  loc_t *loc,
-                  gf_xattrop_flags_t flags,
-                  dict_t *dict)
+int
+io_stats_xattrop (call_frame_t *frame, xlator_t *this,
+                  loc_t *loc, gf_xattrop_flags_t flags, dict_t *dict)
 {
         BUMP_HIT(XATTROP);
 
@@ -675,12 +545,10 @@ io_stats_xattrop (call_frame_t *frame,
         return 0;
 }
 
-int32_t
-io_stats_fxattrop (call_frame_t *frame,
-                   xlator_t *this,
-                   fd_t *fd,
-                   gf_xattrop_flags_t flags,
-                   dict_t *dict)
+
+int
+io_stats_fxattrop (call_frame_t *frame, xlator_t *this,
+                   fd_t *fd, gf_xattrop_flags_t flags, dict_t *dict)
 {
         BUMP_HIT(FXATTROP);
 
@@ -692,11 +560,10 @@ io_stats_fxattrop (call_frame_t *frame,
         return 0;
 }
 
-int32_t
-io_stats_lookup (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
-                 dict_t *xattr_req)
+
+int
+io_stats_lookup (call_frame_t *frame, xlator_t *this,
+                 loc_t *loc, dict_t *xattr_req)
 {
         BUMP_HIT(LOOKUP);
 
@@ -708,15 +575,13 @@ io_stats_lookup (call_frame_t *frame,
         return 0;
 }
 
-int32_t
-io_stats_stat (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *loc)
+
+int
+io_stats_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         BUMP_HIT(STAT);
 
-        STACK_WIND (frame,
-                    io_stats_stat_cbk,
+        STACK_WIND (frame, io_stats_stat_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->stat,
                     loc);
@@ -724,85 +589,72 @@ io_stats_stat (call_frame_t *frame,
         return 0;
 }
 
-int32_t
-io_stats_readlink (call_frame_t *frame,
-                   xlator_t *this,
-                   loc_t *loc,
-                   size_t size)
+
+int
+io_stats_readlink (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, size_t size)
 {
         BUMP_HIT(READLINK);
 
-        STACK_WIND (frame,
-                    io_stats_readlink_cbk,
+        STACK_WIND (frame, io_stats_readlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readlink,
-                    loc,
-                    size);
+                    loc, size);
 
         return 0;
 }
 
-int32_t
-io_stats_mknod (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc,
-                mode_t mode,
-                dev_t dev)
+
+int
+io_stats_mknod (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, mode_t mode, dev_t dev)
 {
         BUMP_HIT(MKNOD);
 
-        STACK_WIND (frame,
-                    io_stats_mknod_cbk,
+        STACK_WIND (frame, io_stats_mknod_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mknod,
-                    loc,
-                    mode,
-                    dev);
+                    loc, mode, dev);
 
         return 0;
 }
 
-int32_t
-io_stats_mkdir (call_frame_t *frame,
-                xlator_t *this,
-                loc_t *loc,
-                mode_t mode)
+
+int
+io_stats_mkdir (call_frame_t *frame, xlator_t *this,
+                loc_t *loc, mode_t mode)
 {
         BUMP_HIT(MKDIR);
 
-        STACK_WIND (frame,
-                    io_stats_mkdir_cbk,
+        STACK_WIND (frame, io_stats_mkdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mkdir,
-                    loc,
-                    mode);
+                    loc, mode);
         return 0;
 }
 
-int32_t
-io_stats_unlink (call_frame_t *frame,
-                 xlator_t *this,
+
+int
+io_stats_unlink (call_frame_t *frame, xlator_t *this,
                  loc_t *loc)
 {
         BUMP_HIT(UNLINK);
 
-        STACK_WIND (frame,
-                    io_stats_unlink_cbk,
+        STACK_WIND (frame, io_stats_unlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->unlink,
                     loc);
         return 0;
 }
 
-int32_t
-io_stats_rmdir (call_frame_t *frame,
-                xlator_t *this,
+
+int
+io_stats_rmdir (call_frame_t *frame, xlator_t *this,
                 loc_t *loc)
 {
         BUMP_HIT(RMDIR);
 
-        STACK_WIND (frame,
-                    io_stats_rmdir_cbk,
+        STACK_WIND (frame, io_stats_rmdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rmdir,
                     loc);
@@ -810,165 +662,130 @@ io_stats_rmdir (call_frame_t *frame,
         return 0;
 }
 
-int32_t
-io_stats_symlink (call_frame_t *frame,
-                  xlator_t *this,
-                  const char *linkpath,
-                  loc_t *loc)
+
+int
+io_stats_symlink (call_frame_t *frame, xlator_t *this,
+                  const char *linkpath, loc_t *loc)
 {
         BUMP_HIT(SYMLINK);
 
-        STACK_WIND (frame,
-                    io_stats_symlink_cbk,
+        STACK_WIND (frame, io_stats_symlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->symlink,
-                    linkpath,
-                    loc);
+                    linkpath, loc);
 
         return 0;
 }
 
-int32_t
-io_stats_rename (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *oldloc,
-                 loc_t *newloc)
+
+int
+io_stats_rename (call_frame_t *frame, xlator_t *this,
+                 loc_t *oldloc, loc_t *newloc)
 {
         BUMP_HIT(RENAME);
 
-        STACK_WIND (frame,
-                    io_stats_rename_cbk,
+        STACK_WIND (frame, io_stats_rename_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rename,
-                    oldloc,
-                    newloc);
+                    oldloc, newloc);
 
         return 0;
 }
 
-int32_t
-io_stats_link (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *oldloc,
-               loc_t *newloc)
+
+int
+io_stats_link (call_frame_t *frame, xlator_t *this,
+               loc_t *oldloc, loc_t *newloc)
 {
         BUMP_HIT(LINK);
 
-        STACK_WIND (frame,
-                    io_stats_link_cbk,
+        STACK_WIND (frame, io_stats_link_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->link,
-                    oldloc,
-                    newloc);
+                    oldloc, newloc);
         return 0;
 }
 
-int32_t
-io_stats_setattr (call_frame_t *frame,
-                  xlator_t *this,
-                  loc_t *loc,
-                  struct stat *stbuf,
-                  int32_t valid)
+
+int
+io_stats_setattr (call_frame_t *frame, xlator_t *this,
+                  loc_t *loc, struct stat *stbuf, int32_t valid)
 {
         BUMP_HIT(SETATTR);
 
-        STACK_WIND (frame,
-                    io_stats_setattr_cbk,
+        STACK_WIND (frame, io_stats_setattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setattr,
-                    loc,
-                    stbuf, valid);
+                    loc, stbuf, valid);
 
         return 0;
 }
 
-int32_t
-io_stats_truncate (call_frame_t *frame,
-                   xlator_t *this,
-                   loc_t *loc,
-                   off_t offset)
+
+int
+io_stats_truncate (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, off_t offset)
 {
         BUMP_HIT(TRUNCATE);
 
-        STACK_WIND (frame,
-                    io_stats_truncate_cbk,
+        STACK_WIND (frame, io_stats_truncate_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate,
-                    loc,
-                    offset);
+                    loc, offset);
 
         return 0;
 }
 
-int32_t
-io_stats_open (call_frame_t *frame,
-               xlator_t *this,
-               loc_t *loc,
-               int32_t flags,
-               fd_t *fd, int32_t wbflags)
+
+int
+io_stats_open (call_frame_t *frame, xlator_t *this,
+               loc_t *loc, int32_t flags, fd_t *fd, int32_t wbflags)
 {
         BUMP_HIT(OPEN);
 
-        STACK_WIND (frame,
-                    io_stats_open_cbk,
+        STACK_WIND (frame, io_stats_open_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open,
-                    loc,
-                    flags,
-                    fd, wbflags);
+                    loc, flags, fd, wbflags);
         return 0;
 }
 
-int32_t
-io_stats_create (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
-                 int32_t flags,
-                 mode_t mode,
-                 fd_t *fd)
+
+int
+io_stats_create (call_frame_t *frame, xlator_t *this,
+                 loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
         BUMP_HIT(CREATE);
 
-        STACK_WIND (frame,
-                    io_stats_create_cbk,
+        STACK_WIND (frame, io_stats_create_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
-                    loc,
-                    flags,
-                    mode,
-                    fd);
+                    loc, flags, mode, fd);
         return 0;
 }
 
-int32_t
-io_stats_readv (call_frame_t *frame,
-                xlator_t *this,
-                fd_t *fd,
-                size_t size,
-                off_t offset)
+
+int
+io_stats_readv (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, size_t size, off_t offset)
 {
         BUMP_HIT(READ);
 
-        STACK_WIND (frame,
-                    io_stats_readv_cbk,
+        STACK_WIND (frame, io_stats_readv_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readv,
-                    fd,
-                    size,
-                    offset);
+                    fd, size, offset);
         return 0;
 }
 
-int32_t
-io_stats_writev (call_frame_t *frame,
-                 xlator_t *this,
-                 fd_t *fd,
-                 struct iovec *vector,
-                 int32_t count,
-                 off_t offset,
+
+int
+io_stats_writev (call_frame_t *frame, xlator_t *this,
+                 fd_t *fd, struct iovec *vector,
+                 int32_t count, off_t offset,
                  struct iobref *iobref)
 {
-        int i = 0;
+        int                 i = 0;
         io_stats_private_t *priv = NULL;
 
         priv = this->private;
@@ -982,41 +799,34 @@ io_stats_writev (call_frame_t *frame,
         }
         priv->write[i].hits++;
 
-        STACK_WIND (frame,
-                    io_stats_writev_cbk,
+        STACK_WIND (frame, io_stats_writev_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
-                    fd,
-                    vector,
-                    count,
-                    offset,
-                    iobref);
+                    fd, vector, count, offset, iobref);
         return 0;
 }
 
-int32_t
-io_stats_statfs (call_frame_t *frame,
-                 xlator_t *this,
+
+int
+io_stats_statfs (call_frame_t *frame, xlator_t *this,
                  loc_t *loc)
 {
         BUMP_HIT(STATFS);
 
-        STACK_WIND (frame,
-                    io_stats_statfs_cbk,
+        STACK_WIND (frame, io_stats_statfs_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->statfs,
                     loc);
         return 0;
 }
 
-int32_t
-io_stats_flush (call_frame_t *frame,
-                xlator_t *this,
+
+int
+io_stats_flush (call_frame_t *frame, xlator_t *this,
                 fd_t *fd)
 {
         BUMP_HIT(FLUSH);
 
-        STACK_WIND (frame,
-                    io_stats_flush_cbk,
+        STACK_WIND (frame, io_stats_flush_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->flush,
                     fd);
@@ -1024,333 +834,267 @@ io_stats_flush (call_frame_t *frame,
 }
 
 
-int32_t
-io_stats_fsync (call_frame_t *frame,
-                xlator_t *this,
-                fd_t *fd,
-                int32_t flags)
+int
+io_stats_fsync (call_frame_t *frame, xlator_t *this,
+                fd_t *fd, int32_t flags)
 {
         BUMP_HIT(FSYNC);
 
-        STACK_WIND (frame,
-                    io_stats_fsync_cbk,
+        STACK_WIND (frame, io_stats_fsync_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsync,
-                    fd,
-                    flags);
+                    fd, flags);
         return 0;
 }
 
-int32_t
-io_stats_setxattr (call_frame_t *frame,
-                   xlator_t *this,
-                   loc_t *loc,
-                   dict_t *dict,
+
+int
+io_stats_setxattr (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, dict_t *dict,
                    int32_t flags)
 {
         BUMP_HIT(SETXATTR);
 
-        STACK_WIND (frame,
-                    io_stats_setxattr_cbk,
+        STACK_WIND (frame, io_stats_setxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
-                    loc,
-                    dict,
-                    flags);
+                    loc, dict, flags);
         return 0;
 }
 
-int32_t
-io_stats_getxattr (call_frame_t *frame,
-                   xlator_t *this,
-                   loc_t *loc,
-                   const char *name)
+
+int
+io_stats_getxattr (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, const char *name)
 {
         BUMP_HIT(GETXATTR);
 
-        STACK_WIND (frame,
-                    io_stats_getxattr_cbk,
+        STACK_WIND (frame, io_stats_getxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr,
-                    loc,
-                    name);
+                    loc, name);
         return 0;
 }
 
-int32_t
-io_stats_removexattr (call_frame_t *frame,
-                      xlator_t *this,
-                      loc_t *loc,
-                      const char *name)
+
+int
+io_stats_removexattr (call_frame_t *frame, xlator_t *this,
+                      loc_t *loc, const char *name)
 {
         BUMP_HIT(REMOVEXATTR);
 
-        STACK_WIND (frame,
-                    io_stats_removexattr_cbk,
+        STACK_WIND (frame, io_stats_removexattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->removexattr,
-                    loc,
-                    name);
+                    loc, name);
 
         return 0;
 }
 
-int32_t
-io_stats_opendir (call_frame_t *frame,
-                  xlator_t *this,
-                  loc_t *loc,
-                  fd_t *fd)
+
+int
+io_stats_opendir (call_frame_t *frame, xlator_t *this,
+                  loc_t *loc, fd_t *fd)
 {
         BUMP_HIT(OPENDIR);
 
-        STACK_WIND (frame,
-                    io_stats_opendir_cbk,
+        STACK_WIND (frame, io_stats_opendir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->opendir,
-                    loc,
-                    fd);
+                    loc, fd);
         return 0;
 }
 
-int32_t
-io_stats_getdents (call_frame_t *frame,
-                   xlator_t *this,
-                   fd_t *fd,
-                   size_t size,
-                   off_t offset,
-                   int32_t flag)
+
+int
+io_stats_getdents (call_frame_t *frame, xlator_t *this,
+                   fd_t *fd, size_t size, off_t offset, int32_t flag)
 {
         BUMP_HIT(GETDENTS);
 
-        STACK_WIND (frame,
-                    io_stats_getdents_cbk,
+        STACK_WIND (frame, io_stats_getdents_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getdents,
-                    fd,
-                    size,
-                    offset,
-                    flag);
+                    fd, size, offset, flag);
         return 0;
 }
 
 
-int32_t
+int
 io_stats_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                    off_t offset)
 {
         BUMP_HIT(READDIRP);
 
-        STACK_WIND (frame, io_stats_readdirp_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdir, fd, size, offset);
+        STACK_WIND (frame, io_stats_readdirp_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->readdir,
+                    fd, size, offset);
 
         return 0;
 }
 
 
-
-int32_t
-io_stats_readdir (call_frame_t *frame,
-                  xlator_t *this,
-                  fd_t *fd,
-                  size_t size,
-                  off_t offset)
+int
+io_stats_readdir (call_frame_t *frame, xlator_t *this,
+                  fd_t *fd, size_t size, off_t offset)
 {
         BUMP_HIT(READDIR);
 
-        STACK_WIND (frame,
-                    io_stats_readdir_cbk,
+        STACK_WIND (frame, io_stats_readdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdir,
-                    fd,
-                    size,
-                    offset);
+                    fd, size, offset);
 
         return 0;
 }
 
 
-int32_t
-io_stats_fsyncdir (call_frame_t *frame,
-                   xlator_t *this,
-                   fd_t *fd,
-                   int32_t datasync)
+int
+io_stats_fsyncdir (call_frame_t *frame, xlator_t *this,
+                   fd_t *fd, int32_t datasync)
 {
         BUMP_HIT(FSYNCDIR);
 
-        STACK_WIND (frame,
-                    io_stats_fsyncdir_cbk,
+        STACK_WIND (frame, io_stats_fsyncdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsyncdir,
-                    fd,
-                    datasync);
+                    fd, datasync);
         return 0;
 }
 
-int32_t
-io_stats_access (call_frame_t *frame,
-                 xlator_t *this,
-                 loc_t *loc,
-                 int32_t mask)
+
+int
+io_stats_access (call_frame_t *frame, xlator_t *this,
+                 loc_t *loc, int32_t mask)
 {
         BUMP_HIT(ACCESS);
 
-        STACK_WIND (frame,
-                    io_stats_access_cbk,
+        STACK_WIND (frame, io_stats_access_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->access,
-                    loc,
-                    mask);
+                    loc, mask);
         return 0;
 }
 
-int32_t
-io_stats_ftruncate (call_frame_t *frame,
-                    xlator_t *this,
-                    fd_t *fd,
-                    off_t offset)
+
+int
+io_stats_ftruncate (call_frame_t *frame, xlator_t *this,
+                    fd_t *fd, off_t offset)
 {
         BUMP_HIT(FTRUNCATE);
 
-        STACK_WIND (frame,
-                    io_stats_ftruncate_cbk,
+        STACK_WIND (frame, io_stats_ftruncate_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate,
-                    fd,
-                    offset);
+                    fd, offset);
 
         return 0;
 }
 
-int32_t
-io_stats_fsetattr (call_frame_t *frame,
-                   xlator_t *this,
-                   fd_t *fd,
-                   struct stat *stbuf,
-                   int32_t valid)
+
+int
+io_stats_fsetattr (call_frame_t *frame, xlator_t *this,
+                   fd_t *fd, struct stat *stbuf, int32_t valid)
 {
         BUMP_HIT(FSETATTR);
 
-        STACK_WIND (frame,
-                    io_stats_setattr_cbk,
+        STACK_WIND (frame, io_stats_setattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsetattr,
-                    fd,
-                    stbuf, valid);
+                    fd, stbuf, valid);
         return 0;
 }
 
-int32_t
-io_stats_fstat (call_frame_t *frame,
-                xlator_t *this,
+
+int
+io_stats_fstat (call_frame_t *frame, xlator_t *this,
                 fd_t *fd)
 {
         BUMP_HIT(FSTAT);
 
-        STACK_WIND (frame,
-                    io_stats_fstat_cbk,
+        STACK_WIND (frame, io_stats_fstat_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fstat,
                     fd);
         return 0;
 }
 
-int32_t
-io_stats_lk (call_frame_t *frame,
-             xlator_t *this,
-             fd_t *fd,
-             int32_t cmd,
-             struct flock *lock)
+
+int
+io_stats_lk (call_frame_t *frame, xlator_t *this,
+             fd_t *fd, int32_t cmd, struct flock *lock)
 {
         BUMP_HIT(LK);
 
-        STACK_WIND (frame,
-                    io_stats_lk_cbk,
+        STACK_WIND (frame, io_stats_lk_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lk,
-                    fd,
-                    cmd,
-                    lock);
+                    fd, cmd, lock);
         return 0;
 }
 
-int32_t
-io_stats_setdents (call_frame_t *frame,
-                   xlator_t *this,
-                   fd_t *fd,
-                   int32_t flags,
-                   dir_entry_t *entries,
-                   int32_t count)
+
+int
+io_stats_setdents (call_frame_t *frame, xlator_t *this,
+                   fd_t *fd, int32_t flags,
+                   dir_entry_t *entries, int32_t count)
 {
         BUMP_HIT(SETDENTS);
 
-        STACK_WIND (frame,
-                    io_stats_setdents_cbk,
+        STACK_WIND (frame, io_stats_setdents_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setdents,
-                    fd,
-                    flags,
-                    entries,
-                    count);
+                    fd, flags, entries, count);
         return 0;
 }
 
 
-int32_t
-io_stats_checksum_cbk (call_frame_t *frame,
-                       void *cookie,
-                       xlator_t *this,
-                       int32_t op_ret,
-                       int32_t op_errno,
-                       uint8_t *fchecksum,
-                       uint8_t *dchecksum)
+int
+io_stats_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno,
+                       uint8_t *fchecksum, uint8_t *dchecksum)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
+        STACK_UNWIND_STRICT (checksum, frame, op_ret, op_errno,
+                             fchecksum, dchecksum);
 
         return 0;
 }
 
-int32_t
-io_stats_checksum (call_frame_t *frame,
-                   xlator_t *this,
-                   loc_t *loc,
-                   int32_t flag)
+
+int
+io_stats_checksum (call_frame_t *frame, xlator_t *this,
+                   loc_t *loc, int32_t flag)
 {
-        STACK_WIND (frame,
-                    io_stats_checksum_cbk,
+        STACK_WIND (frame, io_stats_checksum_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->checksum,
-                    loc,
-                    flag);
+                    loc, flag);
 
         return 0;
 }
 
 
-int32_t
-io_stats_stats_cbk (call_frame_t *frame,
-                    void *cookie,
-                    xlator_t *this,
-                    int32_t op_ret,
-                    int32_t op_errno,
-                    struct xlator_stats *stats)
+int
+io_stats_stats_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct xlator_stats *stats)
 {
         STACK_UNWIND (frame, op_ret, op_errno, stats);
         return 0;
 }
 
-int32_t
-io_stats_stats (call_frame_t *frame,
-                xlator_t *this,
-                int32_t flags)
+
+int
+io_stats_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
 {
-        STACK_WIND (frame,
-                    io_stats_stats_cbk,
+        STACK_WIND (frame, io_stats_stats_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->mops->stats,
                     flags);
 
         return 0;
 }
+
 
 void
 enable_all_calls (io_stats_private_t *priv, int enabled)
@@ -1359,6 +1103,7 @@ enable_all_calls (io_stats_private_t *priv, int enabled)
         for (i = 0; i < GF_FOP_MAXVALUE; i++)
                 priv->fop_records[i].enabled = enabled;
 }
+
 
 void
 enable_call (io_stats_private_t *priv, const char *name, int enabled)
@@ -1390,14 +1135,15 @@ process_call_list (io_stats_private_t *priv, const char *list, int include)
 }
 
 
-int32_t
+int
 init (xlator_t *this)
 {
-        dict_t *options = NULL;
-        char *includes = NULL, *excludes = NULL;
+        dict_t             *options = NULL;
+        char               *includes = NULL;
+        char               *excludes = NULL;
         io_stats_private_t *priv = NULL;
-        size_t size = 0;
-        int i = 0;
+        size_t              size = 0;
+        int                 i = 0;
 
         if (!this)
                 return -1;
@@ -1451,6 +1197,7 @@ init (xlator_t *this)
         return 0;
 }
 
+
 void
 fini (xlator_t *this)
 {
@@ -1469,6 +1216,7 @@ fini (xlator_t *this)
                 "io-stats translator unloaded");
         return;
 }
+
 
 struct xlator_fops fops = {
         .stat        = io_stats_stat,
