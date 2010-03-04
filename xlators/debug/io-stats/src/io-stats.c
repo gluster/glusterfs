@@ -24,53 +24,324 @@
 
 /**
  * xlators/debug/io_stats :
- *    This translator maintains a counter for each fop (that is,
- *    a counter which stores the number of invocations for the certain
- *    fop), and makes these counters accessible as extended attributes.
+ *    This translator maintains statistics of all filesystem activity
+ *    happening through it. The kind of statistics include:
+ *
+ *  a) total read data - since process start, last interval and per fd
+ *  b) total write data - since process start, last interval and per fd
+ *  c) counts of read IO block size - since process start, last interval and per fd
+ *  d) counts of write IO block size - since process start, last interval and per fd
+ *  e) counts of all FOP types passing through it
+ *
+ *  Usage: setfattr -n io-stats-dump /tmp/filename /mnt/gluster
+ *
  */
 
+#include <fnmatch.h>
 #include <errno.h>
 #include "glusterfs.h"
 #include "xlator.h"
 
-#define BUMP_HIT(op)                                            \
-do {                                                            \
-        LOCK (&((io_stats_private_t *)this->private)->lock);    \
-        {                                                       \
-                ((io_stats_private_t *)this->private)           \
-                  ->fop_records[GF_FOP_##op].hits++;            \
-        }                                                       \
-        UNLOCK (&((io_stats_private_t *)this->private)->lock);  \
- } while (0)
 
-struct io_stats_io_count {
-        size_t  size;
-        int64_t hits;
+struct ios_global_stats {
+        uint64_t        data_written;
+        uint64_t        data_read;
+        uint64_t        block_count_write[32];
+        uint64_t        block_count_read[32];
+        uint64_t        fop_hits[GF_FOP_MAXVALUE];
+        uint64_t        cbk_hits[GF_CBK_MAXVALUE];
+        struct timeval  started_at;
 };
 
-typedef enum {
-        GF_IO_STAT_BLK_SIZE_1K,
-        GF_IO_STAT_BLK_SIZE_2K,
-        GF_IO_STAT_BLK_SIZE_4K,
-        GF_IO_STAT_BLK_SIZE_8K,
-        GF_IO_STAT_BLK_SIZE_16K,
-        GF_IO_STAT_BLK_SIZE_32K,
-        GF_IO_STAT_BLK_SIZE_64K,
-        GF_IO_STAT_BLK_SIZE_128K,
-        GF_IO_STAT_BLK_SIZE_MAX,
-} gf_io_stat_blk_t;
 
-struct io_stats_private {
-        gf_lock_t lock;
-        struct {
-                char *name;
-                int enabled;
-                uint32_t hits;
-        } fop_records[GF_FOP_MAXVALUE];
-        struct io_stats_io_count read[GF_IO_STAT_BLK_SIZE_MAX + 1];
-        struct io_stats_io_count write[GF_IO_STAT_BLK_SIZE_MAX + 1];
+struct ios_conf {
+        gf_lock_t                 lock;
+        struct ios_global_stats   cumulative;
+        uint64_t                  increment;
+        struct ios_global_stats   incremental;
+        gf_boolean_t              dump_fd_stats;
 };
-typedef struct io_stats_private io_stats_private_t;
+
+
+struct ios_fd {
+        char           *filename;
+        uint64_t        data_written;
+        uint64_t        data_read;
+        uint64_t        block_count_write[32];
+        uint64_t        block_count_read[32];
+        struct timeval  opened_at;
+};
+
+
+struct ios_local {
+        struct timeval  wind_at;
+        struct timeval  unwind_at;
+};
+
+
+#define BUMP_FOP(op)                                                    \
+        do {                                                            \
+                struct ios_conf  *conf = NULL;                          \
+                                                                        \
+                conf = this->private;                                   \
+                LOCK (&conf->lock);                                     \
+                {                                                       \
+                        conf->cumulative.fop_hits[GF_FOP_##op]++;       \
+                        conf->incremental.fop_hits[GF_FOP_##op]++;      \
+                }                                                       \
+                UNLOCK (&conf->lock);                                   \
+        } while (0)
+
+
+#define BUMP_CBK(op)                                                    \
+        do {                                                            \
+                struct ios_conf  *conf = NULL;                          \
+                                                                        \
+                conf = this->private;                                   \
+                LOCK (&conf->lock);                                     \
+                {                                                       \
+                        conf->cumulative.cbk_hits[GF_CBK_##op]++;       \
+                        conf->incremental.cbk_hits[GF_CBK_##op]++;      \
+                }                                                       \
+                UNLOCK (&conf->lock);                                   \
+        } while (0)
+
+
+#define BUMP_READ(fd, len)                                              \
+        do {                                                            \
+                struct ios_conf  *conf = NULL;                          \
+                struct ios_fd    *iosfd = NULL;                         \
+                int               lb2 = 0;                              \
+                                                                        \
+                conf = this->private;                                   \
+                lb2 = log_base2 (len);                                  \
+                ios_fd_ctx_get (fd, this, &iosfd);                      \
+                                                                        \
+                LOCK (&conf->lock);                                     \
+                {                                                       \
+                        conf->cumulative.data_read += len;              \
+                        conf->incremental.data_read += len;             \
+                        conf->cumulative.block_count_read[lb2]++;       \
+                        conf->incremental.block_count_read[lb2]++;      \
+                                                                        \
+                        if (iosfd) {                                    \
+                                iosfd->data_read += len;                \
+                                iosfd->block_count_read[lb2]++;         \
+                        }                                               \
+                }                                                       \
+                UNLOCK (&conf->lock);                                   \
+        } while (0)
+
+
+#define BUMP_WRITE(fd, len)                                             \
+        do {                                                            \
+                struct ios_conf  *conf = NULL;                          \
+                struct ios_fd    *iosfd = NULL;                         \
+                int               lb2 = 0;                              \
+                                                                        \
+                conf = this->private;                                   \
+                lb2 = log_base2 (len);                                  \
+                ios_fd_ctx_get (fd, this, &iosfd);                      \
+                                                                        \
+                LOCK (&conf->lock);                                     \
+                {                                                       \
+                        conf->cumulative.data_written += len;           \
+                        conf->incremental.data_written += len;          \
+                        conf->cumulative.block_count_write[lb2]++;      \
+                        conf->incremental.block_count_write[lb2]++;     \
+                                                                        \
+                        if (iosfd) {                                    \
+                                iosfd->data_written += len;             \
+                                iosfd->block_count_write[lb2]++;        \
+                        }                                               \
+                }                                                       \
+                UNLOCK (&conf->lock);                                   \
+        } while (0)
+
+
+int
+ios_fd_ctx_get (fd_t *fd, xlator_t *this, struct ios_fd **iosfd)
+{
+        uint64_t      iosfd64 = 0;
+        unsigned long iosfdlong = 0;
+        int           ret = 0;
+
+        ret = fd_ctx_get (fd, this, &iosfd64);
+        iosfdlong = iosfd64;
+        if (ret != -1)
+                *iosfd = (void *) iosfdlong;
+
+        return ret;
+}
+
+
+
+int
+ios_fd_ctx_set (fd_t *fd, xlator_t *this, struct ios_fd *iosfd)
+{
+        uint64_t   iosfd64 = 0;
+        int        ret = 0;
+
+        iosfd64 = (unsigned long) iosfd;
+        ret = fd_ctx_set (fd, this, iosfd64);
+
+        return ret;
+}
+
+
+#define ios_log(this, logfp, fmt ...)                           \
+        do {                                                    \
+                if (logfp) {                                    \
+                        fprintf (logfp, fmt);                   \
+                        fprintf (logfp, "\n");                  \
+                }                                               \
+                gf_log (this->name, GF_LOG_NORMAL, fmt);        \
+        } while (0)
+
+
+int
+io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
+                      struct timeval *now, int interval, FILE *logfp)
+{
+        int    i = 0;
+
+        if (interval == -1)
+                ios_log (this, logfp, "=== Cumulative stats ===");
+        else
+                ios_log (this, logfp, "=== Interval %d stats ===",
+                         interval);
+        ios_log (this, logfp, "      Duration : %"PRId64"secs",
+                 (uint64_t) (now->tv_sec - stats->started_at.tv_sec));
+        ios_log (this, logfp, "     BytesRead : %"PRId64,
+                 stats->data_read);
+        ios_log (this, logfp, "  BytesWritten : %"PRId64,
+                 stats->data_written);
+
+        for (i = 0; i < 32; i++) {
+                if (stats->block_count_read[i])
+                        ios_log (this, logfp, " Read %06db+ : %"PRId64,
+                                 (1 << i), stats->block_count_read[i]);
+        }
+
+        for (i = 0; i < 32; i++) {
+                if (stats->block_count_write[i])
+                        ios_log (this, logfp, "Write %06db+ : %"PRId64,
+                                 (1 << i), stats->block_count_write[i]);
+        }
+
+        for (i = 0; i < GF_FOP_MAXVALUE; i++)
+                if (stats->fop_hits[i])
+                        ios_log (this, logfp, "%14s : %"PRId64,
+                                 gf_fop_list[i], stats->fop_hits[i]);
+
+        for (i = 0; i < GF_CBK_MAXVALUE; i++)
+                if (stats->cbk_hits[i])
+                        ios_log (this, logfp, "%14s : %"PRId64,
+                                 gf_fop_list[i], stats->cbk_hits[i]);
+        return 0;
+}
+
+
+int
+io_stats_dump (xlator_t *this, char *filename, inode_t *inode,
+               const char *path)
+{
+        struct ios_conf         *conf = NULL;
+        struct ios_global_stats  cumulative = {0, };
+        struct ios_global_stats  incremental = {0, };
+        int                      increment = 0;
+        struct timeval           now;
+        FILE                    *logfp = NULL;
+
+        conf = this->private;
+
+        gettimeofday (&now, NULL);
+        LOCK (&conf->lock);
+        {
+                cumulative  = conf->cumulative;
+                incremental = conf->incremental;
+
+                increment = conf->increment++;
+
+                memset (&conf->incremental, 0, sizeof (conf->incremental));
+                conf->incremental.started_at = now;
+        }
+        UNLOCK (&conf->lock);
+
+        logfp = fopen (filename, "w+");
+        io_stats_dump_global (this, &cumulative, &now, -1, logfp);
+        io_stats_dump_global (this, &incremental, &now, increment, logfp);
+
+        if (logfp)
+                fclose (logfp);
+        return 0;
+}
+
+
+int
+io_stats_dump_fd (xlator_t *this, struct ios_fd *iosfd)
+{
+        struct ios_conf         *conf = NULL;
+        struct timeval           now;
+        uint64_t                 sec = 0;
+        uint64_t                 usec = 0;
+        int                      i = 0;
+
+        conf = this->private;
+
+        if (!conf->dump_fd_stats)
+                return 0;
+
+        if (!iosfd)
+                return 0;
+
+        gettimeofday (&now, NULL);
+
+        if (iosfd->opened_at.tv_usec > now.tv_usec) {
+                now.tv_usec += 1000000;
+                now.tv_usec--;
+        }
+
+        sec = now.tv_sec - iosfd->opened_at.tv_sec;
+        usec = now.tv_usec - iosfd->opened_at.tv_usec;
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "--- fd stats ---");
+
+        if (iosfd->filename)
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "      Filename : %s",
+                        iosfd->filename);
+
+        if (sec)
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "      Lifetime : %"PRId64"secs, %"PRId64"usecs",
+                        sec, usec);
+
+        if (iosfd->data_read)
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "     BytesRead : %"PRId64" bytes",
+                        iosfd->data_read);
+
+        if (iosfd->data_written)
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "  BytesWritten : %"PRId64" bytes",
+                        iosfd->data_written);
+
+        for (i = 0; i < 32; i++) {
+                if (iosfd->block_count_read[i])
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                " Read %06db+ : %"PRId64,
+                                (1 << i), iosfd->block_count_read[i]);
+        }
+        for (i = 0; i < 32; i++) {
+                if (iosfd->block_count_write[i])
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "Write %06db+ : %"PRId64,
+                                (1 << i), iosfd->block_count_write[i]);
+        }
+        return 0;
+}
 
 
 int
@@ -79,6 +350,32 @@ io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      inode_t *inode, struct stat *buf,
                      struct stat *preparent, struct stat *postparent)
 {
+        struct ios_fd *iosfd = NULL;
+        char          *path = NULL;
+
+        path = frame->local;
+        frame->local = NULL;
+
+        if (!path)
+                goto unwind;
+
+        if (op_ret < 0) {
+                FREE (path);
+                goto unwind;
+        }
+
+        iosfd = CALLOC (1, sizeof (*iosfd));
+        if (!iosfd) {
+                FREE (path);
+                goto unwind;
+        }
+
+        iosfd->filename = path;
+        gettimeofday (&iosfd->opened_at, NULL);
+
+        ios_fd_ctx_set (fd, this, iosfd);
+
+unwind:
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
         return 0;
@@ -89,6 +386,32 @@ int
 io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
+        struct ios_fd *iosfd = NULL;
+        char          *path = NULL;
+
+        path = frame->local;
+        frame->local = NULL;
+
+        if (!path)
+                goto unwind;
+
+        if (op_ret < 0) {
+                FREE (path);
+                goto unwind;
+        }
+
+        iosfd = CALLOC (1, sizeof (*iosfd));
+        if (!iosfd) {
+                FREE (path);
+                goto unwind;
+        }
+
+        iosfd->filename = path;
+        gettimeofday (&iosfd->opened_at, NULL);
+
+        ios_fd_ctx_set (fd, this, iosfd);
+
+unwind:
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
         return 0;
 }
@@ -109,18 +432,18 @@ io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iovec *vector, int32_t count,
                     struct stat *buf, struct iobref *iobref)
 {
-        int                 i = 0;
-        io_stats_private_t *priv = NULL;
+        struct ios_conf *conf = NULL;
+        int              len = 0;
+        fd_t            *fd = NULL;
 
-        priv = this->private;
+        conf = this->private;
+
+        fd = frame->local;
+        frame->local = NULL;
 
         if (op_ret > 0) {
-                for (i=0; i < GF_IO_STAT_BLK_SIZE_MAX; i++) {
-                        if (priv->read[i].size > iov_length (vector, count)) {
-                                break;
-                        }
-                }
-                priv->read[i].hits++;
+                len = iov_length (vector, count);
+                BUMP_READ (fd, len);
         }
 
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
@@ -192,7 +515,8 @@ io_stats_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent, postparent);
+        STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
+                             preparent, postparent);
         return 0;
 }
 
@@ -293,6 +617,9 @@ int
 io_stats_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
+        if (op_ret >= 0)
+                ios_fd_ctx_set (fd, this, 0);
+
         STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
         return 0;
 }
@@ -303,7 +630,8 @@ io_stats_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct stat *preparent, struct stat *postparent)
 {
-        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent, postparent);
+        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
+                             preparent, postparent);
         return 0;
 }
 
@@ -313,7 +641,8 @@ io_stats_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
                        struct stat *prebuf, struct stat *postbuf)
 {
-        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
+                             prebuf, postbuf);
         return 0;
 }
 
@@ -340,38 +669,6 @@ int
 io_stats_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
-        io_stats_private_t *priv = NULL;
-        int                 i = 0;
-        char                keycont[] = "trusted.glusterfs.hits." /* 23 chars */
-                "0123456789"
-                "0123456789"
-                "0123456789"
-                "0123456789";
-        int                 ret = -1;
-
-        priv = this->private;
-        memset (keycont + 23, '\0', 40);
-
-        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                if (!(priv->fop_records[i].enabled &&
-                      priv->fop_records[i].name))
-                        continue;
-
-                strncpy (keycont + 23, priv->fop_records[i].name, 40);
-                LOCK(&priv->lock);
-                {
-                        ret = dict_set_uint32 (dict, keycont,
-                                               priv->fop_records[i].hits);
-                }
-                UNLOCK(&priv->lock);
-                if (ret < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "dict set failed for xattr %s",
-                                keycont);
-                        break;
-                }
-        }
-
         STACK_UNWIND (frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -409,7 +706,8 @@ io_stats_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno,
                         struct stat *prebuf, struct stat *postbuf)
 {
-        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf, postbuf);
+        STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
+                             prebuf, postbuf);
         return 0;
 }
 
@@ -482,7 +780,7 @@ io_stats_entrylk (call_frame_t *frame, xlator_t *this,
                   const char *volume, loc_t *loc, const char *basename,
                   entrylk_cmd cmd, entrylk_type type)
 {
-        BUMP_HIT(ENTRYLK);
+        BUMP_FOP (ENTRYLK);
 
         STACK_WIND (frame, io_stats_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -497,7 +795,7 @@ io_stats_inodelk (call_frame_t *frame, xlator_t *this,
                   const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
 {
 
-        BUMP_HIT(INODELK);
+        BUMP_FOP (INODELK);
 
         STACK_WIND (frame, io_stats_inodelk_cbk,
                     FIRST_CHILD (this),
@@ -521,7 +819,7 @@ int
 io_stats_finodelk (call_frame_t *frame, xlator_t *this,
                    const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
-        BUMP_HIT(FINODELK);
+        BUMP_FOP (FINODELK);
 
         STACK_WIND (frame, io_stats_finodelk_cbk,
                     FIRST_CHILD (this),
@@ -535,7 +833,7 @@ int
 io_stats_xattrop (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, gf_xattrop_flags_t flags, dict_t *dict)
 {
-        BUMP_HIT(XATTROP);
+        BUMP_FOP (XATTROP);
 
         STACK_WIND (frame, io_stats_xattrop_cbk,
                     FIRST_CHILD(this),
@@ -550,7 +848,7 @@ int
 io_stats_fxattrop (call_frame_t *frame, xlator_t *this,
                    fd_t *fd, gf_xattrop_flags_t flags, dict_t *dict)
 {
-        BUMP_HIT(FXATTROP);
+        BUMP_FOP (FXATTROP);
 
         STACK_WIND (frame, io_stats_fxattrop_cbk,
                     FIRST_CHILD(this),
@@ -565,7 +863,7 @@ int
 io_stats_lookup (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, dict_t *xattr_req)
 {
-        BUMP_HIT(LOOKUP);
+        BUMP_FOP (LOOKUP);
 
         STACK_WIND (frame, io_stats_lookup_cbk,
                     FIRST_CHILD(this),
@@ -579,7 +877,7 @@ io_stats_lookup (call_frame_t *frame, xlator_t *this,
 int
 io_stats_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        BUMP_HIT(STAT);
+        BUMP_FOP (STAT);
 
         STACK_WIND (frame, io_stats_stat_cbk,
                     FIRST_CHILD(this),
@@ -594,7 +892,7 @@ int
 io_stats_readlink (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, size_t size)
 {
-        BUMP_HIT(READLINK);
+        BUMP_FOP (READLINK);
 
         STACK_WIND (frame, io_stats_readlink_cbk,
                     FIRST_CHILD(this),
@@ -609,7 +907,7 @@ int
 io_stats_mknod (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, mode_t mode, dev_t dev)
 {
-        BUMP_HIT(MKNOD);
+        BUMP_FOP (MKNOD);
 
         STACK_WIND (frame, io_stats_mknod_cbk,
                     FIRST_CHILD(this),
@@ -624,7 +922,7 @@ int
 io_stats_mkdir (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, mode_t mode)
 {
-        BUMP_HIT(MKDIR);
+        BUMP_FOP (MKDIR);
 
         STACK_WIND (frame, io_stats_mkdir_cbk,
                     FIRST_CHILD(this),
@@ -638,7 +936,7 @@ int
 io_stats_unlink (call_frame_t *frame, xlator_t *this,
                  loc_t *loc)
 {
-        BUMP_HIT(UNLINK);
+        BUMP_FOP (UNLINK);
 
         STACK_WIND (frame, io_stats_unlink_cbk,
                     FIRST_CHILD(this),
@@ -652,7 +950,7 @@ int
 io_stats_rmdir (call_frame_t *frame, xlator_t *this,
                 loc_t *loc)
 {
-        BUMP_HIT(RMDIR);
+        BUMP_FOP (RMDIR);
 
         STACK_WIND (frame, io_stats_rmdir_cbk,
                     FIRST_CHILD(this),
@@ -667,7 +965,7 @@ int
 io_stats_symlink (call_frame_t *frame, xlator_t *this,
                   const char *linkpath, loc_t *loc)
 {
-        BUMP_HIT(SYMLINK);
+        BUMP_FOP (SYMLINK);
 
         STACK_WIND (frame, io_stats_symlink_cbk,
                     FIRST_CHILD(this),
@@ -682,7 +980,7 @@ int
 io_stats_rename (call_frame_t *frame, xlator_t *this,
                  loc_t *oldloc, loc_t *newloc)
 {
-        BUMP_HIT(RENAME);
+        BUMP_FOP (RENAME);
 
         STACK_WIND (frame, io_stats_rename_cbk,
                     FIRST_CHILD(this),
@@ -697,7 +995,7 @@ int
 io_stats_link (call_frame_t *frame, xlator_t *this,
                loc_t *oldloc, loc_t *newloc)
 {
-        BUMP_HIT(LINK);
+        BUMP_FOP (LINK);
 
         STACK_WIND (frame, io_stats_link_cbk,
                     FIRST_CHILD(this),
@@ -711,7 +1009,7 @@ int
 io_stats_setattr (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, struct stat *stbuf, int32_t valid)
 {
-        BUMP_HIT(SETATTR);
+        BUMP_FOP (SETATTR);
 
         STACK_WIND (frame, io_stats_setattr_cbk,
                     FIRST_CHILD(this),
@@ -726,7 +1024,7 @@ int
 io_stats_truncate (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, off_t offset)
 {
-        BUMP_HIT(TRUNCATE);
+        BUMP_FOP (TRUNCATE);
 
         STACK_WIND (frame, io_stats_truncate_cbk,
                     FIRST_CHILD(this),
@@ -741,7 +1039,9 @@ int
 io_stats_open (call_frame_t *frame, xlator_t *this,
                loc_t *loc, int32_t flags, fd_t *fd, int32_t wbflags)
 {
-        BUMP_HIT(OPEN);
+        BUMP_FOP (OPEN);
+
+        frame->local = strdup (loc->path);
 
         STACK_WIND (frame, io_stats_open_cbk,
                     FIRST_CHILD(this),
@@ -755,7 +1055,9 @@ int
 io_stats_create (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
 {
-        BUMP_HIT(CREATE);
+        BUMP_FOP (CREATE);
+
+        frame->local = strdup (loc->path);
 
         STACK_WIND (frame, io_stats_create_cbk,
                     FIRST_CHILD(this),
@@ -769,7 +1071,9 @@ int
 io_stats_readv (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, size_t size, off_t offset)
 {
-        BUMP_HIT(READ);
+        BUMP_FOP (READ);
+
+        frame->local = fd;
 
         STACK_WIND (frame, io_stats_readv_cbk,
                     FIRST_CHILD(this),
@@ -785,19 +1089,15 @@ io_stats_writev (call_frame_t *frame, xlator_t *this,
                  int32_t count, off_t offset,
                  struct iobref *iobref)
 {
-        int                 i = 0;
-        io_stats_private_t *priv = NULL;
+        struct ios_conf    *conf = NULL;
+        int                 len = 0;
 
-        priv = this->private;
+        conf = this->private;
 
-        BUMP_HIT(WRITE);
+        len = iov_length (vector, count);
 
-        for (i=0; i < GF_IO_STAT_BLK_SIZE_MAX; i++) {
-                if (priv->write[i].size > iov_length (vector, count)) {
-                        break;
-                }
-        }
-        priv->write[i].hits++;
+        BUMP_FOP (WRITE);
+        BUMP_WRITE (fd, len);
 
         STACK_WIND (frame, io_stats_writev_cbk,
                     FIRST_CHILD(this),
@@ -811,10 +1111,11 @@ int
 io_stats_statfs (call_frame_t *frame, xlator_t *this,
                  loc_t *loc)
 {
-        BUMP_HIT(STATFS);
+        BUMP_FOP (STATFS);
 
         STACK_WIND (frame, io_stats_statfs_cbk,
-                    FIRST_CHILD(this), FIRST_CHILD(this)->fops->statfs,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->statfs,
                     loc);
         return 0;
 }
@@ -824,7 +1125,7 @@ int
 io_stats_flush (call_frame_t *frame, xlator_t *this,
                 fd_t *fd)
 {
-        BUMP_HIT(FLUSH);
+        BUMP_FOP (FLUSH);
 
         STACK_WIND (frame, io_stats_flush_cbk,
                     FIRST_CHILD(this),
@@ -838,7 +1139,7 @@ int
 io_stats_fsync (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, int32_t flags)
 {
-        BUMP_HIT(FSYNC);
+        BUMP_FOP (FSYNC);
 
         STACK_WIND (frame, io_stats_fsync_cbk,
                     FIRST_CHILD(this),
@@ -848,12 +1149,52 @@ io_stats_fsync (call_frame_t *frame, xlator_t *this,
 }
 
 
+void
+conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
+{
+        struct {
+                xlator_t       *this;
+                inode_t        *inode;
+                const char     *path;
+        } *stub;
+        xlator_t   *this = NULL;
+        inode_t    *inode = NULL;
+        const char *path = NULL;
+        char       *filename = NULL;
+
+        stub  = data;
+        this  = stub->this;
+        inode = stub->inode;
+        path  = stub->path;
+
+        filename = alloca (value->len + 1);
+        memset (filename, 0, value->len + 1);
+        memcpy (filename, data_to_str (value), value->len);
+
+        if (fnmatch ("*io*stat*dump", key, 0) == 0) {
+                io_stats_dump (this, filename, inode, path);
+        }
+}
+
+
 int
 io_stats_setxattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, dict_t *dict,
                    int32_t flags)
 {
-        BUMP_HIT(SETXATTR);
+        struct {
+                xlator_t     *this;
+                inode_t      *inode;
+                const char   *path;
+        } stub;
+
+        BUMP_FOP (SETXATTR);
+
+        stub.this  = this;
+        stub.inode = loc->inode;
+        stub.path  = loc->path;
+
+        dict_foreach (dict, conditional_dump, &stub);
 
         STACK_WIND (frame, io_stats_setxattr_cbk,
                     FIRST_CHILD(this),
@@ -867,7 +1208,7 @@ int
 io_stats_getxattr (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, const char *name)
 {
-        BUMP_HIT(GETXATTR);
+        BUMP_FOP (GETXATTR);
 
         STACK_WIND (frame, io_stats_getxattr_cbk,
                     FIRST_CHILD(this),
@@ -881,7 +1222,7 @@ int
 io_stats_removexattr (call_frame_t *frame, xlator_t *this,
                       loc_t *loc, const char *name)
 {
-        BUMP_HIT(REMOVEXATTR);
+        BUMP_FOP (REMOVEXATTR);
 
         STACK_WIND (frame, io_stats_removexattr_cbk,
                     FIRST_CHILD(this),
@@ -896,7 +1237,7 @@ int
 io_stats_opendir (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, fd_t *fd)
 {
-        BUMP_HIT(OPENDIR);
+        BUMP_FOP (OPENDIR);
 
         STACK_WIND (frame, io_stats_opendir_cbk,
                     FIRST_CHILD(this),
@@ -910,7 +1251,7 @@ int
 io_stats_getdents (call_frame_t *frame, xlator_t *this,
                    fd_t *fd, size_t size, off_t offset, int32_t flag)
 {
-        BUMP_HIT(GETDENTS);
+        BUMP_FOP (GETDENTS);
 
         STACK_WIND (frame, io_stats_getdents_cbk,
                     FIRST_CHILD(this),
@@ -924,7 +1265,7 @@ int
 io_stats_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                    off_t offset)
 {
-        BUMP_HIT(READDIRP);
+        BUMP_FOP (READDIRP);
 
         STACK_WIND (frame, io_stats_readdirp_cbk,
                     FIRST_CHILD(this),
@@ -939,7 +1280,7 @@ int
 io_stats_readdir (call_frame_t *frame, xlator_t *this,
                   fd_t *fd, size_t size, off_t offset)
 {
-        BUMP_HIT(READDIR);
+        BUMP_FOP (READDIR);
 
         STACK_WIND (frame, io_stats_readdir_cbk,
                     FIRST_CHILD(this),
@@ -954,7 +1295,7 @@ int
 io_stats_fsyncdir (call_frame_t *frame, xlator_t *this,
                    fd_t *fd, int32_t datasync)
 {
-        BUMP_HIT(FSYNCDIR);
+        BUMP_FOP (FSYNCDIR);
 
         STACK_WIND (frame, io_stats_fsyncdir_cbk,
                     FIRST_CHILD(this),
@@ -968,7 +1309,7 @@ int
 io_stats_access (call_frame_t *frame, xlator_t *this,
                  loc_t *loc, int32_t mask)
 {
-        BUMP_HIT(ACCESS);
+        BUMP_FOP (ACCESS);
 
         STACK_WIND (frame, io_stats_access_cbk,
                     FIRST_CHILD(this),
@@ -982,7 +1323,7 @@ int
 io_stats_ftruncate (call_frame_t *frame, xlator_t *this,
                     fd_t *fd, off_t offset)
 {
-        BUMP_HIT(FTRUNCATE);
+        BUMP_FOP (FTRUNCATE);
 
         STACK_WIND (frame, io_stats_ftruncate_cbk,
                     FIRST_CHILD(this),
@@ -997,7 +1338,7 @@ int
 io_stats_fsetattr (call_frame_t *frame, xlator_t *this,
                    fd_t *fd, struct stat *stbuf, int32_t valid)
 {
-        BUMP_HIT(FSETATTR);
+        BUMP_FOP (FSETATTR);
 
         STACK_WIND (frame, io_stats_setattr_cbk,
                     FIRST_CHILD(this),
@@ -1011,7 +1352,7 @@ int
 io_stats_fstat (call_frame_t *frame, xlator_t *this,
                 fd_t *fd)
 {
-        BUMP_HIT(FSTAT);
+        BUMP_FOP (FSTAT);
 
         STACK_WIND (frame, io_stats_fstat_cbk,
                     FIRST_CHILD(this),
@@ -1025,7 +1366,7 @@ int
 io_stats_lk (call_frame_t *frame, xlator_t *this,
              fd_t *fd, int32_t cmd, struct flock *lock)
 {
-        BUMP_HIT(LK);
+        BUMP_FOP (LK);
 
         STACK_WIND (frame, io_stats_lk_cbk,
                     FIRST_CHILD(this),
@@ -1040,7 +1381,7 @@ io_stats_setdents (call_frame_t *frame, xlator_t *this,
                    fd_t *fd, int32_t flags,
                    dir_entry_t *entries, int32_t count)
 {
-        BUMP_HIT(SETDENTS);
+        BUMP_FOP (SETDENTS);
 
         STACK_WIND (frame, io_stats_setdents_cbk,
                     FIRST_CHILD(this),
@@ -1096,42 +1437,41 @@ io_stats_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
 }
 
 
-void
-enable_all_calls (io_stats_private_t *priv, int enabled)
+int
+io_stats_release (xlator_t *this, fd_t *fd)
 {
-        int i;
-        for (i = 0; i < GF_FOP_MAXVALUE; i++)
-                priv->fop_records[i].enabled = enabled;
+        struct ios_fd  *iosfd = NULL;
+
+        BUMP_CBK (RELEASE);
+
+        ios_fd_ctx_get (fd, this, &iosfd);
+        if (iosfd) {
+                io_stats_dump_fd (this, iosfd);
+
+                if (iosfd->filename)
+                        FREE (iosfd->filename);
+                FREE (iosfd);
+        }
+
+        return 0;
 }
 
 
-void
-enable_call (io_stats_private_t *priv, const char *name, int enabled)
+int
+io_stats_releasedir (xlator_t *this, fd_t *fd)
 {
-        int i;
-        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                if (!priv->fop_records[i].name)
-                        continue;
-                if (!strcasecmp(priv->fop_records[i].name, name))
-                        priv->fop_records[i].enabled = enabled;
-        }
+        BUMP_CBK (RELEASEDIR);
+
+        return 0;
 }
 
 
-/*
-   include = 1 for "include-ops"
-           = 0 for "exclude-ops"
-*/
-void
-process_call_list (io_stats_private_t *priv, const char *list, int include)
+int
+io_stats_forget (xlator_t *this, fd_t *fd)
 {
-        enable_all_calls (priv, include ? 0 : 1);
+        BUMP_CBK (FORGET);
 
-        char *call = strsep ((char **)&list, ",");
-        while (call) {
-                enable_call (priv, call, include);
-                call = strsep ((char **)&list, ",");
-        }
+        return 0;
 }
 
 
@@ -1139,11 +1479,9 @@ int
 init (xlator_t *this)
 {
         dict_t             *options = NULL;
-        char               *includes = NULL;
-        char               *excludes = NULL;
-        io_stats_private_t *priv = NULL;
-        size_t              size = 0;
-        int                 i = 0;
+        struct ios_conf    *conf = NULL;
+        char               *str = NULL;
+        int                 ret = 0;
 
         if (!this)
                 return -1;
@@ -1153,46 +1491,37 @@ init (xlator_t *this)
                         "io_stats translator requires one subvolume");
                 return -1;
         }
+
         if (!this->parents) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "dangling volume. check volfile ");
         }
 
-        priv = CALLOC (1, sizeof(*priv));
-        ERR_ABORT (priv);
-
         options = this->options;
-        includes = data_to_str (dict_get (options, "include-ops"));
-        excludes = data_to_str (dict_get (options, "exclude-ops"));
 
-        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
-                priv->fop_records[i].name = gf_fop_list[i];
-                priv->fop_records[i].enabled = 1;
+        conf = CALLOC (1, sizeof(*conf));
+
+        LOCK_INIT (&conf->lock);
+
+        gettimeofday (&conf->cumulative.started_at, NULL);
+        gettimeofday (&conf->incremental.started_at, NULL);
+
+        ret = dict_get_str (options, "dump-fd-stats", &str);
+        if (ret == 0) {
+                ret = gf_string2boolean (str, &conf->dump_fd_stats);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "'dump-fd-stats' takes only boolean arguments");
+                        return -1;
+                }
+
+                if (conf->dump_fd_stats) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"enabling dump-fd-stats");
+                }
         }
 
-        if (includes && excludes) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "must specify only one of 'include-ops' and "
-                        "'exclude-ops'");
-                return -1;
-        }
-        if (includes)
-                process_call_list (priv, includes, 1);
-        if (excludes)
-                process_call_list (priv, excludes, 0);
-
-        LOCK_INIT (&priv->lock);
-
-        /* Set this translator's inode table pointer to child node's pointer. */
-        size = GF_UNIT_KB;
-        for (i=0; i < GF_IO_STAT_BLK_SIZE_MAX; i++) {
-                priv->read[i].size = size;
-                priv->write[i].size = size;
-                size *= 2;
-        }
-
-        this->itable = FIRST_CHILD (this)->itable;
-        this->private = priv;
+        this->private = conf;
 
         return 0;
 }
@@ -1201,16 +1530,12 @@ init (xlator_t *this)
 void
 fini (xlator_t *this)
 {
-        io_stats_private_t *priv = NULL;
+        struct ios_conf *conf = NULL;
 
         if (!this)
                 return;
 
-        priv = this->private;
-        if (priv) {
-                LOCK_DESTROY (&priv->lock);
-                FREE (priv);
-        }
+        conf = this->private;
 
         gf_log (this->name, GF_LOG_NORMAL,
                 "io-stats translator unloaded");
@@ -1265,16 +1590,13 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
+        .release     = io_stats_release,
+        .releasedir  = io_stats_releasedir,
 };
 
 struct volume_options options[] = {
-        { .key  = {"include-ops", "include"},
-          .type = GF_OPTION_TYPE_STR,
-          /*.value = { ""} */
-        },
-        { .key  = {"exclude-ops", "exclude"},
-          .type = GF_OPTION_TYPE_STR
-          /*.value = { ""} */
+        { .key  = {"dump-fd-stats"},
+          .type = GF_OPTION_TYPE_BOOL,
         },
         { .key  = {NULL} },
 };
