@@ -1242,6 +1242,10 @@ main (int argc, char *argv[])
         signal (SIGPIPE, SIG_IGN);
         signal (SIGHUP, gf_log_logrotate);
         signal (SIGTERM, cleanup_and_exit);
+        /* if used inside GDB, then this is overridden, hence making
+           it a safer option */
+        signal (SIGINT, cleanup_and_exit);
+
         /* This is used to dump details */
         /* signal (SIGUSR2, (sighandler_t) glusterfs_stats); */
 
