@@ -1473,7 +1473,7 @@ init (xlator_t *this)
 
         mandatory = dict_get (this->options, "mandatory-locks");
         if (mandatory)
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_WARNING,
                         "mandatory locks not supported in this minor release.");
 
 	trace = dict_get (this->options, "trace");
