@@ -1,11 +1,1 @@
-GlusterFS is a flexible, powerful, POSIX-compliant cluster filesystem
-that can scale to several petabytes.
-
-GlusterFS works over either TCP/IP or high-performance Infiniband RDMA
-interconnect.
-
-GlusterFS provides striping and on-the-fly synchronous replication
-of files. GlusterFS has a fully distributed design, with no
-single point of failure.
-
-Please visit http://www.gluster.org/glusterfs.php for more info.
+For more info visit http://www.gluster.org
