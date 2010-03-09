@@ -207,8 +207,9 @@ out:
 		gf_log (this->name, GF_LOG_DEBUG,
 			"no subvolume in layout for path=%s",
 			local->loc.path);
-		op_errno = EINVAL;
-		goto err;
+                local->op_errno = ENOENT;
+                dht_lookup_everywhere (frame, this, loc);
+                return 0;
 	}
 
 	STACK_WIND (frame, dht_lookup_cbk,
