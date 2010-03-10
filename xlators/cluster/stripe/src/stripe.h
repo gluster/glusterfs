@@ -37,7 +37,7 @@
 
 
 /**
- * struct stripe_options : This keeps the pattern and the block-size 
+ * struct stripe_options : This keeps the pattern and the block-size
  *     information, which is used for striping on a file.
  */
 struct stripe_options {
@@ -47,7 +47,7 @@ struct stripe_options {
 };
 
 /**
- * Private structure for stripe translator 
+ * Private structure for stripe translator
  */
 struct stripe_private {
         struct stripe_options  *pattern;
@@ -62,7 +62,7 @@ struct stripe_private {
 };
 
 /**
- * Used to keep info about the replies received from fops->readv calls 
+ * Used to keep info about the replies received from fops->readv calls
  */
 struct readv_replies {
         struct iovec *vector;
@@ -76,7 +76,7 @@ typedef struct _stripe_fd_ctx {
         off_t      stripe_size;
         int        stripe_count;
         int        static_array;
-        xlator_t **xl_array;        
+        xlator_t **xl_array;
 } stripe_fd_ctx_t;
 
 
@@ -124,7 +124,7 @@ struct stripe_local {
         int32_t              entry_count;
         int32_t              node_index;
         int32_t              call_count;
-        int32_t              wind_count; /* used instead of child_cound 
+        int32_t              wind_count; /* used instead of child_cound
                                             in case of read and write */
         int32_t              op_ret;
         int32_t              op_errno;
