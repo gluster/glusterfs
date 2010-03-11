@@ -6308,6 +6308,8 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 		break;
 	}
 
+	gf_flock_to_flock (&req->flock, &lock);
+
 	switch (state->type) {
 	case GF_LK_F_RDLCK:
 		lock.l_type = F_RDLCK;
@@ -6325,7 +6327,6 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
 		break;
 	}
 
-	gf_flock_to_flock (&req->flock, &lock);
 
 	gf_log (BOUND_XL(frame)->name, GF_LOG_TRACE,
 		"%"PRId64": LK \'fd=%"PRId64" (%"PRId64")\'",
