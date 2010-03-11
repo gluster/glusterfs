@@ -32,6 +32,10 @@
 #define MAX_IOVEC 16
 #endif
 
+#define GF_DISK_USAGE_STATBUF(blocks) (blocks * 512)
+#define GF_DISK_FILE_USAGE(preblocks,postblocks) ((postblocks - preblocks) * 512)
+#define GF_DISK_DIRECTORY_USAGE(preblocks,postblocks) ((postblocks - preblocks) * 512)
+
 struct quota_local {
 	struct stat    stbuf;
 	inode_t       *inode;
@@ -157,14 +161,12 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct stat *postbuf)
 {
 	struct quota_priv *priv = this->private;
-	struct quota_local *local = NULL;
 
-	local = frame->local;
+	int space_freed = 0;
 
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		gf_quota_usage_subtract (this, (local->stbuf.st_blocks -
-						postbuf->st_blocks) * 512);
-		loc_wipe (&local->loc);
+		space_freed = GF_DISK_FILE_USAGE (prebuf->st_blocks, postbuf->st_blocks);
+		gf_quota_usage_subtract (this, space_freed);
 	}
 
 	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
@@ -172,49 +174,10 @@ quota_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
-
-int
-quota_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int32_t op_ret, int32_t op_errno, struct stat *buf)
-{
-	struct quota_local *local = NULL;
-	struct quota_priv  *priv = NULL;
-
-	priv = this->private;
-	local = frame->local;
-
-	if (op_ret >= 0) {
-		local->stbuf = *buf;
-	}
-
-	STACK_WIND (frame, quota_truncate_cbk,
-		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->truncate,
-		    &local->loc, local->offset);
-	return 0;
-}
-
-
 int
 quota_truncate (call_frame_t *frame, xlator_t *this,
 		loc_t *loc, off_t offset)
 {
-	struct quota_local *local = NULL;
-	struct quota_priv  *priv = NULL;
-
-	priv = this->private;
-
-	if (priv->disk_usage_limit) {
-		local = CALLOC (1, sizeof (struct quota_local));
-		frame->local  = local;
-
-		loc_copy (&local->loc, loc);
-		local->offset = offset;
-
-		STACK_WIND (frame, quota_truncate_stat_cbk,
-			    FIRST_CHILD(this),
-			    FIRST_CHILD(this)->fops->stat, loc);
-		return 0;
-	}
 
 	STACK_WIND (frame, quota_truncate_cbk,
 		    FIRST_CHILD(this),
@@ -230,15 +193,13 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct stat *postbuf)
 {
 	struct quota_priv  *priv = NULL;
-	struct quota_local *local = NULL;
+	int space_freed = 0;
 
-	local = frame->local;
 	priv = this->private;
 
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		gf_quota_usage_subtract (this, (local->stbuf.st_blocks -
-						postbuf->st_blocks) * 512);
-		fd_unref (local->fd);
+		space_freed = GF_DISK_FILE_USAGE (prebuf->st_blocks, postbuf->st_blocks);
+		gf_quota_usage_subtract (this, space_freed);
 	}
 
 	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
@@ -248,48 +209,9 @@ quota_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-quota_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			   int32_t op_ret, int32_t op_errno, struct stat *buf)
-{
-	struct quota_local *local = NULL;
-	struct quota_priv  *priv = NULL;
-
-	priv = this->private;
-	local = frame->local;
-
-	if (op_ret >= 0) {
-		local->stbuf = *buf;
-	}
-
-	STACK_WIND (frame, quota_ftruncate_cbk,
-		    FIRST_CHILD (this), FIRST_CHILD (this)->fops->ftruncate,
-		    local->fd, local->offset);
-	return 0;
-}
-
-
-int
 quota_ftruncate (call_frame_t *frame, xlator_t *this,
 		 fd_t *fd, off_t offset)
 {
-	struct quota_local *local = NULL;
-	struct quota_priv  *priv = NULL;
-
-
-	priv = this->private;
-
-	if (priv->disk_usage_limit) {
-		local = CALLOC (1, sizeof (struct quota_local));
-		frame->local  = local;
-
-		local->fd = fd_ref (fd);
-		local->offset = offset;
-
-		STACK_WIND (frame, quota_ftruncate_fstat_cbk,
-			    FIRST_CHILD(this),
-			    FIRST_CHILD(this)->fops->fstat, fd);
-		return 0;
-	}
 
 	STACK_WIND (frame, quota_ftruncate_cbk,
 		    FIRST_CHILD(this),
@@ -306,11 +228,15 @@ quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct stat *postparent)
 {
 	struct quota_priv *priv = NULL;
+	int space_used = 0;
 
 	priv = this->private;
 
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		gf_quota_usage_add (this, buf->st_blocks * 512);
+		space_used = GF_DISK_USAGE_STATBUF (buf->st_blocks) +
+			GF_DISK_DIRECTORY_USAGE (preparent->st_blocks,
+						 postparent->st_blocks);
+		gf_quota_usage_add (this, space_used);
 	}
 
 	STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
@@ -360,11 +286,16 @@ quota_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct stat *postparent)
 {
 	struct quota_priv *priv = NULL;
+	int space_used = 0;
 
 	priv = this->private;
 
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		gf_quota_usage_subtract (this, buf->st_blocks * 512);
+
+		space_used = GF_DISK_USAGE_STATBUF (buf->st_blocks) +
+			GF_DISK_DIRECTORY_USAGE (preparent->st_blocks,
+						 postparent->st_blocks);
+		gf_quota_usage_add (this, space_used);
 	}
 
 	STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
@@ -414,13 +345,16 @@ quota_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct stat *postparent)
 {
 	struct quota_local *local = NULL;
+	int space_freed = 0;
 
 	local = frame->local;
 
 	if (local) {
 		if (op_ret >= 0) {
-			gf_quota_usage_subtract (this,
-						 local->stbuf.st_blocks * 512);
+			space_freed = GF_DISK_USAGE_STATBUF (local->stbuf.st_blocks) +
+				GF_DISK_DIRECTORY_USAGE (preparent->st_blocks,
+							 postparent->st_blocks);
+			gf_quota_usage_subtract (this, space_freed);
 		}
 		loc_wipe (&local->loc);
 	}
@@ -489,12 +423,16 @@ quota_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  struct stat *postparent)
 {
 	struct quota_local *local = NULL;
+	int space_freed = 0;
 
 	local = frame->local;
 
 	if (local) {
 		if (op_ret >= 0) {
-			gf_quota_usage_subtract (this, local->stbuf.st_blocks * 512);
+			space_freed = GF_DISK_USAGE_STATBUF (local->stbuf.st_blocks) +
+				GF_DISK_DIRECTORY_USAGE (preparent->st_blocks,
+							 postparent->st_blocks);
+			gf_quota_usage_subtract (this, space_freed);
 		}
 		loc_wipe (&local->loc);
 	}
@@ -560,11 +498,15 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    struct stat *postparent)
 {
 	struct quota_priv *priv = NULL;
+	int space_used = 0;
 
 	priv = this->private;
 
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		gf_quota_usage_add (this, buf->st_blocks * 512);
+		space_used = GF_DISK_USAGE_STATBUF (buf->st_blocks) +
+			GF_DISK_DIRECTORY_USAGE (preparent->st_blocks,
+						 postparent->st_blocks);
+		gf_quota_usage_add (this, space_used);
 	}
 
 	STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
@@ -616,8 +558,13 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	struct quota_priv *priv = this->private;
 	int                ret = 0;
 
-	if ((op_ret >= 0) && priv->disk_usage_limit) {
-		gf_quota_usage_add (this, buf->st_blocks * 512);
+	int space_used = 0;
+
+	if ((op_ret >= 0) && priv->current_disk_usage) {
+		space_used = GF_DISK_USAGE_STATBUF (buf->st_blocks) + 
+			GF_DISK_DIRECTORY_USAGE (preparent->st_blocks, 
+						 postparent->st_blocks);
+		gf_quota_usage_add (this, space_used);
 
 		ret = fd_ctx_set (fd, this, 1);
 	}
@@ -991,6 +938,7 @@ quota_lookup_cbk (call_frame_t *frame,
                       postparent);
 	return 0;
 }
+
 
 int32_t
 quota_lookup (call_frame_t *frame,
