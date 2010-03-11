@@ -4938,6 +4938,8 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
                 break;
         }
 
+        gf_flock_to_flock (&req->flock, &state->flock);
+
         switch (state->type) {
         case GF_LK_F_RDLCK:
                 state->flock.l_type = F_RDLCK;
@@ -4955,7 +4957,6 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
                 break;
         }
 
-        gf_flock_to_flock (&req->flock, &state->flock);
 
         resolve_and_resume (frame, server_lk_resume);
 
