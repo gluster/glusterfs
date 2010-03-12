@@ -55,7 +55,6 @@ struct quota_priv {
 
 	uint64_t   disk_usage_limit;         /* Used for Disk usage quota */
 	uint64_t   current_disk_usage;       /* Keep the current usage value */
-	uint64_t   last_synced_disk_usage;   /* Disk usage when the last sync happened */
 
 	uint32_t   min_free_disk_limit;        /* user specified limit, in %*/
 	uint32_t   current_free_disk;          /* current free disk space available, in % */
@@ -873,66 +872,29 @@ gf_quota_get_disk_usage (xlator_t *this)
 	return ;
 }
 
-int32_t
-quota_xattrop_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   dict_t *dict)
-{
-	struct quota_priv *priv = NULL;
-	data_t *data = NULL;
-
-	priv = this->private;
-
-	data = dict_get (dict, "trusted.glusterfs-quota-du");
-
-	if (op_ret >=0 && priv->disk_usage_limit) {
-		LOCK (&priv->lock);
-		{
-			priv->current_disk_usage = data_to_uint64 (data);
-			priv->last_synced_disk_usage = priv->current_disk_usage;
-		}
-		UNLOCK (&priv->lock);
-		
-		dict_unref (dict);
-	}
-
-
-	STACK_DESTROY (frame->root);
-	STACK_UNWIND (frame, op_ret, op_errno, dict);
-	return 0;
-}
-
 
 void
 gf_quota_cache_sync (xlator_t *this)
 {
 	struct quota_priv *priv = NULL;
 	call_frame_t      *frame = NULL;
-	dict_t          **array = NULL;	
-	int32_t           value = 0;
+	dict_t            *dict = get_new_dict ();
 
-	int ret = -1;
+
 
 	priv = this->private;
 
 	frame = create_frame (this, this->ctx->pool);
-	value = (priv->current_disk_usage) - (priv->last_synced_disk_usage);
-	array[0] = get_new_dict();
-	ret = dict_set_int32 (array[0], "trusted.glusterfs-quota-du", value); 
-		
-        dict_ref (array[0]);
-	
-	STACK_WIND (frame,
-		    quota_xattrop_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->xattrop,
-		    &(priv->root_loc),
-		    GF_XATTROP_ADD_ARRAY,
-		    array[0]);
+	dict_set (dict, "trusted.glusterfs-quota-du", 
+		  data_from_uint64 (priv->current_disk_usage));
 
+        dict_ref (dict);
+
+	STACK_WIND_COOKIE (frame, quota_setxattr_cbk,
+                           (void *) (dict_t *) dict,
+                           this->children->xlator,
+                           this->children->xlator->fops->setxattr,
+                           &(priv->root_loc), dict, 0);
 }
 
 
