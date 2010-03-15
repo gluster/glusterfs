@@ -4,7 +4,7 @@ import subprocess
 num_replica = 2
 num_stripe = 4
 #Cachesize calculator
-cache_size = "`grep 'MemTotal' /proc/meminfo  | awk '{print $2 * 0.2 / 1024}' | cut -f1 -d.`"
+cache_size = "`echo $[ $(grep 'MemTotal' /proc/meminfo | sed 's/[^0-9]//g') / 5120 ]`"
 
 class CreateVolfile:
 
