@@ -63,9 +63,7 @@ struct _loc;
 typedef struct _loc loc_t;
 
 
-typedef int32_t (*event_notify_fn_t) (xlator_t *this,
-				      int32_t event,
-				      void *data,
+typedef int32_t (*event_notify_fn_t) (xlator_t *this, int32_t event, void *data,
 				      ...);
 
 #include "list.h"
@@ -75,6 +73,7 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this,
 #include "inode.h"
 #include "fd.h"
 #include "globals.h"
+
 
 struct _loc {
 	const char *path;
@@ -676,13 +675,13 @@ typedef int32_t (*fop_finodelk_t) (call_frame_t *frame,
 				   struct flock *flock);
 
 typedef int32_t (*fop_entrylk_t) (call_frame_t *frame,
-				  xlator_t *this, 
+				  xlator_t *this,
                                   const char *volume, loc_t *loc,
 				  const char *basename, entrylk_cmd cmd,
 				  entrylk_type type);
 
 typedef int32_t (*fop_fentrylk_t) (call_frame_t *frame,
-				   xlator_t *this, 
+				   xlator_t *this,
                                    const char *volume, fd_t *fd,
 				   const char *basename, entrylk_cmd cmd,
 				   entrylk_type type);
@@ -854,7 +853,7 @@ typedef int32_t (*dumpop_fd_t)  (xlator_t   *this);
 
 typedef int32_t (*dumpop_inodectx_t) (xlator_t *this, inode_t *ino);
 
-                              
+
 struct xlator_dumpops {
 	dumpop_priv_t            priv;
 	dumpop_inode_t           inode;
@@ -869,40 +868,43 @@ typedef struct xlator_list {
 
 /* Add possible new type of option you may need */
 typedef enum {
-  	GF_OPTION_TYPE_ANY = 0,
-  	GF_OPTION_TYPE_STR,
-  	GF_OPTION_TYPE_INT,
-  	GF_OPTION_TYPE_SIZET,
-  	GF_OPTION_TYPE_PERCENT,
+        GF_OPTION_TYPE_ANY = 0,
+        GF_OPTION_TYPE_STR,
+        GF_OPTION_TYPE_INT,
+        GF_OPTION_TYPE_SIZET,
+        GF_OPTION_TYPE_PERCENT,
         GF_OPTION_TYPE_PERCENT_OR_SIZET,
-  	GF_OPTION_TYPE_BOOL,
-  	GF_OPTION_TYPE_XLATOR,
-  	GF_OPTION_TYPE_PATH,
-  	GF_OPTION_TYPE_TIME,
+        GF_OPTION_TYPE_BOOL,
+        GF_OPTION_TYPE_XLATOR,
+        GF_OPTION_TYPE_PATH,
+        GF_OPTION_TYPE_TIME,
 	GF_OPTION_TYPE_DOUBLE,
         GF_OPTION_TYPE_INTERNET_ADDRESS,
 } volume_option_type_t;
+
 
 #define ZR_VOLUME_MAX_NUM_KEY    4
 #define ZR_OPTION_MAX_ARRAY_SIZE 64
 
 /* Each translator should define this structure */
 typedef struct volume_options {
-  	char                *key[ZR_VOLUME_MAX_NUM_KEY]; 
+        char                *key[ZR_VOLUME_MAX_NUM_KEY];
 	                           /* different key, same meaning */
-  	volume_option_type_t type;       
-  	int64_t              min;  /* -1 means no range */
-  	int64_t              max;  /* -1 means no range */
-  	char                *value[ZR_OPTION_MAX_ARRAY_SIZE];  
-                                   /* If specified, will check for one of 
+        volume_option_type_t type;
+        int64_t              min;  /* -1 means no range */
+        int64_t              max;  /* -1 means no range */
+        char                *value[ZR_OPTION_MAX_ARRAY_SIZE];
+                                   /* If specified, will check for one of
 				      the value from this array */
 	char                *description; /* about the key */
 } volume_option_t;
+
 
 typedef struct vol_opt_list {
 	struct list_head  list;
 	volume_option_t  *given_opt;
 } volume_opt_list_t;
+
 
 struct _xlator {
 	/* Built during parsing */
@@ -913,7 +915,7 @@ struct _xlator {
 	xlator_list_t *parents;
 	xlator_list_t *children;
 	dict_t        *options;
-	
+
 	/* Set after doing dlopen() */
 	struct xlator_fops    *fops;
 	struct xlator_mops    *mops;
@@ -972,4 +974,3 @@ void loc_wipe (loc_t *loc);
 #define GF_STATFS_SCAN_FMT_STR "%"SCNx32",%"SCNx32",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx32",%"SCNx32",%"SCNx32"\n"
 
 #endif /* _XLATOR_H */
-
