@@ -422,30 +422,30 @@ fail:
 
 /* courtesy of folly */
 static void
-stat2attr (struct stat *st, struct fuse_attr *fa)
+stat2attr (struct iatt *st, struct fuse_attr *fa)
 {
-        fa->ino        = st->st_ino;
-        fa->size       = st->st_size;
-        fa->blocks     = st->st_blocks;
-        fa->atime      = st->st_atime;
-        fa->mtime      = st->st_mtime;
-        fa->ctime      = st->st_ctime;
-        fa->atimensec = ST_ATIM_NSEC (st);
-        fa->mtimensec = ST_MTIM_NSEC (st);
-        fa->ctimensec = ST_CTIM_NSEC (st);
-        fa->mode       = st->st_mode;
-        fa->nlink      = st->st_nlink;
-        fa->uid        = st->st_uid;
-        fa->gid        = st->st_gid;
-        fa->rdev       = st->st_rdev;
-        fa->blksize    = st->st_blksize;
+        fa->ino        = st->ia_ino;
+        fa->size       = st->ia_size;
+        fa->blocks     = st->ia_blocks;
+        fa->atime      = st->ia_atime;
+        fa->mtime      = st->ia_mtime;
+        fa->ctime      = st->ia_ctime;
+        fa->atimensec  = st->ia_atime_nsec;
+        fa->mtimensec  = st->ia_mtime_nsec;
+        fa->ctimensec  = st->ia_ctime_nsec;
+        fa->mode       = st_mode_from_ia (st->ia_prot, st->ia_type);
+        fa->nlink      = st->ia_nlink;
+        fa->uid        = st->ia_uid;
+        fa->gid        = st->ia_gid;
+        fa->rdev       = st->ia_rdev;
+        fa->blksize    = st->ia_blksize;
 }
 
 
 static int
 fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
-                inode_t *inode, struct stat *buf)
+                inode_t *inode, struct iatt *buf)
 {
         fuse_state_t            *state = NULL;
         fuse_in_header_t        *finh = NULL;
@@ -458,19 +458,19 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         finh = state->finh;
 
         if (!op_ret && state->loc.ino == 1) {
-                buf->st_ino = 1;
+                buf->ia_ino = 1;
         }
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": %s() %s => %"PRId64" (%"PRId64")",
                         frame->root->unique, gf_fop_list[frame->root->op],
-                        state->loc.path, buf->st_ino, state->loc.ino);
+                        state->loc.path, buf->ia_ino, state->loc.ino);
 
-                buf->st_blksize = this->ctx->page_size;
+                buf->ia_blksize = this->ctx->page_size;
                 stat2attr (buf, &feo.attr);
 
-                if (!buf->st_ino) {
+                if (!buf->ia_ino) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                 "%"PRIu64": %s() %s returning inode 0",
                                 frame->root->unique,
@@ -531,8 +531,8 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 static int
 fuse_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct stat *buf, struct stat *preparent,
-                   struct stat *postparent)
+                   inode_t *inode, struct iatt *buf, struct iatt *preparent,
+                   struct iatt *postparent)
 {
         fuse_entry_cbk (frame, cookie, this, op_ret, op_errno, inode, buf);
         return 0;
@@ -542,8 +542,8 @@ fuse_newentry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 static int
 fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 inode_t *inode, struct stat *stat, dict_t *dict,
-                 struct stat *postparent)
+                 inode_t *inode, struct iatt *stat, dict_t *dict,
+                 struct iatt *postparent)
 {
         fuse_state_t            *state = NULL;
         call_frame_t            *prev = NULL;
@@ -632,8 +632,8 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
 static int
 fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                   struct stat *postbuf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
         fuse_state_t     *state;
         fuse_in_header_t *finh;
@@ -649,11 +649,11 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
                         gf_fop_list[frame->root->op],
                         state->loc.path ? state->loc.path : "ERR",
-                        prebuf->st_ino);
+                        prebuf->ia_ino);
 
                 /* TODO: make these timeouts configurable via meta */
                 /* TODO: what if the inode number has changed by now */
-                postbuf->st_blksize = this->ctx->page_size;
+                postbuf->ia_blksize = this->ctx->page_size;
                 stat2attr (postbuf, &fao.attr);
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
@@ -683,7 +683,7 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int
 fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *buf)
+               int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         fuse_state_t     *state;
         fuse_in_header_t *finh;
@@ -699,11 +699,11 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
                         gf_fop_list[frame->root->op],
                         state->loc.path ? state->loc.path : "ERR",
-                        buf->st_ino);
+                        buf->ia_ino);
 
                 /* TODO: make these timeouts configurable via meta */
                 /* TODO: what if the inode number has changed by now */
-                buf->st_blksize = this->ctx->page_size;
+                buf->ia_blksize = this->ctx->page_size;
                 stat2attr (buf, &fao.attr);
 
                 fao.attr_valid = calc_timeout_sec (priv->attribute_timeout);
@@ -734,8 +734,8 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 static int
 fuse_root_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      inode_t *inode, struct stat *stat, dict_t *dict,
-                      struct stat *postparent)
+                      inode_t *inode, struct iatt *stat, dict_t *dict,
+                      struct iatt *postparent)
 {
         fuse_attr_cbk (frame, cookie, this, op_ret, op_errno, stat);
 
@@ -783,7 +783,7 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         fd = fd_lookup (state->loc.inode, finh->pid);
         state->fd = fd;
-        if (!fd || S_ISDIR (state->loc.inode->st_mode)) {
+        if (!fd || IA_ISDIR (state->loc.inode->ia_type)) {
                 /* this is the @ret of fuse_loc_fill, checked here
                    to permit fstat() to happen even when fuse_loc_fill fails
                 */
@@ -832,7 +832,7 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 foo.fh = (uintptr_t) fd;
                 foo.open_flags = 0;
 
-                if (!S_ISDIR (fd->inode->st_mode)) {
+                if (!IA_ISDIR (fd->inode->ia_type)) {
                         if (((state->flags & O_ACCMODE) != O_RDONLY) &&
                             priv->direct_io_mode)
                                 foo.open_flags |= FOPEN_DIRECT_IO;
@@ -884,7 +884,7 @@ fuse_do_truncate (fuse_state_t *state, size_t size)
 static int
 fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
-                  struct stat *statpre, struct stat *statpost)
+                  struct iatt *statpre, struct iatt *statpost)
 {
         fuse_state_t     *state;
         fuse_in_header_t *finh;
@@ -902,12 +902,12 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRIu64": %s() %s => %"PRId64, frame->root->unique,
                         gf_fop_list[frame->root->op],
                         state->loc.path ? state->loc.path : "ERR",
-                        statpost->st_ino);
+                        statpost->ia_ino);
 
                 /* TODO: make these timeouts configurable via meta */
                 /* TODO: what if the inode number has changed by now */
 
-                statpost->st_blksize = this->ctx->page_size;
+                statpost->ia_blksize = this->ctx->page_size;
 
                 stat2attr (statpost, &fao.attr);
 
@@ -982,7 +982,7 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_setattr_in *fsi = msg;
 
-        struct stat attr = {0, };
+        struct iatt attr = {0, };
 
         fuse_private_t  *priv = NULL;
         fuse_state_t *state = NULL;
@@ -1046,15 +1046,15 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         state->truncate_needed = _gf_true;
                 }
 
-                attr.st_size  = fsi->size;
-                attr.st_atime = fsi->atime;
-                attr.st_mtime = fsi->mtime;
-                ST_ATIM_NSEC_SET (&attr, fsi->atimensec);
-                ST_MTIM_NSEC_SET (&attr, fsi->mtimensec);
+                attr.ia_size  = fsi->size;
+                attr.ia_atime = fsi->atime;
+                attr.ia_mtime = fsi->mtime;
+                attr.ia_atime_nsec = fsi->atimensec;
+                attr.ia_mtime_nsec = fsi->mtimensec;
 
-                attr.st_mode = fsi->mode;
-                attr.st_uid  = fsi->uid;
-                attr.st_gid  = fsi->gid;
+                attr.ia_prot = ia_prot_from_st_mode (fsi->mode);
+                attr.ia_uid  = fsi->uid;
+                attr.ia_gid  = fsi->gid;
 
                 if (state->fd &&
                     !((fsi->valid & FATTR_ATIME) || (fsi->valid & FATTR_MTIME))) {
@@ -1082,8 +1082,8 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static int gf_fuse_xattr_enotsup_log;
 static int
 fuse_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                struct stat *postbuf)
+                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                struct iatt *postbuf)
 {
         fuse_state_t *state = frame->root->state;
         fuse_in_header_t *finh = state->finh;
@@ -1187,8 +1187,8 @@ fuse_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int
 fuse_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *preparent,
-                 struct stat *postparent)
+                 int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                 struct iatt *postparent)
 {
         fuse_state_t     *state = NULL;
         fuse_in_header_t *finh = NULL;
@@ -1259,7 +1259,7 @@ fuse_access (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static int
 fuse_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, const char *linkname,
-                   struct stat *buf)
+                   struct iatt *buf)
 {
         fuse_state_t     *state = NULL;
         fuse_in_header_t *finh = NULL;
@@ -1490,9 +1490,9 @@ fuse_symlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
 int
 fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *buf,
-                 struct stat *preoldparent, struct stat *postoldparent,
-                 struct stat *prenewparent, struct stat *postnewparent)
+                 int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                 struct iatt *preoldparent, struct iatt *postoldparent,
+                 struct iatt *prenewparent, struct iatt *postnewparent)
 {
         fuse_state_t     *state = NULL;
         fuse_in_header_t *finh = NULL;
@@ -1502,18 +1502,18 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_ret == 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s -> %s => 0 (buf->st_ino=%"PRId64" , loc->ino=%"PRId64")",
+                        "%"PRIu64": %s -> %s => 0 (buf->ia_ino=%"PRId64" , loc->ino=%"PRId64")",
                         frame->root->unique, state->loc.path, state->loc2.path,
-                        buf->st_ino, state->loc.ino);
+                        buf->ia_ino, state->loc.ino);
 
                 {
                         /* ugly ugly - to stay blind to situation where
                            rename happens on a new inode
                         */
-                        buf->st_ino = state->loc.ino;
-                        buf->st_mode = state->loc.inode->st_mode;
+                        buf->ia_ino = state->loc.ino;
+                        buf->ia_type = state->loc.inode->ia_type;
                 }
-                buf->st_blksize = this->ctx->page_size;
+                buf->ia_blksize = this->ctx->page_size;
 
                 inode_rename (state->itable,
                               state->loc.parent, state->loc.name,
@@ -1627,8 +1627,8 @@ fuse_link (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static int
 fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 fd_t *fd, inode_t *inode, struct stat *buf,
-                 struct stat *preparent, struct stat *postparent)
+                 fd_t *fd, inode_t *inode, struct iatt *buf,
+                 struct iatt *preparent, struct iatt *postparent)
 {
         fuse_state_t            *state = NULL;
         fuse_in_header_t        *finh = NULL;
@@ -1655,9 +1655,9 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": %s() %s => %p (ino=%"PRId64")",
                         frame->root->unique, gf_fop_list[frame->root->op],
-                        state->loc.path, fd, buf->st_ino);
+                        state->loc.path, fd, buf->ia_ino);
 
-                buf->st_blksize = this->ctx->page_size;
+                buf->ia_blksize = this->ctx->page_size;
                 stat2attr (buf, &feo.attr);
 
                 linked_inode = inode_link (inode, state->loc.parent,
@@ -1815,7 +1815,7 @@ static int
 fuse_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
                 struct iovec *vector, int32_t count,
-                struct stat *stbuf, struct iobref *iobref)
+                struct iatt *stbuf, struct iobref *iobref)
 {
         fuse_state_t *state = NULL;
         fuse_in_header_t *finh = NULL;
@@ -1829,7 +1829,7 @@ fuse_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": READ => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRId64,
                         frame->root->unique,
-                        op_ret, state->size, state->off, stbuf->st_size);
+                        op_ret, state->size, state->off, stbuf->ia_size);
 
                 iov_out = CALLOC (count + 1, sizeof (*iov_out));
                 if (iov_out) {
@@ -1890,7 +1890,7 @@ fuse_readv (xlator_t *this, fuse_in_header_t *finh, void *msg)
 static int
 fuse_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 struct stat *stbuf, struct stat *postbuf)
+                 struct iatt *stbuf, struct iatt *postbuf)
 {
         fuse_state_t *state = NULL;
         fuse_in_header_t *finh = NULL;
@@ -1903,7 +1903,7 @@ fuse_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": WRITE => %d/%"GF_PRI_SIZET",%"PRId64"/%"PRId64,
                         frame->root->unique,
-                        op_ret, state->size, state->off, stbuf->st_size);
+                        op_ret, state->size, state->off, stbuf->ia_size);
 
                 fwo.size = op_ret;
                 send_fuse_obj (this, finh, &fwo);
@@ -2131,29 +2131,29 @@ fuse_opendir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
 
 unsigned char
-d_type_from_stat (struct stat *buf)
+d_type_from_stat (struct iatt *buf)
 {
         unsigned char d_type;
 
-        if (S_ISLNK (buf->st_mode)) {
+        if (IA_ISLNK (buf->ia_type)) {
                 d_type = DT_LNK;
 
-        } else if (S_ISDIR (buf->st_mode)) {
+        } else if (IA_ISDIR (buf->ia_type)) {
                 d_type = DT_DIR;
 
-        } else if (S_ISFIFO (buf->st_mode)) {
+        } else if (IA_ISFIFO (buf->ia_type)) {
                 d_type = DT_FIFO;
 
-        } else if (S_ISSOCK (buf->st_mode)) {
+        } else if (IA_ISSOCK (buf->ia_type)) {
                 d_type = DT_SOCK;
 
-        } else if (S_ISCHR (buf->st_mode)) {
+        } else if (IA_ISCHR (buf->ia_type)) {
                 d_type = DT_CHR;
 
-        } else if (S_ISBLK (buf->st_mode)) {
+        } else if (IA_ISBLK (buf->ia_type)) {
                 d_type = DT_BLK;
 
-        } else if (S_ISREG (buf->st_mode)) {
+        } else if (IA_ISREG (buf->ia_type)) {
                 d_type = DT_REG;
 
         } else {
@@ -2316,7 +2316,7 @@ fuse_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
           Scale the block counts to match ->f_bsize.
         */
-        /* TODO: with old coreutils, f_bsize is taken from stat()'s st_blksize
+        /* TODO: with old coreutils, f_bsize is taken from stat()'s ia_blksize
          * so the df with old coreutils this wont work :(
          */
 
@@ -2974,8 +2974,8 @@ static fuse_handler_t *fuse_ops[FUSE_713_OP_HIGH];
 int
 fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
-                       inode_t *inode, struct stat *buf, dict_t *xattr,
-                       struct stat *postparent)
+                       inode_t *inode, struct iatt *buf, dict_t *xattr,
+                       struct iatt *postparent)
 {
         fuse_private_t *priv = NULL;
 

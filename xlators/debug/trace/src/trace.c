@@ -60,7 +60,7 @@ struct {
 int trace_log_level = GF_LOG_NORMAL;
 
 static char *
-trace_stat_to_str (struct stat *stbuf)
+trace_stat_to_str (struct iatt *stbuf)
 {
         char *statstr = NULL;
         char atime_buf[256] = {0,};
@@ -69,22 +69,22 @@ trace_stat_to_str (struct stat *stbuf)
         int  asprint_ret_value = 0;
 
         strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime (&stbuf->st_atime));
+                  localtime ((time_t *)&stbuf->ia_atime));
         strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime (&stbuf->st_mtime));
+                  localtime ((time_t *)&stbuf->ia_mtime));
         strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
-                  localtime (&stbuf->st_ctime));
+                  localtime ((time_t *)&stbuf->ia_ctime));
 
         asprint_ret_value = asprintf (&statstr,
-                                      "st_ino=%"PRIu64", st_dev=%"PRIu64
-                                      ", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
-                                      "st_uid=%d, st_gid=%d, st_size=%"PRId64", st_blocks=%"PRId64
-                                      ", st_atime=%s, st_mtime=%s, st_ctime=%s",
-                                      stbuf->st_ino, stbuf->st_dev,
-                                      stbuf->st_mode, stbuf->st_nlink,
-                                      stbuf->st_uid,
-                                      stbuf->st_gid, stbuf->st_size,
-                                      stbuf->st_blocks, atime_buf,
+                                      "ia_ino=%"PRIu64", ia_gen=%"PRIu64
+                                      ", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
+                                      "ia_uid=%d, ia_gid=%d, ia_size=%"PRId64", ia_blocks=%"PRId64
+                                      ", ia_atime=%s, ia_mtime=%s, ia_ctime=%s",
+                                      stbuf->ia_ino, stbuf->ia_gen,
+                                      st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
+                                      stbuf->ia_nlink, stbuf->ia_uid,
+                                      stbuf->ia_gid, stbuf->ia_size,
+                                      stbuf->ia_blocks, atime_buf,
                                       mtime_buf, ctime_buf);
 
         if (asprint_ret_value < 0)
@@ -97,8 +97,8 @@ trace_stat_to_str (struct stat *stbuf)
 int
 trace_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, fd_t *fd,
-                  inode_t *inode, struct stat *buf,
-                  struct stat *preparent, struct stat *postparent)
+                  inode_t *inode, struct iatt *buf,
+                  struct iatt *preparent, struct iatt *postparent)
 {
         char  *statstr = NULL;
         char  *preparentstr = NULL;
@@ -154,7 +154,7 @@ trace_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *buf)
+                int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         char atime_buf[256];
         char mtime_buf[256];
@@ -163,20 +163,24 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (trace_fop_names[GF_FOP_STAT].enabled) {
                 if (op_ret >= 0) {
-                        strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-                        strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-                        strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+                        strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime ((time_t *)&buf->ia_atime));
+                        strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime ((time_t *)&buf->ia_mtime));
+                        strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime ((time_t *)&buf->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, buf {st_dev=%"GF_PRI_DEV", "
-                                "st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
-                                "st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", st_size=%"PRId64
-                                ", st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", "
-                                "st_atime=%s, st_mtime=%s, st_ctime=%s})",
-                                frame->root->unique, op_ret, buf->st_dev, buf->st_ino,
-                                buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid,
-                                buf->st_rdev, buf->st_size, buf->st_blksize,
-                                buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+                                "%"PRId64": (op_ret=%d, buf {ia_gen=%"GF_PRI_DEV", "
+                                "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
+                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"GF_PRI_DEV", ia_size=%"PRId64
+                                ", ia_blksize=%"GF_PRI_BLKSIZE", ia_blocks=%"PRId64", "
+                                "ia_atime=%s, ia_mtime=%s, ia_ctime=%s})",
+                                frame->root->unique, op_ret, buf->ia_gen, buf->ia_ino,
+                                st_mode_from_ia (buf->ia_prot, buf->ia_type),
+                                buf->ia_nlink, buf->ia_uid, buf->ia_gid,
+                                buf->ia_rdev, buf->ia_size, buf->ia_blksize,
+                                buf->ia_blocks, atime_buf, mtime_buf, ctime_buf);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -192,7 +196,7 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iovec *vector,
-                 int32_t count, struct stat *buf, struct iobref *iobref)
+                 int32_t count, struct iatt *buf, struct iobref *iobref)
 {
         char  atime_buf[256];
         char  mtime_buf[256];
@@ -200,19 +204,23 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (trace_fop_names[GF_FOP_READ].enabled) {
                 if (op_ret >= 0) {
-                        strftime (atime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_atime));
-                        strftime (mtime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_mtime));
-                        strftime (ctime_buf, 256, "[%b %d %H:%M:%S]", localtime (&buf->st_ctime));
+                        strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime ((time_t *)&buf->ia_atime));
+                        strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime ((time_t *)&buf->ia_mtime));
+                        strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
+                                  localtime ((time_t *)&buf->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, op_errno=%d, *buf {st_dev=%"GF_PRI_DEV", "
-                                "st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
-                                "st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", "
-                                "st_size=%"PRId64", st_blksize=%"GF_PRI_BLKSIZE", "
-                                "st_blocks=%"PRId64", st_atime=%s, st_mtime=%s, st_ctime=%s})",
-                                frame->root->unique, op_ret, op_errno, buf->st_dev, buf->st_ino,
-                                buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid,
-                                buf->st_rdev, buf->st_size, buf->st_blksize, buf->st_blocks,
+                                "%"PRId64": (op_ret=%d, op_errno=%d, *buf {ia_gen=%"GF_PRI_DEV", "
+                                "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
+                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"GF_PRI_DEV", "
+                                "ia_size=%"PRId64", ia_blksize=%"GF_PRI_BLKSIZE", "
+                                "ia_blocks=%"PRId64", ia_atime=%s, ia_mtime=%s, ia_ctime=%s})",
+                                frame->root->unique, op_ret, op_errno, buf->ia_gen, buf->ia_ino,
+                                st_mode_from_ia (buf->ia_prot, buf->ia_type),
+                                buf->ia_nlink, buf->ia_uid, buf->ia_gid,
+                                buf->ia_rdev, buf->ia_size, buf->ia_blksize, buf->ia_blocks,
                                 atime_buf, mtime_buf, ctime_buf);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
@@ -230,7 +238,7 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
-                  struct stat *prebuf, struct stat *postbuf)
+                  struct iatt *prebuf, struct iatt *postbuf)
 {
         char  *preopstr = NULL;
         char  *postopstr = NULL;
@@ -243,7 +251,7 @@ trace_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, ino = %"PRIu64
                                 ", *prebuf = {%s}, *postbuf = {%s})",
-                                frame->root->unique, op_ret, postbuf->st_ino,
+                                frame->root->unique, op_ret, postbuf->ia_ino,
                                 preopstr, postopstr);
 
                         if (preopstr)
@@ -314,7 +322,7 @@ trace_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 struct stat *prebuf, struct stat *postbuf)
+                 struct iatt *prebuf, struct iatt *postbuf)
 {
         char  *preopstr = NULL;
         char  *postopstr = NULL;
@@ -327,7 +335,7 @@ trace_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, ino = %"PRIu64
                                 ", *prebuf = {%s}, *postbuf = {%s}",
-                                frame->root->unique, op_ret, postbuf->st_ino,
+                                frame->root->unique, op_ret, postbuf->ia_ino,
                                 preopstr, postopstr);
 
                         if (preopstr)
@@ -351,7 +359,7 @@ trace_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   struct stat *statpre, struct stat *statpost)
+                   struct iatt *statpre, struct iatt *statpost)
 {
         char atime_pre[256] = {0,};
         char mtime_pre[256] = {0,};
@@ -363,31 +371,33 @@ trace_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_SETATTR].enabled) {
                 if (op_ret >= 0) {
                         strftime (atime_pre, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpre->st_atime));
+                                  localtime ((time_t *)&statpre->ia_atime));
                         strftime (mtime_pre, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpre->st_mtime));
+                                  localtime ((time_t *)&statpre->ia_mtime));
                         strftime (ctime_pre, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpre->st_ctime));
+                                  localtime ((time_t *)&statpre->ia_ctime));
 
                         strftime (atime_post, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpost->st_atime));
+                                  localtime ((time_t *)&statpost->ia_atime));
                         strftime (mtime_post, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpost->st_mtime));
+                                  localtime ((time_t *)&statpost->ia_mtime));
                         strftime (ctime_post, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpost->st_ctime));
+                                  localtime ((time_t *)&statpost->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, *statpre "
-                                "{st_ino=%"PRIu64", st_mode=%o, st_uid=%d, "
-                                "st_gid=%d, st_atime=%s, st_mtime=%s, "
-                                "st_ctime=%s}, *statpost {st_ino=%"PRIu64", "
-                                "st_mode=%o, st_uid=%d, st_gid=%d, st_atime=%s,"
-                                " st_mtime=%s, st_ctime=%s})",
-                                frame->root->unique, op_ret, statpre->st_ino,
-                                statpre->st_mode, statpre->st_uid,
-                                statpre->st_gid, atime_pre, mtime_pre,
-                                ctime_pre, statpost->st_ino, statpost->st_mode,
-                                statpost->st_uid, statpost->st_gid, atime_post,
+                                "{ia_ino=%"PRIu64", st_mode=%o, ia_uid=%d, "
+                                "ia_gid=%d, ia_atime=%s, ia_mtime=%s, "
+                                "ia_ctime=%s}, *statpost {ia_ino=%"PRIu64", "
+                                "st_mode=%o, ia_uid=%d, ia_gid=%d, ia_atime=%s,"
+                                " ia_mtime=%s, ia_ctime=%s})",
+                                frame->root->unique, op_ret, statpre->ia_ino,
+                                st_mode_from_ia (statpre->ia_prot, statpre->ia_type),
+                                statpre->ia_uid,
+                                statpre->ia_gid, atime_pre, mtime_pre,
+                                ctime_pre, statpost->ia_ino,
+                                st_mode_from_ia (statpost->ia_prot, statpost->ia_type),
+                                statpost->ia_uid, statpost->ia_gid, atime_post,
                                 mtime_post, ctime_post);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
@@ -404,7 +414,7 @@ trace_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    struct stat *statpre, struct stat *statpost)
+                    struct iatt *statpre, struct iatt *statpost)
 {
         char atime_pre[256] = {0,};
         char mtime_pre[256] = {0,};
@@ -416,31 +426,33 @@ trace_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_FSETATTR].enabled) {
                 if (op_ret >= 0) {
                         strftime (atime_pre, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpre->st_atime));
+                                  localtime ((time_t *)&statpre->ia_atime));
                         strftime (mtime_pre, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpre->st_mtime));
+                                  localtime ((time_t *)&statpre->ia_mtime));
                         strftime (ctime_pre, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpre->st_ctime));
+                                  localtime ((time_t *)&statpre->ia_ctime));
 
                         strftime (atime_post, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpost->st_atime));
+                                  localtime ((time_t *)&statpost->ia_atime));
                         strftime (mtime_post, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpost->st_mtime));
+                                  localtime ((time_t *)&statpost->ia_mtime));
                         strftime (ctime_post, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&statpost->st_ctime));
+                                  localtime ((time_t *)&statpost->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, *statpre "
-                                "{st_ino=%"PRIu64", st_mode=%o, st_uid=%d, "
-                                "st_gid=%d, st_atime=%s, st_mtime=%s, "
-                                "st_ctime=%s}, *statpost {st_ino=%"PRIu64", "
-                                "st_mode=%o, st_uid=%d, st_gid=%d, st_atime=%s,"
-                                " st_mtime=%s, st_ctime=%s})",
-                                frame->root->unique, op_ret, statpre->st_ino,
-                                statpre->st_mode, statpre->st_uid,
-                                statpre->st_gid, atime_pre, mtime_pre,
-                                ctime_pre, statpost->st_ino, statpost->st_mode,
-                                statpost->st_uid, statpost->st_gid, atime_post,
+                                "{ia_ino=%"PRIu64", st_mode=%o, ia_uid=%d, "
+                                "ia_gid=%d, ia_atime=%s, ia_mtime=%s, "
+                                "ia_ctime=%s}, *statpost {ia_ino=%"PRIu64", "
+                                "st_mode=%o, ia_uid=%d, ia_gid=%d, ia_atime=%s,"
+                                " ia_mtime=%s, ia_ctime=%s})",
+                                frame->root->unique, op_ret, statpre->ia_ino,
+                                st_mode_from_ia (statpre->ia_prot, statpre->ia_type),
+                                statpre->ia_uid,
+                                statpre->ia_gid, atime_pre, mtime_pre,
+                                ctime_pre, statpost->ia_ino,
+                                st_mode_from_ia (statpost->ia_prot, statpost->ia_type),
+                                statpost->ia_uid, statpost->ia_gid, atime_post,
                                 mtime_post, ctime_post);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
@@ -458,7 +470,7 @@ trace_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
-                  struct stat *preparent, struct stat *postparent)
+                  struct iatt *preparent, struct iatt *postparent)
 {
         char *preparentstr = NULL;
         char *postparentstr = NULL;
@@ -494,9 +506,9 @@ trace_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *buf,
-                  struct stat *preoldparent, struct stat *postoldparent,
-                  struct stat *prenewparent, struct stat *postnewparent)
+                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                  struct iatt *preoldparent, struct iatt *postoldparent,
+                  struct iatt *prenewparent, struct iatt *postnewparent)
 {
         char  *statstr = NULL;
         char  *preoldparentstr = NULL;
@@ -538,9 +550,9 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 frame->root->unique, op_ret, op_errno);
                 }
                 gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": (op_ret=%d, op_errno=%d, buf {st_ino=%"PRIu64"})",
+                        "%"PRId64": (op_ret=%d, op_errno=%d, buf {ia_ino=%"PRIu64"})",
                         frame->root->unique, op_ret, op_errno,
-                        (buf? buf->st_ino : 0));
+                        (buf? buf->ia_ino : 0));
         }
 
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
@@ -553,7 +565,7 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    const char *buf, struct stat *stbuf)
+                    const char *buf, struct iatt *stbuf)
 {
         char *statstr = NULL;
 
@@ -583,8 +595,8 @@ trace_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
-                  inode_t *inode, struct stat *buf,
-                  dict_t *xattr, struct stat *postparent)
+                  inode_t *inode, struct iatt *buf,
+                  dict_t *xattr, struct iatt *postparent)
 {
         char  *statstr = NULL;
         char  *postparentstr = NULL;
@@ -620,8 +632,8 @@ trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct stat *buf,
-                   struct stat *preparent, struct stat *postparent)
+                   inode_t *inode, struct iatt *buf,
+                   struct iatt *preparent, struct iatt *postparent)
 {
         char  *statstr = NULL;
         char  *preparentstr = NULL;
@@ -665,8 +677,8 @@ trace_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 inode_t *inode, struct stat *buf,
-                 struct stat *preparent, struct stat *postparent)
+                 inode_t *inode, struct iatt *buf,
+                 struct iatt *preparent, struct iatt *postparent)
 {
         char *statstr = NULL;
         char *preparentstr = NULL;
@@ -709,8 +721,8 @@ trace_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 inode_t *inode, struct stat *buf,
-                 struct stat *preparent, struct stat *postparent)
+                 inode_t *inode, struct iatt *buf,
+                 struct iatt *preparent, struct iatt *postparent)
 {
         char  *statstr = NULL;
         char  *preparentstr = NULL;
@@ -726,7 +738,7 @@ trace_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 "%"PRId64": (op_ret=%d, ino = %"PRIu64
                                 ", *stbuf = {%s}, *prebuf = {%s}, "
                                 "*postbuf = {%s} )",
-                                frame->root->unique, op_ret, buf->st_ino,
+                                frame->root->unique, op_ret, buf->ia_ino,
                                 statstr, preparentstr, postparentstr);
 
                         if (statstr)
@@ -753,8 +765,8 @@ trace_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
-                inode_t *inode, struct stat *buf,
-                struct stat *preparent, struct stat *postparent)
+                inode_t *inode, struct iatt *buf,
+                struct iatt *preparent, struct iatt *postparent)
 {
         char  *statstr = NULL;
         char  *preparentstr = NULL;
@@ -770,7 +782,7 @@ trace_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 "%"PRId64": (op_ret=%d, ino = %"PRIu64
                                 ", *stbuf = {%s}, *prebuf = {%s}, "
                                 "*postbuf = {%s})",
-                                frame->root->unique, op_ret, buf->st_ino,
+                                frame->root->unique, op_ret, buf->ia_ino,
                                 statstr, preparentstr, postparentstr);
 
                         if (statstr)
@@ -827,7 +839,7 @@ trace_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 struct stat *preparent, struct stat *postparent)
+                 struct iatt *preparent, struct iatt *postparent)
 {
         char  *preparentstr = NULL;
         char  *postparentstr = NULL;
@@ -864,7 +876,7 @@ trace_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    struct stat *prebuf, struct stat *postbuf)
+                    struct iatt *prebuf, struct iatt *postbuf)
 {
         char  *preopstr = NULL;
         char  *postopstr = NULL;
@@ -1003,7 +1015,7 @@ trace_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 trace_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
-                     struct stat *prebuf, struct stat *postbuf)
+                     struct iatt *prebuf, struct iatt *postbuf)
 {
         char  *prebufstr = NULL;
         char  *postbufstr = NULL;
@@ -1039,7 +1051,7 @@ trace_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *buf)
+                 int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         char atime_buf[256];
         char mtime_buf[256];
@@ -1048,22 +1060,23 @@ trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_FSTAT].enabled) {
                 if (op_ret >= 0) {
                         strftime (atime_buf, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&buf->st_atime));
+                                  localtime ((time_t *)&buf->ia_atime));
                         strftime (mtime_buf, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&buf->st_mtime));
+                                  localtime ((time_t *)&buf->ia_mtime));
                         strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&buf->st_ctime));
+                                  localtime ((time_t *)&buf->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, *buf {st_dev=%"GF_PRI_DEV", "
-                                "st_ino=%"PRIu64", st_mode=%o, st_nlink=%"GF_PRI_NLINK", "
-                                "st_uid=%d, st_gid=%d, st_rdev=%"GF_PRI_DEV", st_size=%"PRId64", "
-                                "st_blksize=%"GF_PRI_BLKSIZE", st_blocks=%"PRId64", st_atime=%s, "
-                                "st_mtime=%s, st_ctime=%s})",
-                                frame->root->unique, op_ret, buf->st_dev, buf->st_ino,
-                                buf->st_mode, buf->st_nlink, buf->st_uid, buf->st_gid,
-                                buf->st_rdev, buf->st_size, buf->st_blksize,
-                                buf->st_blocks, atime_buf, mtime_buf, ctime_buf);
+                                "%"PRId64": (op_ret=%d, *buf {ia_gen=%"GF_PRI_DEV", "
+                                "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
+                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"GF_PRI_DEV", ia_size=%"PRId64", "
+                                "ia_blksize=%"GF_PRI_BLKSIZE", ia_blocks=%"PRId64", ia_atime=%s, "
+                                "ia_mtime=%s, ia_ctime=%s})",
+                                frame->root->unique, op_ret, buf->ia_gen, buf->ia_ino,
+                                st_mode_from_ia (buf->ia_prot, buf->ia_type),
+                                buf->ia_nlink, buf->ia_uid, buf->ia_gid,
+                                buf->ia_rdev, buf->ia_size, buf->ia_blksize,
+                                buf->ia_blocks, atime_buf, mtime_buf, ctime_buf);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -1478,7 +1491,7 @@ trace_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
 int
 trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-               struct stat *stbuf, int32_t valid)
+               struct iatt *stbuf, int32_t valid)
 {
         char actime_str[256] = {0,};
         char modtime_str[256] = {0,};
@@ -1488,7 +1501,8 @@ trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (loc {path=%s, ino=%"PRIu64"},"
                                 " mode=%o)", frame->root->unique, loc->path,
-                                loc->inode->ino, stbuf->st_mode);
+                                loc->inode->ino,
+                                st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type));
                 }
 
                 if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
@@ -1496,18 +1510,18 @@ trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                 "%"PRId64": (loc {path=%s, ino=%"PRIu64"},"
                                 " uid=%o, gid=%o)",
                                 frame->root->unique, loc->path, loc->inode->ino,
-                                stbuf->st_uid, stbuf->st_gid);
+                                stbuf->ia_uid, stbuf->ia_gid);
                 }
 
                 if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
                         strftime (actime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&stbuf->st_atime));
+                                  localtime ((time_t *)&stbuf->ia_atime));
                         strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&stbuf->st_mtime));
+                                  localtime ((time_t *)&stbuf->ia_mtime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (loc {path=%s, ino=%"PRIu64"}, "
-                                "*stbuf=%p {st_atime=%s, st_mtime=%s})",
+                                "*stbuf=%p {ia_atime=%s, ia_mtime=%s})",
                                 frame->root->unique, loc->path, loc->inode->ino,
                                 stbuf, actime_str, modtime_str);
                 }
@@ -1524,7 +1538,7 @@ trace_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                struct stat *stbuf, int32_t valid)
+                struct iatt *stbuf, int32_t valid)
 {
         char actime_str[256] = {0,};
         char modtime_str[256] = {0,};
@@ -1534,25 +1548,25 @@ trace_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (*fd=%p, mode=%o)",
                                 frame->root->unique, fd,
-                                stbuf->st_mode);
+                                st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type));
                 }
 
                 if (valid & (GF_SET_ATTR_UID | GF_SET_ATTR_GID)) {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (*fd=%p, uid=%o, gid=%o)",
                                 frame->root->unique, fd,
-                                stbuf->st_uid, stbuf->st_gid);
+                                stbuf->ia_uid, stbuf->ia_gid);
                 }
 
                 if (valid & (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME)) {
                         strftime (actime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&stbuf->st_atime));
+                                  localtime ((time_t *)&stbuf->ia_atime));
                         strftime (modtime_str, 256, "[%b %d %H:%M:%S]",
-                                  localtime (&stbuf->st_mtime));
+                                  localtime ((time_t *)&stbuf->ia_mtime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (*fd=%p"
-                                "*stbuf=%p {st_atime=%s, st_mtime=%s})",
+                                "*stbuf=%p {ia_atime=%s, ia_mtime=%s})",
                                 frame->root->unique, fd, stbuf, actime_str,
                                 modtime_str);
                 }

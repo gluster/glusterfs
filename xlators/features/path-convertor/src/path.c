@@ -134,9 +134,9 @@ path_create_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 fd_t *fd,
 		 inode_t *inode,
-		 struct stat *buf,
-                 struct stat *preparent,
-                 struct stat *postparent)
+		 struct iatt *buf,
+                 struct iatt *preparent,
+                 struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 	return 0;
@@ -187,7 +187,7 @@ path_readlink_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   const char *buf,
-                   struct stat *sbuf)
+                   struct iatt *sbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, buf, sbuf);
 	return 0;
@@ -200,9 +200,9 @@ path_lookup_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-		 struct stat *buf,
+		 struct iatt *buf,
 		 dict_t *xattr,
-                 struct stat *postparent)
+                 struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr);
 	return 0;
@@ -216,9 +216,9 @@ path_symlink_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-                  struct stat *buf,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -231,9 +231,9 @@ path_mknod_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-                struct stat *buf,
-                struct stat *preparent,
-                struct stat *postparent)
+                struct iatt *buf,
+                struct iatt *preparent,
+                struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -247,9 +247,9 @@ path_mkdir_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-                struct stat *buf,
-                struct stat *preparent,
-                struct stat *postparent)
+                struct iatt *buf,
+                struct iatt *preparent,
+                struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -262,9 +262,9 @@ path_link_cbk (call_frame_t *frame,
 	       int32_t op_ret,
 	       int32_t op_errno,
 	       inode_t *inode,
-               struct stat *buf,
-               struct stat *preparent,
-               struct stat *postparent)
+               struct iatt *buf,
+               struct iatt *preparent,
+               struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -289,11 +289,11 @@ path_rename_buf_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf,
-                     struct stat *preoldparent,
-                     struct stat *postoldparent,
-                     struct stat *prenewparent,
-                     struct stat *postnewparent)
+		     struct iatt *buf,
+                     struct iatt *preoldparent,
+                     struct iatt *postoldparent,
+                     struct iatt *prenewparent,
+                     struct iatt *postnewparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -307,7 +307,7 @@ path_common_buf_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf)
+		     struct iatt *buf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -327,8 +327,8 @@ path_common_dict_cbk (call_frame_t *frame,
 
 int32_t 
 path_common_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno,struct stat *preparent,
-                        struct stat *postparent)
+                        int32_t op_ret, int32_t op_errno,struct iatt *preparent,
+                        struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno);
 	return 0;
@@ -336,8 +336,8 @@ path_common_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 path_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno,struct stat *prebuf,
-                   struct stat *postbuf)
+                   int32_t op_ret, int32_t op_errno,struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -672,8 +672,8 @@ path_setattr_cbk (call_frame_t *frame,
                   xlator_t *this,
                   int32_t op_ret,
                   int32_t op_errno,
-                  struct stat *preop,
-                  struct stat *postop)
+                  struct iatt *preop,
+                  struct iatt *postop)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, preop, postop);
 	return 0;
@@ -683,7 +683,7 @@ int32_t
 path_setattr (call_frame_t *frame,
               xlator_t *this,
               loc_t *loc,
-              struct stat *stbuf,
+              struct iatt *stbuf,
               int32_t valid)
 {
 	char *loc_path = (char *)loc->path;

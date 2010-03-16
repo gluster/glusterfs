@@ -448,7 +448,7 @@ int
 afr_sh_entry_expunge_parent_setattr_cbk (call_frame_t *expunge_frame,
                                          void *cookie, xlator_t *this,
                                          int32_t op_ret, int32_t op_errno,
-                                         struct stat *preop, struct stat *postop)
+                                         struct iatt *preop, struct iatt *postop)
 {
 	afr_private_t   *priv          = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -480,11 +480,11 @@ int
 afr_sh_entry_expunge_rename_cbk (call_frame_t *expunge_frame, void *cookie,
 				 xlator_t *this,
 				 int32_t op_ret, int32_t op_errno,
-                                 struct stat *buf,
-                                 struct stat *preoldparent,
-                                 struct stat *postoldparent,
-                                 struct stat *prenewparent,
-                                 struct stat *postnewparent)
+                                 struct iatt *buf,
+                                 struct iatt *preoldparent,
+                                 struct iatt *postoldparent,
+                                 struct iatt *prenewparent,
+                                 struct iatt *postnewparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -596,8 +596,8 @@ afr_sh_entry_expunge_rename (call_frame_t *expunge_frame, xlator_t *this,
 int
 afr_sh_entry_expunge_mkdir_cbk (call_frame_t *expunge_frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno, inode_t *inode,
-                                struct stat *buf, struct stat *preparent,
-                                struct stat *postparent)
+                                struct iatt *buf, struct iatt *preparent,
+                                struct iatt *postparent)
 {
         afr_private_t *priv            = NULL;
         afr_local_t     *expunge_local = NULL;
@@ -640,8 +640,8 @@ int
 afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie,
                                        xlator_t *this,
                                        int32_t op_ret, int32_t op_errno,
-                                       inode_t *inode, struct stat *buf,
-                                       dict_t *xattr, struct stat *postparent)
+                                       inode_t *inode, struct iatt *buf,
+                                       dict_t *xattr, struct iatt *postparent)
 {
         afr_private_t *priv            = NULL;
         afr_local_t     *expunge_local = NULL;
@@ -745,7 +745,7 @@ afr_sh_entry_expunge_lookup_trash (call_frame_t *expunge_frame, xlator_t *this,
 
 int
 afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
-			     int active_src, struct stat *buf)
+			     int active_src, struct iatt *buf)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -760,7 +760,7 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
 	frame = expunge_sh->sh_frame;
 	source = expunge_sh->source;
 
-	type = (buf->st_mode & S_IFMT);
+	type = buf->ia_type;
 
 	switch (type) {
 	case S_IFSOCK:
@@ -794,8 +794,8 @@ int
 afr_sh_entry_expunge_lookup_cbk (call_frame_t *expunge_frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret,	int32_t op_errno,
-                                inode_t *inode, struct stat *buf, dict_t *x,
-                                struct stat *postparent)
+                                inode_t *inode, struct iatt *buf, dict_t *x,
+                                struct iatt *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -857,8 +857,8 @@ int
 afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret,	int32_t op_errno,
-                                inode_t *inode, struct stat *buf, dict_t *x,
-                                struct stat *postparent)
+                                inode_t *inode, struct iatt *buf, dict_t *x,
+                                struct iatt *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -1148,7 +1148,7 @@ int
 afr_sh_entry_impunge_setattr_cbk (call_frame_t *impunge_frame, void *cookie,
 				  xlator_t *this,
                                   int32_t op_ret, int32_t op_errno,
-                                  struct stat *preop, struct stat *postop)
+                                  struct iatt *preop, struct iatt *postop)
 {
 	int              call_count = 0;
 	afr_private_t   *priv = NULL;
@@ -1209,7 +1209,7 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 	call_frame_t    *frame = NULL;
 	int              child_index = 0;
 
-        struct stat stbuf;
+        struct iatt stbuf;
         int32_t     valid = 0;
 
 	priv          = this->private;
@@ -1223,23 +1223,16 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 		"setting ownership of %s on %s to %d/%d",
 		impunge_local->loc.path,
 		priv->children[child_index]->name,
-		impunge_local->cont.lookup.buf.st_uid,
-		impunge_local->cont.lookup.buf.st_gid);
+		impunge_local->cont.lookup.buf.ia_uid,
+		impunge_local->cont.lookup.buf.ia_gid);
 
-#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	stbuf.st_atim = impunge_local->cont.lookup.buf.st_atim;
-	stbuf.st_mtim = impunge_local->cont.lookup.buf.st_mtim;
+	stbuf.ia_atime = impunge_local->cont.lookup.buf.ia_atime;
+	stbuf.ia_atime_nsec = impunge_local->cont.lookup.buf.ia_atime_nsec;
+	stbuf.ia_mtime = impunge_local->cont.lookup.buf.ia_mtime;
+	stbuf.ia_mtime_nsec = impunge_local->cont.lookup.buf.ia_mtime_nsec;
 
-#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	stbuf.st_atimespec = impunge_local->cont.lookup.buf.st_atimespec;
-	stbuf.st_mtimespec = impunge_local->cont.lookup.buf.st_mtimespec;
-#else
-	stbuf.st_atime = impunge_local->cont.lookup.buf.st_atime;
-	stbuf.st_mtime = impunge_local->cont.lookup.buf.st_mtime;
-#endif
-
-        stbuf.st_uid = impunge_local->cont.lookup.buf.st_uid;
-        stbuf.st_gid = impunge_local->cont.lookup.buf.st_gid;
+        stbuf.ia_uid = impunge_local->cont.lookup.buf.ia_uid;
+        stbuf.ia_gid = impunge_local->cont.lookup.buf.ia_gid;
 
         valid = GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
                 GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
@@ -1258,7 +1251,7 @@ int
 afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *setattr_frame,
                                          void *cookie, xlator_t *this,
                                          int32_t op_ret, int32_t op_errno,
-                                         struct stat *preop, struct stat *postop)
+                                         struct iatt *preop, struct iatt *postop)
 {
         loc_t *parent_loc = cookie;
 
@@ -1281,9 +1274,9 @@ int
 afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 				  xlator_t *this,
 				  int32_t op_ret, int32_t op_errno,
-                                  inode_t *inode, struct stat *stbuf,
-                                  struct stat *preparent,
-                                  struct stat *postparent)
+                                  inode_t *inode, struct iatt *stbuf,
+                                  struct iatt *preparent,
+                                  struct iatt *postparent)
 {
 	int              call_count = 0;
 	afr_private_t   *priv = NULL;
@@ -1302,7 +1295,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         call_frame_t *setattr_frame = NULL;
         int32_t valid = 0;
         loc_t *parent_loc = NULL;
-        struct stat parentbuf;
+        struct iatt parentbuf;
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
@@ -1323,14 +1316,14 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 		goto out;
 	}
 
-	inode->st_mode = stbuf->st_mode;
+	inode->ia_type = stbuf->ia_type;
 
         xattr = get_new_dict ();
         dict_ref (xattr);
 
         idx = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
         pending_array[idx] = hton32 (1);
-        if (S_ISDIR (stbuf->st_mode))
+        if (IA_ISDIR (stbuf->ia_type))
                 idx = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
         else
                 idx = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
@@ -1380,7 +1373,7 @@ out:
 
 int
 afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
-			    int child_index, struct stat *stbuf)
+			    int child_index, struct iatt *stbuf)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1401,7 +1394,8 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 			   priv->children[child_index],
 			   priv->children[child_index]->fops->mknod,
 			   &impunge_local->loc,
-			   stbuf->st_mode, stbuf->st_rdev);
+			   st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
+                           stbuf->ia_rdev);
 
 	return 0;
 }
@@ -1410,7 +1404,7 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 
 int
 afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
-			    int child_index, struct stat *stbuf)
+			    int child_index, struct iatt *stbuf)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1430,7 +1424,8 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
 			   (void *) (long) child_index,
 			   priv->children[child_index],
 			   priv->children[child_index]->fops->mkdir,
-			   &impunge_local->loc, stbuf->st_mode);
+			   &impunge_local->loc,
+                           st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type));
 
 	return 0;
 }
@@ -1468,8 +1463,8 @@ int
 afr_sh_entry_impunge_symlink_unlink_cbk (call_frame_t *impunge_frame,
                                          void *cookie, xlator_t *this,
                                          int32_t op_ret, int32_t op_errno,
-                                         struct stat *preparent,
-                                         struct stat *postparent)
+                                         struct iatt *preparent,
+                                         struct iatt *postparent)
 {
         afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1547,7 +1542,7 @@ int
 afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cookie,
                                         xlator_t *this,
                                         int32_t op_ret, int32_t op_errno,
-                                        const char *linkname, struct stat *sbuf)
+                                        const char *linkname, struct iatt *sbuf)
 {
         afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1646,7 +1641,7 @@ int
 afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 				   xlator_t *this,
 				   int32_t op_ret, int32_t op_errno,
-				   const char *linkname, struct stat *sbuf)
+				   const char *linkname, struct iatt *sbuf)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1697,7 +1692,7 @@ out:
 
 int
 afr_sh_entry_impunge_readlink (call_frame_t *impunge_frame, xlator_t *this,
-			       int child_index, struct stat *stbuf)
+			       int child_index, struct iatt *stbuf)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1723,8 +1718,8 @@ int
 afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
 					  void *cookie, xlator_t *this,
 					  int32_t op_ret, int32_t op_errno,
-					  inode_t *inode, struct stat *buf,
-					  dict_t *xattr,struct stat *postparent)
+					  inode_t *inode, struct iatt *buf,
+					  dict_t *xattr,struct iatt *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1757,7 +1752,7 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
         impunge_sh->parentbuf = *postparent;
 
 	impunge_local->cont.lookup.buf = *buf;
-	type = (buf->st_mode & S_IFMT);
+	type = buf->ia_type;
 
 	switch (type) {
 	case S_IFSOCK:
@@ -1834,8 +1829,8 @@ int
 afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret,	int32_t op_errno,
-                                inode_t *inode, struct stat *buf, dict_t *x,
-                                struct stat *postparent)
+                                inode_t *inode, struct iatt *buf, dict_t *x,
+                                struct iatt *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
@@ -1953,7 +1948,8 @@ afr_sh_entry_impunge_entry (call_frame_t *frame, xlator_t *this,
 	impunge_sh->sh_frame = frame;
 	impunge_sh->active_source = active_src;
 
-        impunge_sh->impunging_entry_mode = entry->d_stat.st_mode;
+        impunge_sh->impunging_entry_mode =
+                st_mode_from_ia (entry->d_stat.ia_prot, entry->d_stat.ia_type);
 
 	ret = build_child_loc (this, &impunge_local->loc, &local->loc, entry->d_name);
 	if (ret != 0) {
@@ -2357,8 +2353,8 @@ heal:
 int
 afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
 			 xlator_t *this, int32_t op_ret, int32_t op_errno,
-                         inode_t *inode, struct stat *buf, dict_t *xattr,
-                         struct stat *postparent)
+                         inode_t *inode, struct iatt *buf, dict_t *xattr,
+                         struct iatt *postparent)
 {
 	afr_private_t   *priv  = NULL;
 	afr_local_t     *local = NULL;

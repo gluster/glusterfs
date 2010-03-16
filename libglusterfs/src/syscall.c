@@ -43,7 +43,7 @@ sys_stat (const char *path, struct stat *buf)
 }
 
 
-int 
+int
 sys_fstat (int fd, struct stat *buf)
 {
         return fstat (fd, buf);

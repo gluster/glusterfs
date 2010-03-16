@@ -87,7 +87,7 @@ out:
 int
 sp_update_inode_ctx (xlator_t *this, inode_t *inode, int32_t *op_ret,
                      int32_t *op_errno, char *lookup_in_progress,
-                     char *looked_up, struct stat *stbuf,
+                     char *looked_up, struct iatt *stbuf,
                      struct list_head *waiting_ops, int32_t *error)
 {
         int32_t         ret       = 0;
@@ -127,7 +127,7 @@ sp_update_inode_ctx (xlator_t *this, inode_t *inode, int32_t *op_ret,
                 }
 
                 if ((op_ret == 0) && (stbuf != NULL)
-                    && S_ISDIR (stbuf->st_mode)) {
+                    && IA_ISDIR (stbuf->ia_type)) {
                         memcpy (&inode_ctx->stbuf, stbuf,
                                 sizeof (*stbuf));
                 }
@@ -695,7 +695,7 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
         LOCK (&cache->lock);
         {
                 list_for_each_entry (entry, &entries->list, list) {
-                        if (S_ISDIR (entry->d_stat.st_mode)) {
+                        if (IA_ISDIR (entry->d_stat.ia_type)) {
                                 continue;
                         }
 
@@ -734,7 +734,7 @@ unlock:
 int32_t
 sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf, dict_t *dict, struct stat *postparent)
+               struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
         int                  ret         = 0;
         struct list_head     waiting_ops = {0, };
@@ -972,7 +972,7 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         uint64_t        value           = 0;
         char            xattr_req_empty = 1, can_wind = 0;
         sp_cache_t     *cache           = NULL;
-        struct stat     postparent      = {0, }, buf = {0, };
+        struct iatt     postparent      = {0, }, buf = {0, };
         int32_t         ret             = -1, op_ret = -1, op_errno = EINVAL; 
         sp_inode_ctx_t *inode_ctx       = NULL, *parent_inode_ctx = NULL;
         sp_local_t     *local           = NULL;
@@ -1017,7 +1017,7 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
                         FREE (dirent);
                 } 
-        } else if (S_ISDIR (loc->inode->st_mode)) {
+        } else if (IA_ISDIR (loc->inode->ia_type)) {
                 cache = sp_get_cache_inode (this, loc->inode, frame->root->pid);
                 if (cache) {
                         ret = sp_cache_get_entry (cache, ".", &dirent);
@@ -1230,8 +1230,8 @@ unwind:
 
 int32_t
 sp_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                 struct stat *postbuf)
+                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf)
 {
 	SP_STACK_UNWIND (truncate, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -1241,9 +1241,9 @@ sp_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 sp_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *buf,
-               struct stat *preoldparent, struct stat *postoldparent,
-               struct stat *prenewparent, struct stat *postnewparent)
+               int32_t op_ret, int32_t op_errno, struct iatt *buf,
+               struct iatt *preoldparent, struct iatt *postoldparent,
+               struct iatt *prenewparent, struct iatt *postnewparent)
 {
 	SP_STACK_UNWIND (rename, frame, op_ret, op_errno, buf, preoldparent,
                          postoldparent, prenewparent, postnewparent);
@@ -1381,8 +1381,8 @@ out:
 static int32_t
 sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-               struct stat *buf, struct stat *preparent,
-               struct stat *postparent)
+               struct iatt *buf, struct iatt *preparent,
+               struct iatt *postparent)
 {
         sp_local_t     *local              = NULL;
         sp_fd_ctx_t    *fd_ctx             = NULL;
@@ -1582,8 +1582,8 @@ out:
 int32_t
 sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
-                  struct stat *buf, struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *buf, struct iatt *preparent,
+                  struct iatt *postparent)
 {
         sp_local_t *local              = NULL;
         char        lookup_in_progress = 0, looked_up = 0;
@@ -1807,8 +1807,8 @@ out:
 int32_t
 sp_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, inode_t *inode,
-             struct stat *buf, struct stat *preparent,
-             struct stat *postparent)
+             struct iatt *buf, struct iatt *preparent,
+             struct iatt *postparent)
 {
 	SP_STACK_UNWIND (link, frame, op_ret, op_errno, inode, buf, preparent,
                          postparent);
@@ -2049,7 +2049,7 @@ unwind:
 int32_t
 sp_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
-                struct stat *prestat, struct stat *poststat)
+                struct iatt *prestat, struct iatt *poststat)
 {
 	SP_STACK_UNWIND (setattr, frame, op_ret, op_errno, prestat, poststat);
 	return 0;
@@ -2058,7 +2058,7 @@ sp_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 sp_setattr_helper (call_frame_t *frame, xlator_t *this,
-                   loc_t *loc, struct stat *buf, int32_t valid)
+                   loc_t *loc, struct iatt *buf, int32_t valid)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
@@ -2100,7 +2100,7 @@ unwind:
 
 int
 sp_setattr (call_frame_t *frame, xlator_t *this,
-            loc_t *loc, struct stat *buf, int32_t valid)
+            loc_t *loc, struct iatt *buf, int32_t valid)
 {
         sp_cache_t     *cache        = NULL;
         int32_t         op_errno     = -1;
@@ -2149,7 +2149,7 @@ out:
 int32_t
 sp_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, const char *path,
-                 struct stat *buf)
+                 struct iatt *buf)
 {
 	SP_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, buf);
         return 0;
@@ -2247,8 +2247,8 @@ out:
 
 int32_t
 sp_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *preparent,
-               struct stat *postparent)
+               int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+               struct iatt *postparent)
 {
 	SP_STACK_UNWIND (unlink, frame, op_ret, op_errno, preparent,
                          postparent);
@@ -2487,7 +2487,7 @@ out:
 int32_t
 sp_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
-              struct stat *stbuf, struct iobref *iobref)
+              struct iatt *stbuf, struct iobref *iobref)
 {
 	SP_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                          iobref);
@@ -2754,7 +2754,7 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
                 goto out;
         }
 
-        if (S_ISDIR (oldloc->inode->st_mode)) {
+        if (IA_ISDIR (oldloc->inode->ia_type)) {
                 sp_remove_caches_from_all_fds_opened (this, oldloc->inode);
         }
 
@@ -3178,7 +3178,7 @@ sp_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cache = sp_get_cache_fd (this, local->fd);
         if (cache) {
                 for (trav = entries->next; trav; trav = trav->next) {
-                        if (S_ISLNK (trav->buf.st_mode)) {
+                        if (IA_ISLNK (trav->buf.ia_type)) {
                                 sp_cache_remove_entry (cache, trav->name, 0);
                         }
                 }
@@ -3476,7 +3476,7 @@ unwind:
 
 int32_t
 sp_stbuf_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct stat *buf)
+             int32_t op_errno, struct iatt *buf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -3812,7 +3812,7 @@ out:
 int32_t
 sp_forget (xlator_t *this, inode_t *inode)
 {
-        struct stat *buf   = NULL;
+        struct iatt *buf   = NULL;
         uint64_t     value = 0;
 
         inode_ctx_del (inode, this, &value);

@@ -347,8 +347,8 @@ io_stats_dump_fd (xlator_t *this, struct ios_fd *iosfd)
 int
 io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, fd_t *fd,
-                     inode_t *inode, struct stat *buf,
-                     struct stat *preparent, struct stat *postparent)
+                     inode_t *inode, struct iatt *buf,
+                     struct iatt *preparent, struct iatt *postparent)
 {
         struct ios_fd *iosfd = NULL;
         char          *path = NULL;
@@ -419,7 +419,7 @@ unwind:
 
 int
 io_stats_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *buf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
         return 0;
@@ -430,7 +430,7 @@ int
 io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct iovec *vector, int32_t count,
-                    struct stat *buf, struct iobref *iobref)
+                    struct iatt *buf, struct iobref *iobref)
 {
         struct ios_conf *conf = NULL;
         int              len = 0;
@@ -455,7 +455,7 @@ io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
-                     struct stat *prebuf, struct stat *postbuf)
+                     struct iatt *prebuf, struct iatt *postbuf)
 {
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
@@ -493,7 +493,7 @@ io_stats_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    struct stat *prebuf, struct stat *postbuf)
+                    struct iatt *prebuf, struct iatt *postbuf)
 {
         STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
@@ -503,7 +503,7 @@ io_stats_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      struct stat *preop, struct stat *postop)
+                      struct iatt *preop, struct iatt *postop)
 {
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
         return 0;
@@ -513,7 +513,7 @@ io_stats_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
-                     struct stat *preparent, struct stat *postparent)
+                     struct iatt *preparent, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
                              preparent, postparent);
@@ -523,9 +523,9 @@ io_stats_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct stat *buf,
-                     struct stat *preoldparent, struct stat *postoldparent,
-                     struct stat *prenewparent, struct stat *postnewparent)
+                     int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                     struct iatt *preoldparent, struct iatt *postoldparent,
+                     struct iatt *prenewparent, struct iatt *postnewparent)
 {
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
                              preoldparent, postoldparent,
@@ -537,7 +537,7 @@ io_stats_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, const char *buf,
-                       struct stat *sbuf)
+                       struct iatt *sbuf)
 {
         STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, buf, sbuf);
         return 0;
@@ -547,8 +547,8 @@ io_stats_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
-                     inode_t *inode, struct stat *buf,
-                     dict_t *xattr, struct stat *postparent)
+                     inode_t *inode, struct iatt *buf,
+                     dict_t *xattr, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xattr,
                              postparent);
@@ -559,8 +559,8 @@ io_stats_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      inode_t *inode, struct stat *buf,
-                      struct stat *preparent, struct stat *postparent)
+                      inode_t *inode, struct iatt *buf,
+                      struct iatt *preparent, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -571,8 +571,8 @@ io_stats_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    inode_t *inode, struct stat *buf,
-                    struct stat *preparent, struct stat *postparent)
+                    inode_t *inode, struct iatt *buf,
+                    struct iatt *preparent, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -583,8 +583,8 @@ io_stats_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    inode_t *inode, struct stat *buf,
-                    struct stat *preparent, struct stat *postparent)
+                    inode_t *inode, struct iatt *buf,
+                    struct iatt *preparent, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -595,8 +595,8 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct stat *buf,
-                   struct stat *preparent, struct stat *postparent)
+                   inode_t *inode, struct iatt *buf,
+                   struct iatt *preparent, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -628,7 +628,7 @@ io_stats_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    struct stat *preparent, struct stat *postparent)
+                    struct iatt *preparent, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
                              preparent, postparent);
@@ -639,7 +639,7 @@ io_stats_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
-                       struct stat *prebuf, struct stat *postbuf)
+                       struct iatt *prebuf, struct iatt *postbuf)
 {
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
                              prebuf, postbuf);
@@ -704,7 +704,7 @@ io_stats_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 io_stats_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno,
-                        struct stat *prebuf, struct stat *postbuf)
+                        struct iatt *prebuf, struct iatt *postbuf)
 {
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
                              prebuf, postbuf);
@@ -714,7 +714,7 @@ io_stats_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct stat *buf)
+                    int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
         return 0;
@@ -1007,7 +1007,7 @@ io_stats_link (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_setattr (call_frame_t *frame, xlator_t *this,
-                  loc_t *loc, struct stat *stbuf, int32_t valid)
+                  loc_t *loc, struct iatt *stbuf, int32_t valid)
 {
         BUMP_FOP (SETATTR);
 
@@ -1336,7 +1336,7 @@ io_stats_ftruncate (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_fsetattr (call_frame_t *frame, xlator_t *this,
-                   fd_t *fd, struct stat *stbuf, int32_t valid)
+                   fd_t *fd, struct iatt *stbuf, int32_t valid)
 {
         BUMP_FOP (FSETATTR);
 

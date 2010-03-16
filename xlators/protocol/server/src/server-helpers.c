@@ -112,34 +112,34 @@ out:
 }
 
 /*
- * stat_to_str - convert struct stat to a ASCII string
- * @stbuf: struct stat pointer
+ * stat_to_str - convert struct iatt to a ASCII string
+ * @stbuf: struct iatt pointer
  *
  * not for external reference
  */
 char *
-stat_to_str (struct stat *stbuf)
+stat_to_str (struct iatt *stbuf)
 {
         int   ret = 0;
         char *tmp_buf = NULL;
 
-        uint64_t dev = stbuf->st_dev;
-        uint64_t ino = stbuf->st_ino;
-        uint32_t mode = stbuf->st_mode;
-        uint32_t nlink = stbuf->st_nlink;
-        uint32_t uid = stbuf->st_uid;
-        uint32_t gid = stbuf->st_gid;
-        uint64_t rdev = stbuf->st_rdev;
-        uint64_t size = stbuf->st_size;
-        uint32_t blksize = stbuf->st_blksize;
-        uint64_t blocks = stbuf->st_blocks;
-        uint32_t atime = stbuf->st_atime;
-        uint32_t mtime = stbuf->st_mtime;
-        uint32_t ctime = stbuf->st_ctime;
+        uint64_t dev = stbuf->ia_gen;
+        uint64_t ino = stbuf->ia_ino;
+        uint32_t mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
+        uint32_t nlink = stbuf->ia_nlink;
+        uint32_t uid = stbuf->ia_uid;
+        uint32_t gid = stbuf->ia_gid;
+        uint64_t rdev = stbuf->ia_rdev;
+        uint64_t size = stbuf->ia_size;
+        uint32_t blksize = stbuf->ia_blksize;
+        uint64_t blocks = stbuf->ia_blocks;
+        uint32_t atime = stbuf->ia_atime;
+        uint32_t mtime = stbuf->ia_mtime;
+        uint32_t ctime = stbuf->ia_ctime;
 
-        uint32_t atime_nsec = ST_ATIM_NSEC(stbuf);
-        uint32_t mtime_nsec = ST_MTIM_NSEC(stbuf);
-        uint32_t ctime_nsec = ST_CTIM_NSEC(stbuf);
+        uint32_t atime_nsec = stbuf->ia_atime_nsec;
+        uint32_t mtime_nsec = stbuf->ia_mtime_nsec;
+        uint32_t ctime_nsec = stbuf->ia_ctime_nsec;
 
 
         ret = asprintf (&tmp_buf,
@@ -307,10 +307,10 @@ gf_add_locker (struct _lock_table *table, const char *volume,
 
         if (fd == NULL) {
                 loc_copy (&new->loc, loc);
-                dir = S_ISDIR (new->loc.inode->st_mode);
+                dir = IA_ISDIR (new->loc.inode->ia_type);
         } else {
                 new->fd = fd_ref (fd);
-                dir = S_ISDIR (fd->inode->st_mode);
+                dir = IA_ISDIR (fd->inode->ia_type);
         }
 
         new->pid = pid;
@@ -342,9 +342,9 @@ gf_del_locker (struct _lock_table *table, const char *volume,
         INIT_LIST_HEAD (&del);
 
         if (fd) {
-                dir = S_ISDIR (fd->inode->st_mode);
+                dir = IA_ISDIR (fd->inode->ia_type);
         } else {
-                dir = S_ISDIR (loc->inode->st_mode);
+                dir = IA_ISDIR (loc->inode->ia_type);
         }
 
         LOCK (&table->lock);

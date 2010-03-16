@@ -79,7 +79,7 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 	call_frame_t *main_frame = NULL;
         afr_private_t * priv     = NULL;
 	afr_local_t  *local = NULL;
-        struct stat  *unwind_buf = NULL;
+        struct iatt  *unwind_buf = NULL;
 
         priv  = this->private;
 	local = frame->local;
@@ -94,17 +94,17 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.create.read_child_buf.st_ino) {
+                if (local->cont.create.read_child_buf.ia_ino) {
                         unwind_buf = &local->cont.create.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.create.buf;
                 }
 
-                unwind_buf->st_ino = local->cont.create.ino;
-                unwind_buf->st_dev = local->cont.create.gen;
+                unwind_buf->ia_ino = local->cont.create.ino;
+                unwind_buf->ia_gen = local->cont.create.gen;
 
-                local->cont.create.preparent.st_ino  = local->cont.create.parent_ino;
-                local->cont.create.postparent.st_ino = local->cont.create.parent_ino;
+                local->cont.create.preparent.ia_ino  = local->cont.create.parent_ino;
+                local->cont.create.postparent.ia_ino = local->cont.create.parent_ino;
 
 		AFR_STACK_UNWIND (create, main_frame,
                                   local->op_ret, local->op_errno,
@@ -121,8 +121,8 @@ afr_create_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		     int32_t op_ret, int32_t op_errno, 
-		     fd_t *fd, inode_t *inode, struct stat *buf,
-                     struct stat *preparent, struct stat *postparent)
+		     fd_t *fd, inode_t *inode, struct iatt *buf,
+                     struct iatt *preparent, struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -176,10 +176,10 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				local->cont.create.buf        = *buf;
 
                                 local->cont.create.ino =
-                                        afr_itransform (buf->st_ino,
+                                        afr_itransform (buf->ia_ino,
                                                         priv->child_count,
                                                         child_index);
-                                local->cont.create.gen = buf->st_dev;
+                                local->cont.create.gen = buf->ia_gen;
 
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode, 
@@ -192,10 +192,10 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         
                         if (child_index == local->first_up_child) {
                                 local->cont.create.ino =
-                                        afr_itransform (buf->st_ino,
+                                        afr_itransform (buf->ia_ino,
                                                         priv->child_count,
                                                         local->first_up_child);
-                                local->cont.create.gen = buf->st_dev;
+                                local->cont.create.gen = buf->ia_gen;
                         }
                         
                         if (child_index == local->read_child_index) {
@@ -365,7 +365,7 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 	call_frame_t *main_frame = NULL;
 	afr_local_t  *local = NULL;
 
-        struct stat *unwind_buf = NULL;
+        struct iatt *unwind_buf = NULL;
 
 	local = frame->local;
 
@@ -379,17 +379,17 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.mknod.read_child_buf.st_ino) {
+                if (local->cont.mknod.read_child_buf.ia_ino) {
                         unwind_buf = &local->cont.mknod.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.mknod.buf;
                 }
 
-                unwind_buf->st_ino = local->cont.mknod.ino;
-                unwind_buf->st_dev = local->cont.mknod.gen;
+                unwind_buf->ia_ino = local->cont.mknod.ino;
+                unwind_buf->ia_gen = local->cont.mknod.gen;
 
-                local->cont.mknod.preparent.st_ino  = local->cont.mknod.parent_ino;
-                local->cont.mknod.postparent.st_ino = local->cont.mknod.parent_ino;
+                local->cont.mknod.preparent.ia_ino  = local->cont.mknod.parent_ino;
+                local->cont.mknod.postparent.ia_ino = local->cont.mknod.parent_ino;
 
 		AFR_STACK_UNWIND (mknod, main_frame,
                                   local->op_ret, local->op_errno,
@@ -405,8 +405,8 @@ afr_mknod_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
-                    struct stat *buf, struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *buf, struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -430,10 +430,10 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if (local->success_count == 0){
 				local->cont.mknod.buf   = *buf;
 				local->cont.mknod.ino   = 
-					afr_itransform (buf->st_ino,
+					afr_itransform (buf->ia_ino,
 							priv->child_count,
 							child_index);
-                                local->cont.mknod.gen   = buf->st_dev;
+                                local->cont.mknod.gen   = buf->ia_gen;
 
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
@@ -446,10 +446,10 @@ afr_mknod_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (child_index == local->first_up_child) {
                                 local->cont.mknod.ino =
-                                        afr_itransform (buf->st_ino,
+                                        afr_itransform (buf->ia_ino,
                                                         priv->child_count,
                                                         local->first_up_child);
-                                local->cont.mknod.gen = buf->st_dev;
+                                local->cont.mknod.gen = buf->ia_gen;
                         }
 
                         if (child_index == local->read_child_index) {
@@ -615,7 +615,7 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 	call_frame_t *main_frame = NULL;
 	afr_local_t  *local = NULL;
 
-        struct stat *unwind_buf = NULL;
+        struct iatt *unwind_buf = NULL;
         
 	local = frame->local;
 
@@ -629,17 +629,17 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.mkdir.read_child_buf.st_ino) {
+                if (local->cont.mkdir.read_child_buf.ia_ino) {
                         unwind_buf = &local->cont.mkdir.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.mkdir.buf;
                 }
 
-                unwind_buf->st_ino = local->cont.mkdir.ino;
-                unwind_buf->st_dev = local->cont.mkdir.gen;
+                unwind_buf->ia_ino = local->cont.mkdir.ino;
+                unwind_buf->ia_gen = local->cont.mkdir.gen;
 
-                local->cont.mkdir.preparent.st_ino  = local->cont.mkdir.parent_ino;
-                local->cont.mkdir.postparent.st_ino = local->cont.mkdir.parent_ino;
+                local->cont.mkdir.preparent.ia_ino  = local->cont.mkdir.parent_ino;
+                local->cont.mkdir.postparent.ia_ino = local->cont.mkdir.parent_ino;
 
 		AFR_STACK_UNWIND (mkdir, main_frame,
                                   local->op_ret, local->op_errno,
@@ -655,8 +655,8 @@ afr_mkdir_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
-                    struct stat *buf, struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *buf, struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -681,10 +681,10 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				local->cont.mkdir.buf   = *buf;
 
                                 local->cont.mkdir.ino =
-                                        afr_itransform (buf->st_ino,
+                                        afr_itransform (buf->ia_ino,
                                                         priv->child_count,
                                                         child_index);
-                                local->cont.mkdir.gen = buf->st_dev;
+                                local->cont.mkdir.gen = buf->ia_gen;
 
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
@@ -697,10 +697,10 @@ afr_mkdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (child_index == local->first_up_child) {
                                 local->cont.mkdir.ino =
-                                        afr_itransform (buf->st_ino,
+                                        afr_itransform (buf->ia_ino,
                                                         priv->child_count,
                                                         local->first_up_child);
-                                local->cont.mkdir.gen = buf->st_dev;
+                                local->cont.mkdir.gen = buf->ia_gen;
                         }
                         
                         if (child_index == local->read_child_index) {
@@ -867,7 +867,7 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
 	call_frame_t *main_frame = NULL;
 	afr_local_t  *local = NULL;
 
-        struct stat *unwind_buf = NULL;
+        struct iatt *unwind_buf = NULL;
 
 	local = frame->local;
 
@@ -881,16 +881,16 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.link.read_child_buf.st_ino) {
+                if (local->cont.link.read_child_buf.ia_ino) {
                         unwind_buf = &local->cont.link.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.link.buf;
                 }
 
-		unwind_buf->st_ino = local->cont.link.ino;
+		unwind_buf->ia_ino = local->cont.link.ino;
 
-                local->cont.link.preparent.st_ino  = local->cont.link.parent_ino;
-                local->cont.link.postparent.st_ino = local->cont.link.parent_ino;
+                local->cont.link.preparent.ia_ino  = local->cont.link.parent_ino;
+                local->cont.link.postparent.ia_ino = local->cont.link.parent_ino;
 
 		AFR_STACK_UNWIND (link, main_frame,
                                   local->op_ret, local->op_errno, 
@@ -906,8 +906,8 @@ afr_link_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_link_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		   int32_t op_ret, int32_t op_errno, inode_t *inode,
-                   struct stat *buf, struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *buf, struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1104,7 +1104,7 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 	call_frame_t *main_frame = NULL;
 	afr_local_t  *local = NULL;
         
-        struct stat *unwind_buf = NULL;
+        struct iatt *unwind_buf = NULL;
         
 	local = frame->local;
 
@@ -1118,17 +1118,17 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.symlink.read_child_buf.st_ino) {
+                if (local->cont.symlink.read_child_buf.ia_ino) {
                         unwind_buf = &local->cont.symlink.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.symlink.buf;
                 }
 
-                unwind_buf->st_ino = local->cont.symlink.ino;
-                unwind_buf->st_dev = local->cont.symlink.gen;
+                unwind_buf->ia_ino = local->cont.symlink.ino;
+                unwind_buf->ia_gen = local->cont.symlink.gen;
 
-                local->cont.symlink.preparent.st_ino  = local->cont.symlink.parent_ino;
-                local->cont.symlink.postparent.st_ino = local->cont.symlink.parent_ino;
+                local->cont.symlink.preparent.ia_ino  = local->cont.symlink.parent_ino;
+                local->cont.symlink.postparent.ia_ino = local->cont.symlink.parent_ino;
 
 		AFR_STACK_UNWIND (symlink, main_frame,
                                   local->op_ret, local->op_errno,
@@ -1144,8 +1144,8 @@ afr_symlink_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
 		      int32_t op_ret, int32_t op_errno, inode_t *inode,
-                      struct stat *buf, struct stat *preparent,
-                      struct stat *postparent)
+                      struct iatt *buf, struct iatt *preparent,
+                      struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1169,9 +1169,9 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if (local->success_count == 0) {
 				local->cont.symlink.buf        = *buf;
 				local->cont.symlink.ino = 
-					afr_itransform (buf->st_ino, priv->child_count,
+					afr_itransform (buf->ia_ino, priv->child_count,
 							child_index);
-                                local->cont.symlink.gen = buf->st_dev;
+                                local->cont.symlink.gen = buf->ia_gen;
 
                                 if (priv->read_child >= 0) {
                                         afr_set_read_child (this, inode,
@@ -1184,10 +1184,10 @@ afr_symlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (child_index == local->first_up_child) {
                                 local->cont.symlink.ino =
-                                        afr_itransform (buf->st_ino,
+                                        afr_itransform (buf->ia_ino,
                                                         priv->child_count,
                                                         local->first_up_child);
-                                local->cont.symlink.gen = buf->st_dev;
+                                local->cont.symlink.gen = buf->ia_gen;
                         }
 
                         if (child_index == local->read_child_index) {
@@ -1353,7 +1353,7 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 	call_frame_t *main_frame = NULL;
 	afr_local_t  *local = NULL;
 
-        struct stat *unwind_buf = NULL;
+        struct iatt *unwind_buf = NULL;
 
 	local = frame->local;
 
@@ -1367,18 +1367,18 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                if (local->cont.rename.read_child_buf.st_ino) {
+                if (local->cont.rename.read_child_buf.ia_ino) {
                         unwind_buf = &local->cont.rename.read_child_buf;
                 } else {
                         unwind_buf = &local->cont.rename.buf;
                 }
 
-		unwind_buf->st_ino = local->cont.rename.ino;
+		unwind_buf->ia_ino = local->cont.rename.ino;
 
-                local->cont.rename.preoldparent.st_ino  = local->cont.rename.oldparent_ino;
-                local->cont.rename.postoldparent.st_ino = local->cont.rename.oldparent_ino;
-                local->cont.rename.prenewparent.st_ino  = local->cont.rename.newparent_ino;
-                local->cont.rename.postnewparent.st_ino = local->cont.rename.newparent_ino;
+                local->cont.rename.preoldparent.ia_ino  = local->cont.rename.oldparent_ino;
+                local->cont.rename.postoldparent.ia_ino = local->cont.rename.oldparent_ino;
+                local->cont.rename.prenewparent.ia_ino  = local->cont.rename.newparent_ino;
+                local->cont.rename.postnewparent.ia_ino = local->cont.rename.newparent_ino;
 
 		AFR_STACK_UNWIND (rename, main_frame,
                                   local->op_ret, local->op_errno, 
@@ -1395,9 +1395,9 @@ afr_rename_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		     int32_t op_ret, int32_t op_errno, struct stat *buf,
-                     struct stat *preoldparent, struct stat *postoldparent,
-                     struct stat *prenewparent, struct stat *postnewparent)
+		     int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                     struct iatt *preoldparent, struct iatt *postoldparent,
+                     struct iatt *prenewparent, struct iatt *postnewparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1599,8 +1599,8 @@ afr_unlink_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                local->cont.unlink.preparent.st_ino  = local->cont.unlink.parent_ino;
-                local->cont.unlink.postparent.st_ino = local->cont.unlink.parent_ino;
+                local->cont.unlink.preparent.ia_ino  = local->cont.unlink.parent_ino;
+                local->cont.unlink.postparent.ia_ino = local->cont.unlink.parent_ino;
 
 		AFR_STACK_UNWIND (unlink, main_frame,
                                   local->op_ret, local->op_errno,
@@ -1614,8 +1614,8 @@ afr_unlink_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		     int32_t op_ret, int32_t op_errno, struct stat *preparent,
-                     struct stat *postparent)
+		     int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                     struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1814,8 +1814,8 @@ afr_rmdir_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                local->cont.rmdir.preparent.st_ino  = local->cont.rmdir.parent_ino;
-                local->cont.rmdir.postparent.st_ino = local->cont.rmdir.parent_ino;
+                local->cont.rmdir.preparent.ia_ino  = local->cont.rmdir.parent_ino;
+                local->cont.rmdir.postparent.ia_ino = local->cont.rmdir.parent_ino;
 
 		AFR_STACK_UNWIND (rmdir, main_frame,
                                   local->op_ret, local->op_errno,
@@ -1829,8 +1829,8 @@ afr_rmdir_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		    int32_t op_ret, int32_t op_errno, struct stat *preparent,
-                    struct stat *postparent)
+		    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;

@@ -165,7 +165,7 @@ struct _server_state {
         loc_t            *loc_now;
         server_resolve_t *resolve_now;
 
-        struct stat       stbuf;
+        struct iatt       stbuf;
         int               valid;
 
 	fd_t             *fd;

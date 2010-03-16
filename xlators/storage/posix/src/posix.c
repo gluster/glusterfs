@@ -80,7 +80,7 @@ typedef struct {
   	xlator_t    *this;
   	const char  *real_path;
   	dict_t      *xattr;
-  	struct stat *stbuf;
+  	struct iatt *stbuf;
 	loc_t       *loc;
 } posix_xattr_filler_t;
 
@@ -112,11 +112,11 @@ _posix_xattr_get_set (dict_t *xattr_req,
 
     	/* should size be put into the data_t ? */
 	if (!strcmp (key, "glusterfs.content")
-            && S_ISREG (filler->stbuf->st_mode)) {
+            && IA_ISREG (filler->stbuf->ia_type)) {
 
     		/* file content request */
 		req_size = data_to_uint64 (data);
-		if (req_size >= filler->stbuf->st_size) {
+		if (req_size >= filler->stbuf->ia_size) {
 			_fd = open (filler->real_path, O_RDONLY);
 
 			if (_fd == -1) {
@@ -126,7 +126,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
 				goto err;
 			}
 
-			databuf = calloc (1, filler->stbuf->st_size);
+			databuf = calloc (1, filler->stbuf->ia_size);
 			
 			if (!databuf) {
 				gf_log (filler->this->name, GF_LOG_ERROR,
@@ -134,7 +134,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
 				goto err;
 			}
 
-			ret = read (_fd, databuf, filler->stbuf->st_size);
+			ret = read (_fd, databuf, filler->stbuf->ia_size);
 			if (ret == -1) {
 				gf_log (filler->this->name, GF_LOG_ERROR,
 					"Read on file %s failed: %s",
@@ -152,7 +152,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
 			}
 
 			ret = dict_set_bin (filler->xattr, key,
-					    databuf, filler->stbuf->st_size);
+					    databuf, filler->stbuf->ia_size);
 			if (ret < 0) {
 				goto err;
 			}
@@ -194,27 +194,29 @@ _posix_xattr_get_set (dict_t *xattr_req,
 
 
 static int 
-posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
+posix_scale_ia_ino (struct posix_private *priv, struct iatt *buf)
 {
         int   i        = 0;
         int   ret      = -1;
         ino_t temp_ino = 0;
         int r;
-        struct stat export_buf;
+        struct stat lstatbuf;
+        struct iatt export_buf;
 
         for (i = 0; i < priv->num_devices_to_span; i++) {
-                if (buf->st_dev == priv->st_device[i]) {
+                if (buf->ia_dev == priv->st_device[i]) {
                         break;
                 }
                 if (priv->st_device[i] == 0) {
-                        priv->st_device[i] = buf->st_dev;
+                        priv->st_device[i] = buf->ia_dev;
                         break;
                 }
         }
         
         if (i == priv->num_devices_to_span) {
-                r = lstat (priv->base_path, &export_buf);
-                if ((r != 0) || (buf->st_dev != export_buf.st_dev)) {
+                r = lstat (priv->base_path, &lstatbuf);
+                iatt_from_stat (&export_buf, &lstatbuf);
+                if ((r != 0) || (buf->ia_gen != export_buf.ia_gen)) {
                         goto out;
                 }
 
@@ -223,12 +225,12 @@ posix_scale_st_ino (struct posix_private *priv, struct stat *buf)
                         "since init --- assuming done by automount",
                         priv->base_path);
 
-                priv->st_device[0] = export_buf.st_dev;
+                priv->st_device[0] = export_buf.ia_dev;
         }
 
-        temp_ino = (buf->st_ino * priv->num_devices_to_span) + i;
+        temp_ino = (buf->ia_ino * priv->num_devices_to_span) + i;
 
-        buf->st_ino = temp_ino;
+        buf->ia_ino = temp_ino;
 
         ret = 0;
 out:
@@ -237,29 +239,32 @@ out:
 
 
 int
-posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
+posix_lstat_with_gen (xlator_t *this, const char *path, struct iatt *stbuf_p)
 {
         struct posix_private  *priv    = NULL;
         int                    ret     = 0;
         char                   gen_key[1024] = {0, };
         uint64_t               gen_val_be = 0;
         uint64_t               gen_val = 0;
-        struct stat            stbuf = {0, };
+        struct stat            lstatbuf = {0, };
+        struct iatt            stbuf = {0, };
 
         priv = this->private;
 
-        ret = lstat (path, &stbuf);
+        ret = lstat (path, &lstatbuf);
         if (ret == -1)
                 return -1;
 
-        ret = posix_scale_st_ino (priv, &stbuf);
+        iatt_from_stat (&stbuf, &lstatbuf);
+
+        ret = posix_scale_ia_ino (priv, &stbuf);
         if ((ret == -1) && !strcmp (path, "..")) {
                 /* stat on ../ might land us outside the export directory,
                    so don't panic */
 
                 gf_log (this->name, GF_LOG_WARNING,
                         "Access to %s (on dev %lld) is crossing device (%lld)",
-                        path, (unsigned long long) stbuf.st_dev,
+                        path, (unsigned long long) stbuf.ia_dev,
                         (unsigned long long) priv->st_device[0]);
                 errno = EXDEV;
                 return -1;
@@ -267,7 +272,7 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
 
 #ifndef GF_LINUX_HOST_OS
         if (!S_ISDIR (stbuf.st_mode) && !S_ISREG (stbuf.st_mode)) {
-                stbuf.st_dev = (typeof(stbuf.st_dev))stbuf.st_mtime;
+                stbuf.ia_gen = (typeof(stbuf.ia_gen))stbuf.ia_mtime;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
                 return 0;
@@ -298,7 +303,7 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
 
         if (ret >= 0) {
                 ret = 0;
-                stbuf.st_dev = (typeof(stbuf.st_dev))gen_val;
+                stbuf.ia_gen = (typeof(stbuf.ia_gen))gen_val;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
         }
@@ -308,26 +313,29 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct stat *stbuf_p)
 
 
 int
-posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
+posix_fstat_with_gen (xlator_t *this, int fd, struct iatt *stbuf_p)
 {
         struct posix_private  *priv    = NULL;
         int                    ret     = 0;
         char                   gen_key[1024] = {0, };
         uint64_t               gen_val_be = 0;
         uint64_t               gen_val = 0;
-        struct stat            stbuf = {0, };
+        struct stat            fstatbuf = {0, };
+        struct iatt            stbuf = {0, };
 
         priv = this->private;
 
-        ret = fstat (fd, &stbuf);
+        ret = fstat (fd, &fstatbuf);
         if (ret == -1)
                 return -1;
 
-        ret = posix_scale_st_ino (priv, &stbuf);
+        iatt_from_stat (&stbuf, &fstatbuf);
+
+        ret = posix_scale_ia_ino (priv, &stbuf);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "Access to fd %d (on dev %lld) is crossing device (%lld)",
-                        fd, (unsigned long long) stbuf.st_dev,
+                        fd, (unsigned long long) stbuf.ia_dev,
                         (unsigned long long) priv->st_device[0]);
                 errno = EXDEV;
                 return -1;
@@ -335,7 +343,7 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
 
 #ifndef GF_LINUX_HOST_OS
         if (!S_ISDIR (stbuf.st_mode) && !S_ISREG (stbuf.st_mode)) {
-                stbuf.st_dev = (typeof(stbuf.st_dev))stbuf.st_mtime;
+                stbuf.ia_gen = (typeof(stbuf.ia_gen))stbuf.ia_mtime;
                 return 0;
         }
 #endif /* !GF_LINUX_HOST_OS */
@@ -364,7 +372,7 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
 
         if (ret >= 0) {
                 ret = 0;
-                stbuf.st_dev = (typeof(stbuf.st_dev))gen_val;
+                stbuf.ia_gen = (typeof(stbuf.ia_gen))gen_val;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
         }
@@ -375,7 +383,7 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct stat *stbuf_p)
 
 dict_t *
 posix_lookup_xattr_fill (xlator_t *this, const char *real_path, loc_t *loc,
-    			 dict_t *xattr_req, struct stat *buf)
+    			 dict_t *xattr_req, struct iatt *buf)
 {
     	dict_t     *xattr             = NULL;
     	posix_xattr_filler_t filler   = {0, };
@@ -410,7 +418,7 @@ setgid_override (xlator_t *this, char *real_path, gid_t *gid)
 {
         char *                 tmp_path     = NULL;
         char *                 parent_path  = NULL;
-        struct stat            parent_stbuf;
+        struct iatt            parent_stbuf;
 
         int op_ret = 0;
 
@@ -434,13 +442,13 @@ setgid_override (xlator_t *this, char *real_path, gid_t *gid)
                 goto out;
         }
 
-        if (parent_stbuf.st_mode & S_ISGID) {
+        if (parent_stbuf.ia_prot.sgid) {
                 /*
                    Entries created inside a setgid directory
                    should inherit the gid from the parent
                 */
 
-                *gid = parent_stbuf.st_gid;
+                *gid = parent_stbuf.ia_gid;
         }
 out:
 
@@ -455,7 +463,7 @@ int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr_req)
 {
-        struct stat buf                = {0, };
+        struct iatt buf                = {0, };
         char *      real_path          = NULL;
         int32_t     op_ret             = -1;
         int32_t     entry_ret          = 0;
@@ -463,7 +471,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         dict_t *    xattr              = NULL;
         char *      pathdup            = NULL;
         char *      parentpath         = NULL;
-        struct stat postparent         = {0,};
+        struct iatt postparent         = {0,};
         struct posix_private  *priv    = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
@@ -534,7 +542,7 @@ posix_stat (call_frame_t *frame,
             xlator_t *this,
             loc_t *loc)
 {
-        struct stat           buf       = {0,};
+        struct iatt           buf       = {0,};
         char *                real_path = NULL;
         int32_t               op_ret    = -1;
         int32_t               op_errno  = 0;
@@ -573,13 +581,15 @@ posix_stat (call_frame_t *frame,
 static int
 posix_do_chmod (xlator_t *this,
                 const char *path,
-                struct stat *stbuf)
+                struct iatt *stbuf)
 {
         int32_t ret = -1;
+        mode_t  mode = 0;
 
-        ret = lchmod (path, stbuf->st_mode);
+        mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
+        ret = lchmod (path, mode);
         if ((ret == -1) && (errno == ENOSYS)) {
-                ret = chmod (path, stbuf->st_mode);
+                ret = chmod (path, mode);
         }
 
         return ret;
@@ -588,7 +598,7 @@ posix_do_chmod (xlator_t *this,
 static int
 posix_do_chown (xlator_t *this,
                 const char *path,
-                struct stat *stbuf,
+                struct iatt *stbuf,
                 int32_t valid)
 {
         int32_t ret = -1;
@@ -596,10 +606,10 @@ posix_do_chown (xlator_t *this,
         gid_t gid = -1;
 
         if (valid & GF_SET_ATTR_UID)
-                uid = stbuf->st_uid;
+                uid = stbuf->ia_uid;
 
         if (valid & GF_SET_ATTR_GID)
-                gid = stbuf->st_gid;
+                gid = stbuf->ia_gid;
 
         ret = lchown (path, uid, gid);
 
@@ -609,15 +619,15 @@ posix_do_chown (xlator_t *this,
 static int
 posix_do_utimes (xlator_t *this,
                  const char *path,
-                 struct stat *stbuf)
+                 struct iatt *stbuf)
 {
         int32_t ret = -1;
         struct timeval tv[2]     = {{0,},{0,}};
 
-        tv[0].tv_sec  = stbuf->st_atime;
-        tv[0].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
-        tv[1].tv_sec  = stbuf->st_mtime;
-        tv[1].tv_usec = ST_MTIM_NSEC (stbuf) / 1000;
+        tv[0].tv_sec  = stbuf->ia_atime;
+        tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
+        tv[1].tv_sec  = stbuf->ia_mtime;
+        tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
 
         ret = utimes (path, tv);
 
@@ -626,13 +636,13 @@ posix_do_utimes (xlator_t *this,
 
 int
 posix_setattr (call_frame_t *frame, xlator_t *this,
-               loc_t *loc, struct stat *stbuf, int32_t valid)
+               loc_t *loc, struct iatt *stbuf, int32_t valid)
 {
         int32_t        op_ret    = -1;
         int32_t        op_errno  = 0;
         char *         real_path = 0;
-        struct stat    statpre     = {0,};
-        struct stat    statpost    = {0,};
+        struct iatt    statpre     = {0,};
+        struct iatt    statpost    = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -720,7 +730,7 @@ out:
 int32_t
 posix_do_fchown (xlator_t *this,
                  int fd,
-                 struct stat *stbuf,
+                 struct iatt *stbuf,
                  int32_t valid)
 {
         int   ret      = -1;
@@ -728,10 +738,10 @@ posix_do_fchown (xlator_t *this,
         gid_t gid = -1;
 
         if (valid & GF_SET_ATTR_UID)
-                uid = stbuf->st_uid;
+                uid = stbuf->ia_uid;
 
         if (valid & GF_SET_ATTR_GID)
-                gid = stbuf->st_gid;
+                gid = stbuf->ia_gid;
 
         ret = fchown (fd, uid, gid);
 
@@ -741,15 +751,18 @@ posix_do_fchown (xlator_t *this,
 
 int32_t
 posix_do_fchmod (xlator_t *this,
-                 int fd, struct stat *stbuf)
+                 int fd, struct iatt *stbuf)
 {
-        return fchmod (fd, stbuf->st_mode);
+        mode_t  mode = 0;
+
+        mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
+        return fchmod (fd, mode);
 }
 
 static int
 posix_do_futimes (xlator_t *this,
                   int fd,
-                  struct stat *stbuf)
+                  struct iatt *stbuf)
 {
         errno = ENOSYS;
         return -1;
@@ -757,12 +770,12 @@ posix_do_futimes (xlator_t *this,
 
 int
 posix_fsetattr (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, struct stat *stbuf, int32_t valid)
+                fd_t *fd, struct iatt *stbuf, int32_t valid)
 {
         int32_t        op_ret    = -1;
         int32_t        op_errno  = 0;
-        struct stat    statpre     = {0,};
-        struct stat    statpost    = {0,};
+        struct iatt    statpre     = {0,};
+        struct iatt    statpost    = {0,};
         struct posix_fd *pfd = NULL;
         uint64_t         tmp_pfd = 0;
         int32_t          ret = -1;
@@ -940,185 +953,11 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 }
 
 
-int32_t
+int
 posix_getdents (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, size_t size, off_t off, int32_t flag)
 {
-        int32_t               op_ret         = -1;
-        int32_t               op_errno       = 0;
-        char                 *real_path      = NULL;
-        dir_entry_t           entries        = {0, };
-        dir_entry_t          *tmp            = NULL;
-        DIR                  *dir            = NULL;
-        struct dirent        *dirent         = NULL;
-        int                   real_path_len  = -1;
-        int                   entry_path_len = -1;
-        char                 *entry_path     = NULL;
-        int                   count          = 0;
-        struct posix_fd      *pfd            = NULL;
-	uint64_t              tmp_pfd        = 0;
-        struct stat           buf            = {0,};
-        int                   ret            = -1;
-        char                  tmp_real_path[ZR_PATH_MAX];
-        char                  linkpath[ZR_PATH_MAX];
-        struct posix_private *priv           = NULL;
-
-        DECLARE_OLD_FS_ID_VAR ;
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (fd, out);
-
-        priv = this->private;
-        VALIDATE_OR_GOTO (priv, out);
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
-        if (ret < 0) {
-                op_errno = -ret;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "fd %p does not have context in %s",
-                        fd, this->name);
-                goto out;
-        }
-	pfd = (struct posix_fd *)(long)tmp_pfd;
-        if (!pfd->path) {
-                op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "pfd does not have path set (possibly file "
-			"fd, fd=%p)", fd);
-                goto out;
-        }
-
-        real_path     = pfd->path;
-        real_path_len = strlen (real_path);
-
-        entry_path_len = real_path_len + NAME_MAX;
-        entry_path     = CALLOC (1, entry_path_len);
-
-        if (!entry_path) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
-                goto out;
-        }
-
-        strncpy (entry_path, real_path, entry_path_len);
-        entry_path[real_path_len] = '/';
-
-        dir = pfd->dir;
-
-        if (!dir) {
-                op_errno = EBADFD;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "pfd does not have dir set (possibly file fd, "
-			"fd=%p, path=`%s'",
-                        fd, real_path);
-                goto out;
-        }
-
-        /* TODO: check for all the type of flag, and behave appropriately */
-
-        while ((dirent = readdir (dir))) {
-                if (!dirent)
-                        break;
-
-                /* This helps in self-heal, when only directories
-                   needs to be replicated */
-
-                /* This is to reduce the network traffic, in case only
-                   directory is needed from posix */
-
-                strncpy (tmp_real_path, real_path, ZR_PATH_MAX);
-                strncat (tmp_real_path, "/",
-			 ZR_PATH_MAX - strlen (tmp_real_path));
-
-                strncat (tmp_real_path, dirent->d_name,
-                         ZR_PATH_MAX - (strlen (tmp_real_path) + 1));
-
-                ret = posix_lstat_with_gen (this, tmp_real_path, &buf);
-
-                if ((flag == GF_GET_DIR_ONLY)
-                    && (ret != -1 && !S_ISDIR(buf.st_mode))) {
-                        continue;
-                }
-
-                tmp = CALLOC (1, sizeof (*tmp));
-
-                if (!tmp) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory.");
-                        goto out;
-                }
-
-                tmp->name = strdup (dirent->d_name);
-                if (!tmp->name) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory.");
-                        goto out;
-                }
-
-                if (entry_path_len <
-		    (real_path_len + 1 + strlen (tmp->name) + 1)) {
-                        entry_path_len = (real_path_len +
-					  strlen (tmp->name) + 1024);
-
-                        entry_path = realloc (entry_path, entry_path_len);
-                }
-
-                strcpy (&entry_path[real_path_len+1], tmp->name);
-
-                tmp->buf = buf; 
-
-                if (S_ISLNK(tmp->buf.st_mode)) {
-
-                        ret = readlink (entry_path, linkpath, ZR_PATH_MAX);
-                        if (ret != -1) {
-                                linkpath[ret] = '\0';
-                                tmp->link = strdup (linkpath);
-                        }
-                } else {
-                        tmp->link = "";
-                }
-
-                count++;
-
-                tmp->next = entries.next;
-                entries.next = tmp;
-
-                /* if size is 0, count can never be = size, so entire
-		   dir is read */
-                if (count == size)
-                        break;
-        }
-
-        FREE (entry_path);
-
-        op_ret = 0;
-
- out:
-        SET_TO_OLD_FS_ID ();
-
-        if (op_ret == -1) {
-                if (entry_path)
-                        FREE (entry_path);
-        }
-
-        STACK_UNWIND_STRICT (getdents, frame, op_ret, op_errno,
-                             &entries, count);
-
-        if (op_ret == 0) {
-                while (entries.next) {
-                        tmp = entries.next;
-                        entries.next = entries.next->next;
-                        FREE (tmp->name);
-                        FREE (tmp);
-                }
-        }
-
+        STACK_UNWIND_STRICT (getdents, frame, -1, ENOSYS, NULL, 0);
         return 0;
 }
 
@@ -1188,7 +1027,7 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
         int32_t lstat_ret = -1;
         int32_t op_errno  = 0;
         char *  real_path = NULL;
-        struct stat stbuf = {0,};
+        struct iatt stbuf = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1237,13 +1076,13 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
         char                 *real_path   = 0;
-        struct stat           stbuf       = { 0, };
+        struct iatt           stbuf       = { 0, };
         char                  was_present = 1;
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
         char                 *pathdup   = NULL;
-        struct stat           preparent = {0,};
-        struct stat           postparent = {0,};
+        struct iatt           preparent = {0,};
+        struct iatt           postparent = {0,};
         char                 *parentpath = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
@@ -1503,14 +1342,14 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
         char                 *real_path   = NULL;
-        struct stat           stbuf       = {0, };
+        struct iatt           stbuf       = {0, };
         char                  was_present = 1;
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
         char                 *pathdup   = NULL;
         char                 *parentpath = NULL;
-        struct stat           preparent = {0,};
-        struct stat           postparent = {0,};
+        struct iatt           preparent = {0,};
+        struct iatt           postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1617,8 +1456,8 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         char                    *parentpath = NULL;
         int32_t                  fd = -1;
         struct posix_private    *priv      = NULL;
-        struct stat            preparent = {0,};
-        struct stat            postparent = {0,};
+        struct iatt            preparent = {0,};
+        struct iatt            postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1645,7 +1484,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
         if (priv->background_unlink) {
-                if (S_ISREG (loc->inode->st_mode)) {
+                if (IA_ISREG (loc->inode->ia_type)) {
                         fd = open (real_path, O_RDONLY);
                         if (fd == -1) {
                                 op_ret = -1;
@@ -1703,8 +1542,8 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         char *  real_path = NULL;
         char *  pathdup   = NULL;
         char *  parentpath = NULL;
-        struct stat   preparent = {0,};
-        struct stat   postparent = {0,};
+        struct iatt   preparent = {0,};
+        struct iatt   postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1774,14 +1613,14 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
         char *                real_path   = 0;
-        struct stat           stbuf       = { 0, };
+        struct iatt           stbuf       = { 0, };
         struct posix_private *priv        = NULL;
         gid_t                 gid         = 0;
         char                  was_present = 1; 
         char                 *pathdup   = NULL;
         char                 *parentpath = NULL;
-        struct stat           preparent = {0,};
-        struct stat           postparent = {0,};
+        struct iatt           preparent = {0,};
+        struct iatt           postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -1886,17 +1725,17 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno     = 0;
         char                 *real_oldpath = NULL;
         char                 *real_newpath = NULL;
-        struct stat           stbuf        = {0, };
+        struct iatt           stbuf        = {0, };
         struct posix_private *priv         = NULL;
         char                  was_present  = 1; 
         char                 *oldpathdup    = NULL;
         char                 *oldparentpath = NULL;
         char                 *newpathdup    = NULL;
         char                 *newparentpath = NULL;
-        struct stat           preoldparent  = {0, };
-        struct stat           postoldparent = {0, };
-        struct stat           prenewparent  = {0, };
-        struct stat           postnewparent = {0, };
+        struct iatt           preoldparent  = {0, };
+        struct iatt           postoldparent = {0, };
+        struct iatt           prenewparent  = {0, };
+        struct iatt           postnewparent = {0, };
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2014,13 +1853,13 @@ posix_link (call_frame_t *frame, xlator_t *this,
         int32_t               op_errno     = 0;
         char                 *real_oldpath = 0;
         char                 *real_newpath = 0;
-        struct stat           stbuf        = {0, };
+        struct iatt           stbuf        = {0, };
         struct posix_private *priv         = NULL;
         char                  was_present  = 1;
         char                 *newpathdup   = NULL;
         char                 *newparentpath = NULL;
-        struct stat           preparent = {0,};
-        struct stat           postparent = {0,};
+        struct iatt           preparent = {0,};
+        struct iatt           postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2111,8 +1950,8 @@ posix_truncate (call_frame_t *frame,
         int32_t               op_errno  = 0;
         char                 *real_path = 0;
         struct posix_private *priv      = NULL;
-        struct stat           prebuf    = {0,};
-        struct stat           postbuf   = {0,};
+        struct iatt           prebuf    = {0,};
+        struct iatt           postbuf   = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2174,7 +2013,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         int32_t                _fd         = -1;
         int                    _flags      = 0;
         char *                 real_path   = NULL;
-        struct stat            stbuf       = {0, };
+        struct iatt            stbuf       = {0, };
         struct posix_fd *      pfd         = NULL;
         struct posix_private * priv        = NULL;
         char                   was_present = 1;  
@@ -2182,8 +2021,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
         gid_t                  gid         = 0;
         char                  *pathdup   = NULL;
         char                  *parentpath = NULL;
-        struct stat            preparent = {0,};
-        struct stat            postparent = {0,};
+        struct iatt            preparent = {0,};
+        struct iatt            postparent = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2327,7 +2166,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
         struct posix_private *priv         = NULL;
         char                  was_present  = 1;
         gid_t                 gid          = 0;
-        struct stat           stbuf        = {0, };
+        struct iatt           stbuf        = {0, };
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -2443,7 +2282,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         struct iobref        * iobref     = NULL;
         struct iovec           vec        = {0,};
         struct posix_fd *      pfd        = NULL;
-        struct stat            stbuf      = {0,};
+        struct iatt            stbuf      = {0,};
         int                    align      = 1;
         int                    ret        = -1;
 
@@ -2531,9 +2370,9 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         }
 
         /* Hack to notify higher layers of EOF. */
-        if (stbuf.st_size == 0)
+        if (stbuf.ia_size == 0)
                 op_errno = ENOENT;
-        else if ((offset + vec.iov_len) == stbuf.st_size)
+        else if ((offset + vec.iov_len) == stbuf.ia_size)
                 op_errno = ENOENT;
 
         op_ret = vec.iov_len;
@@ -2561,8 +2400,8 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         int                    _fd      = -1;
         struct posix_private * priv     = NULL;
         struct posix_fd *      pfd      = NULL;
-        struct stat            preop    = {0,};
-        struct stat            postop    = {0,};
+        struct iatt            preop    = {0,};
+        struct iatt            postop    = {0,};
         int                      ret      = -1;
 
         int    idx          = 0;
@@ -2859,8 +2698,8 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
 	uint64_t          tmp_pfd  = 0;
-        struct stat       preop = {0,};
-        struct stat       postop = {0,};
+        struct iatt       preop = {0,};
+        struct iatt       postop = {0,};
 
         DECLARE_OLD_FS_ID_VAR;
 
@@ -3111,7 +2950,7 @@ get_file_contents (xlator_t *this, char *real_path,
         char        real_filepath[ZR_PATH_MAX] = {0,};
         char *      key                        = NULL;
         int32_t     file_fd                    = -1;
-        struct stat stbuf                      = {0,};
+        struct iatt stbuf                      = {0,};
         int         op_ret                     = 0;
         int         ret                        = -1;
 
@@ -3135,7 +2974,7 @@ get_file_contents (xlator_t *this, char *real_path,
                 goto out;
         }
 
-        *contents = CALLOC (stbuf.st_size + 1, sizeof(char));
+        *contents = CALLOC (stbuf.ia_size + 1, sizeof(char));
 
         if (! *contents) {
                 op_ret = -errno;
@@ -3143,7 +2982,7 @@ get_file_contents (xlator_t *this, char *real_path,
                 goto out;
         }
 
-        ret = read (file_fd, *contents, stbuf.st_size);
+        ret = read (file_fd, *contents, stbuf.ia_size);
         if (ret <= 0) {
                 op_ret = -1;
                 gf_log (this->name, GF_LOG_ERROR, "read on %s failed: %s",
@@ -3151,7 +2990,7 @@ get_file_contents (xlator_t *this, char *real_path,
                 goto out;
         }
 
-        *contents[stbuf.st_size] = '\0';
+        *contents[stbuf.ia_size] = '\0';
 
         op_ret = close (file_fd);
         file_fd = -1;
@@ -3208,7 +3047,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        if (loc->inode && S_ISDIR(loc->inode->st_mode) && name &&
+        if (loc->inode && IA_ISDIR(loc->inode->ia_type) && name &&
 	    ZR_FILE_CONTENT_REQUEST(name)) {
                 ret = get_file_contents (this, real_path, name,
 					 &file_contents);
@@ -3228,7 +3067,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-	if (loc->inode && S_ISREG (loc->inode->st_mode) && name &&
+	if (loc->inode && IA_ISREG (loc->inode->ia_type) && name &&
 	    (strcmp (name, "trusted.glusterfs.location") == 0)) {
                 ret = dict_set_static_ptr (dict, 
                                            "trusted.glusterfs.location", 
@@ -3884,8 +3723,8 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
         int32_t               op_ret   = -1;
         int32_t               op_errno = 0;
         int                   _fd      = -1;
-        struct stat           preop    = {0,};
-        struct stat           postop   = {0,};
+        struct iatt           preop    = {0,};
+        struct iatt           postop   = {0,};
         struct posix_fd      *pfd      = NULL;
         int                   ret      = -1;
 	uint64_t              tmp_pfd  = 0;
@@ -3951,299 +3790,16 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
 }
 
 
-static int
-same_file_type (mode_t m1, mode_t m2)
-{
-	return ((S_IFMT & (m1 ^ m2)) == 0);
-}
-
-
-static int
-ensure_file_type (xlator_t *this, char *pathname, mode_t mode)
-{
-        struct stat stbuf  = {0,};
-        int         op_ret = 0;
-        int         ret    = -1;
-
-        ret = posix_lstat_with_gen (this, pathname, &stbuf);
-        if (ret == -1) {
-                op_ret = -errno;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "stat failed while trying to make sure entry %s "
-			"is a directory: %s", pathname, strerror (errno));
-                goto out;
-        }
-
-        if (!same_file_type (mode, stbuf.st_mode)) {
-                op_ret = -EEXIST;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "entry %s is a different type of file "
-			"than expected", pathname);
-                goto out;
-        }
- out:
-        return op_ret;
-}
-
-static int
-create_entry (xlator_t *this, int32_t flags,
-              dir_entry_t *entry, char *pathname)
-{
-        int op_ret        = 0;
-        int ret           = -1;
-        struct timeval tv[2]     = {{0,0},{0,0}};
-
-        if (S_ISDIR (entry->buf.st_mode)) {
-                /*
-                 * If the entry is directory, create it by
-                 * calling 'mkdir'. If the entry is already
-                 * present, check if it is a directory,
-                 * and issue a warning if otherwise.
-                 */
-
-                ret = mkdir (pathname, entry->buf.st_mode);
-                if (ret == -1) {
-                        if (errno == EEXIST) {
-                                op_ret = ensure_file_type (this, pathname,
-                                                           entry->buf.st_mode);
-                        }
-                        else {
-                                op_ret = -errno;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "mkdir %s with mode (0%o) failed: %s",
-                                        pathname, entry->buf.st_mode,
-                                        strerror (errno));
-                                goto out;
-                        }
-                }
-
-        } else if ((flags & GF_SET_IF_NOT_PRESENT)
-                   || !(flags & GF_SET_DIR_ONLY)) {
-
-                /* create a 0-byte file here */
-
-                if (S_ISREG (entry->buf.st_mode)) {
-                        ret = open (pathname, O_CREAT|O_EXCL,
-                                    entry->buf.st_mode);
-
-                        if (ret == -1) {
-                                if (errno == EEXIST) {
-                                        op_ret = ensure_file_type (this,
-								   pathname,
-                                                                   entry->buf.st_mode);
-                                }
-                                else {
-                                        op_ret = -errno;
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "Error creating file %s with "
-						"mode (0%o): %s",
-                                                pathname, entry->buf.st_mode,
-                                                strerror (errno));
-                                        goto out;
-                                }
-                        }
-
-                        close (ret);
-
-                } else if (S_ISLNK (entry->buf.st_mode)) {
-                        ret = symlink (entry->link, pathname);
-
-                        if (ret == -1) {
-                                if (errno == EEXIST) {
-                                        op_ret = ensure_file_type (this,
-								   pathname,
-                                                                   entry->buf.st_mode);
-                                }
-                                else {
-                                        op_ret = -errno;
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "error creating symlink %s: %s"
-						, pathname, strerror (errno));
-                                        goto out;
-                                }
-                        }
-
-                } else if (S_ISBLK (entry->buf.st_mode) ||
-                           S_ISCHR (entry->buf.st_mode) ||
-                           S_ISFIFO (entry->buf.st_mode) ||
-			   S_ISSOCK (entry->buf.st_mode)) {
-
-                        ret = mknod (pathname, entry->buf.st_mode,
-                                     entry->buf.st_dev);
-
-                        if (ret == -1) {
-                                if (errno == EEXIST) {
-                                        op_ret = ensure_file_type (this,
-								   pathname,
-                                                                   entry->buf.st_mode);
-                                } else {
-                                        op_ret = -errno;
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "error creating device file "
-						"%s: %s",
-						pathname, strerror (errno));
-                                        goto out;
-                                }
-                        }
-                } else {
-			gf_log (this->name, GF_LOG_ERROR,
-				"invalid mode 0%o for %s", entry->buf.st_mode,
-				pathname);
-			op_ret = -EINVAL;
-			goto out;
-		}
-        }
-
-	/*
-	 * Preserve atime and mtime
-	 */
-
-	if (!S_ISLNK (entry->buf.st_mode)) {
-		tv[0].tv_sec = entry->buf.st_atime;
-		tv[1].tv_sec = entry->buf.st_mtime;
-		ret = utimes (pathname, tv);
-		if (ret == -1) {
-			op_ret = -errno;
-			gf_log (this->name, GF_LOG_ERROR,
-				"utimes %s failed: %s",
-				pathname, strerror (errno));
-			goto out;
-		}
-	}
-
-out:
-        return op_ret;
-
-}
-
-
 int
 posix_setdents (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, int32_t flags, dir_entry_t *entries,
                 int32_t count)
 {
-        char *            real_path      = NULL;
-        char *            entry_path     = NULL;
-        int32_t           real_path_len  = -1;
-        int32_t           entry_path_len = -1;
-        int32_t           ret            = 0;
-        int32_t           op_ret         = -1;
-        int32_t           op_errno       = 0;
-        struct posix_fd * pfd            = {0, };
-        struct timeval    tv[2]          = {{0, }, {0, }};
-	uint64_t          tmp_pfd        = 0;
-        char              pathname[ZR_PATH_MAX] = {0,};
-        dir_entry_t *     trav           = NULL;
 
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-        VALIDATE_OR_GOTO (fd, out);
-        VALIDATE_OR_GOTO (entries, out);
-
-        tv[0].tv_sec = tv[0].tv_usec = 0;
-        tv[1].tv_sec = tv[1].tv_usec = 0;
-
-        ret = fd_ctx_get (fd, this, &tmp_pfd);
-        if (ret < 0) {
-                op_errno = -ret;
-                gf_log (this->name, GF_LOG_DEBUG,
-			"fd's ctx not found on fd=%p for %s",
-                        fd, this->name);
-                goto out;
-        }
-	pfd = (struct posix_fd *)(long)tmp_pfd;
-
-        real_path = pfd->path;
-
-        if (!real_path) {
-                op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "path is NULL on pfd=%p fd=%p", pfd, fd);
-                goto out;
-        }
-
-        real_path_len  = strlen (real_path);
-        entry_path_len = real_path_len + 256;
-        entry_path     = CALLOC (1, entry_path_len);
-
-        if (!entry_path) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "Out of memory.");
-                goto out;
-        }
-
-        strcpy (entry_path, real_path);
-        entry_path[real_path_len] = '/';
-
-        /* fd exists, and everything looks fine */
-        /**
-         * create an entry for each one present in '@entries'
-         *  - if flag is set (ie, if its namespace), create both directories
-	 *    and files
-         *  - if not set, create only directories.
-         *
-         *  after the entry is created, change the mode and ownership of the
-	 *  entry according to the stat present in entries->buf.
-         */
-
-        trav = entries->next;
-        while (trav) {
-                strcpy (pathname, entry_path);
-                strcat (pathname, trav->name);
-
-                ret = create_entry (this, flags, trav, pathname);
-                if (ret < 0) {
-                        op_errno = -ret;
-                        goto out;
-                }
-
-                /* TODO: handle another flag, GF_SET_OVERWRITE */
-
-                /* Change the mode */
-		if (!S_ISLNK (trav->buf.st_mode)) {
-			ret = chmod (pathname, trav->buf.st_mode);
-			if (ret == -1) {
-				op_errno = errno;
-				gf_log (this->name, GF_LOG_ERROR,
-					"chmod on %s failed: %s", pathname,
-					strerror (op_errno));
-				goto out;
-			}
-		}
-
-                /* change the ownership */
-                ret = lchown (pathname, trav->buf.st_uid, trav->buf.st_gid);
-                if (ret == -1) {
-                        op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "chmod on %s failed: %s", pathname,
-                                strerror (op_errno));
-                        goto out;
-                }
-
-                if (flags & GF_SET_EPOCH_TIME) {
-                        ret = utimes (pathname, tv);
-                        if (ret == -1) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "utimes on %s failed: %s", pathname,
-                                        strerror (op_errno));
-                                goto out;
-                        }
-                }
-
-                /* consider the next entry */
-                trav = trav->next;
-        }
-
-        op_ret = 0;
- out:
-        STACK_UNWIND_STRICT (setdents, frame, op_ret, op_errno);
-        if (entry_path)
-                FREE (entry_path);
-
+        STACK_UNWIND_STRICT (setdents, frame, -1, ENOSYS);
         return 0;
 }
+
 
 int32_t
 posix_fstat (call_frame_t *frame, xlator_t *this,
@@ -4252,7 +3808,7 @@ posix_fstat (call_frame_t *frame, xlator_t *this,
         int                   _fd      = -1;
         int32_t               op_ret   = -1;
         int32_t               op_errno = 0;
-        struct stat           buf      = {0,};
+        struct iatt           buf      = {0,};
         struct posix_fd      *pfd      = NULL;
 	uint64_t              tmp_pfd  = 0;
         int                   ret      = -1;
@@ -4389,7 +3945,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         char                 *entry_path     = NULL;
         int                   entry_path_len = -1;
         struct posix_private *priv           = NULL;
-        struct stat           stbuf          = {0, };
+        struct iatt           stbuf          = {0, };
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -4489,7 +4045,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                         if (-1 == op_ret)
                                 continue;
                 } else
-                        stbuf.st_ino = entry->d_ino;
+                        stbuf.ia_ino = entry->d_ino;
 
                 /* So at this point stbuf ino is either:
                  * a. the original inode number got from entry, in case this
@@ -4498,7 +4054,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                  * b. the scaled inode number, if device spanning was enabled
                  * or this was a readdirp fop.
                  */
-                entry->d_ino = stbuf.st_ino;
+                entry->d_ino = stbuf.ia_ino;
 
                 this_entry = gf_dirent_for_name (entry->d_name);
 
@@ -4665,7 +4221,7 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
         int             i                              = 0;
         int             length                         = 0;
 
-        struct stat buf                        = {0,};
+        struct iatt buf                        = {0,};
         char        tmp_real_path[ZR_PATH_MAX] = {0,};
         int         ret                        = -1;
 
@@ -4704,7 +4260,7 @@ posix_checksum (call_frame_t *frame, xlator_t *this,
                 if (ret == -1)
                         continue;
 
-                if (S_ISDIR (buf.st_mode)) {
+                if (IA_ISDIR (buf.ia_type)) {
                         for (i = 0; i < length; i++)
                                 dir_checksum[i] ^= dirent->d_name[i];
                 } else {

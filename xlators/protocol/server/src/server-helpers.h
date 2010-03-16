@@ -42,7 +42,7 @@
 #define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
 
 char *
-stat_to_str (struct stat *stbuf);
+stat_to_str (struct iatt *stbuf);
 
 call_frame_t *
 server_copy_frame (call_frame_t *frame);

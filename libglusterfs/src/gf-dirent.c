@@ -126,11 +126,11 @@ gf_dirent_serialize (gf_dirent_t *entries, char *buf, size_t buf_size)
 			entry_nb = (void *) (buf + size);
 
 			entry_nb->d_ino  = hton64 (entry->d_ino);
-			entry_nb->d_off  = hton64 (entry->d_off);	
+			entry_nb->d_off  = hton64 (entry->d_off);
 			entry_nb->d_len  = hton32 (entry->d_len);
 			entry_nb->d_type = hton32 (entry->d_type);
 
-                        gf_stat_from_stat (&entry_nb->d_stat, &entry->d_stat);
+                        gf_stat_from_iatt (&entry_nb->d_stat, &entry->d_stat);
 
 			strcpy (entry_nb->d_name, entry->d_name);
 		}
@@ -175,7 +175,7 @@ gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size)
 		entry->d_len  = ntoh32 (entry_nb->d_len);
 		entry->d_type = ntoh32 (entry_nb->d_type);
 
-                gf_stat_to_stat (&entry_nb->d_stat, &entry->d_stat);
+                gf_stat_to_iatt (&entry_nb->d_stat, &entry->d_stat);
 
 		strcpy (entry->d_name, entry_nb->d_name);
 

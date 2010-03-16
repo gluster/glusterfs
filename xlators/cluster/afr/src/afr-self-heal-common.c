@@ -441,7 +441,7 @@ afr_sh_mark_biggest_as_source (afr_self_heal_t *sh, int child_count)
 
 
 static int
-afr_sh_mark_lowest_uid_as_source (afr_self_heal_t *sh, int child_count)
+afr_sh_mark_loweia_uid_as_source (afr_self_heal_t *sh, int child_count)
 {
         uid_t smallest = 0;
         int i;
@@ -450,7 +450,7 @@ afr_sh_mark_lowest_uid_as_source (afr_self_heal_t *sh, int child_count)
                 if (!sh->buf)
                         break;
 
-                if (sh->buf[i].st_uid < sh->buf[smallest].st_uid) {
+                if (sh->buf[i].ia_uid < sh->buf[smallest].ia_uid) {
                         smallest = i;
                 }
         }
@@ -513,7 +513,7 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
         if ((type == AFR_SELF_HEAL_METADATA)
             && afr_sh_all_nodes_innocent (characters, child_count)) {
 
-                nsources = afr_sh_mark_lowest_uid_as_source (sh, child_count);
+                nsources = afr_sh_mark_loweia_uid_as_source (sh, child_count);
                 goto out;
         }
 
@@ -864,7 +864,7 @@ sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 static int
 sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int32_t op_ret, int op_errno,
-                struct stat *preop, struct stat *postop)
+                struct iatt *preop, struct iatt *postop)
 {
         afr_local_t *local = NULL;
 
@@ -899,9 +899,9 @@ static int
 sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 				 xlator_t *this,
 				 int32_t op_ret, int32_t op_errno,
-				 inode_t *inode, struct stat *buf,
-                                 struct stat *preparent,
-                                 struct stat *postparent)
+				 inode_t *inode, struct iatt *buf,
+                                 struct iatt *preparent,
+                                 struct iatt *postparent)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
@@ -912,7 +912,7 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 
         loc_t *parent_loc = NULL;
 
-	struct stat     stbuf;
+	struct iatt     stbuf;
         int32_t valid;
 
 	local = frame->local;
@@ -921,20 +921,13 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 
 	child_index = (long) cookie;
 
-#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	stbuf.st_atim = sh->buf[sh->source].st_atim;
-	stbuf.st_mtim = sh->buf[sh->source].st_mtim;
-        
-#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	stbuf.st_atimespec = sh->buf[sh->source].st_atimespec;
-	stbuf.st_mtimespec = sh->buf[sh->source].st_mtimespec;
-#else
-	stbuf.st_atime = sh->buf[sh->source].st_atime;
-	stbuf.st_mtime = sh->buf[sh->source].st_mtime;
-#endif
+	stbuf.ia_atime = sh->buf[sh->source].ia_atime;
+	stbuf.ia_atime_nsec = sh->buf[sh->source].ia_atime_nsec;
+	stbuf.ia_mtime = sh->buf[sh->source].ia_mtime;
+	stbuf.ia_mtime_nsec = sh->buf[sh->source].ia_mtime_nsec;
 
-        stbuf.st_uid = sh->buf[sh->source].st_uid;
-        stbuf.st_gid = sh->buf[sh->source].st_gid;
+        stbuf.ia_uid = sh->buf[sh->source].ia_uid;
+        stbuf.ia_gid = sh->buf[sh->source].ia_gid;
         
         valid = GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
                 GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
@@ -987,7 +980,7 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 	int              enoent_count = 0;
 	int              call_count = 0;
 	mode_t           st_mode = 0;
-	dev_t            st_dev = 0;
+	dev_t            ia_gen = 0;
 
 
 	local = frame->local;
@@ -1001,8 +994,9 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 	call_count = enoent_count;
 	local->call_count = call_count;
 
-	st_mode = sh->buf[sh->source].st_mode;
-	st_dev  = sh->buf[sh->source].st_dev;
+	st_mode = st_mode_from_ia (sh->buf[sh->source].ia_prot,
+                                   sh->buf[sh->source].ia_type);
+	ia_gen  = sh->buf[sh->source].ia_gen;
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"mknod %s mode 0%o on %d subvolumes",
@@ -1015,7 +1009,7 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->mknod,
-					   &local->loc, st_mode, st_dev);
+					   &local->loc, st_mode, ia_gen);
 			if (!--call_count)
 				break;
 		}
@@ -1048,7 +1042,8 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
 	call_count = enoent_count;
 	local->call_count = call_count;
 
-	st_mode = sh->buf[sh->source].st_mode;
+	st_mode = st_mode_from_ia (sh->buf[sh->source].ia_prot,
+                                   sh->buf[sh->source].ia_type);
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"mkdir %s mode 0%o on %d subvolumes",
@@ -1127,7 +1122,7 @@ static int
 sh_missing_entries_readlink_cbk (call_frame_t *frame, void *cookie,
 				 xlator_t *this,
 				 int32_t op_ret, int32_t op_errno,
-				 const char *link, struct stat *sbuf)
+				 const char *link, struct iatt *sbuf)
 {
 	if (op_ret > 0)
 		sh_missing_entries_symlink (frame, this, link);
@@ -1181,7 +1176,7 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
 				enoent_count++;
 		} else {
 			if (type) {
-				if (type != (sh->buf[i].st_mode & S_IFMT)) {
+				if (type != sh->buf[i].ia_type) {
                                         gf_log (this->name, GF_LOG_TRACE,
                                                 "file %s is govinda!",
                                                 local->loc.path);
@@ -1190,7 +1185,7 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
                                 }
 			} else {
 				sh->source = i;
-				type = sh->buf[i].st_mode & S_IFMT;
+				type = sh->buf[i].ia_type;
 			}
 		}
 	}
@@ -1252,8 +1247,8 @@ static int
 sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 			       xlator_t *this,
 			       int32_t op_ret, int32_t op_errno,
-                               inode_t *inode, struct stat *buf, dict_t *xattr,
-                               struct stat *postparent)
+                               inode_t *inode, struct iatt *buf, dict_t *xattr,
+                               struct iatt *postparent)
 {
 	int              child_index = 0;
 	afr_local_t     *local = NULL;
@@ -1275,7 +1270,7 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 				"path %s on subvolume %s is of mode 0%o",
 				local->loc.path,
 				priv->children[child_index]->name,
-				buf->st_mode);
+				buf->ia_type);
 
 			local->self_heal.buf[child_index] = *buf;
                         local->self_heal.parentbuf        = *postparent;
@@ -1472,7 +1467,7 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         else
                 shc->healing_fd = sh->healing_fd;
         shc->background = sh->background;
-        shc->mode = sh->mode;
+        shc->type = sh->type;
 
         if (l->loc.path)
                 loc_copy (&lc->loc, &l->loc);

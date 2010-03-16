@@ -179,7 +179,7 @@ out:
 int32_t
 afr_stat_cbk (call_frame_t *frame, void *cookie,
 	      xlator_t *this, int32_t op_ret, int32_t op_errno,
-	      struct stat *buf)
+	      struct iatt *buf)
 {
 	afr_private_t * priv     = NULL;
 	afr_local_t *   local    = NULL;
@@ -222,7 +222,7 @@ afr_stat_cbk (call_frame_t *frame, void *cookie,
 out:
 	if (unwind) {
 		if (buf)
-			buf->st_ino = local->cont.stat.ino;
+			buf->ia_ino = local->cont.stat.ino;
 
 		AFR_STACK_UNWIND (stat, frame, op_ret, op_errno, buf);
 	}
@@ -303,7 +303,7 @@ out:
 int32_t
 afr_fstat_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno,
-	       struct stat *buf)
+	       struct iatt *buf)
 {
 	afr_private_t * priv     = NULL;
 	afr_local_t *   local    = NULL;
@@ -346,7 +346,7 @@ afr_fstat_cbk (call_frame_t *frame, void *cookie,
 out:
 	if (unwind) {
 		if (buf)
-			buf->st_ino = local->cont.fstat.ino;
+			buf->ia_ino = local->cont.fstat.ino;
 
 		AFR_STACK_UNWIND (fstat, frame, op_ret, op_errno, buf);
 	}
@@ -428,7 +428,7 @@ out:
 int32_t
 afr_readlink_cbk (call_frame_t *frame, void *cookie,
 		  xlator_t *this, int32_t op_ret, int32_t op_errno,
-		  const char *buf, struct stat *sbuf)
+		  const char *buf, struct iatt *sbuf)
 {
 	afr_private_t * priv     = NULL;
 	afr_local_t *   local    = NULL;
@@ -471,7 +471,7 @@ afr_readlink_cbk (call_frame_t *frame, void *cookie,
 out:
 	if (unwind) {
                 if (sbuf)
-                        sbuf->st_ino = local->cont.readlink.ino;
+                        sbuf->ia_ino = local->cont.readlink.ino;
 
 		AFR_STACK_UNWIND (readlink, frame, op_ret, op_errno, buf, sbuf);
 	}
@@ -748,7 +748,7 @@ out:
 int32_t
 afr_readv_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int32_t op_ret, int32_t op_errno,
-	       struct iovec *vector, int32_t count, struct stat *buf,
+	       struct iovec *vector, int32_t count, struct iatt *buf,
                struct iobref *iobref)
 {
 	afr_private_t * priv     = NULL;
@@ -803,7 +803,7 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 out:
 	if (unwind) {
                 if (buf)
-                        buf->st_ino = local->cont.readv.ino;
+                        buf->ia_ino = local->cont.readv.ino;
 
 		AFR_STACK_UNWIND (readv, frame, op_ret, op_errno,
                                   vector, count, buf, iobref);

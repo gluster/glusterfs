@@ -40,9 +40,9 @@ default_lookup_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf,
+		    struct iatt *buf,
                     dict_t *dict,
-                    struct stat *postparent)
+                    struct iatt *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -83,7 +83,7 @@ default_stat_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *buf)
+		  struct iatt *buf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -111,8 +111,8 @@ default_truncate_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      struct stat *prebuf,
-                      struct stat *postbuf)
+		      struct iatt *prebuf,
+                      struct iatt *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -143,8 +143,8 @@ default_ftruncate_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       struct stat *prebuf,
-                       struct stat *postbuf)
+		       struct iatt *prebuf,
+                       struct iatt *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -205,7 +205,7 @@ default_readlink_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      const char *path,
-                      struct stat *buf)
+                      struct iatt *buf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -238,9 +238,9 @@ default_mknod_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-                   struct stat *buf,
-                   struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -274,9 +274,9 @@ default_mkdir_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-                   struct stat *buf,
-                   struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -308,8 +308,8 @@ default_unlink_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-                    struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
 	return 0;
@@ -334,8 +334,8 @@ default_rmdir_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-                   struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -366,9 +366,9 @@ default_symlink_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-                     struct stat *buf,
-                     struct stat *preparent,
-                     struct stat *postparent)
+                     struct iatt *buf,
+                     struct iatt *preparent,
+                     struct iatt *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
                       postparent);
@@ -396,11 +396,11 @@ default_rename_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    struct stat *buf,
-                    struct stat *preoldparent,
-                    struct stat *postoldparent,
-                    struct stat *prenewparent,
-                    struct stat *postnewparent)
+		    struct iatt *buf,
+                    struct iatt *preoldparent,
+                    struct iatt *postoldparent,
+                    struct iatt *prenewparent,
+                    struct iatt *postnewparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, buf, preoldparent, postoldparent,
                       prenewparent, postnewparent);
@@ -429,9 +429,9 @@ default_link_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-                  struct stat *buf,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
         STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
                       postparent);
@@ -461,9 +461,9 @@ default_create_cbk (call_frame_t *frame,
 		    int32_t op_errno,
 		    fd_t *fd,
 		    inode_t *inode,
-		    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent)
+		    struct iatt *buf,
+                    struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf, preparent,
                       postparent);
@@ -522,7 +522,7 @@ default_readv_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   struct iovec *vector,
 		   int32_t count,
-		   struct stat *stbuf,
+		   struct iatt *stbuf,
                    struct iobref *iobref)
 {
 	STACK_UNWIND (frame,
@@ -559,8 +559,8 @@ default_writev_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-                    struct stat *prebuf,
-		    struct stat *postbuf)
+                    struct iatt *prebuf,
+		    struct iatt *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -624,8 +624,8 @@ default_fsync_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-                   struct stat *prebuf,
-                   struct stat *postbuf)
+                   struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -656,7 +656,7 @@ default_fstat_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct stat *buf)
+		   struct iatt *buf)
 {
 	STACK_UNWIND (frame,
 		      op_ret,
@@ -1477,8 +1477,8 @@ default_setattr_cbk (call_frame_t *frame,
                      xlator_t *this,
                      int32_t op_ret,
                      int32_t op_errno,
-                     struct stat *statpre,
-                     struct stat *statpost)
+                     struct iatt *statpre,
+                     struct iatt *statpost)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
@@ -1488,7 +1488,7 @@ int32_t
 default_setattr (call_frame_t *frame,
                  xlator_t *this,
                  loc_t *loc,
-                 struct stat *stbuf,
+                 struct iatt *stbuf,
                  int32_t valid)
 {
 	STACK_WIND (frame,
@@ -1505,8 +1505,8 @@ default_fsetattr_cbk (call_frame_t *frame,
                       xlator_t *this,
                       int32_t op_ret,
                       int32_t op_errno,
-                      struct stat *statpre,
-                      struct stat *statpost)
+                      struct iatt *statpre,
+                      struct iatt *statpost)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
@@ -1516,7 +1516,7 @@ int32_t
 default_fsetattr (call_frame_t *frame,
                   xlator_t *this,
                   fd_t *fd,
-                  struct stat *stbuf,
+                  struct iatt *stbuf,
                   int32_t valid)
 {
 	STACK_WIND (frame,

@@ -410,7 +410,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 {
         uint64_t    tmp_pl_inode = 0;
 	pl_inode_t *pl_inode = NULL;
-	mode_t      st_mode = 0;
+//	mode_t      st_mode = 0;
 	int         ret = 0;
 
 	ret = inode_ctx_get (inode, this,
@@ -429,10 +429,11 @@ pl_inode_get (xlator_t *this, inode_t *inode)
         gf_log (this->name, GF_LOG_TRACE,
                 "Allocating new pl inode");
 
+/*
 	st_mode  = inode->st_mode;
 	if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
 		pl_inode->mandatory = 1;
-
+*/
 
 	pthread_mutex_init (&pl_inode->mutex, NULL);
 

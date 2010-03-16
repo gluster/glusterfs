@@ -657,15 +657,15 @@ __inode_atticize (inode_t *inode)
 
 
 uint64_t
-inode_gen_from_stat (struct stat *stbuf)
+inode_gen_from_stat (struct iatt *iatt)
 {
-        return (uint64_t) stbuf->st_dev;
+        return (uint64_t) iatt->ia_gen;
 }
 
 
 static inode_t *
 __inode_link (inode_t *inode, inode_t *parent, const char *name,
-              struct stat *stbuf)
+              struct iatt *iatt)
 {
         dentry_t      *dentry = NULL;
         dentry_t      *old_dentry = NULL;
@@ -677,9 +677,9 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
 
         link_inode = inode;
 
-        if (stbuf->st_ino == 1 && inode != table->root) {
+        if (iatt->ia_ino == 1 && inode != table->root) {
                 gf_log (table->name, GF_LOG_ERROR,
-                        "inode_link called with stbuf->st_ino = 1. "
+                        "inode_link called with iatt->ia_ino = 1. "
                         "inode=%"PRId64"/%"PRId64 "parent=%"PRId64"/%"PRId64
                         " name=%s",
                         inode ? inode->generation:0 , inode ? inode->ino:0,
@@ -689,9 +689,9 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         }
 
         if (!__is_inode_hashed (inode)) {
-                inode->ino        = stbuf->st_ino;
-                inode->st_mode    = stbuf->st_mode;
-                inode->generation = inode_gen_from_stat (stbuf);
+                inode->ino        = iatt->ia_ino;
+                inode->ia_type    = iatt->ia_type;
+                inode->generation = inode_gen_from_stat (iatt);
 
                 old_inode = __inode_search (table, inode->ino);
 
@@ -726,7 +726,7 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
 
 inode_t *
 inode_link (inode_t *inode, inode_t *parent, const char *name,
-            struct stat *stbuf)
+            struct iatt *iatt)
 {
         inode_table_t *table = NULL;
         inode_t       *linked_inode = NULL;
@@ -735,7 +735,7 @@ inode_link (inode_t *inode, inode_t *parent, const char *name,
 
         pthread_mutex_lock (&table->lock);
         {
-                linked_inode = __inode_link (inode, parent, name, stbuf);
+                linked_inode = __inode_link (inode, parent, name, iatt);
 
                 if (linked_inode)
                         __inode_ref (linked_inode);
@@ -820,13 +820,13 @@ inode_unlink (inode_t *inode, inode_t *parent, const char *name)
 int
 inode_rename (inode_table_t *table, inode_t *srcdir, const char *srcname,
               inode_t *dstdir, const char *dstname, inode_t *inode,
-              struct stat *stbuf)
+              struct iatt *iatt)
 {
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
         {
-                __inode_link (inode, dstdir, dstname, stbuf);
+                __inode_link (inode, dstdir, dstname, iatt);
                 __inode_unlink (inode, srcdir, srcname);
         }
         pthread_mutex_unlock (&table->lock);
@@ -1030,15 +1030,15 @@ static void
 __inode_table_init_root (inode_table_t *table)
 {
         inode_t *root = NULL;
-        struct stat stbuf = {0, };
+        struct iatt iatt = {0, };
 
         root = __inode_create (table);
 
-        stbuf.st_ino = 1;
-        stbuf.st_mode = S_IFDIR|0755;
+        iatt.ia_ino = 1;
+        iatt.ia_type = IA_IFDIR;
 
         table->root = root;
-        __inode_link (root, NULL, NULL, &stbuf);
+        __inode_link (root, NULL, NULL, &iatt);
 }
 
 
@@ -1360,8 +1360,8 @@ inode_dump (inode_t *inode, char *prefix)
         gf_proc_dump_write(key, "%u", inode->ref);
         gf_proc_dump_build_key(key, prefix, "ino");
         gf_proc_dump_write(key, "%ld", inode->ino);
-        gf_proc_dump_build_key(key, prefix, "st_mode");
-        gf_proc_dump_write(key, "%d", inode->st_mode);
+        gf_proc_dump_build_key(key, prefix, "ia_type");
+        gf_proc_dump_write(key, "%d", inode->ia_type);
         UNLOCK(&inode->lock);
         if (!inode->_ctx)
                 goto out;

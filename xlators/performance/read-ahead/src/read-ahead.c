@@ -70,12 +70,6 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
 
-	/* If mandatory locking has been enabled on this file,
-	   we disable caching on it */
-
-	if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
-		file->disabled = 1;
-
 	/* If O_DIRECT open, we disable caching on it */
 
 	if ((fd->flags & O_DIRECT) || ((fd->flags & O_ACCMODE) == O_WRONLY))
@@ -122,8 +116,8 @@ unwind:
 int
 ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-               struct stat *buf, struct stat *preparent,
-               struct stat *postparent)
+               struct iatt *buf, struct iatt *preparent,
+               struct iatt *postparent)
 {
 	ra_conf_t  *conf = NULL;
 	ra_file_t  *file = NULL;
@@ -146,19 +140,13 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
 
-	/* If mandatory locking has been enabled on this file,
-	   we disable caching on it */
-
-	if ((fd->inode->st_mode & S_ISGID) && !(fd->inode->st_mode & S_IXGRP))
-		file->disabled = 1;
-
 	/* If O_DIRECT open, we disable caching on it */
 
 	if ((fd->flags & O_DIRECT) || ((fd->flags & O_ACCMODE) == O_WRONLY))
 			file->disabled = 1;
 
 	file->offset = (unsigned long long) 0;
-	//file->size = fd->inode->buf.st_size;
+	//file->size = fd->inode->buf.ia_size;
 	file->conf = conf;
 	file->pages.next = &file->pages;
 	file->pages.prev = &file->pages;
@@ -330,7 +318,7 @@ read_ahead (call_frame_t *frame, ra_file_t *file)
 int
 ra_need_atime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iovec *vector,
-                   int32_t count, struct stat *stbuf, struct iobref *iobref)
+                   int32_t count, struct iatt *stbuf, struct iobref *iobref)
 {
 	STACK_DESTROY (frame->root);
 	return 0;
@@ -425,7 +413,7 @@ out:
 int
 ra_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iovec *vector,
-                       int32_t count, struct stat *stbuf, struct iobref *iobref)
+                       int32_t count, struct iatt *stbuf, struct iobref *iobref)
 {
 	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
                              stbuf, iobref);
@@ -543,7 +531,7 @@ ra_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 int
 ra_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
+              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -616,8 +604,8 @@ unwind:
 
 int
 ra_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-               struct stat *postbuf)
+               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               struct iatt *postbuf)
 {
 	fd_t      *fd = NULL;
 	ra_file_t *file = NULL;
@@ -677,8 +665,8 @@ unwind:
 
 int
 ra_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                 struct stat *postbuf)
+                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
                              postbuf);
@@ -688,7 +676,7 @@ ra_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 ra_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	     int32_t op_ret, int32_t op_errno, struct stat *buf)
+	     int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
 	STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
 	return 0;

@@ -162,8 +162,8 @@ iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
 int
 iot_lookup_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
-                inode_t *inode, struct stat *buf, dict_t *xattr,
-                struct stat *postparent)
+                inode_t *inode, struct iatt *buf, dict_t *xattr,
+                struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xattr,
                              postparent);
@@ -216,7 +216,7 @@ out:
 int
 iot_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 struct stat *preop, struct stat *postop)
+                 struct iatt *preop, struct iatt *postop)
 {
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
         return 0;
@@ -225,7 +225,7 @@ iot_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_setattr_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                     struct stat *stbuf, int32_t valid)
+                     struct iatt *stbuf, int32_t valid)
 {
         STACK_WIND (frame, iot_setattr_cbk,
                     FIRST_CHILD (this),
@@ -237,7 +237,7 @@ iot_setattr_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 iot_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             struct stat *stbuf, int32_t valid)
+             struct iatt *stbuf, int32_t valid)
 {
         call_stub_t     *stub = NULL;
         int              ret = -1;
@@ -269,7 +269,7 @@ out:
 int
 iot_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
-                  struct stat *preop, struct stat *postop)
+                  struct iatt *preop, struct iatt *postop)
 {
         STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, preop, postop);
         return 0;
@@ -278,7 +278,7 @@ iot_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_fsetattr_wrapper (call_frame_t *frame, xlator_t *this,
-                      fd_t *fd, struct stat *stbuf, int32_t valid)
+                      fd_t *fd, struct iatt *stbuf, int32_t valid)
 {
         STACK_WIND (frame, iot_fsetattr_cbk, FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->fsetattr, fd, stbuf, valid);
@@ -288,7 +288,7 @@ iot_fsetattr_wrapper (call_frame_t *frame, xlator_t *this,
 
 int
 iot_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-              struct stat *stbuf, int32_t valid)
+              struct iatt *stbuf, int32_t valid)
 {
         call_stub_t     *stub = NULL;
         int              ret = -1;
@@ -366,7 +366,7 @@ out:
 int
 iot_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, const char *path,
-                  struct stat *stbuf)
+                  struct iatt *stbuf)
 {
         STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, path, stbuf);
         return 0;
@@ -418,8 +418,8 @@ out:
 int
 iot_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf, struct stat *preparent,
-               struct stat *postparent)
+               struct iatt *buf, struct iatt *preparent,
+               struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -471,8 +471,8 @@ out:
 int
 iot_mkdir_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf, struct stat *preparent,
-               struct stat *postparent)
+               struct iatt *buf, struct iatt *preparent,
+               struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -521,8 +521,8 @@ out:
 
 int
 iot_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *preparent,
-               struct stat *postparent)
+               int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+               struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, preparent,
                              postparent);
@@ -570,8 +570,8 @@ out:
 int
 iot_symlink_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
-                 struct stat *buf, struct stat *preparent,
-                 struct stat *postparent)
+                 struct iatt *buf, struct iatt *preparent,
+                 struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -622,9 +622,9 @@ out:
 
 int
 iot_rename_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *buf,
-                struct stat *preoldparent, struct stat *postoldparent,
-                struct stat *prenewparent, struct stat *postnewparent)
+                int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                struct iatt *preoldparent, struct iatt *postoldparent,
+                struct iatt *prenewparent, struct iatt *postnewparent)
 {
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf, preoldparent,
                              postoldparent, prenewparent, postnewparent);
@@ -726,8 +726,8 @@ out:
 int
 iot_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-                struct stat *stbuf, struct stat *preparent,
-                struct stat *postparent)
+                struct iatt *stbuf, struct iatt *preparent,
+                struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, stbuf,
                              preparent, postparent);
@@ -784,7 +784,7 @@ out:
 int
 iot_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iovec *vector,
-               int32_t count, struct stat *stbuf, struct iobref *iobref)
+               int32_t count, struct iatt *stbuf, struct iobref *iobref)
 {
 	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
                              stbuf, iobref);
@@ -887,8 +887,8 @@ out:
 
 int
 iot_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-               struct stat *postbuf)
+               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -939,8 +939,8 @@ out:
 
 int
 iot_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                struct stat *postbuf)
+                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -1048,7 +1048,7 @@ out:
 
 int
 iot_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-              int32_t op_ret, int32_t op_errno, struct stat *buf)
+              int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
 	STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
 	return 0;
@@ -1108,7 +1108,7 @@ out:
 
 int
 iot_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *buf)
+               int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
 	STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
 	return 0;
@@ -1157,8 +1157,8 @@ out:
 
 int
 iot_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                  struct stat *postbuf)
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
                              postbuf);
@@ -1220,8 +1220,8 @@ out:
 
 int
 iot_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                   struct stat *postbuf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,
                              postbuf);
@@ -1324,8 +1324,8 @@ out:
 
 int
 iot_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret, int32_t op_errno, struct stat *preparent,
-                struct stat *postparent)
+		int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno, preparent,
                              postparent);
@@ -1378,7 +1378,7 @@ out:
 int
 iot_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno, inode_t *inode,
-              struct stat *buf, struct stat *preparent, struct stat *postparent)
+              struct iatt *buf, struct iatt *preparent, struct iatt *postparent)
 {
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);

@@ -90,7 +90,7 @@ sc_cache_update (xlator_t *this, inode_t *inode, const char *link)
 
 
 int
-sc_cache_set (xlator_t *this, inode_t *inode, struct stat *buf,
+sc_cache_set (xlator_t *this, inode_t *inode, struct iatt *buf,
               const char *link)
 {
 	struct symlink_cache *sc = NULL;
@@ -126,7 +126,7 @@ sc_cache_set (xlator_t *this, inode_t *inode, struct stat *buf,
 		}
 	}
 
-	sc->ctime = buf->st_ctime;
+	sc->ctime = buf->ia_ctime;
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"setting symlink cache: %s", link);
@@ -180,12 +180,12 @@ sc_cache_flush (xlator_t *this, inode_t *inode)
 
 
 int
-sc_cache_validate (xlator_t *this, inode_t *inode, struct stat *buf)
+sc_cache_validate (xlator_t *this, inode_t *inode, struct iatt *buf)
 {
 	struct symlink_cache *sc = NULL;
 	uint64_t tmp_sc = 0;
 
-	if (!S_ISLNK (buf->st_mode)) {
+	if (!IA_ISLNK (buf->ia_type)) {
 		sc_cache_flush (this, inode);
 		return 0;
 	}
@@ -204,7 +204,7 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct stat *buf)
 		sc = (struct symlink_cache *)(long)tmp_sc;
 	}
 
-	if (sc->ctime == buf->st_ctime)
+	if (sc->ctime == buf->ia_ctime)
 		return 0;
 
 	/* STALE */
@@ -216,7 +216,7 @@ sc_cache_validate (xlator_t *this, inode_t *inode, struct stat *buf)
 		sc->readlink = NULL;
 	}
 
-	sc->ctime = buf->st_ctime;
+	sc->ctime = buf->ia_ctime;
 
 	return 0;
 }
@@ -242,7 +242,7 @@ sc_cache_get (xlator_t *this, inode_t *inode, char **link)
 int
 sc_readlink_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int op_ret, int op_errno,
-		 const char *link, struct stat *sbuf)
+		 const char *link, struct iatt *sbuf)
 {
 	if (op_ret > 0)
 		sc_cache_update (this, frame->local, link);
@@ -260,7 +260,7 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
 	     loc_t *loc, size_t size)
 {
 	char *link = NULL;
-        struct stat buf = {0, };
+        struct iatt buf = {0, };
 
 	sc_cache_get (this, loc->inode, &link);
 
@@ -294,8 +294,8 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
 int
 sc_symlink_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this, int op_ret, int op_errno,
-                inode_t *inode, struct stat *buf, struct stat *preparent,
-                struct stat *postparent)
+                inode_t *inode, struct iatt *buf, struct iatt *preparent,
+                struct iatt *postparent)
 {
 	if (op_ret == 0) {
 		if (frame->local) {
@@ -327,8 +327,8 @@ sc_symlink (call_frame_t *frame, xlator_t *this,
 int
 sc_lookup_cbk (call_frame_t *frame, void *cookie,
 	       xlator_t *this, int op_ret, int op_errno,
-	       inode_t *inode, struct stat *buf, dict_t *xattr,
-               struct stat *postparent)
+	       inode_t *inode, struct iatt *buf, dict_t *xattr,
+               struct iatt *postparent)
 {
 	if (op_ret == 0)
 		sc_cache_validate (this, inode, buf);

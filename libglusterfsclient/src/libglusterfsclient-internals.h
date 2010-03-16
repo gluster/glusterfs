@@ -89,7 +89,7 @@ typedef struct {
         pthread_mutex_t lock;
         uint32_t previous_lookup_time;
         uint32_t previous_stat_time;
-        struct stat stbuf;
+        struct iatt stbuf;
 } libglusterfs_client_inode_ctx_t;
 
 /* Our dirent cache is very simplistic when it comes to directory
@@ -265,7 +265,7 @@ libgf_client_path_lookup (loc_t *loc,
 int32_t
 libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
                      loc_t *loc,
-                     struct stat *stbuf,
+                     struct iatt *stbuf,
                      dict_t **dict,
                      dict_t *xattr_req);
 
@@ -290,9 +290,9 @@ struct vmp_entry {
 #define LIBGF_INVALIDATE_STAT     0x2
 int
 libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
-                            struct stat *sbuf, int flags);
+                            struct iatt *sbuf, int flags);
 
 int
-libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf);
+libgf_update_iattr_cache (inode_t *inode, int flags, struct iatt *buf);
 
 #endif

@@ -69,7 +69,7 @@ struct readv_replies {
         int32_t       count;    //count of vector
         int32_t       op_ret;   //op_ret of readv
         int32_t       op_errno;
-        struct stat   stbuf;    /* 'stbuf' is also a part of reply */
+        struct iatt   stbuf;    /* 'stbuf' is also a part of reply */
 };
 
 typedef struct _stripe_fd_ctx {
@@ -92,11 +92,11 @@ struct stripe_local {
         stripe_fd_ctx_t     *fctx;
 
         /* Used by _cbk functions */
-        struct stat          stbuf;
-        struct stat          pre_buf;
-        struct stat          post_buf;
-        struct stat          preparent;
-        struct stat          postparent;
+        struct iatt          stbuf;
+        struct iatt          pre_buf;
+        struct iatt          post_buf;
+        struct iatt          preparent;
+        struct iatt          postparent;
 
         off_t                stbuf_size;
         off_t                prebuf_size;

@@ -58,8 +58,8 @@
 
 int
 afr_open_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-			int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                        struct stat *postbuf)
+			int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                        struct iatt *postbuf)
 {
 	afr_local_t * local = frame->local;
 
@@ -370,7 +370,7 @@ afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
 
         sh->data_lock_held      = _gf_true;
         sh->need_data_self_heal = _gf_true;
-        sh->mode                = local->fd->inode->st_mode;
+        sh->type                = local->fd->inode->ia_type;
         sh->background          = _gf_false;
         sh->unwind              = afr_up_down_flush_sh_unwind;
 

@@ -33,9 +33,9 @@
 
 int
 dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		    int32_t op_ret, int32_t op_errno, struct stat *stbuf,
-                    struct stat *preoldparent, struct stat *postoldparent,
-                    struct stat *prenewparent, struct stat *postnewparent)
+		    int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                    struct iatt *preoldparent, struct iatt *postoldparent,
+                    struct iatt *prenewparent, struct iatt *postnewparent)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -61,26 +61,26 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  * FIXME: is this the correct way to build stbuf and
                  * parent bufs?
                 */
-                dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
-                dht_stat_merge (this, &local->preoldparent, preoldparent,
+                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->preoldparent, preoldparent,
                                 prev->this);
-                dht_stat_merge (this, &local->postoldparent, postoldparent,
+                dht_iatt_merge (this, &local->postoldparent, postoldparent,
                                 prev->this);
-                dht_stat_merge (this, &local->preparent, prenewparent,
+                dht_iatt_merge (this, &local->preparent, prenewparent,
                                 prev->this);
-                dht_stat_merge (this, &local->postparent, postnewparent,
+                dht_iatt_merge (this, &local->postparent, postnewparent,
                                 prev->this);
 	}
 
 	this_call_cnt = dht_frame_return (frame);
 	if (is_last_call (this_call_cnt)) {
-                local->stbuf.st_ino = local->loc.inode->ino;
+                local->stbuf.ia_ino = local->loc.inode->ino;
 
-                local->preoldparent.st_ino = local->loc.parent->ino;
-                local->postoldparent.st_ino = local->loc.parent->ino;
+                local->preoldparent.ia_ino = local->loc.parent->ino;
+                local->postoldparent.ia_ino = local->loc.parent->ino;
 
-                local->preparent.st_ino = local->loc2.parent->ino;
-                local->postparent.st_ino = local->loc2.parent->ino;
+                local->preparent.ia_ino = local->loc2.parent->ino;
+                local->postparent.ia_ino = local->loc2.parent->ino;
 
                 WIPE (&local->preoldparent);
                 WIPE (&local->postoldparent);
@@ -243,8 +243,8 @@ err:
 
 int
 dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		       int32_t op_ret, int32_t op_errno, struct stat *preparent,
-                       struct stat *postparent)
+		       int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                       struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -347,9 +347,9 @@ nolinks:
 
 int
 dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret, int32_t op_errno, struct stat *stbuf,
-                struct stat *preoldparent, struct stat *postoldparent,
-                struct stat *prenewparent, struct stat *postnewparent)
+		int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                struct iatt *preoldparent, struct iatt *postoldparent,
+                struct iatt *prenewparent, struct iatt *postnewparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -376,19 +376,19 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto cleanup;
 	}
 
-        dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
-        dht_stat_merge (this, &local->preoldparent, preoldparent, prev->this);
-        dht_stat_merge (this, &local->postoldparent, postoldparent, prev->this);
-        dht_stat_merge (this, &local->preparent, prenewparent, prev->this);
-        dht_stat_merge (this, &local->postparent, postnewparent, prev->this);
+        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+        dht_iatt_merge (this, &local->preoldparent, preoldparent, prev->this);
+        dht_iatt_merge (this, &local->postoldparent, postoldparent, prev->this);
+        dht_iatt_merge (this, &local->preparent, prenewparent, prev->this);
+        dht_iatt_merge (this, &local->postparent, postnewparent, prev->this);
 
-        local->stbuf.st_ino = local->loc.inode->ino;
+        local->stbuf.ia_ino = local->loc.inode->ino;
 
-        local->preoldparent.st_ino = local->loc.parent->ino;
-        local->postoldparent.st_ino = local->loc.parent->ino;
+        local->preoldparent.ia_ino = local->loc.parent->ino;
+        local->postoldparent.ia_ino = local->loc.parent->ino;
 
-        local->preparent.st_ino = local->loc2.parent->ino;
-        local->postparent.st_ino = local->loc2.parent->ino;
+        local->preparent.ia_ino = local->loc2.parent->ino;
+        local->postparent.ia_ino = local->loc2.parent->ino;
 	
 	/* NOTE: rename_subvol is the same subvolume from which dht_rename_cbk
 	 *       is called. since rename has already happened on rename_subvol,
@@ -504,8 +504,8 @@ dht_do_rename (call_frame_t *frame)
 int
 dht_rename_links_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno,
-                      inode_t *inode, struct stat *stbuf,
-                      struct stat *preparent, struct stat *postparent)
+                      inode_t *inode, struct iatt *stbuf,
+                      struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -680,7 +680,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 		newloc->path, dst_hashed->name,
 		dst_cached ? dst_cached->name : "<nul>");
 
-	if (S_ISDIR (oldloc->inode->st_mode)) {
+	if (IA_ISDIR (oldloc->inode->ia_type)) {
 		dht_rename_dir (frame, this);
 	} else {
 		local->op_ret = 0;

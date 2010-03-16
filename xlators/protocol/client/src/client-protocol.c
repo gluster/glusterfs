@@ -3437,27 +3437,27 @@ client_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
         while (trav) {
                 int32_t this_len = 0;
                 char *tmp_buf = NULL;
-                struct stat *stbuf = &trav->buf;
+                struct iatt *stbuf = &trav->buf;
                 {
                         /* Convert the stat buf to string */
-                        uint64_t dev = stbuf->st_dev;
-                        uint64_t ino = stbuf->st_ino;
-                        uint32_t mode = stbuf->st_mode;
-                        uint32_t nlink = stbuf->st_nlink;
-                        uint32_t uid = stbuf->st_uid;
-                        uint32_t gid = stbuf->st_gid;
-                        uint64_t rdev = stbuf->st_rdev;
-                        uint64_t size = stbuf->st_size;
-                        uint32_t blksize = stbuf->st_blksize;
-                        uint64_t blocks = stbuf->st_blocks;
+                        uint64_t dev = stbuf->ia_gen;
+                        uint64_t ino = stbuf->ia_ino;
+                        uint32_t mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
+                        uint32_t nlink = stbuf->ia_nlink;
+                        uint32_t uid = stbuf->ia_uid;
+                        uint32_t gid = stbuf->ia_gid;
+                        uint64_t rdev = stbuf->ia_rdev;
+                        uint64_t size = stbuf->ia_size;
+                        uint32_t blksize = stbuf->ia_blksize;
+                        uint64_t blocks = stbuf->ia_blocks;
 
-                        uint32_t atime = stbuf->st_atime;
-                        uint32_t mtime = stbuf->st_mtime;
-                        uint32_t ctime = stbuf->st_ctime;
+                        uint32_t atime = stbuf->ia_atime;
+                        uint32_t mtime = stbuf->ia_mtime;
+                        uint32_t ctime = stbuf->ia_ctime;
 
-                        uint32_t atime_nsec = ST_ATIM_NSEC(stbuf);
-                        uint32_t mtime_nsec = ST_MTIM_NSEC(stbuf);
-                        uint32_t ctime_nsec = ST_CTIM_NSEC(stbuf);
+                        uint32_t atime_nsec = stbuf->ia_atime_nsec;
+                        uint32_t mtime_nsec = stbuf->ia_mtime_nsec;
+                        uint32_t ctime_nsec = stbuf->ia_ctime_nsec;
 
                         ret = asprintf (&tmp_buf, GF_STAT_PRINT_FMT_STR,
                                         dev, ino, mode, nlink, uid, gid,
@@ -3520,7 +3520,7 @@ unwind:
 
 int
 client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                struct stat *stbuf, int32_t valid)
+                struct iatt *stbuf, int32_t valid)
 {
         gf_hdr_common_t      *hdr = NULL;
         gf_fop_setattr_req_t *req = NULL;
@@ -3553,7 +3553,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         req->gen  = hton64 (gen);
         strcpy (req->path, loc->path);
 
-        gf_stat_from_stat (&req->stbuf, stbuf);
+        gf_stat_from_iatt (&req->stbuf, stbuf);
         req->valid = hton32 (valid);
 
         ret = protocol_client_xfer (frame, this,
@@ -3570,7 +3570,7 @@ unwind:
 
 int
 client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 struct stat *stbuf, int32_t valid)
+                 struct iatt *stbuf, int32_t valid)
 {
         gf_hdr_common_t       *hdr = NULL;
         gf_fop_fsetattr_req_t *req = NULL;
@@ -3616,7 +3616,7 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         req->fd = hton64 (remote_fd);
 
-        gf_stat_from_stat (&req->stbuf, stbuf);
+        gf_stat_from_iatt (&req->stbuf, stbuf);
         req->valid = hton32 (valid);
 
         ret = protocol_client_xfer (frame, this,
@@ -3940,9 +3940,9 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         int32_t               op_errno = 0;
         fd_t                 *fd = NULL;
         inode_t              *inode = NULL;
-        struct stat           stbuf = {0, };
-        struct stat           preparent = {0, };
-        struct stat           postparent = {0, };
+        struct iatt           stbuf = {0, };
+        struct iatt           preparent = {0, };
+        struct iatt           postparent = {0, };
         int64_t               remote_fd = 0;
         int32_t               ret = -1;
         client_local_t       *local = NULL;
@@ -3963,13 +3963,13 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
         if (op_ret >= 0) {
                 remote_fd = ntoh64 (rsp->fd);
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
 
-                gf_stat_to_stat (&rsp->preparent, &preparent);
-                gf_stat_to_stat (&rsp->postparent, &postparent);
+                gf_stat_to_iatt (&rsp->preparent, &preparent);
+                gf_stat_to_iatt (&rsp->postparent, &postparent);
 
-                ino = stbuf.st_ino;
-                gen = stbuf.st_dev;
+                ino = stbuf.ia_ino;
+                gen = stbuf.ia_gen;
         }
 
         if (op_ret >= 0) {
@@ -4106,7 +4106,7 @@ int
 client_stat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-        struct stat        stbuf = {0, };
+        struct iatt        stbuf = {0, };
         gf_fop_stat_rsp_t *rsp = NULL;
         int32_t            op_ret = 0;
         int32_t            op_errno = 0;
@@ -4117,7 +4117,7 @@ client_stat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf);
@@ -4141,12 +4141,12 @@ client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_mknod_rsp_t *rsp = NULL;
         int32_t             op_ret = 0;
         int32_t             op_errno = 0;
-        struct stat         stbuf = {0, };
+        struct iatt         stbuf = {0, };
         inode_t            *inode = NULL;
         client_local_t     *local = NULL;
         int                 ret = 0;
-        struct stat         preparent = {0,};
-        struct stat         postparent = {0,};
+        struct iatt         preparent = {0,};
+        struct iatt         postparent = {0,};
 
         local = frame->local;
         frame->local = NULL;
@@ -4158,10 +4158,10 @@ client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
 
                 ret = inode_ctx_put2 (local->loc.inode, frame->this,
-                                      stbuf.st_ino, stbuf.st_dev);
+                                      stbuf.ia_ino, stbuf.ia_gen);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "MKNOD %"PRId64"/%s (%s): failed to set remote"
@@ -4170,8 +4170,8 @@ client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.path);
                 }
 
-                gf_stat_to_stat (&rsp->preparent, &preparent);
-                gf_stat_to_stat (&rsp->postparent, &postparent);
+                gf_stat_to_iatt (&rsp->preparent, &preparent);
+                gf_stat_to_iatt (&rsp->postparent, &postparent);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
@@ -4197,9 +4197,9 @@ client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_symlink_rsp_t *rsp = NULL;
         int32_t               op_ret = 0;
         int32_t               op_errno = 0;
-        struct stat           stbuf = {0, };
-        struct stat           preparent = {0,};
-        struct stat           postparent = {0,};
+        struct iatt           stbuf = {0, };
+        struct iatt           preparent = {0,};
+        struct iatt           postparent = {0,};
         inode_t              *inode = NULL;
         client_local_t       *local = NULL;
         int                   ret = 0;
@@ -4214,10 +4214,10 @@ client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
 
                 ret = inode_ctx_put2 (inode, frame->this,
-                                      stbuf.st_ino, stbuf.st_dev);
+                                      stbuf.ia_ino, stbuf.ia_gen);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "SYMLINK %"PRId64"/%s (%s): failed to set "
@@ -4225,8 +4225,8 @@ client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.parent->ino, local->loc.name,
                                 local->loc.path);
                 }
-                gf_stat_to_stat (&rsp->preparent, &preparent);
-                gf_stat_to_stat (&rsp->postparent, &postparent);
+                gf_stat_to_iatt (&rsp->preparent, &preparent);
+                gf_stat_to_iatt (&rsp->postparent, &postparent);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
@@ -4252,11 +4252,11 @@ client_link_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_link_rsp_t *rsp = NULL;
         int32_t            op_ret = 0;
         int32_t            op_errno = 0;
-        struct stat        stbuf = {0, };
+        struct iatt        stbuf = {0, };
         inode_t           *inode = NULL;
         client_local_t    *local = NULL;
-        struct stat        preparent = {0,};
-        struct stat        postparent = {0,};
+        struct iatt        preparent = {0,};
+        struct iatt        postparent = {0,};
 
         local = frame->local;
         frame->local = NULL;
@@ -4268,10 +4268,10 @@ client_link_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
 
-                gf_stat_to_stat (&rsp->preparent, &preparent);
-                gf_stat_to_stat (&rsp->postparent, &postparent);
+                gf_stat_to_iatt (&rsp->preparent, &preparent);
+                gf_stat_to_iatt (&rsp->postparent, &postparent);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
@@ -4297,8 +4297,8 @@ client_truncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_truncate_rsp_t *rsp = NULL;
         int32_t                op_ret = 0;
         int32_t                op_errno = 0;
-        struct stat         prestat = {0, };
-        struct stat         poststat = {0, };
+        struct iatt         prestat = {0, };
+        struct iatt         poststat = {0, };
 
         rsp = gf_param (hdr);
 
@@ -4306,8 +4306,8 @@ client_truncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->prestat, &prestat);
-                gf_stat_to_stat (&rsp->poststat, &poststat);
+                gf_stat_to_iatt (&rsp->prestat, &prestat);
+                gf_stat_to_iatt (&rsp->poststat, &poststat);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
@@ -4326,7 +4326,7 @@ int
 client_fstat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-        struct stat         stbuf = {0, };
+        struct iatt         stbuf = {0, };
         gf_fop_fstat_rsp_t *rsp = NULL;
         int32_t             op_ret = 0;
         int32_t             op_errno = 0;
@@ -4337,7 +4337,7 @@ client_fstat_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
 
         }
 
@@ -4360,8 +4360,8 @@ client_ftruncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_ftruncate_rsp_t *rsp = NULL;
         int32_t                 op_ret = 0;
         int32_t                 op_errno = 0;
-        struct stat             prestat = {0, };
-        struct stat             poststat = {0, };
+        struct iatt             prestat = {0, };
+        struct iatt             poststat = {0, };
 
         rsp = gf_param (hdr);
 
@@ -4369,8 +4369,8 @@ client_ftruncate_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->prestat, &prestat);
-                gf_stat_to_stat (&rsp->poststat, &poststat);
+                gf_stat_to_iatt (&rsp->prestat, &prestat);
+                gf_stat_to_iatt (&rsp->poststat, &poststat);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
@@ -4394,7 +4394,7 @@ client_readv_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         int32_t             op_ret = 0;
         int32_t             op_errno = 0;
         struct iovec        vector = {0, };
-        struct stat         stbuf = {0, };
+        struct iatt         stbuf = {0, };
         struct iobref      *iobref = NULL;
 
         rsp = gf_param (hdr);
@@ -4404,7 +4404,7 @@ client_readv_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
         if (op_ret != -1) {
                 iobref = iobref_new ();
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
                 vector.iov_len  = op_ret;
 
                 if (op_ret > 0) {
@@ -4439,8 +4439,8 @@ client_write_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_write_rsp_t *rsp = NULL;
         int32_t             op_ret = 0;
         int32_t             op_errno = 0;
-        struct stat         prestat = {0, };
-        struct stat         poststat = {0, };
+        struct iatt         prestat = {0, };
+        struct iatt         poststat = {0, };
 
         rsp = gf_param (hdr);
 
@@ -4448,8 +4448,8 @@ client_write_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_to_stat (&rsp->prestat, &prestat);
-                gf_stat_to_stat (&rsp->poststat, &poststat);
+                gf_stat_to_iatt (&rsp->prestat, &prestat);
+                gf_stat_to_iatt (&rsp->poststat, &poststat);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
@@ -4528,8 +4528,8 @@ int
 client_fsync_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
 {
-        struct stat         prestat = {0, };
-        struct stat         poststat = {0,};
+        struct iatt         prestat = {0, };
+        struct iatt         poststat = {0,};
         gf_fop_fsync_rsp_t *rsp = NULL;
         int32_t             op_ret = 0;
         int32_t             op_errno = 0;
@@ -4540,8 +4540,8 @@ client_fsync_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->prestat, &prestat);
-                gf_stat_to_stat (&rsp->poststat, &poststat);
+                gf_stat_to_iatt (&rsp->prestat, &prestat);
+                gf_stat_to_iatt (&rsp->poststat, &poststat);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &prestat, &poststat);
@@ -4564,8 +4564,8 @@ client_unlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_unlink_rsp_t *rsp = NULL;
         int32_t              op_ret = 0;
         int32_t              op_errno = 0;
-        struct stat          preparent = {0,};
-        struct stat          postparent = {0,};
+        struct iatt          preparent = {0,};
+        struct iatt          postparent = {0,};
 
         rsp = gf_param (hdr);
 
@@ -4573,8 +4573,8 @@ client_unlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->preparent, &preparent);
-                gf_stat_to_stat (&rsp->postparent, &postparent);
+                gf_stat_to_iatt (&rsp->preparent, &preparent);
+                gf_stat_to_iatt (&rsp->postparent, &postparent);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
@@ -4594,14 +4594,14 @@ int
 client_rename_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-        struct stat          stbuf = {0, };
+        struct iatt          stbuf = {0, };
         gf_fop_rename_rsp_t *rsp = NULL;
         int32_t              op_ret = 0;
         int32_t              op_errno = 0;
-        struct stat          preoldparent = {0, };
-        struct stat          postoldparent = {0, };
-        struct stat          prenewparent = {0, };
-        struct stat          postnewparent = {0, };
+        struct iatt          preoldparent = {0, };
+        struct iatt          postoldparent = {0, };
+        struct iatt          prenewparent = {0, };
+        struct iatt          postnewparent = {0, };
 
         rsp = gf_param (hdr);
 
@@ -4609,11 +4609,11 @@ client_rename_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->stat, &stbuf);
-                gf_stat_to_stat (&rsp->preoldparent, &preoldparent);
-                gf_stat_to_stat (&rsp->postoldparent, &postoldparent);
-                gf_stat_to_stat (&rsp->prenewparent, &prenewparent);
-                gf_stat_to_stat (&rsp->postnewparent, &postnewparent);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->preoldparent, &preoldparent);
+                gf_stat_to_iatt (&rsp->postoldparent, &postoldparent);
+                gf_stat_to_iatt (&rsp->prenewparent, &prenewparent);
+                gf_stat_to_iatt (&rsp->postnewparent, &postnewparent);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &stbuf, &preoldparent,
@@ -4639,7 +4639,7 @@ client_readlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         int32_t                op_ret = 0;
         int32_t                op_errno = 0;
         char                  *link = NULL;
-        struct stat            stbuf = {0,};
+        struct iatt            stbuf = {0,};
 
         rsp = gf_param (hdr);
 
@@ -4648,7 +4648,7 @@ client_readlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
         if (op_ret > 0) {
                 link = rsp->path;
-                gf_stat_to_stat (&rsp->buf, &stbuf);
+                gf_stat_to_iatt (&rsp->buf, &stbuf);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, link, &stbuf);
@@ -4670,12 +4670,12 @@ client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_mkdir_rsp_t *rsp = NULL;
         int32_t             op_ret = 0;
         int32_t             op_errno = 0;
-        struct stat         stbuf = {0, };
+        struct iatt         stbuf = {0, };
         inode_t            *inode = NULL;
         client_local_t     *local = NULL;
         int                 ret = 0;
-        struct stat         preparent = {0,};
-        struct stat         postparent = {0,};
+        struct iatt         preparent = {0,};
+        struct iatt         postparent = {0,};
 
         local = frame->local;
         inode = local->loc.inode;
@@ -4687,10 +4687,10 @@ client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
 
-                ret = inode_ctx_put2 (inode, frame->this, stbuf.st_ino,
-                                      stbuf.st_dev);
+                ret = inode_ctx_put2 (inode, frame->this, stbuf.ia_ino,
+                                      stbuf.ia_gen);
                 if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "MKDIR %"PRId64"/%s (%s): failed to set "
@@ -4699,8 +4699,8 @@ client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.path);
                 }
 
-                gf_stat_to_stat (&rsp->preparent, &preparent);
-                gf_stat_to_stat (&rsp->postparent, &postparent);
+                gf_stat_to_iatt (&rsp->preparent, &preparent);
+                gf_stat_to_iatt (&rsp->postparent, &postparent);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, inode, &stbuf,
@@ -4829,8 +4829,8 @@ client_rmdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         gf_fop_rmdir_rsp_t *rsp = NULL;
         int32_t             op_ret = 0;
         int32_t             op_errno = 0;
-        struct stat         preparent = {0,};
-        struct stat         postparent = {0,};
+        struct iatt         preparent = {0,};
+        struct iatt         postparent = {0,};
 
         rsp = gf_param (hdr);
 
@@ -4838,8 +4838,8 @@ client_rmdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->preparent, &preparent);
-                gf_stat_to_stat (&rsp->postparent, &postparent);
+                gf_stat_to_iatt (&rsp->preparent, &preparent);
+                gf_stat_to_iatt (&rsp->postparent, &postparent);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &preparent, &postparent);
@@ -4886,8 +4886,8 @@ int
 client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
 {
-        struct stat          stbuf = {0, };
-        struct stat          postparent = {0, };
+        struct iatt          stbuf = {0, };
+        struct iatt          postparent = {0, };
         inode_t             *inode = NULL;
         dict_t              *xattr = NULL;
         gf_fop_lookup_rsp_t *rsp = NULL;
@@ -4909,14 +4909,14 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 
         op_ret   = ntoh32 (hdr->rsp.op_ret);
 
-        gf_stat_to_stat (&rsp->postparent, &postparent);
+        gf_stat_to_iatt (&rsp->postparent, &postparent);
 
         if (op_ret == 0) {
                 op_ret = -1;
-                gf_stat_to_stat (&rsp->stat, &stbuf);
+                gf_stat_to_iatt (&rsp->stat, &stbuf);
 
                 ret = inode_ctx_get2 (inode, frame->this, &oldino, &oldgen);
-                if (oldino != stbuf.st_ino || oldgen != stbuf.st_dev) {
+                if (oldino != stbuf.ia_ino || oldgen != stbuf.ia_gen) {
                         if (oldino) {
                                 gf_log (frame->this->name, GF_LOG_DEBUG,
                                         "LOOKUP %"PRId64"/%s (%s): "
@@ -4926,13 +4926,13 @@ client_lookup_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                         local->loc.parent->ino : (uint64_t) 0,
                                         local->loc.name,
                                         local->loc.path,
-                                        oldgen, oldino, stbuf.st_dev, stbuf.st_ino);
+                                        oldgen, oldino, stbuf.ia_gen, stbuf.ia_ino);
                                 op_errno = ESTALE;
                                 goto fail;
                         }
 
                         ret = inode_ctx_put2 (inode, frame->this,
-                                              stbuf.st_ino, stbuf.st_dev);
+                                              stbuf.ia_ino, stbuf.ia_gen);
                         if (ret < 0) {
                                 gf_log (frame->this->name, GF_LOG_DEBUG,
                                         "LOOKUP %"PRId64"/%s (%s) : "
@@ -4990,8 +4990,8 @@ static int32_t
 client_setattr_cbk (call_frame_t *frame,gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
 {
-        struct stat           statpre = {0, };
-        struct stat           statpost = {0, };
+        struct iatt           statpre = {0, };
+        struct iatt           statpost = {0, };
         gf_fop_setattr_rsp_t *rsp = NULL;
         int32_t               op_ret = 0;
         int32_t               op_errno = 0;
@@ -5002,8 +5002,8 @@ client_setattr_cbk (call_frame_t *frame,gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->statpre, &statpre);
-                gf_stat_to_stat (&rsp->statpost, &statpost);
+                gf_stat_to_iatt (&rsp->statpre, &statpre);
+                gf_stat_to_iatt (&rsp->statpost, &statpost);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
@@ -5015,8 +5015,8 @@ static int32_t
 client_fsetattr_cbk (call_frame_t *frame,gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
 {
-        struct stat           statpre = {0, };
-        struct stat           statpost = {0, };
+        struct iatt           statpre = {0, };
+        struct iatt           statpost = {0, };
         gf_fop_setattr_rsp_t *rsp = NULL;
         int32_t               op_ret = 0;
         int32_t               op_errno = 0;
@@ -5027,8 +5027,8 @@ client_fsetattr_cbk (call_frame_t *frame,gf_hdr_common_t *hdr, size_t hdrlen,
         op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
 
         if (op_ret == 0) {
-                gf_stat_to_stat (&rsp->statpre, &statpre);
-                gf_stat_to_stat (&rsp->statpost, &statpost);
+                gf_stat_to_iatt (&rsp->statpre, &statpre);
+                gf_stat_to_iatt (&rsp->statpost, &statpost);
         }
 
         STACK_UNWIND (frame, op_ret, op_errno, &statpre, &statpost);
@@ -5087,7 +5087,7 @@ gf_bin_to_direntry (char *buf, size_t count)
                         break;
                 rcount = ender - buffer;
                 *ender = '\0';
-                if (S_ISLNK (trav->buf.st_mode))
+                if (IA_ISLNK (trav->buf.ia_type))
                         trav->link = strdup (buffer);
                 else
                         trav->link = "";
@@ -5118,7 +5118,7 @@ gf_free_direntry (dir_entry_t *head)
         while (trav) {
                 prev->next = trav->next;
                 FREE (trav->name);
-                if (S_ISLNK (trav->buf.st_mode))
+                if (IA_ISLNK (trav->buf.ia_type))
                         FREE (trav->link);
                 FREE (trav);
                 trav = prev->next;

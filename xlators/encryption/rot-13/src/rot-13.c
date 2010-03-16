@@ -67,7 +67,7 @@ rot13_readv_cbk (call_frame_t *frame,
                  int32_t op_errno,
                  struct iovec *vector,
                  int32_t count,
-		 struct stat *stbuf,
+		 struct iatt *stbuf,
                  struct iobref *iobref)
 {
 	rot_13_private_t *priv = (rot_13_private_t *)this->private;
@@ -100,8 +100,8 @@ rot13_writev_cbk (call_frame_t *frame,
                   xlator_t *this,
                   int32_t op_ret,
                   int32_t op_errno,
-                  struct stat *prebuf,
-		  struct stat *postbuf)
+                  struct iatt *prebuf,
+		  struct iatt *postbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;

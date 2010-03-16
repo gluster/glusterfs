@@ -22,12 +22,12 @@
 
 #include <sys/stat.h>
 
-#define FILETYPE_DIFFERS(buf1,buf2) ((S_IFMT & ((struct stat *)buf1)->st_mode) != (S_IFMT & ((struct stat *)buf2)->st_mode))
-#define PERMISSION_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_mode) != (((struct stat *)buf2)->st_mode))
-#define OWNERSHIP_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_uid) != (((struct stat *)buf2)->st_uid) || (((struct stat *)buf1)->st_gid != (((struct stat *)buf2)->st_gid)))
-#define SIZE_DIFFERS(buf1,buf2) ((((struct stat *)buf1)->st_size) != (((struct stat *)buf2)->st_size))
+#define FILETYPE_DIFFERS(buf1,buf2) ((buf1)->ia_type != (buf2)->ia_type)
+#define PERMISSION_DIFFERS(buf1,buf2) (st_mode_from_ia ((buf1)->ia_prot, (buf1)->ia_type) != st_mode_from_ia ((buf2)->ia_prot, (buf2)->ia_type))
+#define OWNERSHIP_DIFFERS(buf1,buf2) (((buf1)->ia_uid != (buf2)->ia_uid) || ((buf1)->ia_gid != (buf2)->ia_gid))
+#define SIZE_DIFFERS(buf1,buf2) ((buf1)->ia_size != (buf2)->ia_size)
 
-#define SIZE_GREATER(buf1,buf2) ((((struct stat *)buf1)->st_size > (((struct stat *)buf2)->st_size)))
+#define SIZE_GREATER(buf1,buf2) ((buf1)->ia_size > (buf2)->ia_size)
 
 int
 afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this);

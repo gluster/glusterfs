@@ -141,7 +141,7 @@ struct ioc_cache {
 
 struct ioc_inode {
 	struct ioc_table      *table;
-        off_t                  st_size;
+        off_t                  ia_size;
         struct ioc_cache       cache;        
 	struct list_head       inode_list; /*
                                             * list of inodes, maintained by
@@ -191,7 +191,7 @@ ptr_to_str (void *ptr);
 int32_t 
 ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret,	int32_t op_errno, struct iovec *vector,
-			int32_t count, struct stat *stbuf,
+			int32_t count, struct iatt *stbuf,
                         struct iobref *iobref);
 
 ioc_page_t *
@@ -325,10 +325,10 @@ ioc_inode_flush (ioc_inode_t *ioc_inode);
 
 void
 ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
-                  struct stat *stbuf);
+                  struct iatt *stbuf);
 
 int8_t
-ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct stat *stbuf);
+ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct iatt *stbuf);
 
 int32_t
 ioc_prune (ioc_table_t *table);

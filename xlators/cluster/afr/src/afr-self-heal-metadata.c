@@ -81,7 +81,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 			local->loc.path);
 		sh->completion_cbk (frame, this);
 	} else {
-		if (S_ISREG (sh->mode)) {
+		if (IA_ISREG (sh->type)) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"proceeding to data check on %s",
 				local->loc.path);
@@ -89,7 +89,7 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 			return 0;
 		}
 
-		if (S_ISDIR (sh->mode)) {
+		if (IA_ISDIR (sh->type)) {
 			gf_log (this->name, GF_LOG_TRACE,
 				"proceeding to entry check on %s",
 				local->loc.path);
@@ -321,7 +321,7 @@ afr_sh_metadata_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_sh_metadata_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno,
-                             struct stat *preop, struct stat *postop)
+                             struct iatt *preop, struct iatt *postop)
 {
 	afr_sh_metadata_sync_cbk (frame, cookie, this, op_ret, op_errno);
 
@@ -350,7 +350,7 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 	int              call_count = 0;
 	int              i = 0;
 
-        struct stat      stbuf;
+        struct iatt      stbuf;
         int32_t          valid = 0;
 
 	local = frame->local;
@@ -370,22 +370,16 @@ afr_sh_metadata_sync (call_frame_t *frame, xlator_t *this, dict_t *xattr)
 
 	local->call_count = call_count;
 
-#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	stbuf.st_atim = sh->buf[source].st_atim;
-	stbuf.st_mtim = sh->buf[source].st_mtim;
-        
-#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	stbuf.st_atimespec = sh->buf[source].st_atimespec;
-	stbuf.st_mtimespec = sh->buf[source].st_mtimespec;
-#else
-	stbuf.st_atime = sh->buf[source].st_atime;
-	stbuf.st_mtime = sh->buf[source].st_mtime;
-#endif
+	stbuf.ia_atime = sh->buf[source].ia_atime;
+	stbuf.ia_atime_nsec = sh->buf[source].ia_atime_nsec;
+	stbuf.ia_mtime = sh->buf[source].ia_mtime;
+	stbuf.ia_mtime_nsec = sh->buf[source].ia_mtime_nsec;
 
-        stbuf.st_uid = sh->buf[source].st_uid;
-        stbuf.st_gid = sh->buf[source].st_gid;
+        stbuf.ia_uid = sh->buf[source].ia_uid;
+        stbuf.ia_gid = sh->buf[source].ia_gid;
 
-        stbuf.st_mode = sh->buf[source].st_mode;
+        stbuf.ia_type = sh->buf[source].ia_type;
+        stbuf.ia_prot = sh->buf[source].ia_prot;
         
         valid = GF_SET_ATTR_MODE  | 
                 GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
@@ -604,8 +598,8 @@ afr_sh_metadata_fix (call_frame_t *frame, xlator_t *this)
 int
 afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    int32_t op_ret, int32_t op_errno,
-                            inode_t *inode, struct stat *buf, dict_t *xattr,
-                            struct stat *postparent)
+                            inode_t *inode, struct iatt *buf, dict_t *xattr,
+                            struct iatt *postparent)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
@@ -627,7 +621,7 @@ afr_sh_metadata_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				"path %s on subvolume %s is of mode 0%o",
 				local->loc.path,
 				priv->children[child_index]->name,
-				buf->st_mode);
+				buf->ia_type);
 
 			sh->buf[child_index] = *buf;
 			if (xattr)

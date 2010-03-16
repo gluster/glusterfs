@@ -55,11 +55,11 @@ afr_utimens (call_frame_t *frame, xlator_t *this,
 
 int
 afr_setattr (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, struct stat *buf, int32_t valid);
+             loc_t *loc, struct iatt *buf, int32_t valid);
 
 int
 afr_fsetattr (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, struct stat *buf, int32_t valid);
+              fd_t *fd, struct iatt *buf, int32_t valid);
 
 int32_t
 afr_setxattr (call_frame_t *frame, xlator_t *this,

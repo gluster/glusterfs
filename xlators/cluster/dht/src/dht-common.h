@@ -67,12 +67,12 @@ struct dht_local {
 	int                      layout_mismatch;
         /* Use stbuf as the postbuf, when we require both
          * pre and post attrs */
-	struct stat              stbuf;
-        struct stat              prebuf;
-        struct stat              preoldparent;
-        struct stat              postoldparent;
-        struct stat              preparent;
-        struct stat              postparent;
+	struct iatt              stbuf;
+        struct iatt              prebuf;
+        struct iatt              preoldparent;
+        struct iatt              postoldparent;
+        struct iatt              preparent;
+        struct iatt              postparent;
 	struct statvfs           statvfs;
 	fd_t                    *fd;
 	inode_t                 *inode;
@@ -80,8 +80,8 @@ struct dht_local {
 	dict_t                  *xattr_req;
 	dht_layout_t            *layout;
 	size_t                   size;
-	ino_t                    st_ino;
-        ino_t                    st_dev;
+	ino_t                    ia_ino;
+        ino_t                    ia_gen;
 	xlator_t                *src_hashed, *src_cached;
 	xlator_t                *dst_hashed, *dst_cached;
 	xlator_t                *cached_subvol;
@@ -92,7 +92,7 @@ struct dht_local {
         call_frame_t            *main_frame;
 	struct {
 		fop_mknod_cbk_t  linkfile_cbk;
-		struct stat      stbuf;
+		struct iatt      stbuf;
 		loc_t            loc;
 		inode_t         *inode;
 		dict_t          *xattr;
@@ -169,11 +169,12 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 #define is_last_call(cnt) (cnt == 0)
 
 #define DHT_LINKFILE_MODE (S_ISVTX)
-#define check_is_linkfile(i,s,x) (                              \
-                ((s->st_mode & ~S_IFMT) == DHT_LINKFILE_MODE) && \
-                (s->st_size == 0))
+#define check_is_linkfile(i,s,x) (                                      \
+                ((st_mode_from_ia (s->ia_prot, s->ia_type) & ~S_IFMT)   \
+                 == DHT_LINKFILE_MODE) &&                               \
+                (s->ia_size == 0))
 
-#define check_is_dir(i,s,x) (S_ISDIR(s->st_mode))
+#define check_is_dir(i,s,x) (IA_ISDIR(s->ia_type))
 
 #define layout_is_sane(layout) ((layout) && (layout->cnt > 0))
 
@@ -211,7 +212,7 @@ int dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout,
 			     xlator_t *subvol, loc_t *loc, dict_t *xattr);
 
 xlator_t *dht_linkfile_subvol (xlator_t *this, inode_t *inode,
-			       struct stat *buf, dict_t *xattr);
+			       struct iatt *buf, dict_t *xattr);
 int dht_linkfile_unlink (call_frame_t *frame, xlator_t *this,
 			 xlator_t *subvol, loc_t *loc);
 
@@ -233,7 +234,7 @@ int dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol,
 
 void dht_local_wipe (xlator_t *this, dht_local_t *local);
 dht_local_t *dht_local_init (call_frame_t *frame);
-int dht_stat_merge (xlator_t *this, struct stat *to, struct stat *from,
+int dht_iatt_merge (xlator_t *this, struct iatt *to, struct iatt *from,
 		    xlator_t *subvol);
 
 xlator_t *dht_subvol_get_hashed (xlator_t *this, loc_t *loc);

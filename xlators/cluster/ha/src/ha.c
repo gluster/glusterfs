@@ -98,9 +98,9 @@ ha_lookup_cbk (call_frame_t *frame,
 	       int32_t op_ret,
 	       int32_t op_errno,
 	       inode_t *inode,
-	       struct stat *buf,
+	       struct iatt *buf,
                dict_t *dict,
-               struct stat *postparent)
+               struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -245,7 +245,7 @@ ha_stat_cbk (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t op_ret,
 	     int32_t op_errno,
-	     struct stat *buf)
+	     struct iatt *buf)
 {
 	int ret = -1;
 
@@ -290,8 +290,8 @@ err:
 
 int32_t
 ha_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *statpre,
-                struct stat *statpost)
+                int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                struct iatt *statpost)
 {
 	int ret = -1;
 
@@ -305,7 +305,7 @@ ha_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int32_t
-ha_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct stat *stbuf,
+ha_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *stbuf,
             int32_t valid)
 {
 	ha_local_t *local = NULL;
@@ -333,7 +333,7 @@ err:
 
 
 int32_t
-ha_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
+ha_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
              int32_t valid)
 {
 	ha_local_t *local = NULL;
@@ -366,8 +366,8 @@ ha_truncate_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 struct stat *prebuf,
-                 struct stat *postbuf)
+		 struct iatt *prebuf,
+                 struct iatt *postbuf)
 {
 	int ret = -1;
 
@@ -423,8 +423,8 @@ ha_ftruncate_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *prebuf,
-                  struct stat *postbuf)
+		  struct iatt *prebuf,
+                  struct iatt *postbuf)
 {
 	int ret = -1;
 
@@ -546,7 +546,7 @@ ha_readlink_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 const char *path,
-                 struct stat *sbuf)
+                 struct iatt *sbuf)
 {
 	int ret = -1;
 
@@ -599,9 +599,9 @@ ha_mknod_lookup_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf,
+		     struct iatt *buf,
                      dict_t *dict,
-                     struct stat *postparent)
+                     struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -664,9 +664,9 @@ ha_mknod_cbk (call_frame_t *frame,
 	      int32_t op_ret,
 	      int32_t op_errno,
 	      inode_t *inode,
-              struct stat *buf,
-              struct stat *preparent,
-              struct stat *postparent)
+              struct iatt *buf,
+              struct iatt *preparent,
+              struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -837,9 +837,9 @@ ha_mkdir_lookup_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf,
+		     struct iatt *buf,
                      dict_t *dict,
-                     struct stat *postparent)
+                     struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -893,9 +893,9 @@ ha_mkdir_cbk (call_frame_t *frame,
 	      int32_t op_ret,
 	      int32_t op_errno,
 	      inode_t *inode,
-              struct stat *buf,
-              struct stat *preparent,
-              struct stat *postparent)
+              struct iatt *buf,
+              struct iatt *preparent,
+              struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -1056,8 +1056,8 @@ ha_unlink_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
-               struct stat *preparent,
-               struct stat *postparent)
+               struct iatt *preparent,
+               struct iatt *postparent)
 {
 	int ret = -1;
 
@@ -1108,8 +1108,8 @@ ha_rmdir_cbk (call_frame_t *frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
-              struct stat *preparent,
-              struct stat *postparent)
+              struct iatt *preparent,
+              struct iatt *postparent)
 {
 	int ret = -1;
 
@@ -1166,9 +1166,9 @@ ha_symlink_lookup_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       inode_t *inode,
-		       struct stat *buf,
+		       struct iatt *buf,
                        dict_t *dict,
-                       struct stat *postparent)
+                       struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -1222,9 +1222,9 @@ ha_symlink_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-                struct stat *buf,
-                struct stat *preparent,
-                struct stat *postparent)
+                struct iatt *buf,
+                struct iatt *preparent,
+                struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -1385,11 +1385,11 @@ ha_rename_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
-	       struct stat *buf,
-               struct stat *preoldparent,
-               struct stat *postoldparent,
-               struct stat *prenewparent,
-               struct stat *postnewparent)
+	       struct iatt *buf,
+               struct iatt *preoldparent,
+               struct iatt *postoldparent,
+               struct iatt *prenewparent,
+               struct iatt *postnewparent)
 {
 	int ret = -1;
 
@@ -1443,9 +1443,9 @@ ha_link_lookup_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf,
+		    struct iatt *buf,
                     dict_t *dict,
-                    struct stat *postparent)
+                    struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -1499,9 +1499,9 @@ ha_link_cbk (call_frame_t *frame,
 	     int32_t op_ret,
 	     int32_t op_errno,
 	     inode_t *inode,
-             struct stat *buf,
-             struct stat *preparent,
-             struct stat *postparent)
+             struct iatt *buf,
+             struct iatt *preparent,
+             struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -1669,9 +1669,9 @@ ha_create_cbk (call_frame_t *frame,
 	       int32_t op_errno,
 	       fd_t *fd,
 	       inode_t *inode,
-	       struct stat *buf,
-               struct stat *preparent,
-               struct stat *postparent)
+	       struct iatt *buf,
+               struct iatt *preparent,
+               struct iatt *postparent)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -2044,7 +2044,7 @@ ha_readv_cbk (call_frame_t *frame,
 	      int32_t op_errno,
 	      struct iovec *vector,
 	      int32_t count,
-	      struct stat *stbuf,
+	      struct iatt *stbuf,
               struct iobref *iobref)
 {
 	int ret = 0;
@@ -2111,8 +2111,8 @@ ha_writev_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
-               struct stat *prebuf,
-	       struct stat *postbuf)
+               struct iatt *prebuf,
+	       struct iatt *postbuf)
 {
 	int ret = 0;
 	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
@@ -2237,8 +2237,8 @@ ha_fsync_cbk (call_frame_t *frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
-              struct stat *prebuf,
-              struct stat *postbuf)
+              struct iatt *prebuf,
+              struct iatt *postbuf)
 {
 	int ret = 0;
 	ret = ha_handle_cbk (frame, cookie, op_ret, op_errno);
@@ -2297,7 +2297,7 @@ ha_fstat_cbk (call_frame_t *frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
-	      struct stat *buf)
+	      struct iatt *buf)
 {
 	int ret = 0;
 

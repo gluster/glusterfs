@@ -316,7 +316,7 @@ wb_file_destroy (wb_file_t *file)
 
 int32_t
 wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
+             int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
         wb_local_t   *local = NULL;
         list_head_t  *winds = NULL;
@@ -522,7 +522,7 @@ out:
 
 int32_t 
 wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-             int32_t op_errno, struct stat *buf)
+             int32_t op_errno, struct iatt *buf)
 {
         wb_local_t   *local = NULL;
         wb_request_t *request = NULL; 
@@ -666,7 +666,7 @@ unwind:
 
 int32_t 
 wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct stat *buf)
+              int32_t op_errno, struct iatt *buf)
 {
         wb_local_t   *local = NULL;
         wb_request_t *request = NULL; 
@@ -715,7 +715,7 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         int32_t       ret = -1;
         int           op_errno = EINVAL;
 
-        if ((!S_ISDIR (fd->inode->st_mode))
+        if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
@@ -779,8 +779,8 @@ unwind:
 
 int32_t
 wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                 struct stat *postbuf)
+                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf)
 {
         wb_local_t   *local = NULL; 
         wb_request_t *request = NULL;
@@ -929,8 +929,8 @@ unwind:
 
 int32_t
 wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                  struct stat *postbuf)
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf)
 {
         wb_local_t   *local = NULL; 
         wb_request_t *request = NULL;
@@ -981,7 +981,7 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         int32_t       ret = -1; 
         int           op_errno = EINVAL;
 
-        if ((!S_ISDIR (fd->inode->st_mode))
+        if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
@@ -1048,7 +1048,7 @@ unwind:
 
 int32_t 
 wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct stat *statpre, struct stat *statpost)
+                int32_t op_ret, int32_t op_errno, struct iatt *statpre, struct iatt *statpost)
 {
         wb_local_t   *local = NULL;       
         wb_request_t *request = NULL;
@@ -1105,7 +1105,7 @@ wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int32_t 
 wb_setattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   struct stat *stbuf, int32_t valid)
+                   struct iatt *stbuf, int32_t valid)
 {
         STACK_WIND (frame,
                     wb_setattr_cbk,
@@ -1121,7 +1121,7 @@ wb_setattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t 
 wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-            struct stat *stbuf, int32_t valid)
+            struct iatt *stbuf, int32_t valid)
 {
         wb_file_t    *file = NULL;
         fd_t         *iter_fd = NULL;
@@ -1235,15 +1235,6 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                         goto out;
                 }
 
-                /* 
-                   If mandatory locking has been enabled on this file,
-                   we disable caching on it
-                */
-
-                if ((fd->inode->st_mode & S_ISGID)
-                    && !(fd->inode->st_mode & S_IXGRP))
-                        file->disabled = 1;
-
                 /* If O_DIRECT then, we disable chaching */
                 if (((flags & O_DIRECT) == O_DIRECT)
                     || ((flags & O_ACCMODE) == O_RDONLY)
@@ -1299,8 +1290,8 @@ unwind:
 int32_t
 wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
-               struct stat *buf, struct stat *preparent,
-               struct stat *postparent)
+               struct iatt *buf, struct iatt *preparent,
+               struct iatt *postparent)
 {
         long       flags = 0;
         wb_file_t *file = NULL;
@@ -1313,13 +1304,6 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_errno = ENOMEM;
                         goto out;
                 }
-                /* 
-                 * If mandatory locking has been enabled on this file,
-                 * we disable caching on it
-                 */
-                if ((fd->inode->st_mode & S_ISGID)
-                    && !(fd->inode->st_mode & S_IXGRP))
-                        file->disabled = 1;
 
                 /* If O_DIRECT then, we disable chaching */
                 if (frame->local) {
@@ -1571,7 +1555,7 @@ __wb_get_other_requests (list_head_t *list, list_head_t *other_requests)
 int32_t
 wb_stack_unwind (list_head_t *unwinds)
 {
-        struct stat   buf = {0,};
+        struct iatt   buf = {0,};
         wb_request_t *request = NULL, *dummy = NULL;
         call_frame_t *frame = NULL;
         wb_local_t   *local = NULL;
@@ -1826,8 +1810,8 @@ out:
 
 int32_t
 wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-               struct stat *postbuf)
+               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               struct iatt *postbuf)
 {
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
@@ -1852,7 +1836,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         if (vector != NULL) 
                 size = iov_length (vector, count);
 
-        if ((!S_ISDIR (fd->inode->st_mode))
+        if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
@@ -1863,7 +1847,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         }
 
 	file = (wb_file_t *)(long)tmp_file;
-        if ((!S_ISDIR (fd->inode->st_mode)) && (file == NULL)) {
+        if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "wb_file not found for fd %p", fd);
                 op_errno = EBADFD;
@@ -1964,7 +1948,7 @@ unwind:
 int32_t
 wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
-              struct stat *stbuf, struct iobref *iobref)
+              struct iatt *stbuf, struct iobref *iobref)
 {
         wb_local_t   *local = NULL;
         wb_file_t    *file = NULL;
@@ -2016,7 +2000,7 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         int32_t       ret = -1;
         wb_request_t *request = NULL;
 
-        if ((!S_ISDIR (fd->inode->st_mode))
+        if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
@@ -2171,7 +2155,7 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         conf = this->private;
 
-        if ((!S_ISDIR (fd->inode->st_mode))
+        if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
@@ -2281,7 +2265,7 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 static int32_t
 wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
+              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
         wb_local_t   *local = NULL;
         wb_file_t    *file = NULL;
@@ -2344,7 +2328,7 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
         wb_request_t *request = NULL;
         int32_t       ret = -1;
 
-        if ((!S_ISDIR (fd->inode->st_mode))
+        if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
                 gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",

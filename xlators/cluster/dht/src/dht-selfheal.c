@@ -196,8 +196,8 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 int
 dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			    int op_ret, int op_errno,
-                            inode_t *inode, struct stat *stbuf,
-                            struct stat *preparent, struct stat *postparent)
+                            inode_t *inode, struct iatt *stbuf,
+                            struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t   *local = NULL;
 	dht_layout_t  *layout = NULL;
@@ -212,12 +212,12 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev   = cookie;
 	subvol = prev->this;
 
-        dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
         if (prev->this == local->hashed_subvol)
-                local->st_ino = local->stbuf.st_ino;
+                local->ia_ino = local->stbuf.ia_ino;
 
-        dht_stat_merge (this, &local->preparent, preparent, prev->this);
-        dht_stat_merge (this, &local->postparent, postparent, prev->this);
+        dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+        dht_iatt_merge (this, &local->postparent, postparent, prev->this);
 
 	if ((op_ret == 0) || (op_errno == EEXIST)) {
 		for (i = 0; i < layout->cnt; i++) {
@@ -271,7 +271,9 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 			STACK_WIND (frame, dht_selfheal_dir_mkdir_cbk,
 				    layout->list[i].xlator,
 				    layout->list[i].xlator->fops->mkdir,
-				    loc, local->stbuf.st_mode);
+				    loc,
+                                    st_mode_from_ia (local->stbuf.ia_prot,
+                                                     local->stbuf.ia_type));
 		}
 	}
 

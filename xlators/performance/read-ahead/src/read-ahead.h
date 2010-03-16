@@ -98,7 +98,7 @@ struct ra_file {
 	size_t             size;
 	int32_t            refcount;
 	pthread_mutex_t    file_lock;
-	struct stat        stbuf;
+	struct iatt        stbuf;
 	uint64_t           page_size;
 	uint32_t           page_count;
 };

@@ -39,6 +39,7 @@ typedef struct _dentry dentry_t;
 
 #include "list.h"
 #include "xlator.h"
+#include "iatt.h"
 
 
 struct _inode_table {
@@ -96,7 +97,7 @@ struct _inode {
         uint32_t             in_attic;      /* whether @hash is linked with @inode_hash or @attic */
         uint32_t             ref;           /* reference count on this inode */
         ino_t                ino;           /* inode number in the storage (persistent) */
-        mode_t               st_mode;       /* what kind of file */
+        ia_type_t            ia_type;       /* what kind of file */
         struct list_head     fd_list;       /* list of open files on this inode */
         struct list_head     dentry_list;   /* list of directory entries for this inode */
         struct list_head     hash;          /* hash table pointers */
@@ -117,7 +118,7 @@ inode_search (inode_table_t *table, ino_t ino, const char *name);
 
 inode_t *
 inode_link (inode_t *inode, inode_t *parent,
-            const char *name, struct stat *stbuf);
+            const char *name, struct iatt *stbuf);
 
 void
 inode_unlink (inode_t *inode, inode_t *parent, const char *name);
@@ -140,7 +141,7 @@ inode_forget (inode_t *inode, uint64_t nlookup);
 int
 inode_rename (inode_table_t *table, inode_t *olddir, const char *oldname,
 	      inode_t *newdir, const char *newname,
-	      inode_t *inode, struct stat *stbuf);
+	      inode_t *inode, struct iatt *stbuf);
 
 inode_t *
 inode_grep (inode_table_t *table, inode_t *parent, const char *name);

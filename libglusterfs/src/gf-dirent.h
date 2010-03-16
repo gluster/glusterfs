@@ -26,13 +26,15 @@
 #include "config.h"
 #endif
 
+#include "iatt.h"
+
 #define gf_dirent_size(name) (sizeof (gf_dirent_t) + strlen (name) + 1)
 
 struct _dir_entry_t {
         struct _dir_entry_t *next;
 	char                *name;
 	char                *link;
-	struct stat          buf;
+	struct iatt          buf;
 };
 
 
@@ -48,7 +50,7 @@ struct _gf_dirent_t {
 	uint64_t                             d_off;
 	uint32_t                             d_len;
 	uint32_t                             d_type;
-        struct stat                          d_stat;
+        struct iatt                          d_stat;
 	char                                 d_name[0];
 };
 

@@ -114,8 +114,8 @@ sh_full_loop_return (call_frame_t *rw_frame, xlator_t *this, off_t offset)
 
 static int
 sh_full_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                   struct stat *postbuf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
 	afr_private_t * priv    = NULL;
 	afr_local_t * rw_local  = NULL;
@@ -169,7 +169,7 @@ sh_full_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
 static int
 sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
-                  struct iovec *vector, int32_t count, struct stat *buf,
+                  struct iovec *vector, int32_t count, struct iatt *buf,
                   struct iobref *iobref)
 {
 	afr_private_t * priv    = NULL;
@@ -538,8 +538,8 @@ sh_diff_loop_return (call_frame_t *rw_frame, xlator_t *this,
 
 static int
 sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *buf,
-                   struct stat *postbuf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                   struct iatt *postbuf)
 {
 	afr_private_t *   priv     = NULL;
 	afr_local_t *     rw_local = NULL;
@@ -601,7 +601,7 @@ sh_diff_write_cbk (call_frame_t *rw_frame, void *cookie, xlator_t *this,
 static int
 sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
                   xlator_t *this, int32_t op_ret, int32_t op_errno,
-                  struct iovec *vector, int32_t count, struct stat *buf,
+                  struct iovec *vector, int32_t count, struct iatt *buf,
                   struct iobref *iobref)
 {
 	afr_private_t *   priv     = NULL;

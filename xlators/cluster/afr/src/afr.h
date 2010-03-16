@@ -97,7 +97,7 @@ typedef struct {
         gf_boolean_t background;          /* do self-heal in background
                                              if possible */
 
-        mode_t mode;                      /* st_mode of the entry we're doing
+        ia_type_t type;                   /* st_mode of the entry we're doing
                                              self-heal on */
 
         /* Function to call to unwind. If self-heal is being done in the
@@ -109,8 +109,8 @@ typedef struct {
 
 
 	/* array of stat's, one for each child */
-	struct stat *buf;
-        struct stat parentbuf;
+	struct iatt *buf;
+        struct iatt parentbuf;
 
 	/* array of xattr's, one for each child */
 	dict_t **xattr;
@@ -251,9 +251,9 @@ typedef struct _afr_local {
 
 		struct {
 			inode_t *inode;
-			struct stat buf;
-                        struct stat read_child_buf;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt read_child_buf;
+                        struct iatt postparent;
                         ino_t ino;
                         uint64_t gen;
                         ino_t parent_ino;
@@ -348,8 +348,8 @@ typedef struct _afr_local {
 
 		struct {
 			ino_t ino;
-			struct stat prebuf;
-			struct stat postbuf;
+			struct iatt prebuf;
+			struct iatt postbuf;
 
 			int32_t op_ret;
 
@@ -361,38 +361,38 @@ typedef struct _afr_local {
 
                 struct {
                         ino_t ino;
-                        struct stat prebuf;
-                        struct stat postbuf;
+                        struct iatt prebuf;
+                        struct iatt postbuf;
                 } fsync;
 
 		struct {
 			ino_t ino;
 			off_t offset;
-			struct stat prebuf;
-                        struct stat postbuf;
+			struct iatt prebuf;
+                        struct iatt postbuf;
 		} truncate;
 
 		struct {
 			ino_t ino;
 			off_t offset;
-			struct stat prebuf;
-                        struct stat postbuf;
+			struct iatt prebuf;
+                        struct iatt postbuf;
 		} ftruncate;
 
 		struct {
 			ino_t ino;
-			struct stat in_buf;
+			struct iatt in_buf;
                         int32_t valid;
-                        struct stat preop_buf;
-                        struct stat postop_buf;
+                        struct iatt preop_buf;
+                        struct iatt postop_buf;
 		} setattr;
 
 		struct {
 			ino_t ino;
-			struct stat in_buf;
+			struct iatt in_buf;
                         int32_t valid;
-                        struct stat preop_buf;
-                        struct stat postop_buf;
+                        struct iatt preop_buf;
+                        struct iatt postop_buf;
 		} fsetattr;
 
 		struct {
@@ -414,10 +414,10 @@ typedef struct _afr_local {
 			int32_t flags;
 			mode_t mode;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat preparent;
-                        struct stat postparent;
-                        struct stat read_child_buf;
+			struct iatt buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
+                        struct iatt read_child_buf;
 		} create;
 
 		struct {
@@ -427,10 +427,10 @@ typedef struct _afr_local {
 			dev_t dev;
 			mode_t mode;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat preparent;
-                        struct stat postparent;
-                        struct stat read_child_buf;
+			struct iatt buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
+                        struct iatt read_child_buf;
 		} mknod;
 
 		struct {
@@ -439,38 +439,38 @@ typedef struct _afr_local {
                         ino_t parent_ino;
 			int32_t mode;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat read_child_buf;
-                        struct stat preparent;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt read_child_buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} mkdir;
 
 		struct {
                         ino_t parent_ino;
 			int32_t op_ret;
 			int32_t op_errno;
-                        struct stat preparent;
-                        struct stat postparent;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} unlink;
 
 		struct {
                         ino_t parent_ino;
 			int32_t op_ret;
 			int32_t op_errno;
-                        struct stat preparent;
-                        struct stat postparent;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} rmdir;
 
 		struct {
                         ino_t oldparent_ino;
                         ino_t newparent_ino;
 			ino_t ino;
-			struct stat buf;
-                        struct stat read_child_buf;
-                        struct stat preoldparent;
-                        struct stat prenewparent;
-                        struct stat postoldparent;
-                        struct stat postnewparent;
+			struct iatt buf;
+                        struct iatt read_child_buf;
+                        struct iatt preoldparent;
+                        struct iatt prenewparent;
+                        struct iatt postoldparent;
+                        struct iatt postnewparent;
 		} rename;
 
 		struct {
@@ -478,10 +478,10 @@ typedef struct _afr_local {
                         uint64_t gen;
                         ino_t parent_ino;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat read_child_buf;
-                        struct stat preparent;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt read_child_buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} link;
 
 		struct {
@@ -489,11 +489,11 @@ typedef struct _afr_local {
                         uint64_t gen;
                         ino_t parent_ino;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat read_child_buf;
+			struct iatt buf;
+                        struct iatt read_child_buf;
 			char *linkpath;
-                        struct stat preparent;
-                        struct stat postparent;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} symlink;
 
 		struct {

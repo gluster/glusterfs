@@ -340,29 +340,31 @@ dht_subvol_cnt (xlator_t *this, xlator_t *subvol)
 	} while (0)
 
 int
-dht_stat_merge (xlator_t *this, struct stat *to,
-		struct stat *from, xlator_t *subvol)
+dht_iatt_merge (xlator_t *this, struct iatt *to,
+		struct iatt *from, xlator_t *subvol)
 {
         if (!from || !to)
                 return 0;
 
-	to->st_dev      = from->st_dev;
+	to->ia_dev      = from->ia_dev;
 
-	dht_itransform (this, subvol, from->st_ino, &to->st_ino);
+	dht_itransform (this, subvol, from->ia_ino, &to->ia_ino);
+        to->ia_gen      = from->ia_gen;
 
-	to->st_mode     = from->st_mode;
-	to->st_nlink    = from->st_nlink;
-	to->st_rdev     = from->st_rdev;
-	to->st_size    += from->st_size;
-	to->st_blksize  = from->st_blksize;
-	to->st_blocks  += from->st_blocks;
+	to->ia_prot     = from->ia_prot;
+	to->ia_type     = from->ia_type;
+	to->ia_nlink    = from->ia_nlink;
+	to->ia_rdev     = from->ia_rdev;
+	to->ia_size    += from->ia_size;
+	to->ia_blksize  = from->ia_blksize;
+	to->ia_blocks  += from->ia_blocks;
 
-	set_if_greater (to->st_uid, from->st_uid);
-	set_if_greater (to->st_gid, from->st_gid);
+	set_if_greater (to->ia_uid, from->ia_uid);
+	set_if_greater (to->ia_gid, from->ia_gid);
 
-	set_if_greater (to->st_atime, from->st_atime);
-	set_if_greater (to->st_mtime, from->st_mtime);
-	set_if_greater (to->st_ctime, from->st_ctime);
+	set_if_greater (to->ia_atime, from->ia_atime);
+	set_if_greater (to->ia_mtime, from->ia_mtime);
+	set_if_greater (to->ia_ctime, from->ia_ctime);
 
 	return 0;
 }

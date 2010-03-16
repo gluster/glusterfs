@@ -73,7 +73,7 @@ struct sp_inode_ctx {
         char             need_unwind;
         int32_t          op_ret;
         int32_t          op_errno;
-        struct stat      stbuf;  
+        struct iatt      stbuf;  
         gf_lock_t        lock;
         struct list_head waiting_ops;
 };

@@ -36,13 +36,13 @@ map_stat_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *buf)
+		  struct iatt *buf)
 
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
+	map_itransform (this, prev->this, buf->ia_ino, &buf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -54,14 +54,14 @@ map_setattr_cbk (call_frame_t *frame,
                  xlator_t *this,
                  int32_t op_ret,
                  int32_t op_errno,
-                 struct stat *statpre,
-                 struct stat *statpost)
+                 struct iatt *statpre,
+                 struct iatt *statpost)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 
-	map_itransform (this, prev->this, statpre->st_ino, &statpre->st_ino);
-	map_itransform (this, prev->this, statpost->st_ino, &statpost->st_ino);
+	map_itransform (this, prev->this, statpre->ia_ino, &statpre->ia_ino);
+	map_itransform (this, prev->this, statpost->ia_ino, &statpost->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
@@ -73,14 +73,14 @@ map_fsetattr_cbk (call_frame_t *frame,
                   xlator_t *this,
                   int32_t op_ret,
                   int32_t op_errno,
-                  struct stat *statpre,
-                  struct stat *statpost)
+                  struct iatt *statpre,
+                  struct iatt *statpost)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 
-	map_itransform (this, prev->this, statpre->st_ino, &statpre->st_ino);
-	map_itransform (this, prev->this, statpost->st_ino, &statpost->st_ino);
+	map_itransform (this, prev->this, statpre->ia_ino, &statpre->ia_ino);
+	map_itransform (this, prev->this, statpost->ia_ino, &statpost->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, statpre, statpost);
 	return 0;
@@ -92,13 +92,13 @@ map_truncate_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      struct stat *prebuf,
-                      struct stat *postbuf)
+		      struct iatt *prebuf,
+                      struct iatt *postbuf)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, postbuf->st_ino, &postbuf->st_ino);
+	map_itransform (this, prev->this, postbuf->ia_ino, &postbuf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -110,13 +110,13 @@ map_ftruncate_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       struct stat *prebuf,
-                       struct stat *postbuf)
+		       struct iatt *prebuf,
+                       struct iatt *postbuf)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, postbuf->st_ino, &postbuf->st_ino);
+	map_itransform (this, prev->this, postbuf->ia_ino, &postbuf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -141,7 +141,7 @@ map_readlink_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      const char *path,
-                      struct stat *sbuf)
+                      struct iatt *sbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
 	return 0;
@@ -153,8 +153,8 @@ map_unlink_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-                    struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
 	return 0;
@@ -166,8 +166,8 @@ map_rmdir_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-                   struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
 	return 0;
@@ -180,16 +180,16 @@ map_rename_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    struct stat *buf,
-                    struct stat *preoldparent,
-                    struct stat *postoldparent,
-                    struct stat *prenewparent,
-                    struct stat *postnewparent)
+		    struct iatt *buf,
+                    struct iatt *preoldparent,
+                    struct iatt *postoldparent,
+                    struct iatt *prenewparent,
+                    struct iatt *postnewparent)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
+	map_itransform (this, prev->this, buf->ia_ino, &buf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -202,14 +202,14 @@ map_link_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-                  struct stat *buf,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
+	map_itransform (this, prev->this, buf->ia_ino, &buf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode,	buf);
 	return 0;
@@ -235,13 +235,13 @@ map_readv_cbk (call_frame_t *frame,
                int32_t op_errno,
                struct iovec *vector,
                int32_t count,
-               struct stat *stbuf,
+               struct iatt *stbuf,
                struct iobref *iobref)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+	map_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
 	return 0;
@@ -253,13 +253,13 @@ map_writev_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-                    struct stat *prebuf,
-		    struct stat *postbuf)
+                    struct iatt *prebuf,
+		    struct iatt *postbuf)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, postbuf->st_ino, &postbuf->st_ino);
+	map_itransform (this, prev->this, postbuf->ia_ino, &postbuf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -283,8 +283,8 @@ map_fsync_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-                   struct stat *prebuf,
-                   struct stat *postbuf)
+                   struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -297,12 +297,12 @@ map_fstat_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct stat *buf)
+		   struct iatt *buf)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
+	map_itransform (this, prev->this, buf->ia_ino, &buf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, buf);
 	return 0;
@@ -492,14 +492,14 @@ map_newentry_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-                  struct stat *buf,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
+	map_itransform (this, prev->this, buf->ia_ino, &buf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
@@ -515,14 +515,14 @@ map_create_cbk (call_frame_t *frame,
 		int32_t op_errno,
 		fd_t *fd,
 		inode_t *inode,
-		struct stat *buf,
-                struct stat *preparent,
-                struct stat *postparent)
+		struct iatt *buf,
+                struct iatt *preparent,
+                struct iatt *postparent)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
+	map_itransform (this, prev->this, buf->ia_ino, &buf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, fd, inode, buf);
 	return 0;
@@ -624,14 +624,14 @@ map_single_lookup_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       inode_t *inode,
-		       struct stat *buf,
+		       struct iatt *buf,
                        dict_t *dict,
-                       struct stat *postparent)
+                       struct iatt *postparent)
 {
         call_frame_t *prev = NULL;
         prev  = cookie;
 	
-	map_itransform (this, prev->this, buf->st_ino, &buf->st_ino);
+	map_itransform (this, prev->this, buf->ia_ino, &buf->ia_ino);
 
 	STACK_UNWIND (frame, op_ret, op_errno, inode, buf, dict);
 
@@ -645,9 +645,9 @@ map_root_lookup_cbk (call_frame_t *frame,
                      int32_t op_ret,
                      int32_t op_errno,
                      inode_t *inode,
-                     struct stat *buf,
+                     struct iatt *buf,
                      dict_t *dict,
-                     struct stat *postparent)
+                     struct iatt *postparent)
 {
 	int          callcnt = 0;
 	map_local_t *local = NULL;
@@ -762,7 +762,7 @@ map_single_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	list_for_each_entry (orig_entry, &entries->list, list) {
 		map_itransform (this, prev->this, orig_entry->d_ino,
 				&orig_entry->d_ino);
-                orig_entry->d_stat.st_ino = orig_entry->d_ino;
+                orig_entry->d_stat.ia_ino = orig_entry->d_ino;
 	}
 	STACK_UNWIND (frame, op_ret, op_errno, entries);
 	return 0;
@@ -815,7 +815,7 @@ map_generic_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				&entry->d_off);
 		
                 if (whichop == GF_FOP_READDIRP)
-                        entry->d_stat.st_ino = entry->d_ino;
+                        entry->d_stat.ia_ino = entry->d_ino;
 		entry->d_type = orig_entry->d_type;
 		entry->d_len  = orig_entry->d_len;
 		
@@ -957,7 +957,7 @@ int32_t
 map_setattr (call_frame_t *frame,
              xlator_t *this,
              loc_t *loc,
-             struct stat *stbuf,
+             struct iatt *stbuf,
              int32_t valid)
 {
 	int32_t op_errno = 1;
@@ -989,7 +989,7 @@ int32_t
 map_fsetattr (call_frame_t *frame,
               xlator_t *this,
               fd_t *fd,
-              struct stat *stbuf,
+              struct iatt *stbuf,
               int32_t valid)
 {
 	int32_t op_errno = 1;

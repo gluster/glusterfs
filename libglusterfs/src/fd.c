@@ -399,7 +399,7 @@ fd_destroy (fd_t *fd)
 	if (!fd->_ctx)
 		goto out;
 
-        if (S_ISDIR (fd->inode->st_mode)) {
+        if (IA_ISDIR (fd->inode->ia_type)) {
 		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
 			if (fd->_ctx[i].key) {
 				xl = (xlator_t *)(long)fd->_ctx[i].key;

@@ -62,7 +62,7 @@ ptr_to_str (void *ptr)
 
 void
 ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode, 
-                  struct stat *stbuf)
+                  struct iatt *stbuf)
 {
 	ioc_waitq_t *waiter = NULL, *waited = NULL;
 	ioc_waitq_t *page_waitq = NULL;

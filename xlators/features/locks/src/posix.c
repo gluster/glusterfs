@@ -58,8 +58,8 @@ struct _truncate_ops {
 
 int
 pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                 struct stat *postbuf)
+                 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                 struct iatt *postbuf)
 {
         struct _truncate_ops *local = NULL;
 
@@ -108,7 +108,7 @@ truncate_allowed (pl_inode_t *pl_inode,
 
 static int
 truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *buf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         posix_locks_private_t *priv = NULL;
         struct _truncate_ops  *local = NULL;
@@ -442,8 +442,8 @@ pl_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 int
 pl_create_cbk (call_frame_t *frame, void *cookie,
                xlator_t *this, int32_t op_ret, int32_t op_errno,
-               fd_t *fd, inode_t *inode, struct stat *buf,
-               struct stat *preparent, struct stat *postparent)
+               fd_t *fd, inode_t *inode, struct iatt *buf,
+               struct iatt *preparent, struct iatt *postparent)
 {
         int dummy = 1;
         int ret = -1;
@@ -478,7 +478,7 @@ pl_create (call_frame_t *frame, xlator_t *this,
 int
 pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno,
-              struct iovec *vector, int32_t count, struct stat *stbuf,
+              struct iovec *vector, int32_t count, struct iatt *stbuf,
               struct iobref *iobref)
 {
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
@@ -489,8 +489,8 @@ pl_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 pl_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-               struct stat *postbuf)
+               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               struct iatt *postbuf)
 {
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 
@@ -1090,9 +1090,9 @@ pl_lookup_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-		    struct stat *buf,
+		    struct iatt *buf,
                     dict_t *dict,
-                    struct stat *postparent)
+                    struct iatt *postparent)
 {
         pl_local_t *local = NULL;
 

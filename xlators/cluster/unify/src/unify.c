@@ -27,7 +27,7 @@
  * NOTE:
  *   Now, unify has support for global namespace, which is used to keep a 
  * global view of fs's namespace tree. The stat for directories are taken
- * just from the namespace, where as for files, just 'st_ino' is taken from
+ * just from the namespace, where as for files, just 'ia_ino' is taken from
  * Namespace node, and other stat info is taken from the actual storage node.
  * Also Namespace node helps to keep consistant inode for files across 
  * glusterfs (re-)mounts.
@@ -129,7 +129,7 @@ unify_loc_subvol (loc_t *loc, xlator_t *this)
 	priv   = this->private;
 	subvol = NS (this);
 
-	if (!S_ISDIR (loc->inode->st_mode)) {
+	if (!IA_ISDIR (loc->inode->ia_type)) {
 		ret = inode_ctx_get (loc->inode, this, &tmp_list);
 		list = (int16_t *)(long)tmp_list;
 		if (!list)
@@ -253,7 +253,7 @@ unify_buf_cbk (call_frame_t *frame,
 	       xlator_t *this,
 	       int32_t op_ret,
 	       int32_t op_errno,
-	       struct stat *buf)
+	       struct iatt *buf)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -281,16 +281,16 @@ unify_buf_cbk (call_frame_t *frame,
 			local->op_ret = 0;
 
 			if (NS (this) == prev_frame->this) {
-				local->st_ino = buf->st_ino;
+				local->ia_ino = buf->ia_ino;
 				/* If the entry is directory, get the stat
 				   from NS node */
-				if (S_ISDIR (buf->st_mode) || 
-				    !local->stbuf.st_blksize) {
+				if (IA_ISDIR (buf->ia_type) || 
+				    !local->stbuf.ia_blksize) {
 					local->stbuf = *buf;
 				}
 			}
 
-			if ((!S_ISDIR (buf->st_mode)) && 
+			if ((!IA_ISDIR (buf->ia_type)) && 
 			    (NS (this) != prev_frame->this)) {
 				/* If file, take the stat info from Storage 
 				   node. */
@@ -303,10 +303,10 @@ unify_buf_cbk (call_frame_t *frame,
 	if (!callcnt) {
 		/* If the inode number is not filled, operation should
 		   fail */
-		if (!local->st_ino)
+		if (!local->ia_ino)
 			local->op_ret = -1;
 
-		local->stbuf.st_ino = local->st_ino;
+		local->stbuf.ia_ino = local->ia_ino;
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 			      &local->stbuf);
@@ -315,7 +315,8 @@ unify_buf_cbk (call_frame_t *frame,
 	return 0;
 }
 
-#define check_if_dht_linkfile(s) ((s->st_mode & ~S_IFMT) == S_ISVTX)
+#define check_if_dht_linkfile(s) \
+        ((st_mode_from_ia (s->ia_prot, s->ia_type) & ~S_IFMT) == S_ISVTX)
 
 /**
  * unify_lookup_cbk - 
@@ -327,9 +328,9 @@ unify_lookup_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-		  struct stat *buf,
+		  struct iatt *buf,
 		  dict_t *dict,
-                  struct stat *postparent)
+                  struct iatt *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -390,11 +391,11 @@ unify_lookup_cbk (call_frame_t *frame,
 					priv->xl_array[(long)cookie]->name);
 			}
 
-			if (local->stbuf.st_mode && local->stbuf.st_blksize) {
+			if (local->stbuf.ia_type && local->stbuf.ia_blksize) {
 				/* make sure we already have a stbuf
 				   stored in local->stbuf */
-				if (S_ISDIR (local->stbuf.st_mode) && 
-				    !S_ISDIR (buf->st_mode)) {
+				if (IA_ISDIR (local->stbuf.ia_type) && 
+				    !IA_ISDIR (buf->ia_type)) {
 					gf_log (this->name, GF_LOG_CRITICAL, 
 						"[CRITICAL] '%s' is directory "
 						"on namespace, non-directory "
@@ -403,8 +404,8 @@ unify_lookup_cbk (call_frame_t *frame,
 						priv->xl_array[(long)cookie]->name);
 					local->return_eio = 1;
 				}
-				if (!S_ISDIR (local->stbuf.st_mode) && 
-				    S_ISDIR (buf->st_mode)) {
+				if (!IA_ISDIR (local->stbuf.ia_type) && 
+				    IA_ISDIR (buf->ia_type)) {
 					gf_log (this->name, GF_LOG_CRITICAL, 
 						"[CRITICAL] '%s' is directory "
 						"on node '%s', non-directory "
@@ -415,7 +416,7 @@ unify_lookup_cbk (call_frame_t *frame,
 				}
 			}
 	
-			if (!local->revalidate && !S_ISDIR (buf->st_mode)) {
+			if (!local->revalidate && !IA_ISDIR (buf->ia_type)) {
 				/* This is the first time lookup on file*/
 				if (!local->list) {
 					/* list is not allocated, allocate 
@@ -436,7 +437,7 @@ unify_lookup_cbk (call_frame_t *frame,
 					(int16_t)(long)cookie;
 			}
                         
-                        if (!local->revalidate && S_ISDIR (buf->st_mode)) {
+                        if (!local->revalidate && IA_ISDIR (buf->ia_type)) {
                                 /* fresh lookup of a directory */
                                 inode_ctx_put (local->loc1.inode, this, 
                                                priv->inode_generation);
@@ -450,20 +451,20 @@ unify_lookup_cbk (call_frame_t *frame,
 			/* index of NS node is == total child count */
 			if (priv->child_count == (int16_t)(long)cookie) {
 				/* Take the inode number from namespace */
-				local->st_ino = buf->st_ino;
-				if (S_ISDIR (buf->st_mode) || 
-				    !(local->stbuf.st_blksize)) {
+				local->ia_ino = buf->ia_ino;
+				if (IA_ISDIR (buf->ia_type) || 
+				    !(local->stbuf.ia_blksize)) {
 					local->stbuf = *buf;
                                         local->oldpostparent = *postparent;
 				}
-			} else if (!S_ISDIR (buf->st_mode)) {
+			} else if (!IA_ISDIR (buf->ia_type)) {
 				/* If file, then get the stat from 
 				   storage node */
 				local->stbuf = *buf;
 			}
 
-			if (local->st_nlink < buf->st_nlink) {
-				local->st_nlink = buf->st_nlink;
+			if (local->ia_nlink < buf->ia_nlink) {
+				local->ia_nlink = buf->ia_nlink;
 			}
 		}
 	}
@@ -484,12 +485,12 @@ unify_lookup_cbk (call_frame_t *frame,
 			return 0;
 		}
 
-		if (!local->stbuf.st_blksize) {
+		if (!local->stbuf.ia_blksize) {
 			/* Inode not present */
 			local->op_ret = -1;
 		} else {
 			if (!local->revalidate && 
-			    !S_ISDIR (local->stbuf.st_mode)) { 
+			    !IA_ISDIR (local->stbuf.ia_type)) { 
 				/* If its a file, big array is useless, 
 				   allocate the smaller one */
 				int16_t *list = NULL;
@@ -506,7 +507,7 @@ unify_lookup_cbk (call_frame_t *frame,
 					       (uint64_t)(long)local->list);
 			}
 
-			if (S_ISDIR(local->loc1.inode->st_mode)) {
+			if (IA_ISDIR(local->loc1.inode->ia_type)) {
 				/* lookup is done for directory */
 				if (local->failed && priv->self_heal) {
 					/* Triggering self-heal */
@@ -516,10 +517,10 @@ unify_lookup_cbk (call_frame_t *frame,
 					priv->inode_generation++;
 				}
 			} else {
-				local->stbuf.st_ino = local->st_ino;
+				local->stbuf.ia_ino = local->ia_ino;
 			}
 	  
-			local->stbuf.st_nlink = local->st_nlink;
+			local->stbuf.ia_nlink = local->ia_nlink;
 		}
 		if (local->op_ret == -1) {
 			if (!local->revalidate && local->list)
@@ -540,7 +541,7 @@ unify_lookup_cbk (call_frame_t *frame,
 
 		if ((priv->self_heal && !priv->optimist) && 
 		    (!local->revalidate && (local->op_ret == 0) && 
-		     S_ISDIR(local->stbuf.st_mode))) {
+		     IA_ISDIR(local->stbuf.ia_type))) {
 			/* Let the self heal be done here */
 			zr_unify_self_heal (frame, this, local);
 			local_dict = NULL;
@@ -598,13 +599,13 @@ unify_lookup (call_frame_t *frame,
 	}
         
         if (inode_ctx_get (loc->inode, this, NULL)
-            && S_ISDIR (loc->inode->st_mode)) {
+            && IA_ISDIR (loc->inode->ia_type)) {
                 local->revalidate = 1;
         }
 
 	if (!inode_ctx_get (loc->inode, this, NULL) && 
-	    loc->inode->st_mode && 
-	    !S_ISDIR (loc->inode->st_mode)) {
+	    loc->inode->ia_type && 
+	    !IA_ISDIR (loc->inode->ia_type)) {
 		uint64_t tmp_list = 0;
 		/* check if revalidate or fresh lookup */
 		inode_ctx_get (loc->inode, this, &tmp_list);
@@ -665,7 +666,7 @@ unify_lookup (call_frame_t *frame,
 				break;
 		}
 	} else {
-		if (loc->inode->st_mode) {
+		if (loc->inode->ia_type) {
 			if (inode_ctx_get (loc->inode, this, NULL)) {
 				inode_ctx_get (loc->inode, this, 
 					       &local->inode_generation);
@@ -718,8 +719,8 @@ unify_stat (call_frame_t *frame,
 		STACK_UNWIND (frame, -1, ENOMEM, NULL);
 		return 0;
 	}
-	local->st_ino = loc->inode->ino;
-	if (S_ISDIR (loc->inode->st_mode)) {
+	local->ia_ino = loc->inode->ino;
+	if (IA_ISDIR (loc->inode->ia_type)) {
 		/* Directory */
 		local->call_count = 1;
 		STACK_WIND (frame, unify_buf_cbk, NS(this),
@@ -791,9 +792,9 @@ unify_mkdir_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-                 struct stat *buf,
-                 struct stat *preparent,
-                 struct stat *postparent)
+                 struct iatt *buf,
+                 struct iatt *preparent,
+                 struct iatt *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -855,9 +856,9 @@ unify_ns_mkdir_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-                    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *buf,
+                    struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	unify_private_t *priv = this->private;
 	unify_local_t *local = frame->local;
@@ -941,8 +942,8 @@ unify_rmdir_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-                 struct stat *preparent,
-                 struct stat *postparent)
+                 struct iatt *preparent,
+                 struct iatt *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -976,8 +977,8 @@ unify_ns_rmdir_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-                    struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	int16_t index = 0;
 	unify_private_t *priv = this->private;
@@ -1113,7 +1114,7 @@ unify_open_lookup_cbk (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       inode_t *inode,
-		       struct stat *buf,
+		       struct iatt *buf,
 		       dict_t *dict)
 {
 	int32_t callcnt = 0;
@@ -1140,7 +1141,7 @@ unify_open_lookup_cbk (call_frame_t *frame,
 			} else {
 				local->list[1] = (int16_t)(long)cookie;
 			}
-			if (S_ISDIR (buf->st_mode))
+			if (IA_ISDIR (buf->ia_type))
 				local->failed = 1;
 		}
 	}
@@ -1306,7 +1307,7 @@ unify_open (call_frame_t *frame,
 
 #ifdef GF_DARWIN_HOST_OS
 	/* Handle symlink here */
-	if (S_ISLNK (loc->inode->st_mode)) {
+	if (IA_ISLNK (loc->inode->ia_type)) {
 		/* Callcount doesn't matter here */
 		STACK_WIND (frame,
 			    unify_open_readlink_cbk,
@@ -1342,8 +1343,8 @@ unify_create_unlink_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-                         struct stat *preparent,
-                         struct stat *postparent)
+                         struct iatt *preparent,
+                         struct iatt *postparent)
 {
 	unify_local_t *local = frame->local;
 	inode_t *inode = local->loc1.inode;
@@ -1457,9 +1458,9 @@ unify_create_lookup_cbk (call_frame_t *frame,
 			 int32_t op_ret,
 			 int32_t op_errno,
 			 inode_t *inode,
-			 struct stat *buf,
+			 struct iatt *buf,
 			 dict_t *dict,
-                         struct stat *postparent)
+                         struct iatt *postparent)
 {
 	int32_t callcnt = 0;
 	int16_t index = 0;
@@ -1482,7 +1483,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 			local->op_ret = op_ret; 
 			local->list[local->index++] = (int16_t)(long)cookie;
 			if (NS(this) == priv->xl_array[(long)cookie]) {
-				local->st_ino = buf->st_ino;
+				local->ia_ino = buf->ia_ino;
 			} else {
 				local->stbuf = *buf;
 			}
@@ -1500,7 +1501,7 @@ unify_create_lookup_cbk (call_frame_t *frame,
 		file_list[1] = list[1];
 		file_list[2] = -1;
 
-		local->stbuf.st_ino = local->st_ino;
+		local->stbuf.ia_ino = local->ia_ino;
 		/* TODO: log on failure */
 		inode_ctx_put (local->loc1.inode, this, 
 			       (uint64_t)(long)local->list);
@@ -1563,9 +1564,9 @@ unify_create_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  fd_t *fd,
 		  inode_t *inode,
-		  struct stat *buf,
-                  struct stat *preparent,
-                  struct stat *postparent)
+		  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
 	int ret = 0;
 	unify_local_t *local = frame->local;
@@ -1596,7 +1597,7 @@ unify_create_cbk (call_frame_t *frame,
 		local->op_ret = op_ret;
 		local->stbuf = *buf;
 		/* Just inode number should be from NS node */
-		local->stbuf.st_ino = local->st_ino;
+		local->stbuf.ia_ino = local->ia_ino;
 
 		/* TODO: log on failure */
 		ret = fd_ctx_set (fd, this, (uint64_t)(long)prev_frame->this);
@@ -1623,9 +1624,9 @@ unify_ns_create_cbk (call_frame_t *frame,
 		     int32_t op_errno,
 		     fd_t *fd,
 		     inode_t *inode,
-		     struct stat *buf,
-                     struct stat *preparent,
-                     struct stat *postparent)
+		     struct iatt *buf,
+                     struct iatt *preparent,
+                     struct iatt *postparent)
 {
 	struct sched_ops *sched_ops = NULL;
 	xlator_t *sched_xl = NULL;
@@ -1654,7 +1655,7 @@ unify_ns_create_cbk (call_frame_t *frame,
   
 	if (op_ret >= 0) {
 		/* Get the inode number from the NS node */
-		local->st_ino = buf->st_ino;
+		local->ia_ino = buf->ia_ino;
   
                 local->oldpreparent = *preparent;
                 local->oldpostparent = *postparent;
@@ -1803,8 +1804,8 @@ unify_opendir (call_frame_t *frame,
 
 int32_t
 unify_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *statpre,
-                   struct stat *statpost)
+                   int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                   struct iatt *statpost)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -1832,17 +1833,17 @@ unify_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			local->op_ret = 0;
 
 			if (NS (this) == prev_frame->this) {
-				local->st_ino = statpost->st_ino;
+				local->ia_ino = statpost->ia_ino;
 				/* If the entry is directory, get the stat
 				   from NS node */
-				if (S_ISDIR (statpost->st_mode) || 
-				    !local->stpost.st_blksize) {
+				if (IA_ISDIR (statpost->ia_type) || 
+				    !local->stpost.ia_blksize) {
 					local->stpre = *statpre;
                                         local->stpost = *statpost;
 				}
 			}
 
-			if ((!S_ISDIR (statpost->st_mode)) && 
+			if ((!IA_ISDIR (statpost->ia_type)) && 
 			    (NS (this) != prev_frame->this)) {
 				/* If file, take the stat info from Storage 
 				   node. */
@@ -1856,11 +1857,11 @@ unify_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (!callcnt) {
 		/* If the inode number is not filled, operation should
 		   fail */
-		if (!local->st_ino)
+		if (!local->ia_ino)
 			local->op_ret = -1;
 
-                local->stpre.st_ino = local->st_ino;
-		local->stpost.st_ino = local->st_ino;
+                local->stpre.ia_ino = local->ia_ino;
+		local->stpost.ia_ino = local->ia_ino;
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 			      &local->stpre, &local->stpost);
@@ -1872,7 +1873,7 @@ unify_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 unify_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-               struct stat *stbuf, int32_t valid)
+               struct iatt *stbuf, int32_t valid)
 {
 	unify_local_t *local = NULL;
 	unify_private_t *priv = this->private;
@@ -1889,7 +1890,7 @@ unify_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	INIT_LOCAL (frame, local);
 	loc_copy (&local->loc1, loc);
 
-	if (S_ISDIR (loc->inode->st_mode)) {
+	if (IA_ISDIR (loc->inode->ia_type)) {
 		local->call_count = 1;
       
                 STACK_WIND (frame,
@@ -1924,7 +1925,7 @@ unify_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 unify_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                struct stat *stbuf, int32_t valid)
+                struct iatt *stbuf, int32_t valid)
 {
 	unify_local_t *local = NULL;
 	xlator_t *child = NULL;
@@ -1967,8 +1968,8 @@ unify_truncate_cbk (call_frame_t *frame,
 		    xlator_t *this,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    struct stat *prebuf,
-                    struct stat *postbuf)
+		    struct iatt *prebuf,
+                    struct iatt *postbuf)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -1992,17 +1993,17 @@ unify_truncate_cbk (call_frame_t *frame,
 
 		if (op_ret >= 0) {
 			if (NS (this) == prev_frame->this) {
-				local->st_ino = postbuf->st_ino;
+				local->ia_ino = postbuf->ia_ino;
 				/* If the entry is directory, get the 
 				   stat from NS node */
-				if (S_ISDIR (postbuf->st_mode) ||
-				    !local->stbuf.st_blksize) {
+				if (IA_ISDIR (postbuf->ia_type) ||
+				    !local->stbuf.ia_blksize) {
 					local->stbuf = *prebuf;
                                         local->poststbuf = *postbuf;
 				}
 			}
 
-			if ((!S_ISDIR (postbuf->st_mode)) &&
+			if ((!IA_ISDIR (postbuf->ia_type)) &&
 			    (NS (this) != prev_frame->this)) {
 				/* If file, take the stat info from 
 				   Storage node. */
@@ -2014,9 +2015,9 @@ unify_truncate_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
     
 	if (!callcnt) {
-		if (local->st_ino) {
-			local->stbuf.st_ino = local->st_ino;
-                        local->poststbuf.st_ino = local->st_ino;
+		if (local->ia_ino) {
+			local->stbuf.ia_ino = local->ia_ino;
+                        local->poststbuf.ia_ino = local->ia_ino;
                 } else {
 			local->op_ret = -1;
                 }
@@ -2049,9 +2050,9 @@ unify_truncate (call_frame_t *frame,
 	/* Initialization */
 	INIT_LOCAL (frame, local);
 	loc_copy (&local->loc1, loc);
-	local->st_ino = loc->inode->ino;
+	local->ia_ino = loc->inode->ino;
 
-	if (S_ISDIR (loc->inode->st_mode)) {
+	if (IA_ISDIR (loc->inode->ia_type)) {
 		local->call_count = 1;
       
 		STACK_WIND (frame,
@@ -2102,7 +2103,7 @@ unify_readlink_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    const char *path,
-                    struct stat *sbuf)
+                    struct iatt *sbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, path, sbuf);
 	return 0;
@@ -2163,8 +2164,8 @@ unify_unlink_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
 	int32_t callcnt = 0;
 	unify_private_t *priv = this->private;
@@ -2253,7 +2254,7 @@ unify_readv_cbk (call_frame_t *frame,
 		 int32_t op_errno,
 		 struct iovec *vector,
 		 int32_t count,
-		 struct stat *stbuf,
+		 struct iatt *stbuf,
                  struct iobref *iobref)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
@@ -2298,18 +2299,18 @@ unify_writev_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-                  struct stat *prebuf,
-		  struct stat *postbuf)
+                  struct iatt *prebuf,
+		  struct iatt *postbuf)
 {
 	unify_local_t *local = NULL;
 
         local = frame->local;
 
         local->stbuf = *prebuf;
-        local->stbuf.st_ino = local->st_ino;
+        local->stbuf.ia_ino = local->ia_ino;
 
         local->poststbuf = *postbuf;
-        local->poststbuf.st_ino = local->st_ino;
+        local->poststbuf.ia_ino = local->ia_ino;
 
 	STACK_UNWIND (frame, op_ret, op_errno,
                       &local->stbuf, &local->poststbuf);
@@ -2334,7 +2335,7 @@ unify_writev (call_frame_t *frame,
 	unify_local_t *local = NULL;
 
 	INIT_LOCAL (frame, local);
-        local->st_ino = fd->inode->ino;
+        local->ia_ino = fd->inode->ino;
 
 	fd_ctx_get (fd, this, &tmp_child);
 	child = (xlator_t *)(long)tmp_child;		     
@@ -2433,8 +2434,8 @@ unify_fsync_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-                 struct stat *prebuf,
-                 struct stat *postbuf)
+                 struct iatt *prebuf,
+                 struct iatt *postbuf)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -2478,7 +2479,7 @@ unify_fstat (call_frame_t *frame,
 	UNIFY_CHECK_FD_AND_UNWIND_ON_ERR(fd);
 
 	INIT_LOCAL (frame, local);
-	local->st_ino = fd->inode->ino;
+	local->ia_ino = fd->inode->ino;
 
 	if (!fd_ctx_get (fd, this, &tmp_child)) {
 		/* If its set, then its file */
@@ -2819,7 +2820,7 @@ unify_setxattr (call_frame_t *frame,
 	local->failed = -1;
 	loc_copy (&local->loc1, loc);
 
-	if (S_ISDIR (loc->inode->st_mode)) {
+	if (IA_ISDIR (loc->inode->ia_type)) {
 
 		if (trav && trav->key && ZR_FILE_CONTENT_REQUEST(trav->key)) {
 			/* direct the storage xlators to change file 
@@ -2951,7 +2952,7 @@ unify_getxattr (call_frame_t *frame,
 	UNIFY_CHECK_INODE_CTX_AND_UNWIND_ON_ERR (loc);
 	INIT_LOCAL (frame, local);
 
-	if (S_ISDIR (loc->inode->st_mode)) {
+	if (IA_ISDIR (loc->inode->ia_type)) {
 		local->call_count = priv->child_count;
 		for (index = 0; index < priv->child_count; index++)
 			STACK_WIND (frame,
@@ -3057,7 +3058,7 @@ unify_removexattr (call_frame_t *frame,
 	/* Initialization */
 	INIT_LOCAL (frame, local);
 
-	if (S_ISDIR (loc->inode->st_mode)) {
+	if (IA_ISDIR (loc->inode->ia_type)) {
 		local->call_count = priv->child_count;
 		for (index = 0; index < priv->child_count; index++)
 			STACK_WIND (frame, 		    
@@ -3110,8 +3111,8 @@ unify_mknod_unlink_cbk (call_frame_t *frame,
 			xlator_t *this,
 			int32_t op_ret,
 			int32_t op_errno,
-                        struct stat *preparent,
-                        struct stat *postparent)
+                        struct iatt *preparent,
+                        struct iatt *postparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3135,9 +3136,9 @@ unify_mknod_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-                 struct stat *buf,
-                 struct stat *preparent,
-                 struct stat *postparent)
+                 struct iatt *buf,
+                 struct iatt *preparent,
+                 struct iatt *postparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3155,7 +3156,7 @@ unify_mknod_cbk (call_frame_t *frame,
 	}
   
 	local->stbuf = *buf;
-	local->stbuf.st_ino = local->st_ino;
+	local->stbuf.ia_ino = local->ia_ino;
 	unify_local_wipe (local);
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf,
                       &local->oldpreparent, &local->oldpostparent);
@@ -3172,9 +3173,9 @@ unify_ns_mknod_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-                    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *buf,
+                    struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	struct sched_ops *sched_ops = NULL;
 	xlator_t *sched_xl = NULL;
@@ -3201,7 +3202,7 @@ unify_ns_mknod_cbk (call_frame_t *frame,
 	/* Create one inode for this entry */
 	local->op_ret = 0;
 	local->stbuf = *buf;
-	local->st_ino = buf->st_ino;
+	local->ia_ino = buf->ia_ino;
 
         local->oldpreparent = *preparent;
         local->oldpostparent = *postparent;
@@ -3283,8 +3284,8 @@ unify_symlink_unlink_cbk (call_frame_t *frame,
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-                          struct stat *preparent,
-                          struct stat *postparent)
+                          struct iatt *preparent,
+                          struct iatt *postparent)
 {
 	unify_local_t *local = frame->local;
 	if (op_ret == -1)
@@ -3306,9 +3307,9 @@ unify_symlink_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-                   struct stat *buf,
-                   struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3330,7 +3331,7 @@ unify_symlink_cbk (call_frame_t *frame,
 	}
   
 	local->stbuf = *buf;
-	local->stbuf.st_ino = local->st_ino;
+	local->stbuf.ia_ino = local->ia_ino;
 	unify_local_wipe (local);
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf,
                       &local->oldpreparent, &local->oldpostparent);
@@ -3348,9 +3349,9 @@ unify_ns_symlink_cbk (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      inode_t *inode,
-                      struct stat *buf,
-                      struct stat *preparent,
-                      struct stat *postparent)
+                      struct iatt *buf,
+                      struct iatt *preparent,
+                      struct iatt *postparent)
 {
 
 	struct sched_ops *sched_ops = NULL;
@@ -3375,7 +3376,7 @@ unify_ns_symlink_cbk (call_frame_t *frame,
   
 	/* Create one inode for this entry */
 	local->op_ret = 0;
-	local->st_ino = buf->st_ino;
+	local->ia_ino = buf->ia_ino;
   
         local->oldpreparent = *preparent;
         local->oldpostparent = *postparent;
@@ -3464,8 +3465,8 @@ unify_rename_unlink_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-                         struct stat *preparent,
-                         struct stat *postparent)
+                         struct iatt *preparent,
+                         struct iatt *postparent)
 {
 	int32_t callcnt = 0;
 	unify_local_t *local = frame->local;
@@ -3486,7 +3487,7 @@ unify_rename_unlink_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (!callcnt) {
-		local->stbuf.st_ino = local->st_ino;
+		local->stbuf.ia_ino = local->ia_ino;
 		unify_local_wipe (local);
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 			      &local->stbuf);
@@ -3500,11 +3501,11 @@ unify_ns_rename_undo_cbk (call_frame_t *frame,
 			  xlator_t *this,
 			  int32_t op_ret,
 			  int32_t op_errno,
-			  struct stat *buf,
-                          struct stat *preoldparent,
-                          struct stat *postoldparent,
-                          struct stat *prenewparent,
-                          struct stat *postnewparent)
+			  struct iatt *buf,
+                          struct iatt *preoldparent,
+                          struct iatt *postoldparent,
+                          struct iatt *prenewparent,
+                          struct iatt *postnewparent)
 {
 	unify_local_t *local = frame->local;
 
@@ -3515,7 +3516,7 @@ unify_ns_rename_undo_cbk (call_frame_t *frame,
 			strerror (op_errno));
 	}
 
-	local->stbuf.st_ino = local->st_ino;
+	local->stbuf.ia_ino = local->ia_ino;
 	unify_local_wipe (local);
 	STACK_UNWIND (frame, local->op_ret, local->op_errno, &local->stbuf);
 	return 0;
@@ -3527,11 +3528,11 @@ unify_rename_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *buf,
-                  struct stat *preoldparent,
-                  struct stat *postoldparent,
-                  struct stat *prenewparent,
-                  struct stat *postnewparent)
+		  struct iatt *buf,
+                  struct iatt *preoldparent,
+                  struct iatt *postoldparent,
+                  struct iatt *prenewparent,
+                  struct iatt *postnewparent)
 {
 	int32_t index = 0;
 	int32_t callcnt = 0;
@@ -3544,7 +3545,7 @@ unify_rename_cbk (call_frame_t *frame,
 	{
 		callcnt = --local->call_count;
 		if (op_ret >= 0) {
-			if (!S_ISDIR (buf->st_mode))
+			if (!IA_ISDIR (buf->ia_type))
 				local->stbuf = *buf;
 			local->op_ret = op_ret;
 		} else {
@@ -3559,8 +3560,8 @@ unify_rename_cbk (call_frame_t *frame,
 	UNLOCK (&frame->lock);
 
 	if (!callcnt) {
-		local->stbuf.st_ino = local->st_ino;
-		if (S_ISDIR (local->loc1.inode->st_mode)) {
+		local->stbuf.ia_ino = local->ia_ino;
+		if (IA_ISDIR (local->loc1.inode->ia_type)) {
 			unify_local_wipe (local);
 			STACK_UNWIND (frame, local->op_ret, local->op_errno,
                                       &local->stbuf, &local->oldpreparent,
@@ -3692,11 +3693,11 @@ unify_ns_rename_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf,
-                     struct stat *preoldparent,
-                     struct stat *postoldparent,
-                     struct stat *prenewparent,
-                     struct stat *postnewparent)
+		     struct iatt *buf,
+                     struct iatt *preoldparent,
+                     struct iatt *postoldparent,
+                     struct iatt *prenewparent,
+                     struct iatt *postnewparent)
 {
 	int32_t index = 0;
 	int32_t callcnt = 0;
@@ -3719,7 +3720,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
 	}
 
 	local->stbuf = *buf;
-	local->st_ino = buf->st_ino;
+	local->ia_ino = buf->ia_ino;
 
         local->oldpreparent = *preoldparent;
         local->oldpostparent = *postoldparent;
@@ -3727,7 +3728,7 @@ unify_ns_rename_cbk (call_frame_t *frame,
         local->newpostparent = *postnewparent;
 
 	/* Everything is fine. */
-	if (S_ISDIR (buf->st_mode)) {
+	if (IA_ISDIR (buf->ia_type)) {
 		local->call_count = priv->child_count;
 		for (index=0; index < priv->child_count; index++) {
 			STACK_WIND (frame,
@@ -3826,15 +3827,15 @@ unify_link_cbk (call_frame_t *frame,
 		int32_t op_ret,
 		int32_t op_errno,
 		inode_t *inode,
-                struct stat *buf,
-                struct stat *preparent,
-                struct stat *postparent)
+                struct iatt *buf,
+                struct iatt *preparent,
+                struct iatt *postparent)
 {
 	unify_local_t *local = frame->local;
 
 	if (op_ret >= 0) 
 		local->stbuf = *buf;
-	local->stbuf.st_ino = local->st_ino;
+	local->stbuf.ia_ino = local->ia_ino;
 
 	unify_local_wipe (local);
 	STACK_UNWIND (frame, op_ret, op_errno, inode, &local->stbuf,
@@ -3853,9 +3854,9 @@ unify_ns_link_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-                   struct stat *buf,
-                   struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	unify_private_t *priv = this->private;
 	unify_local_t *local = frame->local;
@@ -3878,7 +3879,7 @@ unify_ns_link_cbk (call_frame_t *frame,
 
 	/* Update inode for this entry */
 	local->op_ret = 0;
-	local->st_ino = buf->st_ino;
+	local->ia_ino = buf->ia_ino;
 
         local->oldpreparent = *preparent;
         local->oldpostparent = *postparent;
@@ -4178,7 +4179,7 @@ unify_forget (xlator_t *this,
         int16_t *list = NULL;
         uint64_t tmp_list = 0;
 
-        if (inode->st_mode && (!S_ISDIR(inode->st_mode))) {
+        if (inode->ia_type && (!IA_ISDIR(inode->ia_type))) {
                 inode_ctx_get (inode, this, &tmp_list);
                 if (tmp_list) {
                         list = (int16_t *)(long)tmp_list;

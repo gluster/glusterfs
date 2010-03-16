@@ -150,7 +150,7 @@ out:
 int32_t
 qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
-               struct stat *buf, dict_t *dict, struct stat *postparent)
+               struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
         data_t    *content = NULL;
         qr_file_t *qr_file = NULL;
@@ -164,11 +164,11 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         conf = this->private;
 
-        if (buf->st_size > conf->max_file_size) {
+        if (buf->ia_size > conf->max_file_size) {
                 goto out;
         }
 
-        if (S_ISDIR (buf->st_mode)) {
+        if (IA_ISDIR (buf->ia_type)) {
                 goto out;
         }
 
@@ -215,7 +215,7 @@ unlock:
                 LOCK (&qr_file->lock);
                 {
                         if (qr_file->xattr
-                            && (qr_file->stbuf.st_mtime != buf->st_mtime)) {
+                            && (qr_file->stbuf.ia_mtime != buf->ia_mtime)) {
                                 dict_unref (qr_file->xattr);
                                 qr_file->xattr = NULL;
                         }
@@ -546,7 +546,7 @@ qr_need_validation (qr_conf_t *conf, qr_file_t *file)
 
 static int32_t
 qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct stat *buf)
+                       int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         qr_file_t  *qr_file = NULL;
         qr_local_t *local = NULL;
@@ -580,7 +580,7 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&qr_file->lock);
         {
-                if (qr_file->stbuf.st_mtime != buf->st_mtime) {
+                if (qr_file->stbuf.ia_mtime != buf->ia_mtime) {
                         dict_unref (qr_file->xattr);
                         qr_file->xattr = NULL;
                 }
@@ -729,7 +729,7 @@ out:
 int32_t
 qr_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
-              struct stat *stbuf, struct iobref *iobref)
+              struct iatt *stbuf, struct iobref *iobref)
 {
 	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
                              stbuf, iobref);
@@ -759,7 +759,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         char               need_open = 0, can_wind = 0, need_unwind = 0;
         struct iobuf      *iobuf = NULL;
         struct iobref     *iobref = NULL; 
-        struct stat        stbuf = {0, }; 
+        struct iatt        stbuf = {0, }; 
         data_t            *content = NULL;
         qr_fd_ctx_t       *qr_fd_ctx = NULL; 
         call_stub_t       *stub = NULL;
@@ -978,8 +978,8 @@ out:
 
 int32_t
 qr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-               struct stat *postbuf)
+               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -1098,7 +1098,7 @@ out:
 
 int32_t
 qr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-		   int32_t op_errno, struct stat *buf)
+		   int32_t op_errno, struct iatt *buf)
 {
 	STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
 	return 0;
@@ -1195,7 +1195,7 @@ out:
 int32_t
 qr_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 struct stat *preop, struct stat *postop)
+                 struct iatt *preop, struct iatt *postop)
 {
 	STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, preop, postop);
 	return 0;
@@ -1204,7 +1204,7 @@ qr_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 qr_fsetattr_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                    struct stat *stbuf, int32_t valid)
+                    struct iatt *stbuf, int32_t valid)
 {
         STACK_WIND(frame, qr_fsetattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fsetattr, fd, stbuf,
@@ -1215,7 +1215,7 @@ qr_fsetattr_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int32_t
 qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-             struct stat *stbuf, int32_t valid)
+             struct iatt *stbuf, int32_t valid)
 {
         uint64_t     value = 0;
         int          flags = 0;
@@ -1765,7 +1765,7 @@ out:
 
 int32_t
 qr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-              int32_t op_errno, struct stat *prebuf, struct stat *postbuf)
+              int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -1859,8 +1859,8 @@ out:
 
 int32_t
 qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                  struct stat *postbuf)
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf)
 {
         int32_t     ret = 0;
         uint64_t    value = 0;
@@ -1886,7 +1886,7 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (qr_file) {
                         LOCK (&qr_file->lock);
                         {
-                                if (qr_file->stbuf.st_size != postbuf->st_size)
+                                if (qr_file->stbuf.ia_size != postbuf->ia_size)
                                 {
                                         dict_unref (qr_file->xattr);
                                         qr_file->xattr = NULL;
