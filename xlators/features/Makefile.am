@@ -1,3 +1,3 @@
-SUBDIRS = locks trash path-convertor filter quota
+SUBDIRS = locks trash quota #path-converter # filter 
 
 CLEANFILES = 
