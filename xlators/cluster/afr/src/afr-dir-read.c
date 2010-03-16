@@ -402,7 +402,7 @@ afr_filter_entries (gf_dirent_t *entries, fd_t *fd)
 	uint64_t      ctx;
 	afr_fd_ctx_t *fd_ctx;
 
-	off_t offset;
+	off_t offset = 0;
 
 	ret = fd_ctx_get (fd, THIS, &ctx);
 	if (ret < 0) {
@@ -511,7 +511,7 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int child_index = -1;
 
         uint64_t      ctx;
-        afr_fd_ctx_t *fd_ctx;
+        afr_fd_ctx_t *fd_ctx = NULL;
 
 	off_t offset = 0;
 
@@ -556,20 +556,22 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 	}
 
-        list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-                inum = afr_itransform (entry->d_ino, priv->child_count,
-                                       child_index);
-                entry->d_ino = inum;
-                inum  = afr_itransform (entry->d_stat.st_ino,
-                                        priv->child_count, child_index);
-                entry->d_stat.st_ino = inum;
+	if (op_ret != -1) {
+		list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+			inum = afr_itransform (entry->d_ino, priv->child_count,
+					       child_index);
+			entry->d_ino = inum;
+			inum  = afr_itransform (entry->d_stat.st_ino,
+						priv->child_count, child_index);
+			entry->d_stat.st_ino = inum;
 
-                if ((local->fd->inode == local->fd->inode->table->root)
-                    && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
-                        list_del_init (&entry->list);
-                        FREE (entry);
-                }
-        }
+			if ((local->fd->inode == local->fd->inode->table->root)
+			    && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
+				list_del_init (&entry->list);
+				FREE (entry);
+			}
+		}
+	}
 
 	if (priv->strict_readdir) {
 		if (fd_ctx->failed_over) {
