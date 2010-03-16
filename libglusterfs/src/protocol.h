@@ -34,6 +34,7 @@
 #include <fcntl.h>
 
 #include "byte-order.h"
+#include "iatt.h"
 
 /* Any changes in the protocol structure or adding new '[f,m]ops' needs to 
  * bump the protocol version by "0.1" 
@@ -98,6 +99,57 @@ gf_stat_from_stat (struct gf_stat *gf_stat, struct stat *stat)
 	gf_stat->mtime       = hton32 (stat->st_mtime);
 	gf_stat->ctime       = hton32 (stat->st_ctime);
 	/* TODO: handle nsec */
+}
+
+
+static inline void
+gf_stat_to_iatt (struct gf_stat *gf_stat, struct iatt *iatt)
+{
+        iatt->ia_ino        = ntoh64 (gf_stat->ino);
+        iatt->ia_dev        = ntoh64 (gf_stat->dev);
+        iatt->ia_type       = ia_type_from_st_mode (ntoh32 (gf_stat->mode));
+        iatt->ia_prot       = ia_prot_from_st_mode (ntoh32 (gf_stat->mode));
+        iatt->ia_nlink      = ntoh32 (gf_stat->nlink);
+        iatt->ia_uid        = ntoh32 (gf_stat->uid);
+        iatt->ia_gid        = ntoh32 (gf_stat->gid);
+        iatt->ia_rdev       = ntoh64 (gf_stat->rdev);
+        iatt->ia_size       = ntoh64 (gf_stat->size);
+        iatt->ia_blksize    = ntoh32 (gf_stat->blksize);
+        iatt->ia_blocks     = ntoh64 (gf_stat->blocks);
+        iatt->ia_atime      = ntoh32 (gf_stat->atime);
+        iatt->ia_atime_nsec = ntoh32 (gf_stat->atime_nsec);
+        iatt->ia_mtime      = ntoh32 (gf_stat->mtime);
+        iatt->ia_mtime_nsec = ntoh32 (gf_stat->mtime_nsec);
+        iatt->ia_ctime      = ntoh32 (gf_stat->ctime);
+        iatt->ia_ctime_nsec = ntoh32 (gf_stat->ctime_nsec);
+
+        iatt->ia_gen        = ntoh64 (gf_stat->dev);
+}
+
+
+static inline void
+gf_stat_from_iatt (struct gf_stat *gf_stat, struct iatt *iatt)
+{
+        gf_stat->ino        = hton64 (iatt->ia_ino);
+        gf_stat->dev        = hton64 (iatt->ia_dev);
+        gf_stat->mode       = hton32 (st_mode_from_ia (iatt->ia_prot,
+                                                       iatt->ia_type));
+        gf_stat->nlink      = hton32 (iatt->ia_nlink);
+        gf_stat->uid        = hton32 (iatt->ia_uid);
+        gf_stat->gid        = hton32 (iatt->ia_gid);
+        gf_stat->rdev       = hton32 (iatt->ia_rdev);
+        gf_stat->size       = hton64 (iatt->ia_size);
+        gf_stat->blksize    = hton32 (iatt->ia_blksize);
+        gf_stat->blocks     = hton64 (iatt->ia_blocks);
+        gf_stat->atime      = hton32 (iatt->ia_atime);
+        gf_stat->atime_nsec = hton32 (iatt->ia_atime_nsec);
+        gf_stat->mtime      = hton32 (iatt->ia_mtime);
+        gf_stat->mtime_nsec = hton32 (iatt->ia_mtime_nsec);
+        gf_stat->ctime      = hton32 (iatt->ia_ctime);
+        gf_stat->ctime_nsec = hton32 (iatt->ia_ctime_nsec);
+
+        gf_stat->dev        = hton64 (iatt->ia_gen);
+
 }
 
 

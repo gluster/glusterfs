@@ -668,8 +668,8 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *preparent,
-                  struct stat *postparent)
+                  int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                  struct iatt *postparent)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_rmdir_rsp_t *rsp = NULL;
@@ -705,8 +705,8 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->preparent, preparent);
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->preparent, preparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
         }
 
         protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
@@ -729,8 +729,8 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
-                  struct stat *stbuf, struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *stbuf, struct iatt *preparent,
+                  struct iatt *postparent)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_mkdir_rsp_t *rsp = NULL;
@@ -750,9 +750,9 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&rsp->stat, stbuf);
-                gf_stat_from_stat (&rsp->preparent, preparent);
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->preparent, preparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
 
                 link_inode = inode_link (inode, state->loc.parent,
                                          state->loc.name, stbuf);
@@ -785,8 +785,8 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
-                  inode_t *inode, struct stat *stbuf, struct stat *preparent,
-                  struct stat *postparent)
+                  inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
+                  struct iatt *postparent)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_mknod_rsp_t *rsp = NULL;
@@ -806,9 +806,9 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&rsp->stat, stbuf);
-                gf_stat_from_stat (&rsp->preparent, preparent);
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->preparent, preparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
 
                 link_inode = inode_link (inode, state->loc.parent,
                                          state->loc.name, stbuf);
@@ -1383,9 +1383,9 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *stbuf,
-                   struct stat *preoldparent, struct stat *postoldparent,
-                   struct stat *prenewparent, struct stat *postnewparent)
+                   int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                   struct iatt *preoldparent, struct iatt *postoldparent,
+                   struct iatt *prenewparent, struct iatt *postnewparent)
 {
         gf_hdr_common_t     *hdr = NULL;
         gf_fop_rename_rsp_t *rsp = NULL;
@@ -1404,8 +1404,8 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
-                stbuf->st_ino  = state->loc.inode->ino;
-                stbuf->st_mode = state->loc.inode->st_mode;
+                stbuf->ia_ino  = state->loc.inode->ino;
+                stbuf->ia_type = state->loc.inode->ia_type;
 
                 gf_log (state->bound_xl->name, GF_LOG_TRACE,
                         "%"PRId64": RENAME_CBK (%"PRId64") %"PRId64"/%s "
@@ -1418,13 +1418,13 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                               state->loc.parent, state->loc.name,
                               state->loc2.parent, state->loc2.name,
                               state->loc.inode, stbuf);
-                gf_stat_from_stat (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
 
-                gf_stat_from_stat (&rsp->preoldparent, preoldparent);
-                gf_stat_from_stat (&rsp->postoldparent, postoldparent);
+                gf_stat_from_iatt (&rsp->preoldparent, preoldparent);
+                gf_stat_from_iatt (&rsp->postoldparent, postoldparent);
 
-                gf_stat_from_stat (&rsp->prenewparent, prenewparent);
-                gf_stat_from_stat (&rsp->postnewparent, postnewparent);
+                gf_stat_from_iatt (&rsp->prenewparent, prenewparent);
+                gf_stat_from_iatt (&rsp->postnewparent, postnewparent);
         }
 
         protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RENAME,
@@ -1446,8 +1446,8 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *preparent,
-                   struct stat *postparent)
+                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
+                   struct iatt *postparent)
 {
         gf_hdr_common_t      *hdr = NULL;
         gf_fop_unlink_rsp_t  *rsp = NULL;
@@ -1489,8 +1489,8 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->preparent, preparent);
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->preparent, preparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
         }
 
         protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
@@ -1512,8 +1512,8 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
-                    struct stat *stbuf, struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *stbuf, struct iatt *preparent,
+                    struct iatt *postparent)
 {
         gf_hdr_common_t      *hdr = NULL;
         gf_fop_symlink_rsp_t *rsp = NULL;
@@ -1533,9 +1533,9 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&rsp->stat, stbuf);
-                gf_stat_from_stat (&rsp->preparent, preparent);
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->preparent, preparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
 
                 link_inode = inode_link (inode, state->loc.parent,
                                          state->loc.name, stbuf);
@@ -1569,8 +1569,8 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
-                 struct stat *stbuf, struct stat *preparent,
-                 struct stat *postparent)
+                 struct iatt *stbuf, struct iatt *preparent,
+                 struct iatt *postparent)
 {
         gf_hdr_common_t   *hdr = NULL;
         gf_fop_link_rsp_t *rsp = NULL;
@@ -1590,11 +1590,11 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
-                stbuf->st_ino = state->loc.inode->ino;
+                stbuf->ia_ino = state->loc.inode->ino;
 
-                gf_stat_from_stat (&rsp->stat, stbuf);
-                gf_stat_from_stat (&rsp->preparent, preparent);
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->preparent, preparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
 
                 gf_log (state->bound_xl->name, GF_LOG_TRACE,
                         "%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
@@ -1637,8 +1637,8 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                     struct stat *postbuf)
+                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf)
 {
         gf_hdr_common_t       *hdr = NULL;
         gf_fop_truncate_rsp_t *rsp = NULL;
@@ -1657,8 +1657,8 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->prestat, prebuf);
-                gf_stat_from_stat (&rsp->poststat, postbuf);
+                gf_stat_from_iatt (&rsp->prestat, prebuf);
+                gf_stat_from_iatt (&rsp->poststat, postbuf);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "%"PRId64": TRUNCATE %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -1686,7 +1686,7 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                  int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_fstat_rsp_t *rsp = NULL;
@@ -1703,7 +1703,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
         } else {
                 state = CALL_STATE(frame);
 
@@ -1733,8 +1733,8 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                      struct stat *postbuf)
+                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf)
 {
         gf_hdr_common_t        *hdr = NULL;
         gf_fop_ftruncate_rsp_t *rsp = NULL;
@@ -1751,8 +1751,8 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->prestat, prebuf);
-                gf_stat_from_stat (&rsp->poststat, postbuf);
+                gf_stat_from_iatt (&rsp->prestat, prebuf);
+                gf_stat_from_iatt (&rsp->poststat, postbuf);
         } else {
                 state = CALL_STATE (frame);
 
@@ -1825,8 +1825,8 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                  struct stat *postbuf)
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_fsync_rsp_t *rsp = NULL;
@@ -1853,8 +1853,8 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&(rsp->prestat), prebuf);
-                gf_stat_from_stat (&(rsp->poststat), postbuf);
+                gf_stat_from_iatt (&(rsp->prestat), prebuf);
+                gf_stat_from_iatt (&(rsp->poststat), postbuf);
         }
 
         protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
@@ -1909,8 +1909,8 @@ server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                   struct stat *postbuf)
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_write_rsp_t *rsp = NULL;
@@ -1927,8 +1927,8 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&rsp->prestat, prebuf);
-                gf_stat_from_stat (&rsp->poststat, postbuf);
+                gf_stat_from_iatt (&rsp->prestat, prebuf);
+                gf_stat_from_iatt (&rsp->poststat, postbuf);
         } else {
                 state = CALL_STATE(frame);
 
@@ -1962,7 +1962,7 @@ int
 server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
                   struct iovec *vector, int32_t count,
-                  struct stat *stbuf, struct iobref *iobref)
+                  struct iatt *stbuf, struct iobref *iobref)
 {
         gf_hdr_common_t   *hdr = NULL;
         gf_fop_read_rsp_t *rsp = NULL;
@@ -1979,7 +1979,7 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
         } else {
                 state = CALL_STATE(frame);
 
@@ -2062,15 +2062,15 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  * @op_errno:
  * @fd: file descriptor
  * @inode: inode structure
- * @stbuf: struct stat of created file
+ * @stbuf: struct iatt of created file
  *
  * not for external reference
  */
 int
 server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   fd_t *fd, inode_t *inode, struct stat *stbuf,
-                   struct stat *preparent, struct stat *postparent)
+                   fd_t *fd, inode_t *inode, struct iatt *stbuf,
+                   struct iatt *preparent, struct iatt *postparent)
 {
         server_connection_t *conn = NULL;
         gf_hdr_common_t     *hdr = NULL;
@@ -2089,7 +2089,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (state->bound_xl->name, GF_LOG_TRACE,
                         "%"PRId64": CREATE %"PRId64"/%s (%"PRId64")",
                         frame->root->unique, state->loc.parent->ino,
-                        state->loc.name, stbuf->st_ino);
+                        state->loc.name, stbuf->ia_ino);
 
                 link_inode = inode_link (inode, state->loc.parent,
                                          state->loc.name, stbuf);
@@ -2142,9 +2142,9 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rsp->fd           = hton64 (fd_no);
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&rsp->stat, stbuf);
-                gf_stat_from_stat (&rsp->preparent, preparent);
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->preparent, preparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
         }
 
         protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
@@ -2167,7 +2167,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, const char *buf,
-                     struct stat *sbuf)
+                     struct iatt *sbuf)
 {
         gf_hdr_common_t       *hdr = NULL;
         gf_fop_readlink_rsp_t *rsp = NULL;
@@ -2197,7 +2197,7 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
         if (op_ret >= 0) {
-                gf_stat_from_stat (&(rsp->buf), sbuf);
+                gf_stat_from_iatt (&(rsp->buf), sbuf);
                 strcpy (rsp->path, buf);
         }
 
@@ -2220,7 +2220,7 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+                 int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
 {
         gf_hdr_common_t   *hdr = NULL;
         gf_fop_stat_rsp_t *rsp = NULL;
@@ -2239,7 +2239,7 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "%"PRId64": STAT %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -2269,7 +2269,7 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
-                    struct stat *statpre, struct stat *statpost)
+                    struct iatt *statpre, struct iatt *statpost)
 {
         gf_hdr_common_t       *hdr = NULL;
         gf_fop_setattr_rsp_t  *rsp = NULL;
@@ -2288,8 +2288,8 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->statpre, statpre);
-                gf_stat_from_stat (&rsp->statpost, statpost);
+                gf_stat_from_iatt (&rsp->statpre, statpre);
+                gf_stat_from_iatt (&rsp->statpost, statpost);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "%"PRId64": SETATTR %s (%"PRId64") ==> %"PRId32" (%s)",
@@ -2318,7 +2318,7 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
-                     struct stat *statpre, struct stat *statpost)
+                     struct iatt *statpre, struct iatt *statpost)
 {
         gf_hdr_common_t       *hdr = NULL;
         gf_fop_fsetattr_rsp_t *rsp = NULL;
@@ -2337,8 +2337,8 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno_to_error (op_errno));
 
         if (op_ret == 0) {
-                gf_stat_from_stat (&rsp->statpre, statpre);
-                gf_stat_from_stat (&rsp->statpost, statpost);
+                gf_stat_from_iatt (&rsp->statpre, statpre);
+                gf_stat_from_iatt (&rsp->statpost, statpost);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "%"PRId64": FSETATTR %"PRId64" (%"PRId64") ==> "
@@ -2370,8 +2370,8 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
-                   inode_t *inode, struct stat *stbuf, dict_t *dict,
-                   struct stat *postparent)
+                   inode_t *inode, struct iatt *stbuf, dict_t *dict,
+                   struct iatt *postparent)
 {
         gf_hdr_common_t     *hdr = NULL;
         gf_fop_lookup_rsp_t *rsp = NULL;
@@ -2435,18 +2435,18 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (postparent)
-                gf_stat_from_stat (&rsp->postparent, postparent);
+                gf_stat_from_iatt (&rsp->postparent, postparent);
 
         if (op_ret == 0) {
                 root_inode = BOUND_XL(frame)->itable->root;
                 if (inode == root_inode) {
                         /* we just looked up root ("/") */
-                        stbuf->st_ino = 1;
-                        if (inode->st_mode == 0)
-                                inode->st_mode = stbuf->st_mode;
+                        stbuf->ia_ino = 1;
+                        if (inode->ia_type == 0)
+                                inode->ia_type = stbuf->ia_type;
                 }
 
-                gf_stat_from_stat (&rsp->stat, stbuf);
+                gf_stat_from_iatt (&rsp->stat, stbuf);
 
                 if (inode->ino != 1) {
                         link_inode = inode_link (inode, state->loc.parent,
@@ -2802,7 +2802,7 @@ server_setattr (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.gen   = ntoh64 (req->gen);
         state->resolve.path  = strdup (req->path);
 
-        gf_stat_to_stat (&req->stbuf, &state->stbuf);
+        gf_stat_to_iatt (&req->stbuf, &state->stbuf);
         state->valid = ntoh32 (req->valid);
 
         resolve_and_resume (frame, server_setattr_resume);
@@ -2848,7 +2848,7 @@ server_fsetattr (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.fd_no  = ntoh64 (req->fd);
 
-        gf_stat_to_stat (&req->stbuf, &state->stbuf);
+        gf_stat_to_iatt (&req->stbuf, &state->stbuf);
         state->valid = ntoh32 (req->valid);
 
         resolve_and_resume (frame, server_fsetattr_resume);
@@ -5084,25 +5084,25 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
                                 &size, &blksize, &blocks, &atime, &atime_nsec,
                                 &mtime, &mtime_nsec, &ctime, &ctime_nsec);
 
-                        trav->buf.st_dev = dev;
-                        trav->buf.st_ino = ino;
-                        trav->buf.st_mode = mode;
-                        trav->buf.st_nlink = nlink;
-                        trav->buf.st_uid = uid;
-                        trav->buf.st_gid = gid;
-                        trav->buf.st_rdev = rdev;
-                        trav->buf.st_size = size;
-                        trav->buf.st_blksize = blksize;
-                        trav->buf.st_blocks = blocks;
+                        trav->buf.ia_gen = dev;
+                        trav->buf.ia_ino = ino;
+                        trav->buf.ia_prot = ia_prot_from_st_mode (mode);
+                        trav->buf.ia_type = ia_type_from_st_mode (mode);
+                        trav->buf.ia_nlink = nlink;
+                        trav->buf.ia_uid = uid;
+                        trav->buf.ia_gid = gid;
+                        trav->buf.ia_rdev = rdev;
+                        trav->buf.ia_size = size;
+                        trav->buf.ia_blksize = blksize;
+                        trav->buf.ia_blocks = blocks;
 
-                        trav->buf.st_atime = atime;
-                        trav->buf.st_mtime = mtime;
-                        trav->buf.st_ctime = ctime;
+                        trav->buf.ia_atime = atime;
+                        trav->buf.ia_mtime = mtime;
+                        trav->buf.ia_ctime = ctime;
 
-                        ST_ATIM_NSEC_SET(&trav->buf, atime_nsec);
-                        ST_MTIM_NSEC_SET(&trav->buf, mtime_nsec);
-                        ST_CTIM_NSEC_SET(&trav->buf, ctime_nsec);
-
+                        trav->buf.ia_atime_nsec = atime_nsec;
+                        trav->buf.ia_mtime_nsec = mtime_nsec;
+                        trav->buf.ia_ctime_nsec = ctime_nsec;
                 }
 
                 ender = strchr (buffer_ptr, '\n');
@@ -5110,7 +5110,7 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
                         break;
                 count = ender - buffer_ptr;
                 *ender = '\0';
-                if (S_ISLNK (trav->buf.st_mode)) {
+                if (IA_ISLNK (trav->buf.ia_type)) {
                         trav->link = strdup (buffer_ptr);
                 } else
                         trav->link = "";
@@ -5131,7 +5131,7 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
         while (trav) {
                 prev->next = trav->next;
                 FREE (trav->name);
-                if (S_ISLNK (trav->buf.st_mode))
+                if (IA_ISLNK (trav->buf.ia_type))
                         FREE (trav->link);
                 FREE (trav);
                 trav = prev->next;

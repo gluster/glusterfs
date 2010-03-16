@@ -46,9 +46,9 @@ typedef struct {
 			fop_lookup_cbk_t fn;
 			int32_t op_ret, op_errno;
 			inode_t *inode;
-			struct stat buf;
+			struct iatt buf;
 			dict_t *dict;
-                        struct stat postparent;
+                        struct iatt postparent;
 		} lookup_cbk;
 
 		/* stat */
@@ -59,7 +59,7 @@ typedef struct {
 		struct {
 			fop_stat_cbk_t fn;
 			int32_t op_ret, op_errno;
-			struct stat buf;
+			struct iatt buf;
 		} stat_cbk;
 
 		/* fstat */
@@ -70,7 +70,7 @@ typedef struct {
 		struct {
 			fop_fstat_cbk_t fn;
 			int32_t op_ret, op_errno;
-			struct stat buf;
+			struct iatt buf;
 		} fstat_cbk;
 
 		/* truncate */
@@ -82,8 +82,8 @@ typedef struct {
 		struct {
 			fop_truncate_cbk_t fn;
 			int32_t op_ret, op_errno;
-			struct stat prebuf;
-                        struct stat postbuf;
+			struct iatt prebuf;
+                        struct iatt postbuf;
 		} truncate_cbk;
 
 		/* ftruncate */
@@ -95,8 +95,8 @@ typedef struct {
 		struct {
 			fop_ftruncate_cbk_t fn;
 			int32_t op_ret, op_errno;
-			struct stat prebuf;
-                        struct stat postbuf;
+			struct iatt prebuf;
+                        struct iatt postbuf;
 		} ftruncate_cbk;
 
 		/* access */
@@ -120,7 +120,7 @@ typedef struct {
 			fop_readlink_cbk_t fn;
 			int32_t op_ret, op_errno;
 			const char *buf;
-                        struct stat sbuf;
+                        struct iatt sbuf;
 		} readlink_cbk;
 
 		/* mknod */
@@ -134,9 +134,9 @@ typedef struct {
 			fop_mknod_cbk_t fn;
 			int32_t op_ret, op_errno;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat preparent;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} mknod_cbk;
 
 		/* mkdir */
@@ -149,9 +149,9 @@ typedef struct {
 			fop_mkdir_cbk_t fn;
 			int32_t op_ret, op_errno;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat preparent;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} mkdir_cbk;
 
 		/* unlink */
@@ -162,8 +162,8 @@ typedef struct {
 		struct {
 			fop_unlink_cbk_t fn;
 			int32_t op_ret, op_errno;
-                        struct stat preparent;
-                        struct stat postparent;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} unlink_cbk;
 
 		/* rmdir */
@@ -174,8 +174,8 @@ typedef struct {
 		struct {
 			fop_rmdir_cbk_t fn;
 			int32_t op_ret, op_errno;
-                        struct stat preparent;
-                        struct stat postparent;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} rmdir_cbk;
 
 		/* symlink */
@@ -188,9 +188,9 @@ typedef struct {
 			fop_symlink_cbk_t fn;
 			int32_t op_ret, op_errno;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat preparent;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} symlink_cbk;
 
 		/* rename */
@@ -202,11 +202,11 @@ typedef struct {
 		struct {
 			fop_rename_cbk_t fn;
 			int32_t op_ret, op_errno;
-			struct stat buf;
-                        struct stat preoldparent;
-                        struct stat postoldparent;
-                        struct stat prenewparent;
-                        struct stat postnewparent;
+			struct iatt buf;
+                        struct iatt preoldparent;
+                        struct iatt postoldparent;
+                        struct iatt prenewparent;
+                        struct iatt postnewparent;
 		} rename_cbk;
 
 		/* link */
@@ -219,9 +219,9 @@ typedef struct {
 			fop_link_cbk_t fn;
 			int32_t op_ret, op_errno;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat preparent;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} link_cbk;
 
 		/* create */
@@ -237,9 +237,9 @@ typedef struct {
 			int32_t op_ret, op_errno;
 			fd_t *fd;
 			inode_t *inode;
-			struct stat buf;
-                        struct stat preparent;
-                        struct stat postparent;
+			struct iatt buf;
+                        struct iatt preparent;
+                        struct iatt postparent;
 		} create_cbk;
 
 		/* open */
@@ -269,7 +269,7 @@ typedef struct {
 			int32_t op_errno;
 			struct iovec *vector;
 			int32_t count;
-			struct stat stbuf;
+			struct iatt stbuf;
 			struct iobref *iobref;
 		} readv_cbk;
 
@@ -285,8 +285,8 @@ typedef struct {
 		struct {
 			fop_writev_cbk_t fn;
 			int32_t op_ret, op_errno;
-                        struct stat prebuf;
-			struct stat postbuf;
+                        struct iatt prebuf;
+			struct iatt postbuf;
 		} writev_cbk;
 
 		/* flush */
@@ -308,8 +308,8 @@ typedef struct {
 		struct {
 			fop_fsync_cbk_t fn;
 			int32_t op_ret, op_errno;
-                        struct stat prebuf;
-                        struct stat postbuf;
+                        struct iatt prebuf;
+                        struct iatt postbuf;
 		} fsync_cbk;
 
 		/* opendir */
@@ -613,30 +613,30 @@ typedef struct {
                 struct {
                         fop_setattr_t fn;
                         loc_t loc;
-                        struct stat stbuf;
+                        struct iatt stbuf;
                         int32_t valid;
                 } setattr;
                 struct {
                         fop_setattr_cbk_t fn;
                         int32_t op_ret;
                         int32_t op_errno;
-                        struct stat statpre;
-                        struct stat statpost;
+                        struct iatt statpre;
+                        struct iatt statpost;
                 } setattr_cbk;
 
                 /* fsetattr */
                 struct {
                         fop_fsetattr_t fn;
                         fd_t *fd;
-                        struct stat stbuf;
+                        struct iatt stbuf;
                         int32_t valid;
                 } fsetattr;
                 struct {
                         fop_fsetattr_cbk_t fn;
                         int32_t op_ret;
                         int32_t op_errno;
-                        struct stat statpre;
-                        struct stat statpost;
+                        struct iatt statpre;
+                        struct iatt statpost;
                 } fsetattr_cbk;
 
 	} args;
@@ -654,9 +654,9 @@ fop_lookup_cbk_stub (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     inode_t *inode,
-		     struct stat *buf,
+		     struct iatt *buf,
                      dict_t *dict,
-                     struct stat *postparent);
+                     struct iatt *postparent);
 call_stub_t *
 fop_stat_stub (call_frame_t *frame,
 	       fop_stat_t fn,
@@ -666,7 +666,7 @@ fop_stat_cbk_stub (call_frame_t *frame,
 		   fop_stat_cbk_t fn,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct stat *buf);
+		   struct iatt *buf);
 call_stub_t *
 fop_fstat_stub (call_frame_t *frame,
 		fop_fstat_t fn,
@@ -676,7 +676,7 @@ fop_fstat_cbk_stub (call_frame_t *frame,
 		    fop_fstat_cbk_t fn,
 		    int32_t op_ret,
 		    int32_t op_errno,
-		    struct stat *buf);
+		    struct iatt *buf);
 
 call_stub_t *
 fop_truncate_stub (call_frame_t *frame,
@@ -689,8 +689,8 @@ fop_truncate_cbk_stub (call_frame_t *frame,
 		       fop_truncate_cbk_t fn,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       struct stat *prebuf,
-                       struct stat *postbuf);
+		       struct iatt *prebuf,
+                       struct iatt *postbuf);
 
 call_stub_t *
 fop_ftruncate_stub (call_frame_t *frame,
@@ -703,8 +703,8 @@ fop_ftruncate_cbk_stub (call_frame_t *frame,
 			fop_ftruncate_cbk_t fn,
 			int32_t op_ret,
 			int32_t op_errno,
-			struct stat *prebuf,
-                        struct stat *postbuf);
+			struct iatt *prebuf,
+                        struct iatt *postbuf);
 
 call_stub_t *
 fop_access_stub (call_frame_t *frame,
@@ -730,7 +730,7 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 		       int32_t op_ret,
 		       int32_t op_errno,
 		       const char *path,
-                       struct stat *buf);
+                       struct iatt *buf);
 
 call_stub_t *
 fop_mknod_stub (call_frame_t *frame,
@@ -745,9 +745,9 @@ fop_mknod_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-                    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent);
+                    struct iatt *buf,
+                    struct iatt *preparent,
+                    struct iatt *postparent);
 
 call_stub_t *
 fop_mkdir_stub (call_frame_t *frame,
@@ -761,9 +761,9 @@ fop_mkdir_cbk_stub (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-                    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent);
+                    struct iatt *buf,
+                    struct iatt *preparent,
+                    struct iatt *postparent);
 
 call_stub_t *
 fop_unlink_stub (call_frame_t *frame,
@@ -775,8 +775,8 @@ fop_unlink_cbk_stub (call_frame_t *frame,
 		     fop_unlink_cbk_t fn,
 		     int32_t op_ret,
 		     int32_t op_errno,
-                     struct stat *preparent,
-                     struct stat *postparent);
+                     struct iatt *preparent,
+                     struct iatt *postparent);
 
 call_stub_t *
 fop_rmdir_stub (call_frame_t *frame,
@@ -788,8 +788,8 @@ fop_rmdir_cbk_stub (call_frame_t *frame,
 		    fop_rmdir_cbk_t fn,
 		    int32_t op_ret,
 		    int32_t op_errno,
-                    struct stat *preparent,
-                    struct stat *postparent);
+                    struct iatt *preparent,
+                    struct iatt *postparent);
 
 call_stub_t *
 fop_symlink_stub (call_frame_t *frame,
@@ -803,9 +803,9 @@ fop_symlink_cbk_stub (call_frame_t *frame,
 		      int32_t op_ret,
 		      int32_t op_errno,
 		      inode_t *inode,
-                      struct stat *buf,
-                      struct stat *preparent,
-                      struct stat *postparent);
+                      struct iatt *buf,
+                      struct iatt *preparent,
+                      struct iatt *postparent);
 
 call_stub_t *
 fop_rename_stub (call_frame_t *frame,
@@ -818,11 +818,11 @@ fop_rename_cbk_stub (call_frame_t *frame,
 		     fop_rename_cbk_t fn,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *buf,
-                     struct stat *preoldparent,
-                     struct stat *postoldparent,
-                     struct stat *prenewparent,
-                     struct stat *postnewparent);
+		     struct iatt *buf,
+                     struct iatt *preoldparent,
+                     struct iatt *postoldparent,
+                     struct iatt *prenewparent,
+                     struct iatt *postnewparent);
 
 call_stub_t *
 fop_link_stub (call_frame_t *frame,
@@ -836,9 +836,9 @@ fop_link_cbk_stub (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-                   struct stat *buf,
-                   struct stat *preparent,
-                   struct stat *postparent);
+                   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent);
 
 call_stub_t *
 fop_create_stub (call_frame_t *frame,
@@ -854,9 +854,9 @@ fop_create_cbk_stub (call_frame_t *frame,
 		     int32_t op_errno,
 		     fd_t *fd,
 		     inode_t *inode,
-		     struct stat *buf,
-                     struct stat *preparent,
-                     struct stat *postparent);
+		     struct iatt *buf,
+                     struct iatt *preparent,
+                     struct iatt *postparent);
 
 call_stub_t *
 fop_open_stub (call_frame_t *frame,
@@ -887,7 +887,7 @@ fop_readv_cbk_stub (call_frame_t *frame,
 		    int32_t op_errno,
 		    struct iovec *vector,
 		    int32_t count,
-		    struct stat *stbuf,
+		    struct iatt *stbuf,
                     struct iobref *iobref);
 
 call_stub_t *
@@ -904,8 +904,8 @@ fop_writev_cbk_stub (call_frame_t *frame,
 		     fop_writev_cbk_t fn,
 		     int32_t op_ret,
 		     int32_t op_errno,
-                     struct stat *prebuf,
-                     struct stat *postbuf);
+                     struct iatt *prebuf,
+                     struct iatt *postbuf);
 
 call_stub_t *
 fop_flush_stub (call_frame_t *frame,
@@ -929,8 +929,8 @@ fop_fsync_cbk_stub (call_frame_t *frame,
 		    fop_fsync_cbk_t fn,
 		    int32_t op_ret,
 		    int32_t op_errno,
-                    struct stat *prebuf,
-                    struct stat *postbuf);
+                    struct iatt *prebuf,
+                    struct iatt *postbuf);
 
 call_stub_t *
 fop_opendir_stub (call_frame_t *frame,
@@ -1221,7 +1221,7 @@ call_stub_t *
 fop_setattr_stub (call_frame_t *frame,
                   fop_setattr_t fn,
                   loc_t *loc,
-                  struct stat *stbuf,
+                  struct iatt *stbuf,
                   int32_t valid);
 
 call_stub_t *
@@ -1229,14 +1229,14 @@ fop_setattr_cbk_stub (call_frame_t *frame,
                       fop_setattr_cbk_t fn,
                       int32_t op_ret,
                       int32_t op_errno,
-                      struct stat *statpre,
-                      struct stat *statpost);
+                      struct iatt *statpre,
+                      struct iatt *statpost);
 
 call_stub_t *
 fop_fsetattr_stub (call_frame_t *frame,
                    fop_fsetattr_t fn,
                    fd_t *fd,
-                   struct stat *stbuf,
+                   struct iatt *stbuf,
                    int32_t valid);
 
 call_stub_t *
@@ -1244,8 +1244,8 @@ fop_fsetattr_cbk_stub (call_frame_t *frame,
                        fop_setattr_cbk_t fn,
                        int32_t op_ret,
                        int32_t op_errno,
-                       struct stat *statpre,
-                       struct stat *statpost);
+                       struct iatt *statpre,
+                       struct iatt *statpost);
 
 void call_resume (call_stub_t *stub);
 void call_stub_destroy (call_stub_t *stub);

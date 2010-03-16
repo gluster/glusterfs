@@ -104,8 +104,8 @@ get_switch_matching_subvol (const char *path, dht_conf_t *conf,
 int
 switch_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno,
-                         inode_t *inode, struct stat *stbuf, dict_t *xattr,
-                         struct stat *postparent)
+                         inode_t *inode, struct iatt *stbuf, dict_t *xattr,
+                         struct iatt *postparent)
 {
         xlator_t     *subvol      = NULL;
         char          is_linkfile = 0;
@@ -141,8 +141,8 @@ switch_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!is_dir && !is_linkfile) {
                 /* non-directory and not a linkfile */
 
-		dht_itransform (this, prev->this, stbuf->st_ino,
-				&stbuf->st_ino);
+		dht_itransform (this, prev->this, stbuf->ia_ino,
+				&stbuf->ia_ino);
 
 		ret = dht_layout_preset (this, prev->this, inode);
 		if (ret < 0) {
@@ -297,7 +297,7 @@ switch_lookup (call_frame_t *frame, xlator_t *this,
 		}
 
 		local->inode    = inode_ref (loc->inode);
-		local->st_ino   = loc->inode->ino;
+		local->ia_ino   = loc->inode->ino;
 
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
@@ -379,9 +379,9 @@ err:
 int
 switch_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 				 xlator_t *this, int op_ret, int op_errno,
-                                 inode_t *inode, struct stat *stbuf,
-                                 struct stat *preparent,
-                                 struct stat *postparent)
+                                 inode_t *inode, struct iatt *stbuf,
+                                 struct iatt *preparent,
+                                 struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -489,8 +489,8 @@ err:
 int
 switch_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, inode_t *inode,
-                         struct stat *stbuf, struct stat *preparent,
-                         struct stat *postparent)
+                         struct iatt *stbuf, struct iatt *preparent,
+                         struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;

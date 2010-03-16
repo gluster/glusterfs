@@ -551,8 +551,8 @@ afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
 
 
 static void
-afr_lookup_self_heal_check (afr_local_t *local, struct stat *buf,
-                            struct stat *lookup_buf)
+afr_lookup_self_heal_check (afr_local_t *local, struct iatt *buf,
+                            struct iatt *lookup_buf)
 {
         if (FILETYPE_DIFFERS (buf, lookup_buf)) {
                 /* mismatching filetypes with same name
@@ -576,7 +576,7 @@ afr_lookup_self_heal_check (afr_local_t *local, struct stat *buf,
         }
 
         if (SIZE_DIFFERS (buf, lookup_buf)
-            && S_ISREG (buf->st_mode)) {
+            && IA_ISREG (buf->ia_type)) {
                 local->self_heal.need_data_self_heal = _gf_true;
         }
 
@@ -584,7 +584,7 @@ afr_lookup_self_heal_check (afr_local_t *local, struct stat *buf,
 
 
 static void
-afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
+afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
 {
         int unwind = 1;
         int source = -1;
@@ -593,20 +593,20 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
 
         local = frame->local;
 
-        local->cont.lookup.postparent.st_ino  = local->cont.lookup.parent_ino;
+        local->cont.lookup.postparent.ia_ino  = local->cont.lookup.parent_ino;
 
         if (local->cont.lookup.ino) {
-                local->cont.lookup.buf.st_ino = local->cont.lookup.ino;
-                local->cont.lookup.buf.st_dev = local->cont.lookup.gen;
+                local->cont.lookup.buf.ia_ino = local->cont.lookup.ino;
+                local->cont.lookup.buf.ia_gen = local->cont.lookup.gen;
         }
 
         if (local->op_ret == 0) {
                 /* KLUDGE: assuming DHT will not itransform in 
                    revalidate */
                 if (local->cont.lookup.inode->ino) {
-                        local->cont.lookup.buf.st_ino = 
+                        local->cont.lookup.buf.ia_ino = 
                                 local->cont.lookup.inode->ino;
-                        local->cont.lookup.buf.st_dev =
+                        local->cont.lookup.buf.ia_gen =
                                 local->cont.lookup.inode->generation;
                 }
         }
@@ -638,7 +638,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
                            So just make a best effort to set the read-subvolume
                            and return */
 
-                        if (S_ISREG (local->cont.lookup.inode->st_mode)) {
+                        if (IA_ISREG (local->cont.lookup.inode->ia_type)) {
                                 source = afr_self_heal_get_source (this, local, local->cont.lookup.xattrs);
 
                                 if (source >= 0) {
@@ -648,14 +648,14 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
                                 }
                         }
                 } else {
-                        if (!local->cont.lookup.inode->st_mode) {
+                        if (!local->cont.lookup.inode->ia_type) {
                                 /* fix for RT #602 */
-                                local->cont.lookup.inode->st_mode =
-                                        lookup_buf->st_mode;
+                                local->cont.lookup.inode->ia_type =
+                                        lookup_buf->ia_type;
                         }
 
                         local->self_heal.background = _gf_true;
-                        local->self_heal.mode       = local->cont.lookup.buf.st_mode;
+                        local->self_heal.type       = local->cont.lookup.buf.ia_type;
                         local->self_heal.unwind     = afr_self_heal_lookup_unwind;
 
                         unwind = 0;
@@ -704,12 +704,12 @@ __error_more_important (int32_t old_errno, int32_t new_errno)
 int
 afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                       xlator_t *this,  int32_t op_ret,	int32_t op_errno,
-                      inode_t *inode,	struct stat *buf, dict_t *xattr,
-                      struct stat *postparent)
+                      inode_t *inode,	struct iatt *buf, dict_t *xattr,
+                      struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
-	struct stat *   lookup_buf = NULL;
+	struct iatt *   lookup_buf = NULL;
 
 	int             call_count      = -1;
 	int             child_index     = -1;
@@ -744,10 +744,10 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
 
                 if (child_index == first_up_child) {
                         local->cont.lookup.ino = 
-                                afr_itransform (buf->st_ino,
+                                afr_itransform (buf->ia_ino,
                                                 priv->child_count,
                                                 first_up_child);
-                        local->cont.lookup.gen = buf->st_dev;
+                        local->cont.lookup.gen = buf->ia_gen;
                 }
 
 		if (local->success_count == 0) {
@@ -761,7 +761,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
 
                         *lookup_buf = *buf;
 
-                        lookup_buf->st_ino = afr_itransform (buf->st_ino,
+                        lookup_buf->ia_ino = afr_itransform (buf->ia_ino,
                                                              priv->child_count,
                                                              child_index);
                         if (priv->read_child >= 0) {
@@ -824,12 +824,12 @@ unlock:
 int
 afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                            xlator_t *this, int32_t op_ret, int32_t op_errno,
-                           inode_t *inode, struct stat *buf, dict_t *xattr,
-                           struct stat *postparent)
+                           inode_t *inode, struct iatt *buf, dict_t *xattr,
+                           struct iatt *postparent)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
-	struct stat *   lookup_buf = NULL;
+	struct iatt *   lookup_buf = NULL;
         
 	int             call_count      = -1;
 	int             child_index     = -1;
@@ -864,10 +864,10 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
 
                 if (child_index == first_up_child) {
                         local->cont.lookup.ino = 
-                                afr_itransform (buf->st_ino,
+                                afr_itransform (buf->ia_ino,
                                                 priv->child_count,
                                                 first_up_child);
-                        local->cont.lookup.gen = buf->st_dev;
+                        local->cont.lookup.gen = buf->ia_gen;
                 }
 
 		/* in case of revalidate, we need to send stat of the
@@ -889,7 +889,7 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
 
 			*lookup_buf = *buf;
 
-                        lookup_buf->st_ino = afr_itransform (buf->st_ino,
+                        lookup_buf->ia_ino = afr_itransform (buf->ia_ino,
                                                              priv->child_count,
                                                              child_index);
 
@@ -1460,8 +1460,8 @@ out:
 
 int
 afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-               struct stat *postbuf)
+               int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+               struct iatt *postbuf)
 {
 	afr_local_t *local = NULL;
 	
@@ -1503,8 +1503,8 @@ afr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	call_count = afr_frame_return (frame);
 
 	if (call_count == 0) {
-                local->cont.fsync.prebuf.st_ino  = local->cont.fsync.ino;
-                local->cont.fsync.postbuf.st_ino = local->cont.fsync.ino;
+                local->cont.fsync.prebuf.ia_ino  = local->cont.fsync.ino;
+                local->cont.fsync.postbuf.ia_ino = local->cont.fsync.ino;
 
 		AFR_STACK_UNWIND (fsync, frame, local->op_ret, local->op_errno,
                                   &local->cont.fsync.prebuf,

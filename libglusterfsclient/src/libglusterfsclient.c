@@ -212,7 +212,7 @@ libgf_alloc_fd_ctx (libglusterfs_client_ctx_t *ctx, fd_t *fd, char *vpath)
         ctxaddr = (uint64_t) (long)fdctx;
 
         if (fd->inode) {
-                if (S_ISDIR (fd->inode->st_mode)) {
+                if (IA_ISDIR (fd->inode->ia_type)) {
                         fdctx->dcache = CALLOC (1, sizeof (struct direntcache));
                         if (fdctx->dcache)
                                 INIT_LIST_HEAD (&fdctx->dcache->entries.list);
@@ -423,7 +423,7 @@ libgf_client_release (xlator_t *this,
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         fd_ctx = libgf_get_fd_ctx (fd);
-        if (S_ISDIR (fd->inode->st_mode)) {
+        if (IA_ISDIR (fd->inode->ia_type)) {
                 libgf_dcache_invalidate (fd);
                 FREE (fd_ctx->dcache);
         }
@@ -497,24 +497,24 @@ out:
 
 int
 libgf_transform_iattr (libglusterfs_client_ctx_t *libctx, inode_t *inode,
-                       struct stat *buf)
+                       struct iatt *buf)
 {
 
         if ((!libctx) || (!buf) || (!inode))
                 return -1;
 
-        buf->st_dev = libctx->fake_fsid;
+        buf->ia_dev = libctx->fake_fsid;
         /* If the inode is root, the inode number must be 1 not the
          * ino received from the file system.
          */
         if ((inode->ino == 1) && (buf))
-                buf->st_ino = 1;
+                buf->ia_ino = 1;
 
         return 0;
 }
 
 int
-libgf_update_iattr_cache (inode_t *inode, int flags, struct stat *buf)
+libgf_update_iattr_cache (inode_t *inode, int flags, struct iatt *buf)
 {
         libglusterfs_client_inode_ctx_t *inode_ctx = NULL;
         time_t                          current = 0;
@@ -601,7 +601,7 @@ libgf_invalidate_iattr_cache (inode_t *inode, int flags)
 
 int
 libgf_is_iattr_cache_valid (libglusterfs_client_ctx_t *ctx, inode_t *inode,
-                            struct stat *sbuf, int flags)
+                            struct iatt *sbuf, int flags)
 {
         time_t                                  current = 0;
         time_t                                  prev = 0;
@@ -683,7 +683,7 @@ libgf_client_releasedir (xlator_t *this,
 {
 	libglusterfs_client_fd_ctx_t *fd_ctx = NULL;
         fd_ctx = libgf_get_fd_ctx (fd);
-        if (S_ISDIR (fd->inode->st_mode)) {
+        if (IA_ISDIR (fd->inode->ia_type)) {
                 libgf_dcache_invalidate (fd);
                 FREE (fd_ctx->dcache);
         }
@@ -2079,9 +2079,9 @@ libgf_client_lookup_cbk (call_frame_t *frame,
                          int32_t op_ret,
                          int32_t op_errno,
                          inode_t *inode,
-                         struct stat *buf,
+                         struct iatt *buf,
                          dict_t *dict,
-                         struct stat *postparent)
+                         struct iatt *postparent)
 {
         libgf_client_local_t *local = frame->local;
         libglusterfs_client_ctx_t *ctx = frame->root->state;
@@ -2091,7 +2091,7 @@ libgf_client_lookup_cbk (call_frame_t *frame,
 		inode_t *parent = NULL;
 
 		if (local->fop.lookup.loc->ino == 1) {
-			buf->st_ino = 1;
+			buf->ia_ino = 1;
 		}
 
 		parent = local->fop.lookup.loc->parent;
@@ -2165,7 +2165,7 @@ out:
 int32_t
 libgf_client_lookup (libglusterfs_client_ctx_t *ctx,
                      loc_t *loc,
-                     struct stat *stbuf,
+                     struct iatt *stbuf,
                      dict_t **dict,
 		     dict_t *xattr_req)
 {
@@ -2223,7 +2223,7 @@ out:
 
 int 
 glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
-                        size_t size, struct stat *stbuf)
+                   size_t size, struct stat *stbuf)
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
@@ -2231,6 +2231,7 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
         dict_t *dict = NULL;
 	dict_t *xattr_req = NULL;
 	char *name = NULL, *pathname = NULL;
+        struct iatt iatt = {0,};
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
@@ -2285,8 +2286,9 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
                 }
         }
 
-        op_ret = libgf_client_lookup (ctx, &loc, stbuf, &dict, xattr_req);
-        if (!op_ret && stbuf && (stbuf->st_size <= size) && dict && buf) {
+        op_ret = libgf_client_lookup (ctx, &loc, &iatt, &dict, xattr_req);
+        iatt_to_stat (&iatt, stbuf);
+        if (!op_ret && stbuf && (iatt.ia_size <= size) && dict && buf) {
                 data_t *mem_data = NULL;
                 void *mem = NULL;
                 
@@ -2296,7 +2298,7 @@ glusterfs_glh_get (glusterfs_handle_t handle, const char *path, void *buf,
                 }
                         
                 if (mem != NULL) { 
-                        memcpy (buf, mem, stbuf->st_size);
+                        memcpy (buf, mem, iatt.ia_size);
                 }
         }
 
@@ -2350,9 +2352,9 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
                                int32_t op_ret,
                                int32_t op_errno,
                                inode_t *inode,
-                               struct stat *stbuf,
+                               struct iatt *stbuf,
                                dict_t *dict,
-                               struct stat *postparent)
+                               struct iatt *postparent)
 {
         libglusterfs_client_async_local_t *local = frame->local;
         glusterfs_get_cbk_t lookup_cbk = local->fop.lookup_cbk.cbk;
@@ -2360,6 +2362,7 @@ libgf_client_lookup_async_cbk (call_frame_t *frame,
 	glusterfs_iobuf_t *iobuf = NULL;
 	dict_t *xattr_req = NULL;
         inode_t *parent = NULL;
+        struct stat stat = {0,};
 
         if (op_ret == 0) {
                 parent = local->fop.lookup_cbk.loc->parent;
@@ -2434,22 +2437,23 @@ out:
                         mem = data_to_ptr (mem_data);
                 }
 
-                if (mem && stbuf->st_size <= local->fop.lookup_cbk.size) {
+                if (mem && stbuf->ia_size <= local->fop.lookup_cbk.size) {
 			iobuf = CALLOC (1, sizeof (*iobuf));
 			ERR_ABORT (iobuf);
 
 			vector = CALLOC (1, sizeof (*vector));
 			ERR_ABORT (vector);
 			vector->iov_base = mem;
-			vector->iov_len = stbuf->st_size;  
+			vector->iov_len = stbuf->ia_size;  
 
 			iobuf->vector = vector;
 			iobuf->count = 1;
 			iobuf->dictref = dict_ref (dict);
 		}
 	}
-	
-        lookup_cbk (op_ret, op_errno, iobuf, stbuf, local->cbk_data);
+
+        iatt_to_stat (stbuf, &stat);
+        lookup_cbk (op_ret, op_errno, iobuf, &stat, local->cbk_data);
 
 	libgf_client_loc_wipe (local->fop.lookup_cbk.loc);
         free (local->fop.lookup_cbk.loc);
@@ -2685,7 +2689,7 @@ __glusterfs_glh_getxattr (glusterfs_handle_t handle, const char *path,
         if (whichop == LIBGF_DO_LGETXATTR)
                 goto do_getx;
 
-        if (!S_ISLNK (loc.inode->st_mode))
+        if (!IA_ISLNK (loc.inode->ia_type))
                 goto do_getx;
 
         libgf_client_loc_wipe (&loc); 
@@ -2842,9 +2846,9 @@ libgf_client_create_cbk (call_frame_t *frame,
                          int32_t op_errno,
                          fd_t *fd,
                          inode_t *inode,
-                         struct stat *buf,
-                         struct stat *preparent,
-                         struct stat *postparent)
+                         struct iatt *buf,
+                         struct iatt *preparent,
+                         struct iatt *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -3018,7 +3022,7 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
                  * a network message through libgf_client_creat, and
                  * then receiving a EISDIR.
                  */
-                if (S_ISDIR (loc.inode->st_mode)) {
+                if (IA_ISDIR (loc.inode->ia_type)) {
                         errno = EISDIR;
                         op_ret = -1;
                         goto op_over;
@@ -3028,7 +3032,7 @@ glusterfs_glh_open (glusterfs_handle_t handle, const char *path, int flags,...)
                 va_end (ap);
                 op_ret = libgf_client_creat (ctx, &loc, fd, flags, mode);
         } else {
-                if (S_ISDIR (loc.inode->st_mode))
+                if (IA_ISDIR (loc.inode->ia_type))
                         op_ret = libgf_client_opendir (ctx, &loc, fd);
                 else
                         op_ret = libgf_client_open (ctx, &loc, fd, flags);
@@ -3042,7 +3046,7 @@ op_over:
         }
 
         vpath = NULL;
-        if (S_ISDIR (loc.inode->st_mode)) {
+        if (IA_ISDIR (loc.inode->ia_type)) {
                 vpath = (char *)path;
         }
 
@@ -3059,9 +3063,9 @@ op_over:
         if ((flags & O_TRUNC) && (((flags & O_ACCMODE) == O_RDWR)
                                   || ((flags & O_ACCMODE) == O_WRONLY))) {
                 inode_ctx = libgf_get_inode_ctx (fd->inode);
-                if (S_ISREG (inode_ctx->stbuf.st_mode)) {
-                                inode_ctx->stbuf.st_size = 0;
-                                inode_ctx->stbuf.st_blocks = 0;
+                if (IA_ISREG (inode_ctx->stbuf.ia_type)) {
+                                inode_ctx->stbuf.ia_size = 0;
+                                inode_ctx->stbuf.ia_blocks = 0;
                 }
         }
 
@@ -3306,7 +3310,7 @@ __glusterfs_glh_setxattr (glusterfs_handle_t handle, const char *path,
         if (whichop == LIBGF_DO_LSETXATTR)
                 goto do_setx;
 
-        if (!S_ISLNK (loc.inode->st_mode))
+        if (!IA_ISLNK (loc.inode->ia_type))
                 goto do_setx;
 
         libgf_client_loc_wipe (&loc);
@@ -3647,7 +3651,7 @@ libgf_client_readv_cbk (call_frame_t *frame,
                         int32_t op_errno,
                         struct iovec *vector,
                         int32_t count,
-                        struct stat *stbuf,
+                        struct iatt *stbuf,
                         struct iobref *iobref)
 {
         libgf_client_local_t *local = frame->local;
@@ -3667,7 +3671,7 @@ libgf_client_iobuf_read (libglusterfs_client_ctx_t *ctx, fd_t *fd, void *buf,
         int32_t               op_ret = -1;
         int                   count = 0;
         libgf_client_local_t *local = NULL;
-        struct stat          *stbuf = NULL;
+        struct iatt          *stbuf = NULL;
 
         local = CALLOC (1, sizeof (*local));
         ERR_ABORT (local);
@@ -3797,7 +3801,7 @@ libgf_client_iobuf_readv (libglusterfs_client_ctx_t *ctx, fd_t *fd,
         int                   src_count  = 0, dst_count = 0;
         int                   len        = 0, src_len = 0, dst_len = 0;
         off_t                 src_offset = 0, dst_offset = 0;
-        struct stat          *stbuf      = NULL;
+        struct iatt          *stbuf      = NULL;
 
         dst = *idx;
         dst_offset = *vec_offset;
@@ -3983,8 +3987,8 @@ libgf_client_writev_cbk (call_frame_t *frame,
                          xlator_t *this,
                          int32_t op_ret,
                          int32_t op_errno,
-                         struct stat *prebuf,
-                         struct stat *postbuf)
+                         struct iatt *prebuf,
+                         struct iatt *postbuf)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -4460,7 +4464,7 @@ libglusterfs_readv_async_cbk (call_frame_t *frame,
                               int32_t op_errno,
                               struct iovec *vector,
                               int32_t count,
-                              struct stat *stbuf,
+                              struct iatt *stbuf,
                               struct iobref *iobref)
 {
         glusterfs_iobuf_t *buf;
@@ -4582,8 +4586,8 @@ libglusterfs_writev_async_cbk (call_frame_t *frame,
                                xlator_t *this,
                                int32_t op_ret,
                                int32_t op_errno,
-                               struct stat *prebuf,
-                               struct stat *postbuf)
+                               struct iatt *prebuf,
+                               struct iatt *postbuf)
 {
         libglusterfs_client_async_local_t *local = frame->local;
         fd_t *fd = NULL;
@@ -4717,13 +4721,13 @@ glusterfs_lseek (glusterfs_file_t fd, off_t offset, int whence)
 		char cache_valid = 0;
 		off_t end = 0;
 		loc_t loc = {0, };
-		struct stat stbuf = {0, };
+		struct iatt stbuf = {0, };
 
                 cache_valid = libgf_is_iattr_cache_valid (ctx, __fd->inode,
                                                           &stbuf,
                                                           LIBGF_VALIDATE_STAT);
                 if (cache_valid) {
-			end = stbuf.st_size;
+			end = stbuf.ia_size;
 		} else {
 			op_ret = libgf_client_loc_fill (&loc, ctx,
                                                         __fd->inode->ino, 0,
@@ -4746,7 +4750,7 @@ glusterfs_lseek (glusterfs_file_t fd, off_t offset, int whence)
 				goto out;
 			}
 
-			end = stbuf.st_size;
+			end = stbuf.ia_size;
 		}
 
                 __offset = end + offset; 
@@ -4780,7 +4784,7 @@ libgf_client_stat_cbk (call_frame_t *frame,
                        xlator_t *this,
                        int32_t op_ret,
                        int32_t op_errno,
-                       struct stat *buf)
+                       struct iatt *buf)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -4797,12 +4801,12 @@ libgf_client_stat_cbk (call_frame_t *frame,
 int32_t 
 libgf_client_stat (libglusterfs_client_ctx_t *ctx, 
                    loc_t *loc,
-                   struct stat *stbuf)
+                   struct iatt *stbuf)
 {
         call_stub_t *stub = NULL;
         int32_t op_ret = 0;
         libgf_client_local_t *local = NULL;
-        struct stat cachedbuf = {0, };
+        struct iatt cachedbuf = {0, };
 
         if (libgf_is_iattr_cache_valid (ctx, loc->inode, &cachedbuf,
                                         LIBGF_VALIDATE_STAT)) {
@@ -4876,7 +4880,7 @@ out:
 
 int
 __glusterfs_stat (glusterfs_handle_t handle, const char *path,
-                        struct stat *buf, int whichstat)
+                  struct stat *buf, int whichstat)
 {
         int32_t op_ret = -1;
         loc_t loc = {0, };
@@ -4926,7 +4930,7 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
         if (whichstat & LIBGF_DO_LSTAT)
                 goto lstat_fop;
 
-        if (!S_ISLNK (loc.inode->st_mode))
+        if (!IA_ISLNK (loc.inode->ia_type))
                 goto lstat_fop;
 
         op_ret = libgf_realpath_loc_fill (ctx, (char *)loc.path, &targetloc);
@@ -4937,7 +4941,9 @@ __glusterfs_stat (glusterfs_handle_t handle, const char *path,
 lstat_fop:
 
         if (!op_ret) {
-                op_ret = libgf_client_stat (ctx, real_loc, buf);
+                struct iatt iatt;
+                op_ret = libgf_client_stat (ctx, real_loc, &iatt);
+                iatt_to_stat (&iatt, buf);
         }
 
 out:
@@ -4953,7 +4959,7 @@ out:
 
 int
 glusterfs_glh_stat (glusterfs_handle_t handle, const char *path,
-                        struct stat *buf)
+                    struct stat *buf)
 {
         return __glusterfs_stat (handle, path, buf, LIBGF_DO_STAT);
 }
@@ -5017,7 +5023,7 @@ libgf_client_fstat_cbk (call_frame_t *frame,
                         xlator_t *this,
                         int32_t op_ret,
                         int32_t op_errno,
-                        struct stat *buf)
+                        struct iatt *buf)
 {  
         libgf_client_local_t *local = frame->local;
 
@@ -5040,7 +5046,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
         call_stub_t *stub = NULL;
         int32_t op_ret = 0;
         libgf_client_local_t *local = NULL;
-        struct stat cachedbuf = {0, };
+        struct iatt cachedbuf = {0, };
 
         if (libgf_is_iattr_cache_valid (ctx, fd->inode, &cachedbuf,
                                         LIBGF_VALIDATE_STAT)) {
@@ -5061,7 +5067,7 @@ libgf_client_fstat (libglusterfs_client_ctx_t *ctx,
                 libgf_transform_iattr (ctx, fd->inode,
                                        &stub->args.fstat_cbk.buf);
                 if (buf)
-                        *buf = stub->args.fstat_cbk.buf;
+                        iatt_to_stat (&stub->args.fstat_cbk.buf, buf);
                 libgf_update_iattr_cache (fd->inode, LIBGF_UPDATE_STAT,
                                           &stub->args.fstat_cbk.buf);
         }
@@ -5103,9 +5109,9 @@ libgf_client_mkdir_cbk (call_frame_t *frame,
 			int32_t op_ret,
 			int32_t op_errno,
 			inode_t *inode,
-                        struct stat *buf,
-                        struct stat *preparent,
-                        struct stat *postparent)
+                        struct iatt *buf,
+                        struct iatt *preparent,
+                        struct iatt *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -5237,8 +5243,8 @@ out:
 
 static int32_t
 libgf_client_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno,struct stat *preparent,
-                        struct stat *postparent)
+                        int32_t op_ret, int32_t op_errno,struct iatt *preparent,
+                        struct iatt *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -5351,7 +5357,7 @@ out:
 int
 libgf_client_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno,
-                          struct stat *preop, struct stat *postop)
+                          struct iatt *preop, struct iatt *postop)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -5365,7 +5371,7 @@ libgf_client_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 libgf_client_setattr (libglusterfs_client_ctx_t *ctx, loc_t * loc,
-                      struct stat *stbuf, int32_t valid)
+                      struct iatt *stbuf, int32_t valid)
 {
         int                             op_ret = -1;
         libgf_client_local_t            *local = NULL;
@@ -5397,13 +5403,13 @@ glusterfs_glh_chmod (glusterfs_handle_t handle, const char *path, mode_t mode)
         libglusterfs_client_ctx_t       *ctx = handle;
         loc_t                           loc = {0, };
         char                            *name = NULL;
-        struct stat                     stbuf = {0,};
+        struct iatt                     stbuf = {0,};
         int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
-        stbuf.st_mode = mode;
+        stbuf.ia_prot = ia_prot_from_st_mode (mode);
         valid |= GF_SET_ATTR_MODE;
 
         loc.path = strdup (path);
@@ -5470,15 +5476,15 @@ __glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
         char                            *name = NULL;
         loc_t                           *oploc = NULL;
         loc_t                           targetloc = {0, };
-        struct stat                     stbuf = {0,};
+        struct iatt                     stbuf = {0,};
         int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s, op %d", path, whichop);
-        stbuf.st_uid = owner;
-        stbuf.st_gid = group;
+        stbuf.ia_uid = owner;
+        stbuf.ia_gid = group;
         valid |= (GF_SET_ATTR_UID | GF_SET_ATTR_GID);
 
         loc.path = strdup (path);
@@ -5503,7 +5509,7 @@ __glusterfs_chown (glusterfs_handle_t handle, const char *path, uid_t owner,
         if (whichop == LIBGF_DO_LCHOWN)
                 goto do_lchown;
 
-        if (!S_ISLNK (loc.inode->st_mode))
+        if (!IA_ISLNK (loc.inode->ia_type))
                 goto do_lchown;
 
         op_ret = libgf_realpath_loc_fill (ctx, (char *)loc.path, &targetloc);
@@ -5612,7 +5618,7 @@ glusterfs_glh_opendir (glusterfs_handle_t handle, const char *path)
                 goto out;
         }
 
-        if (!S_ISDIR (loc.inode->st_mode) && !S_ISLNK (loc.inode->st_mode)) {
+        if (!IA_ISDIR (loc.inode->ia_type) && !IA_ISLNK (loc.inode->ia_type)) {
                 errno = ENOTDIR;
                 op_ret = -1;
                 goto out;
@@ -5697,7 +5703,7 @@ out:
 int
 libgf_client_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
-                           struct stat *preop, struct stat *postop)
+                           struct iatt *preop, struct iatt *postop)
 {
         libgf_client_local_t    *local = frame->local;
 
@@ -5711,7 +5717,7 @@ libgf_client_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 libgf_client_fsetattr (libglusterfs_client_ctx_t *ctx, fd_t *fd,
-                       struct stat *stbuf, int32_t valid)
+                       struct iatt *stbuf, int32_t valid)
 {
         int                     op_ret = -1;
         libgf_client_local_t    *local = NULL;
@@ -5740,7 +5746,7 @@ glusterfs_fchmod (glusterfs_file_t fd, mode_t mode)
 {
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
         int                             op_ret = -1;
-        struct stat                     stbuf = {0,};
+        struct iatt                     stbuf = {0,};
         int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
@@ -5752,7 +5758,7 @@ glusterfs_fchmod (glusterfs_file_t fd, mode_t mode)
                 goto out;
         }
 
-        stbuf.st_mode = mode;
+        stbuf.ia_prot = ia_prot_from_st_mode (mode);
         valid |= GF_SET_ATTR_MODE;
 
         op_ret = libgf_client_fsetattr (fdctx->ctx, fd, &stbuf, valid);
@@ -5766,7 +5772,7 @@ glusterfs_fchown (glusterfs_file_t fd, uid_t uid, gid_t gid)
 {
         int                             op_ret = -1;
         libglusterfs_client_fd_ctx_t    *fdctx = NULL;
-        struct stat                     stbuf = {0,};
+        struct iatt                     stbuf = {0,};
         int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, fd, out);
@@ -5777,8 +5783,8 @@ glusterfs_fchown (glusterfs_file_t fd, uid_t uid, gid_t gid)
                 errno = EBADF;
                 goto out;
         }
-        stbuf.st_uid = uid;
-        stbuf.st_gid = gid;
+        stbuf.ia_uid = uid;
+        stbuf.ia_gid = gid;
 
         valid |= (GF_SET_ATTR_UID | GF_SET_ATTR_GID);
 
@@ -5790,8 +5796,8 @@ out:
 
 int
 libgf_client_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *xlator,
-                        int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                        struct stat *postbuf)
+                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                        struct iatt *postbuf)
 {
         libgf_client_local_t    *local = frame->local;
 
@@ -5846,7 +5852,7 @@ out:
 int
 libgf_client_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *xlator
                                 ,int32_t op_ret, int32_t op_errno,
-                                struct stat *prebuf, struct stat *postbuf)
+                                struct iatt *prebuf, struct iatt *postbuf)
 {
         libgf_client_local_t    *local = frame->local;
 
@@ -5895,7 +5901,7 @@ libgf_client_ftruncate (libglusterfs_client_ctx_t *ctx, fd_t *fd,
 
         pthread_mutex_lock (&fdctx->lock);
         {
-                fdctx->offset = stub->args.ftruncate_cbk.postbuf.st_size;
+                fdctx->offset = stub->args.ftruncate_cbk.postbuf.ia_size;
         }
         pthread_mutex_unlock (&fdctx->lock);
 
@@ -5928,8 +5934,8 @@ out:
 int
 libgf_client_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *buf,
-                                struct stat *preparent, struct stat *postparent)
+                                inode_t *inode, struct iatt *buf,
+                                struct iatt *preparent, struct iatt *postparent)
 {
         libgf_client_local_t            *local = frame->local;
 
@@ -5949,7 +5955,7 @@ libgf_client_link (libglusterfs_client_ctx_t *ctx, loc_t *old, loc_t *new)
         libgf_client_local_t            *local = NULL;
         int                             op_ret = -1;
         inode_t                         *inode = NULL;
-        struct stat                     *sbuf = NULL;
+        struct iatt                     *sbuf = NULL;
 
         LIBGF_CLIENT_FOP (ctx, stub, link, local, old, new);
 
@@ -6011,7 +6017,7 @@ glusterfs_glh_link (glusterfs_handle_t handle, const char *oldpath,
                 goto out;
         }
 
-        if (S_ISDIR (old.inode->st_mode)) {
+        if (IA_ISDIR (old.inode->ia_type)) {
                 errno = EPERM;
                 op_ret = -1;
                 goto out;
@@ -6301,9 +6307,9 @@ out:
 
 int32_t
 libgf_client_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *buf,
-                         struct stat *preoldparent, struct stat *postoldparent,
-                         struct stat *prenewparent, struct stat *postnewparent)
+                         int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                         struct iatt *preoldparent, struct iatt *postoldparent,
+                         struct iatt *prenewparent, struct iatt *postnewparent)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -6466,17 +6472,18 @@ glusterfs_glh_utimes (glusterfs_handle_t handle, const char *path,
         loc_t                           loc = {0, };
         libglusterfs_client_ctx_t       *ctx = handle;
         char                            *name = NULL;
-        struct stat                     stbuf = {0,};
+        struct iatt                     stbuf = {0,};
         int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
         GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO (LIBGF_XL_NAME, path, out);
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
-        stbuf.st_atime = times[0].tv_sec;
-        ST_ATIM_NSEC_SET (&stbuf, (times[0].tv_usec * 1000));
-        stbuf.st_mtime = times[1].tv_sec;
-        ST_MTIM_NSEC_SET (&stbuf, (times[1].tv_usec * 1000));
+        stbuf.ia_atime = times[0].tv_sec;
+        stbuf.ia_atime_nsec = times[0].tv_usec * 1000;
+        stbuf.ia_mtime = times[1].tv_sec;
+        stbuf.ia_mtime_nsec = times[1].tv_usec * 1000;
+
         valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
 
         loc.path = strdup (path);
@@ -6541,7 +6548,7 @@ glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
         loc_t                           loc = {0, };
         libglusterfs_client_ctx_t       *ctx = handle;
         char                            *name = NULL;
-        struct stat                     stbuf = {0,};
+        struct iatt                     stbuf = {0,};
         int32_t                         valid = 0;
 
         GF_VALIDATE_OR_GOTO (LIBGF_XL_NAME, ctx, out);
@@ -6549,11 +6556,11 @@ glusterfs_glh_utime (glusterfs_handle_t handle, const char *path,
 
         gf_log (LIBGF_XL_NAME, GF_LOG_DEBUG, "path %s", path);
         if (buf) {
-                stbuf.st_atime = buf->actime;
-                ST_ATIM_NSEC_SET (&stbuf, 0);
+                stbuf.ia_atime = buf->actime;
+                stbuf.ia_atime_nsec = 0;
 
-                stbuf.st_mtime = buf->modtime;
-                ST_MTIM_NSEC_SET (&stbuf, 0);
+                stbuf.ia_mtime = buf->modtime;
+                stbuf.ia_mtime_nsec = 0;
         }
 
         valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
@@ -6616,8 +6623,8 @@ out:
 static int32_t
 libgf_client_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *buf,
-                                struct stat *preparent, struct stat *postparent)
+                                inode_t *inode, struct iatt *buf,
+                                struct iatt *preparent, struct iatt *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -6819,7 +6826,7 @@ out:
 int32_t
 libgf_client_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno,
-                         struct stat *preparent, struct stat *postparent)
+                         struct iatt *preparent, struct iatt *postparent)
 {
         libgf_client_local_t    *local = frame->local;
 
@@ -6925,8 +6932,8 @@ out:
 static int32_t
 libgf_client_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *buf,
-                                struct stat *preparent, struct stat *postparent)
+                                inode_t *inode, struct iatt *buf,
+                                struct iatt *preparent, struct iatt *postparent)
 {
         libgf_client_local_t *local = frame->local;
 
@@ -7066,7 +7073,7 @@ out:
 int32_t
 libgf_client_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 int32_t op_ret, int32_t op_errno,
-                                const char *path, struct stat *sbuf)
+                                const char *path, struct iatt *sbuf)
 {
         libgf_client_local_t    *local = frame->local;
 
@@ -7454,7 +7461,7 @@ glusterfs_glh_remove (glusterfs_handle_t handle, const char *path)
         if (op_ret == -1)
                 goto out;
 
-        if (S_ISDIR (loc.inode->st_mode))
+        if (IA_ISDIR (loc.inode->ia_type))
                 op_ret = libgf_client_rmdir (ctx, &loc);
         else
                 op_ret = libgf_client_unlink (ctx, &loc);
@@ -8003,7 +8010,7 @@ unlock:
 int32_t
 libgf_client_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
-                           struct stat *prebuf, struct stat *postbuf)
+                           struct iatt *prebuf, struct iatt *postbuf)
 {
         libgf_client_local_t *local = frame->local;
 

@@ -149,7 +149,7 @@ ioc_inode_flush (ioc_inode_t *ioc_inode)
 int32_t
 ioc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
-                 struct stat *preop, struct stat *postop)
+                 struct iatt *preop, struct iatt *postop)
 {
  	STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
  	return 0;
@@ -157,7 +157,7 @@ ioc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             struct stat *stbuf, int32_t valid)
+             struct iatt *stbuf, int32_t valid)
 {
  	uint64_t ioc_inode = 0;
 
@@ -177,7 +177,7 @@ ioc_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int32_t
 ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int32_t op_ret,	int32_t op_errno, inode_t *inode,
-		struct stat *stbuf, dict_t *dict, struct stat *postparent)
+		struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
 {
 	ioc_inode_t   *ioc_inode = NULL;
 	ioc_table_t   *table = this->private;
@@ -219,10 +219,10 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ioc_inode_lock (ioc_inode);
         {
                 if (ioc_inode->cache.mtime == 0) {
-                        ioc_inode->cache.mtime = stbuf->st_mtime;
+                        ioc_inode->cache.mtime = stbuf->ia_mtime;
                 }
 
-                ioc_inode->st_size = stbuf->st_size;
+                ioc_inode->ia_size = stbuf->ia_size;
         }
         ioc_inode_unlock (ioc_inode);
 
@@ -321,12 +321,12 @@ ioc_forget (xlator_t *this, inode_t *inode)
  */
 int32_t
 ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			int32_t op_ret, int32_t op_errno, struct stat *stbuf)
+			int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
 {
 	ioc_local_t *local = NULL;
 	ioc_inode_t *ioc_inode = NULL;
 	size_t      destroy_size = 0;
-	struct stat *local_stbuf = NULL;
+	struct iatt *local_stbuf = NULL;
 
         local = frame->local;
 	ioc_inode = local->inode;
@@ -345,7 +345,7 @@ ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		{
 			destroy_size = __ioc_inode_flush (ioc_inode);
 			if (op_ret >= 0)
-				ioc_inode->cache.mtime = stbuf->st_mtime;
+				ioc_inode->cache.mtime = stbuf->ia_mtime;
 		}
 		ioc_inode_unlock (ioc_inode);
 		local_stbuf = NULL;
@@ -536,21 +536,14 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
                 ioc_inode_lock (ioc_inode);
                 {
-                        if ((table->min_file_size > ioc_inode->st_size)
+                        if ((table->min_file_size > ioc_inode->ia_size)
                             || ((table->max_file_size >= 0)
-                                && (table->max_file_size < ioc_inode->st_size))) {
+                                && (table->max_file_size < ioc_inode->ia_size))) {
                                 fd_ctx_set (fd, this, 1);
                         }
                 }
                 ioc_inode_unlock (ioc_inode);
 
-		/* If mandatory locking has been enabled on this file,
-		   we disable caching on it */
-		if (((inode->st_mode & S_ISGID)
-                     && !(inode->st_mode & S_IXGRP))) {
-			fd_ctx_set (fd, this, 1);
-		}
-  
 		/* If O_DIRECT open, we disable caching on it */
 		if ((local->flags & O_DIRECT)){
 			/* O_DIRECT is only for one fd, not the inode 
@@ -591,8 +584,8 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret,	int32_t op_errno, fd_t *fd,
-		inode_t *inode,	struct stat *buf, struct stat *preparent,
-                struct stat *postparent)
+		inode_t *inode,	struct iatt *buf, struct iatt *preparent,
+                struct iatt *postparent)
 {
 	ioc_local_t *local = NULL;
 	ioc_table_t *table = NULL;
@@ -612,12 +605,12 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 ioc_inode_lock (ioc_inode);
                 {
-                        ioc_inode->cache.mtime = buf->st_mtime;
-                        ioc_inode->st_size = buf->st_size;
+                        ioc_inode->cache.mtime = buf->ia_mtime;
+                        ioc_inode->ia_size = buf->ia_size;
 
-                        if ((table->min_file_size > ioc_inode->st_size)
+                        if ((table->min_file_size > ioc_inode->ia_size)
                             || ((table->max_file_size >= 0)
-                                && (table->max_file_size < ioc_inode->st_size))) {
+                                && (table->max_file_size < ioc_inode->ia_size))) {
                                 fd_ctx_set (fd, this, 1);
                         }
                 }
@@ -625,15 +618,6 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 inode_ctx_put (fd->inode, this,
                                (uint64_t)(long)ioc_inode);
-
-		/*
-                 * If mandatory locking has been enabled on this file,
-                 * we disable caching on it
-                 */
-		if ((inode->st_mode & S_ISGID) && 
-		    !(inode->st_mode & S_IXGRP)) {
-			fd_ctx_set (fd, this, 1);
-		}
 
 		/* If O_DIRECT open, we disable caching on it */
 		if (local->flags & O_DIRECT){
@@ -760,7 +744,7 @@ ioc_release (xlator_t *this, fd_t *fd)
 int32_t
 ioc_readv_disabled_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret,	int32_t op_errno, struct iovec *vector,
-			int32_t count, struct stat *stbuf,
+			int32_t count, struct iatt *stbuf,
                         struct iobref *iobref)
 {
 	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
@@ -1082,8 +1066,8 @@ out:
  */
 int32_t
 ioc_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int32_t op_ret,	int32_t op_errno, struct stat *prebuf,
-                struct stat *postbuf)
+		int32_t op_ret,	int32_t op_errno, struct iatt *prebuf,
+                struct iatt *postbuf)
 {
 	ioc_local_t *local     = NULL;
 	uint64_t    ioc_inode = 0;
@@ -1153,8 +1137,8 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
  */
 int32_t 
 ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                  struct stat *postbuf)
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf)
 {
 
 	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno, prebuf,
@@ -1176,8 +1160,8 @@ ioc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int32_t
 ioc_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                  struct stat *postbuf)
+                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                  struct iatt *postbuf)
 {
 
 	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno, prebuf,

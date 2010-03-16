@@ -390,7 +390,7 @@ error_gen (xlator_t *this, int op_no)
 int
 error_gen_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno, inode_t *inode,
-		      struct stat *buf, dict_t *dict, struct stat *postparent)
+		      struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode,
                              buf, dict, postparent);
@@ -436,7 +436,7 @@ error_gen_forget (xlator_t *this, inode_t *inode)
 
 int
 error_gen_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		    int32_t op_ret, int32_t op_errno, struct stat *buf)
+		    int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
 	STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
 
@@ -473,7 +473,7 @@ error_gen_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 int
 error_gen_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
-                       struct stat *preop, struct stat *postop)
+                       struct iatt *preop, struct iatt *postop)
 {
 	STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
 
@@ -483,7 +483,7 @@ error_gen_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 error_gen_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                   struct stat *stbuf, int32_t valid)
+                   struct iatt *stbuf, int32_t valid)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -511,7 +511,7 @@ error_gen_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 error_gen_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                    struct stat *stbuf, int32_t valid)
+                    struct iatt *stbuf, int32_t valid)
 {
 	int             op_errno = 0;
         eg_t            *egp = NULL;
@@ -540,7 +540,7 @@ error_gen_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int
 error_gen_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			int32_t op_ret, int32_t op_errno,
-			struct stat *prebuf, struct stat *postbuf)
+			struct iatt *prebuf, struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
                              prebuf, postbuf);
@@ -579,8 +579,8 @@ error_gen_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 error_gen_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                         struct stat *postbuf)
+			 int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                         struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
                              prebuf, postbuf);
@@ -658,7 +658,7 @@ error_gen_access (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int
 error_gen_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			int32_t op_ret, int32_t op_errno,
-			const char *path, struct stat *sbuf)
+			const char *path, struct iatt *sbuf)
 {
 	STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, path, sbuf);
 	return 0;
@@ -696,8 +696,8 @@ error_gen_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int
 error_gen_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		     int32_t op_ret, int32_t op_errno, inode_t *inode,
-                     struct stat *buf, struct stat *preparent,
-                     struct stat *postparent)
+                     struct iatt *buf, struct iatt *preparent,
+                     struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
                              inode, buf,
@@ -738,8 +738,8 @@ error_gen_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
 int
 error_gen_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		     int32_t op_ret, int32_t op_errno, inode_t *inode,
-                     struct stat *buf, struct stat *preparent,
-                     struct stat *postparent)
+                     struct iatt *buf, struct iatt *preparent,
+                     struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
                              inode, buf,
@@ -779,7 +779,7 @@ error_gen_mkdir (call_frame_t *frame, xlator_t *this,
 int
 error_gen_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno,
-                      struct stat *preparent, struct stat *postparent)
+                      struct iatt *preparent, struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
                              preparent, postparent);
@@ -817,7 +817,7 @@ error_gen_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 int
 error_gen_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		     int32_t op_ret, int32_t op_errno,
-                     struct stat *preparent, struct stat *postparent)
+                     struct iatt *preparent, struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
                              preparent, postparent);
@@ -855,8 +855,8 @@ error_gen_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 int
 error_gen_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int32_t op_ret, int32_t op_errno, inode_t *inode,
-                       struct stat *buf, struct stat *preparent,
-                       struct stat *postparent)
+                       struct iatt *buf, struct iatt *preparent,
+                       struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -895,9 +895,9 @@ error_gen_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
 int
 error_gen_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		      int32_t op_ret, int32_t op_errno, struct stat *buf,
-                      struct stat *preoldparent, struct stat *postoldparent,
-                      struct stat *prenewparent, struct stat *postnewparent)
+		      int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                      struct iatt *preoldparent, struct iatt *postoldparent,
+                      struct iatt *prenewparent, struct iatt *postnewparent)
 {
 	STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
                              preoldparent, postoldparent,
@@ -938,8 +938,8 @@ error_gen_rename (call_frame_t *frame, xlator_t *this,
 int
 error_gen_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		    int32_t op_ret, int32_t op_errno, inode_t *inode,
-                    struct stat *buf, struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *buf, struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
@@ -979,8 +979,8 @@ error_gen_link (call_frame_t *frame, xlator_t *this,
 int
 error_gen_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno,
-		      fd_t *fd, inode_t *inode, struct stat *buf,
-                      struct stat *preparent, struct stat *postparent)
+		      fd_t *fd, inode_t *inode, struct iatt *buf,
+                      struct iatt *preparent, struct iatt *postparent)
 {
 	STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
@@ -1058,7 +1058,7 @@ int
 error_gen_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		     int32_t op_ret, int32_t op_errno,
 		     struct iovec *vector, int32_t count,
-		     struct stat *stbuf, struct iobref *iobref)
+		     struct iatt *stbuf, struct iobref *iobref)
 {
 	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
                              vector, count, stbuf, iobref);
@@ -1099,7 +1099,7 @@ error_gen_readv (call_frame_t *frame, xlator_t *this,
 int
 error_gen_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		      int32_t op_ret, int32_t op_errno,
-                      struct stat *prebuf, struct stat *postbuf)
+                      struct iatt *prebuf, struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -1174,8 +1174,8 @@ error_gen_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 int
 error_gen_fsync_cbk (call_frame_t *frame, void *cookie,
 		     xlator_t *this, int32_t op_ret,
-		     int32_t op_errno, struct stat *prebuf,
-                     struct stat *postbuf)
+		     int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf)
 {
 	STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
@@ -1211,7 +1211,7 @@ error_gen_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
 int
 error_gen_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, struct stat *buf)
+                     int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
 	STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
 	return 0;

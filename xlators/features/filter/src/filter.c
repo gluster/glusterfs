@@ -159,36 +159,36 @@ update_frame (call_frame_t *frame,
 
 /* if 'root' don't change the uid/gid */
 static int32_t
-update_stat (struct stat *stbuf,
+update_stat (struct iatt *stbuf,
 	     struct gf_filter *filter)
 {
 	int32_t idx = 0;
 	for (idx = 0; idx < filter->translate_num_uid_entries; idx++) {
-		if (stbuf->st_uid == GF_FILTER_ROOT_UID)
+		if (stbuf->ia_uid == GF_FILTER_ROOT_UID)
 			continue;
-		if ((stbuf->st_uid >= filter->translate_input_uid[idx][0]) &&
-		    (stbuf->st_uid <= filter->translate_input_uid[idx][1])) {
-			stbuf->st_uid = filter->translate_output_uid[idx];
+		if ((stbuf->ia_uid >= filter->translate_input_uid[idx][0]) &&
+		    (stbuf->ia_uid <= filter->translate_input_uid[idx][1])) {
+			stbuf->ia_uid = filter->translate_output_uid[idx];
 			break;
 		}
 	}
 	
 	for (idx = 0; idx < filter->translate_num_gid_entries; idx++) {
-		if (stbuf->st_gid == GF_FILTER_ROOT_GID)
+		if (stbuf->ia_gid == GF_FILTER_ROOT_GID)
 			continue;
-		if ((stbuf->st_gid >= filter->translate_input_gid[idx][0]) &&
-		    (stbuf->st_gid <= filter->translate_input_gid[idx][1])) {
-			stbuf->st_gid = filter->translate_output_gid[idx];
+		if ((stbuf->ia_gid >= filter->translate_input_gid[idx][0]) &&
+		    (stbuf->ia_gid <= filter->translate_input_gid[idx][1])) {
+			stbuf->ia_gid = filter->translate_output_gid[idx];
 			break;
 		}
 	}
 
 	if (filter->fixed_uid_set) {
-		stbuf->st_uid = filter->fixed_uid;
+		stbuf->ia_uid = filter->fixed_uid;
 	}
 
 	if (filter->fixed_gid_set) {
-		stbuf->st_gid = filter->fixed_gid;
+		stbuf->ia_gid = filter->fixed_gid;
 	}
 	
 	return 0;
@@ -201,14 +201,14 @@ filter_lookup_cbk (call_frame_t *frame,
 		   int32_t op_ret,
 		   int32_t op_errno,
 		   inode_t *inode,
-		   struct stat *buf,
+		   struct iatt *buf,
 		   dict_t *dict,
-                   struct stat *postparent)
+                   struct iatt *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->ia_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -242,7 +242,7 @@ filter_stat_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 struct stat *buf)
+		 struct iatt *buf)
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
@@ -270,8 +270,8 @@ filter_setattr_cbk (call_frame_t *frame,
                     xlator_t *this,
                     int32_t op_ret,
                     int32_t op_errno,
-                    struct stat *preop,
-                    struct stat *postop)
+                    struct iatt *preop,
+                    struct iatt *postop)
 {
 	if (op_ret >= 0) {
 		update_stat (preop, this->private);
@@ -285,7 +285,7 @@ int32_t
 filter_setattr (call_frame_t *frame,
                 xlator_t *this,
                 loc_t *loc,
-                struct stat *stbuf,
+                struct iatt *stbuf,
                 int32_t valid)
 {
 	int32_t ret = 0;
@@ -326,8 +326,8 @@ filter_fsetattr_cbk (call_frame_t *frame,
                      xlator_t *this,
                      int32_t op_ret,
                      int32_t op_errno,
-                     struct stat *preop,
-                     struct stat *postop)
+                     struct iatt *preop,
+                     struct iatt *postop)
 {
 	if (op_ret >= 0) {
                 update_stat (preop, this->private);
@@ -344,7 +344,7 @@ int32_t
 filter_fsetattr (call_frame_t *frame,
                  xlator_t *this,
                  fd_t *fd,
-                 struct stat *stbuf,
+                 struct iatt *stbuf,
                  int32_t valid)
 {
 	STACK_WIND (frame,
@@ -363,8 +363,8 @@ filter_truncate_cbk (call_frame_t *frame,
 		     xlator_t *this,
 		     int32_t op_ret,
 		     int32_t op_errno,
-		     struct stat *prebuf,
-                     struct stat *postbuf)
+		     struct iatt *prebuf,
+                     struct iatt *postbuf)
 {
 	if (op_ret >= 0) {
 		update_stat (prebuf, this->private);
@@ -415,8 +415,8 @@ filter_ftruncate_cbk (call_frame_t *frame,
 		      xlator_t *this,
 		      int32_t op_ret,
 		      int32_t op_errno,
-		      struct stat *prebuf,
-                      struct stat *postbuf)
+		      struct iatt *prebuf,
+                      struct iatt *postbuf)
 {
 	if (op_ret >= 0) {
 		update_stat (prebuf, this->private);
@@ -449,7 +449,7 @@ filter_readlink_cbk (call_frame_t *frame,
 		     int32_t op_ret,
 		     int32_t op_errno,
 		     const char *path,
-                     struct stat *sbuf)
+                     struct iatt *sbuf)
 {
         if (op_ret >= 0)
                 update_stat (sbuf, this->private);
@@ -494,15 +494,15 @@ filter_mknod_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-                  struct stat *buf,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
 	int ret = 0;
 
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->ia_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -560,14 +560,14 @@ filter_mkdir_cbk (call_frame_t *frame,
 		  int32_t op_ret,
 		  int32_t op_errno,
 		  inode_t *inode,
-                  struct stat *buf,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->ia_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -623,8 +623,8 @@ filter_unlink_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-                   struct stat *preparent,
-                   struct stat *postparent)
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
         if (op_ret >= 0) {
 		update_stat (preparent, this->private);
@@ -679,8 +679,8 @@ filter_rmdir_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-                  struct stat *preparent,
-                  struct stat *postparent)
+                  struct iatt *preparent,
+                  struct iatt *postparent)
 {
         if (op_ret >= 0) {
 		update_stat (preparent, this->private);
@@ -736,14 +736,14 @@ filter_symlink_cbk (call_frame_t *frame,
 		    int32_t op_ret,
 		    int32_t op_errno,
 		    inode_t *inode,
-                    struct stat *buf,
-                    struct stat *preparent,
-                    struct stat *postparent)
+                    struct iatt *buf,
+                    struct iatt *preparent,
+                    struct iatt *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->ia_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -800,11 +800,11 @@ filter_rename_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-		   struct stat *buf,
-                   struct stat *preoldparent,
-                   struct stat *postoldparent,
-                   struct stat *prenewparent,
-                   struct stat *postnewparent)
+		   struct iatt *buf,
+                   struct iatt *preoldparent,
+                   struct iatt *postoldparent,
+                   struct iatt *prenewparent,
+                   struct iatt *postnewparent)
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
@@ -875,14 +875,14 @@ filter_link_cbk (call_frame_t *frame,
 		 int32_t op_ret,
 		 int32_t op_errno,
 		 inode_t *inode,
-                 struct stat *buf,
-                 struct stat *preparent,
-                 struct stat *postparent)
+                 struct iatt *buf,
+                 struct iatt *preparent,
+                 struct iatt *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->ia_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -929,14 +929,14 @@ filter_create_cbk (call_frame_t *frame,
 		   int32_t op_errno,
 		   fd_t *fd,
 		   inode_t *inode,
-		   struct stat *buf,
-                   struct stat *preparent,
-                   struct stat *postparent)
+		   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent)
 {
 	int ret = 0;
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);
-		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->st_uid);
+		ret = inode_ctx_put (inode, this, (uint64_t)(long)buf->ia_uid);
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_ERROR,
 				"couldn't set context");
@@ -1053,7 +1053,7 @@ filter_readv_cbk (call_frame_t *frame,
 		  int32_t op_errno,
 		  struct iovec *vector,
 		  int32_t count,
-		  struct stat *stbuf,
+		  struct iatt *stbuf,
                   struct iobref *iobref)
 {
 	if (op_ret >= 0) {
@@ -1093,8 +1093,8 @@ filter_writev_cbk (call_frame_t *frame,
 		   xlator_t *this,
 		   int32_t op_ret,
 		   int32_t op_errno,
-                   struct stat *prebuf,
-		   struct stat *postbuf)
+                   struct iatt *prebuf,
+		   struct iatt *postbuf)
 {
 	if (op_ret >= 0) {
 		update_stat (prebuf, this->private);
@@ -1145,7 +1145,7 @@ filter_fstat_cbk (call_frame_t *frame,
 		  xlator_t *this,
 		  int32_t op_ret,
 		  int32_t op_errno,
-		  struct stat *buf)
+		  struct iatt *buf)
 {
 	if (op_ret >= 0) {
 		update_stat (buf, this->private);

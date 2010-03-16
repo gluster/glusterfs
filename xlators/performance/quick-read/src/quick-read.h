@@ -66,7 +66,7 @@ typedef struct qr_local qr_local_t;
 
 struct qr_file {
         dict_t           *xattr;
-        struct stat       stbuf;
+        struct iatt       stbuf;
         struct timeval    tv;
         gf_lock_t         lock;
 };

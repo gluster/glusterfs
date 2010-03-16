@@ -131,7 +131,7 @@ ra_waitq_return (ra_waitq_t *waitq)
 int
 ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int32_t op_ret, int32_t op_errno, struct iovec *vector,
-	      int32_t count, struct stat *stbuf, struct iobref *iobref)
+	      int32_t count, struct iatt *stbuf, struct iobref *iobref)
 {
 	ra_local_t   *local = NULL;
 	off_t        pending_offset = 0;

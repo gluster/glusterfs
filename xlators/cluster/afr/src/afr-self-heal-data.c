@@ -124,7 +124,7 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 afr_sh_data_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, struct stat *statpre, struct stat *statpost)
+                        int32_t op_ret, int32_t op_errno, struct iatt *statpre, struct iatt *statpost)
 {
         afr_sh_data_flush_cbk (frame, cookie, this, op_ret, op_errno);
 
@@ -145,7 +145,7 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
         int  active_sinks = 0;
         int32_t valid     = 0;
 
-        struct stat stbuf = {0,};
+        struct iatt stbuf = {0,};
         
         local = frame->local;
         sh    = &local->self_heal;
@@ -156,17 +156,10 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 
         valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
 
-#ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
-	stbuf.st_atim = sh->buf[source].st_atim;
-	stbuf.st_mtim = sh->buf[source].st_mtim;
-        
-#elif HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
-	stbuf.st_atimespec = sh->buf[source].st_atimespec;
-	stbuf.st_mtimespec = sh->buf[source].st_mtimespec;
-#else
-	stbuf.st_atime = sh->buf[source].st_atime;
-	stbuf.st_mtime = sh->buf[source].st_mtime;
-#endif
+	stbuf.ia_atime = sh->buf[source].ia_atime;
+	stbuf.ia_atime_nsec = sh->buf[source].ia_atime_nsec;
+	stbuf.ia_mtime = sh->buf[source].ia_mtime;
+	stbuf.ia_mtime_nsec = sh->buf[source].ia_mtime_nsec;
 
         if (sh->healing_fd_opened) {
                 /* not our job to close the fd */
@@ -440,8 +433,8 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 
 int
 afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		      int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                      struct stat *postbuf)
+		      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
@@ -543,7 +536,7 @@ sh_zero_byte_files_exist (afr_self_heal_t *sh, int child_count)
         int ret = 0;
 
         for (i = 0; i < child_count; i++) {
-                if (sh->buf[i].st_size == 0) {
+                if (sh->buf[i].ia_size == 0) {
                         ret = 1;
                         break;
                 }
@@ -722,13 +715,13 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
 	sh->source     = source;
 	sh->block_size = 65536;
-	sh->file_size  = sh->buf[source].st_size;
+	sh->file_size  = sh->buf[source].ia_size;
 
 	if (FILE_HAS_HOLES (&sh->buf[source]))
 		sh->file_has_holes = 1;
 
         orig_local = sh->orig_frame->local;
-        orig_local->cont.lookup.buf.st_size = sh->buf[source].st_size;
+        orig_local->cont.lookup.buf.ia_size = sh->buf[source].ia_size;
 
 	/* detect changes not visible through pending flags -- JIC */
 	for (i = 0; i < priv->child_count; i++) {
@@ -788,7 +781,7 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
 int
 afr_sh_data_fstat_cbk (call_frame_t *frame, void *cookie,
                        xlator_t *this, int32_t op_ret, int32_t op_errno,
-                       struct stat *buf)
+                       struct iatt *buf)
 {
 	afr_private_t   *priv  = NULL;
 	afr_local_t     *local = NULL;

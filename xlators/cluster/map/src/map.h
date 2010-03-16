@@ -46,7 +46,7 @@ typedef struct {
 	int32_t        op_errno;
 	int            call_count;
 	struct statvfs statvfs;
-	struct stat    stbuf;
+	struct iatt    stbuf;
 	inode_t       *inode;
 	dict_t        *dict;
 	fd_t          *fd;

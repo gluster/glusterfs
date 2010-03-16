@@ -59,8 +59,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 		layout = local->selfheal.layout;
 		ret = dht_layout_set (this, local->inode, layout);
 
-		if (local->st_ino) {
-			local->stbuf.st_ino = local->st_ino;
+		if (local->ia_ino) {
+			local->stbuf.ia_ino = local->ia_ino;
 		} else {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"could not find hashed subvolume for %s",
@@ -68,7 +68,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 		}
 
                 if (local->loc.parent)
-                        local->postparent.st_ino = local->loc.parent->ino;
+                        local->postparent.ia_ino = local->loc.parent->ino;
 	}
 
         WIPE (&local->postparent);
@@ -83,8 +83,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 int
 dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
-                    inode_t *inode, struct stat *stbuf, dict_t *xattr,
-                    struct stat *postparent)
+                    inode_t *inode, struct iatt *stbuf, dict_t *xattr,
+                    struct iatt *postparent)
 {
 	dht_conf_t   *conf                    = NULL;
         dht_local_t  *local                   = NULL;
@@ -125,7 +125,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "lookup of %s on %s returned non dir 0%o",
                                 local->loc.path, prev->this->name,
-                                stbuf->st_mode);
+                                stbuf->ia_type);
                         local->need_selfheal = 1;
  			goto unlock;
                 }
@@ -136,13 +136,13 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  		if (local->inode == NULL)
  			local->inode = inode_ref (inode);
 
-		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
-                dht_stat_merge (this, &local->postparent, postparent,
+		dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
 
                 if (prev->this == dht_first_up_subvol (this)) {
-			local->st_ino = local->stbuf.st_ino;
-                        local->st_dev = local->stbuf.st_dev;
+			local->ia_ino = local->stbuf.ia_ino;
+                        local->ia_gen = local->stbuf.ia_gen;
                 }
 
         }
@@ -171,9 +171,9 @@ unlock:
 			
 			dht_layout_set (this, local->inode, layout);
 			
-			if (local->st_ino) {
-				local->stbuf.st_ino = local->st_ino;
-                                local->stbuf.st_dev = local->st_dev;
+			if (local->ia_ino) {
+				local->stbuf.ia_ino = local->ia_ino;
+                                local->stbuf.ia_gen = local->ia_gen;
 			} else {
 				gf_log (this->name, GF_LOG_DEBUG,
 					"could not find hashed subvol for %s",
@@ -181,7 +181,7 @@ unlock:
 			}
 
                         if (local->loc.parent)
-                                local->postparent.st_ino =
+                                local->postparent.ia_ino =
                                         local->loc.parent->ino;
 		}
 
@@ -203,8 +203,8 @@ selfheal:
 int
 dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
-                    inode_t *inode, struct stat *stbuf, dict_t *xattr,
-                    struct stat *postparent)
+                    inode_t *inode, struct iatt *stbuf, dict_t *xattr,
+                    struct iatt *postparent)
 {
         dht_local_t  *local         = NULL;
         int           this_call_cnt = 0;
@@ -242,11 +242,10 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-		if (S_IFMT & (stbuf->st_mode ^ local->inode->st_mode)) {
+		if (stbuf->ia_type != local->inode->ia_type) {
 			gf_log (this->name, GF_LOG_DEBUG,
 				"mismatching filetypes 0%o v/s 0%o for %s",
-				(stbuf->st_mode & S_IFMT),
-				(local->inode->st_mode & S_IFMT),
+				(stbuf->ia_type), (local->inode->ia_type),
 				local->loc.path);
 
 			local->op_ret = -1;
@@ -284,16 +283,16 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			}
 		} 
 		
-		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
-                dht_stat_merge (this, &local->postparent, postparent,
+		dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
 		
 		local->op_ret = 0;
-		local->stbuf.st_ino = local->st_ino;
-                local->stbuf.st_dev = local->loc.inode->generation;
+		local->stbuf.ia_ino = local->ia_ino;
+                local->stbuf.ia_gen = local->loc.inode->generation;
 
                 if (local->loc.parent)
-                        local->postparent.st_ino = local->loc.parent->ino;
+                        local->postparent.ia_ino = local->loc.parent->ino;
 
 		if (!local->xattr)
 			local->xattr = dict_ref (xattr);
@@ -304,11 +303,11 @@ unlock:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
-		if (!S_ISDIR (local->stbuf.st_mode)
+		if (!IA_ISDIR (local->stbuf.ia_type)
 		    && (local->hashed_subvol != local->cached_subvol)
-		    && (local->stbuf.st_nlink == 1)
+		    && (local->stbuf.ia_nlink == 1)
 		    && (conf->unhashed_sticky_bit)) {
-			local->stbuf.st_mode |= S_ISVTX;
+			local->stbuf.ia_prot.sticky = 1;
 		}
 
 		if (local->layout_mismatch) {
@@ -331,8 +330,8 @@ int
 dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *stbuf,
-                                struct stat *preparent, struct stat *postparent)
+                                inode_t *inode, struct iatt *stbuf,
+                                struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	xlator_t     *cached_subvol = NULL;
@@ -354,13 +353,13 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         }
 
 	local->op_ret = 0;
-	if ((local->stbuf.st_nlink == 1)
+	if ((local->stbuf.ia_nlink == 1)
 	    && (conf->unhashed_sticky_bit)) {
-		local->stbuf.st_mode |= S_ISVTX;
+		local->stbuf.ia_prot.sticky = 1;
 	}
 
         if (local->loc.parent)
-                local->postparent.st_ino = local->loc.parent->ino;
+                local->postparent.ia_ino = local->loc.parent->ino;
 
 unwind:
         WIPE (&local->postparent);
@@ -375,8 +374,8 @@ unwind:
 int
 dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			   int32_t op_ret, int32_t op_errno,
-                           inode_t *inode, struct stat *buf, dict_t *xattr,
-                           struct stat *postparent)
+                           inode_t *inode, struct iatt *buf, dict_t *xattr,
+                           struct iatt *postparent)
 {
 	dht_conf_t   *conf          = NULL;
         dht_local_t  *local         = NULL;
@@ -431,7 +430,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                         if (!local->cached_subvol) {
                                 /* found one file */
-                                dht_stat_merge (this, &local->stbuf, buf,
+                                dht_iatt_merge (this, &local->stbuf, buf,
                                                 subvol);
                                 local->xattr = dict_ref (xattr);
                                 local->cached_subvol = subvol;
@@ -439,7 +438,7 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         "found on %s file %s",
                                         subvol->name, loc->path);
                                 
-                                dht_stat_merge (this, &local->postparent,
+                                dht_iatt_merge (this, &local->postparent,
                                                 postparent, subvol);
                         } else {
                                 gf_log (this->name, GF_LOG_DEBUG,
@@ -507,7 +506,7 @@ unlock:
                         }
 
                         if (local->loc.parent)
-                                local->postparent.st_ino =
+                                local->postparent.ia_ino =
                                         local->loc.parent->ino;
 
                         WIPE (&local->postparent);
@@ -564,8 +563,8 @@ dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
 int
 dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                          xlator_t *this, int op_ret, int op_errno,
-                         inode_t *inode, struct stat *stbuf, dict_t *xattr,
-                         struct stat *postparent)
+                         inode_t *inode, struct iatt *stbuf, dict_t *xattr,
+                         struct iatt *postparent)
 {
         call_frame_t *prev          = NULL;
 	dht_local_t  *local         = NULL;
@@ -601,13 +600,13 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-	if ((stbuf->st_nlink == 1)
+	if ((stbuf->ia_nlink == 1)
 	    && (conf->unhashed_sticky_bit)) {
-		stbuf->st_mode |= S_ISVTX;
+		stbuf->ia_prot.sticky = 1;
 	}
-        dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+        dht_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
         if (local->loc.parent)
-                postparent->st_ino = local->loc.parent->ino;
+                postparent->ia_ino = local->loc.parent->ino;
         
 	ret = dht_layout_preset (this, prev->this, inode);
 	if (ret < 0) {
@@ -669,8 +668,8 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
 int
 dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int op_ret, int op_errno,
-                inode_t *inode, struct stat *stbuf, dict_t *xattr,
-                struct stat *postparent)
+                inode_t *inode, struct iatt *stbuf, dict_t *xattr,
+                struct iatt *postparent)
 {
         char          is_linkfile   = 0;
         char          is_dir        = 0;
@@ -729,10 +728,10 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!is_dir && !is_linkfile) {
                 /* non-directory and not a linkfile */
 
-		dht_itransform (this, prev->this, stbuf->st_ino,
-				&stbuf->st_ino);
+		dht_itransform (this, prev->this, stbuf->ia_ino,
+				&stbuf->ia_ino);
                 if (loc->parent)
-                        postparent->st_ino = loc->parent->ino;
+                        postparent->ia_ino = loc->parent->ino;
 
 		ret = dht_layout_preset (this, prev->this, inode);
 		if (ret < 0) {
@@ -766,10 +765,10 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         /* 
-         * FIXME: postparent->st_size and postparent->st_blocks do not have 
+         * FIXME: postparent->ia_size and postparent->st_blocks do not have 
          * correct values. since, postparent corresponds to a directory these 
          * two members should have values equal to sum of corresponding values
-         * from each of the subvolume. See dht_stat_merge for reference.
+         * from each of the subvolume. See dht_iatt_merge for reference.
          */
 
         WIPE (postparent);
@@ -855,7 +854,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		}
 
 		local->inode    = inode_ref (loc->inode);
-		local->st_ino   = loc->inode->ino;
+		local->ia_ino   = loc->inode->ino;
 		
 		local->call_cnt = layout->cnt;
 		call_cnt = local->call_cnt;
@@ -927,8 +926,8 @@ err:
 
 int
 dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	      int op_ret, int op_errno, struct stat *prebuf,
-              struct stat *postbuf)
+	      int op_ret, int op_errno, struct iatt *prebuf,
+              struct iatt *postbuf)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -948,12 +947,12 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-                dht_stat_merge (this, &local->prebuf, prebuf, prev->this);
-		dht_stat_merge (this, &local->stbuf, postbuf, prev->this);
+                dht_iatt_merge (this, &local->prebuf, prebuf, prev->this);
+		dht_iatt_merge (this, &local->stbuf, postbuf, prev->this);
 
 		if (local->inode) {
-			local->stbuf.st_ino = local->inode->ino;
-                        local->prebuf.st_ino = local->inode->ino;
+			local->stbuf.ia_ino = local->inode->ino;
+                        local->prebuf.ia_ino = local->inode->ino;
                 }
 
 		local->op_ret = 0;
@@ -973,7 +972,7 @@ unlock:
 
 int
 dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	      int op_ret, int op_errno, struct stat *stbuf)
+	      int op_ret, int op_errno, struct iatt *stbuf)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -993,10 +992,10 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
+		dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
 		
 		if (local->inode)
-			local->stbuf.st_ino = local->inode->ino;
+			local->stbuf.ia_ino = local->inode->ino;
 		local->op_ret = 0;
 	}
 unlock:
@@ -1213,8 +1212,8 @@ err:
 
 int
 dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int op_ret, int op_errno, struct stat *preparent,
-                struct stat *postparent)
+                int op_ret, int op_errno, struct iatt *preparent,
+                struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev  = NULL;
@@ -1233,8 +1232,8 @@ dht_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-                preparent->st_ino = local->loc.parent->ino;
-                postparent->st_ino = local->loc.parent->ino;
+                preparent->ia_ino = local->loc.parent->ino;
+                postparent->ia_ino = local->loc.parent->ino;
 		local->op_ret = 0;
 
                 local->postparent = *postparent;
@@ -1255,8 +1254,8 @@ unlock:
 
 int
 dht_unlink_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int op_ret, int op_errno, struct stat *preparent,
-                         struct stat *postparent)
+                         int op_ret, int op_errno, struct iatt *preparent,
+                         struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -1308,7 +1307,7 @@ err:
 
 int
 dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-               int op_errno, struct stat *prebuf, struct stat *postbuf)
+               int op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -1334,8 +1333,8 @@ unlock:
 	UNLOCK (&frame->lock);
 
         if (local && (op_ret == 0)) {
-                prebuf->st_ino = local->st_ino;
-                postbuf->st_ino = local->st_ino;
+                prebuf->ia_ino = local->ia_ino;
+                postbuf->ia_ino = local->ia_ino;
         }
 
 	this_call_cnt = dht_frame_return (frame);
@@ -1433,7 +1432,7 @@ err:
 
 int
 dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		  int op_ret, int op_errno, const char *path, struct stat *sbuf)
+		  int op_ret, int op_errno, const char *path, struct iatt *sbuf)
 {
         dht_local_t *local = NULL;
 
@@ -1442,7 +1441,7 @@ dht_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
 
         if (local) {
-                sbuf->st_ino = local->st_ino;
+                sbuf->ia_ino = local->ia_ino;
         } else {
                 op_ret = -1;
                 op_errno = EINVAL;
@@ -1485,7 +1484,7 @@ dht_readlink (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-        local->st_ino = loc->inode->ino;
+        local->ia_ino = loc->inode->ino;
  
 	STACK_WIND (frame, dht_readlink_cbk,
 		    subvol, subvol->fops->readlink,
@@ -1735,7 +1734,7 @@ err:
 int
 dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	       int op_ret, int op_errno,
-	       struct iovec *vector, int count, struct stat *stbuf,
+	       struct iovec *vector, int count, struct iatt *stbuf,
                struct iobref *iobref)
 {
         dht_local_t     *local = frame->local;
@@ -1745,7 +1744,7 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
-        stbuf->st_ino = local->st_ino;
+        stbuf->ia_ino = local->ia_ino;
 out:
         DHT_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                           iobref);
@@ -1781,7 +1780,7 @@ dht_readv (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->st_ino = fd->inode->ino;
+        local->ia_ino = fd->inode->ino;
 	STACK_WIND (frame, dht_readv_cbk,
 		    subvol, subvol->fops->readv,
 		    fd, size, off);
@@ -1798,8 +1797,8 @@ err:
 
 int
 dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		int op_ret, int op_errno, struct stat *prebuf,
-                struct stat *postbuf)
+		int op_ret, int op_errno, struct iatt *prebuf,
+                struct iatt *postbuf)
 {
         dht_local_t *local = NULL;
 
@@ -1814,8 +1813,8 @@ dht_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         } 
         
-        prebuf->st_ino = local->st_ino;
-        postbuf->st_ino = local->st_ino;
+        prebuf->ia_ino = local->ia_ino;
+        postbuf->ia_ino = local->ia_ino;
 
 out:
         DHT_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf);
@@ -1853,7 +1852,7 @@ dht_writev (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local->st_ino = fd->inode->ino;
+        local->ia_ino = fd->inode->ino;
 
 	STACK_WIND (frame, dht_writev_cbk,
 		    subvol, subvol->fops->writev,
@@ -1943,7 +1942,7 @@ dht_fsync (call_frame_t *frame, xlator_t *this,
 	}
 	local->call_cnt = 1;
 
-        local->st_ino = fd->inode->ino;
+        local->ia_ino = fd->inode->ino;
 
 	STACK_WIND (frame, dht_fsync_cbk,
 		    subvol, subvol->fops->fsync,
@@ -2199,7 +2198,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 dht_itransform (this, prev->this, orig_entry->d_off,
                                 &entry->d_off);
 
-                entry->d_stat.st_ino = entry->d_ino;
+                entry->d_stat.ia_ino = entry->d_ino;
                 entry->d_type = orig_entry->d_type;
                 entry->d_len  = orig_entry->d_len;
 
@@ -2489,8 +2488,8 @@ err:
 int
 dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int op_ret, int op_errno,
-                 inode_t *inode, struct stat *stbuf, struct stat *preparent,
-                 struct stat *postparent)
+                 inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
+                 struct iatt *postparent)
 {
 	call_frame_t *prev = NULL;
 	int           ret = -1;
@@ -2509,10 +2508,10 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	prev = cookie;
 
-	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+	dht_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
         if (local->loc.parent) {
-                preparent->st_ino = local->loc.parent->ino;
-                postparent->st_ino = local->loc.parent->ino;
+                preparent->ia_ino = local->loc.parent->ino;
+                postparent->ia_ino = local->loc.parent->ino;
 
                 WIPE (preparent);
                 WIPE (postparent);
@@ -2529,11 +2528,11 @@ dht_newfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 out:
         /* 
-         * FIXME: st_size and st_blocks of preparent and postparent do not have 
+         * FIXME: ia_size and st_blocks of preparent and postparent do not have 
          * correct values. since, preparent and postparent buffers correspond
          * to a directory these two members should have values equal to sum of
          * corresponding values from each of the subvolume.
-         * See dht_stat_merge for reference.
+         * See dht_iatt_merge for reference.
          */ 
 
 	DHT_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, stbuf, preparent,
@@ -2545,8 +2544,8 @@ int
 dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                                xlator_t *this,
                                int32_t op_ret, int32_t op_errno,
-                               inode_t *inode, struct stat *stbuf,
-                               struct stat *preparent, struct stat *postparent)
+                               inode_t *inode, struct iatt *stbuf,
+                               struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	xlator_t     *cached_subvol = NULL;
@@ -2775,8 +2774,8 @@ err:
 int
 dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	      int op_ret, int op_errno,
-              inode_t *inode, struct stat *stbuf, struct stat *preparent,
-              struct stat *postparent)
+              inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
+              struct iatt *postparent)
 {
         call_frame_t *prev = NULL;
 	dht_layout_t *layout = NULL;
@@ -2798,10 +2797,10 @@ dht_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto out;
 	}
 
-	stbuf->st_ino = local->loc.inode->ino;
+	stbuf->ia_ino = local->loc.inode->ino;
 
-        preparent->st_ino = local->loc2.parent->ino;
-        postparent->st_ino = local->loc2.parent->ino;
+        preparent->ia_ino = local->loc2.parent->ino;
+        postparent->ia_ino = local->loc2.parent->ino;
 
         WIPE (preparent);
         WIPE (postparent);
@@ -2817,8 +2816,8 @@ out:
 int
 dht_link_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int op_ret, int op_errno,
-                       inode_t *inode, struct stat *stbuf,
-                       struct stat *preparent, struct stat *postparent)
+                       inode_t *inode, struct iatt *stbuf,
+                       struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	xlator_t     *srcvol = NULL;
@@ -2923,8 +2922,8 @@ err:
 int
 dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		 int op_ret, int op_errno,
-		 fd_t *fd, inode_t *inode, struct stat *stbuf,
-                 struct stat *preparent, struct stat *postparent)
+		 fd_t *fd, inode_t *inode, struct iatt *stbuf,
+                 struct iatt *preparent, struct iatt *postparent)
 {
 	call_frame_t *prev = NULL;
 	int           ret = -1;
@@ -2942,10 +2941,10 @@ dht_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	prev = cookie;
 
-	dht_itransform (this, prev->this, stbuf->st_ino, &stbuf->st_ino);
+	dht_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
         if (local->loc.parent) {
-                preparent->st_ino = local->loc.parent->ino;
-                postparent->st_ino = local->loc.parent->ino;
+                preparent->ia_ino = local->loc.parent->ino;
+                postparent->ia_ino = local->loc.parent->ino;
 
                 WIPE (preparent);
                 WIPE (postparent);
@@ -2972,8 +2971,8 @@ int
 dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 				xlator_t *this,
 				int32_t op_ret, int32_t op_errno,
-                                inode_t *inode, struct stat *stbuf,
-                                struct stat *preparent, struct stat *postparent)
+                                inode_t *inode, struct iatt *stbuf,
+                                struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	xlator_t     *cached_subvol = NULL;
@@ -3096,11 +3095,11 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 	if (op_ret == 0) {
                 dht_layout_set (this, local->inode, layout);
-		local->stbuf.st_ino = local->st_ino;
-                local->stbuf.st_dev = local->st_dev;
+		local->stbuf.ia_ino = local->ia_ino;
+                local->stbuf.ia_gen = local->ia_gen;
                 if (local->loc.parent) {
-                        local->preparent.st_ino = local->loc.parent->ino;
-                        local->postparent.st_ino = local->loc.parent->ino;
+                        local->preparent.ia_ino = local->loc.parent->ino;
+                        local->postparent.ia_ino = local->loc.parent->ino;
 
                         WIPE (&local->preparent);
                         WIPE (&local->postparent);
@@ -3116,8 +3115,8 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 
 int
 dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int op_ret, int op_errno, inode_t *inode, struct stat *stbuf,
-               struct stat *preparent, struct stat *postparent)
+               int op_ret, int op_errno, inode_t *inode, struct iatt *stbuf,
+               struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -3148,14 +3147,14 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			local->op_errno = op_errno;
 			goto unlock;
 		}
-		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
-                dht_stat_merge (this, &local->preparent, preparent, prev->this);
-                dht_stat_merge (this, &local->postparent, postparent,
+		dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+                dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+                dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
 
                 if (prev->this == dht_first_up_subvol (this)) {
-                        local->st_ino = local->stbuf.st_ino;
-                        local->st_dev = local->stbuf.st_dev;
+                        local->ia_ino = local->stbuf.ia_ino;
+                        local->ia_gen = local->stbuf.ia_gen;
                 }
 
 	}
@@ -3174,8 +3173,8 @@ unlock:
 int
 dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie, 
 		      xlator_t *this, int op_ret, int op_errno,
-                      inode_t *inode, struct stat *stbuf,
-                      struct stat *preparent, struct stat *postparent)
+                      inode_t *inode, struct iatt *stbuf,
+                      struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	int           ret = -1;
@@ -3204,12 +3203,12 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	}
 	local->op_ret = 0;
 
-	dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
-        dht_stat_merge (this, &local->preparent, preparent, prev->this);
-        dht_stat_merge (this, &local->postparent, postparent, prev->this);
+	dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+        dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+        dht_iatt_merge (this, &local->postparent, postparent, prev->this);
 
-	local->st_ino = local->stbuf.st_ino;
-        local->st_dev = local->stbuf.st_dev;
+	local->ia_ino = local->stbuf.ia_ino;
+        local->ia_gen = local->stbuf.ia_gen;
 
 	local->call_cnt = conf->subvolume_cnt - 1;
 	
@@ -3314,8 +3313,8 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 
         if (local->loc.parent) {
-                local->preparent.st_ino = local->loc.parent->ino;
-                local->postparent.st_ino = local->loc.parent->ino;
+                local->preparent.ia_ino = local->loc.parent->ino;
+                local->postparent.ia_ino = local->loc.parent->ino;
         }
 
 	DHT_STACK_UNWIND (rmdir, frame, local->op_ret, local->op_errno,
@@ -3327,8 +3326,8 @@ dht_rmdir_selfheal_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	       int op_ret, int op_errno, struct stat *preparent,
-               struct stat *postparent)
+	       int op_ret, int op_errno, struct iatt *preparent,
+               struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -3353,8 +3352,8 @@ dht_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-                dht_stat_merge (this, &local->preparent, preparent, prev->this);
-                dht_stat_merge (this, &local->postparent, postparent,
+                dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+                dht_iatt_merge (this, &local->postparent, postparent,
                                 prev->this);
 	}
 unlock:
@@ -3368,15 +3367,15 @@ unlock:
                                 dht_layout_get (this, local->loc.inode);
 
 			/* TODO: neater interface needed below */
-			local->stbuf.st_mode = local->loc.inode->st_mode;
+			local->stbuf.ia_type = local->loc.inode->ia_type;
 
 			dht_selfheal_restore (frame, dht_rmdir_selfheal_cbk,
 					      &local->loc, local->layout);
 		} else {
                         if (local->loc.parent) {
-                                local->preparent.st_ino =
+                                local->preparent.ia_ino =
                                         local->loc.parent->ino;
-                                local->postparent.st_ino =
+                                local->postparent.ia_ino =
                                         local->loc.parent->ino;
 
                                 WIPE (&local->preparent);
@@ -3426,8 +3425,8 @@ err:
 
 int
 dht_rmdir_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                               int op_ret, int op_errno, struct stat *preparent,
-                               struct stat *postparent)
+                               int op_ret, int op_errno, struct iatt *preparent,
+                               struct iatt *postparent)
 {
         dht_local_t    *local = NULL;
         call_frame_t   *prev = NULL;
@@ -3467,7 +3466,7 @@ dht_rmdir_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this
 int
 dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, inode_t *inode,
-                      struct stat *stbuf, dict_t *xattr, struct stat *parent)
+                      struct iatt *stbuf, dict_t *xattr, struct iatt *parent)
 {
         dht_local_t    *local = NULL;
         call_frame_t   *prev = NULL;
@@ -3491,8 +3490,8 @@ dht_rmdir_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 main_local->op_errno = ENOTEMPTY;
 
                 gf_log (this->name, GF_LOG_WARNING,
-                        "%s on %s found to be not a linkfile (mode=0%o)",
-                        local->loc.path, src->name, stbuf->st_mode);
+                        "%s on %s found to be not a linkfile (type=0%o)",
+                        local->loc.path, src->name, stbuf->ia_type);
                 goto err;
         }
 
@@ -4048,8 +4047,8 @@ err:
 
 int
 dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int op_ret, int op_errno, struct stat *statpre,
-                 struct stat *statpost)
+                 int op_ret, int op_errno, struct iatt *statpre,
+                 struct iatt *statpost)
 {
 	dht_local_t  *local = NULL;
 	int           this_call_cnt = 0;
@@ -4069,12 +4068,12 @@ dht_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			goto unlock;
 		}
 
-		dht_stat_merge (this, &local->prebuf, statpre, prev->this);
-                dht_stat_merge (this, &local->stbuf, statpost, prev->this);
+		dht_iatt_merge (this, &local->prebuf, statpre, prev->this);
+                dht_iatt_merge (this, &local->stbuf, statpost, prev->this);
 		
 		if (local->inode) {
-			local->prebuf.st_ino = local->inode->ino;
-                        local->stbuf.st_ino = local->inode->ino;
+			local->prebuf.ia_ino = local->inode->ino;
+                        local->stbuf.ia_ino = local->inode->ino;
                 }
 
 		local->op_ret = 0;
@@ -4093,7 +4092,7 @@ unlock:
 
 int
 dht_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             struct stat *stbuf, int32_t valid)
+             struct iatt *stbuf, int32_t valid)
 {
 	dht_layout_t *layout = NULL;
 	dht_local_t  *local  = NULL;
@@ -4151,7 +4150,7 @@ err:
 
 
 int
-dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct stat *stbuf,
+dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
               int32_t valid)
 {
 	dht_layout_t *layout = NULL;

@@ -26,7 +26,7 @@ sys_lstat (const char *path, struct stat *buf);
 int
 sys_stat (const char *path, struct stat *buf);
 
-int 
+int
 sys_fstat (int fd, struct stat *buf);
 
 DIR *
@@ -35,31 +35,31 @@ sys_opendir (const char *name);
 struct dirent *
 sys_readdir (DIR *dir);
 
-ssize_t 
+ssize_t
 sys_readlink (const char *path, char *buf, size_t bufsiz);
 
-int 
+int
 sys_closedir (DIR *dir);
 
 int
 sys_mknod (const char *pathname, mode_t mode, dev_t dev);
 
-int 
+int
 sys_mkdir (const char *pathname, mode_t mode);
 
-int 
+int
 sys_unlink (const char *pathname);
 
-int 
+int
 sys_rmdir (const char *pathname);
 
-int 
+int
 sys_symlink (const char *oldpath, const char *newpath);
 
 int
 sys_rename (const char *oldpath, const char *newpath);
 
-int 
+int
 sys_link (const char *oldpath, const char *newpath);
 
 int
@@ -68,7 +68,7 @@ sys_chmod (const char *path, mode_t mode);
 int
 sys_fchmod (int fd, mode_t mode);
 
-int 
+int
 sys_chown (const char *path, uid_t owner, gid_t group);
 
 int
@@ -77,13 +77,13 @@ sys_fchown (int fd, uid_t owner, gid_t group);
 int
 sys_lchown (const char *path, uid_t owner, gid_t group);
 
-int 
+int
 sys_truncate (const char *path, off_t length);
 
-int 
+int
 sys_ftruncate (int fd, off_t length);
 
-int 
+int
 sys_utimes (const char *filename, const struct timeval times[2]);
 
 int
@@ -98,7 +98,7 @@ sys_writev (int fd, const struct iovec *iov, int iovcnt);
 ssize_t
 sys_read (int fd, void *buf, size_t count);
 
-ssize_t 
+ssize_t
 sys_write (int fd, const void *buf, size_t count);
 
 off_t
@@ -107,42 +107,42 @@ sys_lseek (int fd, off_t offset, int whence);
 int
 sys_statvfs (const char *path, struct statvfs *buf);
 
-int 
+int
 sys_close (int fd);
 
-int 
+int
 sys_fsync (int fd);
 
-int 
+int
 sys_fdatasync (int fd);
 
-int 
-sys_lsetxattr (const char *path, const char *name, const void *value, 
-               size_t size, int flags); 
-
-ssize_t
-sys_llistxattr (const char *path, char *list, size_t size); 
-
-ssize_t
-sys_lgetxattr (const char *path, const char *name, void *value, size_t size); 
-
-ssize_t 
-sys_fgetxattr (int filedes, const char *name, void *value, size_t size); 
-
-int 
-sys_fsetxattr (int filedes, const char *name, const void *value, 
+int
+sys_lsetxattr (const char *path, const char *name, const void *value,
                size_t size, int flags);
 
-ssize_t 
-sys_flistxattr (int filedes, char *list, size_t size); 
+ssize_t
+sys_llistxattr (const char *path, char *list, size_t size);
 
-int 
+ssize_t
+sys_lgetxattr (const char *path, const char *name, void *value, size_t size);
+
+ssize_t
+sys_fgetxattr (int filedes, const char *name, void *value, size_t size);
+
+int
+sys_fsetxattr (int filedes, const char *name, const void *value,
+               size_t size, int flags);
+
+ssize_t
+sys_flistxattr (int filedes, char *list, size_t size);
+
+int
 sys_lremovexattr (const char *path, const char *name);
 
-int 
+int
 sys_access (const char *pathname, int mode);
 
-int 
+int
 sys_ftruncate (int fd, off_t length);
 
 #endif /* __SYSCALL_H__ */

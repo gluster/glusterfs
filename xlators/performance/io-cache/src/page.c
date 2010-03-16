@@ -282,17 +282,17 @@ out:
  * assumes ioc_inode is locked
  */
 int8_t
-ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct stat *stbuf)
+ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct iatt *stbuf)
 {
 	int8_t cache_still_valid = 1;
 
 #if 0
-	if (!stbuf || (stbuf->st_mtime != ioc_inode->cache.mtime) || 
+	if (!stbuf || (stbuf->ia_mtime != ioc_inode->cache.mtime) || 
 	    (stbuf->st_mtim.tv_nsec != ioc_inode->stbuf.st_mtim.tv_nsec))
 		cache_still_valid = 0;
 
 #else
-	if (!stbuf || (stbuf->st_mtime != ioc_inode->cache.mtime))
+	if (!stbuf || (stbuf->ia_mtime != ioc_inode->cache.mtime))
 		cache_still_valid = 0;
 
 #endif
@@ -301,7 +301,7 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct stat *stbuf)
 	/* talk with avati@gluster.com to enable this section */
 	if (!ioc_inode->mtime && stbuf) {
 		cache_still_valid = 1;
-		ioc_inode->mtime = stbuf->st_mtime;
+		ioc_inode->mtime = stbuf->ia_mtime;
 	}
 #endif
 
@@ -329,7 +329,7 @@ ioc_waitq_return (ioc_waitq_t *waitq)
 int
 ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iovec *vector,
-	       int32_t count, struct stat *stbuf, struct iobref *iobref)
+	       int32_t count, struct iatt *stbuf, struct iobref *iobref)
 {
 	ioc_local_t *local = NULL;
 	off_t       offset = 0;
@@ -353,7 +353,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	payload_size = op_ret;
 
         zero_filled = ((op_ret >=0)
-                       && (stbuf->st_mtime == 0));
+                       && (stbuf->ia_mtime == 0));
 
 	ioc_inode_lock (ioc_inode);
 	{
@@ -367,7 +367,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if ((op_ret >= 0) && !zero_filled)
-			ioc_inode->cache.mtime = stbuf->st_mtime;
+			ioc_inode->cache.mtime = stbuf->ia_mtime;
 
 		gettimeofday (&ioc_inode->cache.tv, NULL);
 
@@ -695,7 +695,7 @@ ioc_frame_unwind (call_frame_t *frame)
 	struct iovec  *vector = NULL;
 	int32_t       copied = 0;
 	struct iobref *iobref = NULL;
-	struct stat   stbuf = {0,};
+	struct iatt   stbuf = {0,};
 	int32_t       op_ret = 0, op_errno = 0;
 
         local = frame->local;

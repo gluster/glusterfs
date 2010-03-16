@@ -69,8 +69,8 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                local->cont.writev.prebuf.st_ino  = local->cont.writev.ino;
-                local->cont.writev.postbuf.st_ino = local->cont.writev.ino;
+                local->cont.writev.prebuf.ia_ino  = local->cont.writev.ino;
+                local->cont.writev.postbuf.ia_ino = local->cont.writev.ino;
 
 		AFR_STACK_UNWIND (writev, main_frame,
                                   local->op_ret, local->op_errno,
@@ -83,8 +83,8 @@ afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		     int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                     struct stat *postbuf)
+		     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -350,8 +350,8 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                local->cont.truncate.prebuf.st_ino  = local->cont.truncate.ino;
-                local->cont.truncate.postbuf.st_ino = local->cont.truncate.ino;
+                local->cont.truncate.prebuf.ia_ino  = local->cont.truncate.ino;
+                local->cont.truncate.postbuf.ia_ino = local->cont.truncate.ino;
 
                 AFR_STACK_UNWIND (truncate, main_frame, local->op_ret,
                                   local->op_errno,
@@ -365,8 +365,8 @@ afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-		       int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                       struct stat *postbuf)
+		       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                       struct iatt *postbuf)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -569,8 +569,8 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                local->cont.ftruncate.prebuf.st_ino  = local->cont.ftruncate.ino;
-                local->cont.ftruncate.postbuf.st_ino = local->cont.ftruncate.ino;
+                local->cont.ftruncate.prebuf.ia_ino  = local->cont.ftruncate.ino;
+                local->cont.ftruncate.postbuf.ia_ino = local->cont.ftruncate.ino;
 
 		AFR_STACK_UNWIND (ftruncate, main_frame, local->op_ret,
                                   local->op_errno,
@@ -583,8 +583,8 @@ afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 
 int
 afr_ftruncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
-			int32_t op_ret, int32_t op_errno, struct stat *prebuf,
-                        struct stat *postbuf)
+			int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                        struct iatt *postbuf)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -828,8 +828,8 @@ afr_setattr_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                local->cont.setattr.preop_buf.st_ino  = local->cont.setattr.ino;
-                local->cont.setattr.postop_buf.st_ino = local->cont.setattr.ino;
+                local->cont.setattr.preop_buf.ia_ino  = local->cont.setattr.ino;
+                local->cont.setattr.postop_buf.ia_ino = local->cont.setattr.ino;
 
                 AFR_STACK_UNWIND (setattr, main_frame, local->op_ret,
                                   local->op_errno,
@@ -844,7 +844,7 @@ afr_setattr_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_setattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      struct stat *preop, struct stat *postop)
+                      struct iatt *preop, struct iatt *postop)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -961,7 +961,7 @@ afr_setattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_setattr (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, struct stat *buf, int32_t valid)
+             loc_t *loc, struct iatt *buf, int32_t valid)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -1046,9 +1046,9 @@ afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
 	UNLOCK (&frame->lock);
 
 	if (main_frame) {
-                local->cont.fsetattr.preop_buf.st_ino  =
+                local->cont.fsetattr.preop_buf.ia_ino  =
                         local->cont.fsetattr.ino;
-                local->cont.fsetattr.postop_buf.st_ino =
+                local->cont.fsetattr.postop_buf.ia_ino =
                         local->cont.fsetattr.ino;
 
                 AFR_STACK_UNWIND (fsetattr, main_frame, local->op_ret,
@@ -1064,7 +1064,7 @@ afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
 int
 afr_fsetattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
-                      struct stat *preop, struct stat *postop)
+                      struct iatt *preop, struct iatt *postop)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = NULL;
@@ -1181,7 +1181,7 @@ afr_fsetattr_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_fsetattr (call_frame_t *frame, xlator_t *this,
-              fd_t *fd, struct stat *buf, int32_t valid)
+              fd_t *fd, struct iatt *buf, int32_t valid)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;

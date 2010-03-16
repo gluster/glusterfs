@@ -96,16 +96,16 @@ struct _unify_local_t {
 	int32_t entry_count;
 	int32_t count;    // dir_entry_t count;
 	fd_t *fd;
-	struct stat stbuf;
-        struct stat stpre;
-        struct stat stpost;
+	struct iatt stbuf;
+        struct iatt stpre;
+        struct iatt stpost;
 	struct statvfs statvfs_buf;
 	struct timespec tv[2];
 	char *name;
 	int32_t revalidate;
 
-	ino_t st_ino;
-	nlink_t st_nlink;
+	ino_t ia_ino;
+	nlink_t ia_nlink;
   
 	dict_t *dict;
 
@@ -125,15 +125,15 @@ struct _unify_local_t {
 	struct unify_self_heal_struct *sh_struct;
 	loc_t loc1, loc2;
 
-        struct stat poststbuf;
+        struct iatt poststbuf;
         /* When not used for rename, old*
          * are used as the attrs for the current
          * parent directory.
          */
-        struct stat oldpreparent;
-        struct stat oldpostparent;
-        struct stat newpreparent;
-        struct stat newpostparent;
+        struct iatt oldpreparent;
+        struct iatt oldpostparent;
+        struct iatt newpreparent;
+        struct iatt newpostparent;
         int32_t wbflags;
 };
 typedef struct _unify_local_t unify_local_t;

@@ -153,7 +153,7 @@ out:
 
                                 sh->need_entry_self_heal  = _gf_true;
                                 sh->forced_merge          = _gf_true;
-                                sh->mode                  = local->fd->inode->st_mode;
+                                sh->type                  = local->fd->inode->ia_type;
                                 sh->background            = _gf_false;
                                 sh->unwind                = afr_examine_dir_sh_unwind;
 
@@ -560,9 +560,9 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inum = afr_itransform (entry->d_ino, priv->child_count,
                                        child_index);
                 entry->d_ino = inum;
-                inum  = afr_itransform (entry->d_stat.st_ino,
+                inum  = afr_itransform (entry->d_stat.ia_ino,
                                         priv->child_count, child_index);
-                entry->d_stat.st_ino = inum;
+                entry->d_stat.ia_ino = inum;
 
                 if ((local->fd->inode == local->fd->inode->table->root)
                     && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {

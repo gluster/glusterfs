@@ -29,24 +29,24 @@ int32_t
 trash_ftruncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
                            struct iovec *vector, int32_t count,
-                           struct stat *stbuf, struct iobref *iobuf);
+                           struct iatt *stbuf, struct iobref *iobuf);
 
 int32_t
 trash_truncate_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
-                           struct stat *prebuf, struct stat *postbuf);
+                           struct iatt *prebuf, struct iatt *postbuf);
 
 int32_t
 trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, inode_t *inode,
-                          struct stat *stbuf, struct stat *preparent,
-                          struct stat *postparent);
+                          struct iatt *stbuf, struct iatt *preparent,
+                          struct iatt *postparent);
 
 int32_t
 trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *buf,
-                         struct stat *preoldparent, struct stat *postoldparent,
-                         struct stat *prenewparent, struct stat *postnewparent);
+                         int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                         struct iatt *preoldparent, struct iatt *postoldparent,
+                         struct iatt *prenewparent, struct iatt *postnewparent);
 
 void
 trash_local_wipe (trash_local_t *local)
@@ -71,7 +71,7 @@ out:
 int32_t
 trash_common_unwind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno,
-                         struct stat *preparent, struct stat *postparent)
+                         struct iatt *preparent, struct iatt *postparent)
 {
         TRASH_STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
         return 0;
@@ -80,8 +80,8 @@ trash_common_unwind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, inode_t *inode,
-                        struct stat *stbuf, struct stat *preparent,
-                        struct stat *postparent)
+                        struct iatt *stbuf, struct iatt *preparent,
+                        struct iatt *postparent)
 {
         trash_local_t *local       = NULL;
         char          *tmp_str     = NULL;
@@ -175,14 +175,14 @@ out:
 int32_t
 trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, inode_t *inode,
-                        struct stat *stbuf, struct stat *preparent,
-                        struct stat *postparent);
+                        struct iatt *stbuf, struct iatt *preparent,
+                        struct iatt *postparent);
 
 int32_t
 trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *buf,
-                         struct stat *preoldparent, struct stat *postoldparent,
-                         struct stat *prenewparent, struct stat *postnewparent)
+                         int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                         struct iatt *preoldparent, struct iatt *postoldparent,
+                         struct iatt *prenewparent, struct iatt *postnewparent)
 {
         trash_local_t   *local      = NULL;
         trash_private_t *priv       = NULL;
@@ -254,7 +254,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 trash_common_unwind_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno,
-                             struct stat *prebuf, struct stat *postbuf)
+                             struct iatt *prebuf, struct iatt *postbuf)
 {
         TRASH_STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
@@ -262,9 +262,9 @@ trash_common_unwind_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 trash_common_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *stbuf,
-                         struct stat *preoldparent, struct stat *postoldparent,
-                         struct stat *prenewparent, struct stat *postnewparent)
+                         int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
+                         struct iatt *preoldparent, struct iatt *postoldparent,
+                         struct iatt *prenewparent, struct iatt *postnewparent)
 {
         TRASH_STACK_UNWIND (frame, op_ret, op_errno, stbuf, preoldparent,
                             postoldparent, prenewparent, postnewparent);
@@ -274,7 +274,7 @@ trash_common_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 trash_unlink_stat_cbk (call_frame_t *frame,  void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, struct stat *buf)
+                       int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         trash_private_t *priv    = NULL;
         trash_local_t   *local   = NULL;
@@ -289,15 +289,15 @@ trash_unlink_stat_cbk (call_frame_t *frame,  void *cookie, xlator_t *this,
                 goto fail;
         }
 
-        if ((buf->st_size == 0) ||
-            (buf->st_size > priv->max_trash_file_size)) {
+        if ((buf->ia_size == 0) ||
+            (buf->ia_size > priv->max_trash_file_size)) {
                 /* if the file is too big or zero, just unlink it */
 
-                if (buf->st_size > priv->max_trash_file_size) {
+                if (buf->ia_size > priv->max_trash_file_size) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "%s: file size too big (%"GF_PRI_SIZET") to "
                                 "move into trash directory",
-                                local->loc.path, buf->st_size);
+                                local->loc.path, buf->ia_size);
                 }
 
                 STACK_WIND (frame, trash_common_unwind_cbk,
@@ -325,9 +325,9 @@ fail:
 
 int32_t
 trash_rename_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *buf,
-                         struct stat *preoldparent, struct stat *postoldparent,
-                         struct stat *prenewparent, struct stat *postnewparent)
+                         int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                         struct iatt *preoldparent, struct iatt *postoldparent,
+                         struct iatt *prenewparent, struct iatt *postnewparent)
 {
         trash_local_t *local    = NULL;
         char          *tmp_str  = NULL;
@@ -384,8 +384,8 @@ trash_rename_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, inode_t *inode,
-                        struct stat *stbuf, struct stat *preparent,
-                        struct stat *postparent)
+                        struct iatt *stbuf, struct iatt *preparent,
+                        struct iatt *postparent)
 {
         trash_local_t *local = NULL;
         char          *tmp_str = NULL;
@@ -447,8 +447,8 @@ out:
 int32_t
 trash_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, inode_t *inode,
-                         struct stat *buf, dict_t *xattr,
-                         struct stat *postparent)
+                         struct iatt *buf, dict_t *xattr,
+                         struct iatt *postparent)
 {
         trash_private_t *priv = NULL;
         trash_local_t   *local = NULL;
@@ -464,15 +464,15 @@ trash_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             &local->loc, &local->newloc);
                 return 0;
         }
-        if ((buf->st_size == 0) ||
-            (buf->st_size > priv->max_trash_file_size)) {
+        if ((buf->ia_size == 0) ||
+            (buf->ia_size > priv->max_trash_file_size)) {
                 /* if the file is too big or zero, just unlink it */
 
-                if (buf->st_size > priv->max_trash_file_size) {
+                if (buf->ia_size > priv->max_trash_file_size) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "%s: file size too big (%"GF_PRI_SIZET") to "
                                 "move into trash directory",
-                                local->newloc.path, buf->st_size);
+                                local->newloc.path, buf->ia_size);
                 }
 
                 STACK_WIND (frame, trash_common_rename_cbk,
@@ -639,7 +639,7 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 int32_t
 trash_truncate_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
-                           struct stat *preparent, struct stat *postparent)
+                           struct iatt *preparent, struct iatt *postparent)
 {
         /* use this Function when a failure occurs, and
            delete the newly created file. */
@@ -664,7 +664,7 @@ int32_t
 trash_truncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno,
                           struct iovec *vector, int32_t count,
-                          struct stat *stbuf, struct iobref *iobuf)
+                          struct iatt *stbuf, struct iobref *iobuf)
 {
         trash_local_t *local = NULL;
 
@@ -681,7 +681,7 @@ trash_truncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        local->fsize = stbuf->st_size;
+        local->fsize = stbuf->ia_size;
         STACK_WIND (frame, trash_truncate_writev_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
                     local->newfd, vector, count, local->cur_offset, iobuf);
@@ -694,7 +694,7 @@ out:
 int32_t
 trash_truncate_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
-                           struct stat *prebuf, struct stat *postbuf)
+                           struct iatt *prebuf, struct iatt *postbuf)
 {
         trash_local_t *local = NULL;
 
@@ -767,8 +767,8 @@ out:
 int32_t
 trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, fd_t *fd,
-                           inode_t *inode, struct stat *buf,
-                           struct stat *preparent, struct stat *postparent)
+                           inode_t *inode, struct iatt *buf,
+                           struct iatt *preparent, struct iatt *postparent)
 {
         trash_local_t       *local    = NULL;
         char                *tmp_str  = NULL;
@@ -830,8 +830,8 @@ out:
 int32_t
 trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, inode_t *inode,
-                          struct stat *stbuf, struct stat *preparent,
-                          struct stat *postparent)
+                          struct iatt *stbuf, struct iatt *preparent,
+                          struct iatt *postparent)
 {
         trash_local_t       *local = NULL;
         char                *tmp_str = NULL;
@@ -883,11 +883,13 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 dir_name = dirname (tmp_str);
                 if (strcmp ((char*)cookie, dir_name) == 0) {
                         flags = O_CREAT|O_EXCL|O_WRONLY;
+                        ia_prot_t prot = {0, };
 
                         //Call create again once directory structure is created.
                         STACK_WIND (frame, trash_truncate_create_cbk,
                                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->create,
-                                    &local->newloc, flags, local->loc.inode->st_mode,
+                                    &local->newloc, flags,
+                                    st_mode_from_ia (prot, local->loc.inode->ia_type),
                                     local->newfd);
                         goto out;
                 }
@@ -930,7 +932,7 @@ out:
 
 int32_t
 trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno, struct stat *buf)
+                         int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         trash_private_t     *priv  = NULL;
         trash_local_t       *local = NULL;
@@ -952,9 +954,9 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 return 0;
         }
 
-        if ((buf->st_size == 0) || (buf->st_size > priv->max_trash_file_size)) {
+        if ((buf->ia_size == 0) || (buf->ia_size > priv->max_trash_file_size)) {
                 // If the file is too big, just unlink it.
-                if (buf->st_size > priv->max_trash_file_size)
+                if (buf->ia_size > priv->max_trash_file_size)
                         gf_log (this->name, GF_LOG_DEBUG, "%s: file too big, "
                                 "not moving to trash", local->loc.path);
 
@@ -988,7 +990,8 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_WIND (frame, trash_truncate_create_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
-                    &local->newloc, flags, local->loc.inode->st_mode,
+                    &local->newloc, flags,
+                    st_mode_from_ia (buf->ia_prot, local->loc.inode->ia_type),
                     local->newfd);
 
         return 0;
@@ -1057,7 +1060,7 @@ out:
 int32_t
 trash_ftruncate_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno,
-                            struct stat *preparent, struct stat *postparent)
+                            struct iatt *preparent, struct iatt *postparent)
 {
         trash_local_t *local = NULL;
 
@@ -1080,7 +1083,7 @@ trash_ftruncate_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 trash_ftruncate_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno,
-                            struct stat *prebuf, struct stat *postbuf)
+                            struct iatt *prebuf, struct iatt *postbuf)
 {
         trash_local_t *local = NULL;
 
@@ -1114,12 +1117,12 @@ int32_t
 trash_ftruncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
                            struct iovec *vector, int32_t count,
-                           struct stat *stbuf, struct iobref *iobuf)
+                           struct iatt *stbuf, struct iobref *iobuf)
 {
         trash_local_t *local = NULL;
 
         local = frame->local;
-        local->fsize = stbuf->st_size;
+        local->fsize = stbuf->ia_size;
 
         if (op_ret == -1) {
                 STACK_WIND (frame, trash_ftruncate_unlink_cbk,
@@ -1139,8 +1142,8 @@ trash_ftruncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 trash_ftruncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, fd_t *fd,
-                            inode_t *inode, struct stat *buf,
-                            struct stat *preparent, struct stat *postparent)
+                            inode_t *inode, struct iatt *buf,
+                            struct iatt *preparent, struct iatt *postparent)
 {
         trash_local_t *local = NULL;
         char          *tmp_str = NULL;
@@ -1191,8 +1194,8 @@ trash_ftruncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int32_t
 trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, inode_t *inode,
-                           struct stat *stbuf, struct stat *preparent,
-                           struct stat *postparent)
+                           struct iatt *stbuf, struct iatt *preparent,
+                           struct iatt *postparent)
 {
         trash_local_t       *local = NULL;
         char                *tmp_str = NULL;
@@ -1243,6 +1246,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == 0) {
                 dir_name = dirname (tmp_str);
                 if (strcmp ((char*)cookie, dir_name) == 0) {
+                        ia_prot_t prot = {0, };
                         flags = O_CREAT|O_EXCL|O_WRONLY;
 
                         //Call create again once directory structure is created.
@@ -1250,7 +1254,8 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     FIRST_CHILD(this),
                                     FIRST_CHILD(this)->fops->create,
                                     &local->newloc, flags,
-                                    local->loc.inode->st_mode, local->newfd);
+                                    st_mode_from_ia (prot, local->loc.inode->ia_type),
+                                    local->newfd);
                         goto out;
                 }
         }
@@ -1292,7 +1297,7 @@ out:
 
 int32_t
 trash_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                           int32_t op_ret, int32_t op_errno, struct stat *buf)
+                           int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
         trash_private_t *priv  = NULL;
         trash_local_t   *local = NULL;
@@ -1307,7 +1312,7 @@ trash_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 TRASH_STACK_UNWIND (frame, -1, op_errno, buf, NULL);
                 return 0;
         }
-        if ((buf->st_size == 0) || (buf->st_size > priv->max_trash_file_size))
+        if ((buf->ia_size == 0) || (buf->ia_size > priv->max_trash_file_size))
         {
                 STACK_WIND (frame, trash_common_unwind_buf_cbk,
                             this->children->xlator,
@@ -1320,7 +1325,8 @@ trash_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_WIND (frame, trash_ftruncate_create_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create, &local->newloc,
                     ( O_CREAT | O_EXCL | O_WRONLY ),
-                    local->loc.inode->st_mode, local->newfd);
+                    st_mode_from_ia (buf->ia_prot, local->loc.inode->ia_type),
+                    local->newfd);
 
         return 0;
 }

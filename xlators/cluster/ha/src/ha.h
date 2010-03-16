@@ -28,9 +28,9 @@ typedef struct {
 	char *state, *pattern;
 	dict_t *dict;
 	loc_t loc;
-	struct stat buf;
-        struct stat postparent;
-        struct stat preparent;
+	struct iatt buf;
+        struct iatt postparent;
+        struct iatt preparent;
 	fd_t *fd;
 	inode_t *inode;
 	int32_t flags;

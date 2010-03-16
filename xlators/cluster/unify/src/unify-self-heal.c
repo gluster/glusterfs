@@ -145,7 +145,7 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 			while (trav) {
 				prev->next = trav->next;
 				FREE (trav->name);
-				if (S_ISLNK (trav->buf.st_mode))
+				if (IA_ISLNK (trav->buf.ia_type))
 					FREE (trav->link);
 				FREE (trav);
 				trav = prev->next;
@@ -260,7 +260,7 @@ unify_sh_ns_setdents_cbk (call_frame_t *frame,
 			while (trav) {
 				prev->next = trav->next;
 				FREE (trav->name);
-				if (S_ISLNK (trav->buf.st_mode))
+				if (IA_ISLNK (trav->buf.ia_type))
 					FREE (trav->link);
 				FREE (trav);
 				trav = prev->next;
@@ -669,7 +669,7 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 			while (trav) {
 				prev->next = trav->next;
 				FREE (trav->name);
-				if (S_ISLNK (trav->buf.st_mode))
+				if (IA_ISLNK (trav->buf.ia_type))
 					FREE (trav->link);
 				FREE (trav);
 				trav = prev->next;
@@ -776,7 +776,7 @@ unify_bgsh_ns_setdents_cbk (call_frame_t *frame,
 		while (trav) {
 			prev->next = trav->next;
 			FREE (trav->name);
-			if (S_ISLNK (trav->buf.st_mode))
+			if (IA_ISLNK (trav->buf.ia_type))
 				FREE (trav->link);
 			FREE (trav);
 			trav = prev->next;

@@ -117,7 +117,7 @@ typedef struct {
 
 
 static inline void
-gf_string_to_stat(char *string, struct stat *stbuf)
+gf_string_to_stat(char *string, struct iatt *stbuf)
 {
 	uint64_t dev        = 0;
 	uint64_t ino        = 0;
@@ -154,25 +154,25 @@ gf_string_to_stat(char *string, struct stat *stbuf)
 		&ctime,
 		&ctime_nsec);
 
-	stbuf->st_dev   = dev;
-	stbuf->st_ino   = ino;
-	stbuf->st_mode  = mode;
-	stbuf->st_nlink = nlink;
-	stbuf->st_uid   = uid;
-	stbuf->st_gid   = gid;
-	stbuf->st_rdev  = rdev;
-	stbuf->st_size  = size;
-	stbuf->st_blksize = blksize;
-	stbuf->st_blocks  = blocks;
+	stbuf->ia_gen   = dev;
+	stbuf->ia_ino   = ino;
+	stbuf->ia_prot  = ia_prot_from_st_mode (mode);
+        stbuf->ia_type  = ia_type_from_st_mode (mode);
+	stbuf->ia_nlink = nlink;
+	stbuf->ia_uid   = uid;
+	stbuf->ia_gid   = gid;
+	stbuf->ia_rdev  = rdev;
+	stbuf->ia_size  = size;
+	stbuf->ia_blksize = blksize;
+	stbuf->ia_blocks  = blocks;
 
-	stbuf->st_atime = atime;
-	stbuf->st_mtime = mtime;
-	stbuf->st_ctime = ctime;
+	stbuf->ia_atime = atime;
+	stbuf->ia_mtime = mtime;
+	stbuf->ia_ctime = ctime;
 
-	ST_ATIM_NSEC_SET(stbuf, atime_nsec);
-	ST_MTIM_NSEC_SET(stbuf, mtime_nsec);
-	ST_CTIM_NSEC_SET(stbuf, ctime_nsec);
-
+	stbuf->ia_atime_nsec = atime_nsec;
+	stbuf->ia_mtime_nsec = mtime_nsec;
+	stbuf->ia_ctime_nsec = ctime_nsec;
 }
 
 #endif

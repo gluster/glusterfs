@@ -49,8 +49,8 @@ dht_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, inode_t *inode,
-                         struct stat *stbuf, struct stat *preparent,
-                         struct stat *postparent)
+                         struct iatt *stbuf, struct iatt *preparent,
+                         struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
 	call_frame_t *prev = NULL;
@@ -134,7 +134,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 int
 dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			 int32_t op_ret, int32_t op_errno,
-                         struct stat *preparent, struct stat *postparent)
+                         struct iatt *preparent, struct iatt *postparent)
 {
 	dht_local_t   *local = NULL;
 	call_frame_t  *prev = NULL;
@@ -193,7 +193,7 @@ err:
 
 
 xlator_t *
-dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct stat *stbuf,
+dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct iatt *stbuf,
 		     dict_t *xattr)
 {
 	dht_conf_t *conf = NULL;
