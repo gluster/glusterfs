@@ -295,7 +295,7 @@ trash_unlink_stat_cbk (call_frame_t *frame,  void *cookie, xlator_t *this,
 
                 if (buf->ia_size > priv->max_trash_file_size) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "%s: file size too big (%"GF_PRI_SIZET") to "
+                                "%s: file size too big (%"PRId64") to "
                                 "move into trash directory",
                                 local->loc.path, buf->ia_size);
                 }
@@ -470,7 +470,7 @@ trash_rename_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (buf->ia_size > priv->max_trash_file_size) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "%s: file size too big (%"GF_PRI_SIZET") to "
+                                "%s: file size too big (%"PRId64") to "
                                 "move into trash directory",
                                 local->newloc.path, buf->ia_size);
                 }
@@ -1424,6 +1424,7 @@ init (xlator_t *this)
         char                  *strtokptr = NULL;
         char                  *component = NULL;
         char                   trash_dir[PATH_MAX] = {0,};
+        uint64_t               max_trash_file_size64 = 0;
 
         /* Create .trashcan directory in init */
         if (!this->children || this->children->next) {
@@ -1497,13 +1498,14 @@ init (xlator_t *this)
                 _priv->max_trash_file_size = GF_DEFAULT_MAX_FILE_SIZE;
         } else {
                 ret = gf_string2bytesize (data->data,
-                                          &_priv->max_trash_file_size);
-                if( _priv->max_trash_file_size > GF_ALLOWED_MAX_FILE_SIZE ) {
+                                          &max_trash_file_size64);
+                if( max_trash_file_size64 > GF_ALLOWED_MAX_FILE_SIZE ) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Size specified for max-size(in MB) is too "
                                 "large so using 1GB as max-size (NOT IDEAL)");
                         _priv->max_trash_file_size = GF_ALLOWED_MAX_FILE_SIZE;
-                }
+                } else
+                        _priv->max_trash_file_size = max_trash_file_size64;
                 gf_log (this->name, GF_LOG_DEBUG, "%"GF_PRI_SIZET" max-size",
                         _priv->max_trash_file_size);
         }

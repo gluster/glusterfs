@@ -32,7 +32,7 @@
 
 #define GF_PRI_FSBLK       PRId64
 #define GF_PRI_BLKSIZE     PRId32
-#define GF_PRI_SIZET       PRId64
+#define GF_PRI_SIZET       "zu"
 #define GF_PRI_NLINK       PRId32
 #define GF_PRI_DEV         PRId64
 
