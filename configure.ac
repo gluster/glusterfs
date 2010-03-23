@@ -23,12 +23,8 @@ AM_CONFIG_HEADER([config.h])
 AC_CONFIG_FILES([Makefile
 		libglusterfs/Makefile 
 		libglusterfs/src/Makefile
-		libglusterfsclient/Makefile
-		libglusterfsclient/src/Makefile
 		glusterfsd/Makefile
 		glusterfsd/src/Makefile
-		booster/Makefile
-		booster/src/Makefile
 		xlators/Makefile
 		xlators/mount/Makefile
 		xlators/mount/fuse/Makefile
@@ -40,18 +36,12 @@ AC_CONFIG_FILES([Makefile
 		xlators/storage/posix/Makefile
 		xlators/storage/posix/src/Makefile
 		xlators/cluster/Makefile
-		xlators/cluster/unify/Makefile
-		xlators/cluster/unify/src/Makefile
 		xlators/cluster/afr/Makefile
 		xlators/cluster/afr/src/Makefile
 		xlators/cluster/stripe/Makefile
 		xlators/cluster/stripe/src/Makefile
 		xlators/cluster/dht/Makefile
 		xlators/cluster/dht/src/Makefile
-		xlators/cluster/ha/Makefile
-		xlators/cluster/ha/src/Makefile
-		xlators/cluster/map/Makefile
-		xlators/cluster/map/src/Makefile
 		xlators/performance/Makefile
 		xlators/performance/write-behind/Makefile
 		xlators/performance/write-behind/src/Makefile
@@ -89,17 +79,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
-		scheduler/Makefile
-		scheduler/alu/Makefile
-		scheduler/alu/src/Makefile
-		scheduler/random/Makefile
-		scheduler/random/src/Makefile
-		scheduler/nufa/Makefile
-		scheduler/nufa/src/Makefile
-		scheduler/rr/Makefile
-		scheduler/rr/src/Makefile
-		scheduler/switch/Makefile
-		scheduler/switch/src/Makefile
 		transport/Makefile
 		transport/socket/Makefile
 		transport/socket/src/Makefile
@@ -187,24 +166,6 @@ AC_CHECK_FUNC([setfsgid], [have_setfsgid=yes])
 if test "x${have_setfsuid}" = "xyes" -a "x${have_setfsgid}" = "xyes"; then
   AC_DEFINE(HAVE_SET_FSID, 1, [define if found setfsuid setfsgid])
 fi
-
-
-# LIBGLUSTERFSCLIENT section
-AC_ARG_ENABLE([libglusterfsclient],
-	      AC_HELP_STRING([--disable-libglusterfsclient],
-			     [Do not build libglusterfsclient]))
-
-BUILD_LIBGLUSTERFSCLIENT=no
-
-if test "x$enable_libglusterfsclient" != "xno"; then
-   LIBGLUSTERFSCLIENT_SUBDIR="libglusterfsclient"
-   BUILD_LIBGLUSTERFSCLIENT="yes"
-fi
-
-AC_SUBST(LIBGLUSTERFSCLIENT_SUBDIR)
-# end LIBGLUSTERFSCLIENT section
-
-
 
 
 # FUSE section
@@ -351,10 +312,6 @@ AC_SUBST(GF_DISTRIBUTION)
 GF_HOST_OS=""
 GF_LDFLAGS="-rdynamic"
 
-if test "x$BUILD_LIBGLUSTERFSCLIENT" = "xyes"; then
-   GF_BOOSTER_SUBDIR="booster"
-fi
-
 GF_FUSE_LDADD="-lfuse"
 case $host_os in
      linux*)
@@ -371,7 +328,6 @@ case $host_os in
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	GF_GLUSTERFS_LDFLAGS="-lnsl -lresolv -lsocket"
-	GF_BOOSTER_SUBDIR=""
         BUILD_FUSE_CLIENT=no
         FUSE_CLIENT_SUBDIR=""
 	;;
@@ -384,9 +340,6 @@ case $host_os in
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
 	fi				      
 	GF_FUSE_LDADD="-liconv -lfuse"
-	BUILD_LIBGLUSTERFSCLIENT=no
-	LIBGLUSTERFSCLIENT_SUBDIR=""
-	GF_BOOSTER_SUBDIR=""
 	;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
@@ -395,9 +348,6 @@ case $host_os in
 	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
 	GF_FUSE_LDADD="-liconv -lfuse_ino64"
-	BUILD_LIBGLUSTERFSCLIENT=no
-	LIBGLUSTERFSCLIENT_SUBDIR=""
-	GF_BOOSTER_SUBDIR=""
 	;;
 esac
 
@@ -408,7 +358,6 @@ AC_SUBST(GF_CFLAGS)
 AC_SUBST(GF_LDFLAGS)
 AC_SUBST(GF_LDADD)
 AC_SUBST(GF_FUSE_LDADD)
-AC_SUBST(GF_BOOSTER_SUBDIR)
 
 CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
@@ -423,7 +372,6 @@ echo "==========================="
 echo "FUSE client        : $BUILD_FUSE_CLIENT"
 echo "Infiniband verbs   : $BUILD_IBVERBS"
 echo "epoll IO multiplex : $BUILD_EPOLL"
-echo "libglusterfsclient : $BUILD_LIBGLUSTERFSCLIENT"
 echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
 echo "fusermount         : $BUILD_FUSERMOUNT"
 echo
