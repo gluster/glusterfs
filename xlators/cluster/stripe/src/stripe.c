@@ -579,7 +579,7 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
         rframe->local = rlocal;
         rlocal->call_count = priv->child_count;
         loc_copy (&rlocal->loc, &local->loc);
-        memcpy (&rlocal->stbuf, &local->stbuf, sizeof (struct stat));
+        memcpy (&rlocal->stbuf, &local->stbuf, sizeof (struct iatt)); /* "Before it was struct stat" */
 
         while (trav) {
                 if (IA_ISREG (local->stbuf.ia_type)) {
@@ -2888,7 +2888,7 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  * different than what inode will have. Make sure this doesn't
                  * cause any bugs at higher levels */
                 memcpy (&tmp_stbuf, &main_local->replies[0].stbuf,
-                        sizeof (struct stat));
+                        sizeof (struct iatt));  /* "Before it was struct stat" */
                 for (index=0; index < main_local->wind_count; index++) {
                         /* check whether each stripe returned
                          * 'expected' number of bytes */
