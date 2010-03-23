@@ -1,4 +1,4 @@
-.\"  Copyright (c) 2008-2009 Gluster, Inc. <http://www.gluster.com>
+.\"  Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
 .\"  This file is part of GlusterFS.
 .\"
 .\"  GlusterFS is free software; you can redistribute it and/or modify
@@ -15,25 +15,33 @@
 .\"  long with this program.  If not, see
 .\"  <http://www.gnu.org/licenses/>.
 .\"
-.\" 
-.\" 
-.TH GlusterFS 8 "Cluster Filesystem" "07 December 2008" "Gluster Inc."
+.\"
+.\"
+.TH GlusterFS 8 "Cluster Filesystem" "19 March 2010" "Gluster Inc."
 .SH NAME
 GlusterFS \- Clustered Filesystem.
 .SH SYNOPSYS
-.B glusterfs 
+.B glusterfs
 .I [options] [mountpoint]
 .PP
 .SH DESCRIPTION
-GlusterFS is a clustered file-system capable of scaling to several peta-bytes. It aggregates various storage bricks over Infiniband RDMA or TCP/IP interconnect into one large parallel network file system. Storage bricks can be made of any commodity hardware such as x86-64 server with SATA-II RAID and Infiniband HBA.
-GlusterFS is fully POSIX compliant FileSystem. On client side, it has dependency on FUSE package, on server side, it works seemlessly on different OSes. (Currently supported on GNU/Linux, Mac OSX, FreeBSD, OpenSolaris).
+GlusterFS is a clustered file-system capable of scaling to several peta-bytes.
+It aggregates various storage bricks over Infiniband RDMA or TCP/IP
+interconnect into one large parallel network file system. Storage bricks can
+be made of any commodity hardware such as x86-64 server with SATA-II RAID and
+Infiniband HBA.
+
+GlusterFS is fully POSIX compliant FileSystem. On client side, it has dependency
+on FUSE package, on server side, it works seemlessly on different OSes.
+(Currently supported on GNU/Linux, Solaris).
+
 .SH OPTIONS
 .PP
 Mandatory or optional arguments to long options are also mandatory or optional
 for any corresponding short options.
 .SS "Basic options"
 .PP
-.TP 
+.TP
 
 \fB\-f, \fB\-\-volfile=VOLUME-FILE\fR
 File to use as VOLUME-FILE [default:/etc/glusterfs/glusterfs.vol]
@@ -41,9 +49,9 @@ File to use as VOLUME-FILE [default:/etc/glusterfs/glusterfs.vol]
 \fB\-l, \fB\-\-log\-file=LOGFILE\fR
 File to use for logging [default:/var/log/glusterfs/glusterfs.log]
 .TP
-\fB\-L, \fB\-\-log\-level=LOGLEVEL\fR   
-Logging severity.  Valid options are DEBUG, WARNING, ERROR, CRITICAL 
-and NONE [default: WARNING]
+\fB\-L, \fB\-\-log\-level=LOGLEVEL\fR
+Logging severity.  Valid options are TRACE, DEBUG, NORMAL, WARNING, ERROR and
+CRITICAL [default: WARNING]
 .TP
 \fB\-s, \fB\-\-volfile\-server=SERVER\fR
 Server to get the volume from.  This option overrides \fB\-\-volfile option
@@ -56,11 +64,14 @@ Server to use as the central log server.
 .TP
 
 \fB\-\-debug\fR
-Run in debug mode.  This option sets \fB\-\-no\-daemon\fR, \fB\-\-log\-level\fR to DEBUG 
+Run in debug mode.  This option sets \fB\-\-no\-daemon\fR, \fB\-\-log\-level\fR to DEBUG
 and \fB\-\-log\-file\fR to console
 .TP
 \fB\-N, \fB\-\-no\-daemon\fR
 Run in foreground
+.TP
+\fB\-\-read\-only\fR
+Makes the filesystem read-only
 .TP
 \fB\-p, \fB\-\-pid\-file=PIDFILE\fR
 File to use as pid file
@@ -75,7 +86,7 @@ Port number of volfile server
 Transport type to get volume file from server [default: socket]
 .TP
 \fB\-\-volume\-name=VOLUME\-NAME\fR
-Volume name to be used for MOUNT-POINT [default: top most volume in 
+Volume name to be used for MOUNT-POINT [default: top most volume in
 VOLUME-FILE]
 .TP
 \fB\-\-xlator\-option=VOLUME\-NAME.OPTION=VALUE\fR
@@ -94,7 +105,7 @@ Set attribute timeout to SECONDS for inodes in fuse kernel module [default: 1]
 \fB\-\-entry\-timeout=SECONDS\fR
 Set entry timeout to SECONDS in fuse kernel module [default: 1]
 .TP
-\fB\-\-disable\-direct\-io\-mode\fR 
+\fB\-\-disable\-direct\-io\-mode\fR
 Disable direct I/O mode in fuse kernel module
 
 .SS "Miscellaneous Options"
@@ -116,23 +127,11 @@ Print program version
 
 .SH SEE ALSO
 .nf
-The full documentation for \fBGlusterFS\fR is maintained as a Texinfo manual. 
-If the \fBinfo\fR and \fBglusterfs\fR are properly installed on your site, the command
-            \fBinfo glusterfs\fR
-should give you access to complete documentation.
-
-.nf
-\fBbison\fR(1) \fBflex\fR(1) \fBfusermount\fR(1) 
-\fBhttp://www.glusterfs.org/ <URL:http://www.glusterfs.org/>
-\fR
-.fi
-.SH AUTHORS
-.nf
-\fBhttp://www.gluster.org/core-team.php <URL:http://www.gluster.org/core-team.php>
+\fBfusermount\fR(1), \fBmount.glusterfs\fR(8), \fBglusterfs-volgen\fR(8)
 \fR
 .fi
 .SH COPYRIGHT
 .nf
-\fBCopyright(c)2006-2009 Gluster, Inc. <http://www.gluster.com>
+Copyright(c) 2006-2010  Gluster, Inc.  <http://www.gluster.com>
 \fR
 .fi
