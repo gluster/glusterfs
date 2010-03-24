@@ -67,6 +67,10 @@ start_glusterfs ()
     fi
     cmd_line=$(echo "$cmd_line --log-level=$log_level");
     
+    if [ -n "$read_only" ]; then
+	cmd_line=$(echo "$cmd_line --read-only");
+    fi
+
     if [ -n "$log_file" ]; then
 	cmd_line=$(echo "$cmd_line --log-file=$log_file");
     fi
@@ -150,6 +154,8 @@ main ()
 
     log_file=$(echo "$options" | sed -n 's/.*log-file=\([^,]*\).*/\1/p');
 
+    read_only=$(echo "$options" | sed -n 's/.*\(ro\)[^,]*.*/\1/p');
+
     transport=$(echo "$options" | sed -n 's/.*transport=\([^,]*\).*/\1/p');
 
     direct_io_mode=$(echo "$options" | sed -n 's/.*direct-io-mode=\([^,]*\).*/\1/p');
@@ -198,6 +204,7 @@ main ()
         -e 's/[,]*server-port=[^,]*//' \
         -e 's/[,]*volume-id=[^,]*//' \
         -e 's/[,]*log-server=[^,]*//' \
+        -e 's/[,]*ro[^,]*//' \
         -e 's/[,]*log-server-port=[^,]*//');
 
     # 
