@@ -2818,17 +2818,89 @@ stripe_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 }
 
 
-/**
- * stripe_single_readv_cbk - This function is used as return fn, when the
- *     file name doesn't match the pattern specified for striping.
- */
 int32_t
-stripe_single_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                         int32_t op_ret, int32_t op_errno,
-                         struct iovec *vector, int32_t count,
-                         struct iatt *stbuf, struct iobref *iobref)
+stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
-        STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+        int32_t         i = 0;
+        int32_t         callcnt = 0;
+        int32_t         count = 0;
+        stripe_local_t *local = NULL;
+        struct iovec   *vec = NULL;
+        struct iatt     tmp_stbuf = {0,};
+        struct iobref  *tmp_iobref = NULL;
+        struct iobuf   *iobuf = NULL;
+
+        local = frame->local;
+
+        LOCK (&frame->lock);
+        {
+                callcnt = --local->call_count;
+                if (op_ret != -1)
+                        if (local->stbuf_size < buf->ia_size)
+                                local->stbuf_size = buf->ia_size;
+        }
+        UNLOCK (&frame->lock);
+
+        if (!callcnt) {
+                op_ret = 0;
+
+                /* Keep extra space for filling in '\0's */
+                vec = CALLOC ((local->count * 2), sizeof (struct iovec));
+                if (!vec) {
+                        op_ret = -1;
+                        goto done;
+                }
+
+                for (i = 0; i < local->wind_count; i++) {
+                        memcpy ((vec + count), local->replies[i].vector,
+                                (local->replies[i].count * sizeof (struct iovec)));
+                        count +=  local->replies[i].count;
+                        op_ret += local->replies[i].op_ret;
+
+                        if ((local->replies[i].op_ret <
+                             local->replies[i].requested_size) &&
+                            (local->stbuf_size > (local->offset + op_ret))) {
+                                /* Fill in 0s here */
+                                vec[count].iov_len  =
+                                        (local->replies[i].requested_size -
+                                         local->replies[i].op_ret);
+                                iobuf = iobuf_get (this->ctx->iobuf_pool);
+                                if (!iobuf) {
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "Out of memory.");
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                        goto done;
+                                }
+                                memset (iobuf->ptr, 0, vec[count].iov_len);
+                                iobref_add (local->iobref, iobuf);
+                                vec[count].iov_base = iobuf->ptr;
+
+                                op_ret += vec[count].iov_len;
+                                count++;
+                        }
+                        FREE (local->replies[i].vector);
+                }
+
+                /* FIXME: notice that st_ino, and st_dev (gen) will be
+                 * different than what inode will have. Make sure this doesn't
+                 * cause any bugs at higher levels */
+                memcpy (&tmp_stbuf, &local->replies[0].stbuf,
+                        sizeof (struct iatt));
+                tmp_stbuf.ia_size = local->stbuf_size;
+
+        done:
+                FREE (local->replies);
+                tmp_iobref = local->iobref;
+                fd_unref (local->fd);
+                STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vec,
+                                     count, &tmp_stbuf, tmp_iobref);
+
+                iobref_unref (tmp_iobref);
+                if (vec)
+                        FREE (vec);
+        }
         return 0;
 }
 
@@ -2843,152 +2915,113 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int32_t         index = 0;
         int32_t         callcnt = 0;
-        call_frame_t   *main_frame = NULL;
-        stripe_local_t *main_local = NULL;
-        stripe_local_t *local = frame->local;
+        int32_t         final_count = 0;
+        int32_t         need_to_check_proper_size = 0;
+        call_frame_t   *mframe = NULL;
+        stripe_local_t *mlocal = NULL;
+        stripe_local_t *local = NULL;
+        struct iovec   *final_vec = NULL;
+        struct iatt     tmp_stbuf = {0,};
+        struct iobref  *tmp_iobref = NULL;
+        stripe_fd_ctx_t  *fctx = NULL;
 
-        index = local->node_index;
-        main_frame = local->orig_frame;
-        main_local = main_frame->local;
+        local  = frame->local;
+        index  = local->node_index;
+        mframe = local->orig_frame;
+        mlocal = mframe->local;
+        fctx   = mlocal->fctx;
 
-        LOCK (&main_frame->lock);
+        LOCK (&mframe->lock);
         {
-                main_local->replies[index].op_ret = op_ret;
-                main_local->replies[index].op_errno = op_errno;
+                mlocal->replies[index].op_ret = op_ret;
+                mlocal->replies[index].op_errno = op_errno;
+                mlocal->replies[index].requested_size = local->readv_size;
                 if (op_ret >= 0) {
-                        main_local->replies[index].stbuf  = *stbuf;
-                        if ((main_local->wind_count >= 2) &&
-                            (index < (main_local->wind_count -1)) &&
-                            (op_ret < local->readv_size)) {
-                                /* refer to bug :p #536 on bugs.gluster.com */
-                                main_local->readv_pendingsize =
-                                        (local->readv_size - op_ret);
-                        } else {
-                                main_local->replies[index].count  = count;
-                                main_local->replies[index].vector =
-                                        iov_dup (vector, count);
+                        mlocal->replies[index].stbuf  = *stbuf;
+                        mlocal->replies[index].count  = count;
+                        mlocal->replies[index].vector = iov_dup (vector, count);
+
+                        if (!mlocal->iobref)
+                                mlocal->iobref = iobref_new ();
+                        iobref_merge (mlocal->iobref, iobref);
+                }
+                callcnt = ++mlocal->call_count;
+        }
+        UNLOCK(&mframe->lock);
+
+        if (callcnt == mlocal->wind_count) {
+                op_ret = 0;
+
+                for (index=0; index < mlocal->wind_count; index++) {
+                        /* check whether each stripe returned
+                         * 'expected' number of bytes */
+                        if (mlocal->replies[index].op_ret == -1) {
+                                op_ret = -1;
+                                op_errno = mlocal->replies[index].op_errno;
+                                break;
+                        }
+                        /* TODO: handle the 'holes' within the read range
+                           properly */
+                        if (mlocal->replies[index].op_ret <
+                            mlocal->replies[index].requested_size) {
+                                need_to_check_proper_size = 1;
                         }
 
-                        if (!main_local->iobref)
-                                main_local->iobref = iobref_new ();
-                        iobref_merge (main_local->iobref, iobref);
+                        op_ret       += mlocal->replies[index].op_ret;
+                        mlocal->count += mlocal->replies[index].count;
                 }
-                callcnt = ++main_local->call_count;
-        }
-        UNLOCK(&main_frame->lock);
+                if (op_ret == -1)
+                        goto done;
+                if (need_to_check_proper_size)
+                        goto check_size;
 
-        if (callcnt == main_local->wind_count) {
-                int32_t        final_count = 0;
-                struct iovec  *final_vec = NULL;
-                struct iatt    tmp_stbuf = {0,};
-                struct iobref *iobref = NULL;
+                final_vec = CALLOC (mlocal->count, sizeof (struct iovec));
 
-                op_ret = 0;
+                if (!final_vec) {
+                        op_ret = -1;
+                        goto done;
+                }
+
+                for (index = 0; index < mlocal->wind_count; index++) {
+                        memcpy ((final_vec + final_count),
+                                mlocal->replies[index].vector,
+                                (mlocal->replies[index].count *
+                                 sizeof (struct iovec)));
+                        final_count +=  mlocal->replies[index].count;
+                        FREE (mlocal->replies[index].vector);
+                }
+
                 /* FIXME: notice that st_ino, and st_dev (gen) will be
                  * different than what inode will have. Make sure this doesn't
                  * cause any bugs at higher levels */
-                memcpy (&tmp_stbuf, &main_local->replies[0].stbuf,
-                        sizeof (struct iatt));  /* "Before it was struct stat" */
-                for (index=0; index < main_local->wind_count; index++) {
-                        /* check whether each stripe returned
-                         * 'expected' number of bytes */
-                        if (main_local->replies[index].op_ret == -1) {
-                                op_ret = -1;
-                                op_errno = main_local->replies[index].op_errno;
-                                break;
-                        }
-                        /* ANSWER-ME: Do we need to send anything more in stbuf?
-                         */
-                        if (tmp_stbuf.ia_size <
-                            main_local->replies[index].stbuf.ia_size) {
-                                tmp_stbuf.ia_size =
-                                        main_local->replies[index].stbuf.ia_size;
-                        }
-
-                        /* TODO: Should I handle a case where there is a hole
-                         * in a read request which spans across two nodes?
-                         * for now, Solving bug(536) without addressing that
-                         * case */
-                        if ((index < (main_local->wind_count - 1)) &&
-                            (main_local->replies[index+1].op_ret > 0) &&
-                            (main_local->readv_pendingsize)) {
-                                /* Fill in zeroes */
-                                struct iovec *tmp_vec   = NULL;
-                                struct iobuf *iobuf     = NULL;
-                                int           tmp_count = 0;
-
-                                tmp_count = main_local->replies[index].count;
-                                tmp_vec = CALLOC (1, ((tmp_count + 1) *
-                                                      sizeof (struct iovec)));
-                                memcpy (tmp_vec,
-                                        main_local->replies[index].vector,
-                                        sizeof (struct iovec) * tmp_count);
-
-                                iobuf = iobuf_get (this->ctx->iobuf_pool);
-                                if (!iobuf) {
-                                        gf_log (this->name, GF_LOG_ERROR,
-                                                "Out of memory.");
-                                        op_ret = -1;
-                                        op_errno = ENOMEM;
-                                        goto done;
-                                }
-                                memset (iobuf->ptr, 0,
-                                        main_local->readv_pendingsize);
-                                iobref_add (main_local->iobref, iobuf);
-
-                                tmp_vec[tmp_count].iov_base = iobuf->ptr;
-                                tmp_vec[tmp_count].iov_len =
-                                        main_local->readv_pendingsize;
-
-                                main_local->replies[index].count++;
-                                main_local->replies[index].op_ret +=
-                                        main_local->readv_pendingsize;
-
-                                FREE (main_local->replies[index].vector);
-                                main_local->replies[index].vector = tmp_vec;
-                        }
-                        op_ret += main_local->replies[index].op_ret;
-                        final_count += main_local->replies[index].count;
-                }
-                if (op_ret != -1) {
-                        final_vec = CALLOC (final_count,
-                                            sizeof (struct iovec));
-                        if (!final_vec) {
-                                op_ret = -1;
-                                final_count = 0;
-                                goto done;
-                        }
-
-                        final_count = 0;
-
-                        for (index=0;
-                             index < main_local->wind_count; index++) {
-                                memcpy (final_vec + final_count,
-                                        main_local->replies[index].vector,
-                                        (main_local->replies[index].count *
-                                         sizeof (struct iovec)));
-                                final_count +=
-                                        main_local->replies[index].count;
-
-                                free (main_local->replies[index].vector);
-                        }
-                } else {
-                        final_vec = NULL;
-                        final_count = 0;
-                }
+                memcpy (&tmp_stbuf, &mlocal->replies[0].stbuf,
+                        sizeof (struct iatt));
 
         done:
                 /* */
-                FREE (main_local->replies);
-                iobref = main_local->iobref;
-                STACK_UNWIND (main_frame, op_ret, op_errno,
-                              final_vec, final_count, &tmp_stbuf, iobref);
+                FREE (mlocal->replies);
+                tmp_iobref = mlocal->iobref;
+                fd_unref (mlocal->fd);
+                STACK_UNWIND_STRICT (readv, mframe, op_ret, op_errno, final_vec,
+                                     final_count, &tmp_stbuf, tmp_iobref);
 
-                iobref_unref (iobref);
+                iobref_unref (tmp_iobref);
                 if (final_vec)
                         FREE (final_vec);
-        }
 
+                goto out;
+
+        check_size:
+                mlocal->call_count = fctx->stripe_count;
+
+                for (index = 0; index < fctx->stripe_count; index++) {
+                        STACK_WIND (mframe, stripe_readv_fstat_cbk,
+                                    (fctx->xl_array[index]),
+                                    (fctx->xl_array[index])->fops->fstat,
+                                    mlocal->fd);
+                }
+        }
+out:
         STACK_DESTROY (frame->root);
         return 0;
 }
@@ -3043,7 +3076,6 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 op_errno = ENOMEM;
                 goto err;
         }
-        local->wind_count = num_stripe;
         frame->local = local;
 
         /* This is where all the vectors should be copied. */
@@ -3054,6 +3086,11 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
 
         off_index = (offset / stripe_size) % fctx->stripe_count;
+        local->wind_count = num_stripe;
+        local->readv_size = size;
+        local->offset     = offset;
+        local->fd         = fd_ref (fd);
+        local->fctx       = fctx;
 
         for (index = off_index; index < (num_stripe + off_index); index++) {
                 rframe = copy_frame (frame);
@@ -3080,7 +3117,10 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         return 0;
  err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
+        if (local->fd)
+                fd_unref (local->fd);
+
+        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
         return 0;
 }
 

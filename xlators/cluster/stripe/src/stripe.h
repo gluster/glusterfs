@@ -69,6 +69,7 @@ struct readv_replies {
         int32_t       count;    //count of vector
         int32_t       op_ret;   //op_ret of readv
         int32_t       op_errno;
+        int32_t       requested_size;
         struct iatt   stbuf;    /* 'stbuf' is also a part of reply */
 };
 
@@ -120,7 +121,6 @@ struct stripe_local {
         int8_t               unwind;
 
         size_t               readv_size;
-        int32_t              readv_pendingsize;
         int32_t              entry_count;
         int32_t              node_index;
         int32_t              call_count;
