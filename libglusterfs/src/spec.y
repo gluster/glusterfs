@@ -152,11 +152,18 @@ new_section (char *name)
 {
         extern int yylineno;
         xlator_t *trav = complete_tree;
-        xlator_t *node = (void *) calloc (1, sizeof (*node));
+        xlator_t *node = NULL;
+
+        node = (void *) calloc (1, sizeof (*node));
+        if (!node) {
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
+                return -1;
+        }
 
         if (!name) {
                 gf_log ("parser", GF_LOG_DEBUG, 
 			"Invalid argument name: '%s'", name);
+                FREE (node);
                 return -1;
         }
 
@@ -283,6 +290,10 @@ section_sub (char *sub)
         }
   
         xlparent = (void *) calloc (1, sizeof (*xlparent));
+        if (!xlparent) {
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
+                return -1;
+        }
         xlparent->xlator = tree;
 
         tmp = trav->parents;
@@ -295,6 +306,11 @@ section_sub (char *sub)
         }
 
         xlchild = (void *) calloc (1, sizeof(*xlchild));
+        if (!xlchild) {
+                FREE (xlparent);
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
+                return -1;
+        }
         xlchild->xlator = trav;
 
         tmp = tree->children;
@@ -476,11 +492,14 @@ parse_backtick (FILE *srcfp, FILE *dstfp)
 
 	cmd = CALLOC (cmd_buf_size, 1);
         if (cmd == NULL) {
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
                 return -1;
         }
 
 	result = CALLOC (cmd_buf_size * 2, 1);
         if (result == NULL) {
+                FREE (cmd);
+                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
                 return -1;
         }
 

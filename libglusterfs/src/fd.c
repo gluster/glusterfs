@@ -461,12 +461,13 @@ fd_unref (fd_t *fd)
 fd_t *
 fd_bind (fd_t *fd)
 {
-        inode_t *inode = fd->inode;
+        inode_t *inode = NULL;
 
         if (!fd) {
                 gf_log ("fd.c", GF_LOG_ERROR, "fd is NULL");
                 return NULL;
         }
+        inode = fd->inode;
 
         LOCK (&inode->lock);
         {
