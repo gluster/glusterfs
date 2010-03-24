@@ -76,6 +76,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/trash/src/Makefile
 		xlators/features/quota/Makefile
 		xlators/features/quota/src/Makefile
+		xlators/features/read-only/Makefile
+		xlators/features/read-only/src/Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
