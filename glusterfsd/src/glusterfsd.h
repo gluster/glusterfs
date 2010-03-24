@@ -43,6 +43,7 @@
 #define ENABLE_NO_DAEMON_MODE     1
 #define ENABLE_DEBUG_MODE         1
 
+#define ZR_XLATOR_READ_ONLY     "features/read-only"
 #define ZR_XLATOR_FUSE          "mount/fuse"
 #define ZR_MOUNTPOINT_OPT       "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
@@ -74,6 +75,7 @@ enum argp_option_keys {
         ARGP_VOLFILE_MAX_FETCH_ATTEMPTS = 145,
         ARGP_LOG_SERVER_KEY = 146,
         ARGP_LOG_SERVER_PORT_KEY = 147,
+        ARGP_READ_ONLY_KEY = 148,
 };
 
 /* Moved here from fetch-spec.h */
