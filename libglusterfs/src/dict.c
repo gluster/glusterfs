@@ -168,19 +168,32 @@ data_copy (data_t *old)
 
 	if (old) {
 		newdata->len = old->len;
-		if (old->data)
+		if (old->data) {
 			newdata->data = memdup (old->data, old->len);
-		if (old->vec)
+			if (!newdata->data)
+				goto err_out;
+		}
+		if (old->vec) {
 			newdata->vec = memdup (old->vec, old->len * (sizeof (void *) +
 								     sizeof (size_t)));
-		if (!old->data && !old->vec) {
-			gf_log ("dict", GF_LOG_CRITICAL,
-				"@newdata->data || @newdata->vec got NULL from CALLOC()");
-			return NULL;
+			if (!newdata->vec)
+				goto err_out;
 		}
 	}
 
 	return newdata;
+
+ err_out:
+
+	if (newdata->data)
+		FREE (newdata->data);
+	if (newdata->vec)
+		FREE (newdata->vec);
+	FREE (newdata);
+
+	gf_log ("dict", GF_LOG_CRITICAL,
+		"@newdata->data || @newdata->vec got NULL from CALLOC()");
+	return NULL;
 }
 
 static data_pair_t *
@@ -248,6 +261,8 @@ _dict_set (dict_t *this,
 	if (!pair->key) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"@pair->key - NULL returned by CALLOC");
+		FREE (pair);
+
 		return -1;
 	}
 
