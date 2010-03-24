@@ -144,6 +144,8 @@ static struct argp_option gf_options[] = {
          "in VOLFILE]"},
         {"xlator-option", ARGP_XLATOR_OPTION_KEY,"VOLUME-NAME.OPTION=VALUE", 0,
          "Add/override a translator option for a volume with specified value"},
+        {"read-only", ARGP_READ_ONLY_KEY, 0, 0,
+         "Mount the filesystem in 'read-only' mode"},
 
         {0, 0, 0, 0, "Fuse options:"},
         {"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0,
@@ -356,6 +358,43 @@ _add_fuse_mount (xlator_t *graph)
         }
 
 #endif /* GF_DARWIN_HOST_OS */
+
+        graph->parents = CALLOC (1, sizeof (xlator_list_t));
+        graph->parents->xlator = top;
+
+        return top;
+}
+
+static xlator_t *
+_add_ro_volume (xlator_t *graph)
+{
+        cmd_args_t      *cmd_args = NULL;
+        xlator_t        *top = NULL;
+        glusterfs_ctx_t *ctx = NULL;
+        xlator_list_t   *xlchild = NULL;
+
+        ctx = graph->ctx;
+        cmd_args = &ctx->cmd_args;
+
+        xlchild = CALLOC (sizeof (*xlchild), 1);
+        if (!xlchild) {
+                return NULL;
+        }
+        xlchild->xlator = graph;
+
+        top = CALLOC (1, sizeof (*top));
+        top->name = strdup ("read-only");
+        if (xlator_set_type (top, ZR_XLATOR_READ_ONLY) == -1) {
+                fprintf (stderr,
+                         "read-only volume initialization failed");
+                gf_log ("glusterfs", GF_LOG_ERROR,
+                        "read-only initialization failed");
+                return NULL;
+        }
+        top->children = xlchild;
+        top->ctx      = graph->ctx;
+        top->next     = gf_get_first_xlator (graph);
+        top->options  = get_new_dict ();
 
         graph->parents = CALLOC (1, sizeof (xlator_list_t));
         graph->parents->xlator = top;
@@ -784,6 +823,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                 argp_failure (state, -1, 0,
                               "Invalid limit on connect attempts %s", arg);
+                break;
+
+        case ARGP_READ_ONLY_KEY:
+                cmd_args->read_only = 1;
                 break;
 
         case ARGP_VOLUME_FILE_KEY:
@@ -1287,7 +1330,27 @@ main (int argc, char *argv[])
 
         ctx->xl_count = xl_count + 1;
 
+        if (cmd_args->read_only && !fuse_volume_found &&
+            (cmd_args->mount_point == NULL)) {
+                gf_log ("glusterfs", GF_LOG_ERROR,
+                        "'--read-only' option is valid only on client side");
+                fprintf (stderr, "'--read-only' option is valid only "
+                         "on client side, exiting\n");
+                return -1;
+        }
         if (!fuse_volume_found && (cmd_args->mount_point != NULL)) {
+                /* Check for read-only option and add a read-only translator */
+                if (cmd_args->read_only) {
+                        if ((graph = _add_ro_volume (graph)) == NULL) {
+                                /* _add_fuse_mount() prints necessary
+                                 * error message
+                                 */
+                                fprintf (stderr,
+                                         "failed to load 'ro' option. exiting\n");
+                                gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
+                                return -1;
+                        }
+                }
                 if ((graph = _add_fuse_mount (graph)) == NULL) {
                         /* _add_fuse_mount() prints necessary
                          * error message

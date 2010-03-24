@@ -232,6 +232,7 @@ struct _cmd_args {
 	int              no_daemon_mode;
 	char            *run_id;
 	int              debug_mode;
+        int              read_only;
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */
