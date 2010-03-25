@@ -261,6 +261,9 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
                                 AFR_STACK_UNWIND (opendir, frame, local->op_ret,
                                                   local->op_errno, local->fd);
                         }
+                } else {
+                        AFR_STACK_UNWIND (opendir, frame, local->op_ret,
+                                          local->op_errno, local->fd);
                 }
         }
 
