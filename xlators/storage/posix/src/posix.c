@@ -629,8 +629,11 @@ posix_do_utimes (xlator_t *this,
         tv[1].tv_sec  = stbuf->ia_mtime;
         tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
 
-        ret = utimes (path, tv);
-
+        ret = lutimes (path, tv);
+        if ((ret == -1) && (errno == ENOSYS)) {
+                ret = utimes (path, tv);
+	}
+        
         return ret;
 }
 
