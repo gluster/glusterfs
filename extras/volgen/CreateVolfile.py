@@ -164,28 +164,16 @@ class CreateVolfile:
             mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
             mount_fd.write ("end-volume\n\n")
 
-
-        mount_fd.write ("volume writebehind\n")
-        mount_fd.write ("    type performance/write-behind\n")
-        mount_fd.write ("    option cache-size 4MB\n")
-        if self.unused:
-            mount_fd.write ("#   option enable-trickling-writes yes # Flush final write calls when network is free\n")
-            mount_fd.write ("#   option enable-O_SYNC yes # Enable O_SYNC for write-behind\n")
-            mount_fd.write ("#   option disable-for-first-nbytes 1 # Disable first nbytes with very small initial writes\n")
-        if self.volume_size_client:
-            mount_fd.write ("    subvolumes quota\n")
-        else:
-            mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
-
-        mount_fd.write ("end-volume\n\n")
-
         mount_fd.write ("volume readahead\n")
         mount_fd.write ("    type performance/read-ahead\n")
         mount_fd.write ("    option page-count 4\n")
 
         if self.unused:
             mount_fd.write ("#   option force-atime-update yes # force updating atimes, default off\n")
-        mount_fd.write ("    subvolumes writebehind\n")
+        if self.volume_size_client:
+            mount_fd.write ("    subvolumes quota\n")
+        else:
+            mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
         mount_fd.write ("end-volume\n\n")
 
         mount_fd.write ("volume iocache\n")
@@ -204,9 +192,20 @@ class CreateVolfile:
         mount_fd.write ("    subvolumes iocache\n")
         mount_fd.write ("end-volume\n\n")
 
+        mount_fd.write ("volume writebehind\n")
+        mount_fd.write ("    type performance/write-behind\n")
+        mount_fd.write ("    option cache-size 4MB\n")
+        if self.unused:
+            mount_fd.write ("#   option enable-trickling-writes yes # Flush final write calls when network is free\n")
+            mount_fd.write ("#   option enable-O_SYNC yes # Enable O_SYNC for write-behind\n")
+            mount_fd.write ("#   option disable-for-first-nbytes 1 # Disable first nbytes with very small initial writes\n")
+
+        mount_fd.write ("    subvolumes quickread\n")
+        mount_fd.write ("end-volume\n\n")
+
         mount_fd.write ("volume statprefetch\n")
         mount_fd.write ("    type performance/stat-prefetch\n")
-        mount_fd.write ("    subvolumes quickread\n")
+        mount_fd.write ("    subvolumes writebehind\n")
         mount_fd.write ("end-volume\n\n")
 
 
