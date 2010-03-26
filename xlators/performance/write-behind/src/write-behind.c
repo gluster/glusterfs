@@ -1542,9 +1542,6 @@ __wb_get_other_requests (list_head_t *list, list_head_t *other_requests)
                         list_add_tail (&request->other_requests,
                                        other_requests);
                         count++;
-
-                        /* lets handle one at a time */
-                        break;
                 }
         }
 
