@@ -21,7 +21,7 @@ import subprocess
 num_replica = 2
 num_stripe = 4
 #Cachesize calculator
-cache_size = "`echo $[ $(grep 'MemTotal' /proc/meminfo | sed 's/[^0-9]//g') / 5120 ]`"
+cache_size = "`echo $(( $(grep 'MemTotal' /proc/meminfo | sed 's/[^0-9]//g') / 5120 ))`"
 
 class CreateVolfile:
 
