@@ -33,10 +33,6 @@
 
 /* Management Operations */
 
-int32_t default_stats (call_frame_t *frame,
-		       xlator_t *this,
-		       int32_t flags);
-
 int32_t default_getspec (call_frame_t *frame,
 			 xlator_t *this,
 			 const char *key,
@@ -164,13 +160,6 @@ int32_t default_opendir (call_frame_t *frame,
 			 xlator_t *this,
 			 loc_t *loc, fd_t *fd);
 
-int32_t default_getdents (call_frame_t *frame,
-			  xlator_t *this,
-			  fd_t *fd,
-			  size_t size,
-			  off_t offset,
-			  int32_t flag);
-
 int32_t default_fsyncdir (call_frame_t *frame,
 			  xlator_t *this,
 			  fd_t *fd,
@@ -239,13 +228,6 @@ int32_t default_readdirp (call_frame_t *frame,
 			  fd_t *fd,
 			  size_t size, off_t off);
 
-int32_t default_setdents (call_frame_t *frame,
-			  xlator_t *this,
-			  fd_t *fd,
-			  int32_t flags,
-			  dir_entry_t *entries,
-			  int32_t count);
-
 int32_t default_xattrop (call_frame_t *frame,
 			 xlator_t *this,
 			 loc_t *loc,
@@ -257,15 +239,6 @@ int32_t default_fxattrop (call_frame_t *frame,
 			  fd_t *fd,
 			  gf_xattrop_flags_t flags,
 			  dict_t *dict);
-
-int32_t
-default_lock_notify (call_frame_t *frame, xlator_t *this,
-                     loc_t *loc, int32_t timeout);
-
-int32_t
-default_lock_fnotify (call_frame_t *frame, xlator_t *this,
-                      fd_t *fd, int32_t timeout);
-
 
 int32_t default_notify (xlator_t *this,
 			int32_t event,

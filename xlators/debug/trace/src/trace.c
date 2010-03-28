@@ -271,21 +271,6 @@ trace_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
-trace_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, dir_entry_t *entries,
-                    int32_t count)
-{
-        if (trace_fop_names[GF_FOP_GETDENTS].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": (op_ret=%d, op_errno=%d, count=%d)",
-                        frame->root->unique, op_ret, op_errno, count);
-        }
-
-        STACK_UNWIND_STRICT (getdents, frame, op_ret, op_errno, entries, count);
-        return 0;
-}
-
 
 int
 trace_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1112,20 +1097,6 @@ trace_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
-trace_setdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno)
-{
-        if (trace_fop_names[GF_FOP_SETDENTS].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": op_ret=%d, op_errno=%d",
-                        frame->root->unique, op_ret, op_errno);
-        }
-
-        STACK_UNWIND_STRICT (setdents, frame, op_ret, op_errno);
-        return 0;
-}
-
 
 int
 trace_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1801,25 +1772,6 @@ trace_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         return 0;
 }
 
-
-int
-trace_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                size_t size, off_t offset, int32_t flag)
-{
-        if (trace_fop_names[GF_FOP_GETDENTS].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": (fd=%p, size=%"GF_PRI_SIZET", offset=%"PRId64", flag=0x%x)",
-                        frame->root->unique, fd, size, offset, flag);
-        }
-
-        STACK_WIND (frame, trace_getdents_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getdents,
-                    fd, size, offset, flag);
-        return 0;
-}
-
-
 int
 trace_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 off_t offset)
@@ -1951,24 +1903,6 @@ trace_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 
 int
-trace_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                int32_t flags, dir_entry_t *entries, int32_t count)
-{
-        if (trace_fop_names[GF_FOP_SETDENTS].enabled) {
-                gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": (*fd=%p, flags=%d, count=%d",
-                        frame->root->unique, fd, flags, count);
-        }
-
-        STACK_WIND (frame, trace_setdents_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setdents,
-                    fd, flags, entries, count);
-        return 0;
-}
-
-
-int
 trace_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     uint8_t *fchecksum, uint8_t *dchecksum)
@@ -1995,36 +1929,6 @@ trace_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->checksum,
                     loc, flag);
-
-        return 0;
-}
-
-
-int
-trace_stats_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno,
-                 struct xlator_stats *stats)
-{
-        gf_log (this->name, GF_LOG_NORMAL,
-                "%"PRId64": op_ret (%d), op_errno(%d)",
-                frame->root->unique, op_ret, op_errno);
-
-        STACK_UNWIND (frame, op_ret, op_errno, stats);
-        return 0;
-}
-
-
-int
-trace_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
-{
-        gf_log (this->name, GF_LOG_NORMAL,
-                "%"PRId64": (flags=%d)",
-                frame->root->unique, flags);
-
-        STACK_WIND (frame, trace_stats_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->mops->stats,
-                    flags);
 
         return 0;
 }
@@ -2185,8 +2089,6 @@ struct xlator_fops fops = {
         .finodelk    = trace_finodelk,
         .entrylk     = trace_entrylk,
         .lookup      = trace_lookup,
-        .setdents    = trace_setdents,
-        .getdents    = trace_getdents,
         .checksum    = trace_checksum,
         .xattrop     = trace_xattrop,
         .fxattrop    = trace_fxattrop,
@@ -2195,7 +2097,6 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
-        .stats    = trace_stats,
 };
 
 struct xlator_cbks cbks = {

@@ -2559,50 +2559,6 @@ stripe_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 }
 
 /**
- * stripe_writedir -
- */
-int32_t
-stripe_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 int32_t flags, dir_entry_t *entries, int32_t count)
-{
-        stripe_local_t   *local = NULL;
-        stripe_private_t *priv = NULL;
-        xlator_list_t    *trav = NULL;
-        int32_t           op_errno = 1;
-
-        VALIDATE_OR_GOTO (frame, err);
-        VALIDATE_OR_GOTO (this, err);
-        VALIDATE_OR_GOTO (fd, err);
-        VALIDATE_OR_GOTO (fd->inode, err);
-
-        priv = this->private;
-        trav = this->children;
-
-        /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
-        if (!local) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-        local->op_ret = -1;
-        frame->local = local;
-        local->call_count = priv->child_count;
-
-        while (trav) {
-                STACK_WIND (frame, stripe_common_cbk, trav->xlator,
-                            trav->xlator->fops->setdents, fd, flags, entries,
-                            count);
-                trav = trav->next;
-        }
-
-        return 0;
- err:
-        STACK_UNWIND (frame, -1, op_errno);
-        return 0;
-}
-
-
-/**
  * stripe_flush -
  */
 int32_t
@@ -3273,91 +3229,6 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 /* Management operations */
 
-/**
- * stripe_stats_cbk - Add all the fields received from different clients.
- *    Once all the clients return, send stats to above layer.
- *
- */
-int32_t
-stripe_stats_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno, struct xlator_stats *stats)
-{
-        int32_t         callcnt = 0;
-        stripe_local_t *local = NULL;
-        call_frame_t   *prev = NULL;
-
-        prev  = cookie;
-        local = frame->local;
-
-        LOCK(&frame->lock);
-        {
-                callcnt = --local->call_count;
-
-                if (op_ret == -1) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "%s returned error %s",
-                                prev->this->name, strerror (op_errno));
-                        local->op_ret = -1;
-                        local->op_errno = op_errno;
-                }
-                if (op_ret == 0) {
-                        if (local->op_ret == -2) {
-                                /* This is to make sure this is the
-                                   first time */
-                                local->stats = *stats;
-                                local->op_ret = 0;
-                        } else {
-                                local->stats.nr_files += stats->nr_files;
-                                local->stats.free_disk += stats->free_disk;
-                                local->stats.disk_usage += stats->disk_usage;
-                                local->stats.nr_clients += stats->nr_clients;
-                        }
-                }
-        }
-        UNLOCK (&frame->lock);
-
-        if (!callcnt) {
-                STACK_UNWIND (frame, local->op_ret, local->op_errno,
-                              &local->stats);
-        }
-
-        return 0;
-}
-
-/**
- * stripe_stats -
- */
-int32_t
-stripe_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
-{
-        stripe_local_t   *local = NULL;
-        xlator_list_t    *trav = NULL;
-        stripe_private_t *priv = NULL;
-        int32_t           op_errno = 1;
-
-        priv = this->private;
-        trav = this->children;
-
-        local = CALLOC (1, sizeof (stripe_local_t));
-        if (!local) {
-                op_errno = ENOMEM;
-                goto err;
-        }
-        frame->local = local;
-        local->op_ret = -2; /* to be used as a flag in _cbk */
-        local->call_count = priv->child_count;
-
-        while (trav) {
-                STACK_WIND (frame, stripe_stats_cbk, trav->xlator,
-                            trav->xlator->mops->stats, flags);
-                trav = trav->next;
-        }
-        return 0;
- err:
-        STACK_UNWIND (frame, -1, op_errno, NULL);
-        return 0;
-}
-
 int32_t
 stripe_release (xlator_t *this, fd_t *fd)
 {
@@ -3674,12 +3545,10 @@ struct xlator_fops fops = {
         .setattr     = stripe_setattr,
         .fsetattr    = stripe_fsetattr,
         .lookup      = stripe_lookup,
-        .setdents    = stripe_setdents,
         .mknod       = stripe_mknod,
 };
 
 struct xlator_mops mops = {
-        .stats  = stripe_stats,
 };
 
 struct xlator_cbks cbks = {

@@ -838,31 +838,6 @@ typedef struct {
 	char           dict[0];
 } __attribute__((packed)) gf_fop_lookup_rsp_t;
 
-
-typedef struct {
-	uint64_t ino;
-        uint64_t gen;
-	int64_t  fd;
-	uint32_t flags;
-	uint32_t count;
-	char     buf[0];
-} __attribute__((packed)) gf_fop_setdents_req_t;
-typedef struct { } __attribute__((packed)) gf_fop_setdents_rsp_t;
-
-typedef struct {
-	uint64_t ino;
-        uint64_t gen;
-	int64_t  fd;
-	uint64_t offset;
-	uint32_t size;
-	uint32_t flags;
-} __attribute__((packed)) gf_fop_getdents_req_t;
-typedef struct {
-	uint32_t count;
-	char buf[0];
-} __attribute__((packed)) gf_fop_getdents_rsp_t;
-
-
 typedef struct {
 	uint64_t  ino;
         uint64_t  gen;
@@ -905,44 +880,6 @@ typedef struct {
         uint32_t weak_checksum;
         unsigned char strong_checksum[0];
 } __attribute__((packed)) gf_fop_rchecksum_rsp_t;
-
-
-typedef struct {
-	uint64_t  ino;
-        uint64_t  gen;
-	int32_t   timeout;
-} __attribute__((packed)) gf_fop_lock_notify_req_t;
-typedef struct { } __attribute__((packed)) gf_fop_lock_notify_rsp_t;
-
-
-typedef struct {
-	int64_t   fd;
-	int32_t   timeout;
-} __attribute__((packed)) gf_fop_lock_fnotify_req_t;
-typedef struct { } __attribute__((packed)) gf_fop_lock_fnotify_rsp_t;
-
-
-typedef struct {
-	char name[0];
-} __attribute__((packed)) gf_mop_lock_req_t;
-typedef struct {} __attribute__((packed)) gf_mop_lock_rsp_t;
-
-typedef struct {
-	char name[0];
-} __attribute__((packed)) gf_mop_unlock_req_t;
-typedef struct {} __attribute__((packed)) gf_mop_unlock_rsp_t;
-
-typedef struct {
-	char pattern[0];
-} __attribute__((packed)) gf_mop_listlocks_req_t;
-typedef struct {} __attribute__((packed)) gf_mop_listlocks_rsp_t;
-
-typedef struct {
-	uint32_t  flags;
-} __attribute__((packed)) gf_mop_stats_req_t;
-typedef struct {
-	char buf[0];
-} __attribute__((packed)) gf_mop_stats_rsp_t;
 
 typedef struct {
 	uint32_t flags;

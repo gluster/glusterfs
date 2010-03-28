@@ -2377,75 +2377,6 @@ unwind:
 
 }
 
-
-/**
- * client_readdir - readdir function for client protocol
- * @frame: call frame
- * @this: this translator structure
- *
- * external reference through client_protocol_xlator->fops->readdir
- */
-
-int
-client_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                 size_t size, off_t offset, int32_t flag)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_fop_getdents_req_t *req = NULL;
-        size_t                 hdrlen = 0;
-        int64_t                remote_fd = -1;
-        int                    ret = -1;
-        client_fd_ctx_t       *fdctx = NULL;
-        client_conf_t         *conf = NULL;
-
-        conf = this->private;
-
-        pthread_mutex_lock (&conf->mutex);
-        {
-                fdctx = this_fd_get_ctx (fd, this);
-        }
-        pthread_mutex_unlock (&conf->mutex);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        fd->inode->ino);
-                STACK_UNWIND (frame, -1, EBADFD, NULL);
-                return 0;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        fd->inode->ino);
-                STACK_UNWIND (frame, -1, EBADFD, NULL);
-        }
-
-        remote_fd = fdctx->remote_fd;
-        hdrlen = gf_hdr_len (req, 0);
-        hdr    = gf_hdr_new (req, 0);
-        GF_VALIDATE_OR_GOTO (frame->this->name, hdr, unwind);
-
-        req    = gf_param (hdr);
-        GF_VALIDATE_OR_GOTO (frame->this->name, hdr, unwind);
-
-        req->fd     = hton64 (remote_fd);
-        req->size   = hton32 (size);
-        req->offset = hton64 (offset);
-        req->flags  = hton32 (flag);
-
-        ret = protocol_client_xfer (frame, this,
-                                    CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETDENTS,
-                                    hdr, hdrlen, NULL, 0, NULL);
-
-        return 0;
-unwind:
-        STACK_UNWIND (frame, -1, EINVAL, NULL, 0);
-        return 0;
-}
-
-
 /**
  * client_readdirp - readdirp function for client protocol
  * @frame: call frame
@@ -3368,157 +3299,6 @@ unwind:
 
 
 int
-client_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
-                 dir_entry_t *entries, int32_t count)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_fop_setdents_req_t *req = NULL;
-        int64_t                remote_fd = 0;
-        char                  *ptr = NULL;
-        dir_entry_t           *trav = NULL;
-        uint32_t               len = 0;
-        int32_t                buf_len = 0;
-        int32_t                ret = -1;
-        int32_t                op_ret = -1;
-        int32_t                op_errno = EINVAL;
-        int32_t                vec_count = 0;
-        size_t                 hdrlen = -1;
-        struct iovec           vector[1];
-        struct iobref         *iobref = NULL;
-        struct iobuf          *iobuf = NULL;
-        client_fd_ctx_t       *fdctx = NULL;
-        client_conf_t         *conf  = NULL;
-
-        GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
-
-        conf = this->private;
-
-        pthread_mutex_lock (&conf->mutex);
-        {
-                fdctx = this_fd_get_ctx (fd, this);
-        }
-        pthread_mutex_unlock (&conf->mutex);
-
-        if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "(%"PRId64"): failed to get fd ctx. EBADFD",
-                        fd->inode->ino);
-                op_errno = EBADFD;
-                goto unwind;
-        }
-
-        remote_fd = fdctx->remote_fd;
-        GF_VALIDATE_OR_GOTO (this->name, entries, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, count, unwind);
-
-        trav = entries->next;
-        while (trav) {
-                len += strlen (trav->name);
-                len += 1;
-                len += strlen (trav->link);
-                len += 1;
-                len += 256; // max possible for statbuf;
-                trav = trav->next;
-        }
-        iobuf = iobuf_get (this->ctx->iobuf_pool);
-        GF_VALIDATE_OR_GOTO (this->name, iobuf, unwind);
-
-        ptr = iobuf->ptr;
-
-        trav = entries->next;
-        while (trav) {
-                int32_t this_len = 0;
-                char *tmp_buf = NULL;
-                struct iatt *stbuf = &trav->buf;
-                {
-                        /* Convert the stat buf to string */
-                        uint64_t dev = stbuf->ia_gen;
-                        uint64_t ino = stbuf->ia_ino;
-                        uint32_t mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
-                        uint32_t nlink = stbuf->ia_nlink;
-                        uint32_t uid = stbuf->ia_uid;
-                        uint32_t gid = stbuf->ia_gid;
-                        uint64_t rdev = stbuf->ia_rdev;
-                        uint64_t size = stbuf->ia_size;
-                        uint32_t blksize = stbuf->ia_blksize;
-                        uint64_t blocks = stbuf->ia_blocks;
-
-                        uint32_t atime = stbuf->ia_atime;
-                        uint32_t mtime = stbuf->ia_mtime;
-                        uint32_t ctime = stbuf->ia_ctime;
-
-                        uint32_t atime_nsec = stbuf->ia_atime_nsec;
-                        uint32_t mtime_nsec = stbuf->ia_mtime_nsec;
-                        uint32_t ctime_nsec = stbuf->ia_ctime_nsec;
-
-                        ret = asprintf (&tmp_buf, GF_STAT_PRINT_FMT_STR,
-                                        dev, ino, mode, nlink, uid, gid,
-                                        rdev, size, blksize, blocks,
-                                        atime, atime_nsec, mtime, mtime_nsec,
-                                        ctime, ctime_nsec);
-                        if (-1 == ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "asprintf failed while setting stat "
-                                        "buf to string");
-                                STACK_UNWIND (frame, -1, ENOMEM);
-                                return 0;
-                        }
-                }
-                this_len = sprintf (ptr, "%s/%s%s\n",
-                                    trav->name, tmp_buf, trav->link);
-
-                FREE (tmp_buf);
-                trav = trav->next;
-                ptr += this_len;
-        }
-        buf_len = strlen (iobuf->ptr);
-
-        hdrlen = gf_hdr_len (req, 0);
-        hdr    = gf_hdr_new (req, 0);
-        GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-        req    = gf_param (hdr);
-
-        req->fd    = hton64 (remote_fd);
-        req->flags = hton32 (flags);
-        req->count = hton32 (count);
-
-        iobref = iobref_new ();
-        iobref_add (iobref, iobuf);
-
-        ret = protocol_client_xfer (frame, this,
-                                    CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETDENTS,
-                                    hdr, hdrlen, vector, vec_count, iobref);
-
-        if (iobref)
-                iobref_unref (iobref);
-
-        if (iobuf)
-                iobuf_unref (iobuf);
-
-        return ret;
-unwind:
-
-        if (iobref)
-                iobref_unref (iobref);
-
-        if (iobuf)
-                iobuf_unref (iobuf);
-
-        STACK_UNWIND (frame, op_ret, op_errno);
-        return 0;
-}
-
-int
 client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 struct iatt *stbuf, int32_t valid)
 {
@@ -3765,45 +3545,6 @@ client_release (xlator_t *this, fd_t *fd)
 /*
  * MGMT_OPS
  */
-
-/**
- * client_stats - stats function for client protocol
- * @frame: call frame
- * @this: this translator structure
- * @flags:
- *
- * external reference through client_protocol_xlator->mops->stats
- */
-
-int
-client_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
-{
-        gf_hdr_common_t     *hdr = NULL;
-        gf_mop_stats_req_t  *req = NULL;
-        size_t               hdrlen = -1;
-        int                  ret = -1;
-
-        GF_VALIDATE_OR_GOTO ("client", this, unwind);
-
-        hdrlen = gf_hdr_len (req, 0);
-        hdr    = gf_hdr_new (req, 0);
-        GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-        req    = gf_param (hdr);
-
-        req->flags = hton32 (flags);
-
-        ret = protocol_client_xfer (frame, this,
-                                    CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_MOP_REQUEST, GF_MOP_STATS,
-                                    hdr, hdrlen, NULL, 0, NULL);
-
-        return ret;
-unwind:
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
-        return 0;
-}
-
 
 /* Callbacks */
 
@@ -5036,74 +4777,6 @@ client_fsetattr_cbk (call_frame_t *frame,gf_hdr_common_t *hdr, size_t hdrlen,
         return 0;
 }
 
-static dir_entry_t *
-gf_bin_to_direntry (char *buf, size_t count)
-{
-        int           idx = 0;
-        int           bread = 0;
-        size_t        rcount = 0;
-        char         *ender = NULL;
-        char         *buffer = NULL;
-        char          tmp_buf[512] = {0,};
-        dir_entry_t  *trav = NULL;
-        dir_entry_t  *prev = NULL;
-        dir_entry_t  *thead = NULL;
-        dir_entry_t  *head = NULL;
-
-        thead = CALLOC (1, sizeof (dir_entry_t));
-        GF_VALIDATE_OR_GOTO ("client-protocol", thead, fail);
-
-        buffer = buf;
-        prev = thead;
-
-        for (idx = 0; idx < count ; idx++) {
-                bread = 0;
-                trav = CALLOC (1, sizeof (dir_entry_t));
-                GF_VALIDATE_OR_GOTO ("client-protocol", trav, fail);
-
-                ender = strchr (buffer, '/');
-                if (!ender)
-                        break;
-                rcount = ender - buffer;
-                trav->name = CALLOC (1, rcount + 2);
-                GF_VALIDATE_OR_GOTO ("client-protocol", trav->name, fail);
-
-                strncpy (trav->name, buffer, rcount);
-                bread = rcount + 1;
-                buffer += bread;
-
-                ender = strchr (buffer, '\n');
-                if (!ender)
-                        break;
-                rcount = ender - buffer;
-                strncpy (tmp_buf, buffer, rcount);
-                bread = rcount + 1;
-                buffer += bread;
-
-                gf_string_to_stat (tmp_buf, &trav->buf);
-
-                ender = strchr (buffer, '\n');
-                if (!ender)
-                        break;
-                rcount = ender - buffer;
-                *ender = '\0';
-                if (IA_ISLNK (trav->buf.ia_type))
-                        trav->link = strdup (buffer);
-                else
-                        trav->link = "";
-
-                bread = rcount + 1;
-                buffer += bread;
-
-                prev->next = trav;
-                prev = trav;
-        }
-
-        head = thead;
-fail:
-        return head;
-}
-
 
 int
 gf_free_direntry (dir_entry_t *head)
@@ -5125,50 +4798,6 @@ gf_free_direntry (dir_entry_t *head)
         }
         FREE (head);
 fail:
-        return 0;
-}
-
-/*
- * client_getdents_cbk - readdir callback for client protocol
- * @frame: call frame
- * @args: argument dictionary
- *
- * not for external reference
- */
-
-int
-client_getdents_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                     struct iobuf *iobuf)
-{
-        gf_fop_getdents_rsp_t *rsp = NULL;
-        int32_t                op_ret = 0;
-        int32_t                op_errno = 0;
-        int32_t                gf_errno = 0;
-        int32_t                nr_count = 0;
-        dir_entry_t           *entry = NULL;
-
-        rsp = gf_param (hdr);
-
-        op_ret   = ntoh32 (hdr->rsp.op_ret);
-        gf_errno = ntoh32 (hdr->rsp.op_errno);
-        op_errno = gf_error_to_errno (gf_errno);
-
-        if (op_ret >= 0) {
-                nr_count = ntoh32 (rsp->count);
-                entry = gf_bin_to_direntry(iobuf->ptr, nr_count);
-                if (entry == NULL) {
-                        op_ret = -1;
-                        op_errno = EINVAL;
-                }
-        }
-
-        STACK_UNWIND (frame, op_ret, op_errno, entry, nr_count);
-
-        if (iobuf)
-                iobuf_unref (iobuf);
-        if (entry)
-                gf_free_direntry(entry);
-
         return 0;
 }
 
@@ -5462,69 +5091,7 @@ client_fentrylk_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         return 0;
 }
 
-/**
- * client_writedir_cbk -
- *
- * @frame:
- * @args:
- *
- * not for external reference
- */
 
-int
-client_setdents_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                     struct iobuf *iobuf)
-{
-        int32_t op_ret = 0;
-        int32_t op_errno = 0;
-
-        op_ret   = ntoh32 (hdr->rsp.op_ret);
-        op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-        STACK_UNWIND (frame, op_ret, op_errno);
-
-        return 0;
-}
-
-/*
- * client_stats_cbk - stats callback for client protocol
- *
- * @frame: call frame
- * @args: argument dictionary
- *
- * not for external reference
- */
-
-int
-client_stats_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                  struct iobuf *iobuf)
-{
-        struct xlator_stats  stats = {0,};
-        gf_mop_stats_rsp_t  *rsp = NULL;
-        char                *buffer = NULL;
-        int32_t              op_ret = 0;
-        int32_t              op_errno = 0;
-
-        rsp = gf_param (hdr);
-
-        op_ret   = ntoh32 (hdr->rsp.op_ret);
-        op_errno = gf_error_to_errno (ntoh32 (hdr->rsp.op_errno));
-
-        if (op_ret >= 0)
-        {
-                buffer = rsp->buf;
-
-                sscanf (buffer, "%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64
-                        ",%"SCNx64",%"SCNx64",%"SCNx64",%"SCNx64"\n",
-                        &stats.nr_files, &stats.disk_usage, &stats.free_disk,
-                        &stats.total_disk_size, &stats.read_usage,
-                        &stats.write_usage, &stats.disk_speed,
-                        &stats.nr_clients);
-        }
-
-        STACK_UNWIND (frame, op_ret, op_errno, &stats);
-        return 0;
-}
 
 /*
  * client_getspec - getspec function for client protocol
@@ -6446,7 +6013,6 @@ static gf_op_t gf_fops[] = {
         [GF_FOP_GETXATTR]       =  client_getxattr_cbk,
         [GF_FOP_REMOVEXATTR]    =  client_removexattr_cbk,
         [GF_FOP_OPENDIR]        =  client_opendir_cbk,
-        [GF_FOP_GETDENTS]       =  client_getdents_cbk,
         [GF_FOP_FSYNCDIR]       =  client_fsyncdir_cbk,
         [GF_FOP_ACCESS]         =  client_access_cbk,
         [GF_FOP_CREATE]         =  client_create_cbk,
@@ -6454,7 +6020,6 @@ static gf_op_t gf_fops[] = {
         [GF_FOP_FSTAT]          =  client_fstat_cbk,
         [GF_FOP_LK]             =  client_lk_common_cbk,
         [GF_FOP_LOOKUP]         =  client_lookup_cbk,
-        [GF_FOP_SETDENTS]       =  client_setdents_cbk,
         [GF_FOP_READDIR]        =  client_readdir_cbk,
         [GF_FOP_READDIRP]       =  client_readdirp_cbk,
         [GF_FOP_INODELK]        =  client_inodelk_cbk,
@@ -6472,7 +6037,6 @@ static gf_op_t gf_fops[] = {
 static gf_op_t gf_mops[] = {
         [GF_MOP_SETVOLUME]        =  client_setvolume_cbk,
         [GF_MOP_GETVOLUME]        =  client_enosys_cbk,
-        [GF_MOP_STATS]            =  client_stats_cbk,
         [GF_MOP_SETSPEC]          =  client_setspec_cbk,
         [GF_MOP_GETSPEC]          =  client_getspec_cbk,
         [GF_MOP_PING]             =  client_ping_cbk,
@@ -7102,8 +6666,6 @@ struct xlator_fops fops = {
         .entrylk     = client_entrylk,
         .fentrylk    = client_fentrylk,
         .lookup      = client_lookup,
-        .setdents    = client_setdents,
-        .getdents    = client_getdents,
         .checksum    = client_checksum,
         .rchecksum   = client_rchecksum,
         .xattrop     = client_xattrop,
@@ -7113,7 +6675,6 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
-        .stats     = client_stats,
         .getspec   = client_getspec,
         .log       = client_log,
 };

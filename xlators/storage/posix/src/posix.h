@@ -73,8 +73,7 @@ struct posix_private {
 
         char   hostname[256];
         /* Statistics, provides activity of the server */
-	struct xlator_stats stats; 
-  
+
 	struct timeval prev_fetch_time;
 	struct timeval init_time;
 
@@ -84,13 +83,9 @@ struct posix_private {
         pthread_cond_t janitor_cond;
         pthread_mutex_t janitor_lock;
 
-	int32_t max_read;            /* */
-	int32_t max_write;           /* */
-	int64_t interval_read;      /* Used to calculate the max_read value */
-	int64_t interval_write;     /* Used to calculate the max_write value */
 	int64_t read_value;    /* Total read, from init */
 	int64_t write_value;   /* Total write, from init */
-
+        int64_t nr_files;
 /*
    In some cases, two exported volumes may reside on the same
    partition on the server. Sending statvfs info for both

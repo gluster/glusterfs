@@ -348,39 +348,6 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
 
 
 /*
- * server_setdents_cbk - writedir callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-int
-server_setdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno)
-{
-        gf_hdr_common_t        *hdr = NULL;
-        gf_fop_setdents_rsp_t  *rsp = NULL;
-        size_t                  hdrlen = 0;
-        int32_t                 gf_errno = 0;
-
-        hdrlen = gf_hdr_len (rsp, 0);
-        hdr    = gf_hdr_new (rsp, 0);
-        rsp    = gf_param (hdr);
-
-        hdr->rsp.op_ret   = hton32 (op_ret);
-        gf_errno = gf_errno_to_error (op_errno);
-        hdr->rsp.op_errno = hton32 (gf_errno);
-
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
-                               hdr, hdrlen, NULL, 0, NULL);
-
-        return 0;
-}
-
-/*
  * server_lk_cbk - lk callback for server protocol
  * @frame: call frame
  * @cookie:
@@ -871,103 +838,6 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-
-/*
- * server_getdents_cbk - readdir callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @entries:
- * @count:
- *
- * not for external reference
- */
-int
-server_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno, dir_entry_t *entries,
-                     int32_t count)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_fop_getdents_rsp_t *rsp = NULL;
-        size_t                 hdrlen = 0;
-        int32_t                vec_count = 0;
-        int32_t                gf_errno = 0;
-        struct iobref         *iobref = NULL;
-        struct iobuf          *iobuf = NULL;
-        size_t                 buflen = 0;
-        struct iovec           vector[1];
-        server_state_t        *state = NULL;
-
-        state = CALL_STATE(frame);
-
-        if (op_ret >= 0) {
-                iobuf = iobuf_get (this->ctx->iobuf_pool);
-                if (!iobuf) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto out;
-                }
-
-                buflen = gf_direntry_to_bin (entries, iobuf->ptr);
-                if (buflen < 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%"PRId64"): failed to convert "
-                                "entries list to string buffer",
-                                state->resolve.fd_no, state->fd->inode->ino);
-                        op_ret = -1;
-                        op_errno = EINVAL;
-                        goto out;
-                }
-
-                iobref = iobref_new ();
-                if (iobref == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "fd - %"PRId64" (%"PRId64"): failed to get iobref",
-                                state->resolve.fd_no, state->fd->inode->ino);
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto out;
-                }
-
-                iobref_add (iobref, iobuf);
-
-                vector[0].iov_base = iobuf->ptr;
-                vector[0].iov_len = buflen;
-                vec_count = 1;
-        } else {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "%"PRId64": GETDENTS %"PRId64" (%"PRId64"): %"PRId32" (%s)",
-                        frame->root->unique,
-                        state->resolve.fd_no,
-                        state->fd ? state->fd->inode->ino : 0,
-                        op_ret, strerror (op_errno));
-                vector[0].iov_base = NULL;
-                vector[0].iov_len = 0;
-        }
-
-out:
-        hdrlen = gf_hdr_len (rsp, 0);
-        hdr    = gf_hdr_new (rsp, 0);
-        rsp    = gf_param (hdr);
-
-        rsp->count = hton32 (count);
-
-        hdr->rsp.op_ret = hton32 (op_ret);
-        gf_errno        = gf_errno_to_error (op_errno);
-        hdr->rsp.op_errno = hton32 (gf_errno);
-
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
-                               hdr, hdrlen, vector, vec_count, iobref);
-
-        if (iobref)
-                iobref_unref (iobref);
-        if (iobuf)
-                iobuf_unref (iobuf);
-
-        return 0;
-}
 
 
 /*
@@ -3963,53 +3833,6 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
-int
-server_getdents_resume (call_frame_t *frame, xlator_t *bound_xl)
-{
-        server_state_t *state = NULL;
-
-        state = CALL_STATE (frame);
-
-        if (state->resolve.op_ret != 0)
-                goto err;
-
-        STACK_WIND (frame, server_getdents_cbk,
-                    bound_xl,
-                    bound_xl->fops->getdents,
-                    state->fd, state->size, state->offset, state->flags);
-
-        return 0;
-err:
-        server_getdents_cbk (frame, NULL, frame->this, state->resolve.op_ret,
-                             state->resolve.op_errno, NULL, 0);
-        return 0;
-}
-
-int
-server_getdents (call_frame_t *frame, xlator_t *bound_xl,
-                 gf_hdr_common_t *hdr, size_t hdrlen,
-                 struct iobuf *iobuf)
-{
-        gf_fop_getdents_req_t  *req = NULL;
-        server_state_t         *state = NULL;
-        server_connection_t    *conn = NULL;
-
-        conn = SERVER_CONNECTION (frame);
-
-        req   = gf_param (hdr);
-        state = CALL_STATE(frame);
-
-        state->resolve.type = RESOLVE_MUST;
-        state->resolve.fd_no = ntoh64 (req->fd);
-        state->size = ntoh32 (req->size);
-        state->offset = ntoh64 (req->offset);
-        state->flags = ntoh32 (req->flags);
-
-        resolve_and_resume (frame, server_getdents_resume);
-
-        return 0;
-}
-
 /*
  * server_readdirp_cbk - getdents callback for server protocol
  * @frame: call frame
@@ -4963,189 +4786,6 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
-
-int
-server_setdents_resume(call_frame_t *frame, xlator_t *bound_xl)
-{
-        server_state_t *state = NULL;
-
-        state = CALL_STATE (frame);
-
-        if (state->resolve.op_ret != 0)
-                goto err;
-
-        STACK_WIND (frame, server_setdents_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->setdents,
-                    state->fd, state->flags, state->entry, state->nr_count);
-
-        return 0;
-err:
-        server_setdents_cbk (frame, NULL, frame->this, state->resolve.op_ret, state->resolve.op_errno);
-        return 0;
-}
-/*
- * server_writedir -
- *
- * @frame:
- * @bound_xl:
- * @params:
- *
- */
-int
-server_setdents (call_frame_t *frame, xlator_t *bound_xl,
-                 gf_hdr_common_t *hdr, size_t hdrlen,
-                 struct iobuf *iobuf)
-{
-        server_connection_t         *conn = NULL;
-        gf_fop_setdents_req_t       *req   = NULL;
-        server_state_t              *state = NULL;
-        dir_entry_t                 *entry = NULL;
-        dir_entry_t                 *trav = NULL;
-        dir_entry_t                 *prev = NULL;
-        int32_t                      count = 0;
-        int32_t                      i = 0;
-        int32_t                      bread = 0;
-        char                        *ender = NULL;
-        char                        *buffer_ptr = NULL;
-        char                         tmp_buf[512] = {0,};
-
-        conn = SERVER_CONNECTION(frame);
-
-        req   = gf_param (hdr);
-        state = CALL_STATE(frame);
-
-        state->resolve.type = RESOLVE_MUST;
-        state->resolve.fd_no = ntoh64 (req->fd);
-        state->nr_count = ntoh32 (req->count);
-
-
-        if (iobuf == NULL) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "fd - %"PRId64" (%"PRId64"): received a null buffer, "
-                        "returning EINVAL",
-                        state->resolve.fd_no, state->fd->inode->ino);
-
-                server_setdents_cbk (frame, NULL, frame->this, -1, ENOMEM);
-
-                goto out;
-        }
-
-        entry = CALLOC (1, sizeof (dir_entry_t));
-        ERR_ABORT (entry);
-        prev = entry;
-        buffer_ptr = iobuf->ptr;
-
-        for (i = 0; i < state->nr_count ; i++) {
-                bread = 0;
-                trav = CALLOC (1, sizeof (dir_entry_t));
-                ERR_ABORT (trav);
-
-                ender = strchr (buffer_ptr, '/');
-                if (!ender)
-                        break;
-                count = ender - buffer_ptr;
-                trav->name = CALLOC (1, count + 2);
-                ERR_ABORT (trav->name);
-
-                strncpy (trav->name, buffer_ptr, count);
-                bread = count + 1;
-                buffer_ptr += bread;
-
-                ender = strchr (buffer_ptr, '\n');
-                if (!ender)
-                        break;
-                count = ender - buffer_ptr;
-                strncpy (tmp_buf, buffer_ptr, count);
-                bread = count + 1;
-                buffer_ptr += bread;
-
-                /* TODO: use str_to_stat instead */
-                {
-                        uint64_t dev;
-                        uint64_t ino;
-                        uint32_t mode;
-                        uint32_t nlink;
-                        uint32_t uid;
-                        uint32_t gid;
-                        uint64_t rdev;
-                        uint64_t size;
-                        uint32_t blksize;
-                        uint64_t blocks;
-                        uint32_t atime;
-                        uint32_t atime_nsec;
-                        uint32_t mtime;
-                        uint32_t mtime_nsec;
-                        uint32_t ctime;
-                        uint32_t ctime_nsec;
-
-                        sscanf (tmp_buf, GF_STAT_PRINT_FMT_STR,
-                                &dev, &ino, &mode, &nlink, &uid, &gid, &rdev,
-                                &size, &blksize, &blocks, &atime, &atime_nsec,
-                                &mtime, &mtime_nsec, &ctime, &ctime_nsec);
-
-                        trav->buf.ia_gen = dev;
-                        trav->buf.ia_ino = ino;
-                        trav->buf.ia_prot = ia_prot_from_st_mode (mode);
-                        trav->buf.ia_type = ia_type_from_st_mode (mode);
-                        trav->buf.ia_nlink = nlink;
-                        trav->buf.ia_uid = uid;
-                        trav->buf.ia_gid = gid;
-                        trav->buf.ia_rdev = rdev;
-                        trav->buf.ia_size = size;
-                        trav->buf.ia_blksize = blksize;
-                        trav->buf.ia_blocks = blocks;
-
-                        trav->buf.ia_atime = atime;
-                        trav->buf.ia_mtime = mtime;
-                        trav->buf.ia_ctime = ctime;
-
-                        trav->buf.ia_atime_nsec = atime_nsec;
-                        trav->buf.ia_mtime_nsec = mtime_nsec;
-                        trav->buf.ia_ctime_nsec = ctime_nsec;
-                }
-
-                ender = strchr (buffer_ptr, '\n');
-                if (!ender)
-                        break;
-                count = ender - buffer_ptr;
-                *ender = '\0';
-                if (IA_ISLNK (trav->buf.ia_type)) {
-                        trav->link = strdup (buffer_ptr);
-                } else
-                        trav->link = "";
-                bread = count + 1;
-                buffer_ptr += bread;
-
-                prev->next = trav;
-                prev = trav;
-        }
-
-        state->entry = entry;
-        resolve_and_resume (frame, server_setdents_resume);
-
-
-        /* Free the variables allocated in this fop here */
-        trav = entry->next;
-        prev = entry;
-        while (trav) {
-                prev->next = trav->next;
-                FREE (trav->name);
-                if (IA_ISLNK (trav->buf.ia_type))
-                        FREE (trav->link);
-                FREE (trav);
-                trav = prev->next;
-        }
-        FREE (entry);
-
-out:
-        if (iobuf)
-                iobuf_unref (iobuf);
-        return 0;
-}
-
-
-
 /* xxx_MOPS */
 int
 _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
@@ -5944,89 +5584,6 @@ fail:
         return 0;
 }
 
-/*
- * server_mop_stats_cbk - stats callback for server management operation
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- * @stats:err
- *
- * not for external reference
- */
-
-int
-server_mop_stats_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t ret, int32_t op_errno,
-                      struct xlator_stats *stats)
-{
-        /* TODO: get this information from somewhere else, not extern */
-        gf_hdr_common_t    *hdr = NULL;
-        gf_mop_stats_rsp_t *rsp = NULL;
-        char                buffer[256] = {0,};
-        int64_t             glusterfsd_stats_nr_clients = 0;
-        size_t              hdrlen = 0;
-        size_t              buf_len = 0;
-        int32_t             gf_errno = 0;
-
-        if (ret >= 0) {
-                sprintf (buffer,
-                         "%"PRIx64",%"PRIx64",%"PRIx64
-                         ",%"PRIx64",%"PRIx64",%"PRIx64
-                         ",%"PRIx64",%"PRIx64"\n",
-                         stats->nr_files, stats->disk_usage, stats->free_disk,
-                         stats->total_disk_size, stats->read_usage,
-                         stats->write_usage, stats->disk_speed,
-                         glusterfsd_stats_nr_clients);
-
-                buf_len = strlen (buffer);
-        }
-
-        hdrlen = gf_hdr_len (rsp, buf_len + 1);
-        hdr    = gf_hdr_new (rsp, buf_len + 1);
-        rsp    = gf_param (hdr);
-
-        hdr->rsp.op_ret = hton32 (ret);
-        gf_errno        = gf_errno_to_error (op_errno);
-        hdr->rsp.op_errno = hton32 (gf_errno);
-
-        strcpy (rsp->buf, buffer);
-
-        protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_STATS,
-                               hdr, hdrlen, NULL, 0, NULL);
-
-        return 0;
-}
-
-
-/*
- * mop_unlock - unlock management function for server protocol
- * @frame: call frame
- * @bound_xl:
- * @params: parameter dictionary
- *
- */
-int
-mop_stats (call_frame_t *frame, xlator_t *bound_xl,
-           gf_hdr_common_t *hdr, size_t hdrlen,
-           struct iobuf *iobuf)
-{
-        int32_t             flag = 0;
-        gf_mop_stats_req_t *req = NULL;
-
-        req = gf_param (hdr);
-
-        flag = ntoh32 (req->flags);
-
-        STACK_WIND (frame, server_mop_stats_cbk,
-                    bound_xl,
-                    bound_xl->mops->stats,
-                    flag);
-
-        return 0;
-}
-
 
 int
 mop_ping (call_frame_t *frame, xlator_t *bound_xl,
@@ -6244,7 +5801,6 @@ static gf_op_t gf_fops[] = {
         [GF_FOP_FSETXATTR]    =  server_fsetxattr,
         [GF_FOP_REMOVEXATTR]  =  server_removexattr,
         [GF_FOP_OPENDIR]      =  server_opendir,
-        [GF_FOP_GETDENTS]     =  server_getdents,
         [GF_FOP_FSYNCDIR]     =  server_fsyncdir,
         [GF_FOP_ACCESS]       =  server_access,
         [GF_FOP_CREATE]       =  server_create,
@@ -6252,7 +5808,6 @@ static gf_op_t gf_fops[] = {
         [GF_FOP_FSTAT]        =  server_fstat,
         [GF_FOP_LK]           =  server_lk,
         [GF_FOP_LOOKUP]       =  server_lookup,
-        [GF_FOP_SETDENTS]     =  server_setdents,
         [GF_FOP_READDIR]      =  server_readdir,
         [GF_FOP_READDIRP]     =  server_readdirp,
         [GF_FOP_INODELK]      =  server_inodelk,
@@ -6272,7 +5827,6 @@ static gf_op_t gf_fops[] = {
 static gf_op_t gf_mops[] = {
         [GF_MOP_SETVOLUME] = mop_setvolume,
         [GF_MOP_GETVOLUME] = mop_getvolume,
-        [GF_MOP_STATS]     = mop_stats,
         [GF_MOP_GETSPEC]   = mop_getspec,
         [GF_MOP_PING]      = mop_ping,
         [GF_MOP_LOG]       = mop_log,

@@ -905,23 +905,6 @@ map_checksum_cbk (call_frame_t *frame,
 }
 
 
-int32_t
-map_lock_notify_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int32_t op_ret, int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-
-int32_t
-map_lock_fnotify_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			  int32_t op_ret, int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
 /* Fops starts here */
 
 int32_t

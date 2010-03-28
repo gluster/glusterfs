@@ -462,14 +462,6 @@ io_stats_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
-io_stats_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno,
-                       dir_entry_t *entries, int32_t count)
-{
-        STACK_UNWIND_STRICT (getdents, frame, op_ret, op_errno, entries, count);
-        return 0;
-}
 
 
 int
@@ -726,15 +718,6 @@ io_stats_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
-        return 0;
-}
-
-
-int
-io_stats_setdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno)
-{
-        STACK_UNWIND_STRICT (setdents, frame, op_ret, op_errno);
         return 0;
 }
 
@@ -1246,21 +1229,6 @@ io_stats_opendir (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-
-int
-io_stats_getdents (call_frame_t *frame, xlator_t *this,
-                   fd_t *fd, size_t size, off_t offset, int32_t flag)
-{
-        BUMP_FOP (GETDENTS);
-
-        STACK_WIND (frame, io_stats_getdents_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->getdents,
-                    fd, size, offset, flag);
-        return 0;
-}
-
-
 int
 io_stats_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                    off_t offset)
@@ -1377,21 +1345,6 @@ io_stats_lk (call_frame_t *frame, xlator_t *this,
 
 
 int
-io_stats_setdents (call_frame_t *frame, xlator_t *this,
-                   fd_t *fd, int32_t flags,
-                   dir_entry_t *entries, int32_t count)
-{
-        BUMP_FOP (SETDENTS);
-
-        STACK_WIND (frame, io_stats_setdents_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->setdents,
-                    fd, flags, entries, count);
-        return 0;
-}
-
-
-int
 io_stats_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
                        uint8_t *fchecksum, uint8_t *dchecksum)
@@ -1415,26 +1368,6 @@ io_stats_checksum (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-
-int
-io_stats_stats_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno, struct xlator_stats *stats)
-{
-        STACK_UNWIND (frame, op_ret, op_errno, stats);
-        return 0;
-}
-
-
-int
-io_stats_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
-{
-        STACK_WIND (frame, io_stats_stats_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->mops->stats,
-                    flags);
-
-        return 0;
-}
 
 
 int
@@ -1576,8 +1509,6 @@ struct xlator_fops fops = {
         .finodelk    = io_stats_finodelk,
         .entrylk     = io_stats_entrylk,
         .lookup      = io_stats_lookup,
-        .setdents    = io_stats_setdents,
-        .getdents    = io_stats_getdents,
         .checksum    = io_stats_checksum,
         .xattrop     = io_stats_xattrop,
         .fxattrop    = io_stats_fxattrop,
@@ -1586,7 +1517,6 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
-        .stats    = io_stats_stats,
 };
 
 struct xlator_cbks cbks = {

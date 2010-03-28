@@ -90,19 +90,14 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (entrylk);
 	SET_DEFAULT_FOP (fentrylk);
 	SET_DEFAULT_FOP (lookup);
-	SET_DEFAULT_FOP (setdents);
-	SET_DEFAULT_FOP (getdents);
 	SET_DEFAULT_FOP (checksum);
 	SET_DEFAULT_FOP (rchecksum);
 	SET_DEFAULT_FOP (xattrop);
 	SET_DEFAULT_FOP (fxattrop);
-	SET_DEFAULT_FOP (lock_notify);
-	SET_DEFAULT_FOP (lock_fnotify);
         SET_DEFAULT_FOP (setattr);
         SET_DEFAULT_FOP (fsetattr);
 
         SET_DEFAULT_MOP (log);
-	SET_DEFAULT_MOP (stats);
 
 	SET_DEFAULT_CBK (release);
 	SET_DEFAULT_CBK (releasedir);
