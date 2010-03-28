@@ -114,7 +114,6 @@ struct stripe_local {
         struct readv_replies *replies;
         struct statvfs       statvfs_buf;
         dir_entry_t         *entry;
-        struct xlator_stats  stats;
 
         int8_t               revalidate;
         int8_t               failed;

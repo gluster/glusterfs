@@ -955,16 +955,6 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-
-int
-posix_getdents (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, size_t size, off_t off, int32_t flag)
-{
-        STACK_UNWIND_STRICT (getdents, frame, -1, ENOSYS, NULL, 0);
-        return 0;
-}
-
-
 int32_t
 posix_releasedir (xlator_t *this,
 		  fd_t *fd)
@@ -2132,7 +2122,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         LOCK (&priv->lock);
         {
-                priv->stats.nr_files++;
+                priv->nr_files++;
         }
         UNLOCK (&priv->lock);
 
@@ -2248,7 +2238,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
 
         LOCK (&priv->lock);
         {
-                priv->stats.nr_files++;
+                priv->nr_files++;
         }
         UNLOCK (&priv->lock);
 
@@ -2346,7 +2336,6 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         LOCK (&priv->lock);
         {
                 priv->read_value    += op_ret;
-                priv->interval_read += op_ret;
         }
         UNLOCK (&priv->lock);
 
@@ -2514,7 +2503,6 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         LOCK (&priv->lock);
         {
                 priv->write_value    += op_ret;
-                priv->interval_write += op_ret;
         }
         UNLOCK (&priv->lock);
 
@@ -2680,7 +2668,7 @@ posix_release (xlator_t *this,
 
         LOCK (&priv->lock);
         {
-                priv->stats.nr_files--;
+                priv->nr_files--;
         }
         UNLOCK (&priv->lock);
 
@@ -3793,17 +3781,6 @@ posix_ftruncate (call_frame_t *frame, xlator_t *this,
 }
 
 
-int
-posix_setdents (call_frame_t *frame, xlator_t *this,
-                fd_t *fd, int32_t flags, dir_entry_t *entries,
-                int32_t count)
-{
-
-        STACK_UNWIND_STRICT (setdents, frame, -1, ENOSYS);
-        return 0;
-}
-
-
 int32_t
 posix_fstat (call_frame_t *frame, xlator_t *this,
              fd_t *fd)
@@ -4110,107 +4087,6 @@ posix_readdirp (call_frame_t *frame, xlator_t *this,
 
 
 int32_t
-posix_stats (call_frame_t *frame, xlator_t *this,
-             int32_t flags)
-
-{
-        int32_t op_ret   = -1;
-        int32_t op_errno = 0;
-
-        struct xlator_stats    xlstats = {0, };
-        struct xlator_stats *  stats   = NULL;
-        struct statvfs         buf     = {0,};
-        struct timeval         tv      = {0,};
-        struct posix_private * priv = (struct posix_private *)this->private;
-
-        int64_t avg_read  = 0;
-        int64_t avg_write = 0;
-        int64_t _time_ms  = 0;
-
-        DECLARE_OLD_FS_ID_VAR;
-
-        SET_FS_ID (frame->root->uid, frame->root->gid);
-
-        VALIDATE_OR_GOTO (frame, out);
-        VALIDATE_OR_GOTO (this, out);
-
-        stats = &xlstats;
-
-        op_ret = statvfs (priv->base_path, &buf);
-
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "statvfs failed: %s",
-                        strerror (op_errno));
-                goto out;
-        }
-
-	/* client info is maintained at FSd */
-        stats->nr_clients = priv->stats.nr_clients;
-        stats->nr_files   = priv->stats.nr_files;
-
-        /* number of free block in the filesystem. */
-        stats->free_disk  = buf.f_bfree * buf.f_bsize;
-
-        stats->total_disk_size = buf.f_blocks  * buf.f_bsize;
-        stats->disk_usage      = (buf.f_blocks - buf.f_bavail) * buf.f_bsize;
-
-        /* Calculate read and write usage */
-        op_ret = gettimeofday (&tv, NULL);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-			"gettimeofday failed: %s", strerror (errno));
-                goto out;
-        }
-
-        LOCK (&priv->lock);
-        {
-                /* Read */
-                _time_ms  = (tv.tv_sec  - priv->init_time.tv_sec)  * 1000 +
-                        ((tv.tv_usec - priv->init_time.tv_usec) / 1000);
-
-                avg_read  = (_time_ms) ? (priv->read_value  / _time_ms) : 0; /* KBps */
-                avg_write = (_time_ms) ? (priv->write_value / _time_ms) : 0; /* KBps */
-
-                _time_ms  = (tv.tv_sec  - priv->prev_fetch_time.tv_sec)  * 1000 +
-                        ((tv.tv_usec - priv->prev_fetch_time.tv_usec) / 1000);
-
-                if (_time_ms && ((priv->interval_read  / _time_ms) > priv->max_read)) {
-                        priv->max_read  = (priv->interval_read / _time_ms);
-                }
-
-                if (_time_ms &&
-                    ((priv->interval_write / _time_ms) > priv->max_write)) {
-                        priv->max_write = priv->interval_write / _time_ms;
-                }
-
-                stats->read_usage  = avg_read  / priv->max_read;
-                stats->write_usage = avg_write / priv->max_write;
-        }
-        UNLOCK (&priv->lock);
-
-        op_ret = gettimeofday (&(priv->prev_fetch_time), NULL);
-        if (op_ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "gettimeofday failed: %s",
-                        strerror (op_errno));
-                goto out;
-        }
-
-        priv->interval_read  = 0;
-        priv->interval_write = 0;
-
-        op_ret = 0;
-
- out:
-        SET_TO_OLD_FS_ID ();
-
-        STACK_UNWIND (frame, op_ret, op_errno, stats);
-        return 0;
-}
-
-int32_t
 posix_checksum (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, int32_t flag)
 {
@@ -4306,11 +4182,11 @@ posix_priv (xlator_t *this)
         gf_proc_dump_build_key(key, key_prefix, "base_path_length");
         gf_proc_dump_write(key,"%d", priv->base_path_length);
         gf_proc_dump_build_key(key, key_prefix, "max_read");
-        gf_proc_dump_write(key,"%d", priv->max_read);
+        gf_proc_dump_write(key,"%d", priv->read_value);
         gf_proc_dump_build_key(key, key_prefix, "max_write");
-        gf_proc_dump_write(key,"%d", priv->max_write);
-        gf_proc_dump_build_key(key, key_prefix, "stats.nr_files");
-        gf_proc_dump_write(key,"%ld", priv->stats.nr_files);
+        gf_proc_dump_write(key,"%d", priv->write_value);
+        gf_proc_dump_build_key(key, key_prefix, "nr_files");
+        gf_proc_dump_write(key,"%ld", priv->nr_files);
 
         return 0;
 }
@@ -4533,14 +4409,6 @@ init (xlator_t *this)
                         "could not find hostname (%s)", strerror (errno));
         }
 
-        {
-                /* Stats related variables */
-                gettimeofday (&_private->init_time, NULL);
-                gettimeofday (&_private->prev_fetch_time, NULL);
-                _private->max_read = 1;
-                _private->max_write = 1;
-        }
-
         _private->export_statfs = 1;
         tmp_data = dict_get (this->options, "export-statfs-size");
         if (tmp_data) {
@@ -4684,7 +4552,6 @@ struct xlator_dumpops dumpops = {
 };
 
 struct xlator_mops mops = {
-        .stats    = posix_stats,
 };
 
 struct xlator_fops fops = {
@@ -4723,8 +4590,6 @@ struct xlator_fops fops = {
 	.finodelk    = posix_finodelk,
 	.entrylk     = posix_entrylk,
 	.fentrylk    = posix_fentrylk,
-        .setdents    = posix_setdents,
-        .getdents    = posix_getdents,
         .checksum    = posix_checksum,
         .rchecksum   = posix_rchecksum,
 	.xattrop     = posix_xattrop,

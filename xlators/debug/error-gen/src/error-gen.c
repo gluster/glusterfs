@@ -124,9 +124,6 @@ sys_error_t error_no_list[] = {
         [ERR_READDIRP]          = { .error_no_count = 5,
                                     .error_no = {EINVAL,EACCES,EBADF,
                                                  EMFILE,ENOENT}},
-        [ERR_GETDENTS]          = { .error_no_count = 5,
-                                    .error_no = {EBADF,EFAULT,EINVAL,
-                                                 ENOENT,ENOTDIR}},
         [ERR_FSYNCDIR]          = { .error_no_count = 4,
                                     .error_no = {EBADF,EIO,EROFS,EINVAL}},
         [ERR_ACCESS]            = { .error_no_count = 8,
@@ -144,9 +141,6 @@ sys_error_t error_no_list[] = {
         [ERR_LK]                = { .error_no_count = 4,
                                     .error_no = {EACCES,EFAULT,ENOENT,
                                                  EINTR}},
-        [ERR_SETDENTS]          = { .error_no_count = 4,
-                                    .error_no = {EACCES,EBADF,EINTR,
-                                                 ENAMETOOLONG}},
         [ERR_CHECKSUM]          = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,
                                                  ENAMETOOLONG,EINTR}},
@@ -180,9 +174,6 @@ sys_error_t error_no_list[] = {
                                                  ENAMETOOLONG,ENOENT,
                                                  ENOMEM,ENOTDIR,EPERM,
                                                  EROFS,EBADF,EIO}},
-        [ERR_STATS]             = { .error_no_count = 4,
-                                    .error_no = {EACCES,EBADF,ENAMETOOLONG,
-                                                 EINTR}},
         [ERR_GETSPEC]           = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,ENAMETOOLONG,
                                                  EINTR}}
@@ -304,8 +295,6 @@ get_fop_int (char **op_no_str)
                 return ERR_READDIR;
         else if (!strcmp ((*op_no_str), "readdirp"))
                 return ERR_READDIRP;
-	else if (!strcmp ((*op_no_str), "getdents"))
-                return ERR_GETDENTS;
         else if (!strcmp ((*op_no_str), "fsyncdir"))
                 return ERR_FSYNCDIR;
         else if (!strcmp ((*op_no_str), "access"))
@@ -316,8 +305,6 @@ get_fop_int (char **op_no_str)
                 return ERR_FSTAT;
         else if (!strcmp ((*op_no_str), "lk"))
                 return ERR_LK;
-        else if (!strcmp ((*op_no_str), "setdents"))
-                return ERR_SETDENTS;
         else if (!strcmp ((*op_no_str), "checksum"))
                 return ERR_CHECKSUM;
         else if (!strcmp ((*op_no_str), "xattrop"))
@@ -336,8 +323,6 @@ get_fop_int (char **op_no_str)
                 return ERR_SETATTR;
         else if (!strcmp ((*op_no_str), "fsetattr"))
                 return ERR_FSETATTR;
-        else if (!strcmp ((*op_no_str), "stats"))
-                return ERR_STATS;
         else if (!strcmp ((*op_no_str), "getspec"))
                 return ERR_GETSPEC;
 	else
@@ -1280,83 +1265,6 @@ error_gen_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 	return 0;
 }
 
-
-int
-error_gen_getdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			int32_t op_ret, int32_t op_errno, dir_entry_t *entries,
-			int32_t count)
-{
-	STACK_UNWIND_STRICT (getdents, frame, op_ret, op_errno, entries,
-                             count);
-	return 0;
-}
-
-
-int
-error_gen_getdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
-		    size_t size, off_t offset, int32_t flag)
-{
-	int              op_errno = 0;
-        eg_t            *egp = NULL;
-        int              enable = 1;
-
-        egp = this->private;
-        enable = egp->enable[ERR_GETDENTS];
-
-        if (enable)
-                op_errno = error_gen (this, ERR_GETDENTS);
-
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND_STRICT (getdents, frame, -1, op_errno, NULL, 0);
-		return 0;
-	}
-
-	STACK_WIND (frame, error_gen_getdents_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->getdents,
-		    fd, size, offset, flag);
-	return 0;
-}
-
-
-int
-error_gen_setdents_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			int32_t op_ret, int32_t op_errno)
-{
-	STACK_UNWIND_STRICT (setdents, frame, op_ret, op_errno);
-	return 0;
-}
-
-
-int
-error_gen_setdents (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                    int32_t flags, dir_entry_t *entries, int32_t count)
-{
-	int              op_errno = 0;
-        eg_t            *egp = NULL;
-        int              enable = 1;
-
-        egp = this->private;
-        enable = egp->enable[ERR_SETDENTS];
-
-        if (enable)
-                op_errno = error_gen (this, ERR_SETDENTS);
-
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND_STRICT (setdents, frame, -1, op_errno);
-		return 0;
-	}
-
-	STACK_WIND (frame, error_gen_setdents_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->setdents,
-		    fd, flags, entries, count);
-	return 0;
-}
-
-
 int
 error_gen_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			int32_t op_ret, int32_t op_errno)
@@ -1815,42 +1723,6 @@ error_gen_fentrylk (call_frame_t *frame, xlator_t *this,
 
 /* Management operations */
 
-int
-error_gen_stats_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		     int32_t op_ret, int32_t op_errno,
-		     struct xlator_stats *stats)
-{
-	STACK_UNWIND (frame, op_ret, op_errno, stats);
-	return 0;
-}
-
-
-int
-error_gen_stats (call_frame_t *frame, xlator_t *this, int32_t flags)
-{
-	int              op_errno = 0;
-        eg_t            *egp = NULL;
-        int              enable = 1;
-
-        egp = this->private;
-        enable = egp->enable[ERR_STATS];
-
-        if (enable)
-                op_errno = error_gen (this, ERR_STATS);
-
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
-		return 0;
-	}
-
-	STACK_WIND (frame, error_gen_stats_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->mops->stats,
-		    flags);
-	return 0;
-}
-
 
 int
 error_gen_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2154,13 +2026,11 @@ struct xlator_fops fops = {
 	.opendir     = error_gen_opendir,
 	.readdir     = error_gen_readdir,
 	.readdirp    = error_gen_readdirp,
-	.getdents    = error_gen_getdents,
 	.fsyncdir    = error_gen_fsyncdir,
 	.access      = error_gen_access,
 	.ftruncate   = error_gen_ftruncate,
 	.fstat       = error_gen_fstat,
 	.lk          = error_gen_lk,
-	.setdents    = error_gen_setdents,
 	.lookup_cbk  = error_gen_lookup_cbk,
 	.checksum    = error_gen_checksum,
 	.xattrop     = error_gen_xattrop,
@@ -2174,7 +2044,6 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
-	.stats = error_gen_stats,
 	.getspec = error_gen_getspec,
 };
 

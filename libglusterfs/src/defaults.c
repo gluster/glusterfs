@@ -706,77 +706,6 @@ default_opendir (call_frame_t *frame,
 	return 0;
 }
 
-
-static int32_t
-default_getdents_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      dir_entry_t *entries,
-		      int32_t count)
-{
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno,
-		      entries,
-		      count);
-	return 0;
-}
-
-int32_t
-default_getdents (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  size_t size,
-		  off_t offset,
-		  int32_t flag)
-{
-	STACK_WIND (frame,
-		    default_getdents_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->getdents,
-		    fd,
-		    size,
-		    offset,
-		    flag);
-	return 0;
-}
-
-
-static int32_t
-default_setdents_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno)
-{
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno);
-	return 0;
-}
-
-int32_t
-default_setdents (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  int32_t flags,
-		  dir_entry_t *entries,
-		  int32_t count)
-{
-	STACK_WIND (frame,
-		    default_setdents_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->setdents,
-		    fd,
-		    flags,
-		    entries,
-		    count);
-	return 0;
-}
-
-
 static int32_t
 default_fsyncdir_cbk (call_frame_t *frame,
 		      void *cookie,
@@ -1171,35 +1100,6 @@ default_fentrylk (call_frame_t *frame, xlator_t *this,
 /* Management operations */
 
 static int32_t
-default_stats_cbk (call_frame_t *frame,
-		   void *cookie,
-		   xlator_t *this,
-		   int32_t op_ret,
-		   int32_t op_errno,
-		   struct xlator_stats *stats)
-{
-	STACK_UNWIND (frame,
-		      op_ret,
-		      op_errno,
-		      stats);
-	return 0;
-}
-
-
-int32_t
-default_stats (call_frame_t *frame,
-	       xlator_t *this,
-	       int32_t flags)
-{
-	STACK_WIND (frame,
-		    default_stats_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->mops->stats,
-		    flags);
-	return 0;
-}
-
-static int32_t
 default_getspec_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -1376,49 +1276,6 @@ default_readdirp (call_frame_t *frame,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->readdirp,
 		    fd, size, off);
-	return 0;
-}
-
-int32_t
-default_lock_notify_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			 int32_t op_ret, int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-
-int32_t
-default_lock_fnotify_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			  int32_t op_ret, int32_t op_errno)
-{
-	STACK_UNWIND (frame, op_ret, op_errno);
-	return 0;
-}
-
-
-int32_t
-default_lock_notify (call_frame_t *frame, xlator_t *this, 
-		     loc_t *loc, int32_t timeout)
-{
-	STACK_WIND (frame, 
-		    default_lock_notify_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->lock_notify,
-		    loc, timeout);
-	return 0;
-}
-
-
-int32_t
-default_lock_fnotify (call_frame_t *frame, xlator_t *this, 
-		      fd_t *fd, int32_t timeout)
-{
-	STACK_WIND (frame, 
-		    default_lock_notify_cbk,
-		    FIRST_CHILD (this),
-		    FIRST_CHILD (this)->fops->lock_fnotify,
-		    fd, timeout);
 	return 0;
 }
 

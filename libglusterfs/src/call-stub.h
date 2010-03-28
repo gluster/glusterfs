@@ -324,35 +324,6 @@ typedef struct {
 			fd_t *fd;
 		} opendir_cbk;
 
-		/* getdents */
-		struct {
-			fop_getdents_t fn;
-			fd_t *fd;
-			size_t size;
-			off_t off;
-			int32_t flag;
-		} getdents;
-		struct {
-			fop_getdents_cbk_t fn;
-			int32_t op_ret;
-			int32_t op_errno;
-			dir_entry_t entries;
-			int32_t count;
-		} getdents_cbk;
-
-		/* setdents */
-		struct {
-			fop_setdents_t fn;
-			fd_t *fd;
-			int32_t flags;
-			dir_entry_t entries;
-			int32_t count;
-		} setdents;
-		struct {
-			fop_setdents_cbk_t fn;
-			int32_t op_ret;
-			int32_t op_errno;
-		} setdents_cbk;
 
 		/* fsyncdir */
 		struct {
@@ -587,28 +558,6 @@ typedef struct {
 			dict_t *xattr;
 		} fxattrop_cbk;
 
-		struct {
-			fop_lock_notify_t fn;
-			loc_t loc;
-			int32_t timeout;
-		} lock_notify;
-		struct {
-			fop_lock_notify_cbk_t fn;
-			int32_t op_ret;
-			int32_t op_errno;
-		} lock_notify_cbk;
-
-		struct {
-			fop_lock_fnotify_t fn;
-			fd_t *fd;
-			int32_t timeout;
-		} lock_fnotify;
-		struct {
-			fop_lock_fnotify_cbk_t fn;
-			int32_t op_ret;
-			int32_t op_errno;
-		} lock_fnotify_cbk;
-                
                 /* setattr */
                 struct {
                         fop_setattr_t fn;
@@ -945,36 +894,6 @@ fop_opendir_cbk_stub (call_frame_t *frame,
 		      fd_t *fd);
 
 call_stub_t *
-fop_getdents_stub (call_frame_t *frame,
-		   fop_getdents_t fn,
-		   fd_t *fd,
-		   size_t size,
-		   off_t off,
-		   int32_t flag);
-
-call_stub_t *
-fop_getdents_cbk_stub (call_frame_t *frame,
-		       fop_getdents_cbk_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       dir_entry_t *entries,
-		       int32_t count);
-
-call_stub_t *
-fop_setdents_stub (call_frame_t *frame,
-		   fop_setdents_t fn,
-		   fd_t *fd,
-		   int32_t flags,
-		   dir_entry_t *entries,
-		   int32_t count);
-
-call_stub_t *
-fop_setdents_cbk_stub (call_frame_t *frame,
-		       fop_setdents_cbk_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno);
-
-call_stub_t *
 fop_fsyncdir_stub (call_frame_t *frame,
 		   fop_fsyncdir_t fn,
 		   fd_t *fd,
@@ -1192,30 +1111,6 @@ fop_fxattrop_stub_cbk_stub (call_frame_t *frame,
 			    fop_xattrop_cbk_t fn,
 			    int32_t op_ret,
 			    int32_t op_errno);
-
-call_stub_t *
-fop_lock_notify_stub_cbk_stub (call_frame_t *frame,
-			       fop_lock_notify_cbk_t fn,
-			       int32_t op_ret,
-			       int32_t op_errno);
-
-call_stub_t *
-fop_lock_notify_stub (call_frame_t *frame,
-		      fop_lock_notify_t fn,
-		      loc_t *loc,
-		      int32_t timeout);
-
-call_stub_t *
-fop_lock_fnotify_stub_cbk_stub (call_frame_t *frame,
-				fop_lock_fnotify_cbk_t fn,
-				int32_t op_ret,
-				int32_t op_errno);
-
-call_stub_t *
-fop_lock_fnotify_stub (call_frame_t *frame,
-		       fop_lock_fnotify_t fn,
-		       fd_t *fd,
-		       int32_t timeout);
 
 call_stub_t *
 fop_setattr_stub (call_frame_t *frame,

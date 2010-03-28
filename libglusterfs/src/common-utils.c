@@ -205,7 +205,6 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_GETXATTR]    = "GETXATTR";
 	gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
 	gf_fop_list[GF_FOP_OPENDIR]     = "OPENDIR";
-	gf_fop_list[GF_FOP_GETDENTS]    = "GETDENTS";   /* 20 */
 	gf_fop_list[GF_FOP_FSYNCDIR]    = "FSYNCDIR";
 	gf_fop_list[GF_FOP_ACCESS]      = "ACCESS";
 	gf_fop_list[GF_FOP_CREATE]      = "CREATE";
@@ -213,7 +212,6 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_FSTAT]       = "FSTAT";      /* 25 */
 	gf_fop_list[GF_FOP_LK]          = "LK";
 	gf_fop_list[GF_FOP_LOOKUP]      = "LOOKUP";
-	gf_fop_list[GF_FOP_SETDENTS]    = "SETDENTS";
 	gf_fop_list[GF_FOP_READDIR]     = "READDIR";
 	gf_fop_list[GF_FOP_INODELK]     = "INODELK";    /* 30 */
 	gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
@@ -222,8 +220,6 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";   /* 36 */
 	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
 	gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
-	gf_fop_list[GF_FOP_LOCK_NOTIFY] = "LOCK_NOTIFY";
-	gf_fop_list[GF_FOP_LOCK_FNOTIFY]= "LOCK_FNOTIFY";
 	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
 	gf_fop_list[GF_FOP_FGETXATTR]   = "FGETXATTR";
         gf_fop_list[GF_FOP_RCHECKSUM]   = "RCHECKSUM";
@@ -233,7 +229,6 @@ gf_global_variable_init()
 
 	gf_mop_list[GF_MOP_SETVOLUME]   = "SETVOLUME"; /* 0 */
 	gf_mop_list[GF_MOP_GETVOLUME]   = "GETVOLUME"; /* 1 */
-	gf_mop_list[GF_MOP_STATS]       = "STATS";
 	gf_mop_list[GF_MOP_SETSPEC]     = "SETSPEC";
 	gf_mop_list[GF_MOP_GETSPEC]     = "GETSPEC";
         gf_mop_list[GF_MOP_LOG]         = "LOG";

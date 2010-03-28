@@ -1139,65 +1139,6 @@ out:
 
 
 call_stub_t *
-fop_getdents_stub (call_frame_t *frame,
-		   fop_getdents_t fn,
-		   fd_t *fd,
-		   size_t size,
-		   off_t off,
-		   int32_t flag)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 1, GF_FOP_GETDENTS);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.getdents.fn = fn;
-	stub->args.getdents.size = size;
-	stub->args.getdents.off = off;
-	if (fd)
-		stub->args.getdents.fd = fd_ref (fd);
-	stub->args.getdents.flag = flag;
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_getdents_cbk_stub (call_frame_t *frame,
-		       fop_getdents_cbk_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno,
-		       dir_entry_t *entries,
-		       int32_t count)
-
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_GETDENTS);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.getdents_cbk.fn = fn;
-	stub->args.getdents_cbk.op_ret = op_ret;
-	stub->args.getdents_cbk.op_errno = op_errno;
-	if (op_ret >= 0) {
-		stub->args.getdents_cbk.entries.next = entries->next;
-		/* FIXME: are entries not needed in the caller after
-		 * creating stub? */
-		entries->next = NULL;
-	}
-
-	stub->args.getdents_cbk.count = count;
-out:
-	return stub;
-}
-
-
-
-call_stub_t *
 fop_fsyncdir_stub (call_frame_t *frame,
 		   fop_fsyncdir_t fn,
 		   fd_t *fd,
@@ -1768,55 +1709,6 @@ fop_fentrylk_cbk_stub (call_frame_t *frame, fop_fentrylk_cbk_t fn,
 
 
 call_stub_t *
-fop_setdents_stub (call_frame_t *frame,
-		   fop_setdents_t fn,
-		   fd_t *fd,
-		   int32_t flags,
-		   dir_entry_t *entries,
-		   int32_t count)
-{ 
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 1, GF_FOP_SETDENTS);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	if (fd)
-		stub->args.setdents.fd = fd_ref (fd);
-	stub->args.setdents.fn = fn;
-	stub->args.setdents.flags = flags;
-	stub->args.setdents.count = count;
-	if (entries) {
-		stub->args.setdents.entries.next = entries->next;
-		entries->next = NULL;
-	}
-out:
-	return stub;
-}
-
-call_stub_t *
-fop_setdents_cbk_stub (call_frame_t *frame,
-		       fop_setdents_cbk_t fn,
-		       int32_t op_ret,
-		       int32_t op_errno)
-{  
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-
-	stub = stub_new (frame, 0, GF_FOP_SETDENTS);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.setdents_cbk.fn = fn;
-	stub->args.setdents_cbk.op_ret = op_ret;
-	stub->args.setdents_cbk.op_errno = op_errno;
-out:
-	return stub;
-  
-}
-
-call_stub_t *
 fop_readdirp_cbk_stub (call_frame_t *frame,
 		       fop_readdirp_cbk_t fn,
 		       int32_t op_ret,
@@ -2139,90 +2031,6 @@ fop_fxattrop_stub (call_frame_t *frame,
 	return stub;
 }
 
-
-call_stub_t *
-fop_lock_notify_cbk_stub (call_frame_t *frame, fop_lock_notify_cbk_t fn,
-                          int32_t op_ret, int32_t op_errno)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-	
-	stub = stub_new (frame, 0, GF_FOP_LOCK_NOTIFY);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.lock_notify_cbk.fn       = fn;
-	stub->args.lock_notify_cbk.op_ret   = op_ret;
-	stub->args.lock_notify_cbk.op_errno = op_errno;
-
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_lock_notify_stub (call_frame_t *frame, fop_lock_notify_t fn,
-		      loc_t *loc, int32_t timeout)
-{
-	call_stub_t *stub = NULL;
-
-	if (!frame)
-		return NULL;
-
-	stub = stub_new (frame, 1, GF_FOP_LOCK_NOTIFY);
-	if (!stub)
-		return NULL;
-
-	stub->args.lock_notify.fn = fn;
-	
-	loc_copy (&stub->args.lock_notify.loc, loc);
-
-	stub->args.lock_notify.timeout = timeout;
-
-	return stub;
-}
-
-
-call_stub_t *
-fop_lock_fnotify_cbk_stub (call_frame_t *frame, fop_lock_fnotify_cbk_t fn,
-                           int32_t op_ret, int32_t op_errno)
-{
-	call_stub_t *stub = NULL;
-
-	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
-	
-	stub = stub_new (frame, 0, GF_FOP_LOCK_FNOTIFY);
-	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
-
-	stub->args.lock_fnotify_cbk.fn       = fn;
-	stub->args.lock_fnotify_cbk.op_ret   = op_ret;
-	stub->args.lock_fnotify_cbk.op_errno = op_errno;
-
-out:
-	return stub;
-}
-
-
-call_stub_t *
-fop_lock_fnotify_stub (call_frame_t *frame, fop_lock_fnotify_t fn,
-		       fd_t *fd, int32_t timeout)
-{
-	call_stub_t *stub = NULL;
-
-	if (!frame)
-		return NULL;
-
-	stub = stub_new (frame, 1, GF_FOP_LOCK_FNOTIFY);
-	if (!stub)
-		return NULL;
-
-	stub->args.lock_fnotify.fn = fn;
-
-	stub->args.lock_fnotify.fd      = fd_ref (fd);
-	stub->args.lock_fnotify.timeout = timeout;
-
-	return stub;
-}
 
 call_stub_t *
 fop_setattr_cbk_stub (call_frame_t *frame,
@@ -2564,17 +2372,6 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_GETDENTS:
-	{
-		stub->args.getdents.fn (stub->frame,
-					stub->frame->this,
-					stub->args.getdents.fd,
-					stub->args.getdents.size,
-					stub->args.getdents.off,
-					stub->args.getdents.flag);
-		break;
-	}
-
 	case GF_FOP_FSYNCDIR:
 	{
 		stub->args.fsyncdir.fn (stub->frame,
@@ -2677,17 +2474,6 @@ call_resume_wind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_SETDENTS:
-	{
-		stub->args.setdents.fn (stub->frame,
-					stub->frame->this,
-					stub->args.setdents.fd,
-					stub->args.setdents.flags,
-					&stub->args.setdents.entries,
-					stub->args.setdents.count);
-		break;
-	}
-
 	case GF_FOP_CHECKSUM:
 	{
 		stub->args.checksum.fn (stub->frame,
@@ -2745,22 +2531,6 @@ call_resume_wind (call_stub_t *stub)
 					stub->args.fxattrop.optype,
 					stub->args.fxattrop.xattr);
 
-		break;
-	}
-	case GF_FOP_LOCK_NOTIFY:
-	{
-		stub->args.lock_notify.fn (stub->frame,
-					   stub->frame->this,
-					   &stub->args.lock_notify.loc,
-					   stub->args.lock_notify.timeout);
-		break;
-	}
-	case GF_FOP_LOCK_FNOTIFY:
-	{
-		stub->args.lock_fnotify.fn (stub->frame,
-					    stub->frame->this,
-					    stub->args.lock_fnotify.fd,
-					    stub->args.lock_fnotify.timeout);
 		break;
 	}
         case GF_FOP_SETATTR:
@@ -3255,25 +3025,6 @@ call_resume_unwind (call_stub_t *stub)
 		break;
 	}
   
-	case GF_FOP_GETDENTS:
-	{
-		if (!stub->args.getdents_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.getdents_cbk.op_ret,
-				      stub->args.getdents_cbk.op_errno,
-				      &stub->args.getdents_cbk.entries,
-				      stub->args.getdents_cbk.count);
-		else
-			stub->args.getdents_cbk.fn (stub->frame,
-						    stub->frame->cookie,
-						    stub->frame->this,
-						    stub->args.getdents_cbk.op_ret,
-						    stub->args.getdents_cbk.op_errno,
-						    &stub->args.getdents_cbk.entries,
-						    stub->args.getdents_cbk.count);
-		break;
-	}
-  
 	case GF_FOP_FSYNCDIR:
 	{
 		if (!stub->args.fsyncdir_cbk.fn)
@@ -3452,20 +3203,6 @@ call_resume_unwind (call_stub_t *stub)
 
 		break;
 	}
-	case GF_FOP_SETDENTS:
-	{
-		if (!stub->args.setdents_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.setdents_cbk.op_ret,
-				      stub->args.setdents_cbk.op_errno);
-		else
-			stub->args.setdents_cbk.fn (stub->frame,
-						    stub->frame->cookie,
-						    stub->frame->this,
-						    stub->args.setdents_cbk.op_ret,
-						    stub->args.setdents_cbk.op_errno);
-		break;
-	}
 
 	case GF_FOP_CHECKSUM:
 	{
@@ -3594,34 +3331,6 @@ call_resume_unwind (call_stub_t *stub)
 		if (stub->args.fxattrop_cbk.xattr)
 			dict_unref (stub->args.fxattrop_cbk.xattr);
 
-		break;
-	}
-	case GF_FOP_LOCK_NOTIFY:
-	{
-		if (!stub->args.lock_notify_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.lock_notify_cbk.op_ret,
-				      stub->args.lock_notify_cbk.op_errno);
-		else
-			stub->args.lock_notify_cbk.fn (stub->frame,
-						       stub->frame->cookie,
-						       stub->frame->this,
-						       stub->args.lock_notify_cbk.op_ret,
-						       stub->args.lock_notify_cbk.op_errno);
-		break;
-	}
-	case GF_FOP_LOCK_FNOTIFY:
-	{
-		if (!stub->args.lock_fnotify_cbk.fn)
-			STACK_UNWIND (stub->frame,
-				      stub->args.lock_fnotify_cbk.op_ret,
-				      stub->args.lock_fnotify_cbk.op_errno);
-		else
-			stub->args.lock_fnotify_cbk.fn (stub->frame,
-							stub->frame->cookie,
-							stub->frame->this,
-							stub->args.lock_fnotify_cbk.op_ret,
-							stub->args.lock_fnotify_cbk.op_errno);
 		break;
 	}
         case GF_FOP_SETATTR:
@@ -3839,13 +3548,6 @@ call_stub_destroy_wind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_GETDENTS:
-	{
-		if (stub->args.getdents.fd)
-			fd_unref (stub->args.getdents.fd);
-		break;
-	}
-
 	case GF_FOP_FSYNCDIR:
 	{
 		if (stub->args.fsyncdir.fd)
@@ -3928,21 +3630,6 @@ call_stub_destroy_wind (call_stub_t *stub)
 		break;
 	}
 
-	case GF_FOP_SETDENTS:
-	{
-		dir_entry_t *entry, *next;
-		if (stub->args.setdents.fd)
-			fd_unref (stub->args.setdents.fd);
-		entry = stub->args.setdents.entries.next;
-		while (entry) {
-			next = entry->next;
-			FREE (entry->name);
-			FREE (entry);
-			entry = next;
-		}
-		break;
-	}
-
 	case GF_FOP_CHECKSUM:
 	{
 		loc_wipe (&stub->args.checksum.loc);
@@ -3981,17 +3668,6 @@ call_stub_destroy_wind (call_stub_t *stub)
 		if (stub->args.fxattrop.fd)
 			fd_unref (stub->args.fxattrop.fd);
 		dict_unref (stub->args.fxattrop.xattr);
-		break;
-	}
-	case GF_FOP_LOCK_NOTIFY:
-	{
-		loc_wipe (&stub->args.lock_notify.loc);
-		break;
-	}
-	case GF_FOP_LOCK_FNOTIFY:
-	{
-		if (stub->args.lock_fnotify.fd)
-			fd_unref (stub->args.lock_fnotify.fd);
 		break;
 	}
         case GF_FOP_SETATTR:
@@ -4144,22 +3820,6 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	}
 	break;
 
-	case GF_FOP_GETDENTS:
-	{
-		dir_entry_t *tmp = NULL, *entries = NULL;
-
-		entries = &stub->args.getdents_cbk.entries;
-		if (stub->args.getdents_cbk.op_ret >= 0) {
-			while (entries->next) {
-				tmp = entries->next;
-				entries->next = entries->next->next;
-				FREE (tmp->name);
-				FREE (tmp);
-			}
-		}
-	}
-	break;
-
 	case GF_FOP_FSYNCDIR:
 		break;
   
@@ -4196,9 +3856,6 @@ call_stub_destroy_unwind (call_stub_t *stub)
 			dict_unref (stub->args.lookup_cbk.dict);
 	}
 	break;
-
-	case GF_FOP_SETDENTS:
-		break;
 
 	case GF_FOP_CHECKSUM:
 	{

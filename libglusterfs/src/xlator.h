@@ -84,27 +84,6 @@ struct _loc {
 	inode_t    *parent;
 };
 
-
-struct xlator_stats {
-	uint64_t nr_files;         /* Number of files open via this xlator */
-	uint64_t free_disk;        /* Mega bytes */
-	uint64_t total_disk_size;  /* Mega Bytes */
-	uint64_t disk_usage;       /* Mega bytes */
-	uint64_t disk_speed;       /* MHz or Mbps */
-	uint64_t nr_clients;       /* Number of client nodes */
-	uint64_t write_usage;
-	uint64_t read_usage;       /* add more stats here */
-};
-
-
-
-typedef int32_t (*mop_stats_cbk_t) (call_frame_t *frame,
-				    void *cookie,
-				    xlator_t *this,
-				    int32_t op_ret,
-				    int32_t op_errno,
-				    struct xlator_stats *stats);
-
 typedef int32_t (*mop_getspec_cbk_t) (call_frame_t *frame,
 				      void *cookie,
 				      xlator_t *this,
@@ -136,9 +115,6 @@ typedef int32_t (*mop_setvolume_t) (call_frame_t *frame,
 				    xlator_t *this,
 				    const char *volume);
 
-typedef int32_t (*mop_stats_t) (call_frame_t *frame,
-				xlator_t *this,
-				int32_t flags);
 
 typedef int32_t (*mop_getspec_t) (call_frame_t *frame,
 				  xlator_t *this,
@@ -160,12 +136,10 @@ typedef int32_t (*fop_rchecksum_t) (call_frame_t *frame,
                                     int32_t len);
 
 struct xlator_mops {
-	mop_stats_t            stats;
 	mop_getspec_t          getspec;
         mop_log_t              log;
 
         mop_log_cbk_t          log_cbk;
-	mop_stats_cbk_t        stats_cbk;
 	mop_getspec_cbk_t      getspec_cbk;
 };
 
@@ -348,14 +322,6 @@ typedef int32_t (*fop_opendir_cbk_t) (call_frame_t *frame,
 				      int32_t op_errno,
 				      fd_t *fd);
 
-typedef int32_t (*fop_getdents_cbk_t) (call_frame_t *frame,
-				       void *cookie,
-				       xlator_t *this,
-				       int32_t op_ret,
-				       int32_t op_errno,
-				       dir_entry_t *entries,
-				       int32_t count);
-
 typedef int32_t (*fop_fsyncdir_cbk_t) (call_frame_t *frame,
 				       void *cookie,
 				       xlator_t *this,
@@ -432,12 +398,6 @@ typedef int32_t (*fop_fentrylk_cbk_t) (call_frame_t *frame,
 				       int32_t op_ret,
 				       int32_t op_errno);
 
-typedef int32_t (*fop_setdents_cbk_t) (call_frame_t *frame,
-				       void *cookie,
-				       xlator_t *this,
-				       int32_t op_ret,
-				       int32_t op_errno);
-
 typedef int32_t (*fop_readdir_cbk_t) (call_frame_t *frame,
 				      void *cookie,
 				      xlator_t *this,
@@ -466,17 +426,6 @@ typedef int32_t (*fop_fxattrop_cbk_t) (call_frame_t *frame,
 				       int32_t op_errno,
 				       dict_t *xattr);
 
-typedef int32_t (*fop_lock_notify_cbk_t) (call_frame_t *frame,
-                                          void *cookie,
-                                          xlator_t *this,
-                                          int32_t op_ret,
-                                          int32_t op_errno);
-
-typedef int32_t (*fop_lock_fnotify_cbk_t) (call_frame_t *frame,
-                                           void *cookie,
-                                           xlator_t *this,
-                                           int32_t op_ret,
-                                           int32_t op_errno);
 
 typedef int32_t (*fop_setattr_cbk_t) (call_frame_t *frame,
                                       void *cookie,
@@ -612,13 +561,6 @@ typedef int32_t (*fop_opendir_t) (call_frame_t *frame,
 				  loc_t *loc,
 				  fd_t *fd);
 
-typedef int32_t (*fop_getdents_t) (call_frame_t *frame,
-				   xlator_t *this,
-				   fd_t *fd,
-				   size_t size,
-				   off_t offset,
-				   int32_t flag);
-
 typedef int32_t (*fop_fsyncdir_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   fd_t *fd,
@@ -687,13 +629,6 @@ typedef int32_t (*fop_fentrylk_t) (call_frame_t *frame,
 				   const char *basename, entrylk_cmd cmd,
 				   entrylk_type type);
 
-typedef int32_t (*fop_setdents_t) (call_frame_t *frame,
-				   xlator_t *this,
-				   fd_t *fd,
-				   int32_t flags,
-				   dir_entry_t *entries,
-				   int32_t count);
-
 typedef int32_t (*fop_readdir_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  fd_t *fd,
@@ -717,14 +652,6 @@ typedef int32_t (*fop_fxattrop_t) (call_frame_t *frame,
 				   fd_t *fd,
 				   gf_xattrop_flags_t optype,
 				   dict_t *xattr);
-
-typedef int32_t (*fop_lock_notify_t) (call_frame_t *frame,
-                                      xlator_t *this, loc_t *loc,
-                                      int32_t timeout);
-
-typedef int32_t (*fop_lock_fnotify_t) (call_frame_t *frame,
-                                       xlator_t *this, fd_t *fd,
-                                       int32_t timeout);
 
 typedef int32_t (*fop_setattr_t) (call_frame_t *frame,
                                   xlator_t *this,
@@ -775,14 +702,10 @@ struct xlator_fops {
 	fop_finodelk_t       finodelk;
 	fop_entrylk_t        entrylk;
 	fop_fentrylk_t       fentrylk;
-	fop_setdents_t       setdents;
-	fop_getdents_t       getdents;
 	fop_checksum_t       checksum;
 	fop_rchecksum_t      rchecksum;
 	fop_xattrop_t        xattrop;
 	fop_fxattrop_t       fxattrop;
-	fop_lock_notify_t    lock_notify;
-	fop_lock_fnotify_t   lock_fnotify;
         fop_setattr_t        setattr;
         fop_fsetattr_t       fsetattr;
 
@@ -822,14 +745,10 @@ struct xlator_fops {
 	fop_finodelk_cbk_t       finodelk_cbk;
 	fop_entrylk_cbk_t        entrylk_cbk;
 	fop_fentrylk_cbk_t       fentrylk_cbk;
-	fop_setdents_cbk_t       setdents_cbk;
-	fop_getdents_cbk_t       getdents_cbk;
 	fop_checksum_cbk_t       checksum_cbk;
 	fop_rchecksum_cbk_t      rchecksum_cbk;
 	fop_xattrop_cbk_t        xattrop_cbk;
 	fop_fxattrop_cbk_t       fxattrop_cbk;
-	fop_lock_notify_cbk_t    lock_notify_cbk;
-	fop_lock_fnotify_cbk_t   lock_fnotify_cbk;
         fop_setattr_cbk_t        setattr_cbk;
         fop_fsetattr_cbk_t       fsetattr_cbk;
 };
