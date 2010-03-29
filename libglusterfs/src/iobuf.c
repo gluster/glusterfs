@@ -688,14 +688,6 @@ iobuf_arena_info_dump (struct iobuf_arena *iobuf_arena, const char *key_prefix)
                 iobuf_info_dump(trav, key);
         }
 
-        i = 1;
-        list_for_each_entry (trav, &iobuf_arena->passive.list, list) {
-                gf_proc_dump_build_key(key, key_prefix,
-                                        "passive_iobuf.%d",i++);
-                gf_proc_dump_add_section(key);
-                iobuf_info_dump(trav, key);
-        }
-
 }
 
 void
