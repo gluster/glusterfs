@@ -41,7 +41,6 @@ transport_load (dict_t *options,
 		xlator_t *xl)
 {
 	struct transport *trans = NULL, *return_trans = NULL;
-	char *addr_family = NULL;
 	char *name = NULL;
 	void *handle = NULL;
 	char *type = NULL;
@@ -66,26 +65,9 @@ transport_load (dict_t *options,
 		if (ret < 0)
 			gf_log ("dict", GF_LOG_DEBUG,
 				"setting transport-type failed");
-		ret = dict_get_str (options, "transport.address-family",
-				    &addr_family);
-		if (ret < 0) {
-			ret = dict_get_str (options, "address-family",
-					    &addr_family);
-		}
-
-		if (ret < 0) {
-			ret = dict_set_str (options,
-					    "transport.address-family",
-					    "inet");
-			if (ret < 0) {
-				gf_log ("dict", GF_LOG_ERROR,
-					"setting address-family failed");
-			}
-		}
-
 		gf_log ("transport", GF_LOG_WARNING,
 			"missing 'option transport-type'. defaulting to "
-			"\"socket\" (%s)", addr_family?addr_family:"inet");
+			"\"socket\"");
 	} else {
 		{
 			/* Backword compatibility to handle * /client,
@@ -102,10 +84,6 @@ transport_load (dict_t *options,
 		if ((is_tcp == 0) ||
 		    (is_unix == 0) ||
 		    (is_ibsdp == 0)) {
-			if (is_tcp == 0)
-				ret = dict_set_str (options, 
-						    "transport.address-family",
-						    "inet");
 			if (is_unix == 0)
 				ret = dict_set_str (options, 
 						    "transport.address-family",
