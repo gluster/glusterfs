@@ -2853,11 +2853,12 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 for (i = 0; i < local->wind_count; i++) {
-                        memcpy ((vec + count), local->replies[i].vector,
-                                (local->replies[i].count * sizeof (struct iovec)));
-                        count +=  local->replies[i].count;
-                        op_ret += local->replies[i].op_ret;
-
+                        if (local->replies[i].op_ret) {
+                                memcpy ((vec + count), local->replies[i].vector,
+                                        (local->replies[i].count * sizeof (struct iovec)));
+                                count +=  local->replies[i].count;
+                                op_ret += local->replies[i].op_ret;
+                        }
                         if ((local->replies[i].op_ret <
                              local->replies[i].requested_size) &&
                             (local->stbuf_size > (local->offset + op_ret))) {
