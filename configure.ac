@@ -107,6 +107,9 @@ AC_CONFIG_FILES([Makefile
 		contrib/fuse-util/Makefile
                 xlators/features/access-control/Makefile
                 xlators/features/access-control/src/Makefile
+                xlators/nfs/Makefile
+                xlators/nfs/lib/Makefile
+                xlators/nfs/lib/src/Makefile
 		glusterfs.spec])
 
 AC_CANONICAL_HOST
