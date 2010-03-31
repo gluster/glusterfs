@@ -85,6 +85,21 @@ struct iatt {
 #define IA_ISFIFO(t) (t == IA_IFIFO)
 #define IA_ISSOCK(t) (t == IA_IFSOCK)
 
+#define IA_PROT_RUSR(prot)      ((prot).owner.read == 1)
+#define IA_PROT_WUSR(prot)      ((prot).owner.write == 1)
+#define IA_PROT_XUSR(prot)      ((prot).owner.exec == 1)
+
+#define IA_PROT_RGRP(prot)      ((prot).group.read == 1)
+#define IA_PROT_WGRP(prot)      ((prot).group.write == 1)
+#define IA_PROT_XGRP(prot)      ((prot).group.exec == 1)
+
+#define IA_PROT_ROTH(prot)      ((prot).other.read == 1)
+#define IA_PROT_WOTH(prot)      ((prot).other.write == 1)
+#define IA_PROT_XOTH(prot)      ((prot).other.exec == 1)
+
+#define IA_PROT_SUID(prot)      ((prot).suid == 1)
+#define IA_PROT_SGID(prot)      ((prot).sgid == 1)
+#define IA_PROT_STCKY(prot)     ((prot).sticky == 1)
 
 static inline uint32_t
 ia_major (uint64_t ia_dev)
