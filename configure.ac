@@ -110,6 +110,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/nfs/Makefile
                 xlators/nfs/lib/Makefile
                 xlators/nfs/lib/src/Makefile
+                xlators/nfs/server/Makefile
+                xlators/nfs/server/src/Makefile
 		glusterfs.spec])
 
 AC_CANONICAL_HOST
