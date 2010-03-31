@@ -105,7 +105,7 @@ default_stat (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_truncate_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -169,7 +169,7 @@ default_ftruncate (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_access_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -198,7 +198,7 @@ default_access (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 default_readlink_cbk (call_frame_t *frame,
 		      void *cookie,
 		      xlator_t *this,
@@ -231,7 +231,7 @@ default_readlink (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 default_mknod_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -267,7 +267,7 @@ default_mknod (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_mkdir_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -302,7 +302,7 @@ default_mkdir (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_unlink_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -328,7 +328,7 @@ default_unlink (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_rmdir_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -359,7 +359,7 @@ default_rmdir (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 default_symlink_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
@@ -390,7 +390,7 @@ default_symlink (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 default_rename_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -422,7 +422,7 @@ default_rename (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 default_link_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -453,7 +453,7 @@ default_link (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 default_create_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -484,7 +484,7 @@ default_create (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_open_cbk (call_frame_t *frame,
 		  void *cookie,
 		  xlator_t *this,
@@ -514,7 +514,7 @@ default_open (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_readv_cbk (call_frame_t *frame,
 		   void *cookie,
 		   xlator_t *this,
@@ -553,7 +553,7 @@ default_readv (call_frame_t *frame,
 }
 
 
-static int32_t
+int32_t
 default_writev_cbk (call_frame_t *frame,
 		    void *cookie,
 		    xlator_t *this,
@@ -678,7 +678,7 @@ default_fstat (call_frame_t *frame,
 	return 0;
 }
 
-static int32_t
+int32_t
 default_opendir_cbk (call_frame_t *frame,
 		     void *cookie,
 		     xlator_t *this,
