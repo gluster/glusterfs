@@ -52,6 +52,84 @@ ib_verbs_get_local_lid (struct ibv_context *context,
         return attr.lid;
 }
 
+static const char *
+get_port_state_str(enum ibv_port_state pstate)
+{
+	switch (pstate) {
+	case IBV_PORT_DOWN:          return "PORT_DOWN";
+	case IBV_PORT_INIT:          return "PORT_INIT";
+	case IBV_PORT_ARMED:         return "PORT_ARMED";
+	case IBV_PORT_ACTIVE:        return "PORT_ACTIVE";
+	case IBV_PORT_ACTIVE_DEFER:  return "PORT_ACTIVE_DEFER";
+	default:                     return "invalid state";
+	}
+}
+
+static int32_t
+ib_check_active_port (struct ibv_context *ctx, uint8_t port)
+{
+        struct ibv_port_attr port_attr;
+
+        int32_t ret           = 0;
+        const char *state_str = NULL;
+
+        if (!ctx) {
+		gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                        "Error in supplied context");
+                return -1;
+	}
+
+        ret = ibv_query_port (ctx, port, &port_attr);
+
+        if (ret) {
+                gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                        "Failed to query port %u properties", port);
+                return -1;
+        }
+
+        state_str = get_port_state_str (port_attr.state);
+        gf_log ("transport/ib-verbs", GF_LOG_TRACE,
+                "Infiniband PORT: (%u) STATE: (%s)",
+                port, state_str);
+
+        if (port_attr.state == IBV_PORT_ACTIVE)
+                return 0;
+
+	return -1;
+}
+
+static int32_t
+ib_get_active_port (struct ibv_context *ib_ctx)
+{
+	struct ibv_device_attr ib_device_attr;
+
+	int32_t ret     = -1;
+	uint8_t ib_port = 0;
+
+	if (!ib_ctx) {
+		gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                        "Error in supplied context");
+		return -1;
+	}
+	if (ibv_query_device (ib_ctx, &ib_device_attr)) {
+		gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+                        "Failed to query device properties");
+		return -1;
+	}
+
+	for (ib_port = 1; ib_port <= ib_device_attr.phys_port_cnt; ++ib_port) {
+                ret = ib_check_active_port (ib_ctx, ib_port);
+                if (ret == 0)
+                        return ib_port;
+
+                gf_log ("transport/ib-verbs", GF_LOG_TRACE,
+                        "Port:(%u) not active", ib_port);
+                continue;
+	}
+	return ret;
+}
+
+
 
 static void
 ib_verbs_put_post (ib_verbs_queue_t *queue,
@@ -1359,7 +1437,7 @@ ib_verbs_options_init (transport_t *this)
         if (temp)
                 options->recv_count = data_to_int32 (temp);
 
-        options->port = 1;
+        options->port = 0;
         temp = dict_get (this->xl->options,
                          "transport.ib-verbs.port");
         if (temp)
@@ -1417,14 +1495,17 @@ ib_verbs_queue_init (ib_verbs_queue_t *queue)
 
 static ib_verbs_device_t *
 ib_verbs_get_device (transport_t *this,
-                     struct ibv_device *ib_dev,
-                     int32_t port)
+		     struct ibv_context *ibctx)
 {
-        glusterfs_ctx_t *ctx = this->xl->ctx;
-        ib_verbs_private_t *priv = this->private;
+        glusterfs_ctx_t *ctx        = this->xl->ctx;
+        ib_verbs_private_t *priv    = this->private;
         ib_verbs_options_t *options = &priv->options;
-        char *device_name = priv->options.device_name;
-        int32_t ret = 0, i = 0;
+        char *device_name           = priv->options.device_name;
+        uint32_t port               = priv->options.port;
+
+        uint8_t active_port = 0;
+        int32_t ret         = 0;
+        int32_t i           = 0;
 
         ib_verbs_device_t *trav;
 
@@ -1437,20 +1518,43 @@ ib_verbs_get_device (transport_t *this,
         }
 
         if (!trav) {
-                struct ibv_context *ibctx = ibv_open_device (ib_dev);
-  
-                if (!ibctx) {
-                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
-                                "cannot open device `%s'",
-                                device_name);
-                        return NULL;
-                }
 
                 trav = CALLOC (1, sizeof (*trav));
                 ERR_ABORT (trav);
                 priv->device = trav;
 
                 trav->context = ibctx;
+
+		ret = ib_get_active_port (trav->context);
+
+		if (ret < 0) {
+			if (!port) {
+				gf_log ("transport/ib-verbs", GF_LOG_ERROR,
+					"Failed to find any active ports and "
+					"none specified in volume file,"
+                                        " exiting");
+				return NULL;
+			}
+		}
+
+		active_port = ret;
+
+                if (port) {
+                        ret = ib_check_active_port (trav->context, port);
+                        if (ret < 0) {
+                                gf_log ("transport/ib-verbs", GF_LOG_WARNING,
+                                        "On device %s: provided port:%u is "
+                                        "found to be offline, continuing to "
+                                        "use the same port", device_name, port);
+                        }
+		} else {
+			priv->options.port = active_port;
+			port = active_port;
+			gf_log ("transport/ib-verbs", GF_LOG_TRACE,
+				"Port unspecified in volume file using active "
+                                "port: %u", port);
+                }
+
                 trav->device_name = strdup (device_name);
                 trav->port = port;
 
@@ -1505,7 +1609,7 @@ ib_verbs_get_device (transport_t *this,
                                 this->xl->name);
                         return NULL;
                 }
-    
+
                 /* queue init */
                 ib_verbs_queue_init (&trav->sendq);
                 ib_verbs_queue_init (&trav->recvq);
@@ -1553,19 +1657,28 @@ ib_verbs_init (transport_t *this)
         ib_verbs_private_t *priv = this->private;
         ib_verbs_options_t *options = &priv->options;
         struct ibv_device **dev_list;
-        struct ibv_device *ib_dev = NULL;
-        int32_t i;
+	struct ibv_context *ib_ctx = NULL;
+	int32_t ret = 0;
 
         ib_verbs_options_init (this);
 
         {
                 dev_list = ibv_get_device_list (NULL);
 
-                if (!dev_list) {
+		if (!dev_list) {
+                        gf_log ("transport/ib-verbs",
+                                GF_LOG_CRITICAL,
+                                "Failed to get IB devices");
+			ret = -1;
+			goto cleanup;
+                }
+
+                if (!*dev_list) {
                         gf_log ("transport/ib-verbs",
                                 GF_LOG_CRITICAL,
                                 "No IB devices found");
-                        return -1;
+			ret = -1;
+                        goto cleanup;
                 }
 
                 if (!options->device_name) {
@@ -1577,36 +1690,37 @@ ib_verbs_init (transport_t *this)
                                         "IB device list is empty. Check for "
                                         "'ib_uverbs' module");
                                 return -1;
+                                goto cleanup;
                         }
                 }
 
-                for (i = 0; dev_list[i]; i++) {
-                        if (!strcmp (ibv_get_device_name (dev_list[i]),
+		while (*dev_list) {
+                        if (!strcmp (ibv_get_device_name (*dev_list),
                                      options->device_name)) {
-                                ib_dev = dev_list[i];
+                                ib_ctx = ibv_open_device (*dev_list);
+
+                                if (!ib_ctx) {
+                                        gf_log ("transport/ib-verbs",
+                                                GF_LOG_ERROR,
+                                                "Failed to get infiniband"
+                                                "device context");
+                                        ret = -1;
+                                        goto cleanup;
+                                }
                                 break;
                         }
-                }
+			++dev_list;
+		}
 
-                if (!ib_dev) {
-                        gf_log ("transport/ib-verbs", GF_LOG_ERROR,
-                                "could not open device `%s' (does not exist)",
-                                options->device_name);
-                        ibv_free_device_list (dev_list);
-                        return -1;
-                }
+		priv->device = ib_verbs_get_device (this, ib_ctx);
 
-                priv->device = ib_verbs_get_device (this, ib_dev, 
-                                                    options->port);
-    
                 if (!priv->device) {
                         gf_log ("transport/ib-verbs", GF_LOG_ERROR,
                                 "could not create ib_verbs device for %s", 
-                                options->device_name);
-                        ibv_free_device_list (dev_list);
-                        return -1;
+                                priv->device->device_name);
+                        ret = -1;
+			goto cleanup;
                 }
-                ibv_free_device_list (dev_list);
         }
 
         priv->peer.trans = this;
@@ -1617,7 +1731,16 @@ ib_verbs_init (transport_t *this)
         pthread_mutex_init (&priv->recv_mutex, NULL);
         pthread_cond_init (&priv->recv_cond, NULL);
 
-        return 0;
+cleanup:
+	if (-1 == ret) {
+		if (ib_ctx)
+			ibv_close_device (ib_ctx);
+	}
+
+	if (dev_list)
+		ibv_free_device_list (dev_list);
+
+	return ret;
 }
 
 
