@@ -105,6 +105,8 @@ AC_CONFIG_FILES([Makefile
                 extras/volgen/glusterfs-volgen
 		contrib/Makefile
 		contrib/fuse-util/Makefile
+                xlators/features/access-control/Makefile
+                xlators/features/access-control/src/Makefile
 		glusterfs.spec])
 
 AC_CANONICAL_HOST
