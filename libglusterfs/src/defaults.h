@@ -266,4 +266,170 @@ int32_t default_fsetattr (call_frame_t *frame,
                           struct iatt *stbuf,
                           int32_t valid);
 
+int32_t
+default_truncate_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      struct iatt *prebuf,
+                      struct iatt *postbuf);
+
+int32_t
+default_access_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno);
+
+int32_t
+default_readlink_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      const char *path,
+                      struct iatt *buf);
+
+int32_t
+default_mknod_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+                   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent);
+
+int32_t
+default_mkdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   inode_t *inode,
+                   struct iatt *buf,
+                   struct iatt *preparent,
+                   struct iatt *postparent);
+
+int32_t
+default_unlink_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+                    struct iatt *preparent,
+                    struct iatt *postparent);
+
+int32_t
+default_rmdir_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+                   struct iatt *preparent,
+                   struct iatt *postparent);
+
+int32_t
+default_symlink_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     inode_t *inode,
+                     struct iatt *buf,
+                     struct iatt *preparent,
+                     struct iatt *postparent);
+
+int32_t
+default_rename_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    struct iatt *buf,
+                    struct iatt *preoldparent,
+                    struct iatt *postoldparent,
+                    struct iatt *prenewparent,
+                    struct iatt *postnewparent);
+
+int32_t
+default_link_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  inode_t *inode,
+                  struct iatt *buf,
+                  struct iatt *preparent,
+                  struct iatt *postparent);
+
+
+int32_t
+default_create_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+		    fd_t *fd,
+		    inode_t *inode,
+		    struct iatt *buf,
+                    struct iatt *preparent,
+                    struct iatt *postparent);
+
+int32_t
+default_open_cbk (call_frame_t *frame,
+		  void *cookie,
+		  xlator_t *this,
+		  int32_t op_ret,
+		  int32_t op_errno,
+		  fd_t *fd);
+
+int32_t
+default_readv_cbk (call_frame_t *frame,
+		   void *cookie,
+		   xlator_t *this,
+		   int32_t op_ret,
+		   int32_t op_errno,
+		   struct iovec *vector,
+		   int32_t count,
+		   struct iatt *stbuf,
+                   struct iobref *iobref);
+
+int32_t
+default_opendir_cbk (call_frame_t *frame,
+		     void *cookie,
+		     xlator_t *this,
+		     int32_t op_ret,
+		     int32_t op_errno,
+		     fd_t *fd);
+
+int32_t
+default_setattr_cbk (call_frame_t *frame,
+                     void *cookie,
+                     xlator_t *this,
+                     int32_t op_ret,
+                     int32_t op_errno,
+                     struct iatt *statpre,
+                     struct iatt *statpost);
+
+int32_t
+default_fsetattr_cbk (call_frame_t *frame,
+                      void *cookie,
+                      xlator_t *this,
+                      int32_t op_ret,
+                      int32_t op_errno,
+                      struct iatt *statpre,
+                      struct iatt *statpost);
+
+int32_t
+default_writev_cbk (call_frame_t *frame,
+		    void *cookie,
+		    xlator_t *this,
+		    int32_t op_ret,
+		    int32_t op_errno,
+                    struct iatt *prebuf,
+		    struct iatt *postbuf);
+
 #endif /* _DEFAULTS_H */
