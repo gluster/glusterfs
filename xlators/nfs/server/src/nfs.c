@@ -37,6 +37,7 @@
 #include "nfs-fops.h"
 #include "inode.h"
 #include "mount3.h"
+#include "nfs3.h"
 
 /* Every NFS version must call this function with the init function
  * for its particular version.
@@ -146,6 +147,13 @@ nfs_add_all_initiators (struct nfs_state *nfs)
         }
 
         ret = nfs_add_initer (&nfs->versions, mnt1svc_init);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
+                        " initializer");
+                goto ret;
+        }
+
+        ret = nfs_add_initer (&nfs->versions, nfs3svc_init);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add protocol"
                         " initializer");
