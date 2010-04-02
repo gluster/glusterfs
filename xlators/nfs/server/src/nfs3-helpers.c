@@ -1664,8 +1664,8 @@ __nfs3_dir_open_and_resume (nfs3_call_state_t *cs)
                 return ret;
 
         nfs_user_root_create (&nfu);
-        ret = nfs_opendir (cs->vol, &nfu, &cs->resolvedloc, nfs3_dir_open_cbk,
-                           cs);
+        ret = nfs_opendir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                           nfs3_dir_open_cbk, cs);
         return ret;
 }
 
@@ -1963,7 +1963,7 @@ __nfs3_file_open_and_resume (nfs3_call_state_t *cs)
 
         nfs_user_root_create (&nfu);
         gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd");
-        ret = nfs_open (cs->vol, &nfu, &cs->resolvedloc, O_RDWR,
+        ret = nfs_open (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc, O_RDWR,
                         nfs3_file_open_cbk, cs);
 out:
         return ret;
@@ -2383,9 +2383,9 @@ nfs3_fh_resolve_found_entry (nfs3_call_state_t *cs, gf_dirent_t *candidate)
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry not in itable, needs"
                         " lookup");
                 nfs_user_root_create (&nfu);
-                ret = nfs_fop_lookup (cs->vol, &nfu, &cs->resolvedloc,
-                                      nfs3_fh_resolve_entry_lookup_cbk,
-                                      cs);
+                ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  nfs3_fh_resolve_entry_lookup_cbk,
+                                  cs);
         } else {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry got from itable");
                 nfs3_call_resume (cs);
@@ -2445,9 +2445,9 @@ nfs3_fh_resolve_found_parent (nfs3_call_state_t *cs, gf_dirent_t *candidate)
                                   NFS_RESOLVE_CREATE);
         if (ret == -ENOENT) {
                 nfs_user_root_create (&nfu);
-                ret = nfs_fop_lookup (cs->vol, &nfu, &cs->resolvedloc,
-                                      nfs3_fh_resolve_parent_lookup_cbk,
-                                      cs);
+                ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  nfs3_fh_resolve_parent_lookup_cbk,
+                                  cs);
         } else
                 nfs3_fh_resolve_entry_hard (cs);
 
@@ -2505,7 +2505,7 @@ nfs3_fh_resolve_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fd_unref (cs->resolve_dir_fd);
 
         cs->resolve_dir_fd = fd_ref (fd);
-        ret = nfs_readdirp (cs->vol, &nfu, fd, GF_NFS3_DTPREF, 0,
+        ret = nfs_readdirp (cs->nfsx, cs->vol, &nfu, fd, GF_NFS3_DTPREF, 0,
                             nfs3_fh_resolve_readdir_cbk, cs);
 
 err:
@@ -2536,7 +2536,7 @@ nfs3_fh_resolve_dir_lookup_cbk (call_frame_t *frame, void *cookie,
 
         nfs_user_root_create (&nfu);
         inode_link (inode, cs->resolvedloc.parent, cs->resolvedloc.name, buf);
-        nfs_opendir (cs->vol, &nfu, &cs->resolvedloc,
+        nfs_opendir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                      nfs3_fh_resolve_opendir_cbk, cs);
 
 err:
@@ -2575,13 +2575,13 @@ nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uint64_t ino, uint64_t gen,
         if (ret == 0) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Dir will be opened: %s",
                         cs->resolvedloc.path);
-                ret = nfs_opendir (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_opendir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                    nfs3_fh_resolve_opendir_cbk, cs);
         } else if (ret == -ENOENT) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Dir needs lookup: %s",
                         cs->resolvedloc.path);
-                ret = nfs_fop_lookup (cs->vol, &nfu, &cs->resolvedloc,
-                                      nfs3_fh_resolve_dir_lookup_cbk, cs);
+                ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  nfs3_fh_resolve_dir_lookup_cbk, cs);
         }
 out:
         return ret;
@@ -2610,7 +2610,7 @@ nfs3_fh_resolve_check_response (nfs3_call_state_t *cs, gf_dirent_t *candidate,
                 nfs3_fh_resolve_found (cs, candidate);
         else if (response == GF_NFS3_FHRESOLVE_NOTFOUND) {
                 nfs_user_root_create (&nfu);
-                ret = nfs_readdirp (cs->vol, &nfu, cs->resolve_dir_fd,
+                ret = nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->resolve_dir_fd,
                                     GF_NFS3_DTPREF, last_offt,
                                     nfs3_fh_resolve_readdir_cbk, cs);
         }
@@ -2702,13 +2702,13 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
         if (ret == 0) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Dir will be opened: %s",
                         cs->resolvedloc.path);
-                ret = nfs_opendir (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_opendir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                    nfs3_fh_resolve_opendir_cbk, cs);
         } else if (ret == -ENOENT) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Dir needs lookup: %s",
                         cs->resolvedloc.path);
-                ret = nfs_fop_lookup (cs->vol, &nfu, &cs->resolvedloc,
-                                      nfs3_fh_resolve_dir_lookup_cbk, cs);
+                ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  nfs3_fh_resolve_dir_lookup_cbk, cs);
         }
 
 out:
@@ -2739,8 +2739,8 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
         if (ret == -2) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs lookup: %s",
                         cs->resolvedloc.path);
-                ret = nfs_fop_lookup (cs->vol, &nfu, &cs->resolvedloc,
-                                      nfs3_fh_resolve_entry_lookup_cbk, cs);
+                ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  nfs3_fh_resolve_entry_lookup_cbk, cs);
                 ret = 0;
         } else if (ret == -1) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs parent lookup: %s",

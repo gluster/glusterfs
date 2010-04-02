@@ -225,41 +225,36 @@ nfs_start_subvol_lookup_cbk (call_frame_t *frame, void *cookie,
                              inode_t *inode, struct iatt *buf, dict_t *xattr,
                              struct iatt *postparent)
 {
-        struct nfs_state        *nfs = NULL;
-        xlator_t                *startedxl = NULL;
-
         if (op_ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to lookup root: %s",
                         strerror (op_errno));
                 goto err;
         }
 
-        nfs = frame->local;
-        startedxl = cookie;
-        gf_log (GF_NFS, GF_LOG_TRACE, "Started %s", startedxl->name);
+        gf_log (GF_NFS, GF_LOG_TRACE, "Started %s", this->name);
 err:
         return 0;
 }
 
 
 int
-nfs_startup_subvolume (struct nfs_state *nfs, xlator_t *xl)
+nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
 {
         int             ret = -1;
         loc_t           rootloc = {0, };
         nfs_user_t      nfu = {0, };
 
-        if ((!nfs) || (!xl))
+        if ((!nfsx) || (!xl))
                 return -1;
 
-        if (nfs_subvolume_started (nfs, xl)) {
+        if (nfs_subvolume_started (nfsx->private, xl)) {
                 gf_log (GF_NFS,GF_LOG_TRACE, "Subvolume already started: %s",
                         xl->name);
                 ret = 0;
                 goto err;
         }
 
-        nfs_subvolume_set_started (nfs, xl);
+        nfs_subvolume_set_started (nfsx->private, xl);
         ret = nfs_inode_loc_fill (xl->itable->root, &rootloc);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init root loc");
@@ -267,8 +262,9 @@ nfs_startup_subvolume (struct nfs_state *nfs, xlator_t *xl)
         }
 
         nfs_user_root_create (&nfu);
-        ret = nfs_fop_lookup (xl, &nfu, &rootloc, nfs_start_subvol_lookup_cbk,
-                              (void *)nfs);
+        ret = nfs_fop_lookup (nfsx, xl, &nfu, &rootloc,
+                              nfs_start_subvol_lookup_cbk,
+                              (void *)nfsx->private);
         if (ret < 0) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to lookup root: %s",
                         strerror (-ret));
@@ -282,18 +278,21 @@ err:
 }
 
 int
-nfs_startup_subvolumes (struct nfs_state *nfs)
+nfs_startup_subvolumes (xlator_t *nfsx)
 {
-        int             ret = -1;
-        xlator_list_t   *cl = NULL;
-        if (!nfs)
+        int                     ret = -1;
+        xlator_list_t           *cl = NULL;
+        struct nfs_state        *nfs = NULL;
+
+        if (!nfsx)
                 return -1;
 
+        nfs = nfsx->private;
         cl = nfs->subvols;
         while (cl) {
                 gf_log (GF_NFS, GF_LOG_DEBUG, "Starting subvolume: %s",
                         cl->xlator->name);
-                ret = nfs_startup_subvolume (nfs, cl->xlator);
+                ret = nfs_startup_subvolume (nfsx, cl->xlator);
                 if (ret == -1) {
                         gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to start-up "
                                 "xlator: %s", cl->xlator->name);
@@ -519,7 +518,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         {
                 case GF_EVENT_CHILD_UP:
                 {
-                        nfs_startup_subvolume (nfs, subvol);
+                        nfs_startup_subvolume (this, subvol);
                         if ((nfs->upsubvols == nfs->allsubvols) &&
                             (!nfs->subvols_started)) {
                                 nfs->subvols_started = 1;
@@ -540,6 +539,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                         break;
                 }
         }
+
         return 0;
 }
 

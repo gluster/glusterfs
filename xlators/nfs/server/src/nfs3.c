@@ -466,10 +466,10 @@ nfs3_getattr_resume (void *carg)
          * expects even the root inode to have been looked up.
          */
         if (cs->resolvedloc.inode->ino == 1)
-                ret = nfs_lookup (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                   nfs3svc_getattr_lookup_cbk, cs);
         else
-                ret = nfs_stat (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                 nfs3svc_getattr_stat_cbk, cs);
 
         if (ret < 0) {
@@ -642,7 +642,7 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((gf_attr_size_set (cs->setattr_valid)) &&
             (!IA_ISDIR (postop->ia_type))) {
                 nfs_request_user_init (&nfu, cs->req);
-                ret = nfs_truncate (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_truncate (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                     cs->stbuf.ia_size, nfs3svc_truncate_cbk,cs);
 
                 if (ret < 0)
@@ -690,7 +690,7 @@ nfs3svc_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* Not a clean way but no motivation to add a new member to local. */
         cs->preparent = *buf;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_setattr (cs->vol, &nfu, &cs->resolvedloc, &cs->stbuf,
+        ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,&cs->stbuf,
                            cs->setattr_valid, nfs3svc_setattr_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -723,11 +723,12 @@ nfs3_setattr_resume (void *carg)
         nfs_request_user_init (&nfu, cs->req);
         /* If no ctime check is required, head straight to setting the attrs. */
         if (cs->sattrguardcheck)
-                ret = nfs_stat (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                 nfs3svc_setattr_stat_cbk, cs);
         else
-                ret = nfs_setattr (cs->vol, &nfu, &cs->resolvedloc, &cs->stbuf,
-                                   cs->setattr_valid, nfs3svc_setattr_cbk, cs);
+                ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                   &cs->stbuf, cs->setattr_valid,
+                                   nfs3svc_setattr_cbk, cs);
 
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -933,7 +934,7 @@ nfs3_lookup_parentdir_resume (void *carg)
         if (ret < 0)
                 goto errtostat;
 
-        ret = nfs_lookup (cs->vol, &nfu, &cs->resolvedloc,
+        ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                           nfs3svc_lookup_parentdir_cbk, cs);
 errtostat:
         if (ret < 0)
@@ -969,8 +970,8 @@ nfs3_lookup_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
         cs->parent = cs->resolvefh;
-        ret = nfs_lookup (cs->vol, &nfu, &cs->resolvedloc, nfs3svc_lookup_cbk,
-                          cs);
+        ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                          nfs3svc_lookup_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -1133,7 +1134,8 @@ nfs3_access_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         cs->fh = cs->resolvefh;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_stat (cs->vol, &nfu, &cs->resolvedloc, nfs3svc_access_cbk,cs);
+        ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                        nfs3svc_access_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -1271,7 +1273,7 @@ nfs3_readlink_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_readlink (cs->vol, &nfu, &cs->resolvedloc,
+        ret = nfs_readlink (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                             nfs3svc_readlink_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -1433,8 +1435,8 @@ nfs3_read_fd_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_read (cs->vol, &nfu, cs->fd, cs->datacount, cs->dataoffset,
-                        nfs3svc_read_cbk, cs);
+        ret = nfs_read (cs->nfsx, cs->vol, &nfu, cs->fd, cs->datacount,
+                        cs->dataoffset, nfs3svc_read_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 nfs3err:
@@ -1620,7 +1622,8 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * the write fop happened before the fsync.
          */
         cs->stbuf = *prebuf;
-        ret = nfs_fsync (cs->vol, &nfu, cs->fd, 0, nfs3svc_write_fsync_cbk, cs);
+        ret = nfs_fsync (cs->nfsx, cs->vol, &nfu, cs->fd, 0,
+                         nfs3svc_write_fsync_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -1661,8 +1664,8 @@ __nfs3_write_resume (nfs3_call_state_t *cs)
          * opaque data buffers to multiples of 4 bytes.
          */
         cs->datavec.iov_len = cs->datacount;
-        ret = nfs_write (cs->vol, &nfu, cs->fd, cs->iob, &cs->datavec, 1,
-                         cs->dataoffset, nfs3svc_write_cbk, cs);
+        ret = nfs_write (cs->nfsx, cs->vol, &nfu, cs->fd, cs->iob, &cs->datavec,
+                         1, cs->dataoffset, nfs3svc_write_cbk, cs);
 
         return ret;
 }
@@ -1960,7 +1963,7 @@ nfs3svc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->preparent = *preparent;
         cs->postparent = *postparent;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_setattr (cs->vol, &nfu, &cs->resolvedloc, &cs->stbuf,
+        ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,&cs->stbuf,
                            cs->setattr_valid, nfs3svc_create_setattr_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -1999,12 +2002,12 @@ nfs3_create_common (nfs3_call_state_t *cs)
          */
         if (cs->setattr_valid & GF_SET_ATTR_MODE) {
                 cs->setattr_valid &= ~GF_SET_ATTR_MODE;
-                ret = nfs_create (cs->vol, &nfu, &cs->resolvedloc, flags,
-                                  cs->mode, nfs3svc_create_cbk, cs);
+                ret = nfs_create (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  flags, cs->mode, nfs3svc_create_cbk, cs);
         } else
-                ret = nfs_create (cs->vol, &nfu, &cs->resolvedloc, flags,
-                                  NFS_DEFAULT_CREATE_MODE, nfs3svc_create_cbk,
-                                  cs);
+                ret = nfs_create (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  flags, NFS_DEFAULT_CREATE_MODE,
+                                  nfs3svc_create_cbk, cs);
 
         return ret;
 }
@@ -2064,17 +2067,17 @@ nfs3_create_exclusive (nfs3_call_state_t *cs)
          */
         if ((cs->resolve_ret == 0) ||
             ((cs->resolve_ret == -1) && (cs->resolve_errno != ENOENT))) {
-                ret = nfs_stat (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                 nfs3svc_create_stat_cbk, cs);
                 goto nfs3err;
         }
 
         if (cs->setattr_valid & GF_SET_ATTR_MODE) {
                 cs->setattr_valid &= ~GF_SET_ATTR_MODE;
-                ret = nfs_create (cs->vol, &nfu, &cs->resolvedloc, O_RDWR,
-                                  cs->mode, nfs3svc_create_cbk, cs);
+                ret = nfs_create (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                  O_RDWR, cs->mode, nfs3svc_create_cbk, cs);
         } else
-                ret = nfs_create (cs->vol, &nfu, &cs->oploc, O_RDWR,
+                ret = nfs_create (cs->nfsx, cs->vol, &nfu, &cs->oploc, O_RDWR,
                                   NFS_DEFAULT_CREATE_MODE, nfs3svc_create_cbk,
                                   cs);
 
@@ -2259,7 +2262,7 @@ nfs3svc_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->preparent = *preparent;
         cs->postparent = *postparent;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_setattr (cs->vol, &nfu, &cs->resolvedloc, &cs->stbuf,
+        ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,&cs->stbuf,
                            cs->setattr_valid, nfs3svc_mkdir_setattr_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -2294,10 +2297,10 @@ nfs3_mkdir_resume (void *carg)
 
         if (gf_attr_mode_set (cs->setattr_valid)) {
                 cs->setattr_valid &= ~GF_SET_ATTR_MODE;
-                ret = nfs_mkdir (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_mkdir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                  cs->mode, nfs3svc_mkdir_cbk, cs);
         } else
-                ret = nfs_mkdir (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_mkdir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                  cs->mode, nfs3svc_mkdir_cbk, cs);
 
         if (ret < 0)
@@ -2445,8 +2448,8 @@ nfs3_symlink_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_new_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_symlink (cs->vol, &nfu, cs->pathname, &cs->resolvedloc,
-                           nfs3svc_symlink_cbk, cs);
+        ret = nfs_symlink (cs->nfsx, cs->vol, &nfu, cs->pathname,
+                           &cs->resolvedloc, nfs3svc_symlink_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -2612,7 +2615,7 @@ nfs3svc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->preparent = *preparent;
         cs->postparent = *postparent;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_setattr (cs->vol, &nfu, &cs->resolvedloc, &cs->stbuf,
+        ret = nfs_setattr (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,&cs->stbuf,
                            cs->setattr_valid, nfs3svc_mknod_setattr_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -2650,11 +2653,11 @@ nfs3_mknod_device (nfs3_call_state_t *cs)
         if (gf_attr_mode_set (cs->setattr_valid)) {
                 cs->setattr_valid &= ~GF_SET_ATTR_MODE;
                 mode |= cs->mode;
-                ret = nfs_mknod (cs->vol, &nfu, &cs->resolvedloc, mode, devnum,
-                                 nfs3svc_mknod_cbk, cs);
+                ret = nfs_mknod (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                 mode, devnum, nfs3svc_mknod_cbk, cs);
         } else
-                ret = nfs_mknod (cs->vol, &nfu, &cs->resolvedloc, mode, devnum,
-                                 nfs3svc_mknod_cbk, cs);
+                ret = nfs_mknod (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                 mode, devnum, nfs3svc_mknod_cbk, cs);
 
         return ret;
 }
@@ -2674,12 +2677,11 @@ nfs3_mknod_fifo (nfs3_call_state_t *cs)
         if (gf_attr_mode_set (cs->setattr_valid)) {
                 cs->setattr_valid &= ~GF_SET_ATTR_MODE;
                 mode |= cs->mode;
-                ret = nfs_mknod (cs->vol, &nfu, &cs->resolvedloc, mode, 0,
-                                 nfs3svc_mknod_cbk, cs);
+                ret = nfs_mknod (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                 mode, 0, nfs3svc_mknod_cbk, cs);
         } else
-                ret = nfs_mknod (cs->vol, &nfu, &cs->resolvedloc, mode, 0,
-                                 nfs3svc_mknod_cbk, cs);
-
+                ret = nfs_mknod (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                 mode, 0, nfs3svc_mknod_cbk, cs);
 
         return ret;
 }
@@ -2886,10 +2888,10 @@ __nfs3_remove (nfs3_call_state_t *cs)
         type = cs->resolvedloc.inode->ia_type;
         nfs_request_user_init (&nfu, cs->req);
         if (IA_ISDIR (type))
-                ret = nfs_rmdir (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_rmdir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                  nfs3svc_remove_cbk, cs);
         else
-                ret = nfs_unlink (cs->vol, &nfu, &cs->resolvedloc,
+                ret = nfs_unlink (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                                   nfs3svc_remove_cbk, cs);
 
         return ret;
@@ -3048,7 +3050,8 @@ nfs3_rmdir_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_rmdir (cs->vol, &nfu, &cs->resolvedloc, nfs3svc_rmdir_cbk,cs);
+        ret = nfs_rmdir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                         nfs3svc_rmdir_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -3197,7 +3200,7 @@ nfs3_rename_resume_dst (void *carg)
         nfs3_check_new_fh_resolve_status (cs, stat, nfs3err);
         cs->parent = cs->resolvefh;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_rename (cs->vol, &nfu, &cs->oploc, &cs->resolvedloc,
+        ret = nfs_rename (cs->nfsx, cs->vol, &nfu, &cs->oploc, &cs->resolvedloc,
                           nfs3svc_rename_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -3394,7 +3397,7 @@ nfs3_link_resume_lnk (void *carg)
         nfs3_check_new_fh_resolve_status (cs, stat, nfs3err);
 
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_link (cs->vol, &nfu, &cs->oploc, &cs->resolvedloc,
+        ret = nfs_link (cs->nfsx, cs->vol, &nfu, &cs->oploc, &cs->resolvedloc,
                         nfs3svc_link_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -3629,7 +3632,8 @@ nfs3svc_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->operrno = op_errno;
         list_splice_init (&entries->list, &cs->entries.list);
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_fstat (cs->vol, &nfu, cs->fd, nfs3svc_readdir_fstat_cbk, cs);
+        ret = nfs_fstat (cs->nfsx, cs->vol, &nfu, cs->fd,
+                         nfs3svc_readdir_fstat_cbk, cs);
         if (ret < 0) {
                 op_ret = -1;
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -3671,8 +3675,8 @@ nfs3_readdir_process (nfs3_call_state_t *cs)
                 return ret;
 
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_readdirp (cs->vol, &nfu, cs->fd, cs->dircount, cs->cookie,
-                            nfs3svc_readdir_cbk, cs);
+        ret = nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->fd, cs->dircount,
+                            cs->cookie, nfs3svc_readdir_cbk, cs);
         return ret;
 }
 
@@ -3926,8 +3930,8 @@ nfs3_fsstat_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          */
         cs->fsstat = *buf;
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_stat (cs->vol, &nfu, &cs->resolvedloc, nfs3_fsstat_stat_cbk,
-                        cs);
+        ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                        nfs3_fsstat_stat_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -3958,7 +3962,7 @@ nfs3_fsstat_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
         /* First, we need to get the statvfs for the subvol */
-        ret = nfs_statfs (cs->vol, &nfu, &cs->resolvedloc,
+        ret = nfs_statfs (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                           nfs3_fsstat_statfs_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
@@ -4101,7 +4105,8 @@ nfs3_fsinfo_resume (void *carg)
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
 
-        ret = nfs_stat (cs->vol, &nfu, &cs->resolvedloc,nfs3svc_fsinfo_cbk, cs);
+        ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                        nfs3svc_fsinfo_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
@@ -4239,8 +4244,8 @@ nfs3_pathconf_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_stat (cs->vol, &nfu, &cs->resolvedloc, nfs3svc_pathconf_cbk,
-                        cs);
+        ret = nfs_stat (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                        nfs3svc_pathconf_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 nfs3err:
@@ -4375,7 +4380,8 @@ nfs3_commit_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
         nfs_request_user_init (&nfu, cs->req);
-        ret = nfs_fsync (cs->vol, &nfu, cs->fd, 0, nfs3svc_commit_cbk, cs);
+        ret = nfs_fsync (cs->nfsx, cs->vol, &nfu, cs->fd, 0,
+                         nfs3svc_commit_cbk, cs);
         if (ret < 0)
                 stat = nfs3_errno_to_nfsstat3 (-ret);
 
