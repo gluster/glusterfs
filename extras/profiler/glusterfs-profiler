@@ -1,0 +1,267 @@
+#!/usr/bin/env python
+
+#    Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+#    This file is part of GlusterFS.
+
+#    GlusterFS is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published
+#    by the Free Software Foundation; either version 3 of the License,
+#    or (at your option) any later version.
+
+#    GlusterFS is distributed in the hope that it will be useful, but
+#    WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#    General Public License for more details.
+
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see
+#    <http://www.gnu.org/licenses/>.
+
+import numpy as np
+import matplotlib.pyplot as plt
+import re
+import sys
+
+from optparse import OptionParser
+
+# Global dict-of-dict holding the latency data
+# latency[xlator-name][op-name]
+
+latencies = {}
+counts = {}
+totals = {}
+
+def collect_data (f):
+    """Collect latency data from the file object f and store it in
+    the global variable @latencies"""
+
+    # example dump file line:
+    # fuse.latency.TRUNCATE=3147.000,4
+
+    for line in f:
+        m = re.search ("(\w+)\.\w+.(\w+)=(\w+\.\w+),(\w+),(\w+.\w+)", line)
+        if m and float(m.group(3)) != 0:
+            xlator = m.group(1)
+            op     = m.group(2)
+            time   = m.group(3)
+            count  = m.group(4)
+            total  = m.group(5)
+
+            if not xlator in latencies.keys():
+                latencies[xlator] = dict()
+
+            if not xlator in counts.keys():
+                counts[xlator] = dict()
+
+            if not xlator in totals.keys():
+                totals[xlator] = dict()
+
+            latencies[xlator][op] = time
+            counts[xlator][op]    = count
+            totals[xlator][op]    = total
+
+
+def calc_latency_heights (xlator_order):
+    heights = map (lambda x: [], xlator_order)
+
+    N = len (xlator_order)
+    for i in range (N):
+        xl = xlator_order[i]
+
+        k = latencies[xl].keys()
+        k.sort()
+
+        if i == len (xlator_order) - 1:
+            # bottom-most xlator
+            heights[i] = [float (latencies[xl][key]) for key in k]
+
+        else:
+            next_xl = xlator_order[i+1]
+            this_xl_time = [latencies[xl][key] for key in k]
+            next_xl_time = [latencies[next_xl][key] for key in k]
+
+            heights[i] = map (lambda x, y: float (x) - float (y),
+                              this_xl_time, next_xl_time)
+    return heights
+
+# have sufficient number of colors
+colors = ["violet", "blue", "green", "yellow", "orange", "red"]
+
+def latency_profile (title, xlator_order):
+    heights = calc_latency_heights (xlator_order)
+
+    N     = len (latencies[xlator_order[0]].keys())
+    Nxl   = len (xlator_order)
+    ind   = np.arange (N)
+    width = 0.35
+
+    pieces  = map (lambda x: [], xlator_order)
+    bottoms = map (lambda x: [], xlator_order)
+
+    bottoms[Nxl-1] = map (lambda x: 0, latencies[xlator_order[0]].keys())
+
+    for i in range (Nxl-1):
+        xl = xlator_order[i+1]
+        k = latencies[xl].keys()
+        k.sort()
+
+        bottoms[i] = [float(latencies[xl][key]) for key in k]
+
+    for i in range(Nxl):
+        pieces[i] = plt.bar (ind, heights[i], width, color=colors[i],
+                             bottom=bottoms[i])
+
+    plt.ylabel ("Average Latency (microseconds)")
+    plt.title ("Latency Profile for '%s'" % title)
+    k = latencies[xlator_order[0]].keys()
+    k.sort ()
+    plt.xticks (ind+width/2., k)
+
+    m = round (max(map (float, latencies[xlator_order[0]].values())), -2)
+    plt.yticks (np.arange(0, m + m*0.1, m/10))
+    plt.legend (map (lambda p: p[0], pieces), xlator_order)
+
+    plt.show ()
+
+def fop_distribution (title, xlator_order):
+    plt.ylabel ("Percentage of calls")
+    plt.title ("FOP distribution for '%s'" % title)
+    k = counts[xlator_order[0]].keys()
+    k.sort ()
+
+    N     = len (latencies[xlator_order[0]].keys())
+    ind   = np.arange(N)
+    width = 0.35
+
+    total = 0
+    top_xl = xlator_order[0]
+    for op in k:
+        total += int(counts[top_xl][op])
+
+    heights = []
+
+    for op in k:
+        heights.append (float(counts[top_xl][op])/total * 100)
+
+    bars = plt.bar (ind, heights, width, color="red")
+
+    for bar in bars:
+        height = bar.get_height()
+        plt.text (bar.get_x()+bar.get_width()/2., 1.05*height,
+                  "%d%%" % int(height))
+
+    plt.xticks(ind+width/2., k)
+    plt.yticks(np.arange (0, 110, 10))
+
+    plt.show()
+
+def calc_workload_heights (xlator_order, scaling):
+    workload_heights = map (lambda x: [], xlator_order)
+
+    top_xl = xlator_order[0]
+
+    N = len (xlator_order)
+    for i in range (N):
+        xl = xlator_order[i]
+
+        k = totals[xl].keys()
+        k.sort()
+
+        if i == len (xlator_order) - 1:
+            # bottom-most xlator
+            workload_heights[i] = [float (totals[xl][key]) / float(totals[top_xl][key]) * scaling[k.index(key)] for key in k]
+
+        else:
+            next_xl = xlator_order[i+1]
+            this_xl_time = [float(totals[xl][key]) / float(totals[top_xl][key]) * scaling[k.index(key)] for key in k]
+            next_xl_time = [float(totals[next_xl][key]) / float(totals[top_xl][key]) * scaling[k.index(key)] for key in k]
+
+            workload_heights[i] = map (lambda x, y: (float (x) - float (y)),
+                                       this_xl_time, next_xl_time)
+
+    return workload_heights
+
+def workload_profile(title, xlator_order):
+    plt.ylabel ("Percentage of Total Time")
+    plt.title ("Workload Profile for '%s'" % title)
+    k = totals[xlator_order[0]].keys()
+    k.sort ()
+
+    N     = len(totals[xlator_order[0]].keys())
+    Nxl   = len(xlator_order)
+    ind   = np.arange(N)
+    width = 0.35
+
+    total = 0
+    top_xl = xlator_order[0]
+    for op in k:
+        total += float(totals[top_xl][op])
+
+    p_heights = []
+
+    for op in k:
+        p_heights.append (float(totals[top_xl][op])/total * 100)
+
+    heights = calc_workload_heights (xlator_order, p_heights)
+
+    pieces  = map (lambda x: [], xlator_order)
+    bottoms = map (lambda x: [], xlator_order)
+
+    bottoms[Nxl-1] = map (lambda x: 0, totals[xlator_order[0]].keys())
+
+    for i in range (Nxl-1):
+        xl = xlator_order[i+1]
+        k = totals[xl].keys()
+        k.sort()
+
+        bottoms[i] = [float(totals[xl][key]) / float(totals[top_xl][key]) * p_heights[k.index(key)] for key in k]
+
+    for i in range(Nxl):
+        pieces[i] = plt.bar (ind, heights[i], width, color=colors[i],
+                             bottom=bottoms[i])
+
+    for key in k:
+        bar = pieces[Nxl-1][k.index(key)]
+        plt.text (bar.get_x() + bar.get_width()/2., 1.05*p_heights[k.index(key)],
+                  "%d%%" % int(p_heights[k.index(key)]))
+
+    plt.xticks(ind+width/2., k)
+    plt.yticks(np.arange (0, 110, 10))
+    plt.legend (map (lambda p: p[0], pieces), xlator_order)
+
+    plt.show()
+
+def main ():
+    parser = OptionParser(usage="usage: %prog [-l | -d | -w] -x <xlator order> <state dump file>")
+    parser.add_option("-l", "--latency", dest="latency", action="store_true",
+                      help="Produce latency profile")
+    parser.add_option("-d", "--distribution", dest="distribution", action="store_true",
+                      help="Produce distribution of FOPs")
+    parser.add_option("-w", "--workload", dest="workload", action="store_true",
+                      help="Produce workload profile")
+    parser.add_option("-t", "--title", dest="title", help="Set the title of the graph")
+    parser.add_option("-x", "--xlator-order", dest="xlator_order", help="Specify the order of xlators")
+
+    (options, args) = parser.parse_args()
+
+    if len(args) != 1:
+        parser.error("Incorrect number of arguments")
+
+    if (options.xlator_order):
+        xlator_order = options.xlator_order.split()
+    else:
+        print "xlator order must be specified"
+        sys.exit(1)
+
+    collect_data(file (args[0], 'r'))
+
+    if (options.latency):
+        latency_profile (options.title, xlator_order)
+
+    if (options.distribution):
+        fop_distribution(options.title, xlator_order)
+
+    if (options.workload):
+        workload_profile(options.title, xlator_order)
+
+main ()
