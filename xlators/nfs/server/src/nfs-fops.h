@@ -98,6 +98,7 @@ struct nfs_fop_local {
 
         char            path[NFS_NAME_MAX];
         char            newpath[NFS_NAME_MAX];
+        xlator_t        *nfsx;
 };
 
 extern struct nfs_fop_local *
@@ -106,32 +107,34 @@ nfs_fop_local_init (xlator_t *xl);
 extern void
 nfs_fop_local_wipe (xlator_t *xl, struct nfs_fop_local *l);
 
-#define xlator_top_private(xl)  ((struct nfs_state *)((xlator_t *)(xl)->ctx->top)->private)
+#define nfs_state(nfsxl)        (nfsxl)->private
+#define nfs_fop_mempool(nfxl)   (((struct nfs_state *)nfs_state(nfxl))->foppool)
 
-#define prog_data_to_nfl(xla, nflocal, fram, pcbk, plocal)              \
+#define prog_data_to_nfl(nf,nflocal, fram, pcbk, plocal)                \
         do {                                                            \
-                nflocal = nfs_fop_local_init (xla);                     \
+                nflocal = nfs_fop_local_init (nf);                      \
                 if (nflocal) {                                          \
                         nflocal->proglocal = plocal;                    \
                         nflocal->progcbk = pcbk;                        \
+                        nflocal->nfsx = nf;                             \
                         if (fram)                                       \
-                                ((call_frame_t *)fram)->local = nflocal;                \
+                                ((call_frame_t *)fram)->local = nflocal;\
                 }                                                       \
         } while (0)                                                     \
 
 
 
-#define nfl_to_prog_data(xla, nflocal, pcbk, fram)                      \
+#define nfl_to_prog_data(nflocal, pcbk, fram)                           \
         do {                                                            \
                 nflocal = fram->local;                                  \
                 fram->local = nflocal->proglocal;                       \
                 pcbk = nflocal->progcbk;                                \
-                nfs_fop_local_wipe (xla, nflocal);                      \
+                nfs_fop_local_wipe (nflocal->nfsx, nflocal);            \
         } while (0)                                                     \
 
-#define nfs_fop_handle_local_init(fram, xla, nfloc, cbck,prgloc,retval,lab) \
+#define nfs_fop_handle_local_init(fram,nfx, nfloc, cbck,prgloc,retval,lab)  \
         do {                                                                \
-                prog_data_to_nfl (xla, nfloc, fram, cbck, prgloc);          \
+                prog_data_to_nfl (nfx, nfloc, fram, cbck, prgloc);          \
                 if (!nfloc) {                                               \
                         gf_log (GF_NFS,GF_LOG_ERROR,"Failed to init local");\
                         retval = -ENOMEM;                                   \
@@ -140,120 +143,94 @@ nfs_fop_local_wipe (xlator_t *xl, struct nfs_fop_local *l);
         } while (0)                                                         \
 
 extern int
-nfs_fop_fstat (xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+nfs_fop_fstat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
                fop_stat_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_readdirp (xlator_t *xl, nfs_user_t *nfu, fd_t *dirfd,
+nfs_fop_readdirp (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *dirfd,
                   size_t bufsize, off_t offset, fop_readdir_cbk_t cbk,
                   void *local);
 extern int
-nfs_fop_lookup (xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+nfs_fop_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
                 fop_lookup_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_create (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc, int flags,
-                mode_t mode, fd_t *fd, fop_create_cbk_t cbk, void *local);
+nfs_fop_create (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+                int flags, mode_t mode, fd_t *fd, fop_create_cbk_t cbk,
+                void *local);
 extern int
-nfs_fop_flush (xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+nfs_fop_flush (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
                fop_flush_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_mkdir (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc, mode_t mode,
-               fop_mkdir_cbk_t cbk, void *local);
+nfs_fop_mkdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+               mode_t mode, fop_mkdir_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_truncate (xlator_t *xl, nfs_user_t *nfu, loc_t *loc, off_t offset,
-                  fop_truncate_cbk_t cbk, void *local);
+nfs_fop_truncate (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+                  off_t offset, fop_truncate_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_read (xlator_t *xl, nfs_user_t *nfu, fd_t *fd, size_t size,
-              off_t offset, fop_readv_cbk_t cbk, void *local);
+nfs_fop_read (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+              size_t size, off_t offset, fop_readv_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_fsync (xlator_t *xl, nfs_user_t *nfu, fd_t *fd, int32_t datasync,
-               fop_fsync_cbk_t cbk, void *local);
+nfs_fop_fsync (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+               int32_t datasync, fop_fsync_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_write (xlator_t *xl, nfs_user_t *nfu, fd_t *fd, struct iobuf *srciob,
-               struct iovec *vector, int32_t count, off_t offset,
-               fop_writev_cbk_t cbk, void *local);
+nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
+               struct iobuf *srciob, struct iovec *vector, int32_t count,
+               off_t offset, fop_writev_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_open (xlator_t *xl, nfs_user_t *nfu, loc_t *loc, int32_t flags,
-              fd_t *fd, int32_t wbflags, fop_open_cbk_t cbk, void *local);
+nfs_fop_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+              int32_t flags, fd_t *fd, int32_t wbflags, fop_open_cbk_t cbk,
+              void *local);
 
 extern int
-nfs_fop_rename (xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
+nfs_fop_rename (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
                 loc_t *newloc, fop_rename_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_link (xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc, loc_t *newloc,
-              fop_link_cbk_t cbk, void *local);
+nfs_fop_link (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
+              loc_t *newloc, fop_link_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_unlink (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+nfs_fop_unlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 fop_unlink_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_rmdir (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+nfs_fop_rmdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                fop_rmdir_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_mknod (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc, mode_t mode,
-               dev_t dev, fop_mknod_cbk_t cbk, void *local);
+nfs_fop_mknod (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+               mode_t mode, dev_t dev, fop_mknod_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_readlink (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+nfs_fop_readlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                   size_t size, fop_readlink_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_symlink (xlator_t *xl, nfs_user_t *nfu, char *target,
+nfs_fop_symlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, char *target,
                  loc_t *pathloc, fop_symlink_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_setattr (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+nfs_fop_setattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                  struct iatt *buf, int32_t valid, fop_setattr_cbk_t cbk,
                  void *local);
 
 extern int
-nfs_fop_statfs (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+nfs_fop_statfs (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 fop_statfs_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_opendir (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,fd_t *dirfd,
-                 fop_opendir_cbk_t cbk, void *local);
+nfs_fop_opendir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+                 fd_t *dirfd, fop_opendir_cbk_t cbk, void *local);
 
 extern int
-nfs_fop_stat (xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+nfs_fop_stat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
               fop_stat_cbk_t cbk, void *local);
-
-/* Synchronous equivalents of some of the fops above.
- */
-
-/* sfl = sync fop local
- * Structure used to turn async fops into sync calls for certain NFS ops
- * that need blocking operations.
- */
-typedef struct nfs_syncfop {
-        sem_t           replysig;
-        call_stub_t     *replystub;
-} nfs_syncfop_t;
-
-extern nfs_syncfop_t *
-nfs_syncfop_init ();
-
-extern call_stub_t *
-nfs_syncfop_wait (nfs_syncfop_t *s);
-
-extern void
-nfs_syncfop_notify (nfs_syncfop_t *s);
-
-extern call_stub_t *
-nfs_fop_lookup_sync (xlator_t *xl, nfs_user_t *nfu, loc_t *loc);
-
-extern call_stub_t *
-nfs_fop_readdirp_sync (xlator_t *fopxl, nfs_user_t *nfu, fd_t *dirfd,
-                       off_t offset, size_t bufsize);
 
 #endif

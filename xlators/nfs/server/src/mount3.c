@@ -219,7 +219,6 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         rpcsvc_request_t        *req = NULL;
         struct nfs3_fh          fh = {{0}, };
         struct mount3_state     *ms = NULL;
-        xlator_t                *exportxl = NULL;
         mountstat3              status = 0;
         int                     autharr[10];
         int                     autharrlen = 0;
@@ -243,15 +242,13 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         if (status != MNT3_OK)
                 goto xmit_res;
 
-        exportxl = (xlator_t *)cookie;
-        fh = nfs3_fh_build_root_fh (ms->nfsx->children, exportxl, *buf);
-        mnt3svc_update_mountlist (ms, req, exportxl);
+        fh = nfs3_fh_build_root_fh (ms->nfsx->children, this, *buf);
+        mnt3svc_update_mountlist (ms, req, this);
 xmit_res:
         gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d", status);
         if (op_ret == 0) {
                 svc = rpcsvc_request_service (req);
-                autharrlen = rpcsvc_auth_array (svc, exportxl->name, autharr,
-                                                10);
+                autharrlen = rpcsvc_auth_array (svc, this->name, autharr, 10);
         }
 
         res = mnt3svc_set_mountres3 (status, &fh, autharr, autharrlen);
@@ -263,7 +260,7 @@ xmit_res:
 
 
 int
-mnt3svc_mount (rpcsvc_request_t *req, xlator_t * xl)
+mnt3svc_mount (rpcsvc_request_t *req, xlator_t *nfsx, xlator_t * xl)
 {
         loc_t           oploc = {0, };
         int             ret = -1;
@@ -279,7 +276,7 @@ mnt3svc_mount (rpcsvc_request_t *req, xlator_t * xl)
          * used to build the root fh sent to the client.
          */
         nfs_request_user_init (&nfu, req);
-        ret = nfs_lookup (xl, &nfu, &oploc, mnt3svc_lookup_mount_cbk,
+        ret = nfs_lookup (nfsx, xl, &nfu, &oploc, mnt3svc_lookup_mount_cbk,
                           (void *)req);
         nfs_loc_wipe (&oploc);
 
@@ -346,7 +343,7 @@ mnt3svc_mnt (rpcsvc_request_t *req)
                 goto rpcerr;
         }
 
-        mnt3svc_mount (req, targetxl);
+        mnt3svc_mount (req, ms->nfsx, targetxl);
 mnterr:
         if (ret == -1) {
                 mnt3svc_mnt_error_reply (req, mntstat);
