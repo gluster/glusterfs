@@ -124,8 +124,10 @@ typedef struct fuse_private fuse_private_t;
                 }                                                       \
                 xl = frame->this->children ?                            \
                         frame->this->children->xlator : NULL;           \
+                                                                        \
                 frame->root->state = state;                             \
                 frame->root->op    = op_num;                            \
+		frame->op          = op_num;				\
                 STACK_WIND (frame, ret, xl, xl->fops->fop, args);       \
         } while (0)
 

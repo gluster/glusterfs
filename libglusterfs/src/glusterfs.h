@@ -260,6 +260,7 @@ struct _glusterfs_ctx {
 	int                xl_count;
         uint32_t           volfile_checksum;
         size_t             page_size;
+        unsigned char      measure_latency; /* toggle switch for latency measurement */
 };
 
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
