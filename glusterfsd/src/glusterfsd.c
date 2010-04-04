@@ -69,6 +69,7 @@
 #include "event.h"
 #include "globals.h"
 #include "statedump.h"
+#include "latency.h"
 
 #include <fnmatch.h>
 
@@ -1280,6 +1281,7 @@ main (int argc, char *argv[])
 #endif
 
         signal (SIGUSR1, gf_proc_dump_info);
+        signal (SIGUSR2, gf_latency_toggle);
         signal (SIGSEGV, gf_print_trace);
         signal (SIGABRT, gf_print_trace);
         signal (SIGPIPE, SIG_IGN);

@@ -141,6 +141,7 @@ gf_proc_dump_mem_info ()
 
 }
 
+void gf_proc_dump_latency_info (xlator_t *xl);
 
 void
 gf_proc_dump_xlator_info (xlator_t *this_xl)
@@ -150,6 +151,8 @@ gf_proc_dump_xlator_info (xlator_t *this_xl)
                 return;
 
         while (this_xl) {
+                gf_proc_dump_latency_info (this_xl);
+
                 if (!this_xl->dumpops) {
                         this_xl = this_xl->next;
                         continue;
@@ -160,6 +163,7 @@ gf_proc_dump_xlator_info (xlator_t *this_xl)
                         this_xl->dumpops->inode(this_xl);
                 if (this_xl->dumpops->fd)
                         this_xl->dumpops->fd(this_xl);
+
                 this_xl = this_xl->next;
         }
 

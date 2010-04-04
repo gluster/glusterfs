@@ -5875,6 +5875,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
                         break;
                 }
                 frame = get_frame_for_call (trans, hdr);
+		frame->op = op;
                 ret = gf_fops[op] (frame, bound_xl, hdr, hdrlen, iobuf);
                 break;
 
@@ -5886,6 +5887,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
                         break;
                 }
                 frame = get_frame_for_call (trans, hdr);
+		frame->op = op;
                 ret = gf_mops[op] (frame, bound_xl, hdr, hdrlen, iobuf);
                 break;
 

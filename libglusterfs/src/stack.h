@@ -37,6 +37,8 @@ typedef struct _call_frame_t call_frame_t;
 struct _call_pool_t;
 typedef struct _call_pool_t call_pool_t;
 
+#include <sys/time.h>
+
 #include "xlator.h"
 #include "dict.h"
 #include "list.h"
@@ -76,6 +78,10 @@ struct _call_frame_t {
 	gf_lock_t     lock;
 	void         *cookie;      /* unique cookie */
 	gf_boolean_t  complete;
+
+	glusterfs_fop_t op;
+        struct timeval begin;      /* when this frame was created */
+        struct timeval end;        /* when this frame completed */
 };
 
 struct _call_stack_t {
@@ -113,6 +119,16 @@ struct _call_stack_t {
                 }                                                       \
         } while (0);                                                    \
 
+struct xlator_fops;
+struct xlator_mops;
+
+void
+gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops,
+                            struct xlator_mops *mops, void *fn);
+
+void
+gf_update_latency (call_frame_t *frame);
+
 static inline void
 FRAME_DESTROY (call_frame_t *frame)
 {
@@ -130,6 +146,13 @@ FRAME_DESTROY (call_frame_t *frame)
 static inline void
 STACK_DESTROY (call_stack_t *stack)
 {
+        glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
+
+        if (ctx && ctx->measure_latency) {
+                gettimeofday (&stack->frames.end, NULL);
+                gf_update_latency (&stack->frames);
+        }
+
 	LOCK (&stack->pool->lock);
 	{
 		list_del_init (&stack->all_frames);
@@ -143,6 +166,10 @@ STACK_DESTROY (call_stack_t *stack)
 	LOCK_DESTROY (&stack->frames.lock);
 
 	while (stack->frames.next) {
+                if (ctx && ctx->measure_latency) {
+                        gf_update_latency (stack->frames.next);
+                }
+
 		FRAME_DESTROY (stack->frames.next);
 	}
 	FREE (stack);
@@ -173,7 +200,12 @@ STACK_DESTROY (call_stack_t *stack)
 		_new->cookie = _new;					\
 		LOCK_INIT (&_new->lock);				\
 		frame->ref_count++;					\
-									\
+                                                                        \
+                if (((xlator_t *) obj)->ctx->measure_latency) {         \
+                        gettimeofday (&_new->begin, NULL);              \
+                        gf_set_fop_from_fn_pointer (_new, ((xlator_t *)obj)->fops, ((xlator_t *)obj)->mops, fn); \
+                }                                                       \
+                                                                        \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
 		fn (_new, obj, params);					\
@@ -203,7 +235,12 @@ STACK_DESTROY (call_stack_t *stack)
 		LOCK_INIT (&_new->lock);				\
 		frame->ref_count++;					\
 		fn##_cbk = rfn;						\
-									\
+                                                                        \
+                if (((xlator_t *) obj)->ctx->measure_latency) {         \
+                        gettimeofday (&_new->begin, NULL);              \
+                        gf_set_fop_from_fn_pointer (_new, ((xlator_t *)obj)->fops, ((xlator_t *)obj)->mops, fn); \
+                }                                                       \
+                                                                        \
                 old_THIS = THIS;                                        \
                 THIS = obj;                                             \
 		fn (_new, obj, params);					\
@@ -224,6 +261,11 @@ STACK_DESTROY (call_stack_t *stack)
                 old_THIS = THIS;                                        \
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
+                                                                        \
+                if (((xlator_t *) old_THIS)->ctx->measure_latency) {	\
+			gettimeofday (&frame->end, NULL);		\
+                }                                                       \
+                                                                        \
 		fn (_parent, frame->cookie, _parent->this, params);	\
                 THIS = old_THIS;                                        \
 	} while (0)
@@ -242,6 +284,11 @@ STACK_DESTROY (call_stack_t *stack)
                 old_THIS = THIS;                                        \
                 THIS = _parent->this;                                   \
                 frame->complete = _gf_true;                             \
+                                                                        \
+                if (((xlator_t *) old_THIS)->ctx->measure_latency) {	\
+                        gettimeofday (&frame->end, NULL);               \
+                }                                                       \
+                                                                        \
 		fn (_parent, frame->cookie, _parent->this, params);	\
                 THIS = old_THIS;                                        \
 	} while (0)
@@ -294,6 +341,7 @@ static inline call_frame_t *
 create_frame (xlator_t *xl, call_pool_t *pool)
 {
 	call_stack_t *stack = NULL;
+        glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
 
 	if (!xl || !pool) {
 		return NULL;
@@ -315,6 +363,10 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 	UNLOCK (&pool->lock);
 
 	LOCK_INIT (&stack->frames.lock);
+
+        if (ctx && ctx->measure_latency) {
+                gettimeofday (&stack->frames.begin, NULL);
+        }
 
 	return &stack->frames;
 }

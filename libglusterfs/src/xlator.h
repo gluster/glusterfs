@@ -36,6 +36,7 @@
 #include "dict.h"
 #include "compat.h"
 #include "list.h"
+#include "latency.h"
 
 #define FIRST_CHILD(xl) (xl->children->xlator)
 
@@ -846,6 +847,9 @@ struct _xlator {
 	void              (*fini) (xlator_t *this);
 	int32_t           (*init) (xlator_t *this);
 	event_notify_fn_t notify;
+
+        /* for latency measurement */
+        fop_latency_t latencies[GF_FOP_MAXVALUE];
 
 	/* Misc */
 	glusterfs_ctx_t  *ctx;
