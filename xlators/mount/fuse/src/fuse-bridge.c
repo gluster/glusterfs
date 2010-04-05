@@ -835,8 +835,7 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 foo.open_flags = 0;
 
                 if (!IA_ISDIR (fd->inode->ia_type)) {
-                        if (((state->flags & O_ACCMODE) != O_RDONLY) &&
-                            priv->direct_io_mode)
+                        if (priv->direct_io_mode)
                                 foo.open_flags |= FOPEN_DIRECT_IO;
                 }
 
@@ -1650,8 +1649,7 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 foo.fh = (uintptr_t) fd;
 
-                if (((state->flags & O_ACCMODE) != O_RDONLY) &&
-                    priv->direct_io_mode)
+                if (priv->direct_io_mode)
                         foo.open_flags |= FOPEN_DIRECT_IO;
 
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -2922,8 +2920,9 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
         if (fini->minor >= 6 /* fuse_init_in has flags */ &&
             fini->flags & FUSE_BIG_WRITES) {
-                /* no need for direct I/O mode if big writes are supported */
-                priv->direct_io_mode = 0;
+                /* no need for direct I/O mode by default if big writes are supported */
+                if (priv->direct_io_mode == 2)
+                        priv->direct_io_mode = 0;
                 fino.flags |= FUSE_BIG_WRITES;
         }
         if (fini->minor >= 13) {
@@ -3423,7 +3422,7 @@ init (xlator_t *this_xl)
                 priv->entry_timeout = 1.0; /* default */
 
 
-        priv->direct_io_mode = 1;
+        priv->direct_io_mode = 2;
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
         if (value_string) {
                 ret = gf_string2boolean (value_string, &priv->direct_io_mode);

@@ -152,6 +152,8 @@ static struct argp_option gf_options[] = {
         {"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0,
          "Disable direct I/O mode in fuse kernel module"
          " [default if big writes are supported]"},
+        {"enable-direct-io-mode", ARGP_ENABLE_DIRECT_IO_MODE_KEY, 0, 0,
+         "Force direct I/O mode in fuse kernel module"},
         {"entry-timeout", ARGP_ENTRY_TIMEOUT_KEY, "SECONDS", 0,
          "Set entry timeout to SECONDS in fuse kernel module [default: 1]"},
         {"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0,
@@ -338,7 +340,7 @@ _add_fuse_mount (xlator_t *graph)
         /* On Darwin machines, O_APPEND is not handled,
          * which may corrupt the data
          */
-        if (cmd_args->fuse_direct_io_mode_flag == _gf_true) {
+        if (cmd_args->fuse_direct_io_mode_flag == 1) {
                 gf_log ("glusterfs", GF_LOG_DEBUG,
                         "'direct-io-mode' in fuse causes data corruption "
                         "if O_APPEND is used. disabling 'direct-io-mode'");
@@ -350,12 +352,18 @@ _add_fuse_mount (xlator_t *graph)
                                        cmd_args->non_local);
 
 #else /* ! DARWIN HOST OS */
-        if (cmd_args->fuse_direct_io_mode_flag == _gf_true) {
-                ret = dict_set_static_ptr (top->options, ZR_DIRECT_IO_OPT,
-                                           "enable");
-        } else  {
+        switch (cmd_args->fuse_direct_io_mode_flag) {
+        case 0: /* disable */
                 ret = dict_set_static_ptr (top->options, ZR_DIRECT_IO_OPT,
                                            "disable");
+                break;
+        case 1: /* enable */
+                ret = dict_set_static_ptr (top->options, ZR_DIRECT_IO_OPT,
+                                           "enable");
+                break;
+        case 2: /* default */
+        default:
+                break;
         }
 
 #endif /* GF_DARWIN_HOST_OS */
@@ -924,7 +932,11 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_DISABLE_DIRECT_IO_MODE_KEY:
-                cmd_args->fuse_direct_io_mode_flag = _gf_false;
+                cmd_args->fuse_direct_io_mode_flag = 0;
+                break;
+
+        case ARGP_ENABLE_DIRECT_IO_MODE_KEY:
+                cmd_args->fuse_direct_io_mode_flag = 1;
                 break;
 
         case ARGP_ENTRY_TIMEOUT_KEY:
@@ -1187,7 +1199,7 @@ main (int argc, char *argv[])
 
         /* parsing command line arguments */
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
-        cmd_args->fuse_direct_io_mode_flag = _gf_true;
+        cmd_args->fuse_direct_io_mode_flag = 2;
         cmd_args->fuse_attribute_timeout = -1;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
