@@ -483,8 +483,9 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                 goto unwind;
         }
 
-        if (!content_cached || ((flags & O_WRONLY) == O_WRONLY) 
-            || ((flags & O_TRUNC) == O_TRUNC)) {
+        if (!content_cached || ((flags & O_ACCMODE) == O_WRONLY) 
+            || ((flags & O_TRUNC) == O_TRUNC)
+            || ((flags & O_DIRECT) == O_DIRECT)) {
                 LOCK (&qr_fd_ctx->lock);
                 {
                         /*
@@ -493,6 +494,9 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                          */
                            
                         qr_fd_ctx->open_in_transit = 1;
+                        if ((flags & O_DIRECT) == O_DIRECT) {
+                                qr_fd_ctx->disabled = 1;
+                        }
                 }
                 UNLOCK (&qr_fd_ctx->lock);
                 goto wind;
@@ -777,6 +781,11 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
                 qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
+                if (qr_fd_ctx != NULL) {
+                        if (qr_fd_ctx->disabled) {
+                                goto out;
+                        }
+                }
         }
 
         iobuf_pool = this->ctx->iobuf_pool;

@@ -45,6 +45,7 @@
 
 struct qr_fd_ctx {
         char              opened;
+        char              disabled;
         char              open_in_transit;
         char             *path;
         int               flags;
