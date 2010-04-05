@@ -292,7 +292,8 @@ ioc_cache_still_valid (ioc_inode_t *ioc_inode, struct iatt *stbuf)
 		cache_still_valid = 0;
 
 #else
-	if (!stbuf || (stbuf->ia_mtime != ioc_inode->cache.mtime))
+	if (!stbuf || (stbuf->ia_mtime != ioc_inode->cache.mtime)
+            || (stbuf->ia_mtime_nsec != ioc_inode->cache.mtime_nsec))
 		cache_still_valid = 0;
 
 #endif
@@ -366,8 +367,10 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			destroy_size = __ioc_inode_flush (ioc_inode);
 		}
 
-		if ((op_ret >= 0) && !zero_filled)
+		if ((op_ret >= 0) && !zero_filled) {
 			ioc_inode->cache.mtime = stbuf->ia_mtime;
+                        ioc_inode->cache.mtime_nsec = stbuf->ia_mtime_nsec;
+                }
 
 		gettimeofday (&ioc_inode->cache.tv, NULL);
 

@@ -131,8 +131,10 @@ struct ioc_cache {
         rbthash_table_t  *page_table;
         struct list_head  page_lru;
 	time_t            mtime;       /*
-                                        * mtime of the server file when last
-                                        * cached
+                                        * seconds component of file mtime
+                                        */
+        time_t            mtime_nsec;  /*
+                                        * nanosecond component of file mtime
                                         */
 	struct timeval    tv;          /*
                                         * time-stamp at last re-validate
