@@ -214,7 +214,9 @@ unlock:
                 LOCK (&qr_file->lock);
                 {
                         if (qr_file->xattr
-                            && (qr_file->stbuf.st_mtime != buf->st_mtime)) {
+                            && ((qr_file->stbuf.st_mtime != buf->st_mtime)
+                                || (ST_MTIM_NSEC(&qr_file->stbuf)
+                                    != ST_MTIM_NSEC(buf)))) {
                                 dict_unref (qr_file->xattr);
                                 qr_file->xattr = NULL;
                         }
@@ -576,7 +578,9 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         LOCK (&qr_file->lock);
         {
-                if (qr_file->stbuf.st_mtime != buf->st_mtime) {
+                if ((qr_file->stbuf.st_mtime != buf->st_mtime)
+                    || (ST_MTIM_NSEC(&qr_file->stbuf) !=
+                        ST_MTIM_NSEC(buf))) {
                         dict_unref (qr_file->xattr);
                         qr_file->xattr = NULL;
                 }
