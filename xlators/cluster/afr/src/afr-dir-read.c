@@ -405,7 +405,7 @@ afr_filter_entries (gf_dirent_t *entries, fd_t *fd)
 	uint64_t      ctx;
 	afr_fd_ctx_t *fd_ctx;
 
-	off_t offset;
+	off_t offset = 0;
 
 	ret = fd_ctx_get (fd, THIS, &ctx);
 	if (ret < 0) {
@@ -513,8 +513,8 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         int child_index = -1;
 
-        uint64_t      ctx;
-        afr_fd_ctx_t *fd_ctx;
+        uint64_t      ctx = 0;
+        afr_fd_ctx_t *fd_ctx = NULL;
 
 	off_t offset = 0;
 
