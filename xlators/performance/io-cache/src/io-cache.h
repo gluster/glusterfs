@@ -141,10 +141,14 @@ struct ioc_inode {
                                        * weight of the inode, increases on each
                                        * read
                                        */
-	time_t           mtime;       /*
-                                       * mtime of the server file when last
-                                       * cached
+	uint32_t         mtime;       /*
+                                       * seconds component of file mtime on
+                                       * server
                                        */
+        uint32_t         mtime_nsec;  /* nanosecond component of file mtime
+                                       * on server
+                                       */
+
 	struct timeval   tv;          /*
                                        * time-stamp at last re-validate
                                        */
