@@ -194,6 +194,7 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		{
                         if (ioc_inode->cache.mtime == 0) {
                                 ioc_inode->cache.mtime = stbuf->st_mtime;
+                                ioc_inode->cache.mtime_nsec = ST_MTIM_NSEC(stbuf);
                         }
 		}
 		ioc_inode_unlock (ioc_inode);
@@ -287,8 +288,10 @@ ioc_cache_validate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		ioc_inode_lock (ioc_inode);
 		{
 			destroy_size = __ioc_inode_flush (ioc_inode);
-			if (op_ret >= 0)
+			if (op_ret >= 0) {
 				ioc_inode->cache.mtime = stbuf->st_mtime;
+                                ioc_inode->cache.mtime_nsec = ST_MTIM_NSEC(stbuf);
+                        }
 		}
 		ioc_inode_unlock (ioc_inode);
 		local_stbuf = NULL;
@@ -567,6 +570,7 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ioc_inode_lock (ioc_inode);
                         {
                                 ioc_inode->cache.mtime = buf->st_mtime;
+                                ioc_inode->cache.mtime_nsec = ST_MTIM_NSEC(buf);
                         }
                         ioc_inode_unlock (ioc_inode);
 

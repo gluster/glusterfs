@@ -75,9 +75,8 @@ gf_stat_to_stat (struct gf_stat *gf_stat, struct stat *stat)
 	stat->st_blksize      = ntoh32 (gf_stat->blksize);
 	stat->st_blocks       = ntoh64 (gf_stat->blocks);
 	stat->st_atime        = ntoh32 (gf_stat->atime);
-	stat->st_mtime        = ntoh32 (gf_stat->mtime);
-	stat->st_ctime        = ntoh32 (gf_stat->ctime);
-	/* TODO: handle nsec */
+        stat->st_mtime        = ntoh32 (gf_stat->mtime);
+        stat->st_ctime        = ntoh32 (gf_stat->ctime);
 }
 
 
@@ -96,8 +95,7 @@ gf_stat_from_stat (struct gf_stat *gf_stat, struct stat *stat)
 	gf_stat->blocks      = hton64 (stat->st_blocks);
 	gf_stat->atime       = hton32 (stat->st_atime);
 	gf_stat->mtime       = hton32 (stat->st_mtime);
-	gf_stat->ctime       = hton32 (stat->st_ctime);
-	/* TODO: handle nsec */
+        gf_stat->ctime       = hton32 (stat->st_ctime);
 }
 
 
