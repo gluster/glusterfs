@@ -621,7 +621,9 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fi.flags = state->flags;
 
                 if (!S_ISDIR (fd->inode->st_mode)) {
-                        if ((fi.flags & 3) && priv->direct_io_mode)
+                        if (((priv->direct_io_mode == 2)
+                             && ((state->flags & O_ACCMODE) != O_RDONLY))
+                            || (priv->direct_io_mode == 1))
                                 fi.direct_io = 1;
                 }
 
@@ -1327,7 +1329,9 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 fi.fh = (unsigned long) fd;
 
-                if ((fi.flags & 3) && priv->direct_io_mode)
+                if (((priv->direct_io_mode == 2)
+                     && ((state->flags & O_ACCMODE) != O_RDONLY))
+                    || (priv->direct_io_mode == 1))
                         fi.direct_io = 1;
 
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -2372,7 +2376,7 @@ fuse_setlk (fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi,
 static void
 fuse_init (void *data, struct fuse_conn_info *conn)
 {
-        return;
+
 }
 
 static void
@@ -2793,7 +2797,7 @@ init (xlator_t *this_xl)
                 priv->entry_timeout = 1.0; /* default */
 
 
-        priv->direct_io_mode = 1;
+        priv->direct_io_mode = 2;
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
         if (value_string) {
                 ret = gf_string2boolean (value_string, &priv->direct_io_mode);
