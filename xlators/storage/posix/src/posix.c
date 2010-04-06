@@ -201,7 +201,7 @@ posix_scale_ia_ino (struct posix_private *priv, struct iatt *buf)
         ino_t temp_ino = 0;
         int r;
         struct stat lstatbuf;
-        struct iatt export_buf;
+        struct iatt export_buf = {0 ,};
 
         for (i = 0; i < priv->num_devices_to_span; i++) {
                 if (buf->ia_dev == priv->st_device[i]) {
