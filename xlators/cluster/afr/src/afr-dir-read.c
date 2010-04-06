@@ -770,7 +770,7 @@ int32_t
 afr_releasedir (xlator_t *this, fd_t *fd)
 {
 	afr_forget_entries (fd);
-
+        afr_cleanup_fd_ctx (this, fd);
 	return 0;
 }
 
