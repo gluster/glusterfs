@@ -39,7 +39,7 @@ xdr_int64 (XDR *xdrs, int64 *objp)
 bool_t
 xdr_uint32 (XDR *xdrs, uint32 *objp)
 {
-	 if (!xdr_u_long (xdrs, objp))
+	 if (!xdr_uint32_t (xdrs, objp))
 		 return FALSE;
 	return TRUE;
 }
@@ -47,7 +47,7 @@ xdr_uint32 (XDR *xdrs, uint32 *objp)
 bool_t
 xdr_int32 (XDR *xdrs, int32 *objp)
 {
-	 if (!xdr_long (xdrs, objp))
+	 if (!xdr_int32_t (xdrs, objp))
 		 return FALSE;
 	return TRUE;
 }

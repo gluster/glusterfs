@@ -44,8 +44,8 @@
 
 typedef u_quad_t uint64;
 typedef quad_t int64;
-typedef u_long uint32;
-typedef long int32;
+typedef uint32_t uint32;
+typedef int32_t int32;
 typedef char *filename3;
 typedef char *nfspath3;
 typedef uint64 fileid3;
