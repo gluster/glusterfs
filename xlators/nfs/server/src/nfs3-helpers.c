@@ -2170,11 +2170,11 @@ nfs3_log_rw_call (uint32_t xid, char *op, struct nfs3_fh *fh, offset3 offt,
         nfs3_fh_to_str (fh, fhstr);
         if (stablewrite == -1)
                 gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, %s: args: %s, offset:"
-                        " %"PRIu64",  count: %"PRIu64, xid, op, fhstr, offt,
+                        " %"PRIu64",  count: %"PRIu32, xid, op, fhstr, offt,
                         count);
         else
                 gf_log (GF_NFS3, GF_LOG_DEBUG, "XID: %x, %s: args: %s, offset:"
-                        " %"PRIu64",  count: %"PRIu64", %s", xid, op, fhstr,
+                        " %"PRIu64",  count: %"PRIu32", %s", xid, op, fhstr,
                         offt, count,
                         (stablewrite == UNSTABLE)?"UNSTABLE":"STABLE");
 
@@ -2207,7 +2207,7 @@ nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
         char    errstr[1024];
 
         nfs3_stat_to_errstr (xid, "READ", stat, pstat, errstr);
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu64", is_eof: %d",
+        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", is_eof: %d",
                 errstr, count, is_eof);
 }
 
@@ -2219,7 +2219,7 @@ nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
         char    errstr[1024];
 
         nfs3_stat_to_errstr (xid, "WRITE", stat, pstat, errstr);
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu64", %s,wverf: %"PRIu64
+        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", %s,wverf: %"PRIu64
                 , errstr, count, (stable == UNSTABLE)?"UNSTABLE":"STABLE",
                 wverf);
 }
@@ -2246,7 +2246,7 @@ nfs3_log_readdir_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
         char    errstr[1024];
 
         nfs3_stat_to_errstr (xid, "READDIR", stat, pstat, errstr);
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu64", cverf: %"PRIu64
+        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", cverf: %"PRIu64
                 ", is_eof: %d", errstr, count, cverf, is_eof);
 }
 
@@ -2258,8 +2258,8 @@ nfs3_log_readdirp_res (uint32_t xid, nfsstat3 stat, int pstat, uint64_t cverf,
         char    errstr[1024];
 
         nfs3_stat_to_errstr (xid, "READDIRPLUS", stat, pstat, errstr);
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, dircount: %"PRIu64", maxcount: %"
-                PRIu64", cverf: %"PRIu64", is_eof: %d", errstr, dircount,
+        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, dircount: %"PRIu32", maxcount: %"
+                PRIu32", cverf: %"PRIu64", is_eof: %d", errstr, dircount,
                 maxcount, cverf, is_eof);
 }
 
