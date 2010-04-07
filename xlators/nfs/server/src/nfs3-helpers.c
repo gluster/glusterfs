@@ -1883,7 +1883,7 @@ nfs3_fdcache_add (struct nfs3_state *nfs3, fd_t *fd)
         {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Adding fd: 0x%lx",
                         (long int) fd);
-                fd_ctx_set (fd, nfs3->nfsx, (uint64_t)fde);
+                fd_ctx_set (fd, nfs3->nfsx, (uintptr_t)fde);
                 fd_bind (fd);
                 list_add_tail (&fde->list, &nfs3->fdlru);
                 ++nfs3->fdcount;
@@ -1945,7 +1945,7 @@ __nfs3_queue_call_state (nfs3_call_state_t *cs)
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "Initing inode queue");
         INIT_LIST_HEAD (inode_q);
-        __inode_ctx_put (cs->resolvedloc.inode, cs->nfsx, (uint64_t)inode_q);
+        __inode_ctx_put (cs->resolvedloc.inode, cs->nfsx, (uintptr_t)inode_q);
 
 attach_cs:
         if (list_empty (inode_q)) {

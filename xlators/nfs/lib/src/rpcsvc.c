@@ -1362,7 +1362,7 @@ rpcsvc_record_build_header (char *recordstart, size_t rlen,
 
         fraglen = payload + replyhdr.iov_len;
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Reply fraglen %zu, payload: %zu, "
-                "rpc hdr: %ld", fraglen, payload, replyhdr.iov_len);
+                "rpc hdr: %zu", fraglen, payload, replyhdr.iov_len);
 
         /* Since we're not spreading RPC records over mutiple fragments
          * we just set this fragment as the first and last fragment for this
@@ -1398,7 +1398,7 @@ rpcsvc_conn_submit (rpcsvc_conn_t *conn, struct iovec hdr,
         if ((!conn) || (!hdr.iov_base) || (!hdriob))
                 return -1;
 
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx Header: %ld, payload: %ld",
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx Header: %zu, payload: %zu",
                 hdr.iov_len, msgvec.iov_len);
         /* Now that we have both the RPC and Program buffers in xdr format
          * lets hand it to the transmission layer.
@@ -1569,7 +1569,7 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
                 return -1;
 
         conn = req->conn;
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx message: %ld", msgvec.iov_len);
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx message: %zu", msgvec.iov_len);
         /* Build the buffer containing the encoded RPC reply. */
         replyiob = rpcsvc_record_build_record (req, msgvec.iov_len, &recordhdr);
         if (!replyiob) {
@@ -1623,7 +1623,7 @@ rpcsvc_request_attach_vector (rpcsvc_request_t *req, struct iovec msgvec,
         if ((!req) || (!msgvec.iov_base))
                 return -1;
 
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx Vector: %ld", msgvec.iov_len);
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx Vector: %zu", msgvec.iov_len);
         if (finalvector)
                 txflags |= RPCSVC_TXB_LAST;
         /* We only let the user decide whether this is the last vector for the
@@ -2312,7 +2312,7 @@ rpcsvc_record_update_state (rpcsvc_conn_t *conn, ssize_t dataread)
          * fragment needs. Something is seriously wrong.
          */
         if (dataread > 0) {
-                gf_log (GF_RPCSVC, GF_LOG_TRACE, "Data Left: %ld", dataread);
+                gf_log (GF_RPCSVC, GF_LOG_TRACE, "Data Left: %zd", dataread);
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Unwanted data read from "
                         " connection.");
         }
@@ -2365,7 +2365,7 @@ rpcsvc_conn_data_poll_in (rpcsvc_conn_t *conn)
                 goto err;
 
         dataread = rpcsvc_socket_read (conn->sockfd, readaddr, readsize);
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, readsize: %ld, dataread: %ld",
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, readsize: %zu, dataread: %zd",
                 (long)conn, readsize, dataread);
 
         if (dataread > 0)
@@ -2414,8 +2414,8 @@ tx_remaining:
                         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Last Tx Buf");
                         rpcsvc_socket_unblock_tx (conn->sockfd);
                 }
-                gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, Tx request: %ld,"
-                        " Tx sent: %ld", (long)conn, writesize, written);
+                gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, Tx request: %zu,"
+                        " Tx sent: %zd", (long)conn, writesize, written);
 
                 /* There was an error transmitting this buffer */
                 if (written == -1)
