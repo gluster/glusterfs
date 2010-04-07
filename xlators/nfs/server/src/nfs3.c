@@ -3588,17 +3588,17 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 nfs3err:
         if (cs->maxcount == 0) {
                 nfs3_log_readdir_res (rpcsvc_request_xid (cs->req), stat,
-                                      op_errno, (uint64_t)cs->fd,
+                                      op_errno, (uintptr_t)cs->fd,
                                       cs->dircount, is_eof);
-                nfs3_readdir_reply (cs->req, stat, (uint64_t)cs->fd,
+                nfs3_readdir_reply (cs->req, stat, (uintptr_t)cs->fd,
                                     buf, &cs->entries, cs->dircount,
                                     is_eof);
         } else {
                 nfs3_log_readdirp_res (rpcsvc_request_xid (cs->req), stat,
-                                       op_errno, (uint64_t)cs->fd,
+                                       op_errno, (uintptr_t)cs->fd,
                                        cs->dircount, cs->maxcount, is_eof);
                 nfs3_readdirp_reply (cs->req, stat, &cs->parent,
-                                     (uint64_t)cs->fd, buf,
+                                     (uintptr_t)cs->fd, buf,
                                      &cs->entries, cs->dircount,
                                      cs->maxcount, is_eof);
         }
@@ -4546,8 +4546,9 @@ rpcsvc_program_t        nfs3prog = {
 int
 nfs3_init_options (struct nfs3_state *nfs3, xlator_t *nfsx)
 {
-        int     ret = -1;
-        char    *optstr = NULL;
+        int      ret = -1;
+        char     *optstr = NULL;
+        uint64_t size64 = 0;
 
         if ((!nfs3) || (!nfsx))
                 return -1;
@@ -4563,7 +4564,8 @@ nfs3_init_options (struct nfs3_state *nfs3, xlator_t *nfsx)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &nfs3->readsize);
+                ret = gf_string2bytesize (optstr, &size64);
+                nfs3->readsize = size64;
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.read-size");
@@ -4583,7 +4585,8 @@ nfs3_init_options (struct nfs3_state *nfs3, xlator_t *nfsx)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &nfs3->writesize);
+                ret = gf_string2bytesize (optstr, &size64);
+                nfs3->writesize = size64;
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.write-size");
@@ -4603,7 +4606,8 @@ nfs3_init_options (struct nfs3_state *nfs3, xlator_t *nfsx)
                         goto err;
                 }
 
-                ret = gf_string2bytesize (optstr, &nfs3->readdirsize);
+                ret = gf_string2bytesize (optstr, &size64);
+                nfs3->readdirsize = size64;
                 if (ret == -1) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to format"
                                 " option: nfs3.readdir-size");
