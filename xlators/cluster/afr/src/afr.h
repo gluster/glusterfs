@@ -631,6 +631,9 @@ afr_is_opendir_done (xlator_t *this, inode_t *inode);
 void
 afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this);
 
+int
+afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
+
 #define AFR_STACK_UNWIND(fop, frame, params ...)        \
 	do {						\
 		afr_local_t *__local = NULL;		\

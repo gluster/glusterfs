@@ -1424,12 +1424,11 @@ out:
 
 
 int
-afr_release (xlator_t *this, fd_t *fd)
+afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
 {
-        uint64_t        ctx;
-        afr_fd_ctx_t *  fd_ctx;
-
-        int ret = 0;
+        uint64_t        ctx = 0;
+        afr_fd_ctx_t    *fd_ctx = NULL;
+        int             ret = 0;
 
         ret = fd_ctx_get (fd, this, &ctx);
 
@@ -1452,6 +1451,15 @@ afr_release (xlator_t *this, fd_t *fd)
         }
         
 out:
+        return 0;
+}
+
+
+int
+afr_release (xlator_t *this, fd_t *fd)
+{
+        afr_cleanup_fd_ctx (this, fd);
+
         return 0;
 }
 
