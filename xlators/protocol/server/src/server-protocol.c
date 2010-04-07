@@ -5631,6 +5631,126 @@ mop_log (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 
+/* ENOSYS operations (for backword compatibility) */
+int
+server_setdents (call_frame_t *frame, xlator_t *bound_xl,
+                 gf_hdr_common_t *hdr, size_t hdrlen,
+                 struct iobuf *iobuf)
+{
+        gf_hdr_common_t     *rsp_hdr = NULL;
+        gf_mop_ping_rsp_t   *rsp = NULL;     /* Using for  NULL */
+        size_t               rsp_hdrlen = 0;
+        int32_t              gf_errno = 0;
+
+        rsp_hdrlen = gf_hdr_len (rsp, 0);
+        rsp_hdr    = gf_hdr_new (rsp, 0);
+
+        gf_errno = gf_errno_to_error (ENOSYS);
+        hdr->rsp.op_errno = hton32 (gf_errno);
+        hdr->rsp.op_ret = -1;
+
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
+                               rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
+
+        return 0;
+}
+
+/* */
+int
+server_getdents (call_frame_t *frame, xlator_t *bound_xl,
+                 gf_hdr_common_t *hdr, size_t hdrlen,
+                 struct iobuf *iobuf)
+{
+        gf_hdr_common_t     *rsp_hdr = NULL;
+        gf_mop_ping_rsp_t   *rsp = NULL;     /* Using for  NULL */
+        size_t               rsp_hdrlen = 0;
+        int32_t              gf_errno = 0;
+
+        rsp_hdrlen = gf_hdr_len (rsp, 0);
+        rsp_hdr    = gf_hdr_new (rsp, 0);
+
+        gf_errno = gf_errno_to_error (ENOSYS);
+        hdr->rsp.op_errno = hton32 (gf_errno);
+        hdr->rsp.op_ret = -1;
+
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
+                               rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
+
+        return 0;
+}
+
+/* */
+int
+server_lock_notify (call_frame_t *frame, xlator_t *bound_xl,
+                    gf_hdr_common_t *hdr, size_t hdrlen,
+                    struct iobuf *iobuf)
+{
+        gf_hdr_common_t     *rsp_hdr = NULL;
+        gf_mop_ping_rsp_t   *rsp = NULL;     /* Using for  NULL */
+        size_t               rsp_hdrlen = 0;
+        int32_t              gf_errno = 0;
+
+        rsp_hdrlen = gf_hdr_len (rsp, 0);
+        rsp_hdr    = gf_hdr_new (rsp, 0);
+
+        gf_errno = gf_errno_to_error (ENOSYS);
+        hdr->rsp.op_errno = hton32 (gf_errno);
+        hdr->rsp.op_ret = -1;
+
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOCK_NOTIFY,
+                               rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
+
+        return 0;
+}
+
+/* */
+int
+server_lock_fnotify (call_frame_t *frame, xlator_t *bound_xl,
+                     gf_hdr_common_t *hdr, size_t hdrlen,
+                     struct iobuf *iobuf)
+{
+        gf_hdr_common_t     *rsp_hdr = NULL;
+        gf_mop_ping_rsp_t   *rsp = NULL;     /* Using for  NULL */
+        size_t               rsp_hdrlen = 0;
+        int32_t              gf_errno = 0;
+
+        rsp_hdrlen = gf_hdr_len (rsp, 0);
+        rsp_hdr    = gf_hdr_new (rsp, 0);
+
+        gf_errno = gf_errno_to_error (ENOSYS);
+        hdr->rsp.op_errno = hton32 (gf_errno);
+        hdr->rsp.op_ret = -1;
+
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOCK_FNOTIFY,
+                               rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
+
+        return 0;
+}
+
+
+int
+mop_stats (call_frame_t *frame, xlator_t *bound_xl,
+           gf_hdr_common_t *hdr, size_t hdrlen,
+           struct iobuf *iobuf)
+{
+        gf_hdr_common_t     *rsp_hdr = NULL;
+        gf_mop_ping_rsp_t   *rsp = NULL;     /* Using for  NULL */
+        size_t               rsp_hdrlen = 0;
+        int32_t              gf_errno = 0;
+
+        rsp_hdrlen = gf_hdr_len (rsp, 0);
+        rsp_hdr    = gf_hdr_new (rsp, 0);
+
+        gf_errno = gf_errno_to_error (ENOSYS);
+        hdr->rsp.op_errno = hton32 (gf_errno);
+        hdr->rsp.op_ret = -1;
+
+        protocol_server_reply (frame, GF_OP_TYPE_MOP_REPLY, GF_MOP_STATS,
+                               rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
+
+        return 0;
+}
+
 /*
  * unknown_op_cbk - This function is called when a opcode for unknown
  *                  type is called. Helps to keep the backward/forward
@@ -5820,6 +5940,10 @@ static gf_op_t gf_fops[] = {
         [GF_FOP_FXATTROP]     =  server_fxattrop,
         [GF_FOP_SETATTR]      =  server_setattr,
         [GF_FOP_FSETATTR]     =  server_fsetattr,
+        [GF_FOP_SETDENTS]     =  server_setdents,
+        [GF_FOP_GETDENTS]     =  server_getdents,
+        [GF_FOP_LOCK_NOTIFY]  =  server_lock_notify,
+        [GF_FOP_LOCK_FNOTIFY] =  server_lock_fnotify,
 };
 
 
@@ -5830,6 +5954,7 @@ static gf_op_t gf_mops[] = {
         [GF_MOP_GETSPEC]   = mop_getspec,
         [GF_MOP_PING]      = mop_ping,
         [GF_MOP_LOG]       = mop_log,
+        [GF_MOP_STATS]     = mop_stats,
 };
 
 static gf_op_t gf_cbks[] = {

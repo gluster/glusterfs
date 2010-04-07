@@ -2553,11 +2553,11 @@ call_resume_wind (call_stub_t *stub)
         }
 	default:
 	{
-		gf_log ("call-stub",
-			GF_LOG_DEBUG,
-			"Invalid value of FOP");
+		gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
+                        stub->fop);
+                break;
 	}
-	break;
+
 	}
 out:
 	return;
@@ -3371,13 +3371,12 @@ call_resume_unwind (call_stub_t *stub)
                                 &stub->args.fsetattr_cbk.statpost);
                 break;
         }
-	case GF_FOP_MAXVALUE:
+        default:
 	{
-		gf_log ("call-stub",
-			GF_LOG_DEBUG,
-			"Invalid value of FOP");
+		gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
+                        stub->fop);
+                break;
 	}
-	break;
 	}
 out:
 	return;
@@ -3681,15 +3680,12 @@ call_stub_destroy_wind (call_stub_t *stub)
                         fd_unref (stub->args.fsetattr.fd);
                 break;
         }
-	case GF_FOP_MAXVALUE:
+        default:
 	{
-		gf_log ("call-stub",
-			GF_LOG_DEBUG,
-			"Invalid value of FOP");
+		gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
+                        stub->fop);
+                break;
 	}
-	break;
-	default:
-		break;
 	}
 }
 
@@ -3914,16 +3910,12 @@ call_stub_destroy_unwind (call_stub_t *stub)
                 break;
         }
 
-	case GF_FOP_MAXVALUE:
+        default:
 	{
-		gf_log ("call-stub",
-			GF_LOG_DEBUG,
-			"Invalid value of FOP");
+		gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
+                        stub->fop);
+                break;
 	}
-	break;
-
-	default:
-		break;
 	}
 }
 
