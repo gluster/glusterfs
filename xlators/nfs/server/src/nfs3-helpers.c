@@ -619,6 +619,37 @@ nfs3_other_accessbits (ia_prot_t prot, ia_type_t type, uint32_t request)
 
 
 uint32_t
+nfs3_superuser_accessbits (ia_prot_t prot, ia_type_t type, uint32_t request)
+{
+        uint32_t accresult = 0;
+
+        if (request & ACCESS3_READ)
+                accresult |= ACCESS3_READ;
+
+        if (request & ACCESS3_LOOKUP)
+                if (IA_ISDIR (type))
+                        accresult |= ACCESS3_LOOKUP;
+
+        if (request & ACCESS3_MODIFY)
+                accresult |= ACCESS3_MODIFY;
+
+        if (request & ACCESS3_EXTEND)
+                accresult |= ACCESS3_EXTEND;
+
+        /* ACCESS3_DELETE is ignored for now since that requires
+         * knowing the permissions on the parent directory.
+         */
+
+        if (request & ACCESS3_EXECUTE)
+                if ((IA_PROT_XOTH (prot) || IA_PROT_XUSR (prot) ||
+                     IA_PROT_XGRP (prot)) && (!IA_ISDIR (type)))
+                        accresult |= ACCESS3_EXECUTE;
+
+        return accresult;
+}
+
+
+uint32_t
 nfs3_stat_to_accessbits (struct iatt *buf, uint32_t request, uid_t uid,
                          gid_t gid)
 {
@@ -629,7 +660,9 @@ nfs3_stat_to_accessbits (struct iatt *buf, uint32_t request, uid_t uid,
         prot = buf->ia_prot;
         type = buf->ia_type;
 
-        if (buf->ia_uid == uid)
+        if (uid == 0)
+                accresult = nfs3_superuser_accessbits (prot, type, request);
+        else if (buf->ia_uid == uid)
                 accresult = nfs3_owner_accessbits (prot, type, request);
         else if (buf->ia_gid == gid)
                 accresult = nfs3_group_accessbits (prot, type, request);
