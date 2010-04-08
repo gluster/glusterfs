@@ -1077,7 +1077,7 @@ afr_fsetattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	priv  = this->private;
 
-        read_child = afr_read_child (this, local->loc.inode);
+        read_child = afr_read_child (this, local->fd->inode);
 
 	LOCK (&frame->lock);
 	{
