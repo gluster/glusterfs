@@ -1219,17 +1219,17 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
 	}
 
 	switch (type) {
-	case S_IFSOCK:
-	case S_IFREG:
-	case S_IFBLK:
-	case S_IFCHR:
-	case S_IFIFO:
+	case IA_IFSOCK:
+	case IA_IFREG:
+	case IA_IFBLK:
+	case IA_IFCHR:
+	case IA_IFIFO:
 		sh_missing_entries_mknod (frame, this);
 		break;
-	case S_IFLNK:
+	case IA_IFLNK:
 		sh_missing_entries_readlink (frame, this);
 		break;
-	case S_IFDIR:
+	case IA_IFDIR:
 		sh_missing_entries_mkdir (frame, this);
 		break;
 	default:

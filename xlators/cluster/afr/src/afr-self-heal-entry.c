@@ -763,13 +763,13 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
 	type = buf->ia_type;
 
 	switch (type) {
-	case S_IFSOCK:
-	case S_IFREG:
-	case S_IFBLK:
-	case S_IFCHR:
-	case S_IFIFO:
-	case S_IFLNK:
-	case S_IFDIR:
+	case IA_IFSOCK:
+	case IA_IFREG:
+	case IA_IFBLK:
+	case IA_IFCHR:
+	case IA_IFIFO:
+	case IA_IFLNK:
+	case IA_IFDIR:
 		afr_sh_entry_expunge_lookup_trash (expunge_frame, this, active_src);
 		break;
 	default:
@@ -1755,19 +1755,19 @@ afr_sh_entry_impunge_recreate_lookup_cbk (call_frame_t *impunge_frame,
 	type = buf->ia_type;
 
 	switch (type) {
-	case S_IFSOCK:
-	case S_IFREG:
-	case S_IFBLK:
-	case S_IFCHR:
-	case S_IFIFO:
+	case IA_IFSOCK:
+	case IA_IFREG:
+	case IA_IFBLK:
+	case IA_IFCHR:
+	case IA_IFIFO:
 		afr_sh_entry_impunge_mknod (impunge_frame, this,
 					    child_index, buf);
 		break;
-	case S_IFLNK:
+	case IA_IFLNK:
 		afr_sh_entry_impunge_readlink (impunge_frame, this,
 					       child_index, buf);
 		break;
-	case S_IFDIR:
+	case IA_IFDIR:
 		afr_sh_entry_impunge_mkdir (impunge_frame, this,
 					    child_index, buf);
 		break;
@@ -1848,7 +1848,7 @@ afr_sh_entry_impunge_entry_cbk (call_frame_t *impunge_frame, void *cookie,
 	active_src = impunge_sh->active_source;
 
 	if ((op_ret == -1 && op_errno == ENOENT)
-            || (S_ISLNK (impunge_sh->impunging_entry_mode))) {
+            || (IA_ISLNK (impunge_sh->impunging_entry_mode))) {
 
                 /*
                  * A symlink's target might have changed, so
