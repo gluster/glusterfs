@@ -78,7 +78,9 @@ gf_stat_to_stat (struct gf_stat *gf_stat, struct stat *stat)
 	stat->st_atime        = ntoh32 (gf_stat->atime);
 	stat->st_mtime        = ntoh32 (gf_stat->mtime);
 	stat->st_ctime        = ntoh32 (gf_stat->ctime);
-	/* TODO: handle nsec */
+        ST_ATIM_NSEC_SET(stat, ntoh32 (gf_stat->atime_nsec));
+        ST_MTIM_NSEC_SET(stat, ntoh32 (gf_stat->mtime_nsec));
+        ST_CTIM_NSEC_SET(stat, ntoh32 (gf_stat->ctime_nsec));
 }
 
 
@@ -98,7 +100,9 @@ gf_stat_from_stat (struct gf_stat *gf_stat, struct stat *stat)
 	gf_stat->atime       = hton32 (stat->st_atime);
 	gf_stat->mtime       = hton32 (stat->st_mtime);
 	gf_stat->ctime       = hton32 (stat->st_ctime);
-	/* TODO: handle nsec */
+        gf_stat->atime_nsec  = hton32 (ST_ATIM_NSEC(stat));
+        gf_stat->mtime_nsec  = hton32 (ST_MTIM_NSEC(stat));
+        gf_stat->ctime_nsec  = hton32 (ST_CTIM_NSEC(stat));
 }
 
 
