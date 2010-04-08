@@ -786,8 +786,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                         dict_unref (local->cont.lookup.xattr);
 
                                 local->cont.lookup.xattr = dict_ref (xattr);
-
-                                local->cont.lookup.inode               = inode_ref (inode);
                                 local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                                 local->cont.lookup.postparent          = *postparent;
 
@@ -916,7 +914,6 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                 if (local->cont.lookup.xattr)
                                         dict_unref (local->cont.lookup.xattr);
 
-                                local->cont.lookup.inode               = inode_ref (inode);
                                 local->cont.lookup.xattr               = dict_ref (xattr);
                                 local->cont.lookup.xattrs[child_index] = dict_ref (xattr);
                                 local->cont.lookup.postparent          = *postparent;
