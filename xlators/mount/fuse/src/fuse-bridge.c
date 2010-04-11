@@ -583,8 +583,8 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": LOOKUP %"PRIu64"/%s (fuse_loc_fill() failed)",
                         finh->unique, finh->nodeid, name);
-                free_state (state);
                 send_fuse_err (this, finh, ENOENT);
+                free_state (state);
                 return;
         }
 
