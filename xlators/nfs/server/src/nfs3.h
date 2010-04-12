@@ -148,6 +148,7 @@ struct nfs3_local {
         xlator_t                *vol;
         nfs3_resume_fn_t        resume_fn;
         xlator_t                *nfsx;
+        struct nfs3_state       *nfs3state;
 
         /* The list hook to attach this call state to the inode's queue till
          * the opening of the fd on the inode completes.
