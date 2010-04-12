@@ -181,6 +181,7 @@ nfs3_call_state_init (struct nfs3_state *s, rpcsvc_request_t *req, xlator_t *v)
         cs->req = req;
         cs->vol = v;
         cs->nfsx = s->nfsx;
+        cs->nfs3state = s;
 
         return cs;
 }
@@ -192,7 +193,7 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
         if (!cs)
                 return;
 
-        nfs3 = rpcsvc_request_program_private (cs->req);
+        nfs3 = cs->nfs3state;
         if (cs->fd) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "fd ref: %d", cs->fd->refcount);
                 fd_unref (cs->fd);
