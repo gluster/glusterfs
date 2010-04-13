@@ -741,6 +741,14 @@ afr_sh_data_fix (call_frame_t *frame, xlator_t *this)
 
         afr_set_read_child (this, local->loc.inode, sh->source);
 
+	/*
+	   quick-read might have read the file, so send xattr from
+	   the source subvolume (http://bugs.gluster.com/cgi-bin/bugzilla3/show_bug.cgi?id=815)
+	*/
+
+	dict_unref (orig_local->cont.lookup.xattr);
+	orig_local->cont.lookup.xattr = dict_ref (orig_local->cont.lookup.xattrs[sh->source]);
+
         if (sh->background) {
                 sh->unwind (sh->orig_frame, this);
                 sh->unwound = _gf_true;
