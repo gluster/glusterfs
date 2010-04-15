@@ -540,7 +540,8 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
                                 call_count--;
                         }
 
-                        if (local->transaction.locked_nodes[i] & LOCKED_YES) {
+                        if (call_count &&
+                             local->transaction.locked_nodes[i] & LOCKED_YES) {
                                 STACK_WIND (frame, afr_unlock_common_cbk,	
                                             priv->children[i], 
                                             priv->children[i]->fops->entrylk, 
