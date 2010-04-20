@@ -5535,7 +5535,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
                         "xlator=%s", lru_limit, conn->bound_xl->name);
 
                 conn->bound_xl->itable =
-                        inode_table_new (1048576,
+                        inode_table_new (lru_limit,
                                          conn->bound_xl);
         }
 
