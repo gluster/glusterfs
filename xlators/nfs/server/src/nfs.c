@@ -483,7 +483,6 @@ init (xlator_t *this) {
                 goto free_nfs;
         }
 
-        this->ctx->top = this;
         ret = nfs_init_subvolumes (nfs, this->children);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NFS exports");
