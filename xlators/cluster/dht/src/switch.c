@@ -24,6 +24,7 @@
 #endif
 
 #include "dht-common.c"
+#include "dht-mem-types.h"
 
 #include <sys/time.h>
 #include <stdlib.h>
@@ -82,7 +83,7 @@ get_switch_matching_subvol (const char *path, dht_conf_t *conf,
                 return hashed_subvol;
 
         trav = cond;
-        pathname = strdup (path);
+        pathname = gf_strdup (path);
 	while (trav) {
 		if (fnmatch (trav->path_pattern,
 			     pathname, FNM_NOESCAPE) == 0) {
@@ -96,7 +97,7 @@ get_switch_matching_subvol (const char *path, dht_conf_t *conf,
 		}
 		trav = trav->next;
 	}
-	free (pathname);
+	GF_FREE (pathname);
 	return hashed_subvol;
 }
 
@@ -620,29 +621,29 @@ fini (xlator_t *this)
                 conf->private = NULL;
                 while (trav) {
                         if (trav->array)
-                                FREE (trav->array);
+                                GF_FREE (trav->array);
                         prev = trav;
                         trav = trav->next;
-                        FREE (prev);
+                        GF_FREE (prev);
                 }
 
                 if (conf->file_layouts) {
                         for (i = 0; i < conf->subvolume_cnt; i++) {
-                                FREE (conf->file_layouts[i]);
+                                GF_FREE (conf->file_layouts[i]);
                         }
-                        FREE (conf->file_layouts);
+                        GF_FREE (conf->file_layouts);
                 }
 
                 if (conf->default_dir_layout)
-                        FREE (conf->default_dir_layout);
+                        GF_FREE (conf->default_dir_layout);
 
                 if (conf->subvolumes)
-                        FREE (conf->subvolumes);
+                        GF_FREE (conf->subvolumes);
 
 		if (conf->subvolume_status)
-			FREE (conf->subvolume_status);
+			GF_FREE (conf->subvolume_status);
 
-                FREE (conf);
+                GF_FREE (conf);
         }
 
 	return;
@@ -679,8 +680,9 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
 		trav_xl = trav_xl->next;
 	}
 	child_count = index;
-	switch_buf_array = CALLOC ((index + 1),
-                                   sizeof (struct switch_sched_array));
+	switch_buf_array = GF_CALLOC ((index + 1),
+                                      sizeof (struct switch_sched_array),
+                                      gf_switch_mt_switch_sched_array);
         if (!switch_buf_array)
                 goto err;
 
@@ -698,11 +700,12 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
 
         /* Get the pattern for considering switch case.
            "option block-size *avi:10MB" etc */
-        option_string = strdup (pattern_str);
+        option_string = gf_strdup (pattern_str);
         switch_str = strtok_r (option_string, ";", &tmp_str);
         while (switch_str) {
-                dup_str = strdup (switch_str);
-                switch_opt = CALLOC (1, sizeof (struct switch_struct));
+                dup_str = gf_strdup (switch_str);
+                switch_opt = GF_CALLOC (1, sizeof (struct switch_struct),
+                                        gf_switch_mt_switch_struct);
                 if (!switch_opt)
                         goto err;
 
@@ -714,12 +717,12 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                 "for all the unconfigured child nodes,"
                                 " hence neglecting current option");
                         switch_str = strtok_r (NULL, ";", &tmp_str);
-                        free (dup_str);
+                        GF_FREE (dup_str);
                         continue;
                 }
                 memcpy (switch_opt->path_pattern, pattern, strlen (pattern));
                 if (childs) {
-                        dup_childs = strdup (childs);
+                        dup_childs = gf_strdup (childs);
                         child = strtok_r (dup_childs, ",", &tmp);
                         while (child) {
                                 if (gf_switch_valid_child (this, child)) {
@@ -734,11 +737,12 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                         goto err;
                                 }
                         }
-                        free (dup_childs);
+                        GF_FREE (dup_childs);
                         child = strtok_r (childs, ",", &tmp1);
                         switch_opt->num_child = idx;
-                        switch_opt->array = CALLOC (1, (idx *
-                                                        sizeof (struct switch_sched_array)));
+                        switch_opt->array = GF_CALLOC (1, (idx *
+                                                       sizeof (struct switch_sched_array)),
+                                                       gf_switch_mt_switch_sched_array);
                         if (!switch_opt->array)
                                 goto err;
                         idx = 0;
@@ -772,7 +776,7 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
                                 "option in unify volume. Exiting");
                         goto err;
                 }
-                free (dup_str);
+                GF_FREE (dup_str);
                 
                 /* Link it to the main structure */
                 if (switch_buf) {
@@ -803,7 +807,8 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
 				"No nodes left for pattern '*'. Exiting");
 			goto err;
 		}
-		switch_opt = CALLOC (1, sizeof (struct switch_struct));
+		switch_opt = GF_CALLOC (1, sizeof (struct switch_struct),
+                                        gf_switch_mt_switch_struct);
                 if (!switch_opt)
                         goto err;
 
@@ -811,7 +816,9 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
 		memcpy (switch_opt->path_pattern, "*", 2);
 		switch_opt->num_child = flag;
 		switch_opt->array =
-			CALLOC (1, flag * sizeof (struct switch_sched_array));
+			GF_CALLOC (1, 
+                                   flag * sizeof (struct switch_sched_array),
+                                   gf_switch_mt_switch_sched_array);
                 if (!switch_opt->array)
                         goto err;
 		flag = 0;
@@ -846,14 +853,14 @@ set_switch_pattern (xlator_t *this, dht_conf_t *conf,
 err:
         if (switch_buf) {
                 if (switch_buf_array)
-                        FREE (switch_buf_array);
+                        GF_FREE (switch_buf_array);
                 trav = switch_buf;
                 while (trav) {
                         if (trav->array)
-                                FREE (trav->array);
+                                GF_FREE (trav->array);
                         switch_opt = trav;
                         trav = trav->next;
-                        FREE (switch_opt);
+                        GF_FREE (switch_opt);
                 }
         }
         return -1;
@@ -881,7 +888,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile");
 	}
 
-        conf = CALLOC (1, sizeof (*conf));
+        conf = GF_CALLOC (1, sizeof (*conf), gf_switch_mt_dht_conf_t);
         if (!conf) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
@@ -947,7 +954,8 @@ init (xlator_t *this)
 
 	conf->gen = 1;
 
-        conf->du_stats = CALLOC (conf->subvolume_cnt, sizeof (dht_du_t));
+        conf->du_stats = GF_CALLOC (conf->subvolume_cnt, sizeof (dht_du_t),
+                                    gf_switch_mt_dht_du_t);
         if (!conf->du_stats) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
@@ -962,24 +970,24 @@ err:
         if (conf) {
                 if (conf->file_layouts) {
                         for (i = 0; i < conf->subvolume_cnt; i++) {
-                                FREE (conf->file_layouts[i]);
+                                GF_FREE (conf->file_layouts[i]);
                         }
-                        FREE (conf->file_layouts);
+                        GF_FREE (conf->file_layouts);
                 }
 
                 if (conf->default_dir_layout)
-                        FREE (conf->default_dir_layout);
+                        GF_FREE (conf->default_dir_layout);
 
                 if (conf->subvolumes)
-                        FREE (conf->subvolumes);
+                        GF_FREE (conf->subvolumes);
 
 		if (conf->subvolume_status)
-			FREE (conf->subvolume_status);
+			GF_FREE (conf->subvolume_status);
 
                 if (conf->du_stats)
-                        FREE (conf->du_stats);
+                        GF_FREE (conf->du_stats);
 
-                FREE (conf);
+                GF_FREE (conf);
         }
 
         return -1;

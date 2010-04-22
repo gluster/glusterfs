@@ -23,6 +23,7 @@
 #endif
 
 #include "io-cache.h"
+#include "ioc-mem-types.h"
 
 extern int ioc_log2_page_size;
 
@@ -51,7 +52,7 @@ ptr_to_str (void *ptr)
 {
         int   ret = 0;
 	char *str = NULL;
-	ret = asprintf (&str, "%p", ptr);
+	ret = gf_asprintf (&str, "%p", ptr);
         if (-1 == ret) {
                 gf_log ("ioc", GF_LOG_ERROR, 
                         "asprintf failed while converting ptr to str");
@@ -137,7 +138,7 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
 		waiter = waiter->next;
     
 		waited->data = NULL;
-		free (waited);
+		GF_FREE (waited);
 	}
 }
 
@@ -157,7 +158,8 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 	ioc_inode_t     *ioc_inode   = NULL;
         unsigned long    no_of_pages = 0;
 
-        ioc_inode = CALLOC (1, sizeof (ioc_inode_t));
+        ioc_inode = GF_CALLOC (1, sizeof (ioc_inode_t),
+                               gf_ioc_mt_ioc_inode_t);
         if (ioc_inode == NULL) {
                 goto out;
         }
@@ -213,5 +215,5 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
         rbthash_table_destroy (ioc_inode->cache.page_table);
 
 	pthread_mutex_destroy (&ioc_inode->inode_lock);
-	free (ioc_inode);
+	GF_FREE (ioc_inode);
 }

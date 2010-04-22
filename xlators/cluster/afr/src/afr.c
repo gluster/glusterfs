@@ -239,7 +239,7 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 	priv = this->private;
 
 	if (sh->buf)
-		FREE (sh->buf);
+		GF_FREE (sh->buf);
 
 	if (sh->xattr) {
 		for (i = 0; i < priv->child_count; i++) {
@@ -248,34 +248,34 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 				sh->xattr[i] = NULL;
 			}
 		}
-		FREE (sh->xattr);
+		GF_FREE (sh->xattr);
 	}
 
 	if (sh->child_errno)
-		FREE (sh->child_errno);
+		GF_FREE (sh->child_errno);
 
 	if (sh->pending_matrix) {
 		for (i = 0; i < priv->child_count; i++) {
-			FREE (sh->pending_matrix[i]);
+			GF_FREE (sh->pending_matrix[i]);
 		}
-		FREE (sh->pending_matrix);
+		GF_FREE (sh->pending_matrix);
 	}
 
 	if (sh->delta_matrix) {
 		for (i = 0; i < priv->child_count; i++) {
-			FREE (sh->delta_matrix[i]);
+			GF_FREE (sh->delta_matrix[i]);
 		}
-		FREE (sh->delta_matrix);
+		GF_FREE (sh->delta_matrix);
 	}
 
 	if (sh->sources)
-		FREE (sh->sources);
+		GF_FREE (sh->sources);
 
 	if (sh->success)
-		FREE (sh->success);
+		GF_FREE (sh->success);
 
 	if (sh->locked_nodes)
-		FREE (sh->locked_nodes);
+		GF_FREE (sh->locked_nodes);
 
 	if (sh->healing_fd && !sh->healing_fd_opened) {
 		fd_unref (sh->healing_fd);
@@ -283,7 +283,7 @@ afr_local_sh_cleanup (afr_local_t *local, xlator_t *this)
 	}
 
         if (sh->linkname)
-                FREE (sh->linkname);
+                GF_FREE ((char *)sh->linkname);
 
 	loc_wipe (&sh->parent_loc);
 }
@@ -299,17 +299,17 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
         for (i = 0; i < priv->child_count; i++) {
                 if (local->pending && local->pending[i])
-                        FREE (local->pending[i]);
+                        GF_FREE (local->pending[i]);
         }
 
-        FREE (local->pending);
+        GF_FREE (local->pending);
 
-	FREE (local->transaction.locked_nodes);
-	FREE (local->transaction.child_errno);
-	FREE (local->child_errno);
+	GF_FREE (local->transaction.locked_nodes);
+	GF_FREE (local->transaction.child_errno);
+	GF_FREE (local->child_errno);
 
-	FREE (local->transaction.basename);
-	FREE (local->transaction.new_basename);
+	GF_FREE (local->transaction.basename);
+	GF_FREE (local->transaction.new_basename);
 
 	loc_wipe (&local->transaction.parent_loc);
 	loc_wipe (&local->transaction.new_parent_loc);
@@ -340,7 +340,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	if (local->xattr_req)
 		dict_unref (local->xattr_req);
 
-	FREE (local->child_up);
+	GF_FREE (local->child_up);
 
 	{ /* lookup */
                 if (local->cont.lookup.xattrs) {
@@ -350,7 +350,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                                         local->cont.lookup.xattrs[i] = NULL;
                                 }
                         }
-                        FREE (local->cont.lookup.xattrs);
+                        GF_FREE (local->cont.lookup.xattrs);
                         local->cont.lookup.xattrs = NULL;
                 }
 
@@ -365,19 +365,19 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 
 	{ /* getxattr */
 		if (local->cont.getxattr.name)
-			FREE (local->cont.getxattr.name);
+			GF_FREE (local->cont.getxattr.name);
 	}
 
 	{ /* lk */
 		if (local->cont.lk.locked_nodes)
-			FREE (local->cont.lk.locked_nodes);
+			GF_FREE (local->cont.lk.locked_nodes);
 	}
 
 	{ /* checksum */
 		if (local->cont.checksum.file_checksum)
-			FREE (local->cont.checksum.file_checksum);
+			GF_FREE (local->cont.checksum.file_checksum);
 		if (local->cont.checksum.dir_checksum)
-			FREE (local->cont.checksum.dir_checksum);
+			GF_FREE (local->cont.checksum.dir_checksum);
 	}
 
 	{ /* create */
@@ -386,7 +386,7 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	}
 
 	{ /* writev */
-		FREE (local->cont.writev.vector);
+		GF_FREE (local->cont.writev.vector);
 	}
 
 	{ /* setxattr */
@@ -395,16 +395,16 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	}
 
 	{ /* removexattr */
-		FREE (local->cont.removexattr.name);
+		GF_FREE (local->cont.removexattr.name);
 	}
 
 	{ /* symlink */
-		FREE (local->cont.symlink.linkpath);
+		GF_FREE (local->cont.symlink.linkpath);
 	}
 
         { /* opendir */
                 if (local->cont.opendir.checksum)
-                        FREE (local->cont.opendir.checksum);
+                        GF_FREE (local->cont.opendir.checksum);
         }
 }
 
@@ -1005,8 +1005,9 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
 
 	local->child_up = memdup (priv->child_up, priv->child_count);
 
-        local->cont.lookup.xattrs = CALLOC (priv->child_count,
-                                            sizeof (*local->cont.lookup.xattr));
+        local->cont.lookup.xattrs = GF_CALLOC (priv->child_count,
+                                    sizeof (*local->cont.lookup.xattr),
+                                    gf_afr_mt_dict_t);
 
 	local->call_count = afr_up_children_count (priv->child_count,
                                                    local->child_up);
@@ -1083,7 +1084,8 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 if (ret == 0)
                         goto unlock;
 
-                fd_ctx = CALLOC (1, sizeof (afr_fd_ctx_t));
+                fd_ctx = GF_CALLOC (1, sizeof (afr_fd_ctx_t),
+                                    gf_afr_mt_afr_fd_ctx_t);
                 if (!fd_ctx) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
@@ -1092,8 +1094,9 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
-                fd_ctx->pre_op_done = CALLOC (sizeof (*fd_ctx->pre_op_done),
-                                              priv->child_count);
+                fd_ctx->pre_op_done = GF_CALLOC (sizeof (*fd_ctx->pre_op_done),
+                                                 priv->child_count,
+                                                 gf_afr_mt_char);
                 if (!fd_ctx->pre_op_done) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
@@ -1101,8 +1104,9 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
-                fd_ctx->opened_on = CALLOC (sizeof (*fd_ctx->opened_on),
-                                            priv->child_count);
+                fd_ctx->opened_on = GF_CALLOC (sizeof (*fd_ctx->opened_on),
+                                               priv->child_count,
+                                               gf_afr_mt_char);
                 if (!fd_ctx->opened_on) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
@@ -1110,8 +1114,10 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
-                fd_ctx->child_failed = CALLOC (sizeof (*fd_ctx->child_failed),
-                                               priv->child_count);
+                fd_ctx->child_failed = GF_CALLOC (
+                                         sizeof (*fd_ctx->child_failed),
+                                         priv->child_count,
+                                         gf_afr_mt_char);
                 
                 if (!fd_ctx->child_failed) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -1436,15 +1442,15 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
 
         if (fd_ctx) {
                 if (fd_ctx->child_failed)
-                        FREE (fd_ctx->child_failed);
+                        GF_FREE (fd_ctx->child_failed);
 
                 if (fd_ctx->pre_op_done)
-                        FREE (fd_ctx->pre_op_done);
+                        GF_FREE (fd_ctx->pre_op_done);
 
                 if (fd_ctx->opened_on)
-                        FREE (fd_ctx->opened_on);
+                        GF_FREE (fd_ctx->opened_on);
 
-                FREE (fd_ctx);
+                GF_FREE (fd_ctx);
         }
         
 out:
@@ -2176,11 +2182,13 @@ afr_checksum_cbk (call_frame_t *frame, void *cookie,
 		if (op_ret == 0 && (local->op_ret != 0)) {
 			local->op_ret = 0;
 
-			local->cont.checksum.file_checksum = MALLOC (NAME_MAX);
+			local->cont.checksum.file_checksum = 
+                                        GF_MALLOC (NAME_MAX, gf_afr_mt_char);
 			memcpy (local->cont.checksum.file_checksum, file_checksum, 
 				NAME_MAX);
 
-			local->cont.checksum.dir_checksum = MALLOC (NAME_MAX);
+			local->cont.checksum.dir_checksum = 
+                                       GF_MALLOC (NAME_MAX, gf_afr_mt_char);
 			memcpy (local->cont.checksum.dir_checksum, dir_checksum, 
 				NAME_MAX);
 
@@ -2486,8 +2494,9 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 
 	frame->local  = local;
 
-	local->cont.lk.locked_nodes = CALLOC (priv->child_count, 
-					      sizeof (*local->cont.lk.locked_nodes));
+	local->cont.lk.locked_nodes = GF_CALLOC (priv->child_count, 
+					      sizeof (*local->cont.lk.locked_nodes),
+                                              gf_afr_mt_char);
 	
 	if (!local->cont.lk.locked_nodes) {
 		gf_log (this->name, GF_LOG_ERROR, "Out of memory");
@@ -2676,6 +2685,25 @@ notify (xlator_t *this, int32_t event,
 	return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_afr_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 
 static const char *favorite_child_warning_str = "You have specified subvolume '%s' "
 	"as the 'favorite child'. This means that if a discrepancy in the content "
@@ -2718,6 +2746,7 @@ init (xlator_t *this)
 	int    read_ret      = -1;
 	int    dict_ret      = -1;
 
+
 	if (!this->children) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"replicate translator needs more than one "
@@ -2729,6 +2758,7 @@ init (xlator_t *this)
 		gf_log (this->name, GF_LOG_WARNING,
 			"Volume is dangling.");
 	}
+
 
 	ALLOC_OR_GOTO (this->private, afr_private_t, out);
 
@@ -2775,7 +2805,7 @@ init (xlator_t *this)
         dict_ret = dict_get_str (this->options, "data-self-heal-algorithm",
                                  &algo);
         if (dict_ret == 0) {
-                priv->data_self_heal_algorithm = strdup (algo);
+                priv->data_self_heal_algorithm = gf_strdup (algo);
         }
 
 
@@ -2946,7 +2976,8 @@ init (xlator_t *this)
 	LOCK_INIT (&priv->lock);
         LOCK_INIT (&priv->read_child_lock);
 
-	priv->child_up = CALLOC (sizeof (unsigned char), child_count);
+	priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
+                                    gf_afr_mt_char);
 	if (!priv->child_up) {
 		gf_log (this->name, GF_LOG_ERROR,	
 			"Out of memory.");		
@@ -2954,7 +2985,8 @@ init (xlator_t *this)
 		goto out;
 	}
 
-	priv->children = CALLOC (sizeof (xlator_t *), child_count);
+	priv->children = GF_CALLOC (sizeof (xlator_t *), child_count,
+                                    gf_afr_mt_xlator_t);
 	if (!priv->children) {
 		gf_log (this->name, GF_LOG_ERROR,	
 			"Out of memory.");		
@@ -2962,7 +2994,9 @@ init (xlator_t *this)
 		goto out;
 	}
 
-        priv->pending_key = CALLOC (sizeof (*priv->pending_key), child_count);
+        priv->pending_key = GF_CALLOC (sizeof (*priv->pending_key), 
+                                        child_count,
+                                        gf_afr_mt_char);
         if (!priv->pending_key) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
@@ -2975,8 +3009,9 @@ init (xlator_t *this)
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
 
-                ret = asprintf (&priv->pending_key[i], "%s.%s", AFR_XATTR_PREFIX,
-                                trav->xlator->name);
+                ret = gf_asprintf (&priv->pending_key[i], "%s.%s", 
+                                   AFR_XATTR_PREFIX,
+                                   trav->xlator->name);
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "asprintf failed to set pending key");

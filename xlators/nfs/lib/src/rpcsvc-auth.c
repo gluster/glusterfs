@@ -36,7 +36,7 @@ rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
         if ((!list) || (!init) || (!idfier))
                 return -1;
 
-        new = CALLOC (1, sizeof (*new));
+        new = GF_CALLOC (1, sizeof (*new), gf_common_mt_rpcsvc_auth_list);
         if (!new) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Memory allocation failed");
                 return -1;
@@ -312,7 +312,7 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
                 if (count >= arrlen)
                         break;
 
-                gen = asprintf (&srchstr, "rpc-auth.%s", auth->name);
+                gen = gf_asprintf (&srchstr, "rpc-auth.%s", auth->name);
                 if (gen == -1) {
                         count = -1;
                         goto err;
@@ -334,9 +334,9 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
                                         "d to read auth val");
                 }
 
-                FREE (srchstr);
-                spec = asprintf (&srchstr, "rpc-auth.%s.%s", auth->name,
-                                 volname);
+                GF_FREE (srchstr);
+                spec = gf_asprintf (&srchstr, "rpc-auth.%s.%s", auth->name,
+                                    volname);
                 if (spec == -1) {
                         count = -1;
                         goto err;
@@ -360,7 +360,7 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
                                         "d to read auth val");
                 }
 
-                FREE (srchstr);
+                GF_FREE (srchstr);
                 final = rpcsvc_combine_gen_spec_volume_checks (gen, spec);
                 if (final == RPCSVC_AUTH_ACCEPT) {
                         autharr[count] = auth->auth->authnum;

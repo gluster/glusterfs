@@ -29,6 +29,7 @@
 #include "scheduler.h"
 #include "call-stub.h"
 #include "compat-errno.h"
+#include "afr-mem-types.h"
 
 #define AFR_XATTR_PREFIX "trusted.afr"
 
@@ -302,7 +303,7 @@ typedef struct _afr_local {
 		} readlink;
 
 		struct {
-			const char *name;
+			char *name;
 			int last_tried;
 		} getxattr;
 
@@ -401,7 +402,7 @@ typedef struct _afr_local {
 		} setxattr;
 
 		struct {
-			const char *name;
+			char *name;
 		} removexattr;
 
 		/* dir write */
@@ -509,8 +510,8 @@ typedef struct _afr_local {
 		unsigned char *locked_nodes;
 		int lock_count;
 
-		const char *basename;
-		const char *new_basename;
+		char *basename;
+		char *new_basename;
 
 		loc_t parent_loc;
 		loc_t new_parent_loc;
@@ -559,7 +560,8 @@ typedef struct {
 
 /* try alloc and if it fails, goto label */
 #define ALLOC_OR_GOTO(var, type, label) do {			\
-		var = CALLOC (sizeof (type), 1);		\
+		var = GF_CALLOC (sizeof (type), 1,              \
+                                gf_afr_mt_##type);               \
 		if (!var) {					\
 			gf_log (this->name, GF_LOG_ERROR,	\
 				"out of memory :(");		\
@@ -643,7 +645,7 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
 		frame->local = NULL;                    \
 		STACK_UNWIND_STRICT (fop, frame, params);       \
 		afr_local_cleanup (__local, __this);	\
-		free (__local);				\
+		GF_FREE (__local);				\
 } while (0);					
 
 #define AFR_STACK_DESTROY(frame)			\
@@ -655,7 +657,7 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
 		frame->local = NULL;                    \
 		STACK_DESTROY (frame->root);		\
 		afr_local_cleanup (__local, __this);	\
-		free (__local);				\
+		GF_FREE (__local);			\
 } while (0);					
 
 /* allocate and return a string that is the basename of argument */
@@ -664,9 +666,9 @@ AFR_BASENAME (const char *str)
 {
 	char *__tmp_str = NULL;				
 	char *__basename_str = NULL;			
-	__tmp_str = strdup (str);			
-	__basename_str = strdup (basename (__tmp_str));	
-	FREE (__tmp_str);
+	__tmp_str = gf_strdup (str);			
+	__basename_str = gf_strdup (basename (__tmp_str));	
+	GF_FREE (__tmp_str);
 	return __basename_str;
 }
 
@@ -674,8 +676,9 @@ AFR_BASENAME (const char *str)
 static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
-	local->child_up = CALLOC (sizeof (*local->child_up),
-				  priv->child_count);
+	local->child_up = GF_CALLOC (sizeof (*local->child_up),
+			       	     priv->child_count,
+                                     gf_afr_mt_char);
 	if (!local->child_up) {
 		return -ENOMEM;
 	}
@@ -731,31 +734,36 @@ afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
 
         local->first_up_child = afr_first_up_child (priv);
 
-	local->child_errno = CALLOC (sizeof (*local->child_errno),
-				     priv->child_count);
+	local->child_errno = GF_CALLOC (sizeof (*local->child_errno),
+				        priv->child_count,
+                                        gf_afr_mt_int32_t);
 	if (!local->child_errno) {
 		return -ENOMEM;
 	}
 
-	local->pending = CALLOC (sizeof (*local->pending),
-                                 priv->child_count);
+	local->pending = GF_CALLOC (sizeof (*local->pending),
+                                    priv->child_count,
+                                    gf_afr_mt_int32_t);
         
 	if (!local->pending) {
 		return -ENOMEM;
 	}
 
         for (i = 0; i < priv->child_count; i++) {
-                local->pending[i] = CALLOC (sizeof (*local->pending[i]),
-                                            3); /* data + metadata + entry */
+                local->pending[i] = GF_CALLOC (sizeof (*local->pending[i]),
+                                               3, /* data + metadata + entry */
+                                               gf_afr_mt_int32_t);
                 if (!local->pending[i])
                         return -ENOMEM;
         }
         
-	local->transaction.locked_nodes = CALLOC (sizeof (*local->transaction.locked_nodes),
-						  priv->child_count);
+	local->transaction.locked_nodes = GF_CALLOC (sizeof (*local->transaction.locked_nodes),
+						     priv->child_count,
+                                                     gf_afr_mt_char);
 
-	local->transaction.child_errno = CALLOC (sizeof (*local->transaction.child_errno),
-						  priv->child_count);
+	local->transaction.child_errno = GF_CALLOC (sizeof (*local->transaction.child_errno),
+					            priv->child_count,
+                                                    gf_afr_mt_int32_t);
 
 	return 0;
 }

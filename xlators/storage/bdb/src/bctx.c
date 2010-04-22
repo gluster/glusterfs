@@ -25,12 +25,12 @@ static void
 __destroy_bctx (bctx_t *bctx)
 {
         if (bctx->directory)
-                FREE (bctx->directory);
+                GF_FREE (bctx->directory);
 
         if (bctx->db_path)
-                FREE (bctx->db_path);
+                GF_FREE (bctx->db_path);
 
-        FREE (bctx);
+        GF_FREE (bctx);
 }
 
 static void
@@ -236,16 +236,16 @@ __create_bctx (bctx_table_t *table,
         bctx_t *bctx = NULL;
         char *db_path = NULL;
 
-        bctx = CALLOC (1, sizeof (*bctx));
+        bctx = GF_CALLOC (1, sizeof (*bctx), gf_bdb_mt_bctx_t);
         GF_VALIDATE_OR_GOTO ("bctx", bctx, out);
 
         bctx->table = table;
-        bctx->directory = strdup (path);
+        bctx->directory = gf_strdup (path);
         GF_VALIDATE_OR_GOTO ("bctx", bctx->directory, out);
 
         MAKE_REAL_PATH_TO_STORAGE_DB (db_path, BDB_THIS (table), path);
 
-        bctx->db_path = strdup (db_path);
+        bctx->db_path = gf_strdup (db_path);
         GF_VALIDATE_OR_GOTO ("bctx", bctx->directory, out);
 
         INIT_LIST_HEAD (&bctx->c_list);
@@ -327,7 +327,7 @@ bctx_parent (bctx_table_t *table,
         GF_VALIDATE_OR_GOTO ("bctx", table, out);
         GF_VALIDATE_OR_GOTO ("bctx", path, out);
 
-        pathname = strdup (path);
+        pathname = gf_strdup (path);
         GF_VALIDATE_OR_GOTO ("bctx", pathname, out);
         directory = dirname (pathname);
 

@@ -31,6 +31,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "common-utils.h"
+#include "read-ahead-mem-types.h"
 
 struct ra_conf;
 struct ra_local;

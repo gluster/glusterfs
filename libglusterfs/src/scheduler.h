@@ -33,6 +33,7 @@ struct sched_ops {
   void (*update) (xlator_t *this);
   xlator_t *(*schedule) (xlator_t *this, const void *path);
   void (*notify) (xlator_t *xl, int32_t event, void *data);
+  int32_t (*mem_acct_init) (xlator_t *this);
 };
 
 extern struct sched_ops *get_scheduler (xlator_t *xl, const char *name);

@@ -97,19 +97,21 @@ event_pool_new_poll (int count)
 	struct event_pool *event_pool = NULL;
 	int                ret = -1;
 
-	event_pool = CALLOC (1, sizeof (*event_pool));
+	event_pool = GF_CALLOC (1, sizeof (*event_pool),
+                                gf_common_mt_event_pool);
 
 	if (!event_pool)
 		return NULL;
 
 	event_pool->count = count;
-	event_pool->reg = CALLOC (event_pool->count,
-				  sizeof (*event_pool->reg));
+	event_pool->reg = GF_CALLOC (event_pool->count,
+				  sizeof (*event_pool->reg),
+                                  gf_common_mt_reg);
 
 	if (!event_pool->reg) {
 		gf_log ("poll", GF_LOG_CRITICAL,
 			"failed to allocate event registry");
-		free (event_pool);
+		GF_FREE (event_pool);
 		return NULL;
 	}
 
@@ -120,8 +122,8 @@ event_pool_new_poll (int count)
 	if (ret == -1) {
 		gf_log ("poll", GF_LOG_ERROR,
 			"pipe creation failed (%s)", strerror (errno));
-		free (event_pool->reg);
-		free (event_pool);
+		GF_FREE (event_pool->reg);
+		GF_FREE (event_pool);
 		return NULL;
 	}
 
@@ -134,8 +136,8 @@ event_pool_new_poll (int count)
 		close (event_pool->breaker[1]);
 		event_pool->breaker[0] = event_pool->breaker[1] = -1;
 
-		free (event_pool->reg);
-		free (event_pool);
+		GF_FREE (event_pool->reg);
+		GF_FREE (event_pool);
 		return NULL;
 	}
 
@@ -149,8 +151,8 @@ event_pool_new_poll (int count)
 		close (event_pool->breaker[1]);
 		event_pool->breaker[0] = event_pool->breaker[1] = -1;
 
-		free (event_pool->reg);
-		free (event_pool);
+		GF_FREE (event_pool->reg);
+		GF_FREE (event_pool);
 		return NULL;
 	}
 
@@ -163,8 +165,8 @@ event_pool_new_poll (int count)
 		close (event_pool->breaker[1]);
 		event_pool->breaker[0] = event_pool->breaker[1] = -1;
 
-		free (event_pool->reg);
-		free (event_pool);
+		GF_FREE (event_pool->reg);
+		GF_FREE (event_pool);
 		return NULL;
 	}
 
@@ -190,9 +192,9 @@ event_register_poll (struct event_pool *event_pool, int fd,
 		{
 			event_pool->count += 256;
 
-			event_pool->reg = realloc (event_pool->reg,
-						   event_pool->count *
-						   sizeof (*event_pool->reg));
+			event_pool->reg = GF_REALLOC (event_pool->reg,
+					        event_pool->count *
+						sizeof (*event_pool->reg));
 		}
 
 		idx = event_pool->used++;
@@ -392,14 +394,15 @@ event_dispatch_poll_resize (struct event_pool *event_pool,
 
 		if (event_pool->used > event_pool->evcache_size) {
 			if (event_pool->evcache)
-				free (event_pool->evcache);
+				GF_FREE (event_pool->evcache);
 
 			event_pool->evcache = ufds = NULL;
 
 			event_pool->evcache_size = event_pool->used;
 
-			ufds = CALLOC (sizeof (struct pollfd),
-					       event_pool->evcache_size);
+			ufds = GF_CALLOC (sizeof (struct pollfd),
+					  event_pool->evcache_size,
+                                          gf_common_mt_pollfd);
 			event_pool->evcache = ufds;
 		}
 
@@ -478,19 +481,21 @@ event_pool_new_epoll (int count)
 	struct event_pool *event_pool = NULL;
 	int                epfd = -1;
 
-	event_pool = CALLOC (1, sizeof (*event_pool));
+	event_pool = GF_CALLOC (1, sizeof (*event_pool),
+                                gf_common_mt_event_pool);
 
 	if (!event_pool)
 		return NULL;
 
 	event_pool->count = count;
-	event_pool->reg = CALLOC (event_pool->count,
-				  sizeof (*event_pool->reg));
+	event_pool->reg = GF_CALLOC (event_pool->count,
+				  sizeof (*event_pool->reg),
+                                  gf_common_mt_reg);
 
 	if (!event_pool->reg) {
 		gf_log ("epoll", GF_LOG_CRITICAL,
 			"event registry allocation failed");
-		free (event_pool);
+		GF_FREE (event_pool);
 		return NULL;
 	}
 
@@ -499,8 +504,8 @@ event_pool_new_epoll (int count)
 	if (epfd == -1) {
 		gf_log ("epoll", GF_LOG_ERROR, "epoll fd creation failed (%s)",
 			strerror (errno));
-		free (event_pool->reg);
-		free (event_pool);
+		GF_FREE (event_pool->reg);
+		GF_FREE (event_pool);
 		return NULL;
 	}
 
@@ -536,7 +541,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 		if (event_pool->count == event_pool->used) {
 			event_pool->count *= 2;
 
-			event_pool->reg = realloc (event_pool->reg,
+			event_pool->reg = GF_REALLOC (event_pool->reg,
 						   event_pool->count *
 						   sizeof (*event_pool->reg));
 
@@ -832,15 +837,16 @@ event_dispatch_epoll (struct event_pool *event_pool)
 
 			if (event_pool->used > event_pool->evcache_size) {
 				if (event_pool->evcache)
-					free (event_pool->evcache);
+					GF_FREE (event_pool->evcache);
 
 				event_pool->evcache = events = NULL;
 
 				event_pool->evcache_size =
 					event_pool->used + 256;
 
-				events = CALLOC (event_pool->evcache_size,
-						 sizeof (struct epoll_event));
+				events = GF_CALLOC (event_pool->evcache_size,
+					            sizeof (struct epoll_event),
+                                                    gf_common_mt_epoll_event);
 
 				event_pool->evcache = events;
 			}

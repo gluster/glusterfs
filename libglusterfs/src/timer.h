@@ -26,6 +26,7 @@
 #endif
 
 #include "glusterfs.h"
+#include "xlator.h"
 #include <sys/time.h>
 #include <pthread.h>
 
@@ -34,8 +35,9 @@ typedef void (*gf_timer_cbk_t) (void *);
 struct _gf_timer {
   struct _gf_timer *next, *prev;
   struct timeval at;
-  gf_timer_cbk_t cbk;
+  gf_timer_cbk_t callbk;
   void *data;
+  xlator_t *xl;
 };
 
 struct _gf_timer_registry {

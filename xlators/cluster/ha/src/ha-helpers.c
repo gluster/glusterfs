@@ -49,12 +49,14 @@ int ha_alloc_init_fd (call_frame_t *frame, fd_t *fd)
 			goto out;
 		}
 		hafdp = (hafd_t *)(long)tmp_hafdp;
-		local = frame->local = CALLOC (1, sizeof (*local));
+                local = frame->local = GF_CALLOC (1, sizeof (*local), 
+                                                  gf_ha_mt_ha_local_t);
 		if (local == NULL) {
 			ret = -ENOMEM;
 			goto out;
 		}
-		local->state = CALLOC (1, child_count);
+                local->state = GF_CALLOC (1, child_count, 
+                                          gf_ha_mt_child_count);
 		if (local->state == NULL) {
 			ret = -ENOMEM;
 			goto out;
@@ -147,7 +149,7 @@ int ha_handle_cbk (call_frame_t *frame, void *cookie, int op_ret, int op_errno)
         }
 
 	if (local->fd) {
-		FREE (local->state);
+		GF_FREE (local->state);
                 local->state = NULL;
 
 		fd_unref (local->fd);
@@ -170,7 +172,8 @@ int ha_alloc_init_inode (call_frame_t *frame, inode_t *inode)
 	local = frame->local;
 
 	if (local == NULL) {
-		local = frame->local = CALLOC (1, sizeof (*local));
+                local = frame->local = GF_CALLOC (1, sizeof (*local), 
+                                                  gf_ha_mt_ha_local_t);
 		if (local == NULL) {
 			ret = -ENOMEM;
 			goto out;

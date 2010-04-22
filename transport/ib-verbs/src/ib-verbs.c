@@ -156,7 +156,8 @@ ib_verbs_new_post (ib_verbs_device_t *device, int32_t len)
 {
         ib_verbs_post_t *post;
 
-        post = (ib_verbs_post_t *) CALLOC (1, sizeof (*post));
+        post = (ib_verbs_post_t *) GF_CALLOC (1, sizeof (*post),
+                                   gf_ibv_mt_ib_verbs_post_t);
         if (!post)
                 return NULL;
 
@@ -164,7 +165,7 @@ ib_verbs_new_post (ib_verbs_device_t *device, int32_t len)
 
         post->buf = valloc (len);
         if (!post->buf) {
-                free (post);
+                GF_FREE (post);
                 return NULL;
         }
 
@@ -174,7 +175,7 @@ ib_verbs_new_post (ib_verbs_device_t *device, int32_t len)
                                IBV_ACCESS_LOCAL_WRITE);
         if (!post->mr) {
                 free (post->buf);
-                free (post);
+                GF_FREE (post);
                 return NULL;
         }
 
@@ -216,7 +217,7 @@ ib_verbs_destroy_post (ib_verbs_post_t *post)
 {
         ibv_dereg_mr (post->mr);
         free (post->buf);
-        free (post);
+        GF_FREE (post);
 }
 
 
@@ -258,10 +259,10 @@ __ib_verbs_ioq_entry_free (ib_verbs_ioq_t *entry)
                 iobref_unref (entry->iobref);
 
         /* TODO: use mem-pool */
-        free (entry->buf);
+        GF_FREE (entry->buf);
 
         /* TODO: use mem-pool */
-        free (entry);
+        GF_FREE (entry);
 }
 
 
@@ -497,7 +498,7 @@ ib_verbs_ioq_new (char *buf, int len, struct iovec *vector,
         ib_verbs_ioq_t *entry = NULL;
 
         /* TODO: use mem-pool */
-        entry = CALLOC (1, sizeof (*entry));
+        entry = GF_CALLOC (1, sizeof (*entry), gf_ibv_mt_ib_verbs_ioq_t);
 
         assert (count <= (MAX_IOVEC-2));
 
@@ -602,7 +603,7 @@ ib_verbs_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
         copy_from += sizeof (*header);
 
         if (size1) {
-                hdr = CALLOC (1, size1);
+                hdr = GF_CALLOC (1, size1, gf_ibv_mt_char);
                 if (!hdr) {
                         gf_log (this->xl->name, GF_LOG_ERROR,
                                 "unable to allocate header for peer %s",
@@ -729,7 +730,7 @@ ib_verbs_register_peer (ib_verbs_device_t *device,
                 pthread_mutex_unlock (&qpreg->lock);
                 return;
         }
-        ent = (struct _qpent *) CALLOC (1, sizeof (*ent));
+        ent = (struct _qpent *) GF_CALLOC (1, sizeof (*ent), gf_ibv_mt_qpent);
         ERR_ABORT (ent);
         /* TODO: ref reg->peer */
         ent->peer = peer;
@@ -762,7 +763,7 @@ ib_verbs_unregister_peer (ib_verbs_device_t *device,
         ent->prev->next = ent->next;
         ent->next->prev = ent->prev;
         /* TODO: unref reg->peer */
-        free (ent);
+        GF_FREE (ent);
         qpreg->count--;
         pthread_mutex_unlock (&qpreg->lock);
 }
@@ -1476,7 +1477,7 @@ ib_verbs_options_init (transport_t *this)
         temp = dict_get (this->xl->options,
                          "transport.ib-verbs.device-name");
         if (temp)
-                options->device_name = strdup (temp->data);
+                options->device_name = gf_strdup (temp->data);
 
         return;
 }
@@ -1519,7 +1520,8 @@ ib_verbs_get_device (transport_t *this,
 
         if (!trav) {
 
-                trav = CALLOC (1, sizeof (*trav));
+                trav = GF_CALLOC (1, sizeof (*trav), 
+                                  gf_ibv_mt_ib_verbs_device_t);
                 ERR_ABORT (trav);
                 priv->device = trav;
 
@@ -1555,7 +1557,7 @@ ib_verbs_get_device (transport_t *this,
                                 "port: %u", port);
                 }
 
-                trav->device_name = strdup (device_name);
+                trav->device_name = gf_strdup (device_name);
                 trav->port = port;
 
                 trav->next = ctx->ib;
@@ -1684,7 +1686,7 @@ ib_verbs_init (transport_t *this)
                 if (!options->device_name) {
                         if (*dev_list) {
                                 options->device_name = 
-                                        strdup (ibv_get_device_name (*dev_list));
+                                        gf_strdup (ibv_get_device_name (*dev_list));
                         } else {
                                 gf_log ("transport/ib-verbs", GF_LOG_CRITICAL,
                                         "IB device list is empty. Check for "
@@ -1828,7 +1830,7 @@ ib_verbs_handshake_pollin (transport_t *this)
                         switch (priv->handshake.incoming.state) 
                         {
                         case IB_VERBS_HANDSHAKE_START:
-                                buf = priv->handshake.incoming.buf = CALLOC (1, 256);
+                                buf = priv->handshake.incoming.buf = GF_CALLOC (1, 256, gf_ibv_mt_char);
                                 ib_verbs_fill_handshake_data (buf, &priv->handshake.incoming, priv);
                                 buf[0] = 0;
                                 priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_RECEIVING_DATA;
@@ -1941,7 +1943,7 @@ ib_verbs_handshake_pollin (transport_t *this)
                                              (struct sockaddr *) &this->peerinfo.sockaddr,
                                              &sock_len);
 
-                                FREE (priv->handshake.incoming.buf);
+                                GF_FREE (priv->handshake.incoming.buf);
                                 priv->handshake.incoming.buf = NULL;
                                 priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_COMPLETE;
                         }
@@ -1981,7 +1983,7 @@ ib_verbs_handshake_pollout (transport_t *this)
                         switch (priv->handshake.outgoing.state) 
                         {
                         case IB_VERBS_HANDSHAKE_START:
-                                buf = priv->handshake.outgoing.buf = CALLOC (1, 256);
+                                buf = priv->handshake.outgoing.buf = GF_CALLOC (1, 256, gf_ibv_mt_char);
                                 ib_verbs_fill_handshake_data (buf, &priv->handshake.outgoing, priv);
                                 priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_SENDING_DATA;
                                 break;
@@ -2031,7 +2033,7 @@ ib_verbs_handshake_pollout (transport_t *this)
                                 }
             
                                 if (!ret) {
-                                        FREE (priv->handshake.outgoing.buf);
+                                        GF_FREE (priv->handshake.outgoing.buf);
                                         priv->handshake.outgoing.buf = NULL;
                                         priv->handshake.outgoing.state = IB_VERBS_HANDSHAKE_COMPLETE;
                                 }
@@ -2082,14 +2084,14 @@ ib_verbs_handshake_pollerr (transport_t *this)
                 }
 
                 if (priv->handshake.incoming.buf) {
-                        FREE (priv->handshake.incoming.buf);
+                        GF_FREE (priv->handshake.incoming.buf);
                         priv->handshake.incoming.buf = NULL;
                 }
 
                 priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_START;
 
                 if (priv->handshake.outgoing.buf) {
-                        FREE (priv->handshake.outgoing.buf);
+                        GF_FREE (priv->handshake.outgoing.buf);
                         priv->handshake.outgoing.buf = NULL;
                 }
 
@@ -2352,9 +2354,11 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
         if (!poll_in)
                 return 0;
 
-        this = CALLOC (1, sizeof (transport_t));
+        this = GF_CALLOC (1, sizeof (transport_t),
+                          gf_ibv_mt_transport_t);
         ERR_ABORT (this);
-        priv = CALLOC (1, sizeof (ib_verbs_private_t));
+        priv = GF_CALLOC (1, sizeof (ib_verbs_private_t),
+                          gf_ibv_mt_ib_verbs_private_t);
         ERR_ABORT (priv);
         this->private = priv;
         /* Copy all the ib_verbs related values in priv, from trans_priv 
@@ -2381,8 +2385,8 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
                 gf_log ("ib-verbs/server", GF_LOG_ERROR,
                         "accept() failed: %s",
                         strerror (errno));
-                free (this->private);
-                free (this);
+                GF_FREE (this->private);
+                GF_FREE (this);
                 return -1;
         }
 
@@ -2445,7 +2449,7 @@ ib_verbs_listen (transport_t *this)
                 gf_log ("ib-verbs/server", GF_LOG_CRITICAL,
                         "init: failed to create socket, error: %s",
                         strerror (errno));
-                free (this->private);
+                GF_FREE (this->private);
                 ret = -1;
                 goto err;
         }
@@ -2504,7 +2508,8 @@ struct transport_ops tops = {
 int32_t
 init (transport_t *this)
 {
-        ib_verbs_private_t *priv = CALLOC (1, sizeof (*priv));
+        ib_verbs_private_t *priv = GF_CALLOC (1, sizeof (*priv),
+                                              gf_ibv_mt_ib_verbs_private_t);
         this->private = priv;
         priv->sock = -1;
 
@@ -2532,8 +2537,27 @@ fini (struct transport *this)
         gf_log (this->xl->name, GF_LOG_TRACE,
                 "called fini on transport: %p",
                 this);
-        free (priv);
+        GF_FREE (priv);
         return;
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_common_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
 }
 
 /* TODO: expand each option */

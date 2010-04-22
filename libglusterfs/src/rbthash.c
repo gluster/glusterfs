@@ -116,11 +116,13 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc,
         }
 
 
-        newtab = CALLOC (1, sizeof (*newtab));
+        newtab = GF_CALLOC (1, sizeof (*newtab),
+                            gf_common_mt_rbthash_table_t);
         if (!newtab)
                 return NULL;
 
-        newtab->buckets = CALLOC (buckets, sizeof (struct rbthash_bucket));
+        newtab->buckets = GF_CALLOC (buckets, sizeof (struct rbthash_bucket),
+                                     gf_common_mt_rbthash_bucket);
         if (!newtab->buckets) {
                 gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to allocate memory");
                 goto free_newtab;
@@ -157,11 +159,11 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc,
 
 free_buckets:
         if (ret == -1)
-                FREE (newtab->buckets);
+                GF_FREE (newtab->buckets);
 
 free_newtab:
         if (ret == -1) {
-                FREE (newtab);
+                GF_FREE (newtab);
                 newtab = NULL;
         }
 
@@ -185,7 +187,7 @@ rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
         }
 
         entry->data = data;
-        entry->key = CALLOC (keylen, sizeof (char));
+        entry->key = GF_CALLOC (keylen, sizeof (char), gf_common_mt_char);
         if (!entry->key) {
                 gf_log (GF_RBTHASH, GF_LOG_ERROR, "Memory allocation failed");
                 goto free_entry;
@@ -216,7 +218,7 @@ rbthash_deinit_entry (rbthash_table_t *tbl, rbthash_entry_t *entry)
                 return;
 
         if (entry->key)
-                FREE (entry->key);
+                GF_FREE (entry->key);
 
         if (tbl) {
                 if ((entry->data) && (tbl->dfunc))
@@ -374,7 +376,7 @@ rbthash_remove (rbthash_table_t *tbl, void *key, int keylen)
         if (!entry)
                 return NULL;
 
-        FREE (entry->key);
+        GF_FREE (entry->key);
         dataref = entry->data;
         mem_put (tbl->entrypool, entry);
 
@@ -418,7 +420,7 @@ rbthash_table_destroy (rbthash_table_t *tbl)
         if (tbl->pool_alloced)
                 mem_pool_destroy (tbl->entrypool);
 
-        FREE (tbl->buckets);
-        FREE (tbl);
+        GF_FREE (tbl->buckets);
+        GF_FREE (tbl);
 }
 

@@ -78,7 +78,7 @@ rpcsvc_stage_init (rpcsvc_t *svc)
         if (!svc)
                 return NULL;
 
-        stg = CALLOC (1, sizeof(*stg));
+        stg = GF_CALLOC (1, sizeof(*stg), gf_common_mt_rpcsvc_stage_t);
         if (!stg)
                 return NULL;
 
@@ -106,7 +106,7 @@ rpcsvc_stage_init (rpcsvc_t *svc)
         ret = 0;
 free_stg:
         if (ret == -1) {
-                FREE (stg);
+                GF_FREE (stg);
                 stg = NULL;
         }
 
@@ -135,7 +135,7 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         if ((!ctx) || (!options))
                 return NULL;
 
-        svc = CALLOC (1, sizeof (*svc));
+        svc = GF_CALLOC (1, sizeof (*svc), gf_common_mt_rpcsvc_t);
         if (!svc)
                 return NULL;
 
@@ -169,7 +169,7 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         ret = 0;
 free_svc:
         if (ret == -1) {
-                FREE (svc);
+                GF_FREE (svc);
                 svc = NULL;
         }
 
@@ -248,7 +248,7 @@ rpcsvc_conn_peer_check_allow (dict_t *options, char *volname, char *clstr)
          * subvolumes.
          */
         if (volname) {
-                ret = asprintf (&srchstr, "rpc-auth.addr.%s.allow", volname);
+                ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.allow", volname);
                 if (ret == -1) {
                         gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
                         ret = RPCSVC_AUTH_DONTCARE;
@@ -259,7 +259,7 @@ rpcsvc_conn_peer_check_allow (dict_t *options, char *volname, char *clstr)
 
         ret = rpcsvc_conn_peer_check_search (options, srchstr, clstr);
         if (volname)
-                FREE (srchstr);
+                GF_FREE (srchstr);
 
         if (ret == 0)
                 ret = RPCSVC_AUTH_ACCEPT;
@@ -280,7 +280,7 @@ rpcsvc_conn_peer_check_reject (dict_t *options, char *volname, char *clstr)
                 return ret;
 
         if (volname) {
-                ret = asprintf (&srchstr, "rpc-auth.addr.%s.reject", volname);
+                ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.reject", volname);
                 if (ret == -1) {
                         gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
                         ret = RPCSVC_AUTH_REJECT;
@@ -291,7 +291,7 @@ rpcsvc_conn_peer_check_reject (dict_t *options, char *volname, char *clstr)
 
         ret = rpcsvc_conn_peer_check_search (options, srchstr, clstr);
         if (volname)
-                FREE (srchstr);
+                GF_FREE (srchstr);
 
         if (ret == 0)
                 ret = RPCSVC_AUTH_REJECT;
@@ -591,14 +591,14 @@ rpcsvc_volume_allowed (dict_t *options, char *volname)
         if ((!options) || (!volname))
                 return NULL;
 
-        ret = asprintf (&srchstr, "rpc-auth.addr.%s.allow", volname);
+        ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.allow", volname);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
                 goto out;
         }
 
         if (!dict_get (options, srchstr)) {
-                FREE (srchstr);
+                GF_FREE (srchstr);
                 srchstr = globalrule;
                 ret = dict_get_str (options, srchstr, &addrstr);
         } else
@@ -617,7 +617,7 @@ rpcsvc_conn_init (rpcsvc_t *svc, rpcsvc_program_t *prog, int sockfd)
         int             ret = -1;
         unsigned int    poolcount = 0;
 
-        conn = CALLOC (1, sizeof(*conn));
+        conn = GF_CALLOC (1, sizeof(*conn), gf_common_mt_rpcsvc_conn_t);
         if (!conn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "memory allocation failed");
                 return NULL;
@@ -659,7 +659,7 @@ free_txp:
 
 free_conn:
         if (ret == -1) {
-                FREE (conn);
+                GF_FREE (conn);
                 conn = NULL;
         }
 
@@ -677,7 +677,7 @@ rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
                 conn->program->conn_destroy (conn->program->private, conn);
 
         /* Need to destory record state, txlists etc. */
-        FREE (conn);
+        GF_FREE (conn);
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Connection destroyed");
 }
 
@@ -917,7 +917,7 @@ rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname, rpcsvc_conn_t *conn)
         }
 
         /* Disabled by default */
-        ret = asprintf (&srchstr, "rpc-auth.ports.%s.insecure", volname);
+        ret = gf_asprintf (&srchstr, "rpc-auth.ports.%s.insecure", volname);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
                 ret = RPCSVC_AUTH_REJECT;
@@ -2632,7 +2632,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
         if (!svc)
                 return -1;
 
-        newprog = CALLOC (1, sizeof(*newprog));
+        newprog = GF_CALLOC (1, sizeof(*newprog), gf_common_mt_rpcsvc_program_t);
         if (!newprog)
                 return -1;
 
@@ -2666,7 +2666,7 @@ free_prog:
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program registration failed:"
                         " %s, Num: %d, Ver: %d, Port: %d", newprog->progname,
                         newprog->prognum, newprog->progver, newprog->progport);
-                FREE (newprog);
+                GF_FREE (newprog);
         }
 
         return ret;

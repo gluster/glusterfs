@@ -26,6 +26,7 @@
 
 #include "scheduler.h"
 #include "common-utils.h"
+#include "nufa-mem-types.h"
 
 struct nufa_sched_struct {
 	xlator_t *xl;
@@ -63,7 +64,8 @@ nufa_init (xlator_t *xl)
 	xlator_list_t *trav_xl = xl->children;
 	struct nufa_struct *nufa_buf = NULL;
 
-	nufa_buf = CALLOC (1, sizeof (struct nufa_struct));
+	nufa_buf = GF_CALLOC (1, sizeof (struct nufa_struct),
+                              gf_nufa_mt_nufa_struct);
 	ERR_ABORT (nufa_buf);
 
 	data = dict_get (xl->options, "scheduler.limits.min-free-disk");
@@ -112,9 +114,11 @@ nufa_init (xlator_t *xl)
 	}
 	nufa_buf->child_count = index;
 	nufa_buf->sched_index = 0;
-	nufa_buf->array = CALLOC (index, sizeof (struct nufa_sched_struct));
+	nufa_buf->array = GF_CALLOC (index, sizeof (struct nufa_sched_struct),
+                                     gf_nufa_mt_nufa_sched_struct);
 	ERR_ABORT (nufa_buf->array);
-	nufa_buf->local_array = CALLOC (index, sizeof (int32_t));
+	nufa_buf->local_array = GF_CALLOC (index, sizeof (int32_t),
+                                           gf_nufa_mt_int32_t);
 	ERR_ABORT (nufa_buf->array);
 	trav_xl = xl->children;
 	
@@ -123,9 +127,9 @@ nufa_init (xlator_t *xl)
 		/* Error */
 		gf_log ("nufa", GF_LOG_ERROR, 
 			"No 'local-volume-name' option given in volume file");
-		FREE (nufa_buf->array);
-		FREE (nufa_buf->local_array);
-		FREE (nufa_buf);
+		GF_FREE (nufa_buf->array);
+		GF_FREE (nufa_buf->local_array);
+		GF_FREE (nufa_buf);
 		return -1;
 	}
 
@@ -147,7 +151,7 @@ nufa_init (xlator_t *xl)
 		int32_t array_index = 0;
 		char *child = NULL;
 		char *tmp = NULL;
-		char *childs_data = strdup (local_name->data);
+		char *childs_data = gf_strdup (local_name->data);
 		
 		child = strtok_r (childs_data, ",", &tmp);
 		while (child) {
@@ -168,9 +172,9 @@ nufa_init (xlator_t *xl)
 				gf_log ("nufa", GF_LOG_ERROR, 
 					"option 'scheduler.local-volume-name' "
 					"%s is wrong", child);
-				FREE (nufa_buf->array);
-				FREE (nufa_buf->local_array);
-				FREE (nufa_buf);
+				GF_FREE (nufa_buf->array);
+				GF_FREE (nufa_buf->local_array);
+				GF_FREE (nufa_buf);
 				return -1;
 			} else {
 				nufa_buf->local_array[array_index++] = index;
@@ -178,7 +182,7 @@ nufa_init (xlator_t *xl)
 			}
 			child = strtok_r (NULL, ",", &tmp);
 		}
-		free (childs_data);
+		GF_FREE (childs_data);
 	}
 
 	LOCK_INIT (&nufa_buf->nufa_lock);
@@ -193,9 +197,9 @@ nufa_fini (xlator_t *xl)
 		(struct nufa_struct *)*((long *)xl->private);
 
 	LOCK_DESTROY (&nufa_buf->nufa_lock);
-	FREE (nufa_buf->local_array);
-	FREE (nufa_buf->array);
-	FREE (nufa_buf);
+	GF_FREE (nufa_buf->local_array);
+	GF_FREE (nufa_buf->array);
+	GF_FREE (nufa_buf);
 }
 
 static int32_t 
@@ -379,12 +383,32 @@ nufa_notify (xlator_t *xl, int32_t event, void *data)
 
 }
 
+int32_t
+nufa_mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_nufa_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 struct sched_ops sched = {
 	.init     = nufa_init,
 	.fini     = nufa_fini,
 	.update   = nufa_update,
 	.schedule = nufa_schedule,
-	.notify   = nufa_notify
+	.notify   = nufa_notify,
+        .mem_acct_init = nufa_mem_acct_init,
 };
 
 struct volume_options options[] = {

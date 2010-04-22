@@ -32,6 +32,7 @@
 #include "common-utils.h"
 #include "compat.h"
 #include "compat-errno.h"
+#include "stripe-mem-types.h"
 #include <fnmatch.h>
 #include <signal.h>
 

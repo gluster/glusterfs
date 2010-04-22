@@ -69,11 +69,12 @@ prepare_components (call_frame_t *frame)
         this  = frame->this;
         resolve = state->resolve_now;
 
-        resolved = strdup (resolve->path);
+        resolved = gf_strdup (resolve->path);
         resolve->resolved = resolved;
 
         count = component_count (resolve->path);
-        components = CALLOC (sizeof (*components), count);
+        components = GF_CALLOC (sizeof (*components), count,
+                                gf_server_mt_resolve_comp);
         resolve->components = components;
 
         components[0].basename = "";
@@ -116,7 +117,7 @@ resolve_loc_touchup (call_frame_t *frame)
                 }
 
                 if (!path)
-                        path = strdup (resolve->path);
+                        path = gf_strdup (resolve->path);
 
                 loc->path = path;
         }
@@ -205,7 +206,7 @@ resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* join the current component with the path resolved until now */
         *(components[i].basename - 1) = '/';
 
-        resolve->deep_loc.path   = strdup (resolve->resolved);
+        resolve->deep_loc.path   = gf_strdup (resolve->resolved);
         resolve->deep_loc.parent = inode_ref (components[i-1].inode);
         resolve->deep_loc.inode  = inode_new (state->itable);
         resolve->deep_loc.name   = components[i].basename;
@@ -241,7 +242,7 @@ resolve_path_deep (call_frame_t *frame)
 
         /* start from the root */
         resolve->deep_loc.inode = state->itable->root;
-        resolve->deep_loc.path  = strdup ("/");
+        resolve->deep_loc.path  = gf_strdup ("/");
         resolve->deep_loc.name  = "";
 
         STACK_WIND_COOKIE (frame, resolve_deep_cbk, (void *) (long) i,

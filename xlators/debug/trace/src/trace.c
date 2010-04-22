@@ -75,7 +75,7 @@ trace_stat_to_str (struct iatt *stbuf)
         strftime (ctime_buf, 256, "[%b %d %H:%M:%S]",
                   localtime ((time_t *)&stbuf->ia_ctime));
 
-        asprint_ret_value = asprintf (&statstr,
+        asprint_ret_value = gf_asprintf (&statstr,
                                       "ia_ino=%"PRIu64", ia_gen=%"PRIu64
                                       ", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
                                       "ia_uid=%d, ia_gid=%d, ia_size=%"PRId64", ia_blocks=%"PRId64
@@ -118,11 +118,11 @@ trace_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 statstr, preparentstr, postparentstr);
 
                         if (statstr)
-                                FREE (statstr);
+                                GF_FREE (statstr);
                         if (preparentstr)
-                                FREE (preparentstr);
+                                GF_FREE (preparentstr);
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -255,10 +255,10 @@ trace_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 preopstr, postopstr);
 
                         if (preopstr)
-                                FREE (preopstr);
+                                GF_FREE (preopstr);
 
                         if (postopstr)
-                                FREE (postopstr);
+                                GF_FREE (postopstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -324,10 +324,10 @@ trace_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 preopstr, postopstr);
 
                         if (preopstr)
-                                FREE (preopstr);
+                                GF_FREE (preopstr);
 
                         if (postopstr)
-                                FREE (postopstr);
+                                GF_FREE (postopstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -472,10 +472,10 @@ trace_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 postparentstr);
 
                         if (preparentstr)
-                                FREE (preparentstr);
+                                GF_FREE (preparentstr);
 
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -519,16 +519,16 @@ trace_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 prenewparentstr, postnewparentstr);
 
                         if (preoldparentstr)
-                                FREE (preoldparentstr);
+                                GF_FREE (preoldparentstr);
 
                         if (postoldparentstr)
-                                FREE (postoldparentstr);
+                                GF_FREE (postoldparentstr);
 
                         if (prenewparentstr)
-                                FREE (prenewparentstr);
+                                GF_FREE (prenewparentstr);
 
                         if (postnewparentstr)
-                                FREE (postnewparentstr);
+                                GF_FREE (postnewparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -569,7 +569,7 @@ trace_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 frame->root->unique, op_ret, op_errno);
 
                 if (statstr)
-                        FREE (statstr);
+                        GF_FREE (statstr);
         }
 
         STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, buf, stbuf);
@@ -598,9 +598,9 @@ trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 statstr, postparentstr);
 
                         if (statstr)
-                                FREE (statstr);
+                                GF_FREE (statstr);
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -638,13 +638,13 @@ trace_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 statstr, preparentstr, postparentstr);
 
                         if (statstr)
-                                FREE (statstr);
+                                GF_FREE (statstr);
 
                         if (preparentstr)
-                                FREE (preparentstr);
+                                GF_FREE (preparentstr);
 
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
 
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
@@ -683,13 +683,13 @@ trace_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 statstr, preparentstr, postparentstr);
 
                         if (statstr)
-                                FREE (statstr);
+                                GF_FREE (statstr);
 
                         if (preparentstr)
-                                FREE (preparentstr);
+                                GF_FREE (preparentstr);
 
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -727,13 +727,13 @@ trace_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 statstr, preparentstr, postparentstr);
 
                         if (statstr)
-                                FREE (statstr);
+                                GF_FREE (statstr);
 
                         if (preparentstr)
-                                FREE (preparentstr);
+                                GF_FREE (preparentstr);
 
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -771,13 +771,13 @@ trace_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 statstr, preparentstr, postparentstr);
 
                         if (statstr)
-                                FREE (statstr);
+                                GF_FREE (statstr);
 
                         if (preparentstr)
-                                FREE (preparentstr);
+                                GF_FREE (preparentstr);
 
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -841,10 +841,10 @@ trace_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 postparentstr);
 
                         if (preparentstr)
-                                FREE (preparentstr);
+                                GF_FREE (preparentstr);
 
                         if (postparentstr)
-                                FREE (postparentstr);
+                                GF_FREE (postparentstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -878,10 +878,10 @@ trace_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 postopstr);
 
                         if (preopstr)
-                                FREE (preopstr);
+                                GF_FREE (preopstr);
 
                         if (postopstr)
-                                FREE (postopstr);
+                                GF_FREE (postopstr);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -1017,10 +1017,10 @@ trace_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 prebufstr, postbufstr);
 
                         if (prebufstr)
-                                FREE (prebufstr);
+                                GF_FREE (prebufstr);
 
                         if (postbufstr)
-                                FREE (postbufstr);
+                                GF_FREE (postbufstr);
 
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,

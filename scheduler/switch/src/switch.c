@@ -28,6 +28,7 @@
 
 #include "xlator.h"
 #include "scheduler.h"
+#include "switch-mem-types.h"
 
 struct switch_sched_array {
 	xlator_t *xl;
@@ -58,20 +59,20 @@ static xlator_t *
 switch_get_matching_xl (const char *path, struct switch_sched_struct *cond)
 {
 	struct switch_sched_struct *trav      = cond;
-	char                       *pathname  = strdup (path);
+	char                       *pathname  = gf_strdup (path);
 	int                         index     = 0;
 
 	while (trav) {
 		if (fnmatch (trav->path_pattern, 
 			     pathname, FNM_NOESCAPE) == 0) {
-			free (pathname);
+			GF_FREE (pathname);
 			trav->node_index %= trav->num_child;
 			index = (trav->node_index++) % trav->num_child;
 			return trav->array[index].xl;
 		}
 		trav = trav->next;
 	}
-	free (pathname);
+	GF_FREE (pathname);
 	return NULL;
 }
 
@@ -107,7 +108,8 @@ switch_init (xlator_t *xl)
 	xlator_list_t *trav_xl = xl->children;
 	struct switch_struct *switch_buf = NULL;
   
-	switch_buf = CALLOC (1, sizeof (struct switch_struct));
+	switch_buf = GF_CALLOC (1, sizeof (struct switch_struct),
+                                gf_switch_mt_switch_struct);
 	ERR_ABORT (switch_buf);
 
 	while (trav_xl) {
@@ -115,8 +117,9 @@ switch_init (xlator_t *xl)
 		trav_xl = trav_xl->next;
 	}
 	switch_buf->child_count = index;
-	switch_buf->array = CALLOC (index + 1, 
-				    sizeof (struct switch_sched_struct));
+	switch_buf->array = GF_CALLOC (index + 1,
+                                       sizeof (struct switch_sched_struct),
+                                       gf_switch_mt_switch_sched_struct);
 	ERR_ABORT (switch_buf->array);
 	trav_xl = xl->children;
 	index = 0;
@@ -130,7 +133,7 @@ switch_init (xlator_t *xl)
 
 	data = dict_get (xl->options, "scheduler.read-only-subvolumes");
 	if (data) {
-		childs_data = strdup (data->data);
+		childs_data = gf_strdup (data->data);
 		child = strtok_r (childs_data, ",", &tmp);
 		while (child) {
 			for (index = 1; 
@@ -148,7 +151,7 @@ switch_init (xlator_t *xl)
 			}
 			child = strtok_r (NULL, ",", &tmp);
 		}
-		free (childs_data);
+		GF_FREE (childs_data);
 	}
 
 	data = dict_get (xl->options, "scheduler.local-volume-name");
@@ -176,10 +179,9 @@ switch_init (xlator_t *xl)
 		   "option block-size *avi:10MB" etc */
 		switch_str = strtok_r (data->data, ";", &tmp_str);
 		while (switch_str) {
-			dup_str = strdup (switch_str);
+			dup_str = gf_strdup (switch_str);
 			switch_opt = 
-				CALLOC (1, 
-					sizeof (struct switch_sched_struct));
+				GF_CALLOC (1, sizeof (struct switch_sched_struct), gf_switch_mt_switch_sched_struct);
 			ERR_ABORT (switch_opt);
 
 			/* Link it to the main structure */
@@ -201,7 +203,7 @@ switch_init (xlator_t *xl)
 					"for all the unconfigured child nodes,"
 					" hence neglecting current option");
 				switch_str = strtok_r (NULL, ";", &tmp_str);
-				free (dup_str);
+				GF_FREE (dup_str);
 				continue;
 			}
 			memcpy (switch_opt->path_pattern, 
@@ -212,7 +214,7 @@ switch_init (xlator_t *xl)
 				char *dup_childs = NULL;
 				/* TODO: get the list of child nodes for 
 				   the given pattern */
-				dup_childs = strdup (childs);
+				dup_childs = gf_strdup (childs);
 				child = strtok_r (dup_childs, ",", &tmp);
 				while (child) {
                                         if (gf_unify_valid_child (child, xl)) {
@@ -229,11 +231,11 @@ switch_init (xlator_t *xl)
                                                 return -1;
                                         }
 				}
-				free (dup_childs);
+				GF_FREE (dup_childs);
 				child = strtok_r (childs, ",", &tmp1);
 				switch_opt->num_child = idx;
 				switch_opt->array = 
-					CALLOC (1, idx * sizeof (struct switch_sched_array));
+					GF_CALLOC (1, idx * sizeof (struct switch_sched_array), gf_switch_mt_switch_sched_array);
 				ERR_ABORT (switch_opt->array);
 				idx = 0;
 				child = strtok_r (childs, ",", &tmp);
@@ -267,11 +269,11 @@ switch_init (xlator_t *xl)
 				gf_log ("switch", GF_LOG_ERROR, 
 					"Check \"scheduler.switch.case\" "
 					"option in unify volume. Exiting");
-				free (switch_buf->array);
-				free (switch_buf);
+				GF_FREE (switch_buf->array);
+				GF_FREE (switch_buf);
 				return -1;
 			}
-			free (dup_str);
+			GF_FREE (dup_str);
 			switch_str = strtok_r (NULL, ";", &tmp_str);
 		}
 	}
@@ -293,7 +295,7 @@ switch_init (xlator_t *xl)
 				"No nodes left for pattern '*'. Exiting.");
 			return -1;
 		}
-		switch_opt = CALLOC (1, sizeof (struct switch_sched_struct));
+		switch_opt = GF_CALLOC (1, sizeof (struct switch_sched_struct), gf_switch_mt_switch_sched_struct);
 		ERR_ABORT (switch_opt);
 		if (switch_buf->cond) {
 			/* there are already few entries */
@@ -309,7 +311,7 @@ switch_init (xlator_t *xl)
 		memcpy (switch_opt->path_pattern, "*", 2);
 		switch_opt->num_child = flag;
 		switch_opt->array = 
-			CALLOC (1, flag * sizeof (struct switch_sched_array));
+			GF_CALLOC (1, flag * sizeof (struct switch_sched_array), gf_switch_mt_switch_sched_array);
 		ERR_ABORT (switch_opt->array);
 		flag = 0;
 		for (index=0; index < switch_buf->child_count; index++) {
@@ -343,8 +345,8 @@ switch_fini (xlator_t *xl)
 	switch_buf = (struct switch_struct *)*((long *)xl->private);
 
 	pthread_mutex_destroy (&switch_buf->switch_mutex);
-	free (switch_buf->array);
-	free (switch_buf);
+	GF_FREE (switch_buf->array);
+	GF_FREE (switch_buf);
 }
 
 static xlator_t *
@@ -403,13 +405,33 @@ switch_update (xlator_t *xl)
 {
 	return;
 }
+        
+int32_t
+switch_mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_switch_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        " failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 struct sched_ops sched = {
 	.init     = switch_init,
 	.fini     = switch_fini,
 	.update   = switch_update,
 	.schedule = switch_schedule,
-	.notify   = switch_notify
+	.notify   = switch_notify,
+        .mem_acct_init = switch_mem_acct_init,
 };
 
 struct volume_options options[] = {

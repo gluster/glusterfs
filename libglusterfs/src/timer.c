@@ -25,13 +25,14 @@
 #include "timer.h"
 #include "logging.h"
 #include "common-utils.h"
+#include "globals.h"
 
 #define TS(tv) ((((unsigned long long) tv.tv_sec) * 1000000) + (tv.tv_usec))
 
 gf_timer_t *
 gf_timer_call_after (glusterfs_ctx_t *ctx,
                      struct timeval delta,
-                     gf_timer_cbk_t cbk,
+                     gf_timer_cbk_t callbk,
                      void *data)
 {
         gf_timer_registry_t *reg = NULL;
@@ -52,7 +53,7 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
                 return NULL;
         }
 
-        event = CALLOC (1, sizeof (*event));
+        event = GF_CALLOC (1, sizeof (*event), gf_common_mt_gf_timer_t);
         if (!event) {
                 gf_log ("timer", GF_LOG_CRITICAL, "Not enough memory");
                 return NULL;
@@ -62,8 +63,9 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
         event->at.tv_sec += ((event->at.tv_usec + delta.tv_usec) / 1000000);
         event->at.tv_sec += delta.tv_sec;
         at = TS (event->at);
-        event->cbk = cbk;
+        event->callbk = callbk;
         event->data = data;
+        event->xl = THIS;
         pthread_mutex_lock (&reg->lock);
         {
                 trav = reg->active.prev;
@@ -126,7 +128,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
         }
         pthread_mutex_unlock (&reg->lock);
 
-        FREE (event);
+        GF_FREE (event);
         return 0;
 }
 
@@ -168,8 +170,10 @@ gf_timer_proc (void *ctx)
                                 }
                         }
                         pthread_mutex_unlock (&reg->lock);
+                        if (event->xl)
+                                THIS = event->xl;
                         if (need_cbk)
-                                event->cbk (event->data);
+                                event->callbk  (event->data);
 
                         else
                                 break;
@@ -189,7 +193,7 @@ gf_timer_proc (void *ctx)
         }
         pthread_mutex_unlock (&reg->lock);
         pthread_mutex_destroy (&reg->lock);
-        FREE (((glusterfs_ctx_t *)ctx)->timer);
+        GF_FREE (((glusterfs_ctx_t *)ctx)->timer);
 
         return NULL;
 }
@@ -206,7 +210,8 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
         if (!ctx->timer) {
                 gf_timer_registry_t *reg = NULL;
 
-                ctx->timer = reg = CALLOC (1, sizeof (*reg));
+                ctx->timer = reg = GF_CALLOC (1, sizeof (*reg),
+                                           gf_common_mt_gf_timer_registry_t);
                 ERR_ABORT (reg);
                 pthread_mutex_init (&reg->lock, NULL);
                 reg->active.next = &reg->active;

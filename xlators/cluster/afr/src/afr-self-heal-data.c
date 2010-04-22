@@ -387,7 +387,8 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 	afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix, sh->success,
                                  priv->child_count, AFR_DATA_TRANSACTION);
 
-	erase_xattr = CALLOC (sizeof (*erase_xattr), priv->child_count);
+	erase_xattr = GF_CALLOC (sizeof (*erase_xattr), priv->child_count,
+                                 gf_afr_mt_dict_t);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->xattr[i]) {
@@ -425,7 +426,7 @@ afr_sh_data_erase_pending (call_frame_t *frame, xlator_t *this)
 			dict_unref (erase_xattr[i]);
 		}
 	}
-	FREE (erase_xattr);
+	GF_FREE (erase_xattr);
 
 	return 0;
 }
@@ -766,13 +767,16 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
 	sh   = &local->self_heal;
 	priv = this->private;
 
-	sh->pending_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
+	sh->pending_matrix = GF_CALLOC (sizeof (int32_t *), priv->child_count,
+                                        gf_afr_mt_int32_t);
 	for (i = 0; i < priv->child_count; i++) {
-		sh->pending_matrix[i] = CALLOC (sizeof (int32_t),
-						priv->child_count);
+		sh->pending_matrix[i] = GF_CALLOC (sizeof (int32_t),
+					           priv->child_count,
+                                                   gf_afr_mt_int32_t);
 	}
 
-	sh->sources = CALLOC (priv->child_count, sizeof (*sh->sources));
+	sh->sources = GF_CALLOC (priv->child_count, sizeof (*sh->sources),
+                                 gf_afr_mt_int32_t);
 
 	afr_sh_build_pending_matrix (priv, sh->pending_matrix, xattr,
 				     priv->child_count, AFR_DATA_TRANSACTION);

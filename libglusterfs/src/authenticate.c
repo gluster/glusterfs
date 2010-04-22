@@ -58,7 +58,7 @@ init (dict_t *this,
 		key = "addr";
 	}
 
-	ret = asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
+	ret = gf_asprintf (&auth_file, "%s/%s.so", LIBDIR, key);
         if (-1 == ret) {
                 gf_log ("authenticate", GF_LOG_ERROR, "asprintf failed");
                 dict_set (this, key, data_from_dynptr (NULL, 0));
@@ -71,11 +71,11 @@ init (dict_t *this,
 		gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n", 
 			auth_file, dlerror ());
 		dict_set (this, key, data_from_dynptr (NULL, 0));
-		FREE (auth_file);
+		GF_FREE (auth_file);
 		*error = -1;
 		return;
 	}
-	FREE (auth_file);
+	GF_FREE (auth_file);
   
 	authenticate = dlsym (handle, "gf_auth");
 	if (!authenticate) {
@@ -86,14 +86,16 @@ init (dict_t *this,
 		return;
 	}
 
-	auth_handle = CALLOC (1, sizeof (*auth_handle));
+	auth_handle = GF_CALLOC (1, sizeof (*auth_handle),
+                                 gf_common_mt_auth_handle_t);
 	if (!auth_handle) {
 		gf_log ("authenticate", GF_LOG_ERROR, "Out of memory");
 		dict_set (this, key, data_from_dynptr (NULL, 0));
 		*error = -1;
 		return;
 	}
-	auth_handle->vol_opt = CALLOC (1, sizeof (volume_opt_list_t));
+	auth_handle->vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                                       gf_common_mt_volume_opt_list_t);
 	auth_handle->vol_opt->given_opt = dlsym (handle, "options");
 	if (auth_handle->vol_opt->given_opt == NULL) {
 		gf_log ("authenticate", GF_LOG_DEBUG,

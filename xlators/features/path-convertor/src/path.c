@@ -35,6 +35,7 @@
 #include <errno.h>
 #include "glusterfs.h"
 #include "xlator.h"
+#include "path-mem-types.h"
 
 typedef struct path_private
 {
@@ -63,7 +64,9 @@ name_this_to_that (xlator_t *xl, const char *path, const char *name)
 
 	if (priv->end_off && (total_len > priv->end_off)) {
 		j = priv->start_off;
-		tmp_name = CALLOC (1, (total_len + ZR_FILE_CONTENT_STRLEN));
+		tmp_name = GF_CALLOC (1, (total_len +
+                                          ZR_FILE_CONTENT_STRLEN),
+                                      gf_path_mt_char);
 		ERR_ABORT (tmp_name);
 
 		/* Get the complete path for the file first */
@@ -104,7 +107,7 @@ path_this_to_that (xlator_t *xl, const char *path)
 	int32_t i = 0, j = 0;
 
 	if (priv->end_off && (path_len > priv->start_off)) {
-		priv_path = CALLOC (1, path_len);
+		priv_path = GF_CALLOC (1, path_len, gf_path_mt_char);
 		ERR_ABORT (priv_path);
 
 		if (priv->start_off && (path_len > priv->start_off))
@@ -378,7 +381,7 @@ path_lookup (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -405,7 +408,7 @@ path_stat (call_frame_t *frame,
   
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -434,7 +437,7 @@ path_readlink (call_frame_t *frame,
   
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -465,7 +468,7 @@ path_mknod (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -494,7 +497,7 @@ path_mkdir (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -521,7 +524,7 @@ path_unlink (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -548,7 +551,7 @@ path_rmdir (call_frame_t *frame,
   
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -577,7 +580,7 @@ path_symlink (call_frame_t *frame,
   
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -615,11 +618,11 @@ path_rename (call_frame_t *frame,
   
 	oldloc->path = oldloc_path;	
 	if (tmp_oldloc_path != oldloc_path)
-		FREE (tmp_oldloc_path);
+		GF_FREE (tmp_oldloc_path);
 
 	newloc->path = newloc_path;	
 	if (tmp_newloc_path != newloc_path)
-		FREE (tmp_newloc_path);
+		GF_FREE (tmp_newloc_path);
 
 	return 0;
 }
@@ -657,11 +660,11 @@ path_link (call_frame_t *frame,
 
 	oldloc->path = oldloc_path;	
 	if (tmp_oldloc_path != oldloc_path)
-		FREE (tmp_oldloc_path);
+		GF_FREE (tmp_oldloc_path);
 
 	newloc->path = newloc_path;	
 	if (tmp_newloc_path != newloc_path)
-		FREE (tmp_newloc_path);
+		GF_FREE (tmp_newloc_path);
 
 	return 0;
 }
@@ -704,7 +707,7 @@ path_setattr (call_frame_t *frame,
 
 	loc->path = loc_path;
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -734,7 +737,7 @@ path_truncate (call_frame_t *frame,
   
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -768,7 +771,7 @@ path_open (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -801,7 +804,7 @@ path_create (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -843,10 +846,10 @@ path_setxattr (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	if (tmp_name)
-		FREE (tmp_name);
+		GF_FREE (tmp_name);
 
 	return 0;
 }
@@ -880,10 +883,10 @@ path_getxattr (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	if (tmp_name != name)
-		FREE (tmp_name);
+		GF_FREE (tmp_name);
 
 	return 0;
 }
@@ -917,10 +920,10 @@ path_removexattr (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	if (tmp_name != name)
-		FREE (tmp_name);
+		GF_FREE (tmp_name);
 
 	return 0;
 }
@@ -949,7 +952,7 @@ path_opendir (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -978,7 +981,7 @@ path_access (call_frame_t *frame,
 
 	loc->path = loc_path;
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -1020,7 +1023,7 @@ path_checksum (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -1047,7 +1050,7 @@ path_entrylk (call_frame_t *frame, xlator_t *this,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -1073,7 +1076,7 @@ path_inodelk (call_frame_t *frame, xlator_t *this,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
@@ -1105,11 +1108,29 @@ path_xattrop (call_frame_t *frame,
 
 	loc->path = loc_path;	
 	if (tmp_path != loc_path)
-		FREE (tmp_path);
+		GF_FREE (tmp_path);
 
 	return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_path_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int32_t 
 init (xlator_t *this)
@@ -1128,7 +1149,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
   
-	priv = CALLOC (1, sizeof (*priv));
+	priv = GF_CALLOC (1, sizeof (*priv), gf_path_mt_path_private_t);
 	ERR_ABORT (priv);
 	if (dict_get (options, "start-offset")) {
 		priv->start_off = data_to_int32 (dict_get (options, 
@@ -1141,7 +1162,8 @@ init (xlator_t *this)
 
 	if (dict_get (options, "regex")) {
 		int32_t ret = 0;
-		priv->preg = CALLOC (1, sizeof (regex_t));
+		priv->preg = GF_CALLOC (1, sizeof (regex_t),
+                                        gf_path_mt_regex_t);
 		ERR_ABORT (priv->preg);
 		ret = regcomp (priv->preg, 
 			       data_to_str (dict_get (options, "regex")), 
@@ -1149,7 +1171,7 @@ init (xlator_t *this)
 		if (ret) {
 			gf_log (this->name, GF_LOG_ERROR, 
 				"Failed to compile the 'option regex'");
-			FREE (priv);
+			GF_FREE (priv);
 			return -1;
 		}
 		if (dict_get (options, "replace-with")) {

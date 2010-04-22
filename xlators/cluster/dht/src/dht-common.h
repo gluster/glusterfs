@@ -22,6 +22,8 @@
 #include "config.h"
 #endif
 
+#include "dht-mem-types.h"
+
 #ifndef _DHT_H
 #define _DHT_H
 

@@ -137,9 +137,9 @@ FRAME_DESTROY (call_frame_t *frame)
 	if (frame->prev)
 		frame->prev->next = frame->next;
 	if (frame->local)
-		FREE (frame->local);
+		GF_FREE (frame->local);
 	LOCK_DESTROY (&frame->lock);
-	FREE (frame);
+	GF_FREE (frame);
 }
 
 
@@ -161,7 +161,7 @@ STACK_DESTROY (call_stack_t *stack)
 	UNLOCK (&stack->pool->lock);
 
 	if (stack->frames.local)
-		FREE (stack->frames.local);
+		GF_FREE (stack->frames.local);
 
 	LOCK_DESTROY (&stack->frames.lock);
 
@@ -172,7 +172,7 @@ STACK_DESTROY (call_stack_t *stack)
 
 		FRAME_DESTROY (stack->frames.next);
 	}
-	FREE (stack);
+	GF_FREE (stack);
 }
 
 
@@ -185,7 +185,8 @@ STACK_DESTROY (call_stack_t *stack)
 		call_frame_t *_new = NULL;				\
                 xlator_t     *old_THIS = NULL;                          \
 		                                                        \
-                _new = CALLOC (1, sizeof (call_frame_t));	        \
+                _new = GF_CALLOC (1, sizeof (call_frame_t),             \
+                                gf_common_mt_call_frame_t);	        \
 		ERR_ABORT (_new);					\
 		typeof(fn##_cbk) tmp_cbk = rfn;				\
 		_new->root = frame->root;				\
@@ -219,7 +220,8 @@ STACK_DESTROY (call_stack_t *stack)
                 call_frame_t *_new = NULL;                              \
                 xlator_t     *old_THIS = NULL;                          \
                                                                         \
-                _new = CALLOC (1, sizeof (call_frame_t));               \
+                _new = GF_CALLOC (1, sizeof (call_frame_t),             \
+                                gf_common_mt_call_frame_t);	        \
 		ERR_ABORT (_new);					\
 		typeof(fn##_cbk) tmp_cbk = rfn;				\
 		_new->root = frame->root;				\
@@ -304,7 +306,8 @@ copy_frame (call_frame_t *frame)
 		return NULL;
 	}
 
-	newstack = (void *) CALLOC (1, sizeof (*newstack));
+	newstack = (void *) GF_CALLOC (1, sizeof (*newstack),
+                                       gf_common_mt_call_stack_t);
         if (newstack == NULL) {
                 return NULL;
         }
@@ -347,7 +350,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 		return NULL;
 	}
 
-	stack = CALLOC (1, sizeof (*stack));
+	stack = GF_CALLOC (1, sizeof (*stack),gf_common_mt_call_stack_t);
 	if (!stack)
 		return NULL;
 

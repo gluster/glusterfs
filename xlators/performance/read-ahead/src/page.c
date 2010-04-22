@@ -62,7 +62,8 @@ ra_page_create (ra_file_t *file, off_t offset)
 		page = page->next;
 
 	if (page == &file->pages || page->offset != rounded_offset) {
-		newpage = CALLOC (1, sizeof (*newpage));
+		newpage = GF_CALLOC (1, sizeof (*newpage),
+                                     gf_ra_mt_ra_page_t);
 		if (!newpage)
 			return NULL;
 
@@ -87,7 +88,8 @@ ra_wait_on_page (ra_page_t *page, call_frame_t *frame)
 	ra_local_t *local = NULL;
 
 	local = frame->local;
-	waitq = CALLOC (1, sizeof (*waitq));
+	waitq = GF_CALLOC (1, sizeof (*waitq),
+                           gf_ra_mt_ra_waitq_t);
 	if (!waitq) {
 		gf_log (frame->this->name, GF_LOG_ERROR,
 			"out of memory");
@@ -123,7 +125,7 @@ ra_waitq_return (ra_waitq_t *waitq)
 
 		frame = trav->data;
 		ra_frame_return (frame);
-		free (trav);
+		GF_FREE (trav);
 	}
 }
 
@@ -176,7 +178,7 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		if (page->vector) {
 			iobref_unref (page->iobref);
-			free (page->vector);
+			GF_FREE (page->vector);
 		}
 
 		page->vector = iov_dup (vector, count);
@@ -200,7 +202,7 @@ unlock:
 
 	fd_unref (local->fd);
 
-	free (frame->local);
+	GF_FREE (frame->local);
 	frame->local = NULL;
 
 	STACK_DESTROY (frame->root);
@@ -225,7 +227,8 @@ ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
                 goto err;
         }
 
-	fault_local = CALLOC (1, sizeof (ra_local_t));
+	fault_local = GF_CALLOC (1, sizeof (ra_local_t),
+                                 gf_ra_mt_ra_local_t);
         if (fault_local == NULL) {
                 STACK_DESTROY (fault_frame->root);
                 op_ret = -1;
@@ -297,7 +300,8 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 			fill = fill->next;
 		}
 
-		new = CALLOC (1, sizeof (*new));
+		new = GF_CALLOC (1, sizeof (*new),
+                                gf_ra_mt_ra_fill_t);
                 if (new == NULL) {
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
@@ -310,11 +314,12 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
 		new->count = iov_subset (page->vector, page->count,
 					 src_offset, src_offset+copy_size,
 					 NULL);
-		new->vector = CALLOC (new->count, sizeof (struct iovec));
+		new->vector = GF_CALLOC (new->count, sizeof (struct iovec),
+                                         gf_ra_mt_iovec);
                 if (new->vector == NULL) {
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
-                        FREE (new);
+                        GF_FREE (new);
                         goto out;
                 }
 
@@ -366,7 +371,8 @@ ra_frame_unwind (call_frame_t *frame)
 		fill = fill->next;
 	}
 
-	vector = CALLOC (count, sizeof (*vector));
+	vector = GF_CALLOC (count, sizeof (*vector),
+                            gf_ra_mt_iovec);
         if (vector == NULL) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
@@ -391,8 +397,8 @@ ra_frame_unwind (call_frame_t *frame)
 		fill->prev->next = fill->prev;
 
 		iobref_unref (fill->iobref);
-		free (fill->vector);
-		free (fill);
+		GF_FREE (fill->vector);
+		GF_FREE (fill);
 
 		fill = next;
 	}
@@ -406,8 +412,8 @@ ra_frame_unwind (call_frame_t *frame)
 
 	iobref_unref (iobref);
 	pthread_mutex_destroy (&local->local_lock);
-	free (local);
-	free (vector);
+	GF_FREE (local);
+	GF_FREE (vector);
 
 	return;
 }
@@ -475,8 +481,8 @@ ra_page_purge (ra_page_t *page)
 	if (page->iobref) {
 		iobref_unref (page->iobref);
 	}
-	free (page->vector);
-	free (page);
+	GF_FREE (page->vector);
+	GF_FREE (page);
 }
 
 /*
@@ -541,5 +547,5 @@ ra_file_destroy (ra_file_t *file)
 	}
 
 	pthread_mutex_destroy (&file->file_lock);
-	free (file);
+	GF_FREE (file);
 }

@@ -36,6 +36,7 @@
 #include "nfs-inodes.h"
 #include "nfs-generics.h"
 #include "nfs3-helpers.h"
+#include "nfs-mem-types.h"
 
 
 #include <sys/socket.h>
@@ -203,10 +204,10 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
                 fd_unref (cs->resolve_dir_fd);
 
         if (cs->resolventry)
-                FREE (cs->resolventry);
+                GF_FREE (cs->resolventry);
 
         if (cs->pathname)
-                FREE (cs->pathname);
+                GF_FREE (cs->pathname);
 
         if (!list_empty (&cs->entries.list))
                 gf_dirent_free (&cs->entries);
@@ -1810,7 +1811,7 @@ nfs3svc_write_vecsizer (rpcsvc_request_t *req, ssize_t *readsize, int *newbuf)
                 rpcsvc_request_set_private (req, NFS3_VECWRITE_READREST);
                 ret = 0;
         } else if (state == NFS3_VECWRITE_READREST) {
-                args = CALLOC (1, sizeof (*args));
+                args = GF_CALLOC (1, sizeof (*args), gf_nfs_mt_write3args);
                 if (!args)
                         goto rpcerr;
 
@@ -2490,7 +2491,7 @@ nfs3_symlink (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->parent = *dirfh;
-        cs->pathname = strdup (target);
+        cs->pathname = gf_strdup (target);
         if (!cs->pathname) {
                 ret = -1;
                 stat = NFS3ERR_SERVERFAULT;
@@ -3284,7 +3285,7 @@ nfs3_rename (rpcsvc_request_t *req, struct nfs3_fh *olddirfh, char *oldname,
          * of the dest (fh,name) pair.
          */
         cs->fh = *newdirfh;
-        cs->pathname = strdup (newname);
+        cs->pathname = gf_strdup (newname);
         if (!cs->pathname) {
                 stat = NFS3ERR_SERVERFAULT;
                 ret = -1;
@@ -3470,7 +3471,7 @@ nfs3_link (rpcsvc_request_t *req, struct nfs3_fh *targetfh,
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->fh = *dirfh;
-        cs->pathname = strdup (newname);
+        cs->pathname = gf_strdup (newname);
         if (!cs->pathname) {
                 stat = NFS3ERR_SERVERFAULT;
                 ret = -1;
@@ -4735,7 +4736,8 @@ nfs3_init_subvolumes (struct nfs3_state *nfs3, xlator_t *nfsx)
                 xl_list = xl_list->next;
         }
 
-        nfs3->exports = CALLOC (xl_count, sizeof (struct nfs3_export));
+        nfs3->exports = GF_CALLOC (xl_count, sizeof (struct nfs3_export),
+                                   gf_nfs_mt_nfs3_export);
         if (!nfs3->exports) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Memory allocation failed");
                 goto err;
@@ -4772,7 +4774,8 @@ nfs3_init_state (xlator_t *nfsx)
         if (!nfsx)
                 return NULL;
 
-        nfs3 = (struct nfs3_state *)CALLOC (1, sizeof (*nfs3));
+        nfs3 = (struct nfs3_state *)GF_CALLOC (1, sizeof (*nfs3),
+                                    gf_nfs_mt_nfs3_state);
         if (!nfs3) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Memory allocation failed");
                 return NULL;
@@ -4817,7 +4820,7 @@ free_localpool:
 
 ret:
         if (ret == -1) {
-                FREE (nfs3);
+                GF_FREE (nfs3);
                 nfs3 = NULL;
         }
 

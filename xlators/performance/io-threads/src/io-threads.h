@@ -35,6 +35,7 @@
 #include "list.h"
 #include <stdlib.h>
 #include "locking.h"
+#include "iot-mem-types.h"
 #include <semaphore.h>
 
 

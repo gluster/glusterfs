@@ -27,6 +27,7 @@
 #include "globals.h"
 #include "glusterfs.h"
 #include "xlator.h"
+#include "mem-pool.h"
 
 
 /* CTX */
@@ -221,6 +222,9 @@ glusterfs_globals_init ()
         ret = glusterfs_central_log_flag_init ();
         if (ret)
                 goto out;
+
+        gf_mem_acct_enable_set ();
+
 out:
         return ret;
 }

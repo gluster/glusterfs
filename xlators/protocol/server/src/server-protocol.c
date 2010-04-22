@@ -2,7 +2,7 @@
   Copyright (c) 2006-2009 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
-  GlusterFS is free software; you can redistribute it and/or modify
+  GlusterFS is GF_FREE software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published
   by the Free Software Foundation; either version 3 of the License,
   or (at your option) any later version.
@@ -2535,10 +2535,10 @@ server_lookup (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type   = RESOLVE_DONTCARE;
         state->resolve.par    = ntoh64 (req->par);
         state->resolve.gen    = ntoh64 (req->gen);
-        state->resolve.path   = strdup (req->path);
+        state->resolve.path   = gf_strdup (req->path);
 
         if (IS_NOT_ROOT (pathlen)) {
-                state->resolve.bname = strdup (req->bname + pathlen);
+                state->resolve.bname = gf_strdup (req->bname + pathlen);
                 baselen = STRLEN_0 (state->resolve.bname);
         }
 
@@ -2555,7 +2555,7 @@ server_lookup (call_frame_t *frame, xlator_t *bound_xl,
                                 "unserialize req-buffer to dictionary",
                                 frame->root->unique, state->resolve.path,
                                 state->resolve.ino);
-                        FREE (req_dictbuf);
+                        GF_FREE (req_dictbuf);
                         goto err;
                 }
 
@@ -2625,7 +2625,7 @@ server_stat (call_frame_t *frame, xlator_t *bound_xl,
                 state->resolve.type  = RESOLVE_MUST;
                 state->resolve.ino   = ntoh64 (req->ino);
                 state->resolve.gen   = ntoh64 (req->gen);
-                state->resolve.path  = strdup (req->path);
+                state->resolve.path  = gf_strdup (req->path);
         }
 
         resolve_and_resume (frame, server_stat_resume);
@@ -2670,7 +2670,7 @@ server_setattr (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.ino   = ntoh64 (req->ino);
         state->resolve.gen   = ntoh64 (req->gen);
-        state->resolve.path  = strdup (req->path);
+        state->resolve.path  = gf_strdup (req->path);
 
         gf_stat_to_iatt (&req->stbuf, &state->stbuf);
         state->valid = ntoh32 (req->valid);
@@ -2762,7 +2762,7 @@ server_readlink (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type = RESOLVE_MUST;
         state->resolve.ino  = ntoh64 (req->ino);
         state->resolve.gen  = ntoh64 (req->gen);
-        state->resolve.path = strdup (req->path);
+        state->resolve.path = gf_strdup (req->path);
 
         state->size  = ntoh32 (req->size);
 
@@ -2817,8 +2817,8 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type   = RESOLVE_NOT;
         state->resolve.par    = ntoh64 (req->par);
         state->resolve.gen    = ntoh64 (req->gen);
-        state->resolve.path   = strdup (req->path);
-        state->resolve.bname  = strdup (req->bname + pathlen);
+        state->resolve.path   = gf_strdup (req->path);
+        state->resolve.bname  = gf_strdup (req->bname + pathlen);
         state->mode           = ntoh32 (req->mode);
         state->flags          = gf_flags_to_flags (ntoh32 (req->flags));
 
@@ -2867,7 +2867,7 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.ino   = ntoh64 (req->ino);
         state->resolve.gen   = ntoh64 (req->gen);
-        state->resolve.path  = strdup (req->path);
+        state->resolve.path  = gf_strdup (req->path);
 
         state->flags = gf_flags_to_flags (ntoh32 (req->flags));
 
@@ -3208,7 +3208,7 @@ server_truncate (call_frame_t *frame, xlator_t *bound_xl,
         state = CALL_STATE (frame);
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.path  = strdup (req->path);
+        state->resolve.path  = gf_strdup (req->path);
         state->resolve.ino   = ntoh64 (req->ino);
         state->resolve.gen   = ntoh64 (req->gen);
         state->offset        = ntoh64 (req->offset);
@@ -3257,8 +3257,8 @@ server_unlink (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.par    = ntoh64 (req->par);
         state->resolve.gen    = ntoh64 (req->gen);
-        state->resolve.path   = strdup (req->path);
-        state->resolve.bname  = strdup (req->bname + pathlen);
+        state->resolve.path   = gf_strdup (req->path);
+        state->resolve.bname  = gf_strdup (req->bname + pathlen);
 
         resolve_and_resume (frame, server_unlink_resume);
 
@@ -3306,7 +3306,7 @@ server_setxattr (call_frame_t *frame, xlator_t *bound_xl,
         dict_len = ntoh32 (req->dict_len);
 
         state->resolve.type     = RESOLVE_MUST;
-        state->resolve.path     = strdup (req->path + dict_len);
+        state->resolve.path     = gf_strdup (req->path + dict_len);
         state->resolve.ino      = ntoh64 (req->ino);
         state->resolve.gen      = ntoh64 (req->gen);
         state->flags            = ntoh32 (req->flags);
@@ -3323,7 +3323,7 @@ server_setxattr (call_frame_t *frame, xlator_t *bound_xl,
                                 "unserialize request buffer to dictionary",
                                 frame->root->unique, state->loc.path,
                                 state->resolve.ino);
-                        FREE (req_dictbuf);
+                        GF_FREE (req_dictbuf);
                         goto err;
                 }
 
@@ -3400,7 +3400,7 @@ server_fsetxattr (call_frame_t *frame, xlator_t *bound_xl,
                                 "unserialize request buffer to dictionary",
                                 frame->root->unique, state->loc.path,
                                 state->resolve.ino);
-                        FREE (req_dictbuf);
+                        GF_FREE (req_dictbuf);
                         goto err;
                 }
 
@@ -3478,7 +3478,7 @@ server_fxattrop (call_frame_t *frame, xlator_t *bound_xl,
                                 "fd - %"PRId64" (%"PRId64"): failed to unserialize "
                                 "request buffer to dictionary",
                                 state->resolve.fd_no, state->fd->inode->ino);
-                        free (req_dictbuf);
+                        GF_FREE (req_dictbuf);
                         goto fail;
                 }
                 dict->extra_free = req_dictbuf;
@@ -3538,7 +3538,7 @@ server_xattrop (call_frame_t *frame, xlator_t *bound_xl,
         dict_len = ntoh32 (req->dict_len);
 
         state->resolve.type    = RESOLVE_MUST;
-        state->resolve.path    = strdup (req->path + dict_len);
+        state->resolve.path    = gf_strdup (req->path + dict_len);
         state->resolve.ino     = ntoh64 (req->ino);
         state->resolve.gen     = ntoh64 (req->gen);
         state->flags           = ntoh32 (req->flags);
@@ -3555,7 +3555,7 @@ server_xattrop (call_frame_t *frame, xlator_t *bound_xl,
                                 "fd - %"PRId64" (%"PRId64"): failed to unserialize "
                                 "request buffer to dictionary",
                                 state->resolve.fd_no, state->fd->inode->ino);
-                        free (req_dictbuf);
+                        GF_FREE (req_dictbuf);
                         goto fail;
                 }
                 dict->extra_free = req_dictbuf;
@@ -3613,13 +3613,13 @@ server_getxattr (call_frame_t *frame, xlator_t *bound_xl,
         pathlen = STRLEN_0 (req->path);
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.path  = strdup (req->path);
+        state->resolve.path  = gf_strdup (req->path);
         state->resolve.ino   = ntoh64 (req->ino);
         state->resolve.gen   = ntoh64 (req->gen);
 
         namelen = ntoh32 (req->namelen);
         if (namelen)
-                state->name = strdup (req->name + pathlen);
+                state->name = gf_strdup (req->name + pathlen);
 
         resolve_and_resume (frame, server_getxattr_resume);
 
@@ -3665,7 +3665,7 @@ server_fgetxattr (call_frame_t *frame, xlator_t *bound_xl,
 
         namelen = ntoh32 (req->namelen);
         if (namelen)
-                state->name = strdup (req->name);
+                state->name = gf_strdup (req->name);
 
         resolve_and_resume (frame, server_fgetxattr_resume);
 
@@ -3708,10 +3708,10 @@ server_removexattr (call_frame_t *frame, xlator_t *bound_xl,
         pathlen = STRLEN_0 (req->path);
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.path   = strdup (req->path);
+        state->resolve.path   = gf_strdup (req->path);
         state->resolve.ino    = ntoh64 (req->ino);
         state->resolve.gen    = ntoh64 (req->gen);
-        state->name           = strdup (req->name + pathlen);
+        state->name           = gf_strdup (req->name + pathlen);
 
         resolve_and_resume (frame, server_removexattr_resume);
 
@@ -3758,7 +3758,7 @@ server_statfs (call_frame_t *frame, xlator_t *bound_xl,
         if (!state->resolve.ino)
                 state->resolve.ino = 1;
         state->resolve.gen    = ntoh64 (req->gen);
-        state->resolve.path   = strdup (req->path);
+        state->resolve.path   = gf_strdup (req->path);
 
         resolve_and_resume (frame, server_statfs_resume);
 
@@ -3801,7 +3801,7 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
         state = CALL_STATE (frame);
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.path   = strdup (req->path);
+        state->resolve.path   = gf_strdup (req->path);
         state->resolve.ino    = ntoh64 (req->ino);
         state->resolve.gen    = ntoh64 (req->gen);
 
@@ -4087,8 +4087,8 @@ server_mknod (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type    = RESOLVE_NOT;
         state->resolve.par     = ntoh64 (req->par);
         state->resolve.gen     = ntoh64 (req->gen);
-        state->resolve.path    = strdup (req->path);
-        state->resolve.bname   = strdup (req->bname + pathlen);
+        state->resolve.path    = gf_strdup (req->path);
+        state->resolve.bname   = gf_strdup (req->bname + pathlen);
 
         state->mode = ntoh32 (req->mode);
         state->dev  = ntoh64 (req->dev);
@@ -4140,8 +4140,8 @@ server_mkdir (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type    = RESOLVE_NOT;
         state->resolve.par     = ntoh64 (req->par);
         state->resolve.gen     = ntoh64 (req->gen);
-        state->resolve.path    = strdup (req->path);
-        state->resolve.bname   = strdup (req->bname + pathlen);
+        state->resolve.path    = gf_strdup (req->path);
+        state->resolve.bname   = gf_strdup (req->bname + pathlen);
 
         state->mode = ntoh32 (req->mode);
 
@@ -4186,8 +4186,8 @@ server_rmdir (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.par     = ntoh64 (req->par);
         state->resolve.gen     = ntoh64 (req->gen);
-        state->resolve.path    = strdup (req->path);
-        state->resolve.bname   = strdup (req->bname + pathlen);
+        state->resolve.path    = gf_strdup (req->path);
+        state->resolve.bname   = gf_strdup (req->bname + pathlen);
 
         resolve_and_resume (frame, server_rmdir_resume);
 
@@ -4235,7 +4235,7 @@ server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type    = RESOLVE_EXACT;
         state->resolve.ino     = ntoh64 (req->ino);
         state->resolve.gen     = ntoh64 (req->gen);
-        state->resolve.path    = strdup (req->path);
+        state->resolve.path    = gf_strdup (req->path);
 
         cmd = ntoh32 (req->cmd);
         switch (cmd) {
@@ -4251,7 +4251,7 @@ server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
         }
 
         state->type = ntoh32 (req->type);
-        state->volume = strdup (req->volume + pathlen);
+        state->volume = gf_strdup (req->volume + pathlen);
 
         gf_flock_to_flock (&req->flock, &state->flock);
 
@@ -4310,7 +4310,7 @@ server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
         state = CALL_STATE(frame);
 
         state->resolve.type = RESOLVE_EXACT;
-        state->volume = strdup (req->volume);
+        state->volume = gf_strdup (req->volume);
         state->resolve.fd_no = ntoh64 (req->fd);
         state->cmd = ntoh32 (req->cmd);
 
@@ -4388,13 +4388,13 @@ server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
         vollen = STRLEN_0(req->volume + pathlen + namelen);
 
         state->resolve.type   = RESOLVE_EXACT;
-        state->resolve.path   = strdup (req->path);
+        state->resolve.path   = gf_strdup (req->path);
         state->resolve.ino    = ntoh64 (req->ino);
         state->resolve.gen    = ntoh64 (req->gen);
 
         if (namelen)
-                state->name   = strdup (req->name + pathlen);
-        state->volume         = strdup (req->volume + pathlen + namelen);
+                state->name   = gf_strdup (req->name + pathlen);
+        state->volume         = gf_strdup (req->volume + pathlen + namelen);
 
         state->cmd            = ntoh32 (req->cmd);
         state->type           = ntoh32 (req->type);
@@ -4451,7 +4451,7 @@ server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
         namelen = ntoh64 (req->namelen);
         if (namelen)
                 state->name = req->name;
-        state->volume = strdup (req->volume + namelen);
+        state->volume = gf_strdup (req->volume + namelen);
 
 
         resolve_and_resume (frame, server_finodelk_resume);
@@ -4495,7 +4495,7 @@ server_access (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.ino   = hton64 (req->ino);
         state->resolve.gen   = hton64 (req->gen);
-        state->resolve.path  = strdup (req->path);
+        state->resolve.path  = gf_strdup (req->path);
 
         state->mask  = ntoh32 (req->mask);
 
@@ -4548,9 +4548,9 @@ server_symlink (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type   = RESOLVE_NOT;
         state->resolve.par    = ntoh64 (req->par);
         state->resolve.gen    = ntoh64 (req->gen);
-        state->resolve.path   = strdup (req->path);
-        state->resolve.bname  = strdup (req->bname + pathlen);
-        state->name           = strdup (req->linkname + pathlen + baselen);
+        state->resolve.path   = gf_strdup (req->path);
+        state->resolve.bname  = gf_strdup (req->bname + pathlen);
+        state->name           = gf_strdup (req->linkname + pathlen + baselen);
 
         resolve_and_resume (frame, server_symlink_resume);
 
@@ -4610,13 +4610,13 @@ server_link (call_frame_t *frame, xlator_t *this,
         newbaselen = STRLEN_0 (req->newbname + oldpathlen + newpathlen);
 
         state->resolve.type    = RESOLVE_MUST;
-        state->resolve.path    = strdup (req->oldpath);
+        state->resolve.path    = gf_strdup (req->oldpath);
         state->resolve.ino     = ntoh64 (req->oldino);
         state->resolve.gen     = ntoh64 (req->oldgen);
 
         state->resolve2.type   = RESOLVE_NOT;
-        state->resolve2.path   = strdup (req->newpath + oldpathlen);
-        state->resolve2.bname  = strdup (req->newbname + oldpathlen + newpathlen);
+        state->resolve2.path   = gf_strdup (req->newpath + oldpathlen);
+        state->resolve2.bname  = gf_strdup (req->newbname + oldpathlen + newpathlen);
         state->resolve2.par    = ntoh64 (req->newpar);
         state->resolve2.gen    = ntoh64 (req->newgen);
 
@@ -4680,14 +4680,14 @@ server_rename (call_frame_t *frame, xlator_t *bound_xl,
                                oldbaselen + newpathlen);
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.path   = strdup (req->oldpath);
-        state->resolve.bname  = strdup (req->oldbname + oldpathlen);
+        state->resolve.path   = gf_strdup (req->oldpath);
+        state->resolve.bname  = gf_strdup (req->oldbname + oldpathlen);
         state->resolve.par    = ntoh64 (req->oldpar);
         state->resolve.gen    = ntoh64 (req->oldgen);
 
         state->resolve2.type  = RESOLVE_MAY;
-        state->resolve2.path  = strdup (req->newpath  + oldpathlen + oldbaselen);
-        state->resolve2.bname = strdup (req->newbname + oldpathlen + oldbaselen +
+        state->resolve2.path  = gf_strdup (req->newpath  + oldpathlen + oldbaselen);
+        state->resolve2.bname = gf_strdup (req->newbname + oldpathlen + oldbaselen +
                                         newpathlen);
         state->resolve2.par   = ntoh64 (req->newpar);
         state->resolve2.gen   = ntoh64 (req->newgen);
@@ -4809,10 +4809,11 @@ _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
         }
 
         if (!temp_volfile) {
-                temp_volfile = CALLOC (1, sizeof (struct _volfile_ctx));
+                temp_volfile = GF_CALLOC (1, sizeof (struct _volfile_ctx),
+                                          gf_server_mt_volfile_ctx);
 
                 temp_volfile->next  = conf->volfile;
-                temp_volfile->key   = (key)? strdup (key): NULL;
+                temp_volfile->key   = (key)? gf_strdup (key): NULL;
                 temp_volfile->checksum = checksum;
 
                 conf->volfile = temp_volfile;
@@ -4900,12 +4901,12 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
                                         goto out;
                                 }
 
-                                conf_dir = strdup (conf_dir_data->data);
+                                conf_dir = gf_strdup (conf_dir_data->data);
                                 free_conf_dir = 1;
                         }
 
-                        ret = asprintf (&filename, "%s/%s.vol",
-                                        conf_dir, key);
+                        ret = gf_asprintf (&filename, "%s/%s.vol",
+                                           conf_dir, key);
                         if (-1 == ret)
                                 goto out;
 
@@ -4933,10 +4934,10 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
 
 out:
         if (free_conf_dir)
-                free (conf_dir);
+                GF_FREE (conf_dir);
 
         if (free_filename)
-                free (filename);
+                GF_FREE (filename);
 
         return ret;
 }
@@ -5161,7 +5162,7 @@ server_checksum (call_frame_t *frame, xlator_t *bound_xl,
         state = CALL_STATE (frame);
 
         state->resolve.type = RESOLVE_MAY;
-        state->resolve.path = strdup (req->path);
+        state->resolve.path = gf_strdup (req->path);
         state->resolve.gen = ntoh64 (req->gen);
         state->resolve.ino = ntoh64 (req->ino);
         state->flags = ntoh32 (req->flag);
@@ -5397,11 +5398,11 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 
         ret = strcmp (version, GF_PROTOCOL_VERSION);
         if (ret != 0) {
-                ret = asprintf (&msg, "protocol version mismatch: client(%s) "
+                ret = gf_asprintf (&msg, "protocol version mismatch: client(%s) "
                                 "- server(%s)", version, GF_PROTOCOL_VERSION);
                 if (-1 == ret) {
                         gf_log (trans->xl->name, GF_LOG_ERROR,
-                                "asprintf failed while setting up error msg");
+                                "gf_asprintf failed while setting up error msg");
                         goto fail;
                 }
                 ret = dict_set_dynstr (reply, "ERROR", msg);
@@ -5430,11 +5431,11 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 
         xl = get_xlator_by_name (frame->this, name);
         if (xl == NULL) {
-                ret = asprintf (&msg, "remote-subvolume \"%s\" is not found",
+                ret = gf_asprintf (&msg, "remote-subvolume \"%s\" is not found",
                                 name);
                 if (-1 == ret) {
                         gf_log (trans->xl->name, GF_LOG_ERROR,
-                                "asprintf failed while setting error msg");
+                                "gf_asprintf failed while setting error msg");
                         goto fail;
                 }
                 ret = dict_set_dynstr (reply, "ERROR", msg);
@@ -5806,7 +5807,8 @@ get_frame_for_transport (transport_t *trans)
         frame = create_frame (trans->xl, pool);
         GF_VALIDATE_OR_GOTO("server", frame, out);
 
-        state = CALLOC (1, sizeof (*state));
+        state = GF_CALLOC (1, sizeof (*state),
+                           gf_server_mt_server_state_t);
         GF_VALIDATE_OR_GOTO("server", state, out);
 
         conn = trans->xl_private;
@@ -6187,7 +6189,7 @@ get_auth_types (dict_t *this, char *key, data_t *value, void *data)
         int32_t   ret = -1;
 
         auth_dict = data;
-        key_cpy = strdup (key);
+        key_cpy = gf_strdup (key);
         GF_VALIDATE_OR_GOTO("server", key_cpy, out);
 
         tmp = strtok_r (key_cpy, ".", &saveptr);
@@ -6208,7 +6210,7 @@ get_auth_types (dict_t *this, char *key, data_t *value, void *data)
                 }
         }
 
-        FREE (key_cpy);
+        GF_FREE (key_cpy);
 out:
         return;
 }
@@ -6229,7 +6231,7 @@ validate_auth_options (xlator_t *this, dict_t *dict)
         while (trav) {
                 error = -1;
                 for (pair = dict->members_list; pair; pair = pair->next) {
-                        key_cpy = strdup (pair->key);
+                        key_cpy = gf_strdup (pair->key);
                         tmp = strtok_r (key_cpy, ".", &saveptr);
                         ret = strcmp (tmp, "auth");
                         if (ret == 0) {
@@ -6241,10 +6243,10 @@ validate_auth_options (xlator_t *this, dict_t *dict)
 
                         if (strcmp (tmp, trav->xlator->name) == 0) {
                                 error = 0;
-                                free (key_cpy);
+                                GF_FREE (key_cpy);
                                 break;
                         }
-                        free (key_cpy);
+                        GF_FREE (key_cpy);
                 }
                 if (-1 == error) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -6257,6 +6259,25 @@ validate_auth_options (xlator_t *this, dict_t *dict)
         }
 
         return error;
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_server_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        " failed");
+                return ret;
+        }
+
+        return ret;
 }
 
 
@@ -6295,7 +6316,8 @@ init (xlator_t *this)
                 goto out;
         }
 
-        conf = CALLOC (1, sizeof (server_conf_t));
+        conf = GF_CALLOC (1, sizeof (server_conf_t),
+                          gf_server_mt_server_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
         INIT_LIST_HEAD (&conf->conns);
@@ -6409,7 +6431,7 @@ protocol_server_pollin (xlator_t *this, transport_t *trans)
                                                  hdrlen, iobuf);
 
         /* TODO: use mem-pool */
-        FREE (hdr);
+        GF_FREE (hdr);
 
         return ret;
 }
@@ -6433,7 +6455,7 @@ fini (xlator_t *this)
                 dict_unref (conf->auth_modules);
         }
 
-        FREE (conf);
+        GF_FREE (conf);
         this->private = NULL;
 out:
         return;

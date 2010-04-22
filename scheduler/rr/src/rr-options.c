@@ -143,9 +143,9 @@ _rr_options_read_only_subvolumes_validate (const char *value_string,
  free_exit:
 	for (i = 0; i < vcount; i++)
 	{
-		free (vlist[i]);
+		GF_FREE (vlist[i]);
 	}
-	free (vlist);
+	GF_FREE (vlist);
   
 	return -1;
 }

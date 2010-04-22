@@ -22,6 +22,7 @@
 #include "common-utils.h"
 #include "protocol.h"
 #include "xlator.h"
+#include "client-mem-types.h"
 
 
 
@@ -30,7 +31,8 @@ saved_frames_new (void)
 {
 	struct saved_frames *saved_frames = NULL;
 
-	saved_frames = CALLOC (sizeof (*saved_frames), 1);
+	saved_frames = GF_CALLOC (sizeof (*saved_frames), 1,
+                                  gf_client_mt_saved_frames);
 	if (!saved_frames) {
 		return NULL;
 	}
@@ -76,7 +78,8 @@ saved_frames_put (struct saved_frames *frames, call_frame_t *frame,
 
 	head_frame = get_head_frame_for_type (frames, type);
 
-	saved_frame = CALLOC (sizeof (*saved_frame), 1);
+	saved_frame = GF_CALLOC (sizeof (*saved_frame), 1,
+                                gf_client_mt_saved_frame);
 	if (!saved_frame) {
 		return -ENOMEM;
 	}
@@ -119,7 +122,7 @@ saved_frames_get (struct saved_frames *frames, int32_t op,
 	if (saved_frame)
 		frame = saved_frame->frame;
 
-	FREE (saved_frame);
+	GF_FREE (saved_frame);
 
 	return frame;
 }
@@ -174,7 +177,7 @@ saved_frames_unwind (xlator_t *this, struct saved_frames *saved_frames,
 		gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL);
 
 		list_del_init (&trav->list);
-		FREE (trav);
+		GF_FREE (trav);
 	}
 }
 
@@ -187,5 +190,5 @@ saved_frames_destroy (xlator_t *this, struct saved_frames *frames,
 	saved_frames_unwind (this, frames, &frames->mops, gf_mops, gf_mop_list);
 	saved_frames_unwind (this, frames, &frames->cbks, gf_cbks, gf_cbk_list);
 
-	FREE (frames);
+	GF_FREE (frames);
 }

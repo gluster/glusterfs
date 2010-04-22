@@ -36,6 +36,7 @@
 #include "nfs-generics.h"
 #include "locking.h"
 #include "iatt.h"
+#include "nfs-mem-types.h"
 
 
 #include <errno.h>
@@ -182,7 +183,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         if ((!ms) || (!req) || (!exportxl))
                 return -1;
 
-        me = (struct mountentry *)CALLOC (1, sizeof (*me));
+        me = (struct mountentry *)GF_CALLOC (1, sizeof (*me), gf_nfs_mt_mountentry);
         if (!me)
                 return -1;
 
@@ -203,7 +204,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
 
 free_err:
         if (ret == -1)
-                FREE (me);
+                GF_FREE (me);
 
         return ret;
 }
@@ -387,14 +388,15 @@ __build_mountlist (struct mount3_state *ms, int *count)
         gf_log (GF_MNT, GF_LOG_DEBUG, "Building mount list:");
         list_for_each_entry (me, &ms->mountlist, mlist) {
                 namelen = strlen (me->exname);
-                mlist = CALLOC (1, sizeof (*mlist));
+                mlist = GF_CALLOC (1, sizeof (*mlist), gf_nfs_mt_mountbody);
                 if (!mlist) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
                                 " failed");
                         goto free_list;
                 }
 
-                mlist->ml_directory = CALLOC (namelen + 2, sizeof (char));
+                mlist->ml_directory = GF_CALLOC (namelen + 2, sizeof (char),
+                                                 gf_nfs_mt_char);
                 if (!mlist->ml_directory) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
                                 " failed");
@@ -405,7 +407,8 @@ __build_mountlist (struct mount3_state *ms, int *count)
                 strcat (mlist->ml_directory, me->exname);
 
                 namelen = strlen (me->hostname);
-                mlist->ml_hostname = CALLOC (namelen + 2, sizeof (char));
+                mlist->ml_hostname = GF_CALLOC (namelen + 2, sizeof (char),
+                                                gf_nfs_mt_char);
                 if (!mlist->ml_hostname) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
                                 " failed");
@@ -526,7 +529,7 @@ __mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
         gf_log (GF_MNT, GF_LOG_DEBUG, "Unmounting: dir %s, host: %s",
                 me->exname, me->hostname);
         list_del (&me->mlist);
-        FREE (me);
+        GF_FREE (me);
         ret = 0;
 ret:
         return ret;
@@ -635,7 +638,7 @@ __mnt3svc_umountall (struct mount3_state *ms)
 
         list_for_each_entry (me, &ms->mountlist, mlist) {
                 list_del (&me->mlist);
-                FREE (me);
+                GF_FREE (me);
         }
 
         return 0;
@@ -701,14 +704,15 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, xlator_list_t *cl)
 
         while (cl) {
                 namelen = strlen (cl->xlator->name);
-                elist = CALLOC (1, sizeof (*elist));
+                elist = GF_CALLOC (1, sizeof (*elist), gf_nfs_mt_exportnode);
                 if (!elist) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
                                 " failed");
                         goto free_list;
                 }
 
-                elist->ex_dir = CALLOC (namelen + 2, sizeof (char));
+                elist->ex_dir = GF_CALLOC (namelen + 2, sizeof (char),
+                                           gf_nfs_mt_char);
                 if (!elist->ex_dir) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
                                 " failed");
@@ -720,11 +724,12 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, xlator_list_t *cl)
 
                 addrstr = rpcsvc_volume_allowed (svc->options,cl->xlator->name);
                 if (addrstr)
-                        addrstr = strdup (addrstr);
+                        addrstr = gf_strdup (addrstr);
                 else
-                        addrstr = strdup ("No Access");
+                        addrstr = gf_strdup ("No Access");
 
-                elist->ex_groups = CALLOC (1, sizeof (struct groupnode));
+                elist->ex_groups = GF_CALLOC (1, sizeof (struct groupnode),
+                                              gf_nfs_mt_groupnode);
                 if (!elist->ex_groups) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
                                 " failed");
@@ -801,7 +806,7 @@ mnt3_init_state (xlator_t *nfsx)
         if (!nfsx)
                 return NULL;
 
-        ms = CALLOC (1, sizeof (*ms));
+        ms = GF_CALLOC (1, sizeof (*ms), gf_nfs_mt_mount3_state);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
                 return NULL;

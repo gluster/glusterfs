@@ -59,7 +59,7 @@ sp_inode_ctx_free (xlator_t *this, sp_inode_ctx_t *ctx)
         UNLOCK (&ctx->lock);
 
         LOCK_DESTROY (&ctx->lock);
-        FREE (ctx);
+        GF_FREE (ctx);
 
 out:
         return;
@@ -71,7 +71,8 @@ sp_inode_ctx_init ()
 {
         sp_inode_ctx_t *inode_ctx = NULL;
 
-        inode_ctx = CALLOC (1, sizeof (*inode_ctx));
+        inode_ctx = GF_CALLOC (1, sizeof (*inode_ctx),
+                               gf_sp_mt_sp_inode_ctx_t);
         if (inode_ctx == NULL) {
                 goto out;
         }
@@ -224,7 +225,7 @@ sp_cache_unref (sp_cache_t *cache)
 
         if (refcount == 0) {
                 rbthash_table_destroy (cache->table);
-                FREE (cache);
+                GF_FREE (cache);
         }
 
 out:
@@ -272,7 +273,8 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
         {
                 if (!(inode_ctx->looked_up || inode_ctx->lookup_in_progress)) {
                         if (frame->local == NULL) {
-                                local = CALLOC (1, sizeof (*local));
+                                local = GF_CALLOC (1, sizeof (*local), 
+                                                   gf_sp_mt_sp_local_t);
                                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
                                                                 local,
                                                                 unlock,
@@ -340,14 +342,14 @@ sp_cache_init (xlator_t *this)
         if (!priv->mem_pool)
                 goto out;
 
-        cache = CALLOC (1, sizeof (*cache));
+        cache = GF_CALLOC (1, sizeof (*cache), gf_sp_mt_sp_cache_t);
         if (cache) {
                 cache->table =
                         rbthash_table_init (GF_SP_CACHE_BUCKETS,
                                             sp_hashfn, free,
                                             0, priv->mem_pool);
                 if (cache->table == NULL) {
-                        FREE (cache);
+                        GF_FREE (cache);
                         cache = NULL;
                         goto out;
                 }
@@ -366,7 +368,7 @@ sp_local_free (sp_local_t *local)
 {
         if (local) {
                 loc_wipe (&local->loc);
-                FREE (local);
+                GF_FREE (local);
         }
 }
 
@@ -400,7 +402,7 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                         table = cache->table;
                         cache->table = rbthash_table_init (GF_SP_CACHE_BUCKETS,
                                                            sp_hashfn,
-                                                           free,
+                                                           __gf_free,
                                                            0,
                                                            priv->mem_pool);
                         if (cache->table == NULL) {
@@ -412,7 +414,7 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                 } else {
                         data = rbthash_remove (cache->table, name,
                                                strlen (name));
-                        FREE (data);
+                        GF_FREE (data);
                         ret = 0;
                 }
         }
@@ -526,7 +528,7 @@ sp_fd_ctx_free (sp_fd_ctx_t *fd_ctx)
         }
                 
         if (fd_ctx->name) {
-                FREE (fd_ctx->name);
+                GF_FREE (fd_ctx->name);
                 fd_ctx->name = NULL;
         }
 
@@ -534,7 +536,7 @@ sp_fd_ctx_free (sp_fd_ctx_t *fd_ctx)
                 sp_cache_free (fd_ctx->cache);
         }
 
-        FREE (fd_ctx);
+        GF_FREE (fd_ctx);
 out:
         return;
 }
@@ -545,7 +547,7 @@ sp_fd_ctx_init (void)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
 
-        fd_ctx = CALLOC (1, sizeof (*fd_ctx));
+        fd_ctx = GF_CALLOC (1, sizeof (*fd_ctx), gf_sp_mt_sp_fd_ctx_t);
 
         return fd_ctx;
 }
@@ -567,7 +569,7 @@ sp_fd_ctx_new (xlator_t *this, inode_t *parent, char *name, sp_cache_t *cache)
         }
 
         if (name) {
-                fd_ctx->name = strdup (name);
+                fd_ctx->name = gf_strdup (name);
                 if (fd_ctx->name == NULL) {
                         sp_fd_ctx_free (fd_ctx);
                         fd_ctx = NULL;
@@ -713,7 +715,7 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
                         ret = rbthash_insert (cache->table, new, new->d_name,
                                               strlen (new->d_name));
                         if (ret == -1) {
-                                FREE (new);
+                                GF_FREE (new);
                                 continue;
                         }
 
@@ -807,7 +809,7 @@ sp_get_ancestors (char *path, char **parent, char **grand_parent)
                         break;
                 }
 
-                cpy = strdup (path);
+                cpy = gf_strdup (path);
                 if (cpy == NULL) {
                         goto out;
                 }
@@ -851,13 +853,13 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this,
                         cache_gp = sp_get_cache_inode (this, inode_gp,
                                                        frame->root->pid);
                         if (cache_gp) {
-                                cpy = strdup (parent);
+                                cpy = gf_strdup (parent);
                                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
                                                                 cpy, out, errno,
                                                                 ENOMEM);
                                 path = basename (cpy);
                                 sp_cache_remove_entry (cache_gp, path, 0);
-                                FREE (cpy);
+                                GF_FREE (cpy);
 
                                 sp_cache_unref (cache_gp);
                         }
@@ -868,11 +870,11 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this,
         ret = 0;
 out:
         if (parent) {
-                FREE (parent);
+                GF_FREE (parent);
         }
 
         if (grand_parent) {
-                FREE (grand_parent);
+                GF_FREE (grand_parent);
         }
 
         return ret;
@@ -1015,7 +1017,7 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                                 entry_cached = 1;
                         }
 
-                        FREE (dirent);
+                        GF_FREE (dirent);
                 } 
         } else if (IA_ISDIR (loc->inode->ia_type)) {
                 cache = sp_get_cache_inode (this, loc->inode, frame->root->pid);
@@ -1032,7 +1034,7 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                                         entry_cached = 1;
                                 }
 
-                                FREE (dirent);
+                                GF_FREE (dirent);
                         }
                 }
         }
@@ -1054,7 +1056,7 @@ wind:
                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, stub, unwind,
                                                 op_errno, ENOMEM);
 
-                local = CALLOC (1, sizeof (*local));
+                local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
                 GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, unwind,
                                                 op_errno, ENOMEM);
 
@@ -1204,14 +1206,14 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         ret = sp_cache_remove_parent_entry (frame, this, fd->inode->table,
                                             path);
 
-        FREE (path);
+        GF_FREE (path);
 
         if (ret < 0) {
                 errno = -ret;
                 goto unwind;
         }
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         if (local) {
                 local->fd = fd;
                 frame->local = local;
@@ -1341,7 +1343,7 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
                                         ENOMEM);
 
@@ -1453,7 +1455,7 @@ sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
                 goto out;
         }
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
                                         ENOMEM);
 
@@ -1541,7 +1543,7 @@ sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
                                         ENOMEM);
 
@@ -1643,7 +1645,7 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
                 goto out;
         }
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
                                         ENOMEM);
 
@@ -1706,7 +1708,7 @@ sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 goto out;
         }
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
                                         ENOMEM);
 
@@ -1769,7 +1771,7 @@ sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
                 goto out;
         }
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
                                         ENOMEM);
 
@@ -3687,7 +3689,7 @@ sp_forget (xlator_t *this, inode_t *inode)
         
         if (value) {
                 buf = (void *)(long)value;
-                FREE (buf);
+                GF_FREE (buf);
         }
         
         return 0;
@@ -3717,7 +3719,24 @@ sp_release (xlator_t *this, fd_t *fd)
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
 
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_sp_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int32_t 
 init (xlator_t *this)
@@ -3733,7 +3752,8 @@ init (xlator_t *this)
                 goto out;
         }
 
-        priv = CALLOC (1, sizeof(sp_private_t));
+        priv = GF_CALLOC (1, sizeof(sp_private_t),
+                          gf_sp_mt_sp_private_t);
         LOCK_INIT (&priv->lock);
 
         this->private = priv;

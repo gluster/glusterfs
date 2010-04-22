@@ -27,6 +27,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "io-cache.h"
+#include "ioc-mem-types.h"
 #include <assert.h>
 #include <sys/time.h>
 
@@ -259,7 +260,8 @@ ioc_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ioc_local_t *local = NULL;
         int32_t      op_errno = -1, ret = -1;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -401,7 +403,8 @@ ioc_wait_on_inode (ioc_inode_t *ioc_inode, ioc_page_t *page)
 	}
   
 	if (!page_found) {
-		waiter = CALLOC (1, sizeof (ioc_waitq_t));
+		waiter = GF_CALLOC (1, sizeof (ioc_waitq_t), 
+                                    gf_ioc_mt_ioc_waitq_t);
                 if (waiter == NULL) {
                         gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
                                 "out of memory");
@@ -436,7 +439,8 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
         int32_t      ret = 0;
 
         local = frame->local;
-	validate_local = CALLOC (1, sizeof (ioc_local_t));
+	validate_local = GF_CALLOC (1, sizeof (ioc_local_t),
+                                    gf_ioc_mt_ioc_local_t);
         if (validate_local == NULL) {
                 ret = -1;
                 local->op_ret = -1;
@@ -451,7 +455,7 @@ ioc_cache_validate (call_frame_t *frame, ioc_inode_t *ioc_inode, fd_t *fd,
                 ret = -1;
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
-                FREE (validate_local);
+                GF_FREE (validate_local);
                 gf_log (ioc_inode->table->xl->name, GF_LOG_ERROR,
                         "out of memory");
                 goto out;
@@ -563,7 +567,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 		}
 	}
 
-	FREE (local);
+	GF_FREE (local);
 	frame->local = NULL;
 
 	STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
@@ -641,7 +645,7 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
   
 	frame->local = NULL;
-	FREE (local);
+	GF_FREE (local);
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
@@ -664,7 +668,7 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
   
 	ioc_local_t *local = NULL;
 
-        local = CALLOC (1, sizeof (ioc_local_t));
+        local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL);
@@ -698,8 +702,8 @@ ioc_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	    mode_t mode, fd_t *fd)
 {
 	ioc_local_t *local = NULL;
-
-        local = CALLOC (1, sizeof (ioc_local_t));
+        
+        local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 STACK_UNWIND_STRICT (create, frame, -1, ENOMEM, NULL, NULL,
@@ -1021,7 +1025,8 @@ ioc_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 		return 0;
 	}
 
-	local = (ioc_local_t *) CALLOC (1, sizeof (ioc_local_t));
+	local = (ioc_local_t *) GF_CALLOC (1, sizeof (ioc_local_t),
+                                            gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -1105,7 +1110,7 @@ ioc_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	ioc_local_t *local     = NULL;
 	uint64_t    ioc_inode = 0;
 
-	local = CALLOC (1, sizeof (ioc_local_t));
+	local = GF_CALLOC (1, sizeof (ioc_local_t), gf_ioc_mt_ioc_local_t);
         if (local == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
 
@@ -1270,7 +1275,7 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 	char                *string = NULL;
 	struct ioc_priority *curr = NULL, *tmp = NULL;
 
-        string = strdup (opt_str);
+        string = gf_strdup (opt_str);
         if (string == NULL) {
                 max_pri = -1;
                 goto out;
@@ -1284,7 +1289,8 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 	 */
 	stripe_str = strtok_r (string, ",", &tmp_str);
 	while (stripe_str) {
-		curr = CALLOC (1, sizeof (struct ioc_priority));
+		curr = GF_CALLOC (1, sizeof (struct ioc_priority), 
+                                  gf_ioc_mt_ioc_priority);
                 if (curr == NULL) {
                         max_pri = -1;
                         goto out;
@@ -1292,7 +1298,7 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 
 		list_add_tail (&curr->list, first);
 
-		dup_str = strdup (stripe_str);
+		dup_str = gf_strdup (stripe_str);
                 if (dup_str == NULL) {
                         max_pri = -1;
                         goto out;
@@ -1315,7 +1321,7 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
 			pattern,
 			priority);
 
-		curr->pattern = strdup (pattern);
+		curr->pattern = gf_strdup (pattern);
                 if (curr->pattern == NULL) {
                         max_pri = -1;
                         goto out;
@@ -1329,29 +1335,48 @@ ioc_get_priority_list (const char *opt_str, struct list_head *first)
  			max_pri = max (max_pri, curr->priority);
                 }
 
-                free (dup_str);
+                GF_FREE (dup_str);
                 dup_str = NULL;
 
 		stripe_str = strtok_r (NULL, ",", &tmp_str);
 	}
 out:
         if (string != NULL) {
-                free (string);
+                GF_FREE (string);
         }
 
         if (dup_str != NULL) {
-                free (dup_str);
+                GF_FREE (dup_str);
         }
 
         if (max_pri == -1) {
                 list_for_each_entry_safe (curr, tmp, first, list) {
                         list_del_init (&curr->list);
-                        free (curr->pattern);
-                        free (curr);
+                        GF_FREE (curr->pattern);
+                        GF_FREE (curr);
                 }
         }
 
 	return max_pri;
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_ioc_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
 }
 
 /*
@@ -1381,7 +1406,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	table = (void *) CALLOC (1, sizeof (*table));
+	table = (void *) GF_CALLOC (1, sizeof (*table), gf_ioc_mt_ioc_table_t);
         if (table == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -1477,7 +1502,9 @@ init (xlator_t *this)
                         goto out;
         }
 
-	table->inode_lru = CALLOC (table->max_pri, sizeof (struct list_head));
+	table->inode_lru = GF_CALLOC (table->max_pri, 
+                                      sizeof (struct list_head),
+                                      gf_ioc_mt_list_head);
         if (table->inode_lru == NULL) {
                 goto out;
         }
@@ -1495,8 +1522,8 @@ init (xlator_t *this)
 out:
         if (ret == -1) {
                 if (table != NULL) {
-                        free (table->inode_lru);
-                        free (table);
+                        GF_FREE (table->inode_lru);
+                        GF_FREE (table);
                 }
         }
 
@@ -1518,7 +1545,7 @@ fini (xlator_t *this)
                 return;
 
 	pthread_mutex_destroy (&table->table_lock);
-	FREE (table);
+	GF_FREE (table);
 
 	this->private = NULL;
 	return;

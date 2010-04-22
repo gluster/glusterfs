@@ -93,20 +93,20 @@ unify_local_wipe (unify_local_t *local)
 {
 	/* Free the strdup'd variables in the local structure */
 	if (local->name) {
-		FREE (local->name);
+		GF_FREE (local->name);
 	}
 
 	if (local->sh_struct) {
 		if (local->sh_struct->offset_list)
-			FREE (local->sh_struct->offset_list);
+			GF_FREE (local->sh_struct->offset_list);
 
 		if (local->sh_struct->entry_list)
-			FREE (local->sh_struct->entry_list);
+			GF_FREE (local->sh_struct->entry_list);
 
 		if (local->sh_struct->count_list)
-			FREE (local->sh_struct->count_list);
+			GF_FREE (local->sh_struct->count_list);
 
-		FREE (local->sh_struct);
+		GF_FREE (local->sh_struct);
 	}
 
 	loc_wipe (&local->loc1);
@@ -144,13 +144,13 @@ unify_sh_setdents_cbk (call_frame_t *frame,
 			trav = entry->next;
 			while (trav) {
 				prev->next = trav->next;
-				FREE (trav->name);
+				GF_FREE (trav->name);
 				if (IA_ISLNK (trav->buf.ia_type))
-					FREE (trav->link);
-				FREE (trav);
+					GF_FREE (trav->link);
+				GF_FREE (trav);
 				trav = prev->next;
 			}
-			FREE (entry);
+			GF_FREE (entry);
 		}
 
 		if (!local->flags) {
@@ -202,7 +202,8 @@ unify_sh_ns_getdents_cbk (call_frame_t *frame,
 	unify_private_t *priv = this->private;
 	long index = 0;
 	unsigned long final = 0;
-	dir_entry_t *tmp = CALLOC (1, sizeof (dir_entry_t));
+	dir_entry_t *tmp = GF_CALLOC (1, sizeof (dir_entry_t),
+                                      gf_unify_mt_dir_entry_t);
 	
 	local->sh_struct->entry_list[0] = tmp;
 	local->sh_struct->count_list[0] = count;
@@ -259,13 +260,13 @@ unify_sh_ns_setdents_cbk (call_frame_t *frame,
 			trav = entry->next;
 			while (trav) {
 				prev->next = trav->next;
-				FREE (trav->name);
+				GF_FREE (trav->name);
 				if (IA_ISLNK (trav->buf.ia_type))
-					FREE (trav->link);
-				FREE (trav);
+					GF_FREE (trav->link);
+				GF_FREE (trav);
 				trav = prev->next;
 			}
-			FREE (entry);
+			GF_FREE (entry);
 		}
 	}
 	UNLOCK (&frame->lock);
@@ -341,7 +342,8 @@ unify_sh_getdents_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0 && count > 0) {
 		/* There is some dentry found, just send the dentry to NS */
-		tmp = CALLOC (1, sizeof (dir_entry_t));
+		tmp = GF_CALLOC (1, sizeof (dir_entry_t),
+                                 gf_unify_mt_dir_entry_t);
 		local->sh_struct->entry_list[index] = tmp;
 		local->sh_struct->count_list[index] = count;
 		if (entry) {
@@ -458,18 +460,21 @@ unify_sh_opendir_cbk (call_frame_t *frame,
 				 * STACK_WIND.
 				 */
 				local->sh_struct->offset_list = 
-					calloc (priv->child_count, 
-						sizeof (off_t));
+					GF_CALLOC (priv->child_count, 
+					           sizeof (off_t),
+                                                   gf_unify_mt_off_t);
 				ERR_ABORT (local->sh_struct->offset_list);
 	
 				local->sh_struct->entry_list = 
-					calloc (priv->child_count, 
-						sizeof (dir_entry_t *));
+					GF_CALLOC (priv->child_count, 
+						   sizeof (dir_entry_t *),
+                                                   gf_unify_mt_dir_entry_t);
 				ERR_ABORT (local->sh_struct->entry_list);
 
 				local->sh_struct->count_list = 
-					calloc (priv->child_count, 
-						sizeof (int));
+					GF_CALLOC (priv->child_count, 
+						   sizeof (int),
+                                                   gf_unify_mt_int);
 				ERR_ABORT (local->sh_struct->count_list);
 
 				/* Send getdents on all the fds */
@@ -668,13 +673,13 @@ unify_bgsh_setdents_cbk (call_frame_t *frame,
 			trav = entry->next;
 			while (trav) {
 				prev->next = trav->next;
-				FREE (trav->name);
+				GF_FREE (trav->name);
 				if (IA_ISLNK (trav->buf.ia_type))
-					FREE (trav->link);
-				FREE (trav);
+					GF_FREE (trav->link);
+				GF_FREE (trav);
 				trav = prev->next;
 			}
-			FREE (entry);
+			GF_FREE (entry);
 		}
 
 		if (!local->flags) {
@@ -718,7 +723,8 @@ unify_bgsh_ns_getdents_cbk (call_frame_t *frame,
 	unify_private_t *priv = this->private;
 	long index = 0;
 	unsigned long final = 0;
-	dir_entry_t *tmp = CALLOC (1, sizeof (dir_entry_t));
+	dir_entry_t *tmp = GF_CALLOC (1, sizeof (dir_entry_t),
+                                      gf_unify_mt_dir_entry_t);
 
 	local->sh_struct->entry_list[0] = tmp;
 	local->sh_struct->count_list[0] = count;
@@ -775,13 +781,13 @@ unify_bgsh_ns_setdents_cbk (call_frame_t *frame,
 		trav = entry->next;
 		while (trav) {
 			prev->next = trav->next;
-			FREE (trav->name);
+			GF_FREE (trav->name);
 			if (IA_ISLNK (trav->buf.ia_type))
-				FREE (trav->link);
-			FREE (trav);
+				GF_FREE (trav->link);
+			GF_FREE (trav);
 			trav = prev->next;
 		}
-		FREE (entry);
+		GF_FREE (entry);
 	}
 
 	if (local->sh_struct->count_list[index] < 
@@ -855,7 +861,8 @@ unify_bgsh_getdents_cbk (call_frame_t *frame,
 
 	if (op_ret >= 0 && count > 0) {
 		/* There is some dentry found, just send the dentry to NS */
-		tmp = CALLOC (1, sizeof (dir_entry_t));
+		tmp = GF_CALLOC (1, sizeof (dir_entry_t),
+                                 gf_unify_mt_dir_entry_t);
 		local->sh_struct->entry_list[index] = tmp;
 		local->sh_struct->count_list[index] = count;
 		if (entry) {
@@ -969,18 +976,21 @@ unify_bgsh_opendir_cbk (call_frame_t *frame,
 				   track of offset sent to each node during 
 				   STACK_WIND. */
 				local->sh_struct->offset_list = 
-					calloc (priv->child_count, 
-						sizeof (off_t));
+					GF_CALLOC (priv->child_count, 
+					           sizeof (off_t),
+                                                   gf_unify_mt_off_t);
 				ERR_ABORT (local->sh_struct->offset_list);
 	
 				local->sh_struct->entry_list = 
-					calloc (priv->child_count, 
-						sizeof (dir_entry_t *));
+					GF_CALLOC (priv->child_count, 
+						   sizeof (dir_entry_t *),
+                                                   gf_unify_mt_dir_entry_t);
 				ERR_ABORT (local->sh_struct->entry_list);
 
 				local->sh_struct->count_list = 
-					calloc (priv->child_count, 
-						sizeof (int));
+					GF_CALLOC (priv->child_count, 
+						   sizeof (int),
+                                                   gf_unify_mt_int);
 				ERR_ABORT (local->sh_struct->count_list);
 
 				/* Send getdents on all the fds */
@@ -1161,7 +1171,8 @@ zr_unify_self_heal (call_frame_t *frame,
 			local->failed = 0;
 			local->call_count = priv->child_count + 1;
 			local->sh_struct = 
-				calloc (1, sizeof (struct unify_self_heal_struct));
+	         	     GF_CALLOC (1, sizeof (struct unify_self_heal_struct),
+                                        gf_unify_mt_unify_self_heal_struct);
       
 			/* +1 is for NS */
 			for (index = 0; 
@@ -1188,7 +1199,8 @@ zr_unify_self_heal (call_frame_t *frame,
 		bg_local->failed = 0;
 		bg_local->call_count = priv->child_count + 1;
 		bg_local->sh_struct = 
-			calloc (1, sizeof (struct unify_self_heal_struct));
+			GF_CALLOC (1, sizeof (struct unify_self_heal_struct),
+                                   gf_unify_mt_unify_self_heal_struct);
     
 		/* +1 is for NS */
 		for (index = 0; index < (priv->child_count + 1); index++) {

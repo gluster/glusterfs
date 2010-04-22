@@ -138,14 +138,14 @@ __dentry_unset (dentry_t *dentry)
         list_del_init (&dentry->inode_list);
 
         if (dentry->name)
-                FREE (dentry->name);
+                GF_FREE (dentry->name);
 
         if (dentry->parent) {
                 __inode_unref (dentry->parent);
                 dentry->parent = NULL;
         }
 
-        FREE (dentry);
+        GF_FREE (dentry);
 }
 
 
@@ -292,11 +292,11 @@ __inode_destroy (inode_t *inode)
                 }
         }
 
-        FREE (inode->_ctx);
+        GF_FREE (inode->_ctx);
 noctx:
         LOCK_DESTROY (&inode->lock);
         //  memset (inode, 0xb, sizeof (*inode));
-        FREE (inode);
+        GF_FREE (inode);
 }
 
 
@@ -424,7 +424,8 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
 {
         dentry_t      *newd = NULL;
 
-        newd = (void *) CALLOC (1, sizeof (*newd));
+        newd = (void *) GF_CALLOC (1, sizeof (*newd),
+                                   gf_common_mt_dentry_t);
         if (newd == NULL) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -433,10 +434,10 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
         INIT_LIST_HEAD (&newd->inode_list);
         INIT_LIST_HEAD (&newd->hash);
 
-        newd->name = strdup (name);
+        newd->name = gf_strdup (name);
         if (newd->name == NULL) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
-                FREE (newd);
+                GF_FREE (newd);
                 newd = NULL;
                 goto out;
         }
@@ -457,7 +458,7 @@ __inode_create (inode_table_t *table)
 {
         inode_t  *newi = NULL;
 
-        newi = (void *) CALLOC (1, sizeof (*newi));
+        newi = (void *) GF_CALLOC (1, sizeof (*newi), gf_common_mt_inode_t);
         if (!newi) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -472,12 +473,13 @@ __inode_create (inode_table_t *table)
         INIT_LIST_HEAD (&newi->hash);
         INIT_LIST_HEAD (&newi->dentry_list);
 
-        newi->_ctx = CALLOC (1, (sizeof (struct _inode_ctx) *
-                                 table->xl->ctx->xl_count));
+        newi->_ctx = GF_CALLOC (1, (sizeof (struct _inode_ctx) *
+                                    table->xl->ctx->xl_count),
+                                    gf_common_mt_inode_ctx);
         if (newi->_ctx == NULL) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
                 LOCK_DESTROY (&newi->lock);
-                FREE (newi);
+                GF_FREE (newi);
                 newi = NULL;
                 goto out;
         }
@@ -486,6 +488,7 @@ __inode_create (inode_table_t *table)
         table->lru_size++;
 
 out:
+
         return newi;
 }
 
@@ -936,7 +939,7 @@ inode_path (inode_t *inode, const char *name, char **bufp)
 
                 ret = i;
                 size = i + 1;
-                buf = CALLOC (size, sizeof (char));
+                buf = GF_CALLOC (size, sizeof (char), gf_common_mt_char);
                 if (buf) {
 
                         buf[size - 1] = 0;
@@ -968,9 +971,9 @@ unlock:
         if (inode->ino == 1 && !name) {
                 ret = 1;
                 if (buf) {
-                        FREE (buf);
+                        GF_FREE (buf);
                 }
-                buf = CALLOC (ret + 1, sizeof (char));
+                buf = GF_CALLOC (ret + 1, sizeof (char), gf_common_mt_char);
                 if (buf) {
                         strcpy (buf, "/");
                         *bufp = buf;
@@ -1049,7 +1052,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         int            ret = 0;
         int            i = 0;
 
-        new = (void *)calloc (1, sizeof (*new));
+        new = (void *)GF_CALLOC(1, sizeof (*new), gf_common_mt_inode_table_t);
         if (!new)
                 return NULL;
 
@@ -1059,18 +1062,20 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
         new->hashsize = 14057; /* TODO: Random Number?? */
 
-        new->inode_hash = (void *)calloc (new->hashsize,
-                                          sizeof (struct list_head));
+        new->inode_hash = (void *)GF_CALLOC (new->hashsize,
+                                             sizeof (struct list_head),
+                                             gf_common_mt_list_head);
         if (!new->inode_hash) {
-                FREE (new);
+                GF_FREE (new);
                 return NULL;
         }
 
-        new->name_hash = (void *)calloc (new->hashsize,
-                                         sizeof (struct list_head));
+        new->name_hash = (void *)GF_CALLOC (new->hashsize,
+                                            sizeof (struct list_head),
+                                            gf_common_mt_list_head);
         if (!new->name_hash) {
-                FREE (new->inode_hash);
-                FREE (new);
+                GF_FREE (new->inode_hash);
+                GF_FREE (new);
                 return NULL;
         }
 
@@ -1088,7 +1093,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
         INIT_LIST_HEAD (&new->purge);
         INIT_LIST_HEAD (&new->attic);
 
-        ret = asprintf (&new->name, "%s/inode", xl->name);
+        ret = gf_asprintf (&new->name, "%s/inode", xl->name);
         if (-1 == ret) {
                 /* TODO: This should be ok to continue, check with avati */
                 ;
@@ -1114,7 +1119,7 @@ inode_from_path (inode_table_t *itable, const char *path)
         char     *strtokptr = NULL;
 
         /* top-down approach */
-        pathname = strdup (path);
+        pathname = gf_strdup (path);
         if (pathname == NULL) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -1153,7 +1158,7 @@ inode_from_path (inode_table_t *itable, const char *path)
                 inode_unref (parent);
 
         if (pathname)
-                free (pathname);
+                GF_FREE (pathname);
 
 out:
         return inode;

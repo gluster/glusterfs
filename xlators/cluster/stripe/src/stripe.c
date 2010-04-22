@@ -53,7 +53,7 @@ stripe_get_matching_bs (const char *path, struct stripe_options *opts,
         uint64_t               block_size = 0;
 
         block_size = default_bs;
-        pathname   = strdup (path);
+        pathname   = gf_strdup (path);
         trav       = opts;
 
         while (trav) {
@@ -63,7 +63,8 @@ stripe_get_matching_bs (const char *path, struct stripe_options *opts,
                 }
                 trav = trav->next;
         }
-        free (pathname);
+
+        GF_FREE (pathname);
 
         return block_size;
 }
@@ -572,7 +573,8 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
         if (!rframe) {
                 goto out;
         }
-        rlocal = CALLOC (1, sizeof (stripe_local_t));
+        rlocal = GF_CALLOC (1, sizeof (stripe_local_t),
+                            gf_stripe_mt_stripe_local_t);
         if (!rlocal) {
                 goto out;
         }
@@ -709,7 +711,8 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         trav = this->children;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -760,7 +763,8 @@ stripe_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -844,7 +848,8 @@ stripe_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         priv = this->private;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -893,7 +898,8 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1008,7 +1014,8 @@ stripe_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1049,7 +1056,8 @@ stripe_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         trav = this->children;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1215,7 +1223,8 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1270,7 +1279,8 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1356,7 +1366,8 @@ stripe_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1617,7 +1628,8 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 }
 
                 /* Initialization */
-                local = CALLOC (1, sizeof (stripe_local_t));
+                local = GF_CALLOC (1, sizeof (stripe_local_t),
+                                   gf_stripe_mt_stripe_local_t);
                 if (!local) {
                         op_errno = ENOMEM;
                         goto err;
@@ -1684,7 +1696,8 @@ stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1735,7 +1748,8 @@ stripe_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -1936,7 +1950,8 @@ stripe_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 /* */
                 if (local->op_ret >= 0) {
-                        fctx = CALLOC (1, sizeof (stripe_fd_ctx_t));
+                        fctx = GF_CALLOC (1, sizeof (stripe_fd_ctx_t),
+                                          gf_stripe_mt_stripe_fd_ctx_t);
                         if (fctx) {
                                 fctx->stripe_size  = local->stripe_size;
                                 fctx->stripe_count = priv->child_count;
@@ -2035,7 +2050,8 @@ stripe_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2107,8 +2123,8 @@ stripe_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->op_ret == -1) {
                         if (local->fctx) {
                                 if (!local->fctx->static_array)
-                                        FREE (local->fctx->xl_array);
-                                FREE (local->fctx);
+                                        GF_FREE (local->fctx->xl_array);
+                                GF_FREE (local->fctx);
                         }
                 } else {
                         fd_ctx_set (local->fd, this,
@@ -2167,7 +2183,8 @@ stripe_open_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 
                 if (!local->fctx) {
-                        local->fctx =  CALLOC (1, sizeof (stripe_fd_ctx_t));
+                        local->fctx =  GF_CALLOC (1, sizeof (stripe_fd_ctx_t),
+                                           gf_stripe_mt_stripe_fd_ctx_t);
                         if (!local->fctx) {
                                 local->op_errno = ENOMEM;
                                 local->op_ret = -1;
@@ -2209,9 +2226,11 @@ stripe_open_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->op_errno = EIO;
                                 goto unlock;
                         }
-                        local->fctx->xl_array =
-                                CALLOC (local->fctx->stripe_count,
-                                        sizeof (xlator_t *));
+
+                        local->fctx->xl_array = 
+                                GF_CALLOC (local->fctx->stripe_count, 
+                                        sizeof (xlator_t *),
+                                        gf_stripe_mt_xlator_t);
                 }
                 if (local->fctx->stripe_count != data_to_int32 (data)) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2326,7 +2345,8 @@ stripe_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2354,7 +2374,8 @@ stripe_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         trav = trav->next;
                 }
         } else {
-                local->fctx =  CALLOC (1, sizeof (stripe_fd_ctx_t));
+                local->fctx =  GF_CALLOC (1, sizeof (stripe_fd_ctx_t),
+                                          gf_stripe_mt_stripe_fd_ctx_t);
                 if (!local->fctx) {
                         op_errno = ENOMEM;
                         goto err;
@@ -2448,7 +2469,8 @@ stripe_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         }
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2537,7 +2559,8 @@ stripe_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         priv = this->private;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2582,7 +2605,8 @@ stripe_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 goto err;
         }
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2624,7 +2648,8 @@ stripe_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         trav = this->children;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2668,7 +2693,8 @@ stripe_fstat (call_frame_t *frame,
         trav = this->children;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2710,7 +2736,8 @@ stripe_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         trav = this->children;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2752,7 +2779,8 @@ stripe_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         trav = this->children;
 
         /* Initialization */
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -2802,7 +2830,8 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_ret = 0;
 
                 /* Keep extra space for filling in '\0's */
-                vec = CALLOC ((local->count * 2), sizeof (struct iovec));
+                vec = GF_CALLOC ((local->count * 2), sizeof (struct iovec),
+                                  gf_stripe_mt_iovec);
                 if (!vec) {
                         op_ret = -1;
                         goto done;
@@ -2932,7 +2961,8 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (need_to_check_proper_size)
                         goto check_size;
 
-                final_vec = CALLOC (mlocal->count, sizeof (struct iovec));
+                final_vec = GF_CALLOC (mlocal->count, sizeof (struct iovec),
+                                       gf_stripe_mt_iovec);
 
                 if (!final_vec) {
                         op_ret = -1;
@@ -2964,7 +2994,8 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 iobref_unref (tmp_iobref);
                 if (final_vec)
-                        FREE (final_vec);
+                        GF_FREE (final_vec);
+        }
 
                 goto out;
 
@@ -2977,7 +3008,7 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     (fctx->xl_array[index])->fops->fstat,
                                     mlocal->fd);
                 }
-        }
+        
 out:
         STACK_DESTROY (frame->root);
         return 0;
@@ -3027,8 +3058,9 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         rounded_start = floor (offset, stripe_size);
         rounded_end = roof (offset+size, stripe_size);
         num_stripe = rounded_end/stripe_size - rounded_start/stripe_size;
-
-        local = CALLOC (1, sizeof (stripe_local_t));
+        
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -3036,7 +3068,8 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         frame->local = local;
 
         /* This is where all the vectors should be copied. */
-        local->replies = CALLOC (num_stripe, sizeof (struct readv_replies));
+        local->replies = GF_CALLOC (num_stripe, sizeof (struct readv_replies),
+                                    gf_stripe_mt_readv_replies);
         if (!local->replies) {
                 op_errno = ENOMEM;
                 goto err;
@@ -3051,7 +3084,8 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         for (index = off_index; index < (num_stripe + off_index); index++) {
                 rframe = copy_frame (frame);
-                rlocal = CALLOC (1, sizeof (stripe_local_t));
+                rlocal = GF_CALLOC (1, sizeof (stripe_local_t),
+                                    gf_stripe_mt_stripe_local_t);
                 if (!rlocal) {
                         op_errno = ENOMEM;
                         goto err;
@@ -3173,7 +3207,8 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         }
         remaining_size = total_size;
 
-        local = CALLOC (1, sizeof (stripe_local_t));
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -3198,7 +3233,8 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
                 tmp_count = iov_subset (vector, count, offset_offset,
                                         offset_offset + fill_size, NULL);
-                tmp_vec = CALLOC (tmp_count, sizeof (struct iovec));
+                tmp_vec = GF_CALLOC (tmp_count, sizeof (struct iovec),
+                                     gf_stripe_mt_iovec);
                 if (!tmp_vec) {
                         op_errno = ENOMEM;
                         goto err;
@@ -3213,7 +3249,7 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 STACK_WIND(frame, stripe_writev_cbk, fctx->xl_array[idx],
                            fctx->xl_array[idx]->fops->writev, fd, tmp_vec,
                            tmp_count, offset + offset_offset, iobref);
-                FREE (tmp_vec);
+                GF_FREE (tmp_vec);
                 offset_offset += fill_size;
                 if (remaining_size == 0)
                         break;
@@ -3243,10 +3279,10 @@ stripe_release (xlator_t *this, fd_t *fd)
         fctx = (stripe_fd_ctx_t *)(long)tmp_fctx;
 
         if (!fctx->static_array)
-                FREE (fctx->xl_array);
-
-        FREE (fctx);
-
+                GF_FREE (fctx->xl_array);
+        
+        GF_FREE (fctx);
+                
  out:
 	return 0;
 }
@@ -3345,10 +3381,11 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
            "option block-size *avi:10MB" etc */
         stripe_str = strtok_r (data, ",", &tmp_str);
         while (stripe_str) {
-                dup_str = strdup (stripe_str);
-                stripe_opt = CALLOC (1, sizeof (struct stripe_options));
+                dup_str = gf_strdup (stripe_str);
+                stripe_opt = GF_CALLOC (1, sizeof (struct stripe_options),
+                                        gf_stripe_mt_stripe_options);
                 if (!stripe_opt) {
-                        FREE (dup_str);
+                        GF_FREE (dup_str);
                         goto out;
                 }
 
@@ -3378,10 +3415,30 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
                         temp_stripeopt->next = stripe_opt;
                 }
                 stripe_str = strtok_r (NULL, ",", &tmp_str);
+                GF_FREE (dup_str);
         }
 
         ret = 0;
  out:
+        return ret;
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_stripe_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
         return ret;
 }
 
@@ -3423,14 +3480,19 @@ init (xlator_t *this)
                         " please check the volume. exiting");
                 goto out;
         }
-        priv = CALLOC (1, sizeof (stripe_private_t));
+
+        priv = GF_CALLOC (1, sizeof (stripe_private_t),
+                          gf_stripe_mt_stripe_private_t);
+
         if (!priv)
                 goto out;
-        priv->xl_array = CALLOC (count, sizeof (xlator_t *));
+        priv->xl_array = GF_CALLOC (count, sizeof (xlator_t *),
+                                    gf_stripe_mt_xlator_t);
         if (!priv->xl_array)
                 goto out;
 
-        priv->state = CALLOC (count, sizeof (int8_t));
+        priv->state = GF_CALLOC (count, sizeof (int8_t),
+                                 gf_stripe_mt_int8_t);
         if (!priv->state)
                 goto out;
 
@@ -3485,8 +3547,8 @@ init (xlator_t *this)
         if (ret) {
                 if (priv) {
                         if (priv->xl_array)
-                                FREE (priv->xl_array);
-                        FREE (priv);
+                                GF_FREE (priv->xl_array);
+                        GF_FREE (priv);
                 }
         }
         return ret;
@@ -3506,16 +3568,16 @@ fini (xlator_t *this)
         priv = this->private;
         if (priv) {
                 if (priv->xl_array)
-                        FREE (priv->xl_array);
+                        GF_FREE (priv->xl_array);
 
                 trav = priv->pattern;
                 while (trav) {
                         prev = trav;
                         trav = trav->next;
-                        FREE (prev);
+                        GF_FREE (prev);
                 }
                 LOCK_DESTROY (&priv->lock);
-                FREE (priv);
+                GF_FREE (priv);
         }
 
         return;

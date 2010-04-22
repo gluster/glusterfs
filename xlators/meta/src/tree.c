@@ -31,6 +31,7 @@
 #include "xlator.h"
 
 #include "meta.h"
+#include "meta-mem-types.h"
 
 static int
 is_meta_path (const char *path)
@@ -46,7 +47,7 @@ struct stat *
 new_stbuf (void)
 {
   static int next_inode = 0;
-  struct stat *stbuf = CALLOC (1, sizeof (struct stat));
+  struct stat *stbuf = GF_CALLOC (1, sizeof (struct stat), gf_meta_mt_stat);
   
   ERR_ABORT (stbuf);
 
@@ -99,7 +100,7 @@ meta_dirent_t *
 lookup_meta_entry (meta_dirent_t *root, const char *path,
 		   char **remain)
 {
-  char *_path = strdup (path);
+  char *_path = gf_strdup (path);
 
   if (!is_meta_path (path))
     return NULL;
@@ -119,10 +120,10 @@ lookup_meta_entry (meta_dirent_t *root, const char *path,
 	while (piece) {
 	  char *tmp = *remain;
 	  if (*remain)
-	    asprintf (remain, "/%s/%s", *remain, piece);
+	    gf_asprintf (remain, "/%s/%s", *remain, piece);
 	  else
-	    asprintf (remain, "/%s", piece);
-	  if (tmp) free (tmp);
+	    gf_asprintf (remain, "/%s", piece);
+	  if (tmp) GF_FREE (tmp);
 	  piece = strtok (NULL, "/");
 	}
       }
@@ -132,7 +133,7 @@ lookup_meta_entry (meta_dirent_t *root, const char *path,
     trav = ntrav;
   }
 
-  free (_path);
+  GF_FREE (_path);
   return trav;
 }
 
@@ -148,9 +149,10 @@ insert_meta_entry (meta_dirent_t *root, const char *path,
   if (!dir)
     return NULL;
 
-  meta_dirent_t *new = CALLOC (1, sizeof (meta_dirent_t));
+  meta_dirent_t *new = GF_CALLOC (1, sizeof (meta_dirent_t),
+                                  gf_meta_mt_meta_dirent_t);
   ERR_ABORT (new);
-  new->name        = strdup (slashpos+1);
+  new->name        = gf_strdup (slashpos+1);
   new->type        = type;
   new->parent      = parent;
   new->next        = parent->children;
@@ -167,9 +169,10 @@ insert_meta_entry (meta_dirent_t *root, const char *path,
 
 int main (void)
 {
-  meta_dirent_t *root = CALLOC (1, sizeof (meta_dirent_t));
+  meta_dirent_t *root = GF_CALLOC (1, sizeof (meta_dirent_t),
+                                   gf_meta_mt_meta_dirent_t);
   ERR_ABORT (root);
-  root->name = strdup (".meta");
+  root->name = gf_strdup (".meta");
 
   insert_meta_entry (root, "/.meta/version", S_IFREG, NULL, NULL);
   return 0;

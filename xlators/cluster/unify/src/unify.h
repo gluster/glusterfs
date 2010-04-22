@@ -27,6 +27,7 @@
 
 #include "scheduler.h"
 #include "list.h"
+#include "unify-mem-types.h"
 
 #define MAX_DIR_ENTRY_STRING     (32 * 1024)
 
@@ -42,7 +43,7 @@
 /* This is used to allocate memory for local structure */
 #define INIT_LOCAL(fr, loc)                   \
 do {                                          \
-  loc = CALLOC (1, sizeof (unify_local_t));   \
+  loc = GF_CALLOC (1, sizeof (unify_local_t), gf_unify_mt_unify_local_t);   \
   ERR_ABORT (loc);			      \
   if (!loc) {                                 \
     STACK_UNWIND (fr, -1, ENOMEM);            \

@@ -273,7 +273,7 @@ __socket_reset (transport_t *this)
         /* TODO: use mem-pool on incoming data */
 
         if (priv->incoming.hdr_p)
-                free (priv->incoming.hdr_p);
+                GF_FREE (priv->incoming.hdr_p);
 
         if (priv->incoming.iobuf)
                 iobuf_unref (priv->incoming.iobuf);
@@ -298,7 +298,8 @@ __socket_ioq_new (transport_t *this, char *buf, int len,
         priv = this->private;
 
         /* TODO: use mem-pool */
-        entry = CALLOC (1, sizeof (*entry));
+        entry = GF_CALLOC (1, sizeof (*entry),
+                           gf_common_mt_ioq);
         if (!entry)
                 return NULL;
 
@@ -346,10 +347,10 @@ __socket_ioq_entry_free (struct ioq *entry)
                 iobref_unref (entry->iobref);
 
         /* TODO: use mem-pool */
-        free (entry->buf);
+        GF_FREE (entry->buf);
 
         /* TODO: use mem-pool */
-        free (entry);
+        GF_FREE (entry);
 }
 
 
@@ -607,7 +608,8 @@ __socket_proto_state_machine (transport_t *this)
                         priv->incoming.buflen = size2;
 
                         /* TODO: use mem-pool */
-                        priv->incoming.hdr_p  = MALLOC (size1);
+                        priv->incoming.hdr_p  = GF_MALLOC (size1, 
+                                                           gf_common_mt_char);
                         if (size2) {
                                 /* TODO: sanity check size2 < page size
                                  */
@@ -891,7 +893,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 }
                         }
 
-                        new_trans = CALLOC (1, sizeof (*new_trans));
+                        new_trans = GF_CALLOC (1, sizeof (*new_trans), 
+                                               gf_common_mt_transport_t);
                         new_trans->xl = this->xl;
                         new_trans->fini = this->fini;
 
@@ -1376,7 +1379,8 @@ socket_init (transport_t *this)
                 return -1;
         }
 
-        priv = CALLOC (1, sizeof (*priv));
+        priv = GF_CALLOC (1, sizeof (*priv), 
+                         gf_common_mt_socket_private_t);
         if (!priv) {
                 gf_log (this->xl->name, GF_LOG_ERROR,
                         "calloc (1, %"GF_PRI_SIZET") returned NULL",
@@ -1465,9 +1469,27 @@ fini (transport_t *this)
                 "transport %p destroyed", this);
 
         pthread_mutex_destroy (&priv->lock);
-        FREE (priv);
+        GF_FREE (priv);
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_common_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int32_t
 init (transport_t *this)

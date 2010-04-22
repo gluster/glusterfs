@@ -40,6 +40,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "quick-read-mem-types.h"
 
 #define GLUSTERFS_CONTENT_KEY "glusterfs.content"
 

@@ -75,7 +75,8 @@ gf_dirent_for_name (const char *name)
 	gf_dirent_t *gf_dirent = NULL;
 
 	/* TODO: use mem-pool */
-	gf_dirent = CALLOC (gf_dirent_size (name), 1);
+	gf_dirent = GF_CALLOC (gf_dirent_size (name), 1,
+                                gf_common_mt_gf_dirent_t);
 	if (!gf_dirent)
 		return NULL;
 
@@ -105,7 +106,7 @@ gf_dirent_free (gf_dirent_t *entries)
 
 	list_for_each_entry_safe (entry, tmp, &entries->list, list) {
 		list_del (&entry->list);
-		FREE (entry);
+		GF_FREE (entry);
 	}
 }
 
@@ -165,7 +166,7 @@ gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size)
 		}
 
 		entry_len = sizeof (gf_dirent_t) + entry_strlen + 1;
-		entry = CALLOC (1, entry_len);
+		entry = GF_CALLOC (1, entry_len, gf_common_mt_gf_dirent_t);
 		if (!entry) {
 			break;
 		}

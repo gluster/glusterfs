@@ -2147,7 +2147,8 @@ map_lookup (call_frame_t *frame,
 	return 0;
 
  root_inode:
-	local = CALLOC (1, sizeof (map_local_t));
+	local = GF_CALLOC (1, sizeof (map_local_t),
+                           gf_map_mt_map_local_t);
 
 	frame->local = local;
 	local->call_count = priv->child_count;
@@ -2199,7 +2200,8 @@ map_statfs (call_frame_t *frame,
 	return 0;
 
  root_inode:
-	local = CALLOC (1, sizeof (map_local_t));
+	local = GF_CALLOC (1, sizeof (map_local_t),
+                           gf_map_mt_map_local_t);
 
 	priv = this->private;
 	frame->local = local;
@@ -2251,7 +2253,8 @@ map_opendir (call_frame_t *frame,
 	return 0;
 
  root_inode:
-	local = CALLOC (1, sizeof (map_local_t));
+	local = GF_CALLOC (1, sizeof (map_local_t),
+                           gf_map_mt_map_local_t);
 
 	priv = this->private;
 	frame->local = local;
@@ -2310,7 +2313,8 @@ map_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
  root_inode:
 	/* readdir on '/' */
-	local = CALLOC (1, sizeof (map_local_t));
+	local = GF_CALLOC (1, sizeof (map_local_t),
+                           gf_map_mt_map_local_t);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"memory allocation failed :(");
@@ -2372,19 +2376,38 @@ fini (xlator_t *this)
 
 	if (priv) {
 		if (priv->xlarray)
-			FREE (priv->xlarray);
+			GF_FREE (priv->xlarray);
 
 		trav_map = priv->map;
 		while (trav_map) {
 			tmp_map = trav_map;
 			trav_map = trav_map->next;
-			FREE (tmp_map);
+			GF_FREE (tmp_map);
 		}
 
-		FREE(priv);
+		GF_FREE(priv);
 	}
 
 	return;
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_map_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
 }
 
 int
@@ -2403,6 +2426,7 @@ init (xlator_t *this)
 	char *subvol_str = NULL;
 	char *map_xl = NULL;
 
+
 	if (!this->children) {
 		gf_log (this->name,GF_LOG_ERROR,
 			"FATAL: map should have one or more child defined");
@@ -2414,7 +2438,8 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	priv = CALLOC (1, sizeof (map_private_t));
+	priv = GF_CALLOC (1, sizeof (map_private_t),
+                          gf_map_mt_map_private_t);
 	this->private = priv;
 
 	/* allocate xlator array */
@@ -2423,7 +2448,8 @@ init (xlator_t *this)
 		count++;
 		trav = trav->next;
 	}
-	priv->xlarray = CALLOC (1, sizeof (struct map_xlator_array) * count);
+	priv->xlarray = GF_CALLOC (1, sizeof (struct map_xlator_array) * count,
+                                   gf_map_mt_map_xlator_array);
 	priv->child_count = count;
 
 	/* build xlator array */
@@ -2443,7 +2469,7 @@ init (xlator_t *this)
 	}
 	map_pair_str = strtok_r (pattern_string, ";", &tmp_str);
 	while (map_pair_str) {
-		dup_map_pair = strdup (map_pair_str);
+		dup_map_pair = gf_strdup (map_pair_str);
 		dir_str = strtok_r (dup_map_pair, ":", &tmp_str1);
 		if (!dir_str) {
 			gf_log (this->name, GF_LOG_ERROR, 
@@ -2465,7 +2491,7 @@ init (xlator_t *this)
 			goto err;
 		}
 		
-		FREE (dup_map_pair);
+		GF_FREE (dup_map_pair);
 
 		map_pair_str = strtok_r (NULL, ";", &tmp_str);
 	}

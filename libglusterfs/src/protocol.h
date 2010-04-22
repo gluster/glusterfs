@@ -999,7 +999,8 @@ __gf_hdr_new (int size)
 	gf_hdr_common_t *hdr = NULL;
 
 	/* TODO: use mem-pool */
-	hdr = CALLOC (sizeof (gf_hdr_common_t) + size, 1);
+	hdr = GF_CALLOC (sizeof (gf_hdr_common_t) + size, 1,
+                         gf_common_mt_gf_hdr_common_t);
 
 	if (!hdr) {
 		return NULL;

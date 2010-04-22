@@ -32,6 +32,7 @@
 
 #include "xlator.h"
 #include "event.h"
+#include "ib-verbs-mem-types.h"
 
 #include <stdio.h>
 #include <list.h>

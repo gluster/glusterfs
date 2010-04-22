@@ -27,6 +27,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "common-utils.h"
+#include "quota-mem-types.h"
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
@@ -204,7 +205,8 @@ quota_truncate (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	if (priv->disk_usage_limit) {
-		local = CALLOC (1, sizeof (struct quota_local));
+		local = GF_CALLOC (1, sizeof (struct quota_local),
+                                   gf_quota_mt_quota_local);
 		frame->local  = local;
 
 		loc_copy (&local->loc, loc);
@@ -279,7 +281,8 @@ quota_ftruncate (call_frame_t *frame, xlator_t *this,
 	priv = this->private;
 
 	if (priv->disk_usage_limit) {
-		local = CALLOC (1, sizeof (struct quota_local));
+		local = GF_CALLOC (1, sizeof (struct quota_local),
+                                   gf_quota_mt_quota_local);
 		frame->local  = local;
 
 		local->fd = fd_ref (fd);
@@ -462,7 +465,8 @@ quota_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	priv = this->private;
 
 	if (priv->disk_usage_limit) {
-		local = CALLOC (1, sizeof (struct quota_local));
+		local = GF_CALLOC (1, sizeof (struct quota_local),
+                                   gf_quota_mt_quota_local);
 		frame->local = local;
 
 		loc_copy (&local->loc, loc);
@@ -534,7 +538,8 @@ quota_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	priv = this->private;
 
 	if (priv->disk_usage_limit) {
-		local = CALLOC (1, sizeof (struct quota_local));
+		local = GF_CALLOC (1, sizeof (struct quota_local),
+                                   gf_quota_mt_quota_local);
 		frame->local = local;
 
 		loc_copy (&local->loc, loc);
@@ -772,7 +777,8 @@ quota_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 	}
 
 	if (priv->disk_usage_limit) {
-		local = CALLOC (1, sizeof (struct quota_local));
+		local = GF_CALLOC (1, sizeof (struct quota_local),
+                                   gf_quota_mt_quota_local);
 		local->fd     = fd_ref (fd);
 		local->iobref = iobref_ref (iobref);
                 for (i = 0; i < count; i++) {
@@ -1018,7 +1024,26 @@ quota_lookup (call_frame_t *frame,
 		    loc,
 		    xattr_req);
 	return 0;
- }
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_quota_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int32_t 
 init (xlator_t *this)
@@ -1038,7 +1063,8 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	_private = CALLOC (1, sizeof (struct quota_priv));
+	_private = GF_CALLOC (1, sizeof (struct quota_priv),
+                              gf_quota_mt_quota_priv);
         _private->disk_usage_limit = 0;
         data = dict_get (this->options, "disk-usage-limit");
         if (data) {

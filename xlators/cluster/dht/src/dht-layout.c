@@ -44,7 +44,8 @@ dht_layout_new (xlator_t *this, int cnt)
 
         conf = this->private;
 
-	layout = CALLOC (1, layout_size (cnt));
+	layout = GF_CALLOC (1, layout_size (cnt),
+                            gf_dht_mt_dht_layout_t);
 	if (!layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory");
@@ -131,7 +132,7 @@ dht_layout_unref (xlator_t *this, dht_layout_t *layout)
         UNLOCK (&conf->layout_lock);
 
         if (!ref)
-                FREE (layout);
+                GF_FREE (layout);
 }
 
 
@@ -218,8 +219,9 @@ dht_layouts_init (xlator_t *this, dht_conf_t *conf)
 	int           ret = -1;
 	
 
-	conf->file_layouts = CALLOC (conf->subvolume_cnt,
-				     sizeof (dht_layout_t *));
+	conf->file_layouts = GF_CALLOC (conf->subvolume_cnt,
+				        sizeof (dht_layout_t *),
+                                        gf_dht_mt_dht_layout_t);
 	if (!conf->file_layouts) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory");
@@ -253,7 +255,8 @@ dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
 	int      ret = -1;
 	int32_t *disk_layout = NULL;
 
-	disk_layout = CALLOC (5, sizeof (int));
+	disk_layout = GF_CALLOC (5, sizeof (int),
+                                 gf_dht_mt_int32_t);
 	if (!disk_layout) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory");

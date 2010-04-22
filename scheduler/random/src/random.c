@@ -26,6 +26,7 @@
 #endif
 
 #include "random.h"
+#include "random-mem-types.h"
 
 #define RANDOM_LIMITS_MIN_FREE_DISK_DEFAULT    15
 #define RANDOM_REFRESH_INTERVAL_DEFAULT        10
@@ -39,7 +40,8 @@ random_init (xlator_t *xl)
 	data_t *limit = NULL;
 	int32_t index = 0;
 
-	random_buf = CALLOC (1, sizeof (struct random_struct));
+	random_buf = GF_CALLOC (1, sizeof (struct random_struct),
+                                gf_random_mt_random_struct);
 	ERR_ABORT (random_buf);
   
 	/* Set the seed for the 'random' function */
@@ -89,8 +91,9 @@ random_init (xlator_t *xl)
 		trav_xl = trav_xl->next;
 	}
 	random_buf->child_count = index;
-	random_buf->array = CALLOC (index, 
-				    sizeof (struct random_sched_struct));
+	random_buf->array = GF_CALLOC (index,
+                                       sizeof (struct random_sched_struct),
+                                       gf_random_mt_random_sched_struct);
 	ERR_ABORT (random_buf->array);
 	trav_xl = xl->children;
 	index = 0;
@@ -115,8 +118,8 @@ random_fini (xlator_t *xl)
 
 	random_buf = (struct random_struct *)*((long *)xl->private);
 	pthread_mutex_destroy (&random_buf->random_mutex);
-	free (random_buf->array);
-	free (random_buf);
+	GF_FREE (random_buf->array);
+	GF_FREE (random_buf);
 }
 
 
@@ -222,6 +225,24 @@ random_schedule (xlator_t *xl, const void *path)
 	return random_buf->array[rand].xl;
 }
 
+int32_t
+random_mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_random_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        " failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 /**
  * notify
@@ -267,7 +288,8 @@ struct sched_ops sched = {
 	.fini     = random_fini,
 	.update   = random_update,
 	.schedule = random_schedule,
-	.notify   = random_notify
+	.notify   = random_notify,
+        .mem_acct_init = random_mem_acct_init,
 };
 
 struct volume_options options[] = {

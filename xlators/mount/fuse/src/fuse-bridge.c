@@ -48,6 +48,7 @@
 #include "fuse_kernel.h"
 #include "fuse-misc.h"
 #include "fuse-mount.h"
+#include "fuse-mem-types.h"
 
 #include "list.h"
 #include "dict.h"
@@ -146,7 +147,7 @@ typedef struct fuse_private fuse_private_t;
                                 finh->unique, finh->opcode);               \
                                                                            \
                         send_fuse_err (this, finh, ENOMEM);                \
-                        FREE (finh);                                       \
+                        GF_FREE (finh);                                       \
                                                                            \
                         return;                                            \
                 }                                                          \
@@ -186,7 +187,7 @@ free_state (fuse_state_t *state)
                 state->dict = (void *)0xaaaaeeee;
         }
         if (state->name) {
-                FREE (state->name);
+                GF_FREE (state->name);
                 state->name = NULL;
         }
         if (state->fd) {
@@ -194,13 +195,13 @@ free_state (fuse_state_t *state)
                 state->fd = (void *)0xfdfdfdfd;
         }
         if (state->finh) {
-                FREE (state->finh);
+                GF_FREE (state->finh);
                 state->finh = NULL;
         }
 #ifdef DEBUG
         memset (state, 0x90, sizeof (*state));
 #endif
-        FREE (state);
+        GF_FREE (state);
         state = NULL;
 }
 
@@ -210,7 +211,8 @@ get_state (xlator_t *this, fuse_in_header_t *finh)
 {
         fuse_state_t *state = NULL;
 
-        state = (void *)calloc (1, sizeof (*state));
+        state = (void *)GF_CALLOC (1, sizeof (*state),
+                                   gf_fuse_mt_fuse_state_t);
         if (!state)
                 return NULL;
         state->pool = this->ctx->pool;
@@ -619,7 +621,7 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
         inode_t      *fuse_inode;
 
         if (finh->nodeid == 1) {
-                FREE (finh);
+                GF_FREE (finh);
                 return;
         }
 
@@ -628,7 +630,7 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
         inode_forget (fuse_inode, ffi->nlookup);
         inode_unref (fuse_inode);
 
-        FREE (finh);
+        GF_FREE (finh);
 }
 
 
@@ -1832,13 +1834,14 @@ fuse_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         frame->root->unique,
                         op_ret, state->size, state->off, stbuf->ia_size);
 
-                iov_out = CALLOC (count + 1, sizeof (*iov_out));
+                iov_out = GF_CALLOC (count + 1, sizeof (*iov_out),
+                                     gf_fuse_mt_iovec);
                 if (iov_out) {
                         fouh.error = 0;
                         iov_out[0].iov_base = &fouh;
                         memcpy (iov_out + 1, vector, count * sizeof (*iov_out));
                         send_fuse_iov (this, finh, iov_out, count + 1);
-                        FREE (iov_out);
+                        GF_FREE (iov_out);
                 } else
                         send_fuse_err (this, finh, ENOMEM);
         } else {
@@ -2197,7 +2200,7 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            strlen (entry->d_name));
         }
 
-        buf = CALLOC (1, size);
+        buf = GF_CALLOC (1, size, gf_fuse_mt_char);
         if (!buf) {
                 gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                         "%"PRIu64": READDIR => -1 (%s)", frame->root->unique,
@@ -2223,7 +2226,7 @@ out:
         free_state (state);
         STACK_DESTROY (frame->root);
         if (buf)
-                FREE (buf);
+                GF_FREE (buf);
         return 0;
 
 }
@@ -2402,7 +2405,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 #ifdef DISABLE_POSIX_ACL
         if (!strncmp (name, "system.", 7)) {
                 send_fuse_err (this, finh, EOPNOTSUPP);
-                FREE (finh);
+                GF_FREE (finh);
                 return;
         }
 #endif
@@ -2546,7 +2549,8 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         }
 
                                         priv->volfile_size = st.st_size;
-                                        file = priv->volfile = CALLOC (1, priv->volfile_size);
+                                        file = priv->volfile = GF_CALLOC (1, priv->volfile_size,
+                                                                          gf_fuse_mt_char);
                                         ret = lseek (fd, 0, SEEK_SET);
                                         while ((ret = read (fd, file, GF_UNIT_KB)) > 0) {
                                                 file += ret;
@@ -2637,14 +2641,14 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 #ifdef DISABLE_POSIX_ACL
         if (!strncmp (name, "system.", 7)) {
                 send_fuse_err (this, finh, ENODATA);
-                FREE (finh);
+                GF_FREE (finh);
                 return;
         }
 #endif
 
         GET_STATE (this, finh, state);
         state->size = fgxi->size;
-        state->name = strdup (name);
+        state->name = gf_strdup (name);
 
         ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
         if ((state->loc.inode == NULL) ||
@@ -2950,7 +2954,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
  out:
-        FREE (finh);
+        GF_FREE (finh);
 }
 
 
@@ -2959,7 +2963,7 @@ fuse_enosys (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         send_fuse_err (this, finh, ENOSYS);
 
-        FREE (finh);
+        GF_FREE (finh);
 }
 
 
@@ -2968,7 +2972,7 @@ fuse_destroy (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         send_fuse_err (this, finh, 0);
 
-        FREE (finh);
+        GF_FREE (finh);
 }
 
 static fuse_handler_t *fuse_ops[FUSE_713_OP_HIGH];
@@ -3101,14 +3105,15 @@ fuse_thread_proc (void *data)
                  * but it's good enough in most cases (and we can handle
                  * rest via realloc).
                  */
-                iov_in[0].iov_base = CALLOC (1, msg0_size);
+                iov_in[0].iov_base = GF_CALLOC (1, msg0_size,
+                                                gf_fuse_mt_iov_base);
 
                 if (!iobuf || !iov_in[0].iov_base) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
                         if (iobuf)
                                 iobuf_unref (iobuf);
-                        FREE (iov_in[0].iov_base);
+                        GF_FREE (iov_in[0].iov_base);
                         sleep (10);
                         continue;
                 }
@@ -3160,7 +3165,7 @@ fuse_thread_proc (void *data)
                 else {
                         if (res > msg0_size) {
                                 iov_in[0].iov_base =
-                                  realloc (iov_in[0].iov_base, res);
+                                  GF_REALLOC (iov_in[0].iov_base, res);
                                 if (iov_in[0].iov_base)
                                         finh = (fuse_in_header_t *)
                                                  iov_in[0].iov_base;
@@ -3187,11 +3192,11 @@ fuse_thread_proc (void *data)
 
  cont_err:
                 iobuf_unref (iobuf);
-                FREE (iov_in[0].iov_base);
+                GF_FREE (iov_in[0].iov_base);
         }
 
         iobuf_unref (iobuf);
-        FREE (iov_in[0].iov_base);
+        GF_FREE (iov_in[0].iov_base);
 
         if (dict_get (this->options, ZR_MOUNTPOINT_OPT))
                 mount_point = data_to_str (dict_get (this->options,
@@ -3328,6 +3333,24 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_fuse_mt_end + 1);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int
 init (xlator_t *this_xl)
@@ -3350,7 +3373,7 @@ init (xlator_t *this_xl)
         options = this_xl->options;
 
         if (this_xl->name == NULL) {
-                this_xl->name = strdup ("fuse");
+                this_xl->name = gf_strdup ("fuse");
                 if (!this_xl->name) {
                         gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                                 "Out of memory");
@@ -3360,7 +3383,7 @@ init (xlator_t *this_xl)
                 xl_name_allocated = 1;
         }
 
-        priv = CALLOC (1, sizeof (*priv));
+        priv = GF_CALLOC (1, sizeof (*priv), gf_fuse_mt_fuse_private_t);
         if (!priv) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "Out of memory");
@@ -3404,7 +3427,7 @@ init (xlator_t *this_xl)
                         ZR_MOUNTPOINT_OPT, value_string);
                 goto cleanup_exit;
         }
-        priv->mount_point = strdup (value_string);
+        priv->mount_point = gf_strdup (value_string);
         if (!priv->mount_point) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "Out of memory");
@@ -3503,12 +3526,12 @@ init (xlator_t *this_xl)
 
 cleanup_exit:
         if (xl_name_allocated)
-                FREE (this_xl->name);
+                GF_FREE (this_xl->name);
         if (priv) {
-                FREE (priv->mount_point);
+                GF_FREE (priv->mount_point);
                 close (priv->fd);
         }
-        FREE (priv);
+        GF_FREE (priv);
         return -1;
 }
 

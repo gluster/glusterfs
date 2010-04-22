@@ -566,7 +566,7 @@ __gather_xattr_keys (dict_t *dict, char *key, data_t *value,
         if (!strncmp (key, AFR_XATTR_PREFIX,
                       strlen (AFR_XATTR_PREFIX))) {
 
-                xkey = CALLOC (1, sizeof (*xkey));
+                xkey = GF_CALLOC (1, sizeof (*xkey), gf_afr_mt_xattr_key);
                 if (!xkey)
                         return;
 
@@ -596,7 +596,7 @@ __filter_xattrs (dict_t *dict)
 
                 list_del_init (&key->list);
 
-                FREE (key);
+                GF_FREE (key);
         }
 }
 
@@ -713,7 +713,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
 	loc_copy (&local->loc, loc);
 	if (name)
-	  local->cont.getxattr.name       = strdup (name);
+	  local->cont.getxattr.name       = gf_strdup (name);
 
 	STACK_WIND_COOKIE (frame, afr_getxattr_cbk,
 			   (void *) (long) call_child,

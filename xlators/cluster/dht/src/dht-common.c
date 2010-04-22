@@ -3557,7 +3557,8 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                         goto err;
                 }
 
-                lookup_local = CALLOC (sizeof (*local), 1);
+                lookup_local = GF_CALLOC (sizeof (*local), 1,
+                                          gf_dht_mt_dht_local_t);
                 if (!lookup_local) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of Memory");
@@ -4235,7 +4236,8 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         for (subvols = this->children; subvols; subvols = subvols->next)
                 cnt++;
 
-        conf->subvolumes = CALLOC (cnt, sizeof (xlator_t *));
+        conf->subvolumes = GF_CALLOC (cnt, sizeof (xlator_t *),
+                                      gf_dht_mt_xlator_t);
         if (!conf->subvolumes) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
@@ -4247,7 +4249,8 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         for (subvols = this->children; subvols; subvols = subvols->next)
                 conf->subvolumes[cnt++] = subvols->xlator;
 
-	conf->subvolume_status = CALLOC (cnt, sizeof (char));
+	conf->subvolume_status = GF_CALLOC (cnt, sizeof (char),
+                                            gf_dht_mt_char);
 	if (!conf->subvolume_status) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"Out of memory");

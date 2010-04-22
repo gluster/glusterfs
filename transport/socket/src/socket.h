@@ -31,6 +31,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "mem-pool.h"
+#include "socket-mem-types.h"
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16

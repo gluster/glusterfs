@@ -30,6 +30,7 @@
 #include "iobuf.h"
 #include "nfs-common.h"
 #include "nfs-fops.h"
+#include "nfs-mem-types.h"
 #include "rpcsvc.h"
 #include "iatt.h"
 
@@ -144,7 +145,7 @@ nfs_loc_wipe (loc_t *loc)
                 return;
 
         if (loc->path) {
-                FREE (loc->path);
+                GF_FREE ((char *)loc->path);
                 loc->path = NULL;
         }
 
@@ -175,7 +176,7 @@ nfs_loc_copy (loc_t *dst, loc_t *src)
 	if (src->parent)
 		dst->parent = inode_ref (src->parent);
 
-	dst->path = strdup (src->path);
+	dst->path = gf_strdup (src->path);
 
 	if (!dst->path)
 		goto out;
@@ -206,7 +207,7 @@ nfs_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
         if (parent)
                 loc->parent = inode_ref (parent);
 
-        loc->path = strdup (path);
+        loc->path = gf_strdup (path);
         if (!loc->path) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "strdup failed");
                 goto loc_wipe;
@@ -258,7 +259,7 @@ err:
                 inode_unref (parent);
 
         if (resolvedpath)
-                FREE (resolvedpath);
+                GF_FREE (resolvedpath);
 
         return ret;
 }
@@ -370,7 +371,7 @@ err:
                 inode_unref (entryinode);
 
         if (resolvedpath)
-                FREE (resolvedpath);
+                GF_FREE (resolvedpath);
 
         return ret;
 }

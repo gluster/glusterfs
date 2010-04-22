@@ -30,6 +30,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "xlator.h"
+#include "filter-mem-types.h"
 
 #define GF_FILTER_NOBODY_UID         65534
 #define GF_FILTER_NOBODY_GID         65534
@@ -1355,6 +1356,25 @@ filter_removexattr (call_frame_t *frame,
 	return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_filter_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int32_t 
 init (xlator_t *this)
 {
@@ -1384,7 +1404,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	filter = CALLOC (sizeof (*filter), 1);
+	filter = GF_CALLOC (sizeof (*filter), 1, gf_filter_mt_gf_filter);
 	ERR_ABORT (filter);
 	
 	if (dict_get (this->options, "read-only")) {
@@ -1419,11 +1439,11 @@ init (xlator_t *this)
 		option_data = dict_get (this->options, "translate-uid");
 		value = strtok_r (option_data->data, ",", &tmp_str);
 		while (value) {
-			dup_str = strdup (value);
+			dup_str = gf_strdup (value);
 			input_value_str1 = strtok_r (dup_str, "=", &tmp_str1);
 			if (input_value_str1) {
 				/* Check for n-m */
-				char *temp_string = strdup (input_value_str1);
+				char *temp_string = gf_strdup (input_value_str1);
 				input_value_str2 = strtok_r (temp_string, "-", &tmp_str2);
 				if (gf_string2int (input_value_str2, &input_value) != 0) {
 					gf_log (this->name, GF_LOG_ERROR, 
@@ -1442,7 +1462,7 @@ init (xlator_t *this)
 					}
 				}
 				filter->translate_input_uid[filter->translate_num_uid_entries][1] = input_value;
-				FREE (temp_string);
+				GF_FREE (temp_string);
 				output_value_str = strtok_r (NULL, "=", &tmp_str1);
 				if (output_value_str) {
 					if (gf_string2int (output_value_str, &output_value) != 0) {
@@ -1471,7 +1491,7 @@ init (xlator_t *this)
 			if (filter->translate_num_uid_entries == GF_MAXIMUM_FILTERING_ALLOWED)
 				break;
 			value = strtok_r (NULL, ",", &tmp_str);
-			FREE (dup_str);
+			GF_FREE (dup_str);
 		}
 	}
 
@@ -1483,11 +1503,11 @@ init (xlator_t *this)
 		option_data = dict_get (this->options, "translate-gid");
 		value = strtok_r (option_data->data, ",", &tmp_str);
 		while (value) {
-			dup_str = strdup (value);
+			dup_str = gf_strdup (value);
 			input_value_str1 = strtok_r (dup_str, "=", &tmp_str1);
 			if (input_value_str1) {
 				/* Check for n-m */
-				char *temp_string = strdup (input_value_str1);
+				char *temp_string = gf_strdup (input_value_str1);
 				input_value_str2 = strtok_r (temp_string, "-", &tmp_str2);
 				if (gf_string2int (input_value_str2, &input_value) != 0) {
 					gf_log (this->name, GF_LOG_ERROR, 
@@ -1506,7 +1526,7 @@ init (xlator_t *this)
 					}
 				}
 				filter->translate_input_gid[filter->translate_num_gid_entries][1] = input_value;
-				FREE (temp_string);
+				GF_FREE (temp_string);
 				output_value_str = strtok_r (NULL, "=", &tmp_str1);
 				if (output_value_str) {
 					if (gf_string2int (output_value_str, &output_value) != 0) {
@@ -1536,7 +1556,7 @@ init (xlator_t *this)
 			if (filter->translate_num_gid_entries == GF_MAXIMUM_FILTERING_ALLOWED)
 				break;
 			value = strtok_r (NULL, ",", &tmp_str);
-			FREE (dup_str);
+			GF_FREE (dup_str);
 		}
 	}
 
@@ -1547,7 +1567,7 @@ init (xlator_t *this)
 		option_data = dict_get (this->options, "filter-uid");
 		value = strtok_r (option_data->data, ",", &tmp_str);
 		while (value) {
-			dup_str = strdup (value);
+			dup_str = gf_strdup (value);
 			/* Check for n-m */
 			input_value_str1 = strtok_r (dup_str, "-", &tmp_str1);
 			if (gf_string2int (input_value_str1, &input_value) != 0) {
@@ -1577,7 +1597,7 @@ init (xlator_t *this)
 			if (filter->filter_num_uid_entries == GF_MAXIMUM_FILTERING_ALLOWED)
 				break;
 			value = strtok_r (NULL, ",", &tmp_str);
-			FREE (dup_str);
+			GF_FREE (dup_str);
 		}
 		filter->partial_filter = 1;
 	}
@@ -1589,7 +1609,7 @@ init (xlator_t *this)
 		option_data = dict_get (this->options, "filter-gid");
 		value = strtok_r (option_data->data, ",", &tmp_str);
 		while (value) {
-			dup_str = strdup (value);
+			dup_str = gf_strdup (value);
 			/* Check for n-m */
 			input_value_str1 = strtok_r (dup_str, "-", &tmp_str1);
 			if (gf_string2int (input_value_str1, &input_value) != 0) {
@@ -1619,7 +1639,7 @@ init (xlator_t *this)
 			if (filter->filter_num_gid_entries == GF_MAXIMUM_FILTERING_ALLOWED)
 				break;
 			value = strtok_r (NULL, ",", &tmp_str);
-			FREE (dup_str);
+			GF_FREE (dup_str);
 		}
 		gf_log (this->name, GF_LOG_ERROR, "this option is not supported currently.. exiting");
 		return -1;
@@ -1660,7 +1680,7 @@ fini (xlator_t *this)
 {
 	struct gf_filter *filter = this->private;
 
-	FREE (filter);
+	GF_FREE (filter);
 
 	return;
 }
