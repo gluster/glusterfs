@@ -1237,7 +1237,7 @@ io_stats_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         STACK_WIND (frame, io_stats_readdirp_cbk,
                     FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->readdir,
+                    FIRST_CHILD(this)->fops->readdirp,
                     fd, size, offset);
 
         return 0;
