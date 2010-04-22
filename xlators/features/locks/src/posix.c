@@ -180,7 +180,8 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 {
         struct _truncate_ops *local = NULL;
 
-        local = CALLOC (1, sizeof (struct _truncate_ops));
+	local = GF_CALLOC (1, sizeof (struct _truncate_ops),
+                           gf_locks_mt_truncate_ops);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
@@ -211,7 +212,8 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 {
         struct _truncate_ops *local = NULL;
 
-        local = CALLOC (1, sizeof (struct _truncate_ops));
+	local = GF_CALLOC (1, sizeof (struct _truncate_ops),
+                           gf_locks_mt_truncate_ops);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
@@ -522,7 +524,7 @@ do_blocked_rw (pl_inode_t *pl_inode)
         list_for_each_entry_safe (rw, tmp, &wind_list, list) {
                 list_del_init (&rw->list);
                 call_resume (rw->stub);
-                free (rw);
+                GF_FREE (rw);
         }
 
         return;
@@ -601,7 +603,8 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                                 goto unlock;
                         }
 
-                        rw = CALLOC (1, sizeof (*rw));
+			rw = GF_CALLOC (1, sizeof (*rw),
+                                        gf_locks_mt_pl_rw_req_t);
                         if (!rw) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Out of memory.");
@@ -617,7 +620,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                                         "Out of memory.");
                                 op_errno = ENOMEM;
                                 op_ret = -1;
-                                free (rw);
+                                GF_FREE (rw);
                                 goto unlock;
                         }
 
@@ -698,7 +701,8 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                 goto unlock;
                         }
 
-                        rw = CALLOC (1, sizeof (*rw));
+			rw = GF_CALLOC (1, sizeof (*rw),
+                                        gf_locks_mt_pl_rw_req_t);
                         if (!rw) {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Out of memory.");
@@ -715,7 +719,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                         "Out of memory.");
                                 op_errno = ENOMEM;
                                 op_ret = -1;
-                                free (rw);
+                                GF_FREE (rw);
                                 goto unlock;
                         }
 
@@ -876,7 +880,7 @@ pl_forget (xlator_t *this,
 						  list) {
 
 				list_del (&rw_req->list);
-				FREE (rw_req);
+				GF_FREE (rw_req);
 			}
 		}
 
@@ -920,8 +924,8 @@ pl_forget (xlator_t *this,
 					list_del_init (&entry_l->domain_list);
 
 					if (entry_l->basename)
-						FREE (entry_l->basename);
-					FREE (entry_l);
+						GF_FREE ((char *)entry_l->basename);
+					GF_FREE (entry_l);
 				}
 
 				list_splice_init (&dom->blocked_entrylks, &entrylks_released);
@@ -930,8 +934,8 @@ pl_forget (xlator_t *this,
 			list_del (&dom->inode_list);
 			gf_log ("posix-locks", GF_LOG_TRACE,
 				" Cleaning up domain: %s", dom->domain);
-			FREE (dom->domain);
-			FREE (dom);
+			GF_FREE ((char *)(dom->domain));
+			GF_FREE (dom);
 		}
 
 	}
@@ -953,12 +957,12 @@ pl_forget (xlator_t *this,
 
 		STACK_UNWIND_STRICT (entrylk, entry_l->frame, -1, 0);
 		if (entry_l->basename)
-			FREE (entry_l->basename);
-		FREE (entry_l);
+			GF_FREE ((char *)entry_l->basename);
+		GF_FREE (entry_l);
 
 	}
 
-        FREE (pl_inode);
+        GF_FREE (pl_inode);
 
         return 0;
 }
@@ -1117,7 +1121,7 @@ pl_lookup_cbk (call_frame_t *frame,
         frame->local = NULL;
 
         if (local != NULL)
-                FREE (local);
+                GF_FREE (local);
 
 out:
 	STACK_UNWIND (frame,
@@ -1143,7 +1147,7 @@ pl_lookup (call_frame_t *frame,
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_locks_mt_pl_local_t);
         if (!local) {
                 ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1437,7 +1441,24 @@ pl_dump_inode (xlator_t *this)
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
 
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_locks_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int
 init (xlator_t *this)
@@ -1469,7 +1490,8 @@ init (xlator_t *this)
                 return -1;
         }
 
-        priv = CALLOC (1, sizeof (*priv));
+	priv = GF_CALLOC (1, sizeof (*priv),
+                          gf_locks_mt_posix_locks_private_t);
 
         mandatory = dict_get (this->options, "mandatory-locks");
         if (mandatory)
@@ -1497,7 +1519,7 @@ fini (xlator_t *this)
         posix_locks_private_t *priv = NULL;
 
         priv = this->private;
-        free (priv);
+        GF_FREE (priv);
 
         return 0;
 }

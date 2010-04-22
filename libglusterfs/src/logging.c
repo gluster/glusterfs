@@ -84,7 +84,7 @@ gf_log_init (const char *file)
 
 	pthread_mutex_init (&logfile_mutex, NULL);
 
-	filename = strdup (file);
+        filename = gf_strdup (file);
 	if (!filename) {
 		fprintf (stderr, "gf_log_init: strdup error\n");
 		return -1;
@@ -153,11 +153,11 @@ __get_dummy_xlator (glusterfs_ctx_t *ctx, const char *remote_host,
 	xlator_list_t * parent = NULL;
         xlator_list_t * tmp    = NULL;
 
-	top = CALLOC (1, sizeof (*top));
+	top = GF_CALLOC (1, sizeof (*top), gf_common_mt_xlator_t);
         if (!top)
                 goto out;
 
-	trans = CALLOC (1, sizeof (*trans));
+	trans = GF_CALLOC (1, sizeof (*trans), gf_common_mt_xlator_t);
         if (!trans)
                 goto out;
 	
@@ -169,7 +169,8 @@ __get_dummy_xlator (glusterfs_ctx_t *ctx, const char *remote_host,
 	top->next     = trans;
 	top->init     = dummy_init;
 	top->notify   = gf_log_notify;
-	top->children = (void *) CALLOC (1, sizeof (*top->children));
+	top->children = (void *) GF_CALLOC (1, sizeof (*top->children),
+                                        gf_common_mt_xlator_list_t);
         
 	if (!top->children)
                 goto out;
@@ -183,7 +184,7 @@ __get_dummy_xlator (glusterfs_ctx_t *ctx, const char *remote_host,
 	trans->notify  = default_notify;
 	trans->options = get_new_dict ();
 	
-	parent = CALLOC (1, sizeof(*parent));
+	parent = GF_CALLOC (1, sizeof(*parent), gf_common_mt_xlator_list_t);
 
         if (!parent)
                 goto out;
@@ -219,7 +220,8 @@ __get_dummy_xlator (glusterfs_ctx_t *ctx, const char *remote_host,
 	ret = dict_set_static_ptr (trans->options, "non-blocking-io", "off");
 	
 	if (transport) {
-		char *transport_type = CALLOC (1, strlen (transport) + 10);
+		char *transport_type = GF_CALLOC (1, strlen (transport) + 10,
+                                                  gf_common_mt_char);
 		ERR_ABORT (transport_type);
 		strcpy(transport_type, transport);
 
@@ -293,7 +295,7 @@ gf_log_central_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         msg = (struct _log_msg *) cookie;
 
-        FREE (msg->msg);
+        GF_FREE ((char *)(msg->msg));
 
         STACK_DESTROY (frame->root);
 
@@ -375,14 +377,14 @@ gf_log_central (const char *msg)
 {
         struct _log_msg *lm = NULL;
 
-        lm = CALLOC (1, sizeof (*lm));
+        lm = GF_CALLOC (1, sizeof (*lm), gf_common_mt_log_msg);
         
         if (!lm)
                 goto out;
 
         INIT_LIST_HEAD (&lm->queue);
 
-        lm->msg = strdup (msg);
+        lm->msg = gf_strdup (msg);
 
         pthread_mutex_lock (&msg_queue_mutex);
         {
@@ -491,10 +493,10 @@ log:
 		else
 			basename = file;
 
-                ret = asprintf (&str1, "[%s] %s [%s:%d:%s] %s: ",
-                                timestr, level_strings[level],
-                                basename, line, function,
-                                domain);
+                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s: ",
+                                   timestr, level_strings[level],
+                                   basename, line, function,
+                                   domain);
                 if (-1 == ret) {
                         goto unlock;
                 }
@@ -507,7 +509,7 @@ log:
 		va_end (ap);
 
                 len = strlen (str1);
-                msg = malloc (len + strlen (str2) + 1);
+                msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
                 
                 strcpy (msg, str1);
                 strcpy (msg + len, str2);
@@ -528,11 +530,11 @@ unlock:
                         }
                         glusterfs_central_log_flag_unset ();
                 }
-                FREE (msg);
+                GF_FREE (msg);
         }
 
         if (str1)
-                FREE (str1);
+                GF_FREE (str1);
 
         if (str2)
                 FREE (str2);
@@ -559,12 +561,12 @@ client_log_init (struct _client_log *cl, char *identifier)
 
         cl->identifier = identifier;
 
-        ret = asprintf (&path, "%s.client-%s", filename, identifier);
+        ret = gf_asprintf (&path, "%s.client-%s", filename, identifier);
         if (-1 == ret) {
                 return;
         }
         cl->file = fopen (path, "a");
-        FREE (path);
+        GF_FREE (path);
         
         INIT_LIST_HEAD (&cl->list);
 }
@@ -576,7 +578,8 @@ __logfile_for_client (char *identifier)
         struct _client_log *client = NULL;
 
         if (!client_logs) {
-                client = CALLOC (1, sizeof (*client));
+                client = GF_CALLOC (1, sizeof (*client),
+                                        gf_common_mt_client_log);
                 client_log_init (client, identifier);
 
                 client_logs = client;
@@ -588,7 +591,8 @@ __logfile_for_client (char *identifier)
         }
 
         if (!client) {
-                client = CALLOC (1, sizeof (*client));
+                client = GF_CALLOC (1, sizeof (*client),
+                                        gf_common_mt_client_log);
 
                 client_log_init (client, identifier);
 

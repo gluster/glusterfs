@@ -20,6 +20,8 @@
 #ifndef __HA_H_
 #define __HA_H_
 
+#include "ha-mem-types.h"
+
 typedef struct {
 	call_stub_t *stub;
 	int32_t op_ret, op_errno;

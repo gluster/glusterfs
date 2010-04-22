@@ -148,7 +148,7 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
                 local->selfheal.layout = NULL;
         }
 
-	FREE (local);
+	GF_FREE (local);
 }
 
 
@@ -158,7 +158,8 @@ dht_local_init (call_frame_t *frame)
 	dht_local_t *local = NULL;
 
 	/* TODO: use mem-pool */
-	local = CALLOC (1, sizeof (*local));
+	local = GF_CALLOC (1, sizeof (*local),
+                           gf_dht_mt_dht_local_t);
 
 	if (!local)
 		return NULL;
@@ -408,9 +409,9 @@ dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
         }
 
         if (strcmp (parent->path, "/") == 0)
-                asprintf ((char **)&child->path, "/%s", name);
+                gf_asprintf ((char **)&child->path, "/%s", name);
         else
-                asprintf ((char **)&child->path, "%s/%s", parent->path, name);
+                gf_asprintf ((char **)&child->path, "%s/%s", parent->path, name);
 
         if (!child->path) {
                 gf_log (this->name, GF_LOG_ERROR,

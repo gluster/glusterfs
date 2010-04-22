@@ -35,6 +35,7 @@
 #include "common-utils.h"
 #include "call-stub.h"
 #include "statedump.h"
+#include "write-behind-mem-types.h"
 
 #define MAX_VECTOR_COUNT 8
 #define WB_AGGREGATE_SIZE 131072 /* 128 KB */
@@ -141,7 +142,7 @@ __wb_request_unref (wb_request_t *this)
                         call_stub_destroy (this->stub);
                 }
 
-                FREE (this);
+                GF_FREE (this);
         }
 }
 
@@ -209,7 +210,7 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
         struct iovec *vector = NULL;
         int32_t       count = 0;
                         
-        request = CALLOC (1, sizeof (*request));
+        request = GF_CALLOC (1, sizeof (*request), gf_wb_mt_wb_request_t);
         if (request == NULL) {
                 goto out;
         }
@@ -270,7 +271,7 @@ wb_file_create (xlator_t *this, fd_t *fd)
         wb_file_t *file = NULL;
         wb_conf_t *conf = this->private; 
 
-        file = CALLOC (1, sizeof (*file));
+        file = GF_CALLOC (1, sizeof (*file), gf_wb_mt_wb_file_t);
         if (file == NULL) {
                 goto out;
         }
@@ -307,7 +308,7 @@ wb_file_destroy (wb_file_t *file)
 
         if (!refcount){
                 LOCK_DESTROY (&file->lock);
-                FREE (file);
+                GF_FREE (file);
         }
 
         return;
@@ -407,7 +408,8 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
   
         list_for_each_entry_safe (request, dummy, winds, winds) {
                 if (!vector) {
-                        vector = MALLOC (VECTORSIZE (MAX_VECTOR_COUNT));
+                        vector = GF_MALLOC (VECTORSIZE (MAX_VECTOR_COUNT),
+                                            gf_wb_mt_iovec);
                         if (vector == NULL) {
                                 bytes = -1;
                                 goto out;
@@ -419,7 +421,8 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                                 goto out;
                         }
 
-                        local = CALLOC (1, sizeof (*local));
+                        local = GF_CALLOC (1, sizeof (*local),
+                                           gf_wb_mt_wb_local_t);
                         if (local == NULL) {
                                 bytes = -1;
                                 goto out;
@@ -488,7 +491,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                                     iobref);
         
                         iobref_unref (iobref);
-                        FREE (vector);
+                        GF_FREE (vector);
                         first_request = NULL;
                         iobref = NULL;
                         vector = NULL;
@@ -505,7 +508,7 @@ out:
         }
 
         if (local != NULL) {
-                FREE (local);
+                GF_FREE (local);
         }
 
         if (iobref != NULL) {
@@ -513,7 +516,7 @@ out:
         }
 
         if (vector != NULL) {
-                FREE (vector);
+                GF_FREE (vector);
         }
 
         return bytes;
@@ -612,7 +615,8 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 }
         }
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -726,7 +730,8 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         }
 
 	file = (wb_file_t *)(long)tmp_file;
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 STACK_UNWIND_STRICT (fstat, frame, -1, ENOMEM, NULL);
                 return 0;
@@ -877,7 +882,8 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 }
         }
   
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -994,7 +1000,8 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
 	file = (wb_file_t *)(long)tmp_file;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM,
                                      NULL, NULL);
@@ -1131,7 +1138,8 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         wb_request_t *request = NULL;
         int32_t       ret = -1, op_errno = EINVAL;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1263,7 +1271,8 @@ wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         wb_local_t *local = NULL;
         int32_t     op_errno = EINVAL;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1894,7 +1903,8 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 goto unwind;
         }
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2010,7 +2020,8 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
 	file = (wb_file_t *)(long)tmp_file;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
                                      NULL, 0, NULL, NULL);
@@ -2165,7 +2176,8 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	file = (wb_file_t *)(long)tmp_file;
 
         if (file != NULL) {
-                local = CALLOC (1, sizeof (*local));
+                local = GF_CALLOC (1, sizeof (*local),
+                                   gf_wb_mt_wb_local_t);
                 if (local == NULL) {
                         STACK_UNWIND (frame, -1, ENOMEM, NULL);
                         return 0;
@@ -2196,7 +2208,8 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 
                 if (conf->flush_behind
                     && (!disabled) && (disable_till == 0)) {
-                        tmp_local = CALLOC (1, sizeof (*local));
+                        tmp_local = GF_CALLOC (1, sizeof (*local),
+                                               gf_wb_mt_wb_local_t);
                         if (tmp_local == NULL) {
                                 STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
                                  
@@ -2337,7 +2350,8 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
 
 	file = (wb_file_t *)(long)tmp_file;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
@@ -2444,6 +2458,25 @@ wb_priv_dump (xlator_t *this)
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_wb_mt_end + 1);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int32_t 
 init (xlator_t *this)
 {
@@ -2468,7 +2501,7 @@ init (xlator_t *this)
         
         options = this->options;
 
-        conf = CALLOC (1, sizeof (*conf));
+        conf = GF_CALLOC (1, sizeof (*conf), gf_wb_mt_wb_conf_t);
         if (conf == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: Out of memory");
@@ -2521,7 +2554,7 @@ init (xlator_t *this)
                                 "invalid number format \"%s\" of \"option "
                                 "window-size\"", 
                                 str);
-                        FREE (conf);
+                        GF_FREE (conf);
                         return -1;
                 }
         }
@@ -2539,7 +2572,7 @@ init (xlator_t *this)
                         "aggregate-size(%"PRIu64") cannot be more than "
                         "window-size"
                         "(%"PRIu64")", conf->aggregate_size, conf->window_size);
-                FREE (conf);
+                GF_FREE (conf);
                 return -1;
         }
 
@@ -2586,7 +2619,7 @@ fini (xlator_t *this)
 {
         wb_conf_t *conf = this->private;
 
-        FREE (conf);
+        GF_FREE (conf);
         return;
 }
 

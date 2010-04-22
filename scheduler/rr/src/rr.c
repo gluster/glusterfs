@@ -31,6 +31,7 @@
 
 #include "rr-options.h"
 #include "rr.h"
+#include "rr-mem-types.h"
 
 #define RR_MIN_FREE_DISK_NOT_REACHED    0
 #define RR_MIN_FREE_DISK_REACHED        1
@@ -58,14 +59,14 @@ _cleanup_rr (rr_t *rr)
 	{
 		for (i = 0; i < rr->options.read_only_subvolume_count; i++)
 		{
-			free (rr->options.read_only_subvolume_list[i]);
+			GF_FREE (rr->options.read_only_subvolume_list[i]);
 		}
-		free (rr->options.read_only_subvolume_list);
+		GF_FREE (rr->options.read_only_subvolume_list);
 	}
   
-	free (rr->subvolume_list);
+	GF_FREE (rr->subvolume_list);
   
-	free (rr);
+	GF_FREE (rr);
   
 	return 0;
 }
@@ -95,14 +96,14 @@ rr_init (xlator_t *this_xl)
 		return -1;
 	}
   
-	if ((rr = CALLOC (1, sizeof (rr_t))) == NULL)
+	if ((rr = GF_CALLOC (1, sizeof (rr_t), gf_rr_mt_rr_t)) == NULL)
 	{
 		return -1;
 	}
   
 	if (rr_options_validate (options, &rr->options) != 0)
 	{
-		free (rr);
+		GF_FREE (rr);
 		return -1;
 	}
   
@@ -147,8 +148,9 @@ rr_init (xlator_t *this_xl)
 		return -1;
 	}
   
-	if ((rr->subvolume_list = CALLOC (rr->subvolume_count, 
-					  sizeof (rr_subvolume_t))) == NULL)
+	if ((rr->subvolume_list = GF_CALLOC (rr->subvolume_count, 
+                                             sizeof (rr_subvolume_t),
+                                             gf_rr_mt_rr_subvolume_t)) == NULL)
 	{
 		_cleanup_rr (rr);
 		return -1;
@@ -476,7 +478,7 @@ rr_notify (xlator_t *this_xl, int32_t event, void *data)
 			if (xattr)
 				dict_ref (xattr);
 			
-			loc.path = strdup ("/");
+			loc.path = gf_strdup ("/");
 			for (trav = this_xl->parents->xlator; trav; trav = trav->parents->xlator) {
 				if (trav->itable) {
 					loc.inode = trav->itable->root;

@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include "stack.h"
 #include "alu.h"
+#include "alu-mem-types.h"
 
 #define ALU_DISK_USAGE_ENTRY_THRESHOLD_DEFAULT         (1 * GF_UNIT_GB)
 #define ALU_DISK_USAGE_EXIT_THRESHOLD_DEFAULT          (512 * GF_UNIT_MB)
@@ -146,7 +147,9 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 		if (strcmp (order_str, "disk-usage") == 0) {
 			/* Disk usage */
 			_threshold_fn = 
-				CALLOC (1, sizeof (struct alu_threshold));
+				GF_CALLOC (1,
+                                           sizeof (struct alu_threshold),
+                                           gf_alu_mt_alu_threshold);
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_disk_usage;
 			_threshold_fn->sched_value = get_stats_disk_usage;
@@ -199,7 +202,7 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 		} else if (strcmp (order_str, "write-usage") == 0) {
 			/* Handle "write-usage" */
 			
-			_threshold_fn = CALLOC (1, sizeof (struct alu_threshold));
+			_threshold_fn = GF_CALLOC (1, sizeof (struct alu_threshold), gf_alu_mt_alu_threshold);
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_write_usage;
 			_threshold_fn->sched_value = get_stats_write_usage;
@@ -252,7 +255,7 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 		} else if (strcmp (order_str, "read-usage") == 0) {
 			/* Read usage */
 			
-			_threshold_fn = CALLOC (1, sizeof (struct alu_threshold));
+			_threshold_fn = GF_CALLOC (1, sizeof (struct alu_threshold), gf_alu_mt_alu_threshold);
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_read_usage;
 			_threshold_fn->sched_value = get_stats_read_usage;
@@ -311,7 +314,7 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 		} else if (strcmp (order_str, "open-files-usage") == 0) {
 			/* Open files counter */
 			
-			_threshold_fn = CALLOC (1, sizeof (struct alu_threshold));
+			_threshold_fn = GF_CALLOC (1, sizeof (struct alu_threshold), gf_alu_mt_alu_threshold);
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_file_usage;
 			_threshold_fn->sched_value = get_stats_file_usage;
@@ -372,7 +375,7 @@ alu_parse_options (xlator_t *xl, struct alu_sched *alu_sched)
 		} else if (strcmp (order_str, "disk-speed-usage") == 0) {
 			/* Disk speed */
 			
-			_threshold_fn = CALLOC (1, sizeof (struct alu_threshold));
+			_threshold_fn = GF_CALLOC (1, sizeof (struct alu_threshold), gf_alu_mt_alu_threshold);
 			ERR_ABORT (_threshold_fn);
 			_threshold_fn->diff_value = get_max_diff_disk_speed;
 			_threshold_fn->sched_value = get_stats_disk_speed;
@@ -423,7 +426,8 @@ alu_init (xlator_t *xl)
 	uint32_t min_free_disk = 0;
 	data_t *limits = NULL;
   
-	alu_sched = CALLOC (1, sizeof (struct alu_sched));
+	alu_sched = GF_CALLOC (1, sizeof (struct alu_sched),
+                               gf_alu_mt_alu_sched);
 	ERR_ABORT (alu_sched);
 
 	{
@@ -435,7 +439,8 @@ alu_init (xlator_t *xl)
 	limits = dict_get (xl->options, 
 			   "scheduler.limits.min-free-disk");
 	if (limits) {
-		_limit_fn = CALLOC (1, sizeof (struct alu_limits));
+		_limit_fn = GF_CALLOC (1, sizeof (struct alu_limits),
+                                       gf_alu_mt_alu_limits);
 		ERR_ABORT (_limit_fn);
 		_limit_fn->min_value = get_stats_free_disk;
 		_limit_fn->cur_value = get_stats_free_disk;
@@ -470,7 +475,8 @@ alu_init (xlator_t *xl)
 			   "scheduler.limits.max-open-files");
 	if (limits) {
 		// Update alu_sched->priority properly
-		_limit_fn = CALLOC (1, sizeof (struct alu_limits));
+		_limit_fn = GF_CALLOC (1, sizeof (struct alu_limits),
+                                       gf_alu_mt_alu_limits);
 		ERR_ABORT (_limit_fn);
 		_limit_fn->max_value = get_stats_file_usage;
 		_limit_fn->cur_value = get_stats_file_usage;
@@ -539,7 +545,7 @@ alu_init (xlator_t *xl)
 			trav_xl = trav_xl->next;
 		}
 		alu_sched->child_count = index;
-		sched_array = CALLOC (index, sizeof (struct alu_sched_struct));
+		sched_array = GF_CALLOC (index, sizeof (struct alu_sched_struct), gf_alu_mt_alu_sched_struct);
 		ERR_ABORT (sched_array);
 		trav_xl = xl->children;
 		index = 0;
@@ -556,7 +562,7 @@ alu_init (xlator_t *xl)
 		if (data) {
 			char *child = NULL;
 			char *tmp = NULL;
-			char *childs_data = strdup (data->data);
+			char *childs_data = gf_strdup (data->data);
       
 			child = strtok_r (childs_data, ",", &tmp);
 			while (child) {
@@ -604,18 +610,18 @@ alu_fini (xlator_t *xl)
 	struct alu_threshold *threshold = alu_sched->threshold_fn;
 	void *tmp = NULL;
 	pthread_mutex_destroy (&alu_sched->alu_mutex);
-	free (alu_sched->array);
+	GF_FREE (alu_sched->array);
 	while (limit) {
 		tmp = limit;
 		limit = limit->next;
-		free (tmp);
+		GF_FREE (tmp);
 	}
 	while (threshold) {
 		tmp = threshold;
 		threshold = threshold->next;
-		free (tmp);
+		GF_FREE (tmp);
 	}
-	free (alu_sched);
+	GF_FREE (alu_sched);
 }
 
 static int32_t 
@@ -785,7 +791,7 @@ alu_scheduler (xlator_t *xl, const void *path)
 							continue;
 						}
 					}
-					tmp_sched_node = CALLOC (1, sizeof (struct alu_sched_node));
+					tmp_sched_node = GF_CALLOC (1, sizeof (struct alu_sched_node), gf_alu_mt_alu_sched_node);
 					ERR_ABORT (tmp_sched_node);
 					tmp_sched_node->index = idx;
 					if (!alu_sched->sched_node) {
@@ -808,7 +814,7 @@ alu_scheduler (xlator_t *xl, const void *path)
 				if (alu_sched->array[sched_index].eligible)
 					break;
 				alu_sched->sched_node = trav_sched_node->next;
-				free (trav_sched_node);
+				GF_FREE (trav_sched_node);
 				alu_sched->sched_nodes_pending--;
 			}
 			if (alu_sched->sched_nodes_pending) {
@@ -823,7 +829,7 @@ alu_scheduler (xlator_t *xl, const void *path)
 						/* Free the allocated info for the node :) */
 						pthread_mutex_lock (&alu_sched->alu_mutex);
 						alu_sched->sched_node = trav_sched_node->next;
-						free (trav_sched_node);
+						GF_FREE (trav_sched_node);
 						trav_sched_node = alu_sched->sched_node;
 						alu_sched->sched_nodes_pending--;
 						pthread_mutex_unlock (&alu_sched->alu_mutex);
@@ -832,7 +838,7 @@ alu_scheduler (xlator_t *xl, const void *path)
 					/* if there is no exit value, then exit after scheduling once */
 					pthread_mutex_lock (&alu_sched->alu_mutex);
 					alu_sched->sched_node = trav_sched_node->next;
-					free (trav_sched_node);
+					GF_FREE (trav_sched_node);
 					trav_sched_node = alu_sched->sched_node;
 					alu_sched->sched_nodes_pending--;
 					pthread_mutex_unlock (&alu_sched->alu_mutex);
@@ -928,12 +934,32 @@ alu_notify (xlator_t *xl, int32_t event, void *data)
 
 }
 
+int32_t
+alu_mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_alu_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 struct sched_ops sched = {
 	.init     = alu_init,
 	.fini     = alu_fini,
 	.update   = alu_update,
 	.schedule = alu_scheduler,
-	.notify   = alu_notify
+	.notify   = alu_notify,
+        .mem_acct_init = alu_mem_acct_init,
 };
 
 struct volume_options options[] = {

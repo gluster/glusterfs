@@ -1383,3 +1383,13 @@ default_fsetattr (call_frame_t *frame,
 		    fd, stbuf, valid);
 	return 0;
 }
+
+int32_t
+default_mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        ret = xlator_mem_acct_init (this, gf_common_mt_end);
+
+        return ret;
+}

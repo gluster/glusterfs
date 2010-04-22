@@ -19,12 +19,277 @@
 
 #include "mem-pool.h"
 #include "logging.h"
+#include "xlator.h"
 #include <stdlib.h>
+#include <stdarg.h>
 
 
 #define GF_MEM_POOL_PAD_BOUNDARY         (sizeof(struct list_head))
 #define mem_pool_chunkhead2ptr(head)     ((head) + GF_MEM_POOL_PAD_BOUNDARY)
 #define mem_pool_ptr2chunkhead(ptr)      ((ptr) - GF_MEM_POOL_PAD_BOUNDARY)
+
+#define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4)
+#define GF_MEM_TRAILER_SIZE 4
+
+#define GF_MEM_HEADER_MAGIC  0xCAFEBABE
+#define GF_MEM_TRAILER_MAGIC 0xBAADF00D
+
+#define GLUSTERFS_ENV_MEM_ACCT_STR  "GLUSTERFS_DISABLE_MEM_ACCT"
+
+static int gf_mem_acct_enable = 1;
+
+int
+gf_mem_acct_is_enabled ()
+{
+        return gf_mem_acct_enable;
+}
+
+void
+gf_mem_acct_enable_set ()
+{
+        char    *opt = NULL;
+        long    val = -1;
+
+        opt = getenv (GLUSTERFS_ENV_MEM_ACCT_STR);
+
+        if (!opt)
+                return;
+
+        val = strtol (opt, NULL, 0);
+
+        if (val)
+                gf_mem_acct_enable = 0;
+        else
+                gf_mem_acct_enable = 1;
+
+}
+
+void
+gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
+                      size_t size, uint32_t type)
+{
+
+        char    *ptr = NULL;
+
+        if (!alloc_ptr)
+                return;
+
+        ptr = (char *) (*alloc_ptr);
+
+        if (!xl) {
+                assert (0);
+        }
+
+        if (!(xl->mem_acct.rec)) {
+                assert (0);
+        }
+
+        if (type > xl->mem_acct.num_types) {
+                assert (0);
+        }
+
+        LOCK(&xl->mem_acct.rec[type].lock);
+        {
+                xl->mem_acct.rec[type].size += size;
+                xl->mem_acct.rec[type].num_allocs++;
+                xl->mem_acct.rec[type].max_size =
+                           max (xl->mem_acct.rec[type].max_size,
+                                xl->mem_acct.rec[type].size);
+                xl->mem_acct.rec[type].max_num_allocs =
+                           max (xl->mem_acct.rec[type].max_num_allocs,
+                                xl->mem_acct.rec[type].num_allocs);
+        }
+        UNLOCK(&xl->mem_acct.rec[type].lock);
+
+        *(uint32_t *)(ptr) = type;
+        ptr = ptr + 4;
+        memcpy (ptr, &size, sizeof(size_t));
+        ptr += sizeof (size_t);
+        memcpy (ptr, &xl, sizeof(xlator_t *));
+        ptr += sizeof (xlator_t *);
+        *(uint32_t *)(ptr) = GF_MEM_HEADER_MAGIC;
+        ptr = ptr + 4;
+        *(uint32_t *) (ptr + size) = GF_MEM_TRAILER_MAGIC;
+
+        *alloc_ptr = (void *)ptr;
+        return;
+}
+
+
+void *
+__gf_calloc (size_t nmemb, size_t size, uint32_t type)
+{
+        size_t          tot_size = 0;
+        size_t          req_size = 0;
+        char            *ptr = NULL;
+        xlator_t        *xl = NULL;
+
+        if (!gf_mem_acct_enable)
+                return CALLOC (nmemb, size);
+
+        xl = THIS;
+
+        req_size = nmemb * size;
+        tot_size = req_size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+
+        ptr = calloc (1, tot_size);
+
+        if (!ptr)
+                return NULL;
+
+        gf_mem_set_acct_info (xl, &ptr, req_size, type);
+
+        return (void *)ptr;
+}
+
+void *
+__gf_malloc (size_t size, uint32_t type)
+{
+        size_t          tot_size = 0;
+        char            *ptr = NULL;
+        xlator_t        *xl = NULL;
+
+        if (!gf_mem_acct_enable)
+                return MALLOC (size);
+
+        xl = THIS;
+
+        tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+
+        ptr = malloc (tot_size);
+        if (!ptr)
+                return NULL;
+
+        gf_mem_set_acct_info (xl, &ptr, size, type);
+
+        return (void *)ptr;
+}
+
+void *
+__gf_realloc (void *ptr, size_t size)
+{
+        size_t          tot_size = 0;
+        char            *orig_ptr = NULL;
+        xlator_t        *xl = NULL;
+        uint32_t        type = 0;
+
+
+        tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+
+        orig_ptr = (char *)ptr - 4;
+
+        assert (*(uint32_t *)orig_ptr == GF_MEM_HEADER_MAGIC);
+
+        orig_ptr = orig_ptr - sizeof(xlator_t *);
+        xl = *((xlator_t **)orig_ptr);
+
+        orig_ptr = (char *)ptr - GF_MEM_HEADER_SIZE;
+        type = *(uint32_t *)orig_ptr;
+
+        ptr = realloc (orig_ptr, tot_size);
+        if (!ptr)
+                return NULL;
+
+        gf_mem_set_acct_info (xl, (char **)&ptr, size, type);
+
+        return (void *)ptr;
+}
+
+int
+gf_asprintf (char **string_ptr, const char *format, ...)
+{
+	va_list arg;
+	char    *str = NULL;
+	int     size = 0;
+	int     rv = 0;
+
+	if (!string_ptr || !format)
+		return -1;
+
+	va_start (arg, format);
+	size = vsnprintf (NULL, 0, format, arg);
+	size++;
+	va_start (arg, format);
+	str = GF_MALLOC (size, gf_common_mt_asprintf);
+	if (str == NULL) {
+		va_end (arg);
+		/*
+		 * Strictly speaking, GNU asprintf doesn't do this,
+		 * but the caller isn't checking the return value.
+		 */
+		gf_log ("libglusterfs", GF_LOG_CRITICAL,
+                         "failed to allocate memory");
+		return -1;
+	}
+	rv = vsnprintf( str, size, format, arg);
+	va_end (arg);
+
+	*string_ptr = str;
+	return (rv);
+}
+
+void
+__gf_free (void *free_ptr)
+{
+        size_t          req_size = 0;
+        char            *ptr = NULL;
+        uint32_t        type = 0;
+        xlator_t        *xl = NULL;
+
+        if (!gf_mem_acct_enable) {
+                FREE (free_ptr);
+                return;
+        }
+
+        if (!free_ptr)
+                return;
+
+
+        ptr = (char *)free_ptr - 4;
+
+        if (GF_MEM_HEADER_MAGIC != *(uint32_t *)ptr) {
+                //Possible corruption, assert here
+                assert (0);
+        }
+
+        *(uint32_t *)ptr = 0;
+
+        ptr = ptr - sizeof(xlator_t *);
+        memcpy (&xl, ptr, sizeof(xlator_t *));
+
+        if (!xl) {
+                //gf_free expects xl to be available
+                assert (0);
+        }
+
+        if (!xl->mem_acct.rec) {
+                ptr = (char *)free_ptr - GF_MEM_HEADER_SIZE;
+                goto free;
+        }
+
+
+        ptr = ptr - sizeof(size_t);
+        memcpy (&req_size, ptr, sizeof (size_t));
+        ptr = ptr - 4;
+        type = *(uint32_t *)ptr;
+
+        if (GF_MEM_TRAILER_MAGIC != *(uint32_t *)
+                                    ((char *)free_ptr + req_size)) {
+                // This points to a memory overrun
+                assert (0);
+        }
+        *(uint32_t *) ((char *)free_ptr + req_size) = 0;
+
+        LOCK (&xl->mem_acct.rec[type].lock);
+        {
+                xl->mem_acct.rec[type].size -= req_size;
+                xl->mem_acct.rec[type].num_allocs--;
+        }
+        UNLOCK (&xl->mem_acct.rec[type].lock);
+free:
+        FREE (ptr);
+}
+
 
 
 struct mem_pool *
@@ -36,14 +301,14 @@ mem_pool_new_fn (unsigned long sizeof_type,
 	void             *pool = NULL;
 	int               i = 0;
 	struct list_head *list = NULL;
-  
+
 	if (!sizeof_type || !count) {
 		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
 		return NULL;
 	}
         padded_sizeof_type = sizeof_type + GF_MEM_POOL_PAD_BOUNDARY;
-  
-	mem_pool = CALLOC (sizeof (*mem_pool), 1);
+
+	mem_pool = GF_CALLOC (sizeof (*mem_pool), 1, gf_common_mt_mem_pool);
 	if (!mem_pool)
 		return NULL;
 
@@ -54,9 +319,9 @@ mem_pool_new_fn (unsigned long sizeof_type,
 	mem_pool->cold_count = count;
         mem_pool->real_sizeof_type = sizeof_type;
 
-        pool = CALLOC (count, padded_sizeof_type);
+        pool = GF_CALLOC (count, padded_sizeof_type, gf_common_mt_long);
 	if (!pool) {
-                FREE (mem_pool);
+                GF_FREE (mem_pool);
 		return NULL;
         }
 
@@ -78,7 +343,7 @@ mem_get (struct mem_pool *mem_pool)
 {
 	struct list_head *list = NULL;
 	void             *ptr = NULL;
-  
+
 	if (!mem_pool) {
 		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
 		return NULL;
@@ -141,7 +406,7 @@ __is_member (struct mem_pool *pool, void *ptr)
 		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
 		return -1;
 	}
-  
+
 	if (ptr < pool->pool || ptr >= pool->pool_end)
 		return 0;
 
@@ -157,12 +422,12 @@ void
 mem_put (struct mem_pool *pool, void *ptr)
 {
 	struct list_head *list = NULL;
-  
+
 	if (!pool || !ptr) {
 		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
 		return;
 	}
-  
+
 	LOCK (&pool->lock);
 	{
 
@@ -210,8 +475,8 @@ mem_pool_destroy (struct mem_pool *pool)
                 return;
 
         LOCK_DESTROY (&pool->lock);
-        FREE (pool->pool);
-        FREE (pool);
+        GF_FREE (pool->pool);
+        GF_FREE (pool);
 
         return;
 }

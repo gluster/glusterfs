@@ -846,6 +846,7 @@ struct _xlator {
 
 	void              (*fini) (xlator_t *this);
 	int32_t           (*init) (xlator_t *this);
+	int32_t           (*mem_acct_init) (xlator_t *this);
 	event_notify_fn_t notify;
 
         /* for latency measurement */
@@ -857,6 +858,7 @@ struct _xlator {
 	char              ready;
 	char              init_succeeded;
 	void             *private;
+        struct mem_acct   mem_acct;
 };
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
@@ -888,6 +890,7 @@ void inode_destroy_notify (inode_t *inode, const char *xlname);
 int loc_copy (loc_t *dst, loc_t *src);
 #define loc_dup(src, dst) loc_copy(dst, src)
 void loc_wipe (loc_t *loc);
+int xlator_mem_acct_init (xlator_t *xl, int num_types);
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 

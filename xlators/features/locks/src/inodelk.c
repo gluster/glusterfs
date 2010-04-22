@@ -42,7 +42,7 @@ __delete_inode_lock (pl_inode_lock_t *lock)
 void
 __destroy_inode_lock (pl_inode_lock_t *lock)
 {
-	FREE (lock);
+	GF_FREE (lock);
 }
 
 /* Check if 2 inodelks are conflicting on type. Only 2 shared locks don't conflict */
@@ -439,7 +439,7 @@ release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
         }
 unlock:
         if (path)
-                FREE (path);
+                GF_FREE (path);
 
         pthread_mutex_unlock (&pinode->mutex);
 
@@ -447,7 +447,7 @@ unlock:
                 list_del_init (&l->blocked_locks);
 
                 STACK_UNWIND_STRICT (inodelk, l->frame, -1, EAGAIN);
-                FREE (l);
+                GF_FREE (l);
         }
 
 	grant_blocked_inode_locks (this, pinode, dom);
@@ -515,7 +515,8 @@ new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
 {
 	pl_inode_lock_t *lock = NULL;
 
-	lock = CALLOC (1, sizeof (*lock));
+	lock = GF_CALLOC (1, sizeof (*lock),
+                          gf_locks_mt_pl_inode_lock_t);
 	if (!lock) {
 		return NULL;
 	}

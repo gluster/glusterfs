@@ -58,9 +58,9 @@ afr_build_parent_loc (loc_t *parent, loc_t *child)
 		return;
 	}
 
-	tmp = strdup (child->path);
-	parent->path   = strdup (dirname (tmp));
-	FREE (tmp);
+	tmp = gf_strdup (child->path);
+	parent->path   = gf_strdup (dirname (tmp));
+	GF_FREE (tmp);
 
         parent->name   = strrchr (parent->path, '/');
 	if (parent->name)
@@ -1315,7 +1315,7 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
         }
         UNLOCK (&priv->read_child_lock);
 
-	local->cont.symlink.linkpath = strdup (linkpath);
+	local->cont.symlink.linkpath = gf_strdup (linkpath);
 
         if (loc->parent)
                 local->cont.symlink.parent_ino = loc->parent->ino;

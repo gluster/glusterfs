@@ -320,7 +320,7 @@ bdb_create (call_frame_t *frame,
         }
 
         /* create successful */
-        bfd = CALLOC (1, sizeof (*bfd));
+        bfd = GF_CALLOC (1, sizeof (*bfd), gf_bdb_mt_bdb_fd);
         if (bfd == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "CREATE %"PRId64"/%s (%s): ENOMEM"
@@ -333,7 +333,7 @@ bdb_create (call_frame_t *frame,
 
         /* NOTE: bdb_get_bctx_from () returns bctx with a ref */
         bfd->ctx = bctx;
-        bfd->key = strdup (key_string);
+        bfd->key = gf_strdup (key_string);
         if (bfd->key == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "CREATE %"PRId64" (%s): ENOMEM"
@@ -399,7 +399,7 @@ bdb_open (call_frame_t *frame,
                 goto out;
         }
 
-        bfd = CALLOC (1, sizeof (*bfd));
+        bfd = GF_CALLOC (1, sizeof (*bfd), gf_bdb_mt_bdb_fd);
         if (bfd == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "OPEN %"PRId64" (%s): ENOMEM"
@@ -414,7 +414,7 @@ bdb_open (call_frame_t *frame,
         bfd->ctx = bctx;
 
         MAKE_KEY_FROM_PATH (key_string, loc->path);
-        bfd->key = strdup (key_string);
+        bfd->key = gf_strdup (key_string);
         if (bfd->key == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "OPEN %"PRId64" (%s): ENOMEM"
@@ -686,8 +686,8 @@ bdb_release (xlator_t *this,
         bfd->ctx = NULL;
 
         if (bfd->key)
-                FREE (bfd->key); /* we did strdup() in bdb_open() */
-        FREE (bfd);
+                GF_FREE (bfd->key); /* we did strdup() in bdb_open() */
+        GF_FREE (bfd);
         op_ret = 0;
         op_errno = 0;
 
@@ -793,7 +793,7 @@ bdb_lookup (call_frame_t *frame,
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        pathname = strdup (loc->path);
+        pathname = gf_strdup (loc->path);
         GF_VALIDATE_OR_GOTO (this->name, pathname, out);
 
         directory = dirname (pathname);
@@ -932,11 +932,11 @@ bdb_lookup (call_frame_t *frame,
                                           file_content, entry_size);
                 if (op_ret < 0) {
                         /* continue without giving file contents */
-                        FREE (file_content);
+                        GF_FREE (file_content);
                 }
         } else {
                 if (file_content)
-                        FREE (file_content);
+                        GF_FREE (file_content);
         }
 
         if (loc->ino) {
@@ -966,7 +966,7 @@ out:
         }
 
         if (pathname)
-                free (pathname);
+                GF_FREE (pathname);
 
         if (xattr)
                 dict_ref (xattr);
@@ -1102,7 +1102,7 @@ bdb_opendir (call_frame_t *frame,
                 goto out;
         }
 
-        bfd = CALLOC (1, sizeof (*bfd));
+        bfd = GF_CALLOC (1, sizeof (*bfd), gf_bdb_mt_bdb_fd);
         if (bfd == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "OPENDIR %"PRId64" (%s): ENOMEM"
@@ -1126,7 +1126,7 @@ bdb_opendir (call_frame_t *frame,
         /* NOTE: bctx_lookup() return bctx with ref */
         bfd->ctx = bctx;
 
-        bfd->path = strdup (real_path);
+        bfd->path = gf_strdup (real_path);
         if (bfd == NULL) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "OPENDIR %"PRId64" (%s): ENOMEM"
@@ -1149,7 +1149,7 @@ err:
                 if (bfd->dir)
                         closedir (bfd->dir);
 
-                FREE (bfd);
+                GF_FREE (bfd);
         }
 
         return 0;
@@ -1264,7 +1264,8 @@ bdb_getdents (call_frame_t *frame,
                         continue;
                 }/* if(key.data)...else */
 
-                this_entry = CALLOC (1, sizeof (*this_entry));
+                this_entry = GF_CALLOC (1, sizeof (*this_entry), 
+                                          gf_bdb_mt_dir_entry_t);
                 if (this_entry == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
@@ -1276,7 +1277,8 @@ bdb_getdents (call_frame_t *frame,
                         goto out;
                 }
 
-                this_entry->name = CALLOC (pri.size + 1, sizeof (char));
+                this_entry->name = GF_CALLOC (pri.size + 1, sizeof (char),
+                                              gf_bdb_mt_char);
                 if (this_entry->name == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
@@ -1308,10 +1310,10 @@ bdb_getdents (call_frame_t *frame,
                 /* if size is 0, count can never be = size,
                  * so entire dir is read */
                 if (sec.data)
-                        FREE (sec.data);
+                        GF_FREE (sec.data);
 
                 if (pri.data)
-                        FREE (pri.data);
+                        GF_FREE (pri.data);
 
                 if (count == size)
                         break;
@@ -1377,7 +1379,8 @@ dir_read:
                         continue;
                 }
 
-                this_entry = CALLOC (1, sizeof (*this_entry));
+                this_entry = GF_CALLOC (1, sizeof (*this_entry), 
+                                          gf_bdb_mt_dir_entry_t);
                 if (this_entry == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
@@ -1389,7 +1392,7 @@ dir_read:
                         goto out;
                 }
 
-                this_entry->name = strdup (dirent->d_name);
+                this_entry->name = gf_strdup (dirent->d_name);
                 if (this_entry->name == NULL) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "GETDENTS %"PRId64" - %"GF_PRI_SIZET",%"PRId64
@@ -1410,7 +1413,7 @@ dir_read:
                         ret = readlink (entry_path, linkpath, ZR_PATH_MAX);
                         if (ret != -1) {
                                 linkpath[ret] = '\0';
-                                this_entry->link = strdup (linkpath);
+                                this_entry->link = gf_strdup (linkpath);
                         }
                 } else {
                         this_entry->link = "";
@@ -1441,8 +1444,8 @@ out:
         while (entries.next) {
                 this_entry = entries.next;
                 entries.next = entries.next->next;
-                FREE (this_entry->name);
-                FREE (this_entry);
+                GF_FREE (this_entry->name);
+                GF_FREE (this_entry);
         }
 
         return 0;
@@ -1468,7 +1471,7 @@ bdb_releasedir (xlator_t *this,
         }
 
         if (bfd->path) {
-                free (bfd->path);
+                GF_FREE (bfd->path);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "RELEASEDIR %"PRId64": (bfd->path is NULL)",
@@ -1491,7 +1494,7 @@ bdb_releasedir (xlator_t *this,
                         fd->inode->ino);
         }
 
-        free (bfd);
+        GF_FREE (bfd);
 
 out:
         return 0;
@@ -2395,7 +2398,7 @@ bdb_getxattr (call_frame_t *frame,
                 if (op_ret == -1)
                         break;
 
-                value = CALLOC (op_ret + 1, sizeof(char));
+                value = GF_CALLOC (op_ret + 1, sizeof(char), gf_bdb_mt_char);
                 GF_VALIDATE_OR_GOTO (this->name, value, out);
 
                 op_ret = sys_lgetxattr (real_path, key, value,
@@ -2406,7 +2409,7 @@ bdb_getxattr (call_frame_t *frame,
                 op_ret = dict_set_dynptr (dict, key,
                                           value, op_ret);
                 if (op_ret < 0) {
-                        FREE (value);
+                        GF_FREE (value);
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "GETXATTR %"PRId64" (%s) - %s: "
                                 "(skipping key %s)",
@@ -2619,7 +2622,7 @@ bdb_setdents (call_frame_t *frame,
 
         real_path_len = strlen (bfd->path);
         entry_path_len = real_path_len + 256;
-        entry_path = CALLOC (1, entry_path_len);
+        entry_path = GF_CALLOC (1, entry_path_len, gf_bdb_mt_char);
         GF_VALIDATE_OR_GOTO (this->name, entry_path, out);
 
         strcpy (entry_path, bfd->path);
@@ -2710,7 +2713,7 @@ bdb_setdents (call_frame_t *frame,
 out:
         STACK_UNWIND (frame, op_ret, op_errno);
 
-        FREE (entry_path);
+        GF_FREE (entry_path);
         return 0;
 }
 
@@ -2892,11 +2895,11 @@ bdb_readdir (call_frame_t *frame,
                 this_entry->d_len = pri.size + 1;
 
                 if (sec.data) {
-                        FREE (sec.data);
+                        GF_FREE (sec.data);
                 }
 
                 if (pri.data)
-                        FREE (pri.data);
+                        GF_FREE (pri.data);
 
                 list_add_tail (&this_entry->list, &entries.list);
 
@@ -3189,7 +3192,7 @@ bdb_checksum (call_frame_t *frame,
                                 for (idx = 0; idx < length; idx++)
                                         file_checksum[idx] ^= data[idx];
 
-                                FREE (key.data);
+                                GF_FREE (key.data);
                         } else {
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "CHECKSUM %"PRId64" (%s)",
@@ -3240,6 +3243,24 @@ notify (xlator_t *this,
 }
 
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_bdb_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 /**
  * init -
@@ -3273,7 +3294,7 @@ init (xlator_t *this)
                 goto err;
         }
 
-        _private = CALLOC (1, sizeof (*_private));
+        _private = GF_CALLOC (1, sizeof (*_private), gf_bdb_mt_bdb_private);
         if (_private == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "could not allocate memory for 'storage/bdb' "
@@ -3317,7 +3338,7 @@ init (xlator_t *this)
         }
 
 
-        _private->export_path = strdup (directory);
+        _private->export_path = gf_strdup (directory);
         if (_private->export_path == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "could not allocate memory for 'storage/bdb' "
@@ -3367,9 +3388,9 @@ init (xlator_t *this)
 err:
         if (_private) {
                 if (_private->export_path)
-                        FREE (_private->export_path);
+                        GF_FREE (_private->export_path);
 
-                FREE (_private);
+                GF_FREE (_private);
         }
 out:
         return ret;
@@ -3444,9 +3465,9 @@ fini (xlator_t *this)
                         /* impossible to reach here */
                 }
 
-                FREE (B_TABLE(this));
+                GF_FREE (B_TABLE(this));
         }
-        FREE (private);
+        GF_FREE (private);
         return;
 }
 

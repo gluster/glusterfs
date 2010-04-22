@@ -89,7 +89,8 @@ gf_resolve_ip6 (const char *hostname,
 	}
 
 	if (!*dnscache) {
-		*dnscache = CALLOC (1, sizeof (struct dnscache6));
+		*dnscache = GF_CALLOC (1, sizeof (struct dnscache6),
+                                        gf_common_mt_dnscache6);
 	}
 
 	cache = *dnscache;
@@ -111,7 +112,7 @@ gf_resolve_ip6 (const char *hostname,
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_flags    = AI_ADDRCONFIG;
 
-		ret = asprintf (&port_str, "%d", port);
+		ret = gf_asprintf (&port_str, "%d", port);
                 if (-1 == ret) {
                         gf_log ("resolver", GF_LOG_ERROR, "asprintf failed");
                         return -1;
@@ -120,12 +121,12 @@ gf_resolve_ip6 (const char *hostname,
 			gf_log ("resolver", GF_LOG_ERROR,
 				"getaddrinfo failed (%s)", gai_strerror (ret));
 
-			free (*dnscache);
+			GF_FREE (*dnscache);
 			*dnscache = NULL;
-			free (port_str);
+			GF_FREE (port_str);
 			return -1;
 		}
-		free (port_str);
+		GF_FREE (port_str);
 
 		cache->next = cache->first;
 	}
@@ -173,7 +174,7 @@ gf_resolve_ip6 (const char *hostname,
 err:
 	freeaddrinfo (cache->first);
 	cache->first = cache->next = NULL;
-	free (cache);
+	GF_FREE (cache);
 	*dnscache = NULL;
 	return -1;
 }
@@ -509,7 +510,8 @@ gf_strsplit (const char *str, const char *delim,
 		return -1;
 	}
   
-	if ((_running = strdup (str)) == NULL)
+        _running = gf_strdup (str);
+	if (_running == NULL)
 	{
 		return -1;
 	}
@@ -520,17 +522,19 @@ gf_strsplit (const char *str, const char *delim,
 		if (token[0] != '\0')
 			count++;
 	}
-	free (_running);
+	GF_FREE (_running);
   
-	if ((_running = strdup (str)) == NULL)
+        _running = gf_strdup (str);
+	if (_running == NULL)
 	{
 		return -1;
 	}
 	running = _running;
   
-	if ((token_list = CALLOC (count, sizeof (char *))) == NULL)
+	if ((token_list = GF_CALLOC (count, sizeof (char *),
+                                        gf_common_mt_char)) == NULL)
 	{
-		free (_running);
+		GF_FREE (_running);
 		return -1;
 	}
   
@@ -539,23 +543,25 @@ gf_strsplit (const char *str, const char *delim,
 		if (token[0] == '\0')
 			continue;
       
-		if ((token_list[i++] = strdup (token)) == NULL)
+                token_list[i] = gf_strdup (token);
+		if (token_list[i] == NULL)
 			goto free_exit;
+                i++;
 	}
   
-	free (_running);
+	GF_FREE (_running);
   
 	*tokens = token_list;
 	*token_count = count;
 	return 0;
   
 free_exit:
-	free (_running);
+	GF_FREE (_running);
 	for (j = 0; j < i; j++)
 	{
-		free (token_list[j]);
+		GF_FREE (token_list[j]);
 	}
-	free (token_list);
+	GF_FREE (token_list);
 	return -1;
 }
 

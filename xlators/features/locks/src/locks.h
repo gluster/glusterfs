@@ -29,6 +29,7 @@
 #include "transport.h"
 #include "stack.h"
 #include "call-stub.h"
+#include "locks-mem-types.h"
 
 struct __pl_fd;
 

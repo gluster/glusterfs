@@ -236,7 +236,8 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 	afr_sh_pending_to_delta (priv, sh->xattr, sh->delta_matrix, sh->success,
                                  priv->child_count, AFR_ENTRY_TRANSACTION);
 
-	erase_xattr = CALLOC (sizeof (*erase_xattr), priv->child_count);
+	erase_xattr = GF_CALLOC (sizeof (*erase_xattr), priv->child_count,
+                                 gf_afr_mt_dict_t);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->xattr[i]) {
@@ -277,7 +278,7 @@ afr_sh_entry_erase_pending (call_frame_t *frame, xlator_t *this)
 			dict_unref (erase_xattr[i]);
 		}
 	}
-	FREE (erase_xattr);
+	GF_FREE (erase_xattr);
 
         if (need_unwind)
                 afr_sh_entry_finish (frame, this);
@@ -373,10 +374,10 @@ build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 	}
 
 	if (strcmp (parent->path, "/") == 0)
-		ret = asprintf ((char **)&child->path, "/%s", name);
+		ret = gf_asprintf ((char **)&child->path, "/%s", name);
 	else
-		ret = asprintf ((char **)&child->path, "%s/%s", parent->path, 
-                                name);
+		ret = gf_asprintf ((char **)&child->path, "%s/%s", 
+                                   parent->path, name);
 
         if (-1 == ret) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -532,7 +533,7 @@ afr_sh_entry_expunge_rename_cbk (call_frame_t *expunge_frame, void *cookie,
 static void
 init_trash_loc (loc_t *trash_loc, inode_table_t *table)
 {
-        trash_loc->path   = strdup ("/" GF_REPLICATE_TRASH_DIR);
+        trash_loc->path   = gf_strdup ("/" GF_REPLICATE_TRASH_DIR);
         trash_loc->name   = GF_REPLICATE_TRASH_DIR;
         trash_loc->parent = table->root;
         trash_loc->inode  = inode_new (table);
@@ -545,7 +546,8 @@ make_trash_path (const char *path)
         char *c  = NULL;
         char *tp = NULL;
 
-        tp = CALLOC (strlen ("/" GF_REPLICATE_TRASH_DIR) + strlen (path) + 1, sizeof (char));
+        tp = GF_CALLOC (strlen ("/" GF_REPLICATE_TRASH_DIR) + strlen (path) + 1, 
+                        sizeof (char), gf_afr_mt_char);
 
         strcpy (tp, GF_REPLICATE_TRASH_DIR);
         strcat (tp, path);
@@ -1263,7 +1265,7 @@ afr_sh_entry_impunge_parent_setattr_cbk (call_frame_t *setattr_frame,
 
         loc_wipe (parent_loc);
 
-        FREE (parent_loc);
+        GF_FREE (parent_loc);
 
         AFR_STACK_DESTROY (setattr_frame);
         return 0;
@@ -1336,7 +1338,7 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         parentbuf     = impunge_sh->parentbuf;
         setattr_frame = copy_frame (impunge_frame);
 
-        parent_loc = CALLOC (1, sizeof (*parent_loc));
+        parent_loc = GF_CALLOC (1, sizeof (*parent_loc), gf_afr_mt_loc_t);
         afr_build_parent_loc (parent_loc, &impunge_local->loc);
 
 	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
@@ -1668,7 +1670,7 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 		goto out;
 	}
 
-        impunge_sh->linkname = strdup (linkname);
+        impunge_sh->linkname = gf_strdup (linkname);
 
 	afr_sh_entry_impunge_readlink_sink (impunge_frame, this, child_index);
 

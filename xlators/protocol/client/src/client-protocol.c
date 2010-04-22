@@ -37,6 +37,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include "statedump.h"
+#include "client-mem-types.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -169,7 +170,7 @@ client_local_wipe (client_local_t *local)
                 if (local->fd)
                         fd_unref (local->fd);
 
-                free (local);
+                GF_FREE (local);
         }
 
         return 0;
@@ -234,7 +235,7 @@ call_bail (void *data)
                 /* Chaining to get call-always functionality from
                    call-once timer */
                 if (conn->timer) {
-                        timer_cbk = conn->timer->cbk;
+                        timer_cbk = conn->timer->callbk;
 
                         timeout.tv_sec = 10;
                         timeout.tv_usec = 0;
@@ -320,7 +321,7 @@ call_bail (void *data)
                 gf_ops[trav->op] (frame, &hdr, sizeof (hdr), NULL);
 
                 list_del_init (&trav->list);
-                FREE (trav);
+                GF_FREE (trav);
         }
 out:
         return;
@@ -507,7 +508,7 @@ client_start_ping (void *data)
         return;
 err:
         if (hdr)
-                FREE (hdr);
+                GF_FREE (hdr);
 
         if (dummy_frame)
                 STACK_DESTROY (dummy_frame->root);
@@ -661,7 +662,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
                         gf_cbks[op] (frame, &rsphdr, sizeof (rsphdr), NULL);
                 }
 
-                FREE (hdr);
+                GF_FREE (hdr);
         }
 
         return ret;
@@ -695,7 +696,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         client_local_t      *local = NULL;
 
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         local->fd = fd_ref (fd);
@@ -735,7 +736,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, fd, NULL, NULL);
         return 0;
 
@@ -765,7 +766,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         uint64_t            gen = 0;
         client_local_t     *local = NULL;
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         local->fd = fd_ref (fd);
@@ -805,7 +806,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, fd);
         return 0;
 
@@ -860,7 +861,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
 
@@ -916,7 +917,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
 
@@ -947,7 +948,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         uint64_t            gen = 0;
         client_local_t     *local = NULL;
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         loc_copy (&local->loc, loc);
@@ -985,7 +986,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
         return 0;
 
@@ -1014,7 +1015,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         uint64_t            gen = 0;
         client_local_t     *local = NULL;
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         loc_copy (&local->loc, loc);
@@ -1051,7 +1052,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
         return 0;
 
@@ -1107,7 +1108,7 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
 
@@ -1163,7 +1164,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
 
@@ -1195,7 +1196,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
         uint64_t              gen = 0;
         client_local_t       *local = NULL;
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         loc_copy (&local->loc, loc);
@@ -1232,7 +1233,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
         return 0;
 
@@ -1312,7 +1313,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
 
@@ -1344,7 +1345,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         uint64_t           newgen = 0;
         client_local_t    *local = NULL;
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         loc_copy (&local->loc, oldloc);
@@ -1395,7 +1396,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
         return 0;
 }
@@ -1450,7 +1451,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
 
@@ -1523,7 +1524,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL, 0, NULL);
         return 0;
 
@@ -1596,7 +1597,7 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
 
@@ -1653,7 +1654,7 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
 
@@ -1721,7 +1722,7 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         return 0;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
 
@@ -1790,7 +1791,7 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
 
@@ -1844,7 +1845,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         req->dict_len = hton32 (dict_len);
         if (dict) {
                 memcpy (req->dict, buf, dict_len);
-                FREE (buf);
+                GF_FREE (buf);
         }
 
         req->ino = hton64 (ino);
@@ -1858,7 +1859,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
@@ -1942,7 +1943,7 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EBADFD, NULL);
         return 0;
@@ -2019,7 +2020,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
@@ -2110,7 +2111,7 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
@@ -2170,7 +2171,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
@@ -2249,7 +2250,7 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
@@ -2308,7 +2309,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
 }
@@ -2335,7 +2336,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
         size_t                pathlen = 0;
         client_local_t       *local = NULL;
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         loc_copy (&local->loc, loc);
@@ -2371,7 +2372,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, fd);
         return 0;
 
@@ -2437,7 +2438,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EBADFD, NULL);
         return 0;
 
@@ -2505,7 +2506,7 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EBADFD, NULL);
         return 0;
 
@@ -2624,7 +2625,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
@@ -2693,7 +2694,7 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
@@ -2759,7 +2760,7 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
@@ -2857,7 +2858,7 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
@@ -2949,7 +2950,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
@@ -3056,7 +3057,7 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
@@ -3118,7 +3119,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
@@ -3196,7 +3197,7 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL);
         return 0;
@@ -3230,7 +3231,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         client_local_t      *local = NULL;
         char                *buf = NULL;
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         loc_copy (&local->loc, loc);
@@ -3281,7 +3282,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         if (dictlen > 0) {
                 memcpy (req->dict + pathlen + baselen, buf, dictlen);
-                FREE (buf);
+                GF_FREE (buf);
         }
 
         req->dictlen = hton32 (dictlen);
@@ -3451,7 +3452,7 @@ client_fdctx_destroy (xlator_t *this, client_fd_ctx_t *fdctx)
 
 out:
         inode_unref (fdctx->inode);
-        FREE (fdctx);
+        GF_FREE (fdctx);
 
         return ret;
 }
@@ -3598,7 +3599,7 @@ fail:
         STACK_UNWIND (frame, op_ret, op_errno, dict);
 
         if (dictbuf)
-                free (dictbuf);
+                GF_FREE (dictbuf);
 
         if (dict)
                 dict_unref (dict);
@@ -3657,7 +3658,7 @@ fail:
         STACK_UNWIND (frame, op_ret, op_errno, dict);
 
         if (dictbuf)
-                free (dictbuf);
+                GF_FREE (dictbuf);
         if (dict)
                 dict_unref (dict);
 
@@ -3724,7 +3725,8 @@ client_create_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.path);
                 }
 
-                fdctx = CALLOC (1, sizeof (*fdctx));
+                fdctx = GF_CALLOC (1, sizeof (*fdctx),
+                                   gf_client_mt_client_fd_ctx_t);
                 if (!fdctx) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -3801,7 +3803,8 @@ client_open_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         }
 
         if (op_ret >= 0) {
-                fdctx = CALLOC (1, sizeof (*fdctx));
+                fdctx = GF_CALLOC (1, sizeof (*fdctx),
+                                   gf_client_mt_client_fd_ctx_t);
                 if (!fdctx) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -4521,7 +4524,8 @@ client_opendir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         }
 
         if (op_ret >= 0) {
-                fdctx = CALLOC (1, sizeof (*fdctx));
+                fdctx = GF_CALLOC (1, sizeof (*fdctx),
+                                   gf_client_mt_client_fd_ctx_t);
                 if (!fdctx) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -4719,7 +4723,7 @@ fail:
         client_local_wipe (local);
 
         if (dictbuf)
-                free (dictbuf);
+                GF_FREE (dictbuf);
 
         if (xattr)
                 dict_unref (xattr);
@@ -4790,13 +4794,13 @@ gf_free_direntry (dir_entry_t *head)
         trav = head->next;
         while (trav) {
                 prev->next = trav->next;
-                FREE (trav->name);
+                GF_FREE (trav->name);
                 if (IA_ISLNK (trav->buf.ia_type))
-                        FREE (trav->link);
-                FREE (trav);
+                        GF_FREE (trav->link);
+                GF_FREE (trav);
                 trav = prev->next;
         }
-        FREE (head);
+        GF_FREE (head);
 fail:
         return 0;
 }
@@ -4945,7 +4949,7 @@ fail:
         client_local_wipe (local);
 
         if (dictbuf)
-                free (dictbuf);
+                GF_FREE (dictbuf);
 
         if (dict)
                 dict_unref (dict);
@@ -5133,7 +5137,7 @@ client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
         return ret;
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
 }
@@ -5203,7 +5207,7 @@ client_log (call_frame_t *frame, xlator_t *this, const char *msg)
 
 unwind:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
 
         STACK_UNWIND (frame, -1, EINVAL, NULL);
         return 0;
@@ -5477,7 +5481,7 @@ protocol_client_reopendir (xlator_t *this, client_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         if (!local) {
                 goto out;
         }
@@ -5523,7 +5527,7 @@ out:
                 client_local_wipe (local);
 
         if (path)
-                FREE (path);
+                GF_FREE (path);
 
         return 0;
 }
@@ -5600,7 +5604,7 @@ protocol_client_reopen (xlator_t *this, client_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        local = calloc (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         if (!local) {
                 goto out;
         }
@@ -5647,7 +5651,7 @@ out:
                 client_local_wipe (local);
 
         if (path)
-                FREE (path);
+                GF_FREE (path);
 
         return 0;
 
@@ -6120,6 +6124,26 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
         return ret;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_client_mt_end + 1);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
+
 /*
  * init - initiliazation function. called during loading of client protocol
  * @this:
@@ -6179,7 +6203,8 @@ init (xlator_t *this)
                 ping_timeout = GF_UNIVERSAL_ANSWER;
         }
 
-        conf = CALLOC (1, sizeof (client_conf_t));
+        conf = GF_CALLOC (1, sizeof (client_conf_t),
+                          gf_client_mt_client_conf_t);
 
         pthread_mutex_init (&conf->mutex, NULL);
         INIT_LIST_HEAD (&conf->saved_fds);
@@ -6189,7 +6214,7 @@ init (xlator_t *this)
         for (i = 0; i < CHANNEL_MAX; i++) {
                 if (CHANNEL_LOWLAT == i) {
                         dict_set (this->options, "transport.socket.lowlat",
-                                  data_from_dynstr (strdup ("true")));
+                                  data_from_dynstr (gf_strdup ("true")));
                 }
                 trans = transport_load (this->options, this);
                 if (trans == NULL) {
@@ -6199,7 +6224,8 @@ init (xlator_t *this)
                         goto out;
                 }
 
-                conn = CALLOC (1, sizeof (*conn));
+                conn = GF_CALLOC (1, sizeof (*conn),
+                                  gf_client_mt_client_connection_t);
 
                 conn->saved_frames = saved_frames_new ();
 
@@ -6262,7 +6288,7 @@ fini (xlator_t *this)
         this->private = NULL;
 
         if (conf) {
-                FREE (conf);
+                GF_FREE (conf);
         }
         return;
 }
@@ -6288,8 +6314,8 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
                         GF_PROTOCOL_VERSION);
         }
 
-        ret = asprintf (&process_uuid_xl, "%s-%s", this->ctx->process_uuid,
-                        this->name);
+        ret = gf_asprintf (&process_uuid_xl, "%s-%s", this->ctx->process_uuid,
+                           this->name);
         if (-1 == ret) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "asprintf failed while setting process_uuid");
@@ -6345,7 +6371,7 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
         return ret;
 fail:
         if (hdr)
-                free (hdr);
+                GF_FREE (hdr);
         return ret;
 }
 
@@ -6393,7 +6419,7 @@ protocol_client_pollin (xlator_t *this, transport_t *trans)
         }
 
         /* TODO: use mem-pool */
-        FREE (hdr);
+        GF_FREE (hdr);
 
         return ret;
 }

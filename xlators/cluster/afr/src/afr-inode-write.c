@@ -1600,7 +1600,7 @@ afr_removexattr (call_frame_t *frame, xlator_t *this,
 
 	local->op_ret = -1;
 
-	local->cont.removexattr.name = strdup (name);
+	local->cont.removexattr.name = gf_strdup (name);
 
 	local->transaction.fop    = afr_removexattr_wind;
 	local->transaction.done   = afr_removexattr_done;

@@ -59,7 +59,7 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         wbflags = (long)frame->local;
 
-	file = CALLOC (1, sizeof (*file));
+	file = GF_CALLOC (1, sizeof (*file), gf_ra_mt_ra_file_t);
 	if (!file) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -129,7 +129,7 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 	}
 
-	file = CALLOC (1, sizeof (*file));
+	file = GF_CALLOC (1, sizeof (*file), gf_ra_mt_ra_file_t);
 	if (!file) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -480,7 +480,8 @@ ra_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 		return 0;
 	}
 
-	local = (void *) CALLOC (1, sizeof (*local));
+	local = (void *) GF_CALLOC (1, sizeof (*local),
+                                    gf_ra_mt_ra_local_t);
 	if (!local) {
 		gf_log (this->name, GF_LOG_ERROR,
 			"out of memory");
@@ -823,6 +824,25 @@ ra_priv_dump (xlator_t *this)
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_ra_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int
 init (xlator_t *this)
 {
@@ -843,7 +863,8 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
  
-	conf = (void *) CALLOC (1, sizeof (*conf));
+	conf = (void *) GF_CALLOC (1, sizeof (*conf),
+                                   gf_ra_mt_ra_conf_t);
         if (conf == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: Out of memory");
@@ -897,7 +918,7 @@ init (xlator_t *this)
 out:
         if (ret == -1) {
                 if (conf != NULL) {
-                        FREE (conf);
+                        GF_FREE (conf);
                 }
         }
 
@@ -913,7 +934,7 @@ fini (xlator_t *this)
                 return;
 
 	pthread_mutex_destroy (&conf->conf_lock);
-	FREE (conf);
+	GF_FREE (conf);
 
 	this->private = NULL;
 	return;

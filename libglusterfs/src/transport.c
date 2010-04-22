@@ -52,7 +52,8 @@ transport_load (dict_t *options,
 	GF_VALIDATE_OR_GOTO("transport", options, fail);
 	GF_VALIDATE_OR_GOTO("transport", xl, fail);
   
-	trans = CALLOC (1, sizeof (struct transport));
+	trans = GF_CALLOC (1, sizeof (struct transport),
+                           gf_common_mt_transport);
 	GF_VALIDATE_OR_GOTO("transport", trans, fail);
 
 	trans->xl = xl;
@@ -107,14 +108,14 @@ transport_load (dict_t *options,
 
 	ret = dict_get_str (options, "transport-type", &type);
 	if (ret < 0) {
-		FREE (trans);
+		GF_FREE (trans);
 		gf_log ("transport", GF_LOG_ERROR,
 			"'option transport-type <xx>' missing in volume '%s'",
 			xl->name);
 		goto fail;
 	}
 
-	ret = asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
+	ret = gf_asprintf (&name, "%s/%s.so", TRANSPORTDIR, type);
         if (-1 == ret) {
                 gf_log ("transport", GF_LOG_ERROR, "asprintf failed");
                 goto fail;
@@ -129,17 +130,17 @@ transport_load (dict_t *options,
 			"volume '%s': transport-type '%s' is not valid or "
 			"not found on this machine", 
 			xl->name, type);
-		FREE (name);
-		FREE (trans);
+		GF_FREE (name);
+		GF_FREE (trans);
 		goto fail;
 	}
-	FREE (name);
+	GF_FREE (name);
 	
 	trans->ops = dlsym (handle, "tops");
 	if (trans->ops == NULL) {
 		gf_log ("transport", GF_LOG_ERROR,
 			"dlsym (transport_ops) on %s", dlerror ());
-		FREE (trans);
+		GF_FREE (trans);
 		goto fail;
 	}
 
@@ -147,7 +148,7 @@ transport_load (dict_t *options,
 	if (trans->init == NULL) {
 		gf_log ("transport", GF_LOG_ERROR,
 			"dlsym (gf_transport_init) on %s", dlerror ());
-		FREE (trans);
+		GF_FREE (trans);
 		goto fail;
 	}
 
@@ -155,11 +156,12 @@ transport_load (dict_t *options,
 	if (trans->fini == NULL) {
 		gf_log ("transport", GF_LOG_ERROR,
 			"dlsym (gf_transport_fini) on %s", dlerror ());
-		FREE (trans);
+		GF_FREE (trans);
 		goto fail;
 	}
 	
-	vol_opt = CALLOC (1, sizeof (volume_opt_list_t));
+	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                             gf_common_mt_volume_opt_list_t);
 	vol_opt->given_opt = dlsym (handle, "options");
 	if (vol_opt->given_opt == NULL) {
 		gf_log ("transport", GF_LOG_DEBUG,
@@ -171,7 +173,7 @@ transport_load (dict_t *options,
 						    vol_opt->given_opt)) {
 			gf_log ("transport", GF_LOG_ERROR,
 				"volume option validation failed");
-			FREE (trans);
+			GF_FREE (trans);
 			goto fail;
 		}
 	}
@@ -180,7 +182,7 @@ transport_load (dict_t *options,
 	if (ret != 0) {
 		gf_log ("transport", GF_LOG_ERROR,
 			"'%s' initialization failed", type);
-		FREE (trans);
+		GF_FREE (trans);
 		goto fail;
 	}
 
@@ -204,7 +206,8 @@ transport_submit (transport_t *this, char *buf, int32_t len,
         if (this->peer_trans) {
                 peer_trans = this->peer_trans;
 
-                msg = CALLOC (1, sizeof (*msg));
+                msg = GF_CALLOC (1, sizeof (*msg),
+                                gf_common_mt_transport_msg);
                 if (!msg) {
                         return -ENOMEM;
                 }
@@ -215,8 +218,8 @@ transport_submit (transport_t *this, char *buf, int32_t len,
                 if (vector) {
                         iobuf = iobuf_get (this->xl->ctx->iobuf_pool);
                         if (!iobuf) {
-                                FREE (msg->hdr);
-                                FREE (msg);
+                                GF_FREE (msg->hdr);
+                                GF_FREE (msg);
                                 return -ENOMEM;
                         }
 
@@ -293,7 +296,7 @@ transport_destroy (transport_t *this)
 		this->fini (this);
 
 	pthread_mutex_destroy (&this->lock);
-	FREE (this);
+	GF_FREE (this);
 fail:
 	return ret;
 }
@@ -391,7 +394,7 @@ transport_peerproc (void *trans_data)
 
                 xlator_notify (trans->xl, GF_EVENT_POLLIN, trans);
 
-                FREE (msg);
+                GF_FREE (msg);
         }
 }
 

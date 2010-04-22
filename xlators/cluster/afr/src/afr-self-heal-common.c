@@ -98,7 +98,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 	int i, j;
 
         /* 10 digits per entry + 1 space + '[' and ']' */
-	buf = MALLOC (priv->child_count * 11 + 8); 
+	buf = GF_MALLOC (priv->child_count * 11 + 8, gf_afr_mt_char); 
 
 	for (i = 0; i < priv->child_count; i++) {
 		ptr = buf;
@@ -111,7 +111,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 			"pending_matrix: %s", buf);
 	}
 
-	FREE (buf);
+	GF_FREE (buf);
 }
 
 
@@ -129,7 +129,8 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
 
         unsigned char *ignorant_subvols = NULL;
 
-        ignorant_subvols = CALLOC (sizeof (*ignorant_subvols), child_count);
+        ignorant_subvols = GF_CALLOC (sizeof (*ignorant_subvols), child_count,
+                                      gf_afr_mt_char);
 
 	/* start clean */
 	for (i = 0; i < child_count; i++) {
@@ -177,7 +178,7 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
                 }
         }
 
-        FREE (ignorant_subvols);
+        GF_FREE (ignorant_subvols);
 }
 
 
@@ -479,8 +480,9 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
 
         /* stores the 'characters' (innocent, fool, wise) of the nodes */
         afr_node_character *
-                characters = CALLOC (sizeof (afr_node_character), 
-                                     child_count);
+                characters = GF_CALLOC (sizeof (afr_node_character), 
+                                        child_count,
+                                        gf_afr_mt_afr_node_character) ;
 
 	/* start clean */
 	for (i = 0; i < child_count; i++) {
@@ -543,7 +545,7 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
         }
 
 out:
-        FREE (characters);
+        GF_FREE (characters);
 
 	return nsources;
 }
@@ -612,7 +614,8 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
 			continue;
 
 		for (j = 0; j < child_count; j++) {
-                        pending = CALLOC (sizeof (int32_t), 3);
+                        pending = GF_CALLOC (sizeof (int32_t), 3,
+                                             gf_afr_mt_int32_t);
                         /* 3 = data+metadata+entry */
 
                         k = afr_index_for_transaction_type (type);
@@ -882,7 +885,7 @@ sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (parent_loc) {
                 loc_wipe (parent_loc);
-                FREE (parent_loc);
+                GF_FREE (parent_loc);
         }
 
         call_count = afr_frame_return (frame);
@@ -935,7 +938,8 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret == 0) {
 		setattr_frame = copy_frame (frame);
                 
-                setattr_frame->local = CALLOC (1, sizeof (afr_local_t));
+                setattr_frame->local = GF_CALLOC (1, sizeof (afr_local_t),
+                                                  gf_afr_mt_afr_local_t);
 
                 ((afr_local_t *)setattr_frame->local)->call_count = 2;
 
@@ -950,7 +954,8 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
                                    &local->loc, &stbuf, valid);
 
                 valid      = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
-                parent_loc = CALLOC (1, sizeof (*parent_loc));
+                parent_loc = GF_CALLOC (1, sizeof (*parent_loc), 
+                                        gf_afr_mt_loc_t);
                 afr_build_parent_loc (parent_loc, &local->loc);
 
                 STACK_WIND_COOKIE (setattr_frame, sh_destroy_cbk,
@@ -1452,7 +1457,9 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 
         sh = &l->self_heal;
 
-        lc = CALLOC (1, sizeof (afr_local_t));
+        lc = GF_CALLOC (1, sizeof (afr_local_t),
+                        gf_afr_mt_afr_local_t);
+
         shc = &lc->self_heal;
 
         shc->unwind = sh->unwind;
@@ -1567,23 +1574,35 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
         sh->completion_cbk = afr_self_heal_completion_cbk;
 
 
-	sh->buf          = CALLOC (priv->child_count, sizeof (struct stat));
-	sh->child_errno  = CALLOC (priv->child_count, sizeof (int));
-	sh->success      = CALLOC (priv->child_count, sizeof (int));
-	sh->xattr        = CALLOC (priv->child_count, sizeof (dict_t *));
-	sh->sources      = CALLOC (priv->child_count, sizeof (*sh->sources));
-	sh->locked_nodes = CALLOC (priv->child_count, sizeof (*sh->locked_nodes));
+	sh->buf = GF_CALLOC (priv->child_count, sizeof (struct stat),
+                             gf_afr_mt_stat);
+	sh->child_errno = GF_CALLOC (priv->child_count, sizeof (int),
+                                     gf_afr_mt_int);
+	sh->success = GF_CALLOC (priv->child_count, sizeof (int),
+                                gf_afr_mt_int);
+	sh->xattr = GF_CALLOC (priv->child_count, sizeof (dict_t *),
+                                gf_afr_mt_dict_t);
+	sh->sources = GF_CALLOC (sizeof (*sh->sources), priv->child_count,
+                                gf_afr_mt_int);
+	sh->locked_nodes = GF_CALLOC (sizeof (*sh->locked_nodes), 
+                                      priv->child_count,
+                                      gf_afr_mt_int);
 
-	sh->pending_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
+	sh->pending_matrix = GF_CALLOC (sizeof (int32_t *), priv->child_count,
+                                        gf_afr_mt_int32_t);
+
 	for (i = 0; i < priv->child_count; i++) {
-		sh->pending_matrix[i] = CALLOC (sizeof (int32_t),
-						priv->child_count);
+		sh->pending_matrix[i] = GF_CALLOC (sizeof (int32_t),
+					  	   priv->child_count,
+                                                   gf_afr_mt_int32_t);
 	}
 
-	sh->delta_matrix = CALLOC (sizeof (int32_t *), priv->child_count);
+	sh->delta_matrix = GF_CALLOC (sizeof (int32_t *), priv->child_count,
+                                      gf_afr_mt_int32_t);
 	for (i = 0; i < priv->child_count; i++) {
-		sh->delta_matrix[i] = CALLOC (sizeof (int32_t),
-					      priv->child_count);
+		sh->delta_matrix[i] = GF_CALLOC (sizeof (int32_t),
+					         priv->child_count,
+                                                 gf_afr_mt_int32_t);
 	}
 
 	if (local->success_count && local->enoent_count) {

@@ -2,7 +2,7 @@
   Copyright (c) 2006-2009 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
-  GlusterFS is free software; you can redistribute it and/or modify
+  GlusterFS is GF_FREE software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published
   by the Free Software Foundation; either version 3 of the License,
   or (at your option) any later version.
@@ -70,6 +70,7 @@
 #include "globals.h"
 #include "statedump.h"
 #include "latency.h"
+#include "glusterfsd-mem-types.h"
 
 #include <fnmatch.h>
 
@@ -298,12 +299,14 @@ _add_fuse_mount (xlator_t *graph)
         ctx = graph->ctx;
         cmd_args = &ctx->cmd_args;
 
-        xlchild = CALLOC (sizeof (*xlchild), 1);
+        xlchild = GF_CALLOC (sizeof (*xlchild), 1,
+                             gfd_mt_xlator_list_t);
         ERR_ABORT (xlchild);
         xlchild->xlator = graph;
 
-        top = CALLOC (1, sizeof (*top));
-        top->name = strdup ("fuse");
+        top = GF_CALLOC (1, sizeof (*top),
+                         gfd_mt_xlator_t);
+        top->name = gf_strdup ("fuse");
         if (xlator_set_type (top, ZR_XLATOR_FUSE) == -1) {
                 fprintf (stderr,
                          "MOUNT-POINT %s initialization failed",
@@ -368,7 +371,8 @@ _add_fuse_mount (xlator_t *graph)
 
 #endif /* GF_DARWIN_HOST_OS */
 
-        graph->parents = CALLOC (1, sizeof (xlator_list_t));
+        graph->parents = GF_CALLOC (1, sizeof (xlator_list_t),
+                                    gfd_mt_xlator_list_t);
         graph->parents->xlator = top;
 
         return top;
@@ -696,6 +700,10 @@ glusterfs_graph_init (xlator_t *graph, int fuse)
                                 "validating translator failed");
                         return -1;
                 }
+
+                if (graph->mem_acct_init (graph) != 0)
+                        return -1;
+
                 if (xlator_init (graph) != 0)
                         return -1;
 
@@ -730,27 +738,30 @@ gf_remember_xlator_option (struct list_head *options, char *arg)
         ctx = get_global_ctx_ptr ();
         cmd_args = &ctx->cmd_args;
 
-        option = CALLOC (1, sizeof (xlator_cmdline_option_t));
+        option = GF_CALLOC (1, sizeof (xlator_cmdline_option_t),
+                            gfd_mt_xlator_cmdline_option_t);
         INIT_LIST_HEAD (&option->cmd_args);
 
         dot = strchr (arg, '.');
         if (!dot)
                 goto out;
 
-        option->volume = CALLOC ((dot - arg), sizeof (char));
+        option->volume = GF_CALLOC ((dot - arg), sizeof (char),
+                                    gfd_mt_char);
         strncpy (option->volume, arg, (dot - arg));
 
         equals = strchr (arg, '=');
         if (!equals)
                 goto out;
 
-        option->key = CALLOC ((equals - dot), sizeof (char));
+        option->key = GF_CALLOC ((equals - dot), sizeof (char),
+                                 gfd_mt_char);
         strncpy (option->key, dot + 1, (equals - dot - 1));
 
         if (!*(equals + 1))
                 goto out;
 
-        option->value = strdup (equals + 1);
+        option->value = gf_strdup (equals + 1);
 
         list_add (&option->cmd_args, &cmd_args->xlator_options);
 
@@ -759,13 +770,13 @@ out:
         if (ret == -1) {
                 if (option) {
                         if (option->volume)
-                                FREE (option->volume);
+                                GF_FREE (option->volume);
                         if (option->key)
-                                FREE (option->key);
+                                GF_FREE (option->key);
                         if (option->value)
-                                FREE (option->value);
+                                GF_FREE (option->value);
 
-                        FREE (option);
+                        GF_FREE (option);
                 }
         }
 
@@ -819,7 +830,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         switch (key) {
         case ARGP_VOLFILE_SERVER_KEY:
-                cmd_args->volfile_server = strdup (arg);
+                cmd_args->volfile_server = gf_strdup (arg);
                 break;
 
         case ARGP_VOLFILE_MAX_FETCH_ATTEMPTS:
@@ -839,11 +850,11 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_VOLUME_FILE_KEY:
-                cmd_args->volume_file = strdup (arg);
+                cmd_args->volume_file = gf_strdup (arg);
                 break;
 
         case ARGP_LOG_SERVER_KEY:
-                cmd_args->log_server = strdup (arg);
+                cmd_args->log_server = gf_strdup (arg);
                 break;
 
         case ARGP_LOG_LEVEL_KEY:
@@ -880,7 +891,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_LOG_FILE_KEY:
-                cmd_args->log_file = strdup (arg);
+                cmd_args->log_file = gf_strdup (arg);
                 break;
 
         case ARGP_VOLFILE_SERVER_PORT_KEY:
@@ -908,15 +919,15 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_VOLFILE_SERVER_TRANSPORT_KEY:
-                cmd_args->volfile_server_transport = strdup (arg);
+                cmd_args->volfile_server_transport = gf_strdup (arg);
                 break;
 
         case ARGP_VOLFILE_ID_KEY:
-                cmd_args->volfile_id = strdup (arg);
+                cmd_args->volfile_id = gf_strdup (arg);
                 break;
 
         case ARGP_PID_FILE_KEY:
-                cmd_args->pid_file = strdup (arg);
+                cmd_args->pid_file = gf_strdup (arg);
                 break;
 
         case ARGP_NO_DAEMON_KEY:
@@ -924,7 +935,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_RUN_ID_KEY:
-                cmd_args->run_id = strdup (arg);
+                cmd_args->run_id = gf_strdup (arg);
                 break;
 
         case ARGP_DEBUG_KEY:
@@ -969,7 +980,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_VOLUME_NAME_KEY:
-                cmd_args->volume_name = strdup (arg);
+                cmd_args->volume_name = gf_strdup (arg);
                 break;
 
         case ARGP_XLATOR_OPTION_KEY:
@@ -990,7 +1001,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 if (state->arg_num >= 1)
                         argp_usage (state);
 
-                cmd_args->mount_point = strdup (arg);
+                cmd_args->mount_point = gf_strdup (arg);
                 break;
         }
 
@@ -1064,7 +1075,7 @@ zr_build_process_uuid ()
         snprintf (tmp_str, 1024, "%s-%d-%s:%ld",
                   hostname, getpid(), now_str, tv.tv_usec);
 
-        return strdup (tmp_str);
+        return gf_strdup (tmp_str);
 }
 
 #define GF_SERVER_PROCESS 0
@@ -1076,7 +1087,7 @@ gf_get_process_mode (char *exec_name)
         char *dup_execname = NULL, *base = NULL;
         uint8_t ret = 0;
 
-        dup_execname = strdup (exec_name);
+        dup_execname = gf_strdup (exec_name);
         base = basename (dup_execname);
 
         if (!strncmp (base, "glusterfsd", 10)) {
@@ -1085,7 +1096,7 @@ gf_get_process_mode (char *exec_name)
                 ret = GF_CLIENT_PROCESS;
         }
 
-        free (dup_execname);
+        GF_FREE (dup_execname);
 
         return ret;
 }
@@ -1110,9 +1121,9 @@ set_log_file_path (cmd_args_t *cmd_args)
                         if (cmd_args->mount_point[i] == '/')
                                 tmp_str[j] = '-';
                 }
-                ret = asprintf (&cmd_args->log_file,
-                                DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
-                                tmp_str);
+                ret = gf_asprintf (&cmd_args->log_file,
+                                   DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                                   tmp_str);
                 if (-1 == ret) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "asprintf failed while setting up log-file");
@@ -1130,7 +1141,7 @@ set_log_file_path (cmd_args_t *cmd_args)
                         if (cmd_args->volume_file[i] == '/')
                                 tmp_str[j] = '-';
                 }
-                ret = asprintf (&cmd_args->log_file,
+                ret = gf_asprintf (&cmd_args->log_file,
                                 DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
                                 tmp_str);
                 if (-1 == ret) {
@@ -1149,9 +1160,9 @@ set_log_file_path (cmd_args_t *cmd_args)
                 if (cmd_args->volfile_id)
                         tmp_ptr = cmd_args->volfile_id;
 
-                ret = asprintf (&cmd_args->log_file,
-                                DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
-                                cmd_args->volfile_server, tmp_ptr, port);
+                ret = gf_asprintf (&cmd_args->log_file,
+                                   DEFAULT_LOG_FILE_DIRECTORY "/%s-%s-%d.log",
+                                   cmd_args->volfile_server, tmp_ptr, port);
                 if (-1 == ret) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "asprintf failed while setting up log-file");
@@ -1190,6 +1201,10 @@ main (int argc, char *argv[])
         if (ret)
                 return ret;
 
+        ret = xlator_mem_acct_init (THIS, gfd_mt_end);
+        if (ret)
+                return ret;
+
         utime = time (NULL);
         ctx = glusterfs_ctx_get ();
         process_mode = gf_get_process_mode (argv[0]);
@@ -1215,9 +1230,9 @@ main (int argc, char *argv[])
         if ((cmd_args->volfile_server == NULL)
             && (cmd_args->volume_file == NULL)) {
                 if (process_mode == GF_SERVER_PROCESS)
-                        cmd_args->volume_file = strdup (DEFAULT_SERVER_VOLUME_FILE);
+                        cmd_args->volume_file = gf_strdup (DEFAULT_SERVER_VOLUME_FILE);
                 else
-                        cmd_args->volume_file = strdup (DEFAULT_CLIENT_VOLUME_FILE);
+                        cmd_args->volume_file = gf_strdup (DEFAULT_CLIENT_VOLUME_FILE);
         }
 
         if (cmd_args->log_file == NULL) {
@@ -1233,7 +1248,8 @@ main (int argc, char *argv[])
         ctx->iobuf_pool = iobuf_pool_new (8 * GF_UNIT_MB, ctx->page_size);
         ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
         pthread_mutex_init (&(ctx->lock), NULL);
-        pool = ctx->pool = CALLOC (1, sizeof (call_pool_t));
+        pool = ctx->pool = GF_CALLOC (1, sizeof (call_pool_t),
+                                      gfd_mt_call_pool_t);
         ERR_ABORT (ctx->pool);
         LOCK_INIT (&pool->lock);
         INIT_LIST_HEAD (&pool->all_frames);
@@ -1256,17 +1272,17 @@ main (int argc, char *argv[])
                         /* Create symlink to actual log file */
                         unlink (cmd_args->log_file);
 
-                        tmp_logfile_dyn = strdup (tmp_logfile);
+                        tmp_logfile_dyn = gf_strdup (tmp_logfile);
                         tmp_logfilebase = basename (tmp_logfile_dyn);
                         ret = symlink (tmp_logfilebase, cmd_args->log_file);
                         if (-1 == ret) {
                                 fprintf (stderr, "symlink of logfile failed");
                         } else {
-                                FREE (cmd_args->log_file);
-                                cmd_args->log_file = strdup (tmp_logfile);
+                                GF_FREE (cmd_args->log_file);
+                                cmd_args->log_file = gf_strdup (tmp_logfile);
                         }
 
-                        FREE (tmp_logfile_dyn);
+                        GF_FREE (tmp_logfile_dyn);
                 }
         }
 

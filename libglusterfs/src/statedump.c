@@ -28,6 +28,8 @@
 #include <malloc.h>
 #endif /* MALLOC_H */
 
+extern xlator_t global_xlator;
+
 static pthread_mutex_t  gf_proc_dump_mutex;
 static int gf_dump_fd = -1;
 
@@ -115,6 +117,46 @@ gf_proc_dump_write (char *key, char *value,...)
         ret = write(gf_dump_fd, buf, strlen(buf));
 }
 
+static void
+gf_proc_dump_xlator_mem_info (xlator_t *xl)
+{
+        char    key[GF_DUMP_MAX_BUF_LEN];
+        char    prefix[GF_DUMP_MAX_BUF_LEN];
+        int     i = 0;
+        struct mem_acct rec = {0,};
+
+        if (!xl)
+                return;
+
+        if (!xl->mem_acct.rec)
+                return;
+
+        gf_proc_dump_add_section("%s.%s - Memory usage", xl->type,xl->name);
+        gf_proc_dump_write("num_types", "%d", xl->mem_acct.num_types);
+
+        for (i = 0; i < xl->mem_acct.num_types; i++) {
+                if (!(memcmp (&xl->mem_acct.rec[i], &rec, 
+                                          sizeof(struct mem_acct))))
+                                continue;
+
+                gf_proc_dump_add_section("%s.%s - usage-type %d", xl->type, 
+                                         xl->name,i);
+                gf_proc_dump_build_key(prefix, "memusage", "%s.%s.type.%d",
+                                        xl->type, xl->name, i);
+                gf_proc_dump_build_key(key, prefix, "size"); 
+                gf_proc_dump_write(key, "%u", xl->mem_acct.rec[i].size);
+                gf_proc_dump_build_key(key, prefix, "num_allocs");
+                gf_proc_dump_write(key, "%u", xl->mem_acct.rec[i].num_allocs);
+                gf_proc_dump_build_key(key, prefix, "max_size");
+                gf_proc_dump_write(key, "%u", xl->mem_acct.rec[i].max_size);
+                gf_proc_dump_build_key(key, prefix, "max_num_allocs");
+                gf_proc_dump_write(key, "%u", xl->mem_acct.rec[i].max_num_allocs);
+        }
+
+        return;
+}
+
+
 
 /* Currently this dumps only mallinfo. More can be built on here */
 void
@@ -138,6 +180,7 @@ gf_proc_dump_mem_info ()
         gf_proc_dump_write("mallinfo_fordblks", "%d", info.fordblks);
         gf_proc_dump_write("mallinfo_keepcost", "%d", info.keepcost);
 #endif
+        gf_proc_dump_xlator_mem_info(&global_xlator);
 
 }
 
@@ -151,7 +194,9 @@ gf_proc_dump_xlator_info (xlator_t *this_xl)
                 return;
 
         while (this_xl) {
+
                 gf_proc_dump_latency_info (this_xl);
+                gf_proc_dump_xlator_mem_info(this_xl);
 
                 if (!this_xl->dumpops) {
                         this_xl = this_xl->next;

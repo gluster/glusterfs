@@ -41,7 +41,8 @@ __iobuf_arena_init_iobufs (struct iobuf_arena *iobuf_arena)
         page_size  = iobuf_arena->iobuf_pool->page_size;
         iobuf_cnt  = arena_size / page_size;
 
-        iobuf_arena->iobufs = CALLOC (sizeof (*iobuf), iobuf_cnt);
+        iobuf_arena->iobufs = GF_CALLOC (sizeof (*iobuf), iobuf_cnt,
+                                        gf_common_mt_iobuf);
         if (!iobuf_arena->iobufs)
                 return;
 
@@ -87,7 +88,7 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
                 iobuf++;
         }
 
-        FREE (iobuf_arena->iobufs);
+        GF_FREE (iobuf_arena->iobufs);
 }
 
 
@@ -107,7 +108,7 @@ __iobuf_arena_destroy (struct iobuf_arena *iobuf_arena)
             && iobuf_arena->mem_base != MAP_FAILED)
                 munmap (iobuf_arena->mem_base, iobuf_pool->arena_size);
 
-        FREE (iobuf_arena);
+        GF_FREE (iobuf_arena);
 }
 
 
@@ -117,7 +118,8 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
         struct iobuf_arena *iobuf_arena = NULL;
         size_t              arena_size = 0;
 
-        iobuf_arena = CALLOC (sizeof (*iobuf_arena), 1);
+        iobuf_arena = GF_CALLOC (sizeof (*iobuf_arena), 1,
+                             gf_common_mt_iobuf_arena);
         if (!iobuf_arena)
                 goto err;
 
@@ -224,7 +226,8 @@ iobuf_pool_new (size_t arena_size, size_t page_size)
         if (arena_size < page_size)
                 return NULL;
 
-        iobuf_pool = CALLOC (sizeof (*iobuf_pool), 1);
+        iobuf_pool = GF_CALLOC (sizeof (*iobuf_pool), 1,
+                                gf_common_mt_iobuf_pool);
         if (!iobuf_pool)
                 return NULL;
 
@@ -463,7 +466,8 @@ iobref_new ()
 {
         struct iobref *iobref = NULL;
 
-        iobref = CALLOC (sizeof (*iobref), 1);
+        iobref = GF_CALLOC (sizeof (*iobref), 1,
+                            gf_common_mt_iobref);
         if (!iobref)
                 return NULL;
 
@@ -508,7 +512,7 @@ iobref_destroy (struct iobref *iobref)
                         iobuf_unref (iobuf);
         }
 
-        FREE (iobref);
+        GF_FREE (iobref);
 }
 
 

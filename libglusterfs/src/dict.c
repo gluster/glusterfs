@@ -41,7 +41,8 @@ get_new_data_pair ()
 {
 	data_pair_t *data_pair_ptr = NULL;
   
-	data_pair_ptr = (data_pair_t *) CALLOC (1, sizeof (data_pair_t));
+	data_pair_ptr = (data_pair_t *) GF_CALLOC (1, sizeof (data_pair_t),
+                                                   gf_common_mt_data_pair_t);
 	ERR_ABORT (data_pair_ptr);
   
 	return data_pair_ptr;
@@ -52,7 +53,7 @@ get_new_data ()
 {
 	data_t *data = NULL;
 
-	data = (data_t *) CALLOC (1, sizeof (data_t));
+	data = (data_t *) GF_CALLOC (1, sizeof (data_t), gf_common_mt_data_t);
 	if (!data) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"calloc () returned NULL");
@@ -66,7 +67,7 @@ get_new_data ()
 dict_t *
 get_new_dict_full (int size_hint)
 {
-	dict_t *dict = CALLOC (1, sizeof (dict_t));
+	dict_t *dict = GF_CALLOC (1, sizeof (dict_t), gf_common_mt_dict_t);
 
 	if (!dict) {
 		gf_log ("dict", GF_LOG_CRITICAL,
@@ -75,7 +76,8 @@ get_new_dict_full (int size_hint)
 	}
 
 	dict->hash_size = size_hint;
-	dict->members = CALLOC (size_hint, sizeof (data_pair_t *));
+	dict->members = GF_CALLOC (size_hint, sizeof (data_pair_t *),
+                                   gf_common_mt_data_pair_t);
 
 	if (!dict->members) {
 		gf_log ("dict", GF_LOG_CRITICAL,
@@ -138,14 +140,14 @@ data_destroy (data_t *data)
 
 		if (!data->is_static) {
 			if (data->data)
-				FREE (data->data);
+				GF_FREE (data->data);
 			if (data->vec)
-				FREE (data->vec);
+				GF_FREE (data->vec);
 		}
 
 		data->len = 0xbabababa;
 		if (!data->is_const)
-			FREE (data);
+			GF_FREE (data);
 	}
 }
 
@@ -158,7 +160,8 @@ data_copy (data_t *old)
 		return NULL;
 	}
 
-	data_t *newdata = (data_t *) CALLOC (1, sizeof (*newdata));
+	data_t *newdata = (data_t *) GF_CALLOC (1, sizeof (*newdata),
+                                                gf_common_mt_data_t);
 
 	if (!newdata) {
 		gf_log ("dict", GF_LOG_CRITICAL,
@@ -229,7 +232,7 @@ _dict_set (dict_t *this,
         int ret = 0;
 
 	if (!key) {
-		ret = asprintf (&key, "ref:%p", value);
+		ret = gf_asprintf (&key, "ref:%p", value);
                 if (-1 == ret) {
                         gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                         return -1;
@@ -246,18 +249,20 @@ _dict_set (dict_t *this,
 		pair->value = data_ref (value);
 		data_unref (unref_data);
 		if (key_free)
-			FREE (key);
+			GF_FREE (key);
 		/* Indicates duplicate key */
 		return 0;
 	}
-	pair = (data_pair_t *) CALLOC (1, sizeof (*pair));
+	pair = (data_pair_t *) GF_CALLOC (1, sizeof (*pair),
+                                        gf_common_mt_data_pair_t);
 	if (!pair) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"@pair - NULL returned by CALLOC");
 		return -1;
 	}
 
-	pair->key = (char *) CALLOC (1, strlen (key) + 1);
+	pair->key = (char *) GF_CALLOC (1, strlen (key) + 1,
+                                        gf_common_mt_char);
 	if (!pair->key) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"@pair->key - NULL returned by CALLOC");
@@ -280,7 +285,7 @@ _dict_set (dict_t *this,
 	this->count++;
   
 	if (key_free)
-		FREE (key);
+		GF_FREE (key);
 	return 0;
 }
 
@@ -364,8 +369,8 @@ dict_del (dict_t *this,
 			if (pair->next)
 				pair->next->prev = pair->prev;
   
-			FREE (pair->key);
-			FREE (pair);
+			GF_FREE (pair->key);
+			GF_FREE (pair);
 			this->count--;
 			break;
 		}
@@ -396,18 +401,18 @@ dict_destroy (dict_t *this)
 	while (prev) {
 		pair = pair->next;
 		data_unref (prev->value);
-		FREE (prev->key);
-		FREE (prev);
+		GF_FREE (prev->key);
+		GF_FREE (prev);
 		prev = pair;
 	}
 
-	FREE (this->members);
+	GF_FREE (this->members);
 
 	if (this->extra_free)
-		FREE (this->extra_free);
+		GF_FREE (this->extra_free);
 
 	if (!this->is_static)
-		FREE (this);
+		GF_FREE (this);
 
 	return;
 }
@@ -630,7 +635,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 	goto ret;
 
 err:
-	FREE (*fill);
+	GF_FREE (*fill);
 	*fill = NULL; 
 
 ret:
@@ -744,7 +749,7 @@ int_to_data (int64_t value)
 		return NULL;
 	}
 
-	ret = asprintf (&data->data, "%"PRId64, value);
+	ret = gf_asprintf (&data->data, "%"PRId64, value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -765,7 +770,7 @@ data_from_int64 (int64_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	ret = asprintf (&data->data, "%"PRId64, value);
+	ret = gf_asprintf (&data->data, "%"PRId64, value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -786,7 +791,7 @@ data_from_int32 (int32_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	ret = asprintf (&data->data, "%"PRId32, value);
+	ret = gf_asprintf (&data->data, "%"PRId32, value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -808,7 +813,7 @@ data_from_int16 (int16_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	ret = asprintf (&data->data, "%"PRId16, value);
+	ret = gf_asprintf (&data->data, "%"PRId16, value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -830,7 +835,7 @@ data_from_int8 (int8_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	ret = asprintf (&data->data, "%d", value);
+	ret = gf_asprintf (&data->data, "%d", value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -852,7 +857,7 @@ data_from_uint64 (uint64_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	ret = asprintf (&data->data, "%"PRIu64, value);
+	ret = gf_asprintf (&data->data, "%"PRIu64, value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -877,7 +882,7 @@ data_from_double (double value)
 		return NULL;
 	}
 
-	ret = asprintf (&data->data, "%f", value);
+	ret = gf_asprintf (&data->data, "%f", value);
 	if (ret == -1) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"@data - allocation failed by ASPRINTF");
@@ -900,7 +905,7 @@ data_from_uint32 (uint32_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	ret = asprintf (&data->data, "%"PRIu32, value);
+	ret = gf_asprintf (&data->data, "%"PRIu32, value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -923,7 +928,7 @@ data_from_uint16 (uint16_t value)
 			"@data - NULL returned by CALLOC");
 		return NULL;
 	}
-	ret = asprintf (&data->data, "%"PRIu16, value);
+	ret = gf_asprintf (&data->data, "%"PRIu16, value);
         if (-1 == ret) {
                 gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -2513,7 +2518,7 @@ dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
                         goto unlock;
                 }
 
-                *buf = CALLOC (1, len);
+                *buf = GF_CALLOC (1, len, gf_common_mt_char);
                 if (*buf == NULL) {
                         ret = -ENOMEM;
                         gf_log ("dict", GF_LOG_ERROR, "out of memory");
@@ -2522,7 +2527,7 @@ dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
 
                 ret = _dict_serialize (this, *buf);
                 if (ret < 0) {
-                        FREE (*buf);
+                        GF_FREE (*buf);
                         *buf = NULL;
                         goto unlock;
                 }

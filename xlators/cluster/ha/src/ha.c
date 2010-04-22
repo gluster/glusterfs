@@ -50,7 +50,7 @@ ha_local_wipe (ha_local_t *local)
         }
 
         if (local->state) {
-                FREE (local->state);
+                GF_FREE (local->state);
                 local->state = NULL;
         }
 
@@ -71,7 +71,7 @@ ha_local_wipe (ha_local_t *local)
                 local->inode = NULL;
         }
 
-        FREE (local);
+        GF_FREE (local);
         return;
 }
 
@@ -84,7 +84,7 @@ ha_forget (xlator_t *this,
 	char *state = NULL;
 	if (!inode_ctx_del (inode, this, &stateino)) {
 		state =  ((char *)(long)stateino);
-		FREE (state);
+		GF_FREE (state);
 	}
 
 	return 0;
@@ -193,7 +193,8 @@ ha_lookup (call_frame_t *frame,
 	child_count = pvt->child_count;
 	children = pvt->children;
 
-	frame->local = local = CALLOC (1, sizeof (*local));
+	frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -205,7 +206,7 @@ ha_lookup (call_frame_t *frame,
 
 	ret = inode_ctx_get (loc->inode, this, NULL);
 	if (ret) {
-		state = CALLOC (1, child_count);
+		state = GF_CALLOC (1, child_count, gf_ha_mt_child_count);
                 if (state == NULL) {
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
                         op_errno = ENOMEM;
@@ -645,7 +646,7 @@ ha_mknod_lookup_cbk (call_frame_t *frame,
 
 	if (cnt == 0) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
@@ -715,7 +716,7 @@ ha_mknod_cbk (call_frame_t *frame,
 
 	if (cnt == 0 || i == child_count) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		stub = local->stub;
 		STACK_UNWIND (frame, local->op_ret, local->op_errno,
                               local->stub->args.mknod.loc.inode, &local->buf,
@@ -770,7 +771,8 @@ ha_mknod (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = CALLOC (1, sizeof (*local));
+	frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -786,7 +788,7 @@ ha_mknod (call_frame_t *frame,
 
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = CALLOC (1, child_count);
+	local->state = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!local->state) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -796,7 +798,7 @@ ha_mknod (call_frame_t *frame,
 	memcpy (local->state, pvt->state, child_count);
 	local->active = -1;
 
-	stateino = CALLOC (1, child_count);
+	stateino = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!stateino) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -875,7 +877,7 @@ ha_mkdir_lookup_cbk (call_frame_t *frame,
 
 	if (cnt == 0) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
@@ -940,7 +942,7 @@ ha_mkdir_cbk (call_frame_t *frame,
 
 	if (cnt == 0 || i == child_count) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		stub = local->stub;
 		STACK_UNWIND (frame, local->op_ret, local->op_errno,
                               local->stub->args.mkdir.loc.inode, &local->buf,
@@ -993,7 +995,8 @@ ha_mkdir (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = CALLOC (1, sizeof (*local));
+	frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!frame->local) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -1009,7 +1012,7 @@ ha_mkdir (call_frame_t *frame,
 
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = CALLOC (1, child_count);
+	local->state = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!local->state) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -1019,7 +1022,7 @@ ha_mkdir (call_frame_t *frame,
 	memcpy (local->state, pvt->state, child_count);
 	local->active = -1;
 
-	stateino = CALLOC (1, child_count);
+	stateino = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!stateino) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -1204,7 +1207,7 @@ ha_symlink_lookup_cbk (call_frame_t *frame,
 
 	if (cnt == 0) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
@@ -1268,7 +1271,7 @@ ha_symlink_cbk (call_frame_t *frame,
 
 	if (cnt == 0 || i == child_count) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		stub = local->stub;
 		STACK_UNWIND (frame, local->op_ret, local->op_errno, 
 			      local->stub->args.symlink.loc.inode, &local->buf,
@@ -1321,7 +1324,8 @@ ha_symlink (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = CALLOC (1, sizeof (*local));
+	frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1337,7 +1341,7 @@ ha_symlink (call_frame_t *frame,
 
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = CALLOC (1, child_count);
+	local->state = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!local->state) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1347,7 +1351,7 @@ ha_symlink (call_frame_t *frame,
 	memcpy (local->state, pvt->state, child_count);
 	local->active = -1;
 
-	stateino = CALLOC (1, child_count);
+	stateino = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!stateino) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1481,7 +1485,7 @@ ha_link_lookup_cbk (call_frame_t *frame,
 
 	if (cnt == 0) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		STACK_UNWIND (frame,
 			      local->op_ret,
 			      local->op_errno,
@@ -1545,7 +1549,7 @@ ha_link_cbk (call_frame_t *frame,
 
 	if (cnt == 0 || i == child_count) {
 		call_stub_t *stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		stub = local->stub;
 		STACK_UNWIND (frame, local->op_ret, local->op_errno,
                               local->stub->args.link.oldloc.inode, &local->buf,
@@ -1613,7 +1617,8 @@ ha_link (call_frame_t *frame,
 	pvt = this->private;
 	child_count = pvt->child_count;
 
-	frame->local = local = CALLOC (1, sizeof (*local));
+	frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!frame->local) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -1629,7 +1634,7 @@ ha_link (call_frame_t *frame,
 
 	local->op_ret = -1;
 	local->op_errno = ENOTCONN;
-	local->state = CALLOC (1, child_count);
+	local->state = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!local->state) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
@@ -1741,7 +1746,7 @@ ha_create_cbk (call_frame_t *frame,
 			      stub->args.create.fd,
 			      stub->args.create.loc.inode, &local->buf,
                               &local->preparent, &local->postparent);
-		FREE (state);
+		GF_FREE (state);
 		call_stub_destroy (stub);
 		return 0;
 	}
@@ -1785,7 +1790,8 @@ ha_create (call_frame_t *frame,
 	children = pvt->children;
 
 	if (local == NULL) {
-		local = frame->local = CALLOC (1, sizeof (*local));
+                frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                                  gf_ha_mt_ha_local_t);
                 if (!local) {
                         op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1799,7 +1805,7 @@ ha_create (call_frame_t *frame,
                         goto err;
                 }
 
-		local->state = CALLOC (1, child_count);
+                local->state = GF_CALLOC (1, child_count, gf_ha_mt_char);
                 if (!local->state) {
                         op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1819,28 +1825,28 @@ ha_create (call_frame_t *frame,
 			}
 		}
 		/* FIXME handle active -1 */
-		stateino = CALLOC (1, child_count);
+		stateino = GF_CALLOC (1, child_count, gf_ha_mt_char);
                 if (!stateino) {
                         op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
                         goto err;
                 }
 
-		hafdp = CALLOC (1, sizeof (*hafdp));
+		hafdp = GF_CALLOC (1, sizeof (*hafdp), gf_ha_mt_hafd_t);
                 if (!hafdp) {
                         op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
                         goto err;
                 }
 
-		hafdp->fdstate = CALLOC (1, child_count);
+		hafdp->fdstate = GF_CALLOC (1, child_count, gf_ha_mt_char);
                 if (!hafdp->fdstate) {
                         op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
                         goto err;
                 }
 
-		hafdp->path = strdup(loc->path);
+		hafdp->path = gf_strdup(loc->path);
                 if (!hafdp->path) {
                         op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1865,20 +1871,20 @@ err:
         ha_local_wipe (local);
 
         if (stateino) {
-                FREE (stateino);
+                GF_FREE (stateino);
                 stateino = NULL;
         }
 
         if (hafdp) {
                 if (hafdp->fdstate) {
-                        FREE (hafdp->fdstate);
+                        GF_FREE (hafdp->fdstate);
                 }
 
                 if (hafdp->path) {
-                        FREE (hafdp->path);
+                        GF_FREE (hafdp->path);
                 }
 
-                FREE (hafdp);
+                GF_FREE (hafdp);
         }
 
         return 0;
@@ -1955,7 +1961,8 @@ ha_open (call_frame_t *frame,
 	child_count = pvt->child_count;
 
 
-	local = frame->local = CALLOC (1, sizeof (*local));
+	frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -1966,21 +1973,21 @@ ha_open (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->fd = fd;
 
-	hafdp = CALLOC (1, sizeof (*hafdp));
+	hafdp = GF_CALLOC (1, sizeof (*hafdp), gf_ha_mt_hafd_t);
         if (!hafdp) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto err;
         }
 
-	hafdp->fdstate = CALLOC (1, child_count);
+	hafdp->fdstate = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!hafdp->fdstate) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto err;
         }
 
-	hafdp->path = strdup (loc->path);
+	hafdp->path = gf_strdup (loc->path);
         if (!hafdp->path) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -2020,16 +2027,16 @@ err:
 	STACK_UNWIND (frame, -1, op_errno, fd);
         if (hafdp) {
                 if (hafdp->fdstate) {
-                        FREE (hafdp->fdstate);
+                        GF_FREE (hafdp->fdstate);
                         hafdp->fdstate = NULL;
                 }
 
                 if (hafdp->path) {
-                        FREE (hafdp->path);
+                        GF_FREE (hafdp->path);
                         hafdp->path = NULL;
                 }
 
-                FREE (hafdp);
+                GF_FREE (hafdp);
         }
 
         ha_local_wipe (local);
@@ -2420,7 +2427,8 @@ ha_opendir (call_frame_t *frame,
 	children = pvt->children;
 	child_count = pvt->child_count;
 
-	local = frame->local = CALLOC (1, sizeof (*local));
+	frame->local = local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -2431,21 +2439,21 @@ ha_opendir (call_frame_t *frame,
 	local->op_errno = ENOTCONN;
 	local->fd = fd;
 
-	hafdp = CALLOC (1, sizeof (*hafdp));
+	hafdp = GF_CALLOC (1, sizeof (*hafdp), gf_ha_mt_hafd_t);
         if (!hafdp) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto err;
         }
 
-	hafdp->fdstate = CALLOC (1, child_count);
+	hafdp->fdstate = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!hafdp->fdstate) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto err;
         }
 
-	hafdp->path = strdup (loc->path);
+	hafdp->path = gf_strdup (loc->path);
         if (!hafdp->path) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -2484,16 +2492,16 @@ err:
         ha_local_wipe (local);
         if (hafdp) {
                 if (hafdp->fdstate) {
-                        FREE (hafdp->fdstate);
+                        GF_FREE (hafdp->fdstate);
                         hafdp->fdstate = NULL;
                 }
 
                 if (hafdp->path) {
-                        FREE (hafdp->path);
+                        GF_FREE (hafdp->path);
                         hafdp->path = NULL;
                 }
 
-                FREE (hafdp);
+                GF_FREE (hafdp);
         }
         return 0;
 }
@@ -2733,7 +2741,8 @@ ha_statfs (call_frame_t *frame,
         /* The normal way of handling failover doesn't work here
          * as loc->inode may be null in this case.
          */
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local), 
+                           gf_ha_mt_ha_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 goto err;
@@ -3073,7 +3082,7 @@ ha_lk_setlk_unlck_cbk (call_frame_t *frame,
 
 	if (cnt == 0) {
 		stub = local->stub;
-		FREE (local->state);
+		GF_FREE (local->state);
 		if (stub->args.lk.lock.l_type == F_UNLCK) {
 			STACK_UNWIND (frame, local->op_ret, local->op_errno, &stub->args.lk.lock);
 		} else {
@@ -3122,7 +3131,7 @@ ha_lk_setlk_cbk (call_frame_t *frame,
 		}
 		if (i == child_count) {
 			call_stub_t *stub = local->stub;
-			FREE (local->state);
+			GF_FREE (local->state);
 			STACK_UNWIND (frame, 0, op_errno, &stub->args.lk.lock);
 			call_stub_destroy (stub);
 			return 0;
@@ -3163,7 +3172,7 @@ ha_lk_setlk_cbk (call_frame_t *frame,
 			}
 			return 0;
 		} else {
-			FREE (local->state);
+			GF_FREE (local->state);
 			call_stub_destroy (local->stub);
 			STACK_UNWIND (frame,
 				      op_ret,
@@ -3197,7 +3206,7 @@ ha_lk_getlk_cbk (call_frame_t *frame,
 	prev_frame = cookie;
 
 	if (op_ret == 0) {
-		FREE (local->state);
+		GF_FREE (local->state);
 		call_stub_destroy (local->stub);
 		STACK_UNWIND (frame, 0, 0, lock);
 		return 0;
@@ -3214,7 +3223,7 @@ ha_lk_getlk_cbk (call_frame_t *frame,
 	}
 
 	if (i == child_count) {
-		FREE (local->state);
+		GF_FREE (local->state);
 		call_stub_destroy (local->stub);
 		STACK_UNWIND (frame, op_ret, op_errno, lock);
 		return 0;
@@ -3255,7 +3264,8 @@ ha_lk (call_frame_t *frame,
 		gf_log (this->name, GF_LOG_ERROR, "fd_ctx_get failed");
 
 	if (local == NULL) {
-		local = frame->local = CALLOC (1, sizeof (*local));
+                local = frame->local = GF_CALLOC (1, sizeof (*local),
+                                                  gf_ha_mt_ha_local_t);
                 if (!local) {
                         op_errno = ENOMEM;
                         gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -3280,7 +3290,7 @@ ha_lk (call_frame_t *frame,
                 goto err;
         }
 
-	local->state = CALLOC (1, child_count);
+	local->state = GF_CALLOC (1, child_count, gf_ha_mt_char);
         if (!local->state) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -3636,7 +3646,8 @@ ha_stats (call_frame_t *frame,
 	int i = 0;
         int32_t op_errno = EINVAL;
 
-	local = frame->local = CALLOC (1, sizeof (*local));
+	local = frame->local = GF_CALLOC (1, sizeof (*local),
+                                          gf_ha_mt_ha_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -3737,7 +3748,8 @@ ha_getspec (call_frame_t *frame,
 	int i = 0;
         int32_t op_errno = EINVAL;
 
-	local = frame->local = CALLOC (1, sizeof (*local));
+	local = frame->local = GF_CALLOC (1, sizeof (*local), 
+                                          gf_ha_mt_ha_local_t);
         if (!local) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -3791,8 +3803,8 @@ ha_closedir (xlator_t *this,
 	}
 	hafdp = (hafd_t *)(long)tmp_hafdp;
 
-	FREE (hafdp->fdstate);
-	FREE (hafdp->path);
+	GF_FREE (hafdp->fdstate);
+	GF_FREE (hafdp->path);
 	LOCK_DESTROY (&hafdp->lock);
 	return 0;
 }
@@ -3812,8 +3824,8 @@ ha_close (xlator_t *this,
 	}
 	hafdp = (hafd_t *)(long)tmp_hafdp;
 
-	FREE (hafdp->fdstate);
-	FREE (hafdp->path);
+	GF_FREE (hafdp->fdstate);
+	GF_FREE (hafdp->path);
 	LOCK_DESTROY (&hafdp->lock);
 	return 0;
 }
@@ -3884,12 +3896,32 @@ notify (xlator_t *this,
 	return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_ha_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int
 init (xlator_t *this)
 {
 	ha_private_t *pvt = NULL;
 	xlator_list_t *trav = NULL;
 	int count = 0, ret = 0;
+
 
 	if (!this->children) {
 		gf_log (this->name,GF_LOG_ERROR, 
@@ -3903,7 +3935,7 @@ init (xlator_t *this)
 	}
   
 	trav = this->children;
-	pvt = CALLOC (1, sizeof (ha_private_t));
+	pvt = GF_CALLOC (1, sizeof (ha_private_t), gf_ha_mt_ha_private_t);
 
 	ret = dict_get_int32 (this->options, "preferred-subvolume", 
 			      &pvt->pref_subvol);
@@ -3918,7 +3950,8 @@ init (xlator_t *this)
 	}
 
 	pvt->child_count = count;
-	pvt->children = CALLOC (count, sizeof (xlator_t*));
+	pvt->children = GF_CALLOC (count, sizeof (xlator_t*), 
+                                   gf_ha_mt_xlator_t);
 
 	trav = this->children;
 	count = 0;
@@ -3928,7 +3961,7 @@ init (xlator_t *this)
 		trav = trav->next;
 	}
 
-	pvt->state = CALLOC (1, count);
+	pvt->state = GF_CALLOC (1, count, gf_ha_mt_char);
 	this->private = pvt;
 	return 0;
 }
@@ -3938,7 +3971,7 @@ fini (xlator_t *this)
 {
 	ha_private_t *priv = NULL;
 	priv = this->private;
-	FREE (priv);
+	GF_FREE (priv);
 	return;
 }
 

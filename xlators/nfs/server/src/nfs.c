@@ -38,6 +38,7 @@
 #include "inode.h"
 #include "mount3.h"
 #include "nfs3.h"
+#include "nfs-mem-types.h"
 
 /* Every NFS version must call this function with the init function
  * for its particular version.
@@ -49,7 +50,7 @@ nfs_add_initer (struct list_head *list, nfs_version_initer_t init)
         if ((!list) || (!init))
                 return -1;
 
-        new = CALLOC (1, sizeof (*new));
+        new = GF_CALLOC (1, sizeof (*new), gf_nfs_mt_nfs_initer_list);
         if (!new) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Memory allocation failed");
                 return -1;
@@ -356,7 +357,8 @@ nfs_init_subvolumes (struct nfs_state *nfs, xlator_list_t *cl)
         }
 
         LOCK_INIT (&nfs->svinitlock);
-        nfs->initedxl = CALLOC (svcount, sizeof (xlator_t *));
+        nfs->initedxl = GF_CALLOC (svcount, sizeof (xlator_t *), 
+                                   gf_nfs_mt_xlator_t );
         if (!nfs->initedxl) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "Failed to allocated inited xls");
                 ret = -1;
@@ -435,6 +437,24 @@ nfs_request_user_init (nfs_user_t *nfu, rpcsvc_request_t *req)
         return;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_nfs_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int
 init (xlator_t *this) {
@@ -452,7 +472,7 @@ init (xlator_t *this) {
                 return -1;
         }
 
-        nfs = CALLOC (1, sizeof (*nfs));
+        nfs = GF_CALLOC (1, sizeof (*nfs), gf_nfs_mt_nfs_state);
         if (!nfs) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "memory allocation failed");
                 return -1;

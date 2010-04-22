@@ -21,6 +21,7 @@
 #define __MAP_H__
 
 #include "xlator.h"
+#include "map-mem-types.h"
 
 struct map_pattern {
 	struct map_pattern *next;

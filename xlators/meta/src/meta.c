@@ -32,6 +32,7 @@
 
 #include "meta.h"
 #include "view.h"
+#include "meta-mem-types.h"
 
 int32_t
 meta_getattr_cbk (call_frame_t *frame,
@@ -516,9 +517,9 @@ meta_open (call_frame_t *frame, xlator_t *this,
 
   if (file) {
     if (file->fops && file->fops->open) {
-      struct _open_local *local = CALLOC (1, sizeof (struct _open_local));
+            struct _open_local *local = GF_CALLOC (1, sizeof (struct _open_local), gf_meta_mt__open_local);
       ERR_ABORT (local);
-      local->path = strdup (path);
+      local->path = gf_strdup (path);
       frame->local = local;
       STACK_WIND (frame, meta_open_cbk,
 		  this, file->fops->open,
@@ -528,7 +529,7 @@ meta_open (call_frame_t *frame, xlator_t *this,
     else {
       dict_t *ctx = get_new_dict ();
       dict_ref (ctx);
-      dict_set (ctx, this->name, str_to_data (strdup (path)));
+      dict_set (ctx, this->name, str_to_data (gf_strdup (path)));
       STACK_UNWIND (frame, 0, 0, ctx, file->stbuf);
       return 0;
     }
@@ -551,9 +552,9 @@ meta_create (call_frame_t *frame, xlator_t *this,
 
   if (file) {
     if (file->fops && file->fops->create) {
-      struct _open_local *local = CALLOC (1, sizeof (struct _open_local));
+            struct _open_local *local = GF_CALLOC (1, sizeof (struct _open_local), gf_meta_mt__open_local);
       ERR_ABORT (local);
-      local->path = strdup (path);
+      local->path = gf_strdup (path);
       frame->local = local;
       STACK_WIND (frame, meta_open_cbk,
 		  this, file->fops->create,
@@ -826,7 +827,7 @@ meta_opendir (call_frame_t *frame,
   
   if (dir) {
     dict_t *ctx = get_new_dict ();
-    dict_set (ctx, this->name, str_to_data (strdup (path)));
+    dict_set (ctx, this->name, str_to_data (gf_strdup (path)));
     STACK_UNWIND (frame, 0, 0, ctx);
     return 0;
   }
@@ -850,10 +851,11 @@ meta_readdir_cbk (call_frame_t *frame,
   meta_private_t *priv = (meta_private_t *)this->private;
 
   if ((int) cookie == 1) {
-    dir_entry_t *dir = CALLOC (1, sizeof (dir_entry_t));
+    dir_entry_t *dir = GF_CALLOC (1, sizeof (dir_entry_t),
+                                  gf_meta_mt_dir_entry_t);
     ERR_ABORT (dir);
 
-    dir->name = strdup (".meta");
+    dir->name = gf_strdup (".meta");
     memcpy (&dir->buf, priv->tree->stbuf, sizeof (struct stat));
     dir->next = entries->next;
     entries->next = dir;
@@ -887,7 +889,8 @@ meta_readdir (call_frame_t *frame,
       dir_entry_t *entries = NULL;
 
       while (dir) {
-	dir_entry_t *d = CALLOC (1, sizeof (dir_entry_t));
+        dir_entry_t *d = GF_CALLOC (1, sizeof (dir_entry_t),
+                                    gf_meta_mt_dir_entry_t);
 	ERR_ABORT (d);
 	d->name = dir->name;
 	d->buf  = *dir->stbuf;
@@ -897,7 +900,8 @@ meta_readdir (call_frame_t *frame,
 	dir = dir->next;
       }
 
-      dir_entry_t *header = CALLOC (1, sizeof (dir_entry_t));
+      dir_entry_t *header = GF_CALLOC (1, sizeof (dir_entry_t),
+                                       gf_meta_mt_dir_entry_t);
       ERR_ABORT (header);
       header->next = entries;
       STACK_UNWIND (frame, 0, 0, header, count);
@@ -1163,16 +1167,16 @@ add_xlator_to_tree (meta_dirent_t *tree, xlator_t *this,
 		    const char *prefix)
 {
   char *dir;
-  asprintf (&dir, "%s/%s", prefix, this->name);
+  gf_asprintf (&dir, "%s/%s", prefix, this->name);
 
   char *children;
-  asprintf (&children, "%s/%s", dir, "subvolumes");
+  gf_asprintf (&children, "%s/%s", dir, "subvolumes");
 
   char *type;
-  asprintf (&type, "%s/%s", dir, "type");
+  gf_asprintf (&type, "%s/%s", dir, "type");
 
   char *view;
-  asprintf (&view, "%s/%s", dir, "view");
+  gf_asprintf (&view, "%s/%s", dir, "view");
 
   insert_meta_entry (tree, dir, S_IFDIR, NULL, NULL);
   insert_meta_entry (tree, children, S_IFDIR, NULL, NULL);
@@ -1194,9 +1198,10 @@ static void
 build_meta_tree (xlator_t *this)
 {
   meta_private_t *priv = (meta_private_t *) this->private;
-  priv->tree = CALLOC (1, sizeof (meta_dirent_t));
+  priv->tree = GF_CALLOC (1, sizeof (meta_dirent_t),
+                          gf_meta_mt_meta_dirent_t);
   ERR_ABORT (priv->tree);
-  priv->tree->name = strdup (".meta");
+  priv->tree->name = gf_strdup (".meta");
   priv->tree->stbuf = new_stbuf ();
   priv->tree->stbuf->st_mode = S_IFDIR | S_IRUSR | S_IRGRP | S_IROTH |
     S_IXUSR | S_IXGRP | S_IXOTH;
@@ -1215,6 +1220,25 @@ build_meta_tree (xlator_t *this)
 }
 
 int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_meta_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                       "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
+int32_t
 init (xlator_t *this)
 {
   if (this->parent != NULL) {
@@ -1222,12 +1246,13 @@ init (xlator_t *this)
     return -1;
   }
   
-  meta_private_t *priv = CALLOC (1, sizeof (meta_private_t));
+  meta_private_t *priv = GF_CALLOC (1, sizeof (meta_private_t),
+                                    gf_meta_mt_meta_private_t);
   ERR_ABORT (priv);
   
   data_t *directory = dict_get (this->options, "directory");
   if (directory) {
-    priv->directory = strdup (data_to_str (directory));
+    priv->directory = gf_strdup (data_to_str (directory));
   }
   else {
     priv->directory = ".meta";

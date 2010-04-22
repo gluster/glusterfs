@@ -23,7 +23,7 @@
 #endif
 
 #include "trash.h"
-
+#include "trash-mem-types.h"
 
 int32_t
 trash_ftruncate_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -63,7 +63,7 @@ trash_local_wipe (trash_local_t *local)
         if (local->newfd)
                 fd_unref (local->newfd);
 
-        FREE (local);
+        GF_FREE (local);
 out:
         return;
 }
@@ -94,7 +94,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_t          tmp_loc     = {0,};
 
         local   = frame->local;
-        tmp_str = strdup (local->newpath);
+        tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
         }
@@ -166,8 +166,8 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            &tmp_loc, 0755);
 
 out:
-        free (cookie);
-        free (tmp_str);
+        GF_FREE (cookie);
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -195,7 +195,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
-                tmp_str = strdup (local->newpath);
+                tmp_str = gf_strdup (local->newpath);
                 if (!tmp_str) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -203,7 +203,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 tmp_loc.path = dir_name;
 
-                tmp_cookie = strdup (dir_name);
+                tmp_cookie = gf_strdup (dir_name);
                 if (!tmp_cookie) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -213,7 +213,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    FIRST_CHILD(this)->fops->mkdir,
                                    &tmp_loc, 0755);
 
-                free (tmp_str);
+                GF_FREE (tmp_str);
 
                 return 0;
         }
@@ -337,7 +337,7 @@ trash_rename_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local = frame->local;
         if ((op_ret == -1) && (op_errno == ENOENT)) {
-                tmp_str  = strdup (local->newpath);
+                tmp_str  = gf_strdup (local->newpath);
                 if (!tmp_str) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -346,7 +346,7 @@ trash_rename_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* check for the errno, if its ENOENT create directory and call
                  * rename later
                  */
-                tmp_path = strdup (dir_name);
+                tmp_path = gf_strdup (dir_name);
                 if (!tmp_path) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -358,7 +358,7 @@ trash_rename_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    this->children->xlator->fops->mkdir,
                                    &tmp_loc, 0755);
 
-                free (tmp_str);
+                GF_FREE (tmp_str);
                 return 0;
         }
 
@@ -396,7 +396,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_t          tmp_loc = {0,};
 
         local   = frame->local;
-        tmp_str = strdup (local->newpath);
+        tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
         }
@@ -438,8 +438,8 @@ trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
-        free (cookie); /* strdup (dir_name) was sent here :) */
-        free (tmp_str);
+        GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -529,7 +529,8 @@ trash_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                 return 0;
         }
 
-        local = CALLOC (1, sizeof (trash_local_t));
+        local = GF_CALLOC (1, sizeof (trash_local_t), 
+                           gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 TRASH_STACK_UNWIND (frame, -1, ENOMEM,
@@ -605,7 +606,8 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 return 0;
         }
 
-        local = CALLOC (1, sizeof (trash_local_t));
+        local = GF_CALLOC (1, sizeof (trash_local_t),
+                           gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 TRASH_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
@@ -781,13 +783,13 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
                 //Creating the directory structure here.
-                tmp_str = strdup (local->newpath);
+                tmp_str = gf_strdup (local->newpath);
                 if (!tmp_str) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
                 dir_name = dirname (tmp_str);
 
-                tmp_path = strdup (dir_name);
+                tmp_path = gf_strdup (dir_name);
                 if (!tmp_path) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -798,7 +800,7 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    tmp_path, FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mkdir,
                                    &tmp_loc, 0755);
-                free (tmp_str);
+                GF_FREE (tmp_str);
                 goto out;
         }
 
@@ -850,7 +852,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         loop_count = local->loop_count;
 
-        tmp_str = strdup (local->newpath);
+        tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
         }
@@ -923,8 +925,8 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            &tmp_loc, 0755);
 
 out:
-        free (cookie); /* strdup (dir_name) was sent here :) */
-        free (tmp_str);
+        GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -979,8 +981,8 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         strcpy (loc_newname,local->loc.name);
         strcat (loc_newname,timestr);
 
-        local->newloc.name = strdup (loc_newname);
-        local->newloc.path = strdup (local->newpath);
+        local->newloc.name = gf_strdup (loc_newname);
+        local->newloc.path = gf_strdup (local->newpath);
         local->newloc.inode = inode_new (local->loc.inode->table);
         local->newloc.ino   = local->newloc.inode->ino;
         local->newfd = fd_create (local->newloc.inode, frame->root->pid);
@@ -1036,7 +1038,8 @@ trash_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         LOCK_INIT (&frame->lock);
 
-        local = CALLOC (1, sizeof (trash_local_t));
+        local = GF_CALLOC (1, sizeof (trash_local_t), 
+                           gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 TRASH_STACK_UNWIND (frame, -1, ENOMEM, NULL);
@@ -1154,13 +1157,13 @@ trash_ftruncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
-                tmp_str = strdup (local->newpath);
+                tmp_str = gf_strdup (local->newpath);
                 if (!tmp_str) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
                 dir_name = dirname (tmp_str);
 
-                tmp_path = strdup (dir_name);
+                tmp_path = gf_strdup (dir_name);
                 if (!tmp_path) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -1171,7 +1174,7 @@ trash_ftruncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    tmp_path, FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mkdir,
                                    &tmp_loc, 0755);
-                free (tmp_str);
+                GF_FREE (tmp_str);
                 return 0;
         }
 
@@ -1214,7 +1217,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         loop_count = local->loop_count;
 
-        tmp_str = strdup (local->newpath);
+        tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
         }
@@ -1288,8 +1291,8 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                            &tmp_loc, 0755);
 
 out:
-        free (cookie); /* strdup (dir_name) was sent here :) */
-        free (tmp_str);
+        GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
+        GF_FREE (tmp_str);
 
         return 0;
 }
@@ -1374,7 +1377,8 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 return 0;
         }
 
-        local = CALLOC (1, sizeof (trash_local_t));
+        local = GF_CALLOC (1, sizeof (trash_local_t), 
+                           gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 TRASH_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
@@ -1438,7 +1442,7 @@ init (xlator_t *this)
                         "dangling volume. check volfile ");
         }
 
-        _priv = CALLOC (1, sizeof (*_priv));
+        _priv = GF_CALLOC (1, sizeof (*_priv), gf_trash_mt_trash_private_t);
         if (!_priv) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 return -1;
@@ -1449,17 +1453,17 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_NORMAL,
                         "no option specified for 'trash-dir', "
                         "using \"/.trashcan/\"");
-                _priv->trash_dir = strdup ("/.trashcan");
+                _priv->trash_dir = gf_strdup ("/.trashcan");
         } else {
                 /* Need a path with '/' as the first char, if not
                    given, append it */
                 if (data->data[0] == '/') {
-                        _priv->trash_dir = strdup (data->data);
+                        _priv->trash_dir = gf_strdup (data->data);
                 } else {
                         /* TODO: Make sure there is no ".." in the path */
                         strcpy (trash_dir, "/");
                         strcat (trash_dir, data->data);
-                        _priv->trash_dir = strdup (trash_dir);
+                        _priv->trash_dir = gf_strdup (trash_dir);
                 }
         }
 
@@ -1468,7 +1472,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_TRACE,
                         "no option specified for 'eliminate', using NULL");
         } else {
-                tmp_str = strdup (data->data);
+                tmp_str = gf_strdup (data->data);
                 if (!tmp_str) {
                         gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                 }
@@ -1476,7 +1480,8 @@ init (xlator_t *this)
                 /*  Match Filename to option specified in eliminate. */
                 component = strtok_r (tmp_str, "|", &strtokptr);
                 while (component) {
-                        trav = CALLOC (1, sizeof (*trav));
+                        trav = GF_CALLOC (1, sizeof (*trav),
+                                          gf_trash_mt_trash_elim_pattern_t);
                         if (!trav) {
                                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
                         }
@@ -1521,7 +1526,7 @@ fini (xlator_t *this)
 
         priv = this->private;
         if (priv)
-                FREE (priv);
+                GF_FREE (priv);
 
         return;
 }

@@ -26,6 +26,7 @@
 
 #include "md5.h"
 #include "call-stub.h"
+#include "mem-types.h"
 
 
 static call_stub_t *
@@ -37,7 +38,7 @@ stub_new (call_frame_t *frame,
 
 	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
-	new = CALLOC (1, sizeof (*new));
+	new = GF_CALLOC (1, sizeof (*new), gf_common_mt_call_stub_t);
 	GF_VALIDATE_OR_GOTO ("call-stub", new, out);
 
 	new->frame = frame;
@@ -383,7 +384,7 @@ fop_readlink_cbk_stub (call_frame_t *frame,
 	stub->args.readlink_cbk.op_ret = op_ret;
 	stub->args.readlink_cbk.op_errno = op_errno;
 	if (path)
-		stub->args.readlink_cbk.buf = strdup (path);
+		stub->args.readlink_cbk.buf = gf_strdup (path);
         if (sbuf)
                 stub->args.readlink_cbk.sbuf = *sbuf;
 out:
@@ -614,7 +615,7 @@ fop_symlink_stub (call_frame_t *frame,
 	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
 	stub->args.symlink.fn = fn;
-	stub->args.symlink.linkname = strdup (linkname);
+	stub->args.symlink.linkname = gf_strdup (linkname);
 	loc_copy (&stub->args.symlink.loc, loc);
 out:
 	return stub;
@@ -1291,7 +1292,7 @@ fop_getxattr_stub (call_frame_t *frame,
 	loc_copy (&stub->args.getxattr.loc, loc);
 
 	if (name)
-	        stub->args.getxattr.name = strdup (name);
+	        stub->args.getxattr.name = gf_strdup (name);
 out:
 	return stub;
 }
@@ -1388,7 +1389,7 @@ fop_fgetxattr_stub (call_frame_t *frame,
 	stub->args.fgetxattr.fd = fd_ref (fd);
 
 	if (name)
-	        stub->args.fgetxattr.name = strdup (name);
+                stub->args.fgetxattr.name = gf_strdup (name);
 out:
 	return stub;
 }
@@ -1437,7 +1438,7 @@ fop_removexattr_stub (call_frame_t *frame,
 
 	stub->args.removexattr.fn = fn;
 	loc_copy (&stub->args.removexattr.loc, loc);
-	stub->args.removexattr.name = strdup (name);
+        stub->args.removexattr.name = gf_strdup (name);
 out:
 	return stub;
 }
@@ -1529,7 +1530,7 @@ fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
   stub->args.inodelk.fn = fn;
 
   if (volume)
-          stub->args.inodelk.volume = strdup (volume);
+          stub->args.inodelk.volume = gf_strdup (volume);
 
   loc_copy (&stub->args.inodelk.loc, loc);
   stub->args.inodelk.cmd  = cmd;
@@ -1578,7 +1579,7 @@ fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
 	  stub->args.finodelk.fd   = fd_ref (fd);
 
   if (volume)
-          stub->args.finodelk.volume = strdup (volume);
+          stub->args.finodelk.volume = gf_strdup (volume);
 
   stub->args.finodelk.cmd  = cmd;
   stub->args.finodelk.lock = *lock;
@@ -1625,14 +1626,14 @@ fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
   stub->args.entrylk.fn = fn;
 
   if (volume)
-          stub->args.entrylk.volume = strdup (volume);
+          stub->args.entrylk.volume = gf_strdup (volume);
 
   loc_copy (&stub->args.entrylk.loc, loc);
 
   stub->args.entrylk.cmd = cmd;
   stub->args.entrylk.type = type;
   if (name)
-	  stub->args.entrylk.name = strdup (name);
+          stub->args.entrylk.name = gf_strdup (name);
 
   return stub;
 }
@@ -1675,14 +1676,14 @@ fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
   stub->args.fentrylk.fn = fn;
 
   if (volume)
-          stub->args.fentrylk.volume = strdup (volume);
+          stub->args.fentrylk.volume = gf_strdup (volume);
 
   if (fd)
 	  stub->args.fentrylk.fd = fd_ref (fd);
   stub->args.fentrylk.cmd = cmd;
   stub->args.fentrylk.type = type;
   if (name)
-	  stub->args.fentrylk.name = strdup (name);
+          stub->args.fentrylk.name = gf_strdup (name);
 
   return stub;
 }
@@ -3222,8 +3223,8 @@ call_resume_unwind (call_stub_t *stub)
 						    stub->args.checksum_cbk.dir_checksum);
 		if (stub->args.checksum_cbk.op_ret >= 0)
 		{
-			FREE (stub->args.checksum_cbk.file_checksum);
-			FREE (stub->args.checksum_cbk.dir_checksum);
+			GF_FREE (stub->args.checksum_cbk.file_checksum);
+			GF_FREE (stub->args.checksum_cbk.dir_checksum);
 		}
 
 		break;
@@ -3247,7 +3248,7 @@ call_resume_unwind (call_stub_t *stub)
                                                      stub->args.rchecksum_cbk.strong_checksum);
 		if (stub->args.rchecksum_cbk.op_ret >= 0)
 		{
-			FREE (stub->args.rchecksum_cbk.strong_checksum);
+			GF_FREE (stub->args.rchecksum_cbk.strong_checksum);
 		}
 
 		break;
@@ -3438,7 +3439,7 @@ call_stub_destroy_wind (call_stub_t *stub)
       
 	case GF_FOP_SYMLINK:
 	{
-		FREE (stub->args.symlink.linkname);
+		GF_FREE ((char *)stub->args.symlink.linkname);
 		loc_wipe (&stub->args.symlink.loc);
 	}
 	break;
@@ -3475,7 +3476,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 		struct iobref *iobref = stub->args.writev.iobref;
 		if (stub->args.writev.fd)
 			fd_unref (stub->args.writev.fd);
-		FREE (stub->args.writev.vector);
+		GF_FREE (stub->args.writev.vector);
 		if (iobref)
 			iobref_unref (iobref);
 		break;
@@ -3511,7 +3512,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_GETXATTR:
 	{
 		if (stub->args.getxattr.name)
-			FREE (stub->args.getxattr.name);
+			GF_FREE ((char *)stub->args.getxattr.name);
 		loc_wipe (&stub->args.getxattr.loc);
 		break;
 	}
@@ -3527,7 +3528,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_FGETXATTR:
 	{
 		if (stub->args.fgetxattr.name)
-			FREE (stub->args.fgetxattr.name);
+			GF_FREE ((char *)stub->args.fgetxattr.name);
 		fd_unref (stub->args.fgetxattr.fd);
 		break;
 	}
@@ -3535,7 +3536,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_REMOVEXATTR:
 	{
 		loc_wipe (&stub->args.removexattr.loc);
-		FREE (stub->args.removexattr.name);
+		GF_FREE ((char *)stub->args.removexattr.name);
 		break;
 	}
 
@@ -3584,7 +3585,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_INODELK:
 	{
                 if (stub->args.inodelk.volume)
-                        FREE (stub->args.inodelk.volume);
+                        GF_FREE ((char *)stub->args.inodelk.volume);
 
 		loc_wipe (&stub->args.inodelk.loc);
 		break;
@@ -3592,7 +3593,7 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_FINODELK:
 	{
                 if (stub->args.finodelk.volume)
-                        FREE (stub->args.finodelk.volume);
+                        GF_FREE ((char *)stub->args.finodelk.volume);
 
 		if (stub->args.finodelk.fd)
 			fd_unref (stub->args.finodelk.fd);
@@ -3601,20 +3602,20 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_ENTRYLK:
 	{
                 if (stub->args.entrylk.volume)
-                        FREE (stub->args.entrylk.volume);
+                        GF_FREE ((char *)stub->args.entrylk.volume);
 
 		if (stub->args.entrylk.name)
-			FREE (stub->args.entrylk.name);
+			GF_FREE ((char *)stub->args.entrylk.name);
 		loc_wipe (&stub->args.entrylk.loc);
 		break;
 	}
 	case GF_FOP_FENTRYLK:
 	{
                 if (stub->args.fentrylk.volume)
-                        FREE (stub->args.fentrylk.volume);
+                        GF_FREE ((char *)stub->args.fentrylk.volume);
 
 		if (stub->args.fentrylk.name)
-			FREE (stub->args.fentrylk.name);
+			GF_FREE ((char *)stub->args.fentrylk.name);
 
  		if (stub->args.fentrylk.fd)
 			fd_unref (stub->args.fentrylk.fd);
@@ -3717,7 +3718,7 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	case GF_FOP_READLINK:
 	{
 		if (stub->args.readlink_cbk.buf) 
-			FREE (stub->args.readlink_cbk.buf);
+			GF_FREE ((char *)stub->args.readlink_cbk.buf);
 	}
 	break;
   
@@ -3765,7 +3766,7 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	{
 		if (stub->args.readv_cbk.op_ret >= 0) {
 			struct iobref *iobref = stub->args.readv_cbk.iobref;
-			FREE (stub->args.readv_cbk.vector);
+			GF_FREE (stub->args.readv_cbk.vector);
 			
 			if (iobref) {
 				iobref_unref (iobref);
@@ -3856,8 +3857,8 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	case GF_FOP_CHECKSUM:
 	{
 		if (stub->args.checksum_cbk.op_ret >= 0) {
-			FREE (stub->args.checksum_cbk.file_checksum);
-			FREE (stub->args.checksum_cbk.dir_checksum); 
+			GF_FREE (stub->args.checksum_cbk.file_checksum);
+			GF_FREE (stub->args.checksum_cbk.dir_checksum);
 		}
 	}
   	break;
@@ -3865,7 +3866,7 @@ call_stub_destroy_unwind (call_stub_t *stub)
 	case GF_FOP_RCHECKSUM:
 	{
 		if (stub->args.rchecksum_cbk.op_ret >= 0) {
-			FREE (stub->args.rchecksum_cbk.strong_checksum); 
+			GF_FREE (stub->args.rchecksum_cbk.strong_checksum);
 		}
 	}
   	break;
@@ -3931,7 +3932,7 @@ call_stub_destroy (call_stub_t *stub)
 		call_stub_destroy_unwind (stub);
 	}
 
-	FREE (stub);
+	GF_FREE (stub);
 out:
 	return;
 }

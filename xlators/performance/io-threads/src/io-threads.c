@@ -2111,6 +2111,24 @@ set_stack_size (iot_conf_t *conf)
         }
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_iot_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int
 init (xlator_t *this)
@@ -2132,7 +2150,8 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-	conf = (void *) CALLOC (1, sizeof (*conf));
+	conf = (void *) GF_CALLOC (1, sizeof (*conf),
+                                   gf_iot_mt_iot_conf_t);
         if (conf == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "out of memory");
@@ -2169,7 +2188,7 @@ init (xlator_t *this)
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot initialize worker threads, exiting init");
-                FREE (conf);
+                GF_FREE (conf);
                 goto out;
         }
 
@@ -2185,7 +2204,7 @@ fini (xlator_t *this)
 {
 	iot_conf_t *conf = this->private;
 
-	FREE (conf);
+	GF_FREE (conf);
 
 	this->private = NULL;
 	return;

@@ -126,7 +126,8 @@ _posix_xattr_get_set (dict_t *xattr_req,
 				goto err;
 			}
 
-			databuf = calloc (1, filler->stbuf->ia_size);
+			databuf = GF_CALLOC (1, filler->stbuf->ia_size,
+                                             gf_posix_mt_char);
 			
 			if (!databuf) {
 				gf_log (filler->this->name, GF_LOG_ERROR,
@@ -163,7 +164,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
 			if (_fd != -1)
 				close (_fd);
 			if (databuf)
-				FREE (databuf);
+				GF_FREE (databuf);
 		}
     	} else if (!strcmp (key, GLUSTERFS_OPEN_FD_COUNT)) {
 		loc = filler->loc;
@@ -176,7 +177,8 @@ _posix_xattr_get_set (dict_t *xattr_req,
 		xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
 
 		if (xattr_size > 0) {
-			value = calloc (1, xattr_size + 1);
+			value = GF_CALLOC (1, xattr_size + 1,
+                                           gf_posix_mt_char);
 
 			sys_lgetxattr (filler->real_path, key, value,
                                        xattr_size);
@@ -422,7 +424,7 @@ setgid_override (xlator_t *this, char *real_path, gid_t *gid)
 
         int op_ret = 0;
 
-        tmp_path = strdup (real_path);
+        tmp_path = gf_strdup (real_path);
         if (!tmp_path) {
                 op_ret = -ENOMEM;
                 gf_log ("[storage/posix]", GF_LOG_ERROR,
@@ -453,7 +455,7 @@ setgid_override (xlator_t *this, char *real_path, gid_t *gid)
 out:
 
         if (tmp_path)
-                FREE (tmp_path);
+                GF_FREE (tmp_path);
 
         return op_ret;
 }
@@ -504,7 +506,7 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 
 parent:
         if (loc->parent) {
-                pathdup = strdup (real_path);
+                pathdup = gf_strdup (real_path);
                 GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
                 parentpath = dirname (pathdup);
@@ -522,7 +524,7 @@ parent:
         op_ret = entry_ret;
 out:
         if (pathdup)
-                FREE (pathdup);
+                GF_FREE (pathdup);
 
         if (xattr)
                 dict_ref (xattr);
@@ -915,7 +917,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 		goto out;
 	}
 
-        pfd = CALLOC (1, sizeof (*fd));
+        pfd = GF_CALLOC (1, sizeof (*fd), gf_posix_mt_posix_fd);
         if (!pfd) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -925,7 +927,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 
         pfd->dir = dir;
         pfd->fd = dirfd (dir);
-        pfd->path = strdup (real_path);
+        pfd->path = gf_strdup (real_path);
         if (!pfd->path) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
@@ -944,8 +946,8 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
                 }
                 if (pfd) {
                         if (pfd->path)
-                                FREE (pfd->path);
-                        FREE (pfd);
+                                GF_FREE (pfd->path);
+                        GF_FREE (pfd);
                         pfd = NULL;
                 }
         }
@@ -1101,7 +1103,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         SET_FS_ID (frame->root->uid, gid);
-        pathdup = strdup (real_path);
+        pathdup = gf_strdup (real_path);
         GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
         parentpath = dirname (pathdup);
@@ -1168,7 +1170,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
  out:
         if (pathdup)
-                FREE (pathdup);
+                GF_FREE (pathdup);
 
         SET_TO_OLD_FS_ID ();
 
@@ -1289,9 +1291,9 @@ posix_janitor_thread_proc (void *data)
                         }
 
                         if (pfd->path)
-                                FREE (pfd->path);
+                                GF_FREE (pfd->path);
 
-                        FREE (pfd);
+                        GF_FREE (pfd);
                 }
         }
 
@@ -1367,7 +1369,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         SET_FS_ID (frame->root->uid, gid);
-        pathdup = strdup (real_path);
+        pathdup = gf_strdup (real_path);
         GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
         parentpath = dirname (pathdup);
@@ -1423,7 +1425,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
 
  out:
         if (pathdup)
-                FREE (pathdup);
+                GF_FREE (pathdup);
 
         SET_TO_OLD_FS_ID ();
 
@@ -1461,7 +1463,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        pathdup = strdup (real_path);
+        pathdup = gf_strdup (real_path);
         GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
         parentpath = dirname (pathdup);
@@ -1512,7 +1514,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
 
  out:
         if (pathdup)
-                FREE (pathdup);
+                GF_FREE (pathdup);
 
         SET_TO_OLD_FS_ID ();
 
@@ -1547,7 +1549,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
 
-        pathdup = strdup (real_path);
+        pathdup = gf_strdup (real_path);
         GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
         parentpath = dirname (pathdup);
@@ -1589,7 +1591,7 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
 
  out:
         if (pathdup)
-                FREE (pathdup);
+                GF_FREE (pathdup);
 
         SET_TO_OLD_FS_ID ();
 
@@ -1639,7 +1641,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         SET_FS_ID (frame->root->uid, gid);
-        pathdup = strdup (real_path);
+        pathdup = gf_strdup (real_path);
         GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
         parentpath = dirname (pathdup);
@@ -1695,7 +1697,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
 
  out:
         if (pathdup)
-                FREE (pathdup);
+                GF_FREE (pathdup);
 
         SET_TO_OLD_FS_ID ();
 
@@ -1744,7 +1746,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
         MAKE_REAL_PATH (real_oldpath, this, oldloc->path);
         MAKE_REAL_PATH (real_newpath, this, newloc->path);
 
-        oldpathdup = strdup (real_oldpath);
+        oldpathdup = gf_strdup (real_oldpath);
         GF_VALIDATE_OR_GOTO (this->name, oldpathdup, out);
 
         oldparentpath = dirname (oldpathdup);
@@ -1758,7 +1760,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        newpathdup = strdup (real_newpath);
+        newpathdup = gf_strdup (real_newpath);
         GF_VALIDATE_OR_GOTO (this->name, newpathdup, out);
 
         newparentpath = dirname (newpathdup);
@@ -1818,10 +1820,10 @@ posix_rename (call_frame_t *frame, xlator_t *this,
 
  out:
         if (oldpathdup)
-                FREE (oldpathdup);
+                GF_FREE (oldpathdup);
 
         if (newpathdup)
-                FREE (newpathdup);
+                GF_FREE (newpathdup);
 
 
         SET_TO_OLD_FS_ID ();
@@ -1873,7 +1875,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
                 was_present = 0;
         }
 
-        newpathdup  = strdup (real_newpath);
+        newpathdup  = gf_strdup (real_newpath);
         if (!newpathdup) {
                 gf_log (this->name, GF_LOG_ERROR, "strdup failed");
                 op_errno = ENOMEM;
@@ -1919,7 +1921,7 @@ posix_link (call_frame_t *frame, xlator_t *this,
 
  out:
         if (newpathdup)
-                FREE (newpathdup);
+                GF_FREE (newpathdup);
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno,
@@ -2039,7 +2041,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 
         SET_FS_ID (frame->root->uid, gid);
-        pathdup = strdup (real_path);
+        pathdup = gf_strdup (real_path);
         GF_VALIDATE_OR_GOTO (this->name, pathdup, out);
 
         parentpath = dirname (pathdup);
@@ -2106,7 +2108,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 
 	op_ret = -1;
-        pfd = CALLOC (1, sizeof (*pfd));
+        pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
 
         if (!pfd) {
                 op_errno = errno;
@@ -2130,7 +2132,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
  out:
         if (pathdup)
-                FREE (pathdup);
+                GF_FREE (pathdup);
         SET_TO_OLD_FS_ID ();
 
         if ((-1 == op_ret) && (_fd != -1)) {
@@ -2197,7 +2199,7 @@ posix_open (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        pfd = CALLOC (1, sizeof (*pfd));
+        pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
 
         if (!pfd) {
                 op_errno = errno;
@@ -2453,7 +2455,8 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                                 max_buf_size = vector[idx].iov_len;
                 }
 
-                alloc_buf = MALLOC (1 * (max_buf_size + align));
+                alloc_buf = GF_MALLOC (1 * (max_buf_size + align),
+                                    gf_posix_mt_char);
                 if (!alloc_buf) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2530,7 +2533,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
 
  out:
         if (alloc_buf) {
-                FREE (alloc_buf);
+                GF_FREE (alloc_buf);
         }
 
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, &preop, &postop);
@@ -2965,7 +2968,8 @@ get_file_contents (xlator_t *this, char *real_path,
                 goto out;
         }
 
-        *contents = CALLOC (stbuf.ia_size + 1, sizeof(char));
+        *contents = GF_CALLOC (stbuf.ia_size + 1, sizeof(char),
+                               gf_posix_mt_char);
 
         if (! *contents) {
                 op_ret = -errno;
@@ -2995,7 +2999,7 @@ get_file_contents (xlator_t *this, char *real_path,
  out:
         if (op_ret < 0) {
                 if (*contents)
-                        FREE (*contents);
+                        GF_FREE (*contents);
                 if (file_fd != -1)
                         close (file_fd);
         }
@@ -3114,7 +3118,8 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 if (op_ret == -1)
                         break;
 
-                value = CALLOC (op_ret + 1, sizeof(char));
+                value = GF_CALLOC (op_ret + 1, sizeof(char),
+                                   gf_posix_mt_char);
                 if (!value) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "Out of memory.");
@@ -3129,7 +3134,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 if (strcmp (key, gen_key) != 0)
                         dict_set (dict, key, data_from_dynptr (value, op_ret));
                 else
-                        FREE (value);
+                        GF_FREE (value);
 
                 remaining_size -= strlen (key) + 1;
                 list_offset += strlen (key) + 1;
@@ -3239,7 +3244,8 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
                 if (op_ret == -1)
                         break;
 
-                value = CALLOC (op_ret + 1, sizeof(char));
+                value = GF_CALLOC (op_ret + 1, sizeof(char),
+                                   gf_posix_mt_char);
                 if (!value) {
                         op_errno = errno;
                         gf_log (this->name, GF_LOG_ERROR, "Out of memory.");
@@ -3525,7 +3531,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 		MAKE_REAL_PATH (real_path, this, loc->path);
 
         if (loc) {
-                path  = strdup (loc->path);
+                path  = gf_strdup (loc->path);
                 inode = loc->inode;
         } else {
                 inode = fd->inode;
@@ -3533,7 +3539,8 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 
 	while (trav) {
 		count = trav->value->len / sizeof (int32_t);
-		array = CALLOC (count, sizeof (int32_t));
+		array = GF_CALLOC (count, sizeof (int32_t),
+                                   gf_posix_mt_int32_t);
 
                 LOCK (&inode->lock);
                 {
@@ -3645,10 +3652,10 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
 
 out:
 	if (array)
-		FREE (array);
+		GF_FREE (array);
 
         if (path)
-                FREE (path);
+                GF_FREE (path);
 
 	STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, xattr);
 	return 0;
@@ -4222,8 +4229,8 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (fd, out);
 
         memset (strong_checksum, 0, MD5_DIGEST_LEN);
+        buf = GF_CALLOC (1, len, gf_posix_mt_char);
 
-        buf = CALLOC (1, len);
         if (!buf) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -4255,7 +4262,7 @@ posix_rchecksum (call_frame_t *frame, xlator_t *this,
         weak_checksum = gf_rsync_weak_checksum (buf, len);
         gf_rsync_strong_checksum (buf, len, strong_checksum);
 
-        FREE (buf);
+        GF_FREE (buf);
 
         op_ret = 0;
 out:
@@ -4287,6 +4294,25 @@ notify (xlator_t *this,
                         break;
                 }
         return 0;
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_posix_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log(this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
 }
 
 /**
@@ -4375,7 +4401,8 @@ init (xlator_t *this)
 		}
         }
 
-        _private = CALLOC (1, sizeof (*_private));
+        _private = GF_CALLOC (1, sizeof (*_private),
+                              gf_posix_mt_posix_private);
         if (!_private) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
@@ -4383,13 +4410,14 @@ init (xlator_t *this)
                 goto out;
         }
 
-        _private->base_path = strdup (dir_data->data);
+        _private->base_path = gf_strdup (dir_data->data);
         _private->base_path_length = strlen (_private->base_path);
 
-        _private->trash_path = CALLOC (1, _private->base_path_length
-                                       + strlen ("/")
-                                       + strlen (GF_REPLICATE_TRASH_DIR)
-                                       + 1);
+        _private->trash_path = GF_CALLOC (1, _private->base_path_length
+                                          + strlen ("/")
+                                          + strlen (GF_REPLICATE_TRASH_DIR)
+                                          + 1,
+                                          gf_posix_mt_trash_path);
 
         if (!_private->trash_path) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -4477,9 +4505,11 @@ init (xlator_t *this)
                 if (_private->num_devices_to_span < 1)
                         _private->num_devices_to_span = 1;
         }
-        _private->st_device = CALLOC (1, (sizeof (dev_t) * 
-                                          _private->num_devices_to_span));
 
+        _private->st_device = GF_CALLOC (1, (sizeof (dev_t) *
+                                         _private->num_devices_to_span),
+                                         gf_posix_mt_posix_dev_t);
+        
         /* Start with the base */
         _private->st_device[0] = buf.st_dev;
 
@@ -4542,7 +4572,7 @@ fini (xlator_t *this)
 {
         struct posix_private *priv = this->private;
         sys_lremovexattr (priv->base_path, "trusted.glusterfs.test");
-        FREE (priv);
+        GF_FREE (priv);
         return;
 }
 

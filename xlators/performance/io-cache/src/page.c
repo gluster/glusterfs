@@ -27,6 +27,7 @@
 #include "dict.h"
 #include "xlator.h"
 #include "io-cache.h"
+#include "ioc-mem-types.h"
 #include <assert.h>
 #include <sys/time.h>
 
@@ -86,7 +87,7 @@ ioc_page_destroy (ioc_page_t *page)
     
 		if (page->vector){
 			iobref_unref (page->iobref);
-			free (page->vector);
+			GF_FREE (page->vector);
 			page->vector = NULL;
 		}
     
@@ -95,7 +96,7 @@ ioc_page_destroy (ioc_page_t *page)
 
 	if (page_size != -1) {
 		pthread_mutex_destroy (&page->page_lock);
-		free (page);
+		GF_FREE (page);
 	}
 
 	return page_size;
@@ -194,7 +195,8 @@ ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
         table = ioc_inode->table;
         rounded_offset = floor (offset, table->page_size);
 
-        newpage = CALLOC (1, sizeof (*newpage));
+        newpage = GF_CALLOC (1, sizeof (*newpage), 
+                             gf_ioc_mt_ioc_newpage_t);
         if (newpage == NULL) {
                 goto out;
         }
@@ -202,7 +204,7 @@ ioc_page_create (ioc_inode_t *ioc_inode, off_t offset)
 	if (ioc_inode) {
 		table = ioc_inode->table;
         } else {
-                free (newpage);
+                GF_FREE (newpage);
                 newpage = NULL;
                 goto out;
 	}
@@ -241,7 +243,7 @@ ioc_wait_on_page (ioc_page_t *page, call_frame_t *frame, off_t offset,
 	ioc_waitq_t *waitq = NULL;
 	ioc_local_t *local = frame->local;
 
-	waitq = CALLOC (1, sizeof (*waitq));
+	waitq = GF_CALLOC (1, sizeof (*waitq), gf_ioc_mt_ioc_waitq_t);
         if (waitq == NULL) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
@@ -322,7 +324,7 @@ ioc_waitq_return (ioc_waitq_t *waitq)
 
 		frame = trav->data;
 		ioc_frame_return (frame);
-		free (trav);
+		GF_FREE (trav);
 	}
 }
 
@@ -394,7 +396,7 @@ ioc_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			} else {
 				if (page->vector) {
 					iobref_unref (page->iobref);
-					free (page->vector);
+					GF_FREE (page->vector);
 					page->vector = NULL;
 				}
 	
@@ -507,7 +509,8 @@ ioc_page_fault (ioc_inode_t *ioc_inode,	call_frame_t *frame, fd_t *fd,
                 goto err;
         }
 
-        fault_local = CALLOC (1, sizeof (ioc_local_t));
+        fault_local = GF_CALLOC (1, sizeof (ioc_local_t),
+                                gf_ioc_mt_ioc_local_t);
         if (fault_local == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -603,7 +606,8 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 			copy_size, src_offset, dst_offset);
 
 		{
-                        new = CALLOC (1, sizeof (*new));
+                        new = GF_CALLOC (1, sizeof (*new), 
+                                         gf_ioc_mt_ioc_fill_t);
                         if (new == NULL) {
                                 local->op_ret = -1;
                                 local->op_errno = ENOMEM;
@@ -622,14 +626,15 @@ ioc_frame_fill (ioc_page_t *page, call_frame_t *frame, off_t offset,
 						 src_offset + copy_size,
 						 NULL);
 
-			new->vector = CALLOC (new->count, 
-					      sizeof (struct iovec));
+			new->vector = GF_CALLOC (new->count, 
+					         sizeof (struct iovec),
+                                                 gf_ioc_mt_iovec);
                         if (new->vector == NULL) {
                                 local->op_ret = -1;
                                 local->op_errno = ENOMEM;
 
                                 iobref_unref (new->iobref);
-                                FREE (new);
+                                GF_FREE (new);
 
                                 ret = -1;
                                 gf_log (page->inode->table->xl->name,
@@ -722,7 +727,7 @@ ioc_frame_unwind (call_frame_t *frame)
 		count += fill->count;
 	}
 
-	vector = CALLOC (count, sizeof (*vector));
+	vector = GF_CALLOC (count, sizeof (*vector), gf_ioc_mt_iovec);
         if (vector == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -743,8 +748,8 @@ ioc_frame_unwind (call_frame_t *frame)
 
 		list_del (&fill->list);
 		iobref_unref (fill->iobref);
-		free (fill->vector);
-		free (fill);
+		GF_FREE (fill->vector);
+		GF_FREE (fill);
 	}
   
         if (op_ret != -1) {
@@ -764,12 +769,12 @@ ioc_frame_unwind (call_frame_t *frame)
         }
         
         if (vector != NULL) {
-                free (vector);
+                GF_FREE (vector);
                 vector = NULL;
         }
     
 	pthread_mutex_destroy (&local->local_lock);
-	free (local);
+	GF_FREE (local);
 
         return;
 }

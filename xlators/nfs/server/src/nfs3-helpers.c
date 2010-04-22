@@ -33,6 +33,7 @@
 #include "nfs-inodes.h"
 #include "nfs-generics.h"
 #include "nfs3-helpers.h"
+#include "nfs-mem-types.h"
 #include "iatt.h"
 #include <string.h>
 
@@ -708,16 +709,17 @@ nfs3_fill_entry3 (gf_dirent_t *entry)
         if (!entry)
                 return NULL;
 
-        ent = CALLOC (1, sizeof (*ent));
+        ent = GF_CALLOC (1, sizeof (*ent), gf_nfs_mt_entry3);
         if (!ent)
                 return NULL;
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "Entry: %s", entry->d_name);
         ent->fileid = entry->d_ino;
         ent->cookie = entry->d_off;
-        ent->name = CALLOC ((strlen (entry->d_name) + 1), sizeof (char));
+        ent->name = GF_CALLOC ((strlen (entry->d_name) + 1), sizeof (char),
+                               gf_nfs_mt_char);
         if (!ent->name) {
-                FREE (ent);
+                GF_FREE (ent);
                 ent = NULL;
                 goto err;
         }
@@ -754,7 +756,7 @@ nfs3_fh_to_post_op_fh3 (struct nfs3_fh *fh)
 
         pfh.handle_follows = 1;
 
-        fhp = CALLOC (1, sizeof (*fh));
+        fhp = GF_CALLOC (1, sizeof (*fh), gf_nfs_mt_char);
         if (!fhp)
                 return pfh;
 
@@ -775,15 +777,16 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh)
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "Entry: %s, ino: %"PRIu64,
                 entry->d_name, entry->d_ino);
-        ent = CALLOC (1, sizeof (*ent));
+        ent = GF_CALLOC (1, sizeof (*ent), gf_nfs_mt_entryp3);
         if (!ent)
                 return NULL;
 
         ent->fileid = entry->d_ino;
         ent->cookie = entry->d_off;
-        ent->name = CALLOC ((strlen (entry->d_name) + 1), sizeof (char));
+        ent->name = GF_CALLOC ((strlen (entry->d_name) + 1), sizeof (char),
+                               gf_nfs_mt_char);
         if (!ent->name) {
-                FREE (ent);
+                GF_FREE (ent);
                 ent = NULL;
                 goto err;
         }
@@ -937,9 +940,9 @@ nfs3_free_readdirp3res (readdirp3res *res)
         while (ent) {
 
                 next = ent->nextentry;
-                FREE (ent->name);
-                FREE (ent->name_handle.post_op_fh3_u.handle.data.data_val);
-                FREE (ent);
+                GF_FREE (ent->name);
+                GF_FREE (ent->name_handle.post_op_fh3_u.handle.data.data_val);
+                GF_FREE (ent);
                 ent = next;
         }
 
@@ -960,8 +963,8 @@ nfs3_free_readdir3res (readdir3res *res)
         while (ent) {
 
                 next = ent->nextentry;
-                FREE (ent->name);
-                FREE (ent);
+                GF_FREE (ent->name);
+                GF_FREE (ent);
                 ent = next;
         }
 
@@ -1810,7 +1813,7 @@ __nfs3_fdcache_remove_entry (struct nfs3_state *nfs3, struct nfs3_fd_entry *fde)
         list_del (&fde->list);
         fd_ctx_del (fde->cachedfd, nfs3->nfsx, NULL);
         fd_unref (fde->cachedfd);
-        FREE (fde);
+        GF_FREE (fde);
         --nfs3->fdcount;
 
         return 0;
@@ -1869,7 +1872,7 @@ nfs3_fdcache_add (struct nfs3_state *nfs3, fd_t *fd)
         if ((!nfs3) || (!fd))
                 return -1;
 
-        fde = CALLOC (1, sizeof (*fd));
+        fde = GF_CALLOC (1, sizeof (*fd), gf_nfs_mt_nfs3_fd_entry);
         if (!fde) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "fd entry allocation failed");
                 goto out;
@@ -1939,7 +1942,7 @@ __nfs3_queue_call_state (nfs3_call_state_t *cs)
                 goto attach_cs;
         }
 
-        inode_q = CALLOC (1, sizeof (*inode_q));
+        inode_q = GF_CALLOC (1, sizeof (*inode_q), gf_nfs_mt_list_head);
         if (!inode_q)
                 goto err;
 
@@ -2844,7 +2847,7 @@ nfs3_fh_resolve_and_resume (nfs3_call_state_t *cs, struct nfs3_fh *fh,
         if (!entry)
                 ret = nfs3_fh_resolve_inode (cs);
         else {
-                cs->resolventry = strdup (entry);
+                cs->resolventry = gf_strdup (entry);
                 if (!cs->resolventry)
                         goto err;
 

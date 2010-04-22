@@ -106,6 +106,9 @@ fill_defaults (xlator_t *xl)
 	if (!xl->notify)
 		xl->notify = default_notify;
 
+        if (!xl->mem_acct_init)
+                xl->mem_acct_init = default_mem_acct_init;
+
 	return;
 }
 
@@ -146,7 +149,8 @@ valid_ipv4_address (char *address, int length)
         char *tmp = NULL, *ptr = NULL, *prev = NULL, *endptr = NULL;
         char ret = 1;
 
-        prev = tmp = strdup (address);
+        tmp = gf_strdup (address);
+        prev = tmp; 
         prev = strtok_r (tmp, ".", &ptr);
 
         while (prev != NULL) 
@@ -166,7 +170,7 @@ valid_ipv4_address (char *address, int length)
         }
 
 out:
-        FREE (tmp);
+        GF_FREE (tmp);
         return ret;
 }
 
@@ -178,7 +182,7 @@ valid_ipv6_address (char *address, int length)
         char *tmp = NULL, *ptr = NULL, *prev = NULL, *endptr = NULL;
         char ret = 1;
 
-        tmp = strdup (address);
+        tmp = gf_strdup (address);
         prev = strtok_r (tmp, ":", &ptr);
 
         while (prev != NULL) 
@@ -199,7 +203,7 @@ valid_ipv6_address (char *address, int length)
         }
 
 out:
-        FREE (tmp);
+        GF_FREE (tmp);
         return ret;
 }
 
@@ -650,7 +654,7 @@ validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
 						" with correction",
 						trav->key[i], trav->key[0]);
 					/* TODO: some bytes lost */
-					pairs->key = strdup (trav->key[0]);
+                                        pairs->key = gf_strdup (trav->key[0]);
 				}
 				break;
 			}
@@ -684,9 +688,9 @@ xlator_set_type (xlator_t *xl,
 		return -1;
 	}
 
-	xl->type = strdup (type);
+        xl->type = gf_strdup (type);
 
-	ret = asprintf (&name, "%s/%s.so", XLATORDIR, type);
+	ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, type);
         if (-1 == ret) {
                 gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
                 return -1;
@@ -740,9 +744,16 @@ xlator_set_type (xlator_t *xl,
 			"dlsym(dumpops) on %s -- neglecting", dlerror ());
 	}
 
+        if (!(xl->mem_acct_init = dlsym (handle, "mem_acct_init"))) {
+                gf_log (xl->name, GF_LOG_DEBUG,
+                        "dlsym(mem_acct_init) on %s -- neglecting",
+                        dlerror ());
+        }
+
 	INIT_LIST_HEAD (&xl->volume_options);
 
-	vol_opt = CALLOC (1, sizeof (volume_opt_list_t));
+	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                         gf_common_mt_volume_opt_list_t);
 
 	if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
 		dlerror ();
@@ -753,7 +764,7 @@ xlator_set_type (xlator_t *xl,
 
 	fill_defaults (xl);
 
-	FREE (name);
+	GF_FREE (name);
 	return 0;
 }
 
@@ -825,6 +836,8 @@ xlator_init_rec (xlator_t *xl)
 
         while (trav) {
 		ret = -1;
+                if (trav->mem_acct_init)
+                        trav->mem_acct_init (trav);
 		if (trav->init && !trav->ready) {
 			ret = xlator_init (trav);
 			if (ret) {
@@ -940,6 +953,39 @@ xlator_init (xlator_t *xl)
         return ret;
 }
 
+int
+xlator_mem_acct_init (xlator_t *xl, int num_types)
+{
+        int             i = 0;
+        int             ret = 0;
+
+        if (!gf_mem_acct_is_enabled())
+                return 0;
+
+        if (!xl)
+                return -1;
+
+        xl->mem_acct.num_types = num_types;
+
+        xl->mem_acct.rec = calloc(num_types, sizeof(struct mem_acct_rec));
+
+        if (!xl->mem_acct.rec) {
+                gf_log("xlator", GF_LOG_ERROR, "Out of Memory");
+                return -1;
+        }
+
+        gf_log(xl->name, GF_LOG_DEBUG, "Allocated mem_acct_rec for %d types",
+                        num_types);
+
+        for (i = 0; i < num_types; i++) {
+                ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
+                if (ret) {
+                        fprintf(stderr, "Unable to lock..errno : %d",errno);
+                }
+        }
+
+        return 0;
+}
 
 void
 xlator_tree_fini (xlator_t *xl)
@@ -969,9 +1015,9 @@ xlator_tree_free (xlator_t *tree)
   while (prev) {
     trav = prev->next;
     dict_destroy (prev->options);
-    FREE (prev->name);
-    FREE (prev->type);
-    FREE (prev);
+    GF_FREE (prev->name);
+    GF_FREE (prev->type);
+    GF_FREE (prev);
     prev = trav;
   }
   
@@ -987,7 +1033,7 @@ loc_wipe (loc_t *loc)
                 loc->inode = NULL;
         }
         if (loc->path) {
-                FREE (loc->path);
+                GF_FREE ((char *)loc->path);
                 loc->path = NULL;
         }
   
@@ -1011,7 +1057,7 @@ loc_copy (loc_t *dst, loc_t *src)
 	if (src->parent)
 		dst->parent = inode_ref (src->parent);
 
-	dst->path = strdup (src->path);
+        dst->path = gf_strdup (src->path);
 
 	if (!dst->path)
 		goto out;

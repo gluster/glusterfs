@@ -99,7 +99,8 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 	oldfds = fdtable->fdentries;
 	oldmax_fds = fdtable->max_fds;
 
-	fdtable->fdentries = CALLOC (nr, sizeof (fdentry_t));
+	fdtable->fdentries = GF_CALLOC (nr, sizeof (fdentry_t),
+                                        gf_common_mt_fdentry_t);
 	ERR_ABORT (fdtable->fdentries);
 	fdtable->max_fds = nr; 
 
@@ -116,7 +117,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
          * using the expanded table.
          */
         fdtable->first_free = oldmax_fds;
-	FREE (oldfds);
+	GF_FREE (oldfds);
 	return 0;
 }
 
@@ -125,7 +126,7 @@ gf_fd_fdtable_alloc (void)
 {
 	fdtable_t *fdtable = NULL;
 
-	fdtable = CALLOC (1, sizeof (*fdtable));
+	fdtable = GF_CALLOC (1, sizeof (*fdtable), gf_common_mt_fdtable_t);
 	if (!fdtable) 
 		return NULL;
 
@@ -150,7 +151,8 @@ __gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
         }
 
         fdentries = fdtable->fdentries;
-        fdtable->fdentries = calloc (fdtable->max_fds, sizeof (fdentry_t));
+        fdtable->fdentries = GF_CALLOC (fdtable->max_fds, sizeof (fdentry_t),
+                                        gf_common_mt_fdentry_t);
         gf_fd_chain_fd_entries (fdtable->fdentries, 0, fdtable->max_fds);
         *count = fdtable->max_fds;
 
@@ -190,7 +192,7 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
 	pthread_mutex_lock (&fdtable->lock);
 	{
                 fdentries = __gf_fd_fdtable_get_all_fds (fdtable, &fd_count);
-		FREE (fdtable->fdentries);
+		GF_FREE (fdtable->fdentries);
 	}
 	pthread_mutex_unlock (&fdtable->lock);
 
@@ -202,9 +204,9 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
                         }
                 }
 
-                FREE (fdentries);
+                GF_FREE (fdentries);
 		pthread_mutex_destroy (&fdtable->lock);
-		FREE (fdtable);
+		GF_FREE (fdtable);
 	}
 }
 
@@ -425,10 +427,10 @@ fd_destroy (fd_t *fd)
         
         LOCK_DESTROY (&fd->lock);
 
-	FREE (fd->_ctx);
+	GF_FREE (fd->_ctx);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
-        FREE (fd);
+        GF_FREE (fd);
         
 out:
         return;
@@ -488,11 +490,12 @@ fd_create (inode_t *inode, pid_t pid)
                 return NULL;
         }
   
-        fd = CALLOC (1, sizeof (fd_t));
+        fd = GF_CALLOC (1, sizeof (fd_t), gf_common_mt_fd_t);
         ERR_ABORT (fd);
   
-	fd->_ctx = CALLOC (1, (sizeof (struct _fd_ctx) * 
-			       inode->table->xl->ctx->xl_count));
+	fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) *
+			       inode->table->xl->ctx->xl_count),
+                              gf_common_mt_fd_ctx);
         fd->inode = inode_ref (inode);
         fd->pid = pid;
         INIT_LIST_HEAD (&fd->inode_list);

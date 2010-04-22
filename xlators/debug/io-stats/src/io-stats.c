@@ -41,6 +41,7 @@
 #include <errno.h>
 #include "glusterfs.h"
 #include "xlator.h"
+#include "io-stats-mem-types.h"
 
 
 struct ios_global_stats {
@@ -360,13 +361,13 @@ io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
 
         if (op_ret < 0) {
-                FREE (path);
+                GF_FREE (path);
                 goto unwind;
         }
 
-        iosfd = CALLOC (1, sizeof (*iosfd));
+        iosfd = GF_CALLOC (1, sizeof (*iosfd), gf_io_stats_mt_ios_fd);
         if (!iosfd) {
-                FREE (path);
+                GF_FREE (path);
                 goto unwind;
         }
 
@@ -396,13 +397,13 @@ io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
 
         if (op_ret < 0) {
-                FREE (path);
+                GF_FREE (path);
                 goto unwind;
         }
 
-        iosfd = CALLOC (1, sizeof (*iosfd));
+        iosfd = GF_CALLOC (1, sizeof (*iosfd), gf_io_stats_mt_ios_fd);
         if (!iosfd) {
-                FREE (path);
+                GF_FREE (path);
                 goto unwind;
         }
 
@@ -1024,7 +1025,7 @@ io_stats_open (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (OPEN);
 
-        frame->local = strdup (loc->path);
+        frame->local = gf_strdup (loc->path);
 
         STACK_WIND (frame, io_stats_open_cbk,
                     FIRST_CHILD(this),
@@ -1040,7 +1041,7 @@ io_stats_create (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (CREATE);
 
-        frame->local = strdup (loc->path);
+        frame->local = gf_strdup (loc->path);
 
         STACK_WIND (frame, io_stats_create_cbk,
                     FIRST_CHILD(this),
@@ -1382,8 +1383,8 @@ io_stats_release (xlator_t *this, fd_t *fd)
                 io_stats_dump_fd (this, iosfd);
 
                 if (iosfd->filename)
-                        FREE (iosfd->filename);
-                FREE (iosfd);
+                        GF_FREE (iosfd->filename);
+                GF_FREE (iosfd);
         }
 
         return 0;
@@ -1407,6 +1408,24 @@ io_stats_forget (xlator_t *this, fd_t *fd)
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_io_stats_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                        " failed");
+                return ret;
+        }
+
+        return ret;
+}
 
 int
 init (xlator_t *this)
@@ -1432,7 +1451,7 @@ init (xlator_t *this)
 
         options = this->options;
 
-        conf = CALLOC (1, sizeof(*conf));
+        conf = GF_CALLOC (1, sizeof(*conf), gf_io_stats_mt_ios_conf);
 
         LOCK_INIT (&conf->lock);
 

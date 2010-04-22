@@ -147,7 +147,7 @@ iov_free (struct iovec *vector, int count)
 	for (i = 0; i < count; i++)
 		FREE (vector[i].iov_base);
 
-	FREE (vector);
+	GF_FREE (vector);
 }
 
 
@@ -172,7 +172,7 @@ iov_dup (struct iovec *vector, int count)
 	struct iovec *newvec = NULL;
 
 	bytecount = (count * sizeof (struct iovec));
-	newvec = MALLOC (bytecount);
+	newvec = GF_MALLOC (bytecount, gf_common_mt_iovec);
 	if (!newvec)
 		return NULL;
 
@@ -282,7 +282,7 @@ memdup (const void *ptr, size_t size)
 {
 	void *newptr = NULL;
 
-	newptr = MALLOC (size);
+	newptr = GF_MALLOC (size, gf_common_mt_memdup);
 	if (!newptr)
 		return NULL;
 

@@ -432,4 +432,6 @@ default_writev_cbk (call_frame_t *frame,
                     struct iatt *prebuf,
 		    struct iatt *postbuf);
 
+int32_t
+default_mem_acct_init (xlator_t *this);
 #endif /* _DEFAULTS_H */

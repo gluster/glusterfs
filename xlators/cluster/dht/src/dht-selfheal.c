@@ -138,7 +138,7 @@ err:
 		dict_destroy (xattr);
 
 	if (disk_layout)
-		FREE (disk_layout);
+		GF_FREE (disk_layout);
 
 	dht_selfheal_dir_xattr_cbk (frame, subvol, frame->this,
 				    -1, ENOMEM);

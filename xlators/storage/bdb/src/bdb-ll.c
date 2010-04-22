@@ -57,7 +57,7 @@ bdb_generate_secondary_hash (DB *secondary,
 
         primary = pkey->data;
 
-        hash = calloc (1, sizeof (uint32_t));
+        hash = GF_CALLOC (1, sizeof (uint32_t), gf_bdb_mt_uint32_t);
 
         *hash = gf_dm_hashfn (primary, pkey->size);
 
@@ -316,9 +316,10 @@ bdb_cache_insert (bctx_t *bctx,
                                 list_del_init (&bcache->c_list);
                         }
                         if (bcache->key) {
-                                free (bcache->key);
-                                bcache->key = calloc (key->size + 1,
-                                                      sizeof (char));
+                                GF_FREE (bcache->key);
+                                bcache->key = GF_CALLOC (key->size + 1,
+                                                         sizeof (char), 
+                                                         gf_bdb_mt_char);
                                 GF_VALIDATE_OR_GOTO ("bdb-ll",
                                                      bcache->key, unlock);
                                 memcpy (bcache->key, (char *)key->data,
@@ -331,7 +332,7 @@ bdb_cache_insert (bctx_t *bctx,
                                         bctx->directory, (char *)key->data);
                         } /* if(bcache->key)...else */
                         if (bcache->data) {
-                                free (bcache->data);
+                                GF_FREE (bcache->data);
                                 bcache->data = memdup (data->data, data->size);
                                 GF_VALIDATE_OR_GOTO ("bdb-ll", bcache->data,
                                                      unlock);
@@ -347,10 +348,12 @@ bdb_cache_insert (bctx_t *bctx,
                         ret = 0;
                 } else {
                         /* we will be entering here very rarely */
-                        bcache = CALLOC (1, sizeof (*bcache));
+                        bcache = GF_CALLOC (1, sizeof (*bcache), 
+                                            gf_bdb_mt_bdb_cache_t);
                         GF_VALIDATE_OR_GOTO ("bdb-ll", bcache, unlock);
 
-                        bcache->key = calloc (key->size + 1, sizeof (char));
+                        bcache->key = GF_CALLOC (key->size + 1, sizeof (char),
+                                                 gf_bdb_mt_char);
                         GF_VALIDATE_OR_GOTO ("bdb-ll", bcache->key, unlock);
                         memcpy (bcache->key, key->data, key->size);
 
@@ -391,9 +394,9 @@ bdb_cache_delete (bctx_t *bctx,
 
                 if (bcache) {
                         list_del_init (&bcache->c_list);
-                        free (bcache->key);
-                        free (bcache->data);
-                        free (bcache);
+                        GF_FREE (bcache->key);
+                        GF_FREE (bcache->data);
+                        GF_FREE (bcache);
                 }
         }
         UNLOCK (&bctx->lock);
@@ -578,7 +581,7 @@ bdb_db_get (bctx_t *bctx,
                         }
 
                         if (size == 0)
-                                free (value.data);
+                                GF_FREE (value.data);
 
                         need_break = 1;
                 } else {
@@ -615,7 +618,7 @@ bdb_db_iread (struct bdb_ctx *bctx, const char *key, char **bufp)
         size = ret;
 
         if (bufp) {
-                buf = calloc (size, sizeof (char));
+                buf = GF_CALLOC (size, sizeof (char), gf_bdb_mt_char);
                 *bufp = buf;
                 ret = bdb_db_get (bctx, NULL, key, buf, size, 0);
         }
@@ -1309,7 +1312,7 @@ bdb_db_init (xlator_t *this,
 
         private->dir_mode = private->dir_mode | S_IFDIR;
 
-        table = CALLOC (1, sizeof (*table));
+        table = GF_CALLOC (1, sizeof (*table), gf_bdb_mt_bctx_table_t);
         if (table == NULL) {
                 gf_log ("bdb-ll", GF_LOG_CRITICAL,
                         "memory allocation for 'storage/bdb' internal "
@@ -1376,8 +1379,9 @@ bdb_db_init (xlator_t *this,
         }
 
         table->hash_size = BDB_DEFAULT_HASH_SIZE;
-        table->b_hash = CALLOC (BDB_DEFAULT_HASH_SIZE,
-                                sizeof (struct list_head));
+        table->b_hash = GF_CALLOC (BDB_DEFAULT_HASH_SIZE,
+                                   sizeof (struct list_head),
+                                   gf_bdb_mt_list_head);
 
         for (idx = 0; idx < table->hash_size; idx++)
                 INIT_LIST_HEAD(&(table->b_hash[idx]));
@@ -1386,7 +1390,7 @@ bdb_db_init (xlator_t *this,
 
         ret = dict_get_str (options, "errfile", &errfile);
         if (ret == 0) {
-                private->errfile = strdup (errfile);
+                private->errfile = gf_strdup (errfile);
                 gf_log (this->name, GF_LOG_DEBUG,
                         "using %s as error logging file for libdb (Berkeley DB "
                         "library) internal logging.", private->errfile);
@@ -1402,10 +1406,10 @@ bdb_db_init (xlator_t *this,
                                 "using the database environment home "
                                 "directory (%s) itself as transaction log "
                                 "directory", directory);
-                        private->logdir = strdup (directory);
+                        private->logdir = gf_strdup (directory);
 
                 } else {
-                        private->logdir = strdup (logdir);
+                        private->logdir = gf_strdup (logdir);
 
                         op_ret = stat (private->logdir, &stbuf);
                         if ((op_ret != 0)
@@ -1445,15 +1449,15 @@ bdb_db_init (xlator_t *this,
         return op_ret;
 err:
         if (table) {
-                FREE (table->b_hash);
-                FREE (table);
+                GF_FREE (table->b_hash);
+                GF_FREE (table);
         }
         if (private) {
                 if (private->errfile)
-                        FREE (private->errfile);
+                        GF_FREE (private->errfile);
 
                 if (private->logdir)
-                        FREE (private->logdir);
+                        GF_FREE (private->logdir);
         }
 
         return -1;

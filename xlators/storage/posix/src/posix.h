@@ -50,6 +50,8 @@
 #include "xlator.h"
 #include "inode.h"
 #include "compat.h"
+#include "timer.h"
+#include "posix-mem-types.h"
 
 /**
  * posix_fd - internal structure common to file and directory fd's

@@ -1841,15 +1841,15 @@ xdr_free_exports_list (struct exportnode *first)
         while (first) {
                 elist = first->ex_next;
                 if (first->ex_dir)
-                        FREE (first->ex_dir);
+                        GF_FREE (first->ex_dir);
 
                 if (first->ex_groups) {
                         if (first->ex_groups->gr_name)
-                                FREE (first->ex_groups->gr_name);
-                        FREE (first->ex_groups);
+                                GF_FREE (first->ex_groups->gr_name);
+                        GF_FREE (first->ex_groups);
                 }
 
-                FREE (first);
+                GF_FREE (first);
                 first = elist;
         }
 
@@ -1865,10 +1865,10 @@ xdr_free_mountlist (mountlist ml)
                 return;
 
         while (ml) {
-                FREE (ml->ml_hostname);
-                FREE (ml->ml_directory);
+                GF_FREE (ml->ml_hostname);
+                GF_FREE (ml->ml_directory);
                 next = ml->ml_next;
-                FREE (ml);
+                GF_FREE (ml);
                 ml = next;
         }
 
@@ -1885,8 +1885,8 @@ xdr_free_write3args_nocopy (write3args *wa)
         if (!wa)
                 return;
 
-        FREE (wa->file.data.data_val);
-        FREE (wa);
+        GF_FREE (wa->file.data.data_val);
+        GF_FREE (wa);
 }
 
 

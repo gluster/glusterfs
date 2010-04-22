@@ -33,7 +33,7 @@ qr_loc_wipe (loc_t *loc)
         }
 
         if (loc->path) {
-                FREE (loc->path);
+                GF_FREE ((char *)loc->path);
                 loc->path = NULL;
         }
 
@@ -65,10 +65,10 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
         }
 
         loc->inode = inode_ref (inode);
-        loc->path = strdup (path);
+        loc->path = gf_strdup (path);
         loc->ino = inode->ino;
 
-        parent = strdup (path);
+        parent = gf_strdup (path);
         if (parent == NULL) {
                 ret = -1;
                 goto out;
@@ -92,7 +92,7 @@ out:
         }
 
         if (parent) {
-                FREE (parent);
+                GF_FREE (parent);
         }
         
         return ret;
@@ -139,8 +139,8 @@ qr_fd_ctx_free (qr_fd_ctx_t *qr_fd_ctx)
 
         assert (list_empty (&qr_fd_ctx->waiting_ops));
 
-        FREE (qr_fd_ctx->path);
-        FREE (qr_fd_ctx);
+        GF_FREE (qr_fd_ctx->path);
+        GF_FREE (qr_fd_ctx);
 
 out:
         return;
@@ -184,7 +184,8 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         {
                 ret = __inode_ctx_get (inode, this, &value);
                 if (ret == -1) {
-                        qr_file = CALLOC (1, sizeof (*qr_file));
+                        qr_file = GF_CALLOC (1, sizeof (*qr_file),
+                                             gf_qr_mt_qr_file_t);
                         if (qr_file == NULL) {
                                 op_ret = -1;
                                 op_errno = ENOMEM;
@@ -195,7 +196,7 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = __inode_ctx_put (inode, this,
                                                (uint64_t)(long)qr_file);
                         if (ret == -1) {
-                                FREE (qr_file);
+                                GF_FREE (qr_file);
                                 qr_file = NULL;
                                 op_ret = -1;
                                 op_errno = EINVAL;
@@ -430,7 +431,8 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         conf = this->private;
 
-        tmp_fd_ctx = qr_fd_ctx = CALLOC (1, sizeof (*qr_fd_ctx));
+        tmp_fd_ctx = qr_fd_ctx = GF_CALLOC (1, sizeof (*qr_fd_ctx),
+                                            gf_qr_mt_qr_fd_ctx_t);
         if (qr_fd_ctx == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -441,7 +443,7 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         LOCK_INIT (&qr_fd_ctx->lock);
         INIT_LIST_HEAD (&qr_fd_ctx->waiting_ops);
 
-        qr_fd_ctx->path = strdup (loc->path);
+        qr_fd_ctx->path = gf_strdup (loc->path);
         qr_fd_ctx->flags = flags;
         qr_fd_ctx->wbflags = wbflags;
 
@@ -453,7 +455,8 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
         tmp_fd_ctx = NULL;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_qr_mt_qr_local_t);
         if (local == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -515,7 +518,7 @@ unwind:
         }
 
         if (local != NULL) {
-                FREE (local);
+                GF_FREE (local);
         }
 
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
@@ -599,8 +602,8 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local = NULL;
 
         call_resume (local->stub);
-
-        FREE (local);
+        
+        GF_FREE (local);
         return 0;
 
 unwind:
@@ -657,7 +660,8 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
         call_stub_t *validate_stub = NULL;
         char         need_open = 0, can_wind = 0;
 
-        local = CALLOC (1, sizeof (*local));
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_qr_mt_qr_local_t);
         if (local == NULL) {
                 goto out;
         }
@@ -839,8 +843,9 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                 goto unlock;
                                         }
 
-                                        vector = CALLOC (count,
-                                                         sizeof (*vector));
+                                        vector = GF_CALLOC (count,
+                                                            sizeof (*vector),
+                                                            gf_qr_mt_iovec);
                                         if (vector == NULL) {
                                                 op_ret = -1;
                                                 op_errno = ENOMEM;
@@ -977,7 +982,7 @@ out:
         }
 
         if (vector) {
-                FREE (vector);
+                GF_FREE (vector);
         }
 
         if (iobref) {
@@ -1942,8 +1947,9 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         if (ret == 0) {
                 qr_fd_ctx = (qr_fd_ctx_t *)(long)value;
         }
-
-        local = CALLOC (1, sizeof (*local));
+       
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_qr_mt_qr_local_t);
         if (local == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
@@ -2152,7 +2158,7 @@ qr_forget (xlator_t *this, inode_t *inode)
                         UNLOCK (&qr_file->lock);
                 }
                 
-                FREE (qr_file);
+                GF_FREE (qr_file);
         }
 
         return 0;
@@ -2189,6 +2195,25 @@ qr_priv_dump (xlator_t *this)
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_qr_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int32_t 
 init (xlator_t *this)
 {
@@ -2208,7 +2233,8 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-        conf = CALLOC (1, sizeof (*conf));
+        conf = GF_CALLOC (1, sizeof (*conf), 
+                          gf_qr_mt_qr_conf_t);
         if (conf == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "out of memory");
@@ -2249,7 +2275,7 @@ init (xlator_t *this)
         this->private = conf;
 out:
         if ((ret == -1) && conf) {
-                FREE (conf);
+                GF_FREE (conf);
         }
 
         return ret;

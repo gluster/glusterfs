@@ -33,6 +33,7 @@
 #include "rbthash.h"
 #include "hashfn.h"
 #include "call-stub.h"
+#include "stat-prefetch-mem-types.h"
 #include <libgen.h>
 
 struct sp_cache {

@@ -101,7 +101,7 @@ server_loc_fill (loc_t *loc, server_state_t *state,
                 if (loc->name)
                         loc->name++;
         } else {
-                loc->path = strdup (path);
+                loc->path = gf_strdup (path);
                 loc->name = strrchr (loc->path, '/');
                 if (loc->name)
                         loc->name++;
@@ -142,7 +142,7 @@ stat_to_str (struct iatt *stbuf)
         uint32_t ctime_nsec = stbuf->ia_ctime_nsec;
 
 
-        ret = asprintf (&tmp_buf,
+        ret = gf_asprintf (&tmp_buf,
                         GF_STAT_PRINT_FMT_STR,
                         dev,
                         ino,
@@ -182,8 +182,8 @@ server_loc_wipe (loc_t *loc)
                 loc->inode = NULL;
         }
 
-        if (loc->path)
-                FREE (loc->path);
+	if (loc->path)
+		GF_FREE ((char *)loc->path);
 }
 
 
@@ -194,13 +194,13 @@ server_resolve_wipe (server_resolve_t *resolve)
         int                  i = 0;
 
         if (resolve->path)
-                FREE (resolve->path);
+                GF_FREE (resolve->path);
 
         if (resolve->bname)
-                FREE (resolve->bname);
+                GF_FREE (resolve->bname);
 
         if (resolve->resolved)
-                FREE (resolve->resolved);
+                GF_FREE (resolve->resolved);
 
         loc_wipe (&resolve->deep_loc);
 
@@ -210,7 +210,7 @@ server_resolve_wipe (server_resolve_t *resolve)
                         if (comp[i].inode)
                                 inode_unref (comp[i].inode);
                 }
-                FREE (resolve->components);
+                GF_FREE (resolve->components);
         }
 }
 
@@ -244,10 +244,10 @@ free_state (server_state_t *state)
         }
 
         if (state->volume)
-                FREE (state->volume);
+                GF_FREE ((char *)state->volume);
 
         if (state->name)
-                FREE (state->name);
+                GF_FREE (state->name);
 
         server_loc_wipe (&state->loc);
         server_loc_wipe (&state->loc2);
@@ -255,7 +255,7 @@ free_state (server_state_t *state)
         server_resolve_wipe (&state->resolve);
         server_resolve_wipe (&state->resolve2);
 
-        FREE (state);
+	GF_FREE (state);
 }
 
 
@@ -269,7 +269,8 @@ server_copy_frame (call_frame_t *frame)
 
         new_frame = copy_frame (frame);
 
-        new_state = CALLOC (1, sizeof (server_state_t));
+	new_state = GF_CALLOC (1, sizeof (server_state_t),
+                               gf_server_mt_server_state_t);
 
         new_frame->root->op    = frame->root->op;
         new_frame->root->type  = frame->root->type;
@@ -295,7 +296,8 @@ gf_add_locker (struct _lock_table *table, const char *volume,
         struct _locker *new = NULL;
         uint8_t         dir = 0;
 
-        new = CALLOC (1, sizeof (struct _locker));
+	new = GF_CALLOC (1, sizeof (struct _locker),
+                         gf_server_mt_locker);
         if (new == NULL) {
                 gf_log ("server", GF_LOG_ERROR,
                         "failed to allocate memory for \'struct _locker\'");
@@ -303,7 +305,7 @@ gf_add_locker (struct _lock_table *table, const char *volume,
         }
         INIT_LIST_HEAD (&new->lockers);
 
-        new->volume = strdup (volume);
+        new->volume = gf_strdup (volume);
 
         if (fd == NULL) {
                 loc_copy (&new->loc, loc);
@@ -381,9 +383,9 @@ gf_del_locker (struct _lock_table *table, const char *volume,
                 else
                         loc_wipe (&locker->loc);
 
-                free (locker->volume);
-                free (locker);
-        }
+                GF_FREE (locker->volume);
+		GF_FREE (locker);
+	}
 
         return ret;
 }
@@ -419,7 +421,7 @@ gf_direntry_to_bin (dir_entry_t *head, char *buffer)
                                     trav->name, tmp_buf,
                                     trav->link);
 
-                FREE (tmp_buf);
+                GF_FREE (tmp_buf);
                 trav = trav->next;
                 ptr += this_len;
         }
@@ -435,7 +437,8 @@ gf_lock_table_new (void)
 {
         struct _lock_table *new = NULL;
 
-        new = CALLOC (1, sizeof (struct _lock_table));
+	new = GF_CALLOC (1, sizeof (struct _lock_table),
+                         gf_server_mt_lock_table);
         if (new == NULL) {
                 gf_log ("server-protocol", GF_LOG_CRITICAL,
                         "failed to allocate memory for new lock table");
@@ -473,7 +476,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         }
         UNLOCK (&ltable->lock);
 
-        free (ltable);
+        GF_FREE (ltable);
 
         flock.l_type  = F_UNLCK;
         flock.l_start = 0;
@@ -509,10 +512,10 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         loc_wipe (&locker->loc);
                 }
 
-                free (locker->volume);
-
+                GF_FREE (locker->volume);
+                
                 list_del_init (&locker->lockers);
-                free (locker);
+                GF_FREE (locker);
         }
 
         tmp = NULL;
@@ -541,10 +544,10 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         loc_wipe (&locker->loc);
                 }
 
-                free (locker->volume);
-
+                GF_FREE (locker->volume);
+                
                 list_del_init (&locker->lockers);
-                free (locker);
+                GF_FREE (locker);
         }
         ret = 0;
 
@@ -601,7 +604,7 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                 }
         }
 
-        FREE (fdentries);
+        GF_FREE (fdentries);
         ret = 0;
 
 out:
@@ -631,7 +634,7 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
 
         state = CALL_STATE (frame);
         if (state)
-                free (state);
+                GF_FREE (state);
 
         STACK_DESTROY (frame->root);
 
@@ -733,7 +736,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         list_splice_init (&ltable->dir_lockers, &dir_lockers);
                 }
                 UNLOCK (&ltable->lock);
-                free (ltable);
+                GF_FREE (ltable);
 
                 flock.l_type  = F_UNLCK;
                 flock.l_start = 0;
@@ -764,11 +767,11 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                 loc_wipe (&locker->loc);
                         }
 
-                        free (locker->volume);
+                        GF_FREE (locker->volume);
 
-                        list_del_init (&locker->lockers);
-                        free (locker);
-                }
+			list_del_init (&locker->lockers);
+			GF_FREE (locker);
+		}
 
                 tmp = NULL;
                 locker = NULL;
@@ -796,11 +799,12 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                 loc_wipe (&locker->loc);
                         }
 
-                        free (locker->volume);
+                        GF_FREE (locker->volume);
 
-                        list_del_init (&locker->lockers);
-                        free (locker);
-                }
+
+			list_del_init (&locker->lockers);
+			GF_FREE (locker);
+		}
 
                 pthread_mutex_lock (&(conn->lock));
                 {
@@ -827,22 +831,22 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                                     fd);
                                 }
                         }
-                        FREE (fdentries);
+                        GF_FREE (fdentries);
                 }
         }
 
         if (frame) {
                 state = CALL_STATE (frame);
                 if (state)
-                        free (state);
+                        GF_FREE (state);
                 STACK_DESTROY (frame->root);
         }
 
         gf_log (this->name, GF_LOG_INFO, "destroyed connection of %s",
                 conn->id);
 
-        FREE (conn->id);
-        FREE (conn);
+	GF_FREE (conn->id);
+	GF_FREE (conn);
 
 out:
         return ret;
@@ -867,12 +871,13 @@ server_connection_get (xlator_t *this, const char *id)
                         }
                 }
 
-                if (!conn) {
-                        conn = (void *) CALLOC (1, sizeof (*conn));
+		if (!conn) {
+			conn = (void *) GF_CALLOC (1, sizeof (*conn),
+                                        gf_server_mt_server_connection_t);
 
-                        conn->id = strdup (id);
-                        conn->fdtable = gf_fd_fdtable_alloc ();
-                        conn->ltable  = gf_lock_table_new ();
+			conn->id = gf_strdup (id);
+			conn->fdtable = gf_fd_fdtable_alloc ();
+			conn->ltable  = gf_lock_table_new ();
 
                         pthread_mutex_init (&conn->lock, NULL);
 

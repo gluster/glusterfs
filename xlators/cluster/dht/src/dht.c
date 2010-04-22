@@ -212,24 +212,43 @@ fini (xlator_t *this)
         if (conf) {
                 if (conf->file_layouts) {
                         for (i = 0; i < conf->subvolume_cnt; i++) {
-                                FREE (conf->file_layouts[i]);
+                                GF_FREE (conf->file_layouts[i]);
                         }
-                        FREE (conf->file_layouts);
+                        GF_FREE (conf->file_layouts);
                 }
 
                 if (conf->default_dir_layout)
-                        FREE (conf->default_dir_layout);
+                        GF_FREE (conf->default_dir_layout);
 
                 if (conf->subvolumes)
-                        FREE (conf->subvolumes);
+                        GF_FREE (conf->subvolumes);
 
 		if (conf->subvolume_status)
-			FREE (conf->subvolume_status);
+			GF_FREE (conf->subvolume_status);
 
-                FREE (conf);
+                GF_FREE (conf);
         }
 
 	return;
+}
+
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_dht_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
 }
 
 int
@@ -240,6 +259,7 @@ init (xlator_t *this)
         int            ret = -1;
         int            i = 0;
         uint32_t       temp_free_disk = 0;
+
 
 	if (!this->children) {
 		gf_log (this->name, GF_LOG_CRITICAL,
@@ -252,7 +272,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile");
 	}
 
-        conf = CALLOC (1, sizeof (*conf));
+        conf = GF_CALLOC (1, sizeof (*conf), gf_dht_mt_dht_conf_t);
         if (!conf) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
@@ -302,7 +322,8 @@ init (xlator_t *this)
                 goto err;
         }
 
-        conf->du_stats = CALLOC (conf->subvolume_cnt, sizeof (dht_du_t));
+        conf->du_stats = GF_CALLOC (conf->subvolume_cnt, sizeof (dht_du_t),
+                                    gf_dht_mt_dht_du_t);
         if (!conf->du_stats) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
@@ -322,24 +343,24 @@ err:
         if (conf) {
                 if (conf->file_layouts) {
                         for (i = 0; i < conf->subvolume_cnt; i++) {
-                                FREE (conf->file_layouts[i]);
+                                GF_FREE (conf->file_layouts[i]);
                         }
-                        FREE (conf->file_layouts);
+                        GF_FREE (conf->file_layouts);
                 }
 
                 if (conf->default_dir_layout)
-                        FREE (conf->default_dir_layout);
+                        GF_FREE (conf->default_dir_layout);
 
                 if (conf->subvolumes)
-                        FREE (conf->subvolumes);
+                        GF_FREE (conf->subvolumes);
 
 		if (conf->subvolume_status)
-			FREE (conf->subvolume_status);
+			GF_FREE (conf->subvolume_status);
 
                 if (conf->du_stats)
-                        FREE (conf->du_stats);
+                        GF_FREE (conf->du_stats);
 
-                FREE (conf);
+                GF_FREE (conf);
         }
 
         return -1;

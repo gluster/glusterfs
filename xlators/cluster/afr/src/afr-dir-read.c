@@ -188,8 +188,9 @@ afr_examine_dir (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         priv  = this->private;
 
-        local->cont.opendir.checksum = CALLOC (priv->child_count,
-                                               sizeof (*local->cont.opendir.checksum));
+        local->cont.opendir.checksum = GF_CALLOC (priv->child_count,
+                                        sizeof (*local->cont.opendir.checksum),
+                                        gf_afr_mt_int32_t);
 
         call_count = afr_up_children_count (priv->child_count, local->child_up);
 
@@ -387,8 +388,8 @@ afr_remember_entries (gf_dirent_t *entries, fd_t *fd)
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
 	list_for_each_entry (entry, &entries->list, list) {
-		n = CALLOC (1, sizeof (*n));
-		n->name = strdup (entry->d_name);
+		n = GF_CALLOC (1, sizeof (*n), gf_afr_mt_entry_name);
+		n->name = gf_strdup (entry->d_name);
 		INIT_LIST_HEAD (&n->list);
 
 		list_add (&n->list, &fd_ctx->entries);
@@ -421,7 +422,7 @@ afr_filter_entries (gf_dirent_t *entries, fd_t *fd)
 
 		if (remembered_name (entry->d_name, &fd_ctx->entries)) {
 			list_del (&entry->list);
-			FREE (entry);
+			GF_FREE (entry);
 		}
 	}
 
@@ -448,9 +449,9 @@ afr_forget_entries (fd_t *fd)
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
 	list_for_each_entry_safe (entry, tmp, &fd_ctx->entries, list) {
-		FREE (entry->name);
+		GF_FREE (entry->name);
 		list_del (&entry->list);
-		FREE (entry);
+		GF_FREE (entry);
 	}
 }
 
@@ -485,7 +486,7 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
                         if ((local->fd->inode == local->fd->inode->table->root)
                             && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
                                 list_del_init (&entry->list);
-                                FREE (entry);
+                                GF_FREE (entry);
                         }
                 }
     	}
@@ -571,7 +572,7 @@ afr_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if ((local->fd->inode == local->fd->inode->table->root)
 			    && !strcmp (entry->d_name, GF_REPLICATE_TRASH_DIR)) {
 				list_del_init (&entry->list);
-				FREE (entry);
+				GF_FREE (entry);
 			}
 		}
 	}

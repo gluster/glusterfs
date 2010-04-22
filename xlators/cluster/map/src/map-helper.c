@@ -256,14 +256,15 @@ verify_dir_and_assign_subvol (xlator_t *this,
 				goto out;
 			}
 
-			tmp_map = CALLOC (1, sizeof (struct map_pattern));
+			tmp_map = GF_CALLOC (1, sizeof (struct map_pattern),
+                                             gf_map_mt_map_pattern);
 			tmp_map->xl = trav->xlator;
 			tmp_map->dir_len = strlen (directory);
 
 			/* make sure that the top level directory starts 
 			 * with '/' and ends without '/'
 			 */
-			tmp_map->directory = strdup (directory);
+			tmp_map->directory = gf_strdup (directory);
 			if (directory[tmp_map->dir_len - 1] == '/') {
 				tmp_map->dir_len--;
 			}

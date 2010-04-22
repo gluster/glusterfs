@@ -43,7 +43,7 @@ get_scheduler (xlator_t *xl, const char *name)
 		return NULL;
 	}
   
-	ret = asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
+	ret = gf_asprintf (&sched_file, "%s/%s.so", SCHEDULERDIR, name);
         if (-1 == ret) {
                 gf_log ("scheduler", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
@@ -66,7 +66,8 @@ get_scheduler (xlator_t *xl, const char *name)
 		return NULL;
 	}
   
-	vol_opt = CALLOC (1, sizeof (volume_opt_list_t));
+	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                             gf_common_mt_volume_opt_list_t);
 	vol_opt->given_opt = dlsym (handle, "options");
 	if (vol_opt->given_opt == NULL) {
 		gf_log ("scheduler", GF_LOG_DEBUG,
@@ -80,6 +81,7 @@ get_scheduler (xlator_t *xl, const char *name)
 			return NULL;
 		}
 	}
+        GF_FREE(sched_file);
 	
 	return tmp_sched;
 }

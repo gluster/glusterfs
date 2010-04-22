@@ -225,7 +225,8 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
                                  sh->success, priv->child_count,
                                  AFR_METADATA_TRANSACTION);
 
-	erase_xattr = CALLOC (sizeof (*erase_xattr), priv->child_count);
+	erase_xattr = GF_CALLOC (sizeof (*erase_xattr), priv->child_count,
+                                 gf_afr_mt_dict_t);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->xattr[i]) {
@@ -272,7 +273,7 @@ afr_sh_metadata_erase_pending (call_frame_t *frame, xlator_t *this)
 			dict_unref (erase_xattr[i]);
 		}
 	}
-	FREE (erase_xattr);
+	GF_FREE (erase_xattr);
 
 	return 0;
 }

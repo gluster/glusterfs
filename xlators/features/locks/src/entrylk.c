@@ -40,12 +40,13 @@ new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
 {
 	pl_entry_lock_t *newlock = NULL;
 
-	newlock = CALLOC (1, sizeof (pl_entry_lock_t));
+	newlock = GF_CALLOC (1, sizeof (pl_entry_lock_t),
+                             gf_locks_mt_pl_entry_lock_t);
 	if (!newlock) {
 		goto out;
 	}
 
-	newlock->basename       = basename ? strdup (basename) : NULL;
+	newlock->basename       = basename ? gf_strdup (basename) : NULL;
 	newlock->type           = type;
 	newlock->trans          = trans;
 	newlock->volume         = volume;
@@ -457,8 +458,8 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 			list_add (&bl->blocked_locks, granted);
 		} else {
 			if (bl->basename)
-				FREE (bl->basename);
-			FREE (bl);
+				GF_FREE ((char *)bl->basename);
+			GF_FREE (bl);
 		}
 	}
 	return;
@@ -490,12 +491,12 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 		STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
 
-		FREE (lock->basename);
-		FREE (lock);
+		GF_FREE ((char *)lock->basename);
+		GF_FREE (lock);
 	}
 
-	FREE (unlocked->basename);
-	FREE (unlocked);
+	GF_FREE ((char *)unlocked->basename);
+	GF_FREE (unlocked);
 
 	return;
 }
@@ -545,8 +546,8 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
                                 "releasing lock on  held by "
                                 "{transport=%p}",trans);
 
-			FREE (lock->basename);
-			FREE (lock);
+			GF_FREE ((char *)lock->basename);
+			GF_FREE (lock);
 		}
 
 		__grant_blocked_entry_locks (this, pinode, dom, &granted);
@@ -561,8 +562,8 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
                 STACK_UNWIND_STRICT (entrylk, lock->frame, -1, EAGAIN);
 
                 if (lock->basename)
-                        FREE (lock->basename);
-                FREE (lock);
+                        GF_FREE ((char *)lock->basename);
+                GF_FREE (lock);
 
         }
 
@@ -572,8 +573,8 @@ release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
 		STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
 
 		if (lock->basename)
-			FREE (lock->basename);
-		FREE (lock);
+			GF_FREE ((char *)lock->basename);
+		GF_FREE (lock);
 	}
 
 	return 0;

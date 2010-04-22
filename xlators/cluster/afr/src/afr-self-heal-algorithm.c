@@ -66,7 +66,7 @@ sh_full_private_cleanup (call_frame_t *frame, xlator_t *this)
         sh_priv = sh->private;
 
         if (sh_priv)
-                FREE (sh_priv);
+                GF_FREE (sh_priv);
 }
 
 
@@ -384,7 +384,8 @@ afr_sh_algo_full (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh    = &local->self_heal;
 
-        sh_priv = CALLOC (1, sizeof (*sh_priv));
+        sh_priv = GF_CALLOC (1, sizeof (*sh_priv),
+                             gf_afr_mt_afr_private_t);
 
         LOCK_INIT (&sh_priv->lock);
 
@@ -422,18 +423,18 @@ sh_diff_private_cleanup (call_frame_t *frame, xlator_t *this)
         for (i = 0; i < priv->data_self_heal_window_size; i++) {
                 if (sh_priv->loops[i]) {
                         if (sh_priv->loops[i]->write_needed)
-                                FREE (sh_priv->loops[i]->write_needed);
+                                GF_FREE (sh_priv->loops[i]->write_needed);
 
                         if (sh_priv->loops[i]->checksum)
-                                FREE (sh_priv->loops[i]->checksum);
+                                GF_FREE (sh_priv->loops[i]->checksum);
                 }
         }
 
         if (sh_priv) {
                 if (sh_priv->loops)
-                        FREE (sh_priv->loops);
+                        GF_FREE (sh_priv->loops);
 
-                FREE (sh_priv);
+                GF_FREE (sh_priv);
         }
 
 
@@ -1034,7 +1035,8 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh    = &local->self_heal;
 
-        sh_priv = CALLOC (1, sizeof (*sh_priv));
+        sh_priv = GF_CALLOC (1, sizeof (*sh_priv),
+                             gf_afr_mt_afr_private_t);
 
         sh_priv->block_size = this->ctx->page_size;
 
@@ -1044,16 +1046,19 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
 
         local->call_count = 0;
 
-        sh_priv->loops = CALLOC (priv->data_self_heal_window_size,
-                                 sizeof (*sh_priv->loops));
+        sh_priv->loops = GF_CALLOC (priv->data_self_heal_window_size,
+                                    sizeof (*sh_priv->loops),
+                                    gf_afr_mt_sh_diff_loop_state);
 
         for (i = 0; i < priv->data_self_heal_window_size; i++) {
-                sh_priv->loops[i]               = CALLOC (1, sizeof (*sh_priv->loops[i]));
+                sh_priv->loops[i]               = GF_CALLOC (1, sizeof (*sh_priv->loops[i]),
+                                                             gf_afr_mt_sh_diff_loop_state);
 
-                sh_priv->loops[i]->checksum     = CALLOC (priv->child_count,
-                                                          MD5_DIGEST_LEN);
-                sh_priv->loops[i]->write_needed = CALLOC (priv->child_count,
-                                                          sizeof (*sh_priv->loops[i]->write_needed));
+                sh_priv->loops[i]->checksum     = GF_CALLOC (priv->child_count,
+                                                             MD5_DIGEST_LEN, gf_afr_mt_uint8_t);
+                sh_priv->loops[i]->write_needed = GF_CALLOC (priv->child_count,
+                                                             sizeof (*sh_priv->loops[i]->write_needed),
+                                                             gf_afr_mt_char);
         }
 
         sh_diff_loop_driver (frame, this);

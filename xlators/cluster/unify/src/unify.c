@@ -82,7 +82,7 @@ unify_local_wipe (unify_local_t *local)
 {
 	/* Free the strdup'd variables in the local structure */
 	if (local->name) {
-		FREE (local->name);
+		GF_FREE (local->name);
 	}
 	loc_wipe (&local->loc1);
 	loc_wipe (&local->loc2);
@@ -421,7 +421,8 @@ unify_lookup_cbk (call_frame_t *frame,
 				if (!local->list) {
 					/* list is not allocated, allocate 
 					   the max possible range */
-					local->list = CALLOC (1, 2 * (priv->child_count + 2));
+					local->list = GF_CALLOC (1, 2 * (priv->child_count + 2),
+                                                                 gf_unify_mt_int16_t);
 					if (!local->list) {
 						gf_log (this->name, 
 							GF_LOG_CRITICAL, 
@@ -494,11 +495,12 @@ unify_lookup_cbk (call_frame_t *frame,
 				/* If its a file, big array is useless, 
 				   allocate the smaller one */
 				int16_t *list = NULL;
-				list = CALLOC (1, 2 * (local->index + 1));
+				list = GF_CALLOC (1, 2 * (local->index + 1),
+                                                  gf_unify_mt_int16_t);
 				ERR_ABORT (list);
 				memcpy (list, local->list, 2 * local->index);
 				/* Make the end of the list as -1 */
-				FREE (local->list);
+				GF_FREE (local->list);
 				local->list = list;
 				local->list [local->index] = -1;
 				/* Update the inode's ctx with proper array */
@@ -524,7 +526,7 @@ unify_lookup_cbk (call_frame_t *frame,
 		}
 		if (local->op_ret == -1) {
 			if (!local->revalidate && local->list)
-				FREE (local->list);
+				GF_FREE (local->list);
 		}
 
 		if ((local->op_ret >= 0) && local->failed && 
@@ -1219,19 +1221,20 @@ unify_open_readlink_cbk (call_frame_t *frame,
 	}
 
 	if (path[0] == '/') {
-		local->name = strdup (path);
+		local->name = gf_strdup (path);
 		ERR_ABORT (local->name);
 	} else {
-		char *tmp_str = strdup (local->loc1.path);
+		char *tmp_str = gf_strdup (local->loc1.path);
 		char *tmp_base = dirname (tmp_str);
-		local->name = CALLOC (1, ZR_PATH_MAX);
+		local->name = GF_CALLOC (1, ZR_PATH_MAX, gf_unify_mt_char);
 		strcpy (local->name, tmp_base);
 		strncat (local->name, "/", 1);
 		strcat (local->name, path);
-		FREE (tmp_str);
+		GF_FREE (tmp_str);
 	}
   
-	local->list = CALLOC (1, sizeof (int16_t) * 3);
+	local->list = GF_CALLOC (1, sizeof (int16_t) * 3,
+                                 gf_unify_mt_int16_t);
 	ERR_ABORT (local->list);
 	local->call_count = priv->child_count + 1;
 	local->op_ret = -1;
@@ -1663,7 +1666,8 @@ unify_ns_create_cbk (call_frame_t *frame,
 		local->op_ret = -1;
 
 		/* Start the mapping list */
-		list = CALLOC (1, sizeof (int16_t) * 3);
+		list = GF_CALLOC (1, sizeof (int16_t) * 3,
+                                  gf_unify_mt_int16_t);
 		ERR_ABORT (list);
 		inode_ctx_put (inode, this, (uint64_t)(long)list);
 		list[0] = priv->child_count;
@@ -1709,7 +1713,8 @@ unify_ns_create_cbk (call_frame_t *frame,
 			"File(%s) already exists on namespace, sending "
 			"open instead", local->loc1.path);
 
-		local->list = CALLOC (1, sizeof (int16_t) * 3);
+		local->list = GF_CALLOC (1, sizeof (int16_t) * 3,
+                                         gf_unify_mt_int16_t);
 		ERR_ABORT (local->list);
 		local->call_count = priv->child_count + 1;
 		local->op_ret = -1;
@@ -2827,7 +2832,7 @@ unify_setxattr (call_frame_t *frame,
 			   content only if file exists */
 			local->flags = flags;
 			local->dict = dict;
-			local->name = strdup (trav->key);
+			local->name = gf_strdup (trav->key);
 			flags |= XATTR_REPLACE;
 		}
 
@@ -3207,7 +3212,7 @@ unify_ns_mknod_cbk (call_frame_t *frame,
         local->oldpreparent = *preparent;
         local->oldpostparent = *postparent;
 
-	list = CALLOC (1, sizeof (int16_t) * 3);
+	list = GF_CALLOC (1, sizeof (int16_t) * 3, gf_unify_mt_int16_t);
 	ERR_ABORT (list);
 	list[0] = priv->child_count;
 	list[2] = -1;
@@ -3383,7 +3388,7 @@ unify_ns_symlink_cbk (call_frame_t *frame,
 
 	/* Start the mapping list */
 
-	list = CALLOC (1, sizeof (int16_t) * 3);
+	list = GF_CALLOC (1, sizeof (int16_t) * 3, gf_unify_mt_int16_t);
 	ERR_ABORT (list);
 	list[0] = priv->child_count; //namespace's index
 	list[2] = -1;
@@ -3439,7 +3444,7 @@ unify_symlink (call_frame_t *frame,
 	/* Initialization */
 	INIT_LOCAL (frame, local);
 	loc_copy (&local->loc1, loc);
-	local->name = strdup (linkpath);
+	local->name = gf_strdup (linkpath);
 
 	if ((local->name == NULL) || 
 	    (local->loc1.path == NULL)) {
@@ -3620,7 +3625,8 @@ unify_rename_cbk (call_frame_t *frame,
 
 			if (list) {				
 				for (index = 0; list[index] != -1; index++);
-				tmp_list = CALLOC (1, index * 2);
+				tmp_list = GF_CALLOC (1, index * 2, 
+                                                      gf_unify_mt_int16_t);
 				memcpy (tmp_list, list, index * 2);
 
 				for (index = 0; list[index] != -1; index++) {
@@ -3668,11 +3674,11 @@ unify_rename_cbk (call_frame_t *frame,
 						}
 					}
 
-					FREE (tmp_list);
+					GF_FREE (tmp_list);
 					return 0;
 				}
 				if (tmp_list)
-					FREE (tmp_list);
+					GF_FREE (tmp_list);
 			}
 		}
     
@@ -4183,7 +4189,7 @@ unify_forget (xlator_t *this,
                 inode_ctx_get (inode, this, &tmp_list);
                 if (tmp_list) {
                         list = (int16_t *)(long)tmp_list;
-                        FREE (list);
+                        GF_FREE (list);
                 }
         }
 
@@ -4271,6 +4277,25 @@ notify (xlator_t *this,
 	return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_unify_mt_end + 1);
+        
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 /** 
  * init - This function is called first in the xlator, while initializing.
  *   All the config file options are checked and appropriate flags are set.
@@ -4289,6 +4314,7 @@ init (xlator_t *this)
 	xlator_list_t   *xlparent  = NULL;
 	xlator_list_t   *parent    = NULL;
 	unify_private_t *_private  = NULL; 
+
 
 	/* Check for number of child nodes, if there is no child nodes, exit */
 	if (!this->children) {
@@ -4347,20 +4373,21 @@ init (xlator_t *this)
 	gf_log (this->name, GF_LOG_DEBUG, 
 		"namespace node specified as %s", data->data);
 	
-	_private = CALLOC (1, sizeof (*_private));
+	_private = GF_CALLOC (1, sizeof (*_private), 
+                              gf_unify_mt_unify_private_t);
 	ERR_ABORT (_private);
 	_private->sched_ops = get_scheduler (this, scheduler->data);
 	if (!_private->sched_ops) {
 		gf_log (this->name, GF_LOG_CRITICAL, 
 			"Error while loading scheduler. Exiting");
-		FREE (_private);
+		GF_FREE (_private);
 		return -1;
 	}
 	
 	if (ns_xl->parents) {
 		gf_log (this->name, GF_LOG_CRITICAL,
 			"Namespace node should not be a child of any other node. Exiting");
-		FREE (_private);
+		GF_FREE (_private);
 		return -1;
 	}
 
@@ -4390,8 +4417,9 @@ init (xlator_t *this)
 				" you may hit some performance penalty");
 		}
 		
-		_private->xl_array = CALLOC (1, 
-					     sizeof (xlator_t) * (count + 1));
+		_private->xl_array = GF_CALLOC (1, 
+					        sizeof (xlator_t) * (count + 1),
+                                                gf_unify_mt_xlator_t);
 		ERR_ABORT (_private->xl_array);
 		
 		count = 0;
@@ -4435,21 +4463,29 @@ init (xlator_t *this)
 	/* Now that everything is fine. */
 	this->private = (void *)_private;
 	{
+                ret = _private->sched_ops->mem_acct_init (this);
+
+                if (ret == -1) {
+                        return -1;
+                }
+
 		/* Initialize scheduler, if everything else is successful */
 		ret = _private->sched_ops->init (this); 
 		if (ret == -1) {
 			gf_log (this->name, GF_LOG_CRITICAL,
 				"Initializing scheduler failed, Exiting");
-			FREE (_private);
+			GF_FREE (_private);
 			return -1;
 		}
+
 
 		ret = 0;
 
 		/* This section is required because some fops may look 
 		 * for 'xl->parent' variable 
 		 */
-		xlparent = CALLOC (1, sizeof (*xlparent));
+		xlparent = GF_CALLOC (1, sizeof (*xlparent),
+                                      gf_unify_mt_xlator_list_t);
 		xlparent->xlator = this;
 		if (!ns_xl->parents) {
 			ns_xl->parents = xlparent;
@@ -4477,8 +4513,8 @@ fini (xlator_t *this)
 	priv->sched_ops->fini (this);
 	this->private = NULL;
 	LOCK_DESTROY (&priv->lock);
-	FREE (priv->xl_array);
-	FREE (priv);
+	GF_FREE (priv->xl_array);
+	GF_FREE (priv);
 	return;
 }
 
