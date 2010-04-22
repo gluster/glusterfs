@@ -1436,8 +1436,6 @@ sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
                                         EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
@@ -1626,8 +1624,6 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
                                         EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
@@ -1689,8 +1685,6 @@ sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
                                         EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
@@ -1752,8 +1746,6 @@ sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
                                         EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
@@ -1867,8 +1859,6 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, out,
                                         op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->name, out,
@@ -1876,8 +1866,6 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->inode, out,
                                         op_errno, EINVAL);
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, out,
                                         op_errno, EINVAL);
 
@@ -1973,8 +1961,6 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
@@ -2109,8 +2095,6 @@ sp_setattr (call_frame_t *frame, xlator_t *this,
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
@@ -2208,8 +2192,6 @@ sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out,
                                         op_errno, EINVAL);
 
@@ -2317,8 +2299,6 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
@@ -2438,8 +2418,6 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
                                         EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
                                         op_errno, EINVAL);
 
         sp_remove_caches_from_all_fds_opened (this, loc->inode);
@@ -2718,8 +2696,6 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
                                         op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, out,
                                         op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->inode, out,
                                         op_errno, EINVAL);
 
@@ -2891,8 +2867,6 @@ sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
@@ -2982,8 +2956,6 @@ sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
@@ -3302,8 +3274,6 @@ sp_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out,
                                         op_errno, EINVAL);
 
@@ -3401,8 +3371,6 @@ sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
                                         EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->parent, out,
-                                        op_errno, EINVAL);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
