@@ -87,6 +87,7 @@ glusterfs_this_init ()
 
         global_xlator.name = "glusterfs";
         global_xlator.type = "global";
+        global_xlator.ctx  = glusterfs_ctx;
 
         return ret;
 }
