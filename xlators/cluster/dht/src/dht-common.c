@@ -1504,6 +1504,12 @@ int
 dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, dict_t *xattr)
 {
+        if (op_ret != -1) {
+                if (dict_get (xattr, "trusted.glusterfs.dht")) {
+                        dict_del (xattr, "trusted.glusterfs.dht");
+                }
+        }
+
         DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr);
 
         return 0;
