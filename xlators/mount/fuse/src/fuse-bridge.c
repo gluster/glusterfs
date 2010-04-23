@@ -938,8 +938,9 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (op_done) {
                 free_state (state);
-                STACK_DESTROY (frame->root);
         }
+
+        STACK_DESTROY (frame->root);
 
         return 0;
 }
