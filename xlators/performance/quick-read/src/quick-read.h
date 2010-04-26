@@ -56,6 +56,7 @@ typedef struct qr_fd_ctx qr_fd_ctx_t;
 
 struct qr_local {
         char         is_open;
+        char         just_validated;
         fd_t        *fd;
         int          open_flags;
         int32_t      op_ret;

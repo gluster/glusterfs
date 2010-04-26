@@ -553,10 +553,11 @@ static int32_t
 qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct stat *buf)
 {
-        qr_file_t  *qr_file = NULL;
-        qr_local_t *local = NULL;
-        uint64_t    value = 0;
-        int32_t     ret = 0;
+        qr_file_t   *qr_file = NULL;
+        call_stub_t *stub = NULL;
+        qr_local_t  *local = NULL;
+        uint64_t     value = 0;
+        int32_t      ret = 0;
 
         local = frame->local; 
         if ((local == NULL) || ((local->fd) == NULL)) {
@@ -596,11 +597,11 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&qr_file->lock);
 
-        frame->local = NULL;
+        stub = local->stub;
+        local->stub = NULL;
+        local->just_validated = 1;
+        call_resume (stub);
 
-        call_resume (local->stub);
-
-        FREE (local);
         return 0;
 
 unwind:
@@ -759,6 +760,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset)
 {
         qr_file_t         *file = NULL;
+        qr_local_t        *local = NULL;
+        char               just_validated = 0;
         int32_t            ret = -1, op_ret = -1, op_errno = -1;
         uint64_t           value = 0;
         int                count = -1, flags = 0, i = 0;
@@ -782,6 +785,13 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         op_ret = 0;
         conf = this->private;
 
+        local = frame->local;
+        if (local != NULL) {
+                just_validated = local->just_validated;
+                FREE (local);
+                frame->local = NULL;
+        }
+
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
                 qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
@@ -801,7 +811,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                         LOCK (&file->lock);
                         {
                                 if (file->xattr){
-                                        if (qr_need_validation (conf,file)) {
+                                        if (!just_validated &&
+                                            qr_need_validation (conf,file)) {
                                                 need_validation = 1;
                                                 goto unlock;
                                         }
