@@ -569,6 +569,8 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto unwind;
         }
          
+        local->just_validated = 1;
+
         if (op_ret == -1) {
                 goto unwind;
         }
@@ -599,11 +601,8 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         UNLOCK (&qr_file->lock);
 
-        frame->local = NULL;
-
         call_resume (local->stub);
         
-        GF_FREE (local);
         return 0;
 
 unwind:
@@ -782,9 +781,17 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         off_t              start = 0, end = 0;
         size_t             len = 0;
         struct iobuf_pool *iobuf_pool = NULL; 
+        qr_local_t        *local = NULL;
+        char               just_validated = 0;
 
         op_ret = 0;
         conf = this->private;
+
+        local = frame->local;
+
+        if (local != NULL) {
+                just_validated = local->just_validated;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -805,7 +812,8 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                         LOCK (&file->lock);
                         {
                                 if (file->xattr){
-                                        if (qr_need_validation (conf,file)) {
+                                        if (!just_validated &&
+                                            qr_need_validation (conf,file)) {
                                                 need_validation = 1;
                                                 goto unlock;
                                         }
