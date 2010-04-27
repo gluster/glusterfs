@@ -411,7 +411,7 @@ dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
 		ret = 0;
 	}
 
-	if (holes || missing || overlaps) {
+	if (holes || overlaps) {
 		dht_selfheal_layout_new_directory (frame, loc, layout);
 		ret = 0;
 	}
