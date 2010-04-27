@@ -85,7 +85,7 @@ nfs_deinit_versions (struct list_head *versions, xlator_t *this)
                                                   *(version->program));
 
                 list_del (&version->list);
-                FREE (version);
+                GF_FREE (version);
         }
 
         return 0;
@@ -514,7 +514,7 @@ free_rpcsvc:
          * rpcsvc_deinit */
 free_nfs:
         if (ret == -1)
-                FREE (nfs);
+                GF_FREE (nfs);
 
         gf_log (GF_NFS, GF_LOG_DEBUG, "NFS service started");
         return ret;
