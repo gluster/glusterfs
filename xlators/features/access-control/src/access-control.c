@@ -260,7 +260,7 @@ ac_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
         if (parent)
                 loc->parent = inode_ref (parent);
 
-        loc->path = strdup (path);
+        loc->path = gf_strdup (path);
         if (!loc->path) {
                 gf_log (ACTRL, GF_LOG_ERROR, "strdup failed");
                 goto loc_wipe;
@@ -312,7 +312,7 @@ err:
                 inode_unref (parent);
 
         if (resolvedpath)
-                FREE (resolvedpath);
+                GF_FREE (resolvedpath);
 
         return ret;
 }
