@@ -2866,7 +2866,7 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 op_ret += vec[count].iov_len;
                                 count++;
                         }
-                        FREE (local->replies[i].vector);
+                        GF_FREE (local->replies[i].vector);
                 }
 
                 /* FIXME: notice that st_ino, and st_dev (gen) will be
@@ -2877,7 +2877,7 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 tmp_stbuf.ia_size = local->stbuf_size;
 
         done:
-                FREE (local->replies);
+                GF_FREE (local->replies);
                 tmp_iobref = local->iobref;
                 fd_unref (local->fd);
                 STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vec,
@@ -2885,7 +2885,7 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 iobref_unref (tmp_iobref);
                 if (vec)
-                        FREE (vec);
+                        GF_FREE (vec);
         }
         return 0;
 }
@@ -2975,7 +2975,7 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 (mlocal->replies[index].count *
                                  sizeof (struct iovec)));
                         final_count +=  mlocal->replies[index].count;
-                        FREE (mlocal->replies[index].vector);
+                        GF_FREE (mlocal->replies[index].vector);
                 }
 
                 /* FIXME: notice that st_ino, and st_dev (gen) will be
@@ -2986,7 +2986,7 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         done:
                 /* */
-                FREE (mlocal->replies);
+                GF_FREE (mlocal->replies);
                 tmp_iobref = mlocal->iobref;
                 fd_unref (mlocal->fd);
                 STACK_UNWIND_STRICT (readv, mframe, op_ret, op_errno, final_vec,
