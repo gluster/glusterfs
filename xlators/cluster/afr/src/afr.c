@@ -2065,7 +2065,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				   priv->children[child_index],
 				   priv->children[child_index]->fops->lk,
 				   local->fd, local->cont.lk.cmd, 
-				   lock);
+				   &local->cont.lk.flock);
 	} else if (local->op_ret == -1) {
 		/* all nodes have gone down */
 		
@@ -2074,7 +2074,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		/* locking has succeeded on all nodes that are up */
 		
 		AFR_STACK_UNWIND (frame, local->op_ret, local->op_errno,
-			      &local->cont.lk.flock);
+                                  lock);
 	}
 
 	return 0;
