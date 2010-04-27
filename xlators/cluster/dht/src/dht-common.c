@@ -1750,7 +1750,9 @@ dht_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
-        stbuf->ia_ino = local->ia_ino;
+
+        if (op_ret != -1)
+                stbuf->ia_ino = local->ia_ino;
 out:
         DHT_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                           iobref);
