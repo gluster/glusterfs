@@ -2074,6 +2074,7 @@ posix_create (call_frame_t *frame, xlator_t *this,
 
         if (_fd == -1) {
                 op_errno = errno;
+                op_ret = -1;
                 gf_log (this->name, GF_LOG_ERROR,
                         "open on %s failed: %s", loc->path,
                         strerror (op_errno));
