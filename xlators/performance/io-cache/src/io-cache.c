@@ -28,6 +28,7 @@
 #include "xlator.h"
 #include "io-cache.h"
 #include "ioc-mem-types.h"
+#include "statedump.h"
 #include <assert.h>
 #include <sys/time.h>
 
@@ -1530,6 +1531,34 @@ out:
 	return ret;
 }
 
+int
+ioc_priv_dump (xlator_t *this)
+{
+        ioc_table_t     *priv = NULL;
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+        char            key[GF_DUMP_MAX_BUF_LEN];
+
+        assert (this);
+        priv = this->private;
+
+        assert (priv);
+
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.io-cache",
+                                "priv");
+        gf_proc_dump_add_section (key_prefix);
+
+        gf_proc_dump_build_key (key, key_prefix, "page_size");
+        gf_proc_dump_write (key, "%ld", priv->page_size);
+        gf_proc_dump_build_key (key, key_prefix, "cache_size");
+        gf_proc_dump_write (key, "%ld", priv->cache_size);
+        gf_proc_dump_build_key (key, key_prefix, "cache_used");
+        gf_proc_dump_write (key, "%ld", priv->cache_used);
+        gf_proc_dump_build_key (key, key_prefix, "inode_count");
+        gf_proc_dump_write (key, "%u", priv->inode_count);
+
+        return 0;
+}
+
 /*
  * fini -
  * 
@@ -1564,6 +1593,11 @@ struct xlator_fops fops = {
 };
 
 struct xlator_mops mops = {
+};
+
+
+struct xlator_dumpops dumpops = {
+        .priv        = ioc_priv_dump,
 };
 
 struct xlator_cbks cbks = {
