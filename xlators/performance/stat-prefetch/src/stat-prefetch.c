@@ -346,7 +346,7 @@ sp_cache_init (xlator_t *this)
         if (cache) {
                 cache->table =
                         rbthash_table_init (GF_SP_CACHE_BUCKETS,
-                                            sp_hashfn, free,
+                                            sp_hashfn, __gf_free,
                                             0, priv->mem_pool);
                 if (cache->table == NULL) {
                         GF_FREE (cache);
