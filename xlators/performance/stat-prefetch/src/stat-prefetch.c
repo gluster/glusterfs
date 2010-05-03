@@ -4045,6 +4045,23 @@ sp_release (xlator_t *this, fd_t *fd)
 }
 
 
+int32_t
+sp_forget (xlator_t *this, inode_t *inode)
+{
+        sp_inode_ctx_t *buf   = NULL;
+        uint64_t        value = 0;
+
+        inode_ctx_del (inode, this, &value);
+        
+        if (value) {
+                buf = (void *)(long)value;
+                FREE (buf);
+        }
+        
+        return 0;
+}
+
+
 int32_t 
 init (xlator_t *this)
 {
@@ -4118,6 +4135,7 @@ struct xlator_mops mops = {
 };
 
 struct xlator_cbks cbks = {
+        .forget     = sp_forget,
         .release    = sp_release,
         .releasedir = sp_release
 };
