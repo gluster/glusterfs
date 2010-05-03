@@ -2434,6 +2434,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		local->op_ret        = 0;
 		local->op_errno      = 0;
 		local->cont.lk.locked_nodes[child_index] = 1;
+		local->cont.lk.flock = *lock;
 	}
 
 	child_index++;
@@ -2452,7 +2453,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		/* locking has succeeded on all nodes that are up */
 		
 		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
-                                  lock);
+                                  &local->cont.lk.flock);
 	}
 
 	return 0;
