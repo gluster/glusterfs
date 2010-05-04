@@ -67,7 +67,7 @@ struct nfs3stat_strerror nfs3stat_strerror_table[] = {
         { NFS3ERR_XDEV,         "Attempt to do a cross-device hard link"},
         { NFS3ERR_NODEV,        "No such device"                        },
         { NFS3ERR_NOTDIR,       "Not a directory"                       },
-        { NFS3ERR_ISDIR,        "Not a directory"                       },
+        { NFS3ERR_ISDIR,        "Is a directory"                        },
         { NFS3ERR_INVAL,        "Invalid argument for operation"        },
         { NFS3ERR_FBIG,         "File too large"                        },
         { NFS3ERR_NOSPC,        "No space left on device"               },
