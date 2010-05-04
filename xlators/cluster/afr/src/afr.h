@@ -614,7 +614,7 @@ uint64_t
 afr_is_split_brain (xlator_t *this, inode_t *inode);
 
 void
-afr_set_split_brain (xlator_t *this, inode_t *inode);
+afr_set_split_brain (xlator_t *this, inode_t *inode, gf_boolean_t set);
 
 int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
