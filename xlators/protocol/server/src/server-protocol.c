@@ -388,7 +388,7 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_LK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -433,7 +433,7 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_INODELK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_INODELK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -480,7 +480,7 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FINODELK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FINODELK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -536,7 +536,7 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ENTRYLK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_ENTRYLK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -580,7 +580,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FENTRYLK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FENTRYLK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -617,7 +617,7 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_ACCESS,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_ACCESS,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -676,7 +676,7 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp->postparent, postparent);
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RMDIR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_RMDIR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -732,7 +732,7 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKDIR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_MKDIR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -788,7 +788,7 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_MKNOD,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_MKNOD,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -832,7 +832,7 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNCDIR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FSYNCDIR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -885,7 +885,7 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_READDIR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -975,7 +975,7 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
         rsp->fd           = hton64 (fd_no);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPENDIR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_OPENDIR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1016,7 +1016,7 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_statfs_from_statfs (&rsp->statfs, buf);
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STATFS,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_STATFS,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1052,7 +1052,7 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_REMOVEXATTR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_REMOVEXATTR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1116,7 +1116,7 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETXATTR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_GETXATTR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1170,7 +1170,7 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FGETXATTR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FGETXATTR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1207,7 +1207,7 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETXATTR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_SETXATTR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1234,7 +1234,7 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSETXATTR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FSETXATTR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1297,7 +1297,7 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp->postnewparent, postnewparent);
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RENAME,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_RENAME,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1363,7 +1363,7 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp->postparent, postparent);
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_UNLINK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_UNLINK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1419,7 +1419,7 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SYMLINK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_SYMLINK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1487,7 +1487,7 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LINK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_LINK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1537,7 +1537,7 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_TRUNCATE,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_TRUNCATE,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1584,7 +1584,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSTAT,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FSTAT,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1633,7 +1633,7 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FTRUNCATE,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FTRUNCATE,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1677,7 +1677,7 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FLUSH,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FLUSH,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1727,7 +1727,7 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&(rsp->poststat), postbuf);
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSYNC,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FSYNC,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1809,7 +1809,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_WRITE,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_WRITE,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1860,7 +1860,7 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READ,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_READ,
                                hdr, hdrlen, vector, count, iobref);
 
         return 0;
@@ -1916,7 +1916,7 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
         rsp->fd           = hton64 (fd_no);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_OPEN,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_OPEN,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2017,7 +2017,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp->postparent, postparent);
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CREATE,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_CREATE,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2071,7 +2071,7 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 strcpy (rsp->path, buf);
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READLINK,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_READLINK,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2118,7 +2118,7 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_STAT,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_STAT,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2168,7 +2168,7 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETATTR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_SETATTR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2218,7 +2218,7 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FSETATTR,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FSETATTR,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2341,7 +2341,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOOKUP,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_LOOKUP,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2404,7 +2404,7 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_XATTROP,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_XATTROP,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2469,7 +2469,7 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_FXATTROP,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_FXATTROP,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -3879,7 +3879,7 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_READDIRP,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_READDIRP,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -5116,7 +5116,7 @@ server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp->dchecksum[NAME_MAX + NAME_MAX] = '\0';
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_CHECKSUM,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_CHECKSUM,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -5200,7 +5200,7 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 rsp->strong_checksum[MD5_DIGEST_LEN] = '\0';
         }
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_RCHECKSUM,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_RCHECKSUM,
                                hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -5650,7 +5650,7 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
         hdr->rsp.op_errno = hton32 (gf_errno);
         hdr->rsp.op_ret = -1;
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_SETDENTS,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_SETDENTS,
                                rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -5674,7 +5674,7 @@ server_getdents (call_frame_t *frame, xlator_t *bound_xl,
         hdr->rsp.op_errno = hton32 (gf_errno);
         hdr->rsp.op_ret = -1;
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_GETDENTS,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_GETDENTS,
                                rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -5698,7 +5698,7 @@ server_lock_notify (call_frame_t *frame, xlator_t *bound_xl,
         hdr->rsp.op_errno = hton32 (gf_errno);
         hdr->rsp.op_ret = -1;
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOCK_NOTIFY,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_LOCK_NOTIFY,
                                rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -5722,7 +5722,7 @@ server_lock_fnotify (call_frame_t *frame, xlator_t *bound_xl,
         hdr->rsp.op_errno = hton32 (gf_errno);
         hdr->rsp.op_ret = -1;
 
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_FOP_LOCK_FNOTIFY,
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_LOCK_FNOTIFY,
                                rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -5901,51 +5901,51 @@ typedef int32_t (*gf_op_t) (call_frame_t *frame, xlator_t *bould_xl,
 
 
 static gf_op_t gf_fops[] = {
-        [GF_FOP_STAT]         =  server_stat,
-        [GF_FOP_READLINK]     =  server_readlink,
-        [GF_FOP_MKNOD]        =  server_mknod,
-        [GF_FOP_MKDIR]        =  server_mkdir,
-        [GF_FOP_UNLINK]       =  server_unlink,
-        [GF_FOP_RMDIR]        =  server_rmdir,
-        [GF_FOP_SYMLINK]      =  server_symlink,
-        [GF_FOP_RENAME]       =  server_rename,
-        [GF_FOP_LINK]         =  server_link,
-        [GF_FOP_TRUNCATE]     =  server_truncate,
-        [GF_FOP_OPEN]         =  server_open,
-        [GF_FOP_READ]         =  server_readv,
-        [GF_FOP_WRITE]        =  server_writev,
-        [GF_FOP_STATFS]       =  server_statfs,
-        [GF_FOP_FLUSH]        =  server_flush,
-        [GF_FOP_FSYNC]        =  server_fsync,
-        [GF_FOP_SETXATTR]     =  server_setxattr,
-        [GF_FOP_GETXATTR]     =  server_getxattr,
-        [GF_FOP_FGETXATTR]    =  server_fgetxattr,
-        [GF_FOP_FSETXATTR]    =  server_fsetxattr,
-        [GF_FOP_REMOVEXATTR]  =  server_removexattr,
-        [GF_FOP_OPENDIR]      =  server_opendir,
-        [GF_FOP_FSYNCDIR]     =  server_fsyncdir,
-        [GF_FOP_ACCESS]       =  server_access,
-        [GF_FOP_CREATE]       =  server_create,
-        [GF_FOP_FTRUNCATE]    =  server_ftruncate,
-        [GF_FOP_FSTAT]        =  server_fstat,
-        [GF_FOP_LK]           =  server_lk,
-        [GF_FOP_LOOKUP]       =  server_lookup,
-        [GF_FOP_READDIR]      =  server_readdir,
-        [GF_FOP_READDIRP]     =  server_readdirp,
-        [GF_FOP_INODELK]      =  server_inodelk,
-        [GF_FOP_FINODELK]     =  server_finodelk,
-        [GF_FOP_ENTRYLK]      =  server_entrylk,
-        [GF_FOP_FENTRYLK]     =  server_fentrylk,
-        [GF_FOP_CHECKSUM]     =  server_checksum,
-        [GF_FOP_RCHECKSUM]    =  server_rchecksum,
-        [GF_FOP_XATTROP]      =  server_xattrop,
-        [GF_FOP_FXATTROP]     =  server_fxattrop,
-        [GF_FOP_SETATTR]      =  server_setattr,
-        [GF_FOP_FSETATTR]     =  server_fsetattr,
-        [GF_FOP_SETDENTS]     =  server_setdents,
-        [GF_FOP_GETDENTS]     =  server_getdents,
-        [GF_FOP_LOCK_NOTIFY]  =  server_lock_notify,
-        [GF_FOP_LOCK_FNOTIFY] =  server_lock_fnotify,
+        [GF_PROTO_FOP_STAT]         =  server_stat,
+        [GF_PROTO_FOP_READLINK]     =  server_readlink,
+        [GF_PROTO_FOP_MKNOD]        =  server_mknod,
+        [GF_PROTO_FOP_MKDIR]        =  server_mkdir,
+        [GF_PROTO_FOP_UNLINK]       =  server_unlink,
+        [GF_PROTO_FOP_RMDIR]        =  server_rmdir,
+        [GF_PROTO_FOP_SYMLINK]      =  server_symlink,
+        [GF_PROTO_FOP_RENAME]       =  server_rename,
+        [GF_PROTO_FOP_LINK]         =  server_link,
+        [GF_PROTO_FOP_TRUNCATE]     =  server_truncate,
+        [GF_PROTO_FOP_OPEN]         =  server_open,
+        [GF_PROTO_FOP_READ]         =  server_readv,
+        [GF_PROTO_FOP_WRITE]        =  server_writev,
+        [GF_PROTO_FOP_STATFS]       =  server_statfs,
+        [GF_PROTO_FOP_FLUSH]        =  server_flush,
+        [GF_PROTO_FOP_FSYNC]        =  server_fsync,
+        [GF_PROTO_FOP_SETXATTR]     =  server_setxattr,
+        [GF_PROTO_FOP_GETXATTR]     =  server_getxattr,
+        [GF_PROTO_FOP_FGETXATTR]    =  server_fgetxattr,
+        [GF_PROTO_FOP_FSETXATTR]    =  server_fsetxattr,
+        [GF_PROTO_FOP_REMOVEXATTR]  =  server_removexattr,
+        [GF_PROTO_FOP_OPENDIR]      =  server_opendir,
+        [GF_PROTO_FOP_FSYNCDIR]     =  server_fsyncdir,
+        [GF_PROTO_FOP_ACCESS]       =  server_access,
+        [GF_PROTO_FOP_CREATE]       =  server_create,
+        [GF_PROTO_FOP_FTRUNCATE]    =  server_ftruncate,
+        [GF_PROTO_FOP_FSTAT]        =  server_fstat,
+        [GF_PROTO_FOP_LK]           =  server_lk,
+        [GF_PROTO_FOP_LOOKUP]       =  server_lookup,
+        [GF_PROTO_FOP_READDIR]      =  server_readdir,
+        [GF_PROTO_FOP_READDIRP]     =  server_readdirp,
+        [GF_PROTO_FOP_INODELK]      =  server_inodelk,
+        [GF_PROTO_FOP_FINODELK]     =  server_finodelk,
+        [GF_PROTO_FOP_ENTRYLK]      =  server_entrylk,
+        [GF_PROTO_FOP_FENTRYLK]     =  server_fentrylk,
+        [GF_PROTO_FOP_CHECKSUM]     =  server_checksum,
+        [GF_PROTO_FOP_RCHECKSUM]    =  server_rchecksum,
+        [GF_PROTO_FOP_XATTROP]      =  server_xattrop,
+        [GF_PROTO_FOP_FXATTROP]     =  server_fxattrop,
+        [GF_PROTO_FOP_SETATTR]      =  server_setattr,
+        [GF_PROTO_FOP_FSETATTR]     =  server_fsetattr,
+        [GF_PROTO_FOP_SETDENTS]     =  server_setdents,
+        [GF_PROTO_FOP_GETDENTS]     =  server_getdents,
+        [GF_PROTO_FOP_LOCK_NOTIFY]  =  server_lock_notify,
+        [GF_PROTO_FOP_LOCK_FNOTIFY] =  server_lock_fnotify,
 };
 
 
@@ -5989,7 +5989,7 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
         peerinfo = &trans->peerinfo;
         switch (type) {
         case GF_OP_TYPE_FOP_REQUEST:
-                if ((op < 0) || (op >= GF_FOP_MAXVALUE)) {
+                if ((op < 0) || (op >= GF_PROTO_FOP_MAXVALUE)) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid fop %"PRId32" from client %s",
                                 op, peerinfo->identifier);
@@ -6528,9 +6528,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         return ret;
 }
 
-
-struct xlator_mops mops = {
-};
 
 struct xlator_fops fops = {
 };

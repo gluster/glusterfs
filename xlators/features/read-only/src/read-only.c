@@ -295,9 +295,6 @@ struct xlator_fops fops = {
         .lk          = ro_lk,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 };
 

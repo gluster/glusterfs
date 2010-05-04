@@ -189,9 +189,6 @@ struct xlator_fops fops = {
 	.writev       = rot13_writev
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 };
 

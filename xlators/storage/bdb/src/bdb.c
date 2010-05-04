@@ -3471,9 +3471,6 @@ fini (xlator_t *this)
         return;
 }
 
-struct xlator_mops mops = {
-        .stats    = bdb_stats,
-};
 
 struct xlator_fops fops = {
         .lookup      = bdb_lookup,

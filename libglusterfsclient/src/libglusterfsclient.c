@@ -8122,9 +8122,6 @@ out:
 static struct xlator_fops libgf_client_fops = {
 };
 
-static struct xlator_mops libgf_client_mops = {
-};
-
 static struct xlator_cbks libgf_client_cbks = {
         .forget      = libgf_client_forget,
 	.release     = libgf_client_release,

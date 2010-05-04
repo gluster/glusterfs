@@ -75,87 +75,71 @@
 					       ZR_FILE_CONTENT_STRLEN))
 
 /* TODO: Should we use PATH-MAX? On some systems it may save space */
-#define ZR_PATH_MAX 4096    
-
+#define ZR_PATH_MAX 4096
 
 /* NOTE: add members ONLY at the end (just before _MAXVALUE) */
 typedef enum {
-        GF_FOP_STAT,       /* 0 */
-        GF_FOP_READLINK,   /* 1 */
-        GF_FOP_MKNOD,      /* 2 */
+        GF_FOP_NULL = 0,
+        GF_FOP_STAT,
+        GF_FOP_READLINK,
+        GF_FOP_MKNOD,
         GF_FOP_MKDIR,
         GF_FOP_UNLINK,
-        GF_FOP_RMDIR,      /* 5 */
+        GF_FOP_RMDIR,
         GF_FOP_SYMLINK,
         GF_FOP_RENAME,
         GF_FOP_LINK,
         GF_FOP_TRUNCATE,
-        GF_FOP_OPEN,       /* 10 */
+        GF_FOP_OPEN,
         GF_FOP_READ,
         GF_FOP_WRITE,
-        GF_FOP_STATFS,     /* 15 */
+        GF_FOP_STATFS,
         GF_FOP_FLUSH,
         GF_FOP_FSYNC,
         GF_FOP_SETXATTR,
         GF_FOP_GETXATTR,
-        GF_FOP_REMOVEXATTR,/* 20 */
+        GF_FOP_REMOVEXATTR,
         GF_FOP_OPENDIR,
-        GF_FOP_GETDENTS,
         GF_FOP_FSYNCDIR,
         GF_FOP_ACCESS,
-        GF_FOP_CREATE,     /* 25 */
+        GF_FOP_CREATE,
         GF_FOP_FTRUNCATE,
         GF_FOP_FSTAT,
         GF_FOP_LK,
         GF_FOP_LOOKUP,
-        GF_FOP_SETDENTS,
         GF_FOP_READDIR,
-        GF_FOP_INODELK,   /* 35 */
+        GF_FOP_INODELK,
         GF_FOP_FINODELK,
 	GF_FOP_ENTRYLK,
 	GF_FOP_FENTRYLK,
         GF_FOP_CHECKSUM,
-        GF_FOP_XATTROP,  /* 40 */
+        GF_FOP_XATTROP,
         GF_FOP_FXATTROP,
-        GF_FOP_LOCK_NOTIFY,
-        GF_FOP_LOCK_FNOTIFY,
         GF_FOP_FGETXATTR,
-        GF_FOP_FSETXATTR, /* 45 */
+        GF_FOP_FSETXATTR,
         GF_FOP_RCHECKSUM,
         GF_FOP_SETATTR,
         GF_FOP_FSETATTR,
         GF_FOP_READDIRP,
+        GF_FOP_FORGET,
+        GF_FOP_RELEASE,
+        GF_FOP_RELEASEDIR,
+        GF_FOP_GETSPEC,
         GF_FOP_MAXVALUE,
 } glusterfs_fop_t;
 
-/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
-typedef enum {
-        GF_MOP_SETVOLUME, /* 0 */
-        GF_MOP_GETVOLUME, /* 1 */
-        GF_MOP_STATS,
-        GF_MOP_SETSPEC,
-        GF_MOP_GETSPEC,
-	GF_MOP_PING,      /* 5 */
-        GF_MOP_LOG,
-        GF_MOP_NOTIFY,
-        GF_MOP_MAXVALUE   /* 8 */
-} glusterfs_mop_t;
 
 typedef enum {
-	GF_CBK_FORGET,      /* 0 */
-	GF_CBK_RELEASE,     /* 1 */
-	GF_CBK_RELEASEDIR,  /* 2 */
-	GF_CBK_MAXVALUE     /* 3 */
-} glusterfs_cbk_t;
+        GF_MGMT_NULL = 0,
+        GF_MGMT_MAXVALUE,
+} glusterfs_mgmt_t;
 
 typedef enum {
-        GF_OP_TYPE_FOP_REQUEST = 1,
-        GF_OP_TYPE_MOP_REQUEST,
-	GF_OP_TYPE_CBK_REQUEST,
-        GF_OP_TYPE_FOP_REPLY,
-        GF_OP_TYPE_MOP_REPLY,
-	GF_OP_TYPE_CBK_REPLY
-} glusterfs_op_type_t;
+        GF_OP_TYPE_NULL = 0,
+        GF_OP_TYPE_FOP,
+        GF_OP_TYPE_MGMT,
+        GF_OP_TYPE_MAX,
+} gf_op_type_t;
 
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
 typedef enum {

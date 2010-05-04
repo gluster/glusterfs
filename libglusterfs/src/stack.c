@@ -110,17 +110,11 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         gf_proc_dump_write(key, "%Ld", call_stack->unique);
 
 	gf_proc_dump_build_key(key, prefix,"op");
-        if ((call_stack->type == GF_OP_TYPE_FOP_REQUEST) ||
-                (call_stack->type == GF_OP_TYPE_FOP_REPLY)) {
+        if (call_stack->type == GF_OP_TYPE_FOP)
                 gf_proc_dump_write(key, "%s", gf_fop_list[call_stack->op]);
-        } else if ((call_stack->type == GF_OP_TYPE_MOP_REQUEST) ||
-                (call_stack->type == GF_OP_TYPE_MOP_REPLY)) {
-                gf_proc_dump_write(key, "%s", gf_mop_list[call_stack->op]);
-        } else if ((call_stack->type == GF_OP_TYPE_CBK_REQUEST) ||
-                (call_stack->type == GF_OP_TYPE_CBK_REPLY)) {
-                gf_proc_dump_write(key, "%s", gf_cbk_list[call_stack->op]);
-        }
-    
+        else if (call_stack->type == GF_OP_TYPE_MGMT)
+                gf_proc_dump_write(key, "%s", gf_mgmt_list[call_stack->op]);
+
 	gf_proc_dump_build_key(key, prefix,"type");
         gf_proc_dump_write(key, "%d", call_stack->type);
 	gf_proc_dump_build_key(key, prefix,"cnt");

@@ -61,7 +61,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 int
 protocol_client_post_handshake (call_frame_t *frame, xlator_t *this);
 
-static gf_op_t gf_fops[GF_FOP_MAXVALUE];
+static gf_op_t gf_fops[GF_PROTO_FOP_MAXVALUE];
 static gf_op_t gf_mops[GF_MOP_MAXVALUE];
 static gf_op_t gf_cbks[GF_CBK_MAXVALUE];
 
@@ -731,7 +731,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CREATE,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_CREATE,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -800,7 +800,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPEN,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_OPEN,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -855,7 +855,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STAT,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_STAT,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -911,7 +911,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READLINK,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_READLINK,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -980,7 +980,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_MKNOD,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_MKNOD,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -1046,7 +1046,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_MKDIR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_MKDIR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -1102,7 +1102,7 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_UNLINK,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_UNLINK,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -1158,7 +1158,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RMDIR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_RMDIR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -1228,7 +1228,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SYMLINK,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_SYMLINK,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -1308,7 +1308,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RENAME,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_RENAME,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -1391,7 +1391,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LINK,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_LINK,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -1445,7 +1445,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_TRUNCATE,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_TRUNCATE,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -1518,7 +1518,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READ,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_READ,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1592,7 +1592,7 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_WRITE,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_WRITE,
                                     hdr, hdrlen, vector, count, iobref);
         return ret;
 unwind:
@@ -1648,7 +1648,7 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_STATFS,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_STATFS,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -1716,7 +1716,7 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FLUSH,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FLUSH,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -1785,7 +1785,7 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSYNC,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FSYNC,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -1854,7 +1854,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_XATTROP,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_XATTROP,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -1938,7 +1938,7 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FXATTROP,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FXATTROP,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -2015,7 +2015,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETXATTR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_SETXATTR,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -2106,7 +2106,7 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSETXATTR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FSETXATTR,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -2166,7 +2166,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_GETXATTR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_GETXATTR,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -2245,7 +2245,7 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FGETXATTR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FGETXATTR,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -2304,7 +2304,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_REMOVEXATTR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_REMOVEXATTR,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -2366,7 +2366,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPENDIR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_OPENDIR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -2432,7 +2432,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READDIRP,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_READDIRP,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2500,7 +2500,7 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_READDIR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_READDIR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return 0;
@@ -2566,7 +2566,7 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSYNCDIR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FSYNCDIR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -2619,7 +2619,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ACCESS,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_ACCESS,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -2688,7 +2688,7 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FTRUNCATE,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FTRUNCATE,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -2754,7 +2754,7 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSTAT,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FSTAT,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -2853,7 +2853,7 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LK,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_LK,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -2945,7 +2945,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
                                     GF_OP_TYPE_FOP_REQUEST,
-                                    GF_FOP_INODELK,
+                                    GF_PROTO_FOP_INODELK,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -3052,7 +3052,7 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
                                     GF_OP_TYPE_FOP_REQUEST,
-                                    GF_FOP_FINODELK,
+                                    GF_PROTO_FOP_FINODELK,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 unwind:
@@ -3113,7 +3113,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_ENTRYLK,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_ENTRYLK,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -3191,7 +3191,7 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FENTRYLK,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FENTRYLK,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -3289,7 +3289,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_LOOKUP,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_LOOKUP,
                                     hdr, hdrlen, NULL, 0, NULL);
         return ret;
 
@@ -3339,7 +3339,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_SETATTR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_SETATTR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -3402,7 +3402,7 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_FSETATTR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_FSETATTR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -5174,68 +5174,6 @@ client_getspec_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         return 0;
 }
 
-
-int
-client_log (call_frame_t *frame, xlator_t *this, const char *msg)
-{
-        gf_hdr_common_t *     hdr = NULL;
-        gf_mop_log_req_t *    req = NULL;
-        size_t                hdrlen = -1;
-        int                   msglen = 0;
-        int                   ret = -1;
-
-        if (msg)
-                msglen = STRLEN_0 (msg);
-
-        hdrlen = gf_hdr_len (req, msglen);
-        hdr    = gf_hdr_new (req, msglen);
-
-        GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-        req         = gf_param (hdr);
-        req->msglen = hton32 (msglen);
-
-        if (msglen)
-                strcpy (req->msg, msg);
-
-        ret = protocol_client_xfer (frame, this,
-                                    CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_MOP_REQUEST, GF_MOP_LOG,
-                                    hdr, hdrlen, NULL, 0, NULL);
-
-        return ret;
-
-unwind:
-        if (hdr)
-                GF_FREE (hdr);
-
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
-        return 0;
-}
-
-
-int
-client_log_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                struct iobuf *iobuf)
-{
-        gf_mop_log_rsp_t *     rsp      = NULL;
-
-        int32_t                op_ret   = 0;
-        int32_t                op_errno = 0;
-        int32_t                gf_errno = 0;
-
-        op_ret   = ntoh32 (hdr->rsp.op_ret);
-        gf_errno = ntoh32 (hdr->rsp.op_errno);
-        op_errno = gf_error_to_errno (gf_errno);
-
-        rsp = gf_param (hdr);
-
-        STACK_UNWIND (frame, op_ret, op_errno);
-
-        return 0;
-}
-
-
 int
 client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 {
@@ -5265,7 +5203,7 @@ client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_CHECKSUM,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_CHECKSUM,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -5348,7 +5286,7 @@ client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_RCHECKSUM,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_RCHECKSUM,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -5514,7 +5452,7 @@ protocol_client_reopendir (xlator_t *this, client_fd_ctx_t *fdctx)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPENDIR,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_OPENDIR,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -5638,7 +5576,7 @@ protocol_client_reopen (xlator_t *this, client_fd_ctx_t *fdctx)
 
         ret = protocol_client_xfer (frame, this,
                                     CLIENT_CHANNEL (this, CHANNEL_LOWLAT),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_FOP_OPEN,
+                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_OPEN,
                                     hdr, hdrlen, NULL, 0, NULL);
 
         return ret;
@@ -5996,46 +5934,55 @@ client_forget_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
 }
 
 
+int
+client_log_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
+                struct iobuf *iobuf)
+{
+        gf_log ("", GF_LOG_CRITICAL, "fop not implemented");
+        return 0;
+}
+
+
 static gf_op_t gf_fops[] = {
-        [GF_FOP_STAT]           =  client_stat_cbk,
-        [GF_FOP_READLINK]       =  client_readlink_cbk,
-        [GF_FOP_MKNOD]          =  client_mknod_cbk,
-        [GF_FOP_MKDIR]          =  client_mkdir_cbk,
-        [GF_FOP_UNLINK]         =  client_unlink_cbk,
-        [GF_FOP_RMDIR]          =  client_rmdir_cbk,
-        [GF_FOP_SYMLINK]        =  client_symlink_cbk,
-        [GF_FOP_RENAME]         =  client_rename_cbk,
-        [GF_FOP_LINK]           =  client_link_cbk,
-        [GF_FOP_TRUNCATE]       =  client_truncate_cbk,
-        [GF_FOP_OPEN]           =  client_open_cbk,
-        [GF_FOP_READ]           =  client_readv_cbk,
-        [GF_FOP_WRITE]          =  client_write_cbk,
-        [GF_FOP_STATFS]         =  client_statfs_cbk,
-        [GF_FOP_FLUSH]          =  client_flush_cbk,
-        [GF_FOP_FSYNC]          =  client_fsync_cbk,
-        [GF_FOP_SETXATTR]       =  client_setxattr_cbk,
-        [GF_FOP_GETXATTR]       =  client_getxattr_cbk,
-        [GF_FOP_REMOVEXATTR]    =  client_removexattr_cbk,
-        [GF_FOP_OPENDIR]        =  client_opendir_cbk,
-        [GF_FOP_FSYNCDIR]       =  client_fsyncdir_cbk,
-        [GF_FOP_ACCESS]         =  client_access_cbk,
-        [GF_FOP_CREATE]         =  client_create_cbk,
-        [GF_FOP_FTRUNCATE]      =  client_ftruncate_cbk,
-        [GF_FOP_FSTAT]          =  client_fstat_cbk,
-        [GF_FOP_LK]             =  client_lk_common_cbk,
-        [GF_FOP_LOOKUP]         =  client_lookup_cbk,
-        [GF_FOP_READDIR]        =  client_readdir_cbk,
-        [GF_FOP_READDIRP]       =  client_readdirp_cbk,
-        [GF_FOP_INODELK]        =  client_inodelk_cbk,
-        [GF_FOP_FINODELK]       =  client_finodelk_cbk,
-        [GF_FOP_ENTRYLK]        =  client_entrylk_cbk,
-        [GF_FOP_FENTRYLK]       =  client_fentrylk_cbk,
-        [GF_FOP_CHECKSUM]       =  client_checksum_cbk,
-        [GF_FOP_RCHECKSUM]      =  client_rchecksum_cbk,
-        [GF_FOP_XATTROP]        =  client_xattrop_cbk,
-        [GF_FOP_FXATTROP]       =  client_fxattrop_cbk,
-        [GF_FOP_SETATTR]        =  client_setattr_cbk,
-        [GF_FOP_FSETATTR]       =  client_fsetattr_cbk
+        [GF_PROTO_FOP_STAT]           =  client_stat_cbk,
+        [GF_PROTO_FOP_READLINK]       =  client_readlink_cbk,
+        [GF_PROTO_FOP_MKNOD]          =  client_mknod_cbk,
+        [GF_PROTO_FOP_MKDIR]          =  client_mkdir_cbk,
+        [GF_PROTO_FOP_UNLINK]         =  client_unlink_cbk,
+        [GF_PROTO_FOP_RMDIR]          =  client_rmdir_cbk,
+        [GF_PROTO_FOP_SYMLINK]        =  client_symlink_cbk,
+        [GF_PROTO_FOP_RENAME]         =  client_rename_cbk,
+        [GF_PROTO_FOP_LINK]           =  client_link_cbk,
+        [GF_PROTO_FOP_TRUNCATE]       =  client_truncate_cbk,
+        [GF_PROTO_FOP_OPEN]           =  client_open_cbk,
+        [GF_PROTO_FOP_READ]           =  client_readv_cbk,
+        [GF_PROTO_FOP_WRITE]          =  client_write_cbk,
+        [GF_PROTO_FOP_STATFS]         =  client_statfs_cbk,
+        [GF_PROTO_FOP_FLUSH]          =  client_flush_cbk,
+        [GF_PROTO_FOP_FSYNC]          =  client_fsync_cbk,
+        [GF_PROTO_FOP_SETXATTR]       =  client_setxattr_cbk,
+        [GF_PROTO_FOP_GETXATTR]       =  client_getxattr_cbk,
+        [GF_PROTO_FOP_REMOVEXATTR]    =  client_removexattr_cbk,
+        [GF_PROTO_FOP_OPENDIR]        =  client_opendir_cbk,
+        [GF_PROTO_FOP_FSYNCDIR]       =  client_fsyncdir_cbk,
+        [GF_PROTO_FOP_ACCESS]         =  client_access_cbk,
+        [GF_PROTO_FOP_CREATE]         =  client_create_cbk,
+        [GF_PROTO_FOP_FTRUNCATE]      =  client_ftruncate_cbk,
+        [GF_PROTO_FOP_FSTAT]          =  client_fstat_cbk,
+        [GF_PROTO_FOP_LK]             =  client_lk_common_cbk,
+        [GF_PROTO_FOP_LOOKUP]         =  client_lookup_cbk,
+        [GF_PROTO_FOP_READDIR]        =  client_readdir_cbk,
+        [GF_PROTO_FOP_READDIRP]       =  client_readdirp_cbk,
+        [GF_PROTO_FOP_INODELK]        =  client_inodelk_cbk,
+        [GF_PROTO_FOP_FINODELK]       =  client_finodelk_cbk,
+        [GF_PROTO_FOP_ENTRYLK]        =  client_entrylk_cbk,
+        [GF_PROTO_FOP_FENTRYLK]       =  client_fentrylk_cbk,
+        [GF_PROTO_FOP_CHECKSUM]       =  client_checksum_cbk,
+        [GF_PROTO_FOP_RCHECKSUM]      =  client_rchecksum_cbk,
+        [GF_PROTO_FOP_XATTROP]        =  client_xattrop_cbk,
+        [GF_PROTO_FOP_FXATTROP]       =  client_fxattrop_cbk,
+        [GF_PROTO_FOP_SETATTR]        =  client_setattr_cbk,
+        [GF_PROTO_FOP_FSETATTR]       =  client_fsetattr_cbk
 };
 
 static gf_op_t gf_mops[] = {
@@ -6089,7 +6036,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 
         switch (type) {
         case GF_OP_TYPE_FOP_REPLY:
-                if ((op > GF_FOP_MAXVALUE) ||
+                if ((op > GF_PROTO_FOP_MAXVALUE) ||
                     (op < 0)) {
                         gf_log (trans->xl->name, GF_LOG_WARNING,
                                 "invalid fop '%d'", op);
@@ -6205,6 +6152,8 @@ init (xlator_t *this)
 
         conf = GF_CALLOC (1, sizeof (client_conf_t),
                           gf_client_mt_client_conf_t);
+
+        protocol_common_init ();
 
         pthread_mutex_init (&conf->mutex, NULL);
         INIT_LIST_HEAD (&conf->saved_fds);
@@ -6698,11 +6647,7 @@ struct xlator_fops fops = {
         .fxattrop    = client_fxattrop,
         .setattr     = client_setattr,
         .fsetattr    = client_fsetattr,
-};
-
-struct xlator_mops mops = {
         .getspec   = client_getspec,
-        .log       = client_log,
 };
 
 struct xlator_cbks cbks = {

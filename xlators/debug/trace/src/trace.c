@@ -2096,8 +2096,6 @@ struct xlator_fops fops = {
         .fsetattr    = trace_fsetattr,
 };
 
-struct xlator_mops mops = {
-};
 
 struct xlator_cbks cbks = {
 };

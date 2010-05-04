@@ -1218,11 +1218,6 @@ struct xlator_fops fops = {
         .setattr     = path_setattr,
 };
 
-
-struct xlator_mops mops = {
-};
-
-
 struct xlator_cbks cbks = {
 };
 

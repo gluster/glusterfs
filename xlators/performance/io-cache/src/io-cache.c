@@ -1592,9 +1592,6 @@ struct xlator_fops fops = {
         .setattr     = ioc_setattr
 };
 
-struct xlator_mops mops = {
-};
-
 
 struct xlator_dumpops dumpops = {
         .priv        = ioc_priv_dump,

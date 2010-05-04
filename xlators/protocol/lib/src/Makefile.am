@@ -7,9 +7,9 @@ libgfproto_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 -D_GNU_SOU
 
 libgfproto_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-lib_LTLIBRARIES = libgfproto.la 
+lib_LTLIBRARIES = libgfproto.la
 
 
-libgfproto_la_SOURCES = transport.c authenticate.c
+libgfproto_la_SOURCES = transport.c authenticate.c protocol.c
 
 noinst_HEADERS =  transport.h  protocol.h authenticate.h

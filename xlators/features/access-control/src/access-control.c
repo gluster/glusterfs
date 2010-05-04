@@ -1837,8 +1837,5 @@ fini (xlator_t *this)
         return;
 }
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 };

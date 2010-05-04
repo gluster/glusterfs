@@ -252,7 +252,7 @@ get_call_frame_for_req (fuse_state_t *state)
                 frame->root->unique   = finh->unique;
         }
 
-        frame->root->type = GF_OP_TYPE_FOP_REQUEST;
+        frame->root->type = GF_OP_TYPE_FOP;
 
         return frame;
 }
@@ -3027,7 +3027,7 @@ fuse_first_lookup (xlator_t *this)
 
         dict = dict_new ();
         frame = create_frame (this, this->ctx->pool);
-        frame->root->type = GF_OP_TYPE_FOP_REQUEST;
+        frame->root->type = GF_OP_TYPE_FOP;
         xl = this->children->xlator;
 
         STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
@@ -3566,8 +3566,6 @@ struct xlator_fops fops = {
 struct xlator_cbks cbks = {
 };
 
-struct xlator_mops mops = {
-};
 
 struct xlator_dumpops dumpops = {
         .priv  = fuse_priv_dump,

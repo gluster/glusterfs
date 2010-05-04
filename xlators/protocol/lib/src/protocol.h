@@ -42,6 +42,89 @@
 
 #define GF_PROTOCOL_VERSION "3.0"
 
+extern char *gf_mop_list[];
+extern char *gf_cbk_list[];
+
+/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
+typedef enum {
+        GF_PROTO_FOP_STAT,       /* 0 */
+        GF_PROTO_FOP_READLINK,   /* 1 */
+        GF_PROTO_FOP_MKNOD,      /* 2 */
+        GF_PROTO_FOP_MKDIR,
+        GF_PROTO_FOP_UNLINK,
+        GF_PROTO_FOP_RMDIR,      /* 5 */
+        GF_PROTO_FOP_SYMLINK,
+        GF_PROTO_FOP_RENAME,
+        GF_PROTO_FOP_LINK,
+        GF_PROTO_FOP_TRUNCATE,
+        GF_PROTO_FOP_OPEN,       /* 10 */
+        GF_PROTO_FOP_READ,
+        GF_PROTO_FOP_WRITE,
+        GF_PROTO_FOP_STATFS,     /* 15 */
+        GF_PROTO_FOP_FLUSH,
+        GF_PROTO_FOP_FSYNC,
+        GF_PROTO_FOP_SETXATTR,
+        GF_PROTO_FOP_GETXATTR,
+        GF_PROTO_FOP_REMOVEXATTR,/* 20 */
+        GF_PROTO_FOP_OPENDIR,
+        GF_PROTO_FOP_GETDENTS,
+        GF_PROTO_FOP_FSYNCDIR,
+        GF_PROTO_FOP_ACCESS,
+        GF_PROTO_FOP_CREATE,     /* 25 */
+        GF_PROTO_FOP_FTRUNCATE,
+        GF_PROTO_FOP_FSTAT,
+        GF_PROTO_FOP_LK,
+        GF_PROTO_FOP_LOOKUP,
+        GF_PROTO_FOP_SETDENTS,
+        GF_PROTO_FOP_READDIR,
+        GF_PROTO_FOP_INODELK,   /* 35 */
+        GF_PROTO_FOP_FINODELK,
+	GF_PROTO_FOP_ENTRYLK,
+	GF_PROTO_FOP_FENTRYLK,
+        GF_PROTO_FOP_CHECKSUM,
+        GF_PROTO_FOP_XATTROP,  /* 40 */
+        GF_PROTO_FOP_FXATTROP,
+        GF_PROTO_FOP_LOCK_NOTIFY,
+        GF_PROTO_FOP_LOCK_FNOTIFY,
+        GF_PROTO_FOP_FGETXATTR,
+        GF_PROTO_FOP_FSETXATTR, /* 45 */
+        GF_PROTO_FOP_RCHECKSUM,
+        GF_PROTO_FOP_SETATTR,
+        GF_PROTO_FOP_FSETATTR,
+        GF_PROTO_FOP_READDIRP,
+        GF_PROTO_FOP_MAXVALUE,
+} glusterfs_proto_fop_t;
+
+/* NOTE: add members ONLY at the end (just before _MAXVALUE) */
+typedef enum {
+        GF_MOP_SETVOLUME, /* 0 */
+        GF_MOP_GETVOLUME, /* 1 */
+        GF_MOP_STATS,
+        GF_MOP_SETSPEC,
+        GF_MOP_GETSPEC,
+	GF_MOP_PING,      /* 5 */
+        GF_MOP_LOG,
+        GF_MOP_NOTIFY,
+        GF_MOP_MAXVALUE,   /* 8 */
+} glusterfs_mop_t;
+
+typedef enum {
+	GF_CBK_FORGET,      /* 0 */
+	GF_CBK_RELEASE,     /* 1 */
+	GF_CBK_RELEASEDIR,  /* 2 */
+	GF_CBK_MAXVALUE     /* 3 */
+} glusterfs_cbk_t;
+
+typedef enum {
+        GF_OP_TYPE_FOP_REQUEST = 1,
+        GF_OP_TYPE_MOP_REQUEST,
+	GF_OP_TYPE_CBK_REQUEST,
+        GF_OP_TYPE_FOP_REPLY,
+        GF_OP_TYPE_MOP_REPLY,
+	GF_OP_TYPE_CBK_REPLY
+} glusterfs_op_type_t;
+
+
 struct gf_stat {
 	uint64_t ino;
 	uint64_t size;
@@ -1026,89 +1109,11 @@ struct gf_dirent_nb {
 	char           d_name[0];
 } __attribute__((packed));
 
+int
+gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size);
+int
+gf_dirent_serialize (gf_dirent_t *entries, char *buf, size_t buf_size);
 
-static inline int
-gf_dirent_nb_size (gf_dirent_t *entries)
-{
-	return (sizeof (struct gf_dirent_nb) + strlen (entries->d_name) + 1);
-}
-
-static inline int
-gf_dirent_serialize (gf_dirent_t *entries, char *buf, size_t buf_size)
-{
-	struct gf_dirent_nb *entry_nb = NULL;
-	gf_dirent_t         *entry = NULL;
-	int                  size = 0;
-	int                  entry_size = 0;
-
-
-	list_for_each_entry (entry, &entries->list, list) {
-		entry_size = gf_dirent_nb_size (entry);
-
-		if (buf && (size + entry_size <= buf_size)) {
-			entry_nb = (void *) (buf + size);
-
-			entry_nb->d_ino  = hton64 (entry->d_ino);
-			entry_nb->d_off  = hton64 (entry->d_off);
-			entry_nb->d_len  = hton32 (entry->d_len);
-			entry_nb->d_type = hton32 (entry->d_type);
-
-                        gf_stat_from_iatt (&entry_nb->d_stat, &entry->d_stat);
-
-			strcpy (entry_nb->d_name, entry->d_name);
-		}
-		size += entry_size;
-	}
-
-	return size;
-}
-
-
-static inline int
-gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size)
-{
-	struct gf_dirent_nb *entry_nb = NULL;
-	int                  remaining_size = 0;
-	int                  least_dirent_size = 0;
-	int                  count = 0;
-	gf_dirent_t         *entry = NULL;
-	int                  entry_strlen = 0;
-	int                  entry_len = 0;
-
-
-	remaining_size = buf_size;
-	least_dirent_size = (sizeof (struct gf_dirent_nb) + 2);
-
-	while (remaining_size >= least_dirent_size) {
-		entry_nb = (void *)(buf + (buf_size - remaining_size));
-
-		entry_strlen = strnlen (entry_nb->d_name, remaining_size);
-		if (entry_strlen == remaining_size) {
-			break;
-		}
-
-		entry_len = sizeof (gf_dirent_t) + entry_strlen + 1;
-		entry = GF_CALLOC (1, entry_len, gf_common_mt_gf_dirent_t);
-		if (!entry) {
-			break;
-		}
-
-		entry->d_ino  = ntoh64 (entry_nb->d_ino);
-		entry->d_off  = ntoh64 (entry_nb->d_off);
-		entry->d_len  = ntoh32 (entry_nb->d_len);
-		entry->d_type = ntoh32 (entry_nb->d_type);
-
-                gf_stat_to_iatt (&entry_nb->d_stat, &entry->d_stat);
-
-		strcpy (entry->d_name, entry_nb->d_name);
-
-		list_add_tail (&entry->list, &entries->list);
-
-		remaining_size -= (sizeof (*entry_nb) + entry_strlen + 1);
-		count++;
-	}
-
-	return count;
-}
+int protocol_common_init (void);
 
 #endif

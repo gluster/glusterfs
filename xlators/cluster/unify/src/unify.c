@@ -4561,8 +4561,6 @@ struct xlator_fops fops = {
         .fsetattr    = unify_fsetattr,
 };
 
-struct xlator_mops mops = {
-};
 
 struct xlator_cbks cbks = {
         .forget  = unify_forget,

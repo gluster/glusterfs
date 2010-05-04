@@ -576,7 +576,6 @@ fini (xlator_t *this)
 }
 
 struct xlator_cbks cbks = { };
-struct xlator_mops mops = { };
 struct xlator_fops fops = { };
 
 struct volume_options options[] = {

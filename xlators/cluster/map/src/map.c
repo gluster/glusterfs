@@ -2562,9 +2562,6 @@ struct xlator_fops fops = {
         .fsetattr    = map_fsetattr,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 };
 

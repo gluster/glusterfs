@@ -952,9 +952,6 @@ struct xlator_fops fops = {
 	.fstat       = ra_fstat,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 	.release       = ra_release,
 };

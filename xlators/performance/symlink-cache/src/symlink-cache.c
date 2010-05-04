@@ -397,8 +397,6 @@ struct xlator_fops fops = {
 	.readlink    = sc_readlink,
 };
 
-struct xlator_mops mops = {
-};
 
 struct xlator_cbks cbks = {
         .forget  = sc_forget,

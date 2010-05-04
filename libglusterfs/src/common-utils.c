@@ -180,28 +180,28 @@ err:
 }
 
 char *gf_fop_list[GF_FOP_MAXVALUE];
-char *gf_mop_list[GF_MOP_MAXVALUE];
-char *gf_cbk_list[GF_CBK_MAXVALUE];
+char *gf_mgmt_list[GF_MGMT_MAXVALUE];
 
 void
 gf_global_variable_init()
 {
-	gf_fop_list[GF_FOP_STAT]        = "STAT";       /* 0 */
-	gf_fop_list[GF_FOP_READLINK]    = "READLINK";   /* 1 */
-	gf_fop_list[GF_FOP_MKNOD]       = "MKNOD";      /* 2 */
+	gf_fop_list[GF_FOP_NULL]        = "NULL";
+	gf_fop_list[GF_FOP_STAT]        = "STAT";
+	gf_fop_list[GF_FOP_READLINK]    = "READLINK";
+	gf_fop_list[GF_FOP_MKNOD]       = "MKNOD";
 	gf_fop_list[GF_FOP_MKDIR]       = "MKDIR";
 	gf_fop_list[GF_FOP_UNLINK]      = "UNLINK";
-	gf_fop_list[GF_FOP_RMDIR]       = "RMDIR";      /* 5 */
+	gf_fop_list[GF_FOP_RMDIR]       = "RMDIR";
 	gf_fop_list[GF_FOP_SYMLINK]     = "SYMLINK";
 	gf_fop_list[GF_FOP_RENAME]      = "RENAME";
 	gf_fop_list[GF_FOP_LINK]        = "LINK";
 	gf_fop_list[GF_FOP_TRUNCATE]    = "TRUNCATE";
-	gf_fop_list[GF_FOP_OPEN]        = "OPEN";       /* 10 */
+	gf_fop_list[GF_FOP_OPEN]        = "OPEN";
 	gf_fop_list[GF_FOP_READ]        = "READ";
 	gf_fop_list[GF_FOP_WRITE]       = "WRITE";
 	gf_fop_list[GF_FOP_STATFS]      = "STATFS";
 	gf_fop_list[GF_FOP_FLUSH]       = "FLUSH";
-	gf_fop_list[GF_FOP_FSYNC]       = "FSYNC";      /* 15 */
+	gf_fop_list[GF_FOP_FSYNC]       = "FSYNC";
 	gf_fop_list[GF_FOP_SETXATTR]    = "SETXATTR";
 	gf_fop_list[GF_FOP_GETXATTR]    = "GETXATTR";
 	gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
@@ -210,15 +210,15 @@ gf_global_variable_init()
 	gf_fop_list[GF_FOP_ACCESS]      = "ACCESS";
 	gf_fop_list[GF_FOP_CREATE]      = "CREATE";
 	gf_fop_list[GF_FOP_FTRUNCATE]   = "FTRUNCATE";
-	gf_fop_list[GF_FOP_FSTAT]       = "FSTAT";      /* 25 */
+	gf_fop_list[GF_FOP_FSTAT]       = "FSTAT";
 	gf_fop_list[GF_FOP_LK]          = "LK";
 	gf_fop_list[GF_FOP_LOOKUP]      = "LOOKUP";
 	gf_fop_list[GF_FOP_READDIR]     = "READDIR";
-	gf_fop_list[GF_FOP_INODELK]     = "INODELK";    /* 30 */
+	gf_fop_list[GF_FOP_INODELK]     = "INODELK";
 	gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
 	gf_fop_list[GF_FOP_ENTRYLK]     = "ENTRYLK";
-	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";   /* 35 */
-	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";   /* 36 */
+	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";
+	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";
 	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
 	gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
 	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
@@ -227,17 +227,13 @@ gf_global_variable_init()
         gf_fop_list[GF_FOP_SETATTR]     = "SETATTR";
         gf_fop_list[GF_FOP_FSETATTR]    = "FSETATTR";
 	gf_fop_list[GF_FOP_READDIRP]    = "READDIRP";
+	gf_fop_list[GF_FOP_GETSPEC]     = "GETSPEC";
+	gf_fop_list[GF_FOP_FORGET]      = "FORGET";
+	gf_fop_list[GF_FOP_RELEASE]     = "RELEASE";
+	gf_fop_list[GF_FOP_RELEASEDIR]  = "RELEASEDIR";
 
-	gf_mop_list[GF_MOP_SETVOLUME]   = "SETVOLUME"; /* 0 */
-	gf_mop_list[GF_MOP_GETVOLUME]   = "GETVOLUME"; /* 1 */
-	gf_mop_list[GF_MOP_SETSPEC]     = "SETSPEC";
-	gf_mop_list[GF_MOP_GETSPEC]     = "GETSPEC";
-        gf_mop_list[GF_MOP_LOG]         = "LOG";
-	gf_mop_list[GF_MOP_PING]        = "PING";
+	gf_fop_list[GF_MGMT_NULL]  = "NULL";
 
-	gf_cbk_list[GF_CBK_FORGET]      = "FORGET";
-	gf_cbk_list[GF_CBK_RELEASE]     = "RELEASE";
-	gf_cbk_list[GF_CBK_RELEASEDIR]  = "RELEASEDIR";
 	/* Are there any more variables to be included? All global
 	   variables initialization should go here */
 
@@ -250,7 +246,7 @@ set_global_ctx_ptr (glusterfs_ctx_t *ctx)
 	gf_global_ctx = ctx;
 }
 
-/* 
+/*
  * Don't use this function other than in glusterfsd.c. libglusterfsclient does 
  * not set gf_global_ctx since there can be multiple glusterfs-contexts 
  * initialized in a single process. Instead access the context from ctx member
@@ -263,7 +259,7 @@ get_global_ctx_ptr (void)
 	return gf_global_ctx;
 }
 
-void 
+void
 gf_log_volume_file (FILE *specfp)
 {
 	extern FILE *gf_log_logfile;
@@ -406,40 +402,33 @@ gf_print_trace (int32_t signum)
 		struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
 		while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
 			call_frame_t *tmp = (call_frame_t *)(&((call_stack_t *)trav)->frames);
-			if ((tmp->root->type == GF_OP_TYPE_FOP_REQUEST) ||
-			    (tmp->root->type == GF_OP_TYPE_FOP_REPLY))
+			if (tmp->root->type == GF_OP_TYPE_FOP)
 				sprintf (msg,"frame : type(%d) op(%s)\n",
-					 tmp->root->type, 
+					 tmp->root->type,
 					 gf_fop_list[tmp->root->op]);
-			if ((tmp->root->type == GF_OP_TYPE_MOP_REQUEST) ||
-			    (tmp->root->type == GF_OP_TYPE_MOP_REPLY))
+			if (tmp->root->type == GF_OP_TYPE_MGMT)
 				sprintf (msg,"frame : type(%d) op(%s)\n",
-					 tmp->root->type, 
-					 gf_mop_list[tmp->root->op]);
-			if ((tmp->root->type == GF_OP_TYPE_CBK_REQUEST) ||
-			    (tmp->root->type == GF_OP_TYPE_CBK_REPLY))
-				sprintf (msg,"frame : type(%d) op(%s)\n",
-					 tmp->root->type, 
-					 gf_cbk_list[tmp->root->op]);
-			
+					 tmp->root->type,
+					 gf_mgmt_list[tmp->root->op]);
+
 			ret = write (fd, msg, strlen (msg));
 			trav = trav->next;
 		}
 		ret = write (fd, "\n", 1);
 	}
 
-	sprintf (msg, "patchset: %s\n", GLUSTERFS_REPOSITORY_REVISION); 
+	sprintf (msg, "patchset: %s\n", GLUSTERFS_REPOSITORY_REVISION);
 	ret = write (fd, msg, strlen (msg));
 
-	sprintf (msg, "signal received: %d\n", signum); 
+	sprintf (msg, "signal received: %d\n", signum);
 	ret = write (fd, msg, strlen (msg));
 
         {
-                /* Dump the timestamp of the crash too, so the previous logs 
+                /* Dump the timestamp of the crash too, so the previous logs
                    can be related */
                 utime = time (NULL);
                 tm    = localtime (&utime);
-                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S\n", tm); 
+                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S\n", tm);
                 ret = write (fd, "time of crash: ", 15);
                 ret = write (fd, timestr, strlen (timestr));
         }
@@ -450,7 +439,7 @@ gf_print_trace (int32_t signum)
 	{
 		void *array[200];
 		size_t size;
-    
+
 		size = backtrace (array, 200);
 		backtrace_symbols_fd (&array[1], size-1, fd);
 		sprintf (msg, "---------\n");

@@ -26,7 +26,6 @@
 #include "config.h"
 #endif
 
-#include "scheduler.h"
 #include "call-stub.h"
 #include "compat-errno.h"
 #include "afr-mem-types.h"
