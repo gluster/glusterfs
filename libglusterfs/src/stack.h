@@ -44,8 +44,6 @@ typedef struct _call_pool_t call_pool_t;
 #include "list.h"
 #include "common-utils.h"
 #include "globals.h"
-#include "protocol.h"
-
 
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     call_frame_t *prev_frame,
