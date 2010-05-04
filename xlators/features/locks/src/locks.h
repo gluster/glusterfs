@@ -26,7 +26,6 @@
 #endif
 
 #include "compat-errno.h"
-#include "transport.h"
 #include "stack.h"
 #include "call-stub.h"
 #include "locks-mem-types.h"
@@ -50,7 +49,7 @@ struct __posix_lock {
         /* These two together serve to uniquely identify each process
            across nodes */
 
-        transport_t       *transport;     /* to identify client node */
+        void              *transport;     /* to identify client node */
         pid_t              client_pid;    /* pid of client process */
         uint64_t           owner;         /* lock owner from fuse */
 };
@@ -75,7 +74,7 @@ struct __pl_inode_lock {
         /* These two together serve to uniquely identify each process
            across nodes */
 
-        transport_t       *transport;     /* to identify client node */
+        void              *transport;     /* to identify client node */
         pid_t              client_pid;    /* pid of client process */
         uint64_t           owner;
 };
@@ -110,7 +109,7 @@ struct __entry_lock {
         const char       *basename;
         entrylk_type      type;
 
-        transport_t      *trans;
+        void      *trans;
         pid_t             client_pid;    /* pid of client process */
         uint64_t          owner;
 };

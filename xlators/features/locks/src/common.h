@@ -21,7 +21,7 @@
 #define __COMMON_H__
 
 posix_lock_t *
-new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
+new_posix_lock (struct flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, fd_t *fd);
 
 pl_inode_t *

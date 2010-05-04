@@ -370,7 +370,7 @@ grant_blocked_inode_locks (xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *
 /* Release all inodelks from this transport */
 static int
 release_inode_locks_of_transport (xlator_t *this, pl_dom_list_t *dom,
-                                  inode_t *inode, transport_t *trans)
+                                  inode_t *inode, void *trans)
 {
 	pl_inode_lock_t *tmp = NULL;
 	pl_inode_lock_t *l = NULL;
@@ -509,7 +509,7 @@ out:
 
 /* Create a new inode_lock_t */
 pl_inode_lock_t *
-new_inode_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
+new_inode_lock (struct flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, const char *volume)
 
 {
@@ -550,7 +550,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 	int32_t op_errno = 0;
 	int     ret      = -1;
 	int     can_block = 0;
-	transport_t *           transport  = NULL;
+	void *                  transport  = NULL;
 	pid_t                   client_pid = -1;
         uint64_t                owner      = -1;
 	pl_inode_t *            pinode     = NULL;
