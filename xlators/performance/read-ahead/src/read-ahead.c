@@ -68,8 +68,6 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		goto unwind;
 	}
 
-	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
-
 	/* If mandatory locking has been enabled on this file,
 	   we disable caching on it */
 
@@ -110,9 +108,16 @@ ra_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		file->page_count = 1;
 	}
 
-        frame->local = NULL;
+	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
+        if (ret == -1) {
+                ra_file_destroy (file);
+                op_ret = -1;
+                op_errno = ENOMEM;
+        }
 
 unwind:
+        frame->local = NULL;
+
 	STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 
 	return 0;
@@ -143,8 +148,6 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			"out of memory");
 		goto unwind;
 	}
-
-	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
 
 	/* If mandatory locking has been enabled on this file,
 	   we disable caching on it */
@@ -178,6 +181,13 @@ ra_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	file->page_count = conf->page_count;
 	file->page_size = conf->page_size;
 	pthread_mutex_init (&file->file_lock, NULL);
+
+	ret = fd_ctx_set (fd, this, (uint64_t)(long)file);
+        if (ret == -1) {
+                ra_file_destroy (file);
+                op_ret = -1;
+                op_errno = ENOMEM;
+        }
 
 unwind:
 	STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
