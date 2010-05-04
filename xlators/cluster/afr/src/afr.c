@@ -88,7 +88,7 @@ out:
 
 
 void
-afr_set_split_brain (xlator_t *this, inode_t *inode)
+afr_set_split_brain (xlator_t *this, inode_t *inode, gf_boolean_t set)
 {
         uint64_t ctx = 0;
         int      ret = 0;
@@ -103,9 +103,12 @@ afr_set_split_brain (xlator_t *this, inode_t *inode)
                         ctx = 0;
                 }
 
-                ctx = (~AFR_ICTX_SPLIT_BRAIN_MASK & ctx)
-                        | (0xFFFFFFFFFFFFFFFFULL & AFR_ICTX_SPLIT_BRAIN_MASK);
-
+                if (set) {
+			ctx = (~AFR_ICTX_SPLIT_BRAIN_MASK & ctx)
+                                | (0xFFFFFFFFFFFFFFFFULL & AFR_ICTX_SPLIT_BRAIN_MASK);
+		} else {
+			ctx = (~AFR_ICTX_SPLIT_BRAIN_MASK & ctx);
+		}
                 __inode_ctx_put (inode, this, ctx);
         }
         UNLOCK (&inode->lock);
@@ -501,7 +504,7 @@ afr_self_heal_lookup_unwind (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 
 	if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode);
+                afr_set_split_brain (this, local->cont.lookup.inode, _gf_true);
 	}
 
 	AFR_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,

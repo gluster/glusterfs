@@ -1504,7 +1504,9 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         sh    = &local->self_heal;
 
 	if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode);
+                afr_set_split_brain (this, local->cont.lookup.inode, _gf_true);
+	} else {
+                afr_set_split_brain (this, local->cont.lookup.inode, _gf_false);
 	}
 
         gf_log (this->name, GF_LOG_TRACE,
