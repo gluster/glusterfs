@@ -413,10 +413,6 @@ struct xlator_fops fops = {
 #endif
 };
 
-
-struct xlator_mops mops = {
-};
-
 struct xlator_dumpops dumpops = {
         .priv = dht_priv_dump,
         .inodectx = dht_inodectx_dump,

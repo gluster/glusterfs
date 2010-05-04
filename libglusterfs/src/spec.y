@@ -330,7 +330,7 @@ section_sub (char *sub)
 static int
 section_end (void)
 {
-        if (!tree->fops || !tree->mops) {
+        if (!tree->fops) {
                 fprintf (stderr, 
                          "\"type\" not specified for volume %s\n", tree->name);
                 gf_log ("parser", GF_LOG_ERROR, 

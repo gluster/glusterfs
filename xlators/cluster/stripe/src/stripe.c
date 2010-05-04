@@ -3610,9 +3610,6 @@ struct xlator_fops fops = {
         .mknod       = stripe_mknod,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
         .release = stripe_release,
 };

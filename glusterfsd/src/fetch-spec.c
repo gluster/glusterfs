@@ -82,7 +82,7 @@ fetch_notify (xlator_t *this_xl, int event, void *data, ...)
 		
 		STACK_WIND (frame, fetch_cbk,
 			    this_xl->children->xlator,
-			    this_xl->children->xlator->mops->getspec,
+			    this_xl->children->xlator->fops->getspec,
 			    this_xl->ctx->cmd_args.volfile_id,
 			    0);
 		break;

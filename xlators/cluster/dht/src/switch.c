@@ -1040,10 +1040,6 @@ struct xlator_fops fops = {
 };
 
 
-struct xlator_mops mops = {
-};
-
-
 struct xlator_cbks cbks = {
 	.forget     = dht_forget
 };

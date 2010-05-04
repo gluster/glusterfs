@@ -77,9 +77,6 @@ struct xlator_fops fops = {
     .writev       = python_writev
 };
 
-struct xlator_mops mops = {
-};
-
 static PyObject *
 AnonModule_FromFile (const char* fname)
 {

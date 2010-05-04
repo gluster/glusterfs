@@ -50,7 +50,6 @@ struct ios_global_stats {
         uint64_t        block_count_write[32];
         uint64_t        block_count_read[32];
         uint64_t        fop_hits[GF_FOP_MAXVALUE];
-        uint64_t        cbk_hits[GF_CBK_MAXVALUE];
         struct timeval  started_at;
 };
 
@@ -89,20 +88,6 @@ struct ios_local {
                 {                                                       \
                         conf->cumulative.fop_hits[GF_FOP_##op]++;       \
                         conf->incremental.fop_hits[GF_FOP_##op]++;      \
-                }                                                       \
-                UNLOCK (&conf->lock);                                   \
-        } while (0)
-
-
-#define BUMP_CBK(op)                                                    \
-        do {                                                            \
-                struct ios_conf  *conf = NULL;                          \
-                                                                        \
-                conf = this->private;                                   \
-                LOCK (&conf->lock);                                     \
-                {                                                       \
-                        conf->cumulative.cbk_hits[GF_CBK_##op]++;       \
-                        conf->incremental.cbk_hits[GF_CBK_##op]++;      \
                 }                                                       \
                 UNLOCK (&conf->lock);                                   \
         } while (0)
@@ -235,10 +220,7 @@ io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
                         ios_log (this, logfp, "%14s : %"PRId64,
                                  gf_fop_list[i], stats->fop_hits[i]);
 
-        for (i = 0; i < GF_CBK_MAXVALUE; i++)
-                if (stats->cbk_hits[i])
-                        ios_log (this, logfp, "%14s : %"PRId64,
-                                 gf_fop_list[i], stats->cbk_hits[i]);
+
         return 0;
 }
 
@@ -1376,7 +1358,7 @@ io_stats_release (xlator_t *this, fd_t *fd)
 {
         struct ios_fd  *iosfd = NULL;
 
-        BUMP_CBK (RELEASE);
+        BUMP_FOP (RELEASE);
 
         ios_fd_ctx_get (fd, this, &iosfd);
         if (iosfd) {
@@ -1394,16 +1376,16 @@ io_stats_release (xlator_t *this, fd_t *fd)
 int
 io_stats_releasedir (xlator_t *this, fd_t *fd)
 {
-        BUMP_CBK (RELEASEDIR);
+        BUMP_FOP (RELEASEDIR);
 
         return 0;
 }
 
 
 int
-io_stats_forget (xlator_t *this, fd_t *fd)
+io_stats_forget (xlator_t *this, inode_t *inode)
 {
-        BUMP_CBK (FORGET);
+        BUMP_FOP (FORGET);
 
         return 0;
 }
@@ -1535,12 +1517,10 @@ struct xlator_fops fops = {
         .fsetattr    = io_stats_fsetattr,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
         .release     = io_stats_release,
         .releasedir  = io_stats_releasedir,
+        .forget      = io_stats_forget,
 };
 
 struct volume_options options[] = {

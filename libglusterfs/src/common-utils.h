@@ -91,8 +91,7 @@ void gf_log_volume_file (FILE *specfp);
 void gf_print_trace (int32_t signal);
 
 extern char *gf_fop_list[GF_FOP_MAXVALUE];
-extern char *gf_mop_list[GF_MOP_MAXVALUE];
-extern char *gf_cbk_list[GF_CBK_MAXVALUE];
+extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
 
 #define VECTORSIZE(count) (count * (sizeof (struct iovec)))
 

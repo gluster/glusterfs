@@ -1560,10 +1560,6 @@ struct xlator_fops fops = {
         .opendir     = pl_opendir,
 };
 
-
-struct xlator_mops mops = {
-};
-
 struct xlator_dumpops dumpops = {
         .inodectx    = pl_dump_inode_priv,
 };

@@ -2256,9 +2256,6 @@ struct xlator_fops fops = {
 	.fxattrop    = iot_fxattrop,    /* O */
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 };
 

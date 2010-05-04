@@ -118,11 +118,10 @@ struct _call_stack_t {
         } while (0);                                                    \
 
 struct xlator_fops;
-struct xlator_mops;
 
 void
 gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops,
-                            struct xlator_mops *mops, void *fn);
+                            void *fn);
 
 void
 gf_update_latency (call_frame_t *frame);
@@ -202,7 +201,7 @@ STACK_DESTROY (call_stack_t *stack)
                                                                         \
                 if (((xlator_t *) obj)->ctx->measure_latency) {         \
                         gettimeofday (&_new->begin, NULL);              \
-                        gf_set_fop_from_fn_pointer (_new, ((xlator_t *)obj)->fops, ((xlator_t *)obj)->mops, fn); \
+                        gf_set_fop_from_fn_pointer (_new, ((xlator_t *)obj)->fops, fn); \
                 }                                                       \
                                                                         \
                 old_THIS = THIS;                                        \
@@ -238,7 +237,7 @@ STACK_DESTROY (call_stack_t *stack)
                                                                         \
                 if (((xlator_t *) obj)->ctx->measure_latency) {         \
                         gettimeofday (&_new->begin, NULL);              \
-                        gf_set_fop_from_fn_pointer (_new, ((xlator_t *)obj)->fops, ((xlator_t *)obj)->mops, fn); \
+                        gf_set_fop_from_fn_pointer (_new, ((xlator_t *)obj)->fops, fn); \
                 }                                                       \
                                                                         \
                 old_THIS = THIS;                                        \

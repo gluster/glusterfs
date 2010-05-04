@@ -105,181 +105,17 @@ gf_log_init (const char *file)
 }
 
 
-static int
-dummy_init (xlator_t *xl)
-{
-	return 0;
-}
-
-
-static int
-gf_log_notify (xlator_t *this_xl, int event, void *data, ...)
-{
-	int ret = 0;
-	
-	switch (event) {
-	case GF_EVENT_CHILD_UP:
-		break;
-                
-	case GF_EVENT_CHILD_DOWN:
-		break;
-                
-	default:
-		ret = default_notify (this_xl, event, data);
-		break;
-	}
-	
-	return ret;
-}
-
-
-/*
- * Get a dummy xlator for the purpose of central logging.
- * An xlator is needed because a transport cannot exist without
- * an xlator.
- */
-
-static xlator_t *
-__get_dummy_xlator (glusterfs_ctx_t *ctx, const char *remote_host,
-                    const char *transport, uint32_t remote_port)
-{
-        volume_opt_list_t *vol_opt = NULL;
-	xlator_t *         trav    = NULL;
-        
-	int ret = 0;
-        
-	xlator_t *      top    = NULL;
-	xlator_t *      trans  = NULL;
-	xlator_list_t * parent = NULL;
-        xlator_list_t * tmp    = NULL;
-
-	top = GF_CALLOC (1, sizeof (*top), gf_common_mt_xlator_t);
-        if (!top)
-                goto out;
-
-	trans = GF_CALLOC (1, sizeof (*trans), gf_common_mt_xlator_t);
-        if (!trans)
-                goto out;
-	
-        INIT_LIST_HEAD (&top->volume_options);
-        INIT_LIST_HEAD (&trans->volume_options);
-
-	top->name     = "log-dummy";
-	top->ctx      = ctx;
-	top->next     = trans;
-	top->init     = dummy_init;
-	top->notify   = gf_log_notify;
-	top->children = (void *) GF_CALLOC (1, sizeof (*top->children),
-                                        gf_common_mt_xlator_list_t);
-        
-	if (!top->children)
-                goto out;
-
-	top->children->xlator = trans;
-	
-	trans->name    = "log-transport";
-	trans->ctx     = ctx;
-	trans->prev    = top;
-	trans->init    = dummy_init;
-	trans->notify  = default_notify;
-	trans->options = get_new_dict ();
-	
-	parent = GF_CALLOC (1, sizeof(*parent), gf_common_mt_xlator_list_t);
-
-        if (!parent)
-                goto out;
-
-	parent->xlator = top;
-        
-	if (trans->parents == NULL)
-		trans->parents = parent;
-	else {
-		tmp = trans->parents;
-		while (tmp->next)
-			tmp = tmp->next;
-		tmp->next = parent;
-	}
-
-	/* TODO: log on failure to set dict */
-	if (remote_host) {
-                ret = dict_set (trans->options, "remote-host",
-                                str_to_data ((char *)remote_host));
-        }
-
-	if (remote_port)
-		ret = dict_set_uint32 (trans->options, "remote-port", 
-				       remote_port);
-
-	/* 
-         * 'option remote-subvolume <x>' is needed here even though 
-	 * its not used 
-	 */
-	ret = dict_set_static_ptr (trans->options, "remote-subvolume", 
-				   "brick");
-	ret = dict_set_static_ptr (trans->options, "disable-handshake", "on");
-	ret = dict_set_static_ptr (trans->options, "non-blocking-io", "off");
-	
-	if (transport) {
-		char *transport_type = GF_CALLOC (1, strlen (transport) + 10,
-                                                  gf_common_mt_char);
-		ERR_ABORT (transport_type);
-		strcpy(transport_type, transport);
-
-		if (strchr (transport_type, ':'))
-			*(strchr (transport_type, ':')) = '\0';
-
-		ret = dict_set_dynstr (trans->options, "transport-type", 
-				       transport_type);
-	}
-	
-	xlator_set_type (trans, "protocol/client");
-
-        trav = top;
-	while (trav) {
-		/* Get the first volume_option */
-                if (!list_empty (&trav->volume_options)) {
-                        list_for_each_entry (vol_opt, 
-                                             &trav->volume_options, list) 
-                                break;
-                        if ((ret = 
-                             validate_xlator_volume_options (trav, 
-                                                             vol_opt->given_opt)) < 0) {
-                                gf_log (trav->name, GF_LOG_ERROR, 
-                                        "validating translator failed");
-                                return NULL;
-                        }
-                }
-		trav = trav->next;
-	}
-
-	if (xlator_tree_init (top) != 0)
-		return NULL;
-
-out:	
-	return top;
-}
-
-
 /*
  * Initialize logging to a central server.
  * If successful, log messages will be written both to
  * the local file and to the remote server.
  */
 
-static xlator_t * logging_xl = NULL;
 static int __central_log_enabled = 0;
-
-static pthread_t logging_thread;
 
 struct _msg_queue {
         struct list_head msgs;
 };
-
-static struct _msg_queue msg_queue;
-
-static pthread_cond_t msg_cond;
-static pthread_mutex_t msg_cond_mutex;
-static pthread_mutex_t msg_queue_mutex;
 
 struct _log_msg {
         const char *msg;
@@ -287,116 +123,6 @@ struct _log_msg {
 };
 
 
-int32_t
-gf_log_central_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno)
-{
-        struct _log_msg *msg = NULL;
-
-        msg = (struct _log_msg *) cookie;
-
-        GF_FREE ((char *)(msg->msg));
-
-        STACK_DESTROY (frame->root);
-
-        return 0;
-}
-
-
-void *
-logging_thread_loop (void *arg)
-{
-        struct _log_msg *msg;
-
-        call_frame_t *frame = NULL;
-
-        while (1) {
-                pthread_mutex_lock (&msg_cond_mutex);
-                {
-                        pthread_cond_wait (&msg_cond, &msg_cond_mutex);
-
-                        while (!list_empty (&msg_queue.msgs)) {
-                                pthread_mutex_lock (&msg_queue_mutex);
-                                {
-                                        msg = list_entry (msg_queue.msgs.next,
-                                                          struct _log_msg,
-                                                          queue);
-                                
-                                        list_del_init (&msg->queue);
-                                }
-                                pthread_mutex_unlock (&msg_queue_mutex);
-
-                                frame = create_frame (logging_xl, 
-                                                      logging_xl->ctx->pool);
-                                
-                                frame->local = logging_xl->private;
-                                
-                                STACK_WIND_COOKIE (frame, (void *) msg,
-                                                   gf_log_central_cbk,
-                                                   logging_xl->children->xlator,
-                                                   logging_xl->children->xlator->mops->log,
-                                                   msg->msg);
-                        }
-
-                }
-                pthread_mutex_unlock (&msg_cond_mutex);
-        }
-
-        return NULL;
-}
-
-
-int
-gf_log_central_init (glusterfs_ctx_t *ctx, const char *remote_host,
-                     const char *transport, uint32_t remote_port)
-{
-        logging_xl = __get_dummy_xlator (ctx, remote_host, transport, 
-                                         remote_port);
-        
-        if (!logging_xl) {
-                goto out;
-        }
-
-        __central_log_enabled = 1;
-
-        INIT_LIST_HEAD (&msg_queue.msgs);
-
-        pthread_cond_init (&msg_cond, NULL);
-        pthread_mutex_init (&msg_cond_mutex, NULL);
-        pthread_mutex_init (&msg_queue_mutex, NULL);
-
-        pthread_create (&logging_thread, NULL, logging_thread_loop, NULL);
-
-out:
-        return 0;
-}
-
-
-int
-gf_log_central (const char *msg)
-{
-        struct _log_msg *lm = NULL;
-
-        lm = GF_CALLOC (1, sizeof (*lm), gf_common_mt_log_msg);
-        
-        if (!lm)
-                goto out;
-
-        INIT_LIST_HEAD (&lm->queue);
-
-        lm->msg = gf_strdup (msg);
-
-        pthread_mutex_lock (&msg_queue_mutex);
-        {
-                list_add_tail (&lm->queue, &msg_queue.msgs);
-        }
-        pthread_mutex_unlock (&msg_queue_mutex);
-                
-        pthread_cond_signal (&msg_cond);
-
-out:
-        return 0;
-}
 
 
 void 
@@ -526,7 +252,7 @@ unlock:
 
                         glusterfs_central_log_flag_set ();
                         {
-                                gf_log_central (msg);
+                                //gf_log_central (msg);
                         }
                         glusterfs_central_log_flag_unset ();
                 }

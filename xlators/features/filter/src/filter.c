@@ -1712,9 +1712,6 @@ struct xlator_fops fops = {
         .fsetattr    = filter_fsetattr,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 };
 

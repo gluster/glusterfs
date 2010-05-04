@@ -4016,11 +4016,6 @@ struct xlator_fops fops = {
         .fsetattr    = ha_fsetattr,
 };
 
-struct xlator_mops mops = {
-	.stats   = ha_stats,
-	.getspec = ha_getspec,
-};
-
 struct xlator_cbks cbks = {
 	.release    = ha_close,
 	.releasedir = ha_closedir,

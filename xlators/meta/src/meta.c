@@ -1305,6 +1305,3 @@ struct xlator_fops fops = {
   .create      = meta_create,
   .lk          = meta_lk,
 };
-
-struct xlator_mops mops = {
-};

@@ -2638,8 +2638,6 @@ struct xlator_fops fops = {
         .setattr     = wb_setattr,
 };
 
-struct xlator_mops mops = {
-};
 
 struct xlator_cbks cbks = {
         .release  = wb_release

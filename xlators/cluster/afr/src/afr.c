@@ -3086,9 +3086,6 @@ struct xlator_fops fops = {
 };
 
 
-struct xlator_mops mops = {
-};
-
 struct xlator_dumpops dumpops = {
         .priv       = afr_priv_dump,
 };

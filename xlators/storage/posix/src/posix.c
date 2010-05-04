@@ -4582,9 +4582,6 @@ struct xlator_dumpops dumpops = {
         .inode   = posix_inode,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_fops fops = {
         .lookup      = posix_lookup,
         .stat        = posix_stat,

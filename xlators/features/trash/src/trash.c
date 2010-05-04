@@ -1538,9 +1538,6 @@ struct xlator_fops fops = {
         .ftruncate = trash_ftruncate,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 };
 

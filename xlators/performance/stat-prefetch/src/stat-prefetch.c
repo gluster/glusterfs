@@ -3771,9 +3771,6 @@ struct xlator_fops fops = {
         .entrylk     = sp_entrylk,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
         .forget     = sp_forget,
         .release    = sp_release,

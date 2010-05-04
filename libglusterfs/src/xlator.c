@@ -34,11 +34,6 @@
 			xl->fops->fn = default_##fn;	\
 	} while (0)
 
-#define SET_DEFAULT_MOP(fn) do {			\
-		if (!xl->mops->fn)			\
-			xl->mops->fn = default_##fn;	\
-	} while (0)
-
 #define SET_DEFAULT_CBK(fn) do {			\
 		if (!xl->cbks->fn)			\
 			xl->cbks->fn = default_##fn;	\
@@ -97,7 +92,7 @@ fill_defaults (xlator_t *xl)
         SET_DEFAULT_FOP (setattr);
         SET_DEFAULT_FOP (fsetattr);
 
-        SET_DEFAULT_MOP (log);
+        SET_DEFAULT_FOP (getspec);
 
 	SET_DEFAULT_CBK (release);
 	SET_DEFAULT_CBK (releasedir);
@@ -706,12 +701,6 @@ xlator_set_type (xlator_t *xl,
 
 	if (!(xl->fops = dlsym (handle, "fops"))) {
 		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fops) on %s",
-			dlerror ());
-		return -1;
-	}
-
-	if (!(xl->mops = dlsym (handle, "mops"))) {
-		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(mops) on %s",
 			dlerror ());
 		return -1;
 	}

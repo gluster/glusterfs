@@ -1756,7 +1756,7 @@ error_gen_getspec (call_frame_t *frame, xlator_t *this, const char *key,
 
 	STACK_WIND (frame, error_gen_getspec_cbk,
 		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->mops->getspec,
+		    FIRST_CHILD(this)->fops->getspec,
 		    key, flags);
 	return 0;
 }
@@ -2041,10 +2041,7 @@ struct xlator_fops fops = {
 	.fentrylk    = error_gen_fentrylk,
         .setattr     = error_gen_setattr,
         .fsetattr    = error_gen_fsetattr,
-};
-
-struct xlator_mops mops = {
-	.getspec = error_gen_getspec,
+	.getspec     = error_gen_getspec,
 };
 
 struct xlator_cbks cbks = {

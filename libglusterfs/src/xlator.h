@@ -85,16 +85,12 @@ struct _loc {
 	inode_t    *parent;
 };
 
-typedef int32_t (*mop_getspec_cbk_t) (call_frame_t *frame,
+typedef int32_t (*fop_getspec_cbk_t) (call_frame_t *frame,
 				      void *cookie,
 				      xlator_t *this,
 				      int32_t op_ret,
 				      int32_t op_errno,
 				      char *spec_data);
-
-typedef int32_t (*mop_log_cbk_t) (call_frame_t *frame,
-                                  void *cookie, xlator_t *this,
-                                  int32_t op_ret, int32_t op_errno);
 
 typedef int32_t (*fop_checksum_cbk_t) (call_frame_t *frame,
 				       void *cookie,
@@ -112,20 +108,11 @@ typedef int32_t (*fop_rchecksum_cbk_t) (call_frame_t *frame,
                                         uint32_t weak_checksum,
                                         uint8_t *strong_checksum);
 
-typedef int32_t (*mop_setvolume_t) (call_frame_t *frame,
-				    xlator_t *this,
-				    const char *volume);
 
-
-typedef int32_t (*mop_getspec_t) (call_frame_t *frame,
+typedef int32_t (*fop_getspec_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  const char *key,
 				  int32_t flag);
-
-typedef int32_t (*mop_log_t) (call_frame_t *frame,
-                              xlator_t *this,
-                              const char *msg);
-
 typedef int32_t (*fop_checksum_t) (call_frame_t *frame,
 				   xlator_t *this,
 				   loc_t *loc,
@@ -135,14 +122,6 @@ typedef int32_t (*fop_rchecksum_t) (call_frame_t *frame,
                                     xlator_t *this,
                                     fd_t *fd, off_t offset,
                                     int32_t len);
-
-struct xlator_mops {
-	mop_getspec_t          getspec;
-        mop_log_t              log;
-
-        mop_log_cbk_t          log_cbk;
-	mop_getspec_cbk_t      getspec_cbk;
-};
 
 
 typedef int32_t (*fop_lookup_cbk_t) (call_frame_t *frame,
@@ -709,6 +688,7 @@ struct xlator_fops {
 	fop_fxattrop_t       fxattrop;
         fop_setattr_t        setattr;
         fop_fsetattr_t       fsetattr;
+        fop_getspec_t        getspec;
 
 	/* these entries are used for a typechecking hack in STACK_WIND _only_ */
 	fop_lookup_cbk_t         lookup_cbk;
@@ -752,6 +732,7 @@ struct xlator_fops {
 	fop_fxattrop_cbk_t       fxattrop_cbk;
         fop_setattr_cbk_t        setattr_cbk;
         fop_fsetattr_cbk_t       fsetattr_cbk;
+        fop_getspec_cbk_t        getspec_cbk;
 };
 
 typedef int32_t (*cbk_forget_t) (xlator_t *this,
@@ -839,7 +820,6 @@ struct _xlator {
 
 	/* Set after doing dlopen() */
 	struct xlator_fops    *fops;
-	struct xlator_mops    *mops;
 	struct xlator_cbks    *cbks;
 	struct xlator_dumpops *dumpops;
 	struct list_head      volume_options;  /* list of volume_option_t */

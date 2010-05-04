@@ -1137,9 +1137,6 @@ struct xlator_fops fops = {
 	.statfs      = quota_statfs,
 };
 
-struct xlator_mops mops = {
-};
-
 struct xlator_cbks cbks = {
 	.release     = quota_release
 };

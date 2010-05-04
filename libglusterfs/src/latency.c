@@ -31,8 +31,7 @@
 
 
 void
-gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops,
-                            struct xlator_mops *mops, void *fn)
+gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops, void *fn)
 {
         glusterfs_fop_t fop = -1;
 
@@ -118,15 +117,10 @@ gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops,
                 fop = GF_FOP_FSETATTR;
         else if (fops->readdirp == fn)
                 fop = GF_FOP_READDIRP;
-        else {
-                if (mops->getspec == fn)
-                        fop = GF_MOP_GETSPEC;
-                else if (mops->log == fn)
-                        fop = GF_MOP_LOG;
-                else {
-                        fop = -1;
-                }
-        }
+        else if (fops->getspec == fn)
+                fop = GF_FOP_GETSPEC;
+        else
+                fop = -1;
 
         frame->op   = fop;
 }
