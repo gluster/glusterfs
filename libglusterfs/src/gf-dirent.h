@@ -57,8 +57,6 @@ struct _gf_dirent_t {
 
 gf_dirent_t *gf_dirent_for_name (const char *name);
 void gf_dirent_free (gf_dirent_t *entries);
-int gf_dirent_serialize (gf_dirent_t *entries, char *buf, size_t size);
-int gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t size);
 gf_dirent_t * gf_dirent_for_namelen (int len);
 
 #endif /* _GF_DIRENT_H */

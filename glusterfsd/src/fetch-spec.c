@@ -30,7 +30,6 @@
 #include "glusterfs.h"
 #include "stack.h"
 #include "dict.h"
-#include "transport.h"
 #include "event.h"
 #include "defaults.h"
 

@@ -59,7 +59,6 @@
 #include "compat.h"
 #include "logging.h"
 #include "dict.h"
-#include "protocol.h"
 #include "list.h"
 #include "timer.h"
 #include "glusterfsd.h"
