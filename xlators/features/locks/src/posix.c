@@ -76,7 +76,7 @@ pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int
 truncate_allowed (pl_inode_t *pl_inode,
-                  transport_t *transport, pid_t client_pid,
+                  void *transport, pid_t client_pid,
                   uint64_t owner, off_t offset)
 {
         posix_lock_t *l = NULL;
@@ -277,7 +277,7 @@ delete_locks_of_fd (xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
 
 static void
 __delete_locks_of_owner (pl_inode_t *pl_inode,
-                         transport_t *transport, uint64_t owner)
+                         void *transport, uint64_t owner)
 {
         posix_lock_t *tmp = NULL;
         posix_lock_t *l = NULL;
@@ -748,7 +748,7 @@ int
 pl_lk (call_frame_t *frame, xlator_t *this,
        fd_t *fd, int32_t cmd, struct flock *flock)
 {
-        transport_t           *transport = NULL;
+        void                  *transport = NULL;
         pid_t                  client_pid = 0;
         uint64_t               owner      = 0;
         posix_locks_private_t *priv = NULL;

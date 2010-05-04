@@ -35,7 +35,7 @@
 
 static pl_entry_lock_t *
 new_entrylk_lock (pl_inode_t *pinode, const char *basename, entrylk_type type,
-		  transport_t *trans, pid_t client_pid, uint64_t owner, const char *volume)
+		  void *trans, pid_t client_pid, uint64_t owner, const char *volume)
 
 {
 	pl_entry_lock_t *newlock = NULL;
@@ -318,7 +318,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 {
 	pl_entry_lock_t *lock       = NULL;
 	pl_entry_lock_t *conf       = NULL;
-	transport_t     *trans      = NULL;
+	void            *trans      = NULL;
         pid_t            client_pid = 0;
         uint64_t         owner      = 0;
 
@@ -508,7 +508,7 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 static int
 release_entry_locks_for_transport (xlator_t *this, pl_inode_t *pinode,
-				   pl_dom_list_t *dom, transport_t *trans)
+				   pl_dom_list_t *dom, void *trans)
 {
 	pl_entry_lock_t  *lock = NULL;
 	pl_entry_lock_t  *tmp = NULL;
@@ -589,7 +589,7 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
 
-	transport_t * transport = NULL;
+	void *        transport = NULL;
 	pid_t         pid       = -1;
         uint64_t      owner     = -1;
 

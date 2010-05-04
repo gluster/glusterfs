@@ -452,7 +452,7 @@ out:
 
 /* Create a new posix_lock_t */
 posix_lock_t *
-new_posix_lock (struct flock *flock, transport_t *transport, pid_t client_pid,
+new_posix_lock (struct flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, fd_t *fd)
 {
 	posix_lock_t *lock = NULL;
