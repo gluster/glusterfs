@@ -27,7 +27,6 @@
 #endif
 
 #include "event.h"
-#include "transport.h"
 #include "logging.h"
 #include "dict.h"
 #include "mem-pool.h"

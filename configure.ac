@@ -65,10 +65,22 @@ AC_CONFIG_FILES([Makefile
 		xlators/debug/io-stats/Makefile
 		xlators/debug/io-stats/src/Makefile
 		xlators/protocol/Makefile
+		xlators/protocol/lib/Makefile
+		xlators/protocol/lib/src/Makefile
+		xlators/protocol/transport/Makefile
+		xlators/protocol/transport/socket/Makefile
+		xlators/protocol/transport/socket/src/Makefile
+		xlators/protocol/transport/ib-verbs/Makefile
+		xlators/protocol/transport/ib-verbs/src/Makefile
 		xlators/protocol/client/Makefile
 		xlators/protocol/client/src/Makefile
 		xlators/protocol/server/Makefile
 		xlators/protocol/server/src/Makefile
+		xlators/protocol/auth/Makefile
+		xlators/protocol/auth/addr/Makefile
+		xlators/protocol/auth/addr/src/Makefile
+		xlators/protocol/auth/login/Makefile
+		xlators/protocol/auth/login/src/Makefile
 		xlators/features/Makefile
 		xlators/features/locks/Makefile
 		xlators/features/locks/src/Makefile
@@ -81,16 +93,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
-		transport/Makefile
-		transport/socket/Makefile
-		transport/socket/src/Makefile
-		transport/ib-verbs/Makefile
-		transport/ib-verbs/src/Makefile
-		auth/Makefile
-		auth/addr/Makefile
-		auth/addr/src/Makefile
-		auth/login/Makefile
-		auth/login/src/Makefile
 		doc/Makefile
 		doc/examples/Makefile
 		doc/hacker-guide/Makefile
