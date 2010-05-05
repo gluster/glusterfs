@@ -2609,5 +2609,8 @@ struct volume_options options[] = {
                     "unix", "inet-sdp" },
           .type  = GF_OPTION_TYPE_STR 
         },
+        { .key   = {"transport.socket.lowlat"},
+          .type  = GF_OPTION_TYPE_BOOL
+        },
         { .key = {NULL} }
 };
