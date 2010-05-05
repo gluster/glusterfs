@@ -205,6 +205,13 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
 
 	local->call_cnt = conf->subvolume_cnt;
 
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (!conf->subvolume_status[i]) {
+                        op_errno = ENOTCONN;
+                        goto err;
+                }
+        }
+
 	local->fd = fd_create (local->loc.inode, frame->root->pid);
 	if (!local->fd) {
 		gf_log (this->name, GF_LOG_ERROR,
