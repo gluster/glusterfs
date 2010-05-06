@@ -591,7 +591,7 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
                                     st_mode_from_ia (local->stbuf.ia_prot,
                                                      local->stbuf.ia_type), 0);
                 }
-                if (IA_ISREG (local->stbuf.ia_type)) {
+                if (IA_ISDIR (local->stbuf.ia_type)) {
                         STACK_WIND (rframe, stripe_sh_make_entry_cbk,
                                     trav->xlator, trav->xlator->fops->mkdir,
                                     &local->loc, st_mode_from_ia (local->stbuf.ia_prot,
