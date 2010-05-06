@@ -2822,11 +2822,8 @@ nfs3_fh_resolve_entry (nfs3_call_state_t *cs)
                 return ret;
 
         ret = nfs3_fh_resolve_entry_hard (cs);
-        if (ret < 0) {
-                cs->resolve_ret = -1;
-                cs->resolve_errno = ESTALE;
-                nfs3_call_resume (cs);
-        }
+        if (ret < 0)
+		nfs3_call_resume_estale (cs);
 
         return 0;
 }
