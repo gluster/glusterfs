@@ -338,19 +338,19 @@ nfs_entry_loc_fill (inode_table_t *itable, ino_t ino, uint64_t gen, char *entry,
         ret = -2;
         entryinode = inode_grep (itable, parent, entry);
         if (!entryinode) {
-                if (how != NFS_RESOLVE_CREATE)
-                        goto err;
-                else {
+                if (how == NFS_RESOLVE_CREATE) {
                         /* Even though we'll create the inode and the loc for
                          * a missing inode, we still need to return -2 so
                          * that the caller can use the filled loc to call
                          * lookup.
                          */
                         entryinode = inode_new (itable);
-                        nfs_parent_inode_loc_fill (parent, entryinode, entry,
-                                                   loc);
-                        goto err;
+                        ret = nfs_parent_inode_loc_fill (parent, entryinode,
+                                                         entry, loc);
+                        if (ret < 0)
+                                ret = -3;
                 }
+                goto err;
         }
 
         ret = inode_path (parent, entry, &resolvedpath);
