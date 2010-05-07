@@ -260,7 +260,7 @@ nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat, char *linkpath);
 
 extern void
 nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
-                   int is_eof);
+                   int is_eof, struct iovec *vec, int32_t vcount);
 
 extern void
 nfs3_log_write_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,

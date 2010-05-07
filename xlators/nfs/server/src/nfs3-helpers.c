@@ -1529,7 +1529,8 @@ nfs3_fill_read3res (read3res *res, nfsstat3 stat, count3 count,
         res->read3res_u.resok.file_attributes = poa;
         res->read3res_u.resok.count = count;
         res->read3res_u.resok.eof = is_eof;
-        res->read3res_u.resok.data.data_len = count;
+        res->read3res_u.resok.data.data_len = xdr_length_round_up (count,
+                                                                   1048576);
 
 }
 
@@ -2205,13 +2206,18 @@ nfs3_log_readlink_res (uint32_t xid, nfsstat3 stat, int pstat, char *linkpath)
 
 void
 nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
-                   int is_eof)
+                   int is_eof, struct iovec *vec, int32_t veccount)
 {
         char    errstr[1024];
 
         nfs3_stat_to_errstr (xid, "READ", stat, pstat, errstr);
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", is_eof: %d",
-                errstr, count, is_eof);
+        if (vec)
+                gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", is_eof:"
+                        " %d, vector: count: %d, len: %"PRIu64, errstr, count,
+                        is_eof, veccount, vec->iov_len);
+	else
+                gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", is_eof:"
+                        " %d", errstr, count, is_eof);
 }
 
 
