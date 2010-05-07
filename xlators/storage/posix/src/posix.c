@@ -2449,6 +2449,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         struct stat            stbuf      = {0,};
         int                    align      = 1;
         int                    ret        = -1;
+        off_t                  off_ret    = -1;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -2486,8 +2487,9 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
         _fd = pfd->fd;
 
-        op_ret = lseek (_fd, offset, SEEK_SET);
-        if (op_ret == -1) {
+        off_ret = lseek (_fd, offset, SEEK_SET);
+        if (off_ret == -1) {
+                op_ret = -1;
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
 			"lseek(%"PRId64") failed: %s",
@@ -2561,6 +2563,7 @@ posix_writev (call_frame_t *frame, xlator_t *this,
         struct stat            preop    = {0,};
         struct stat            postop    = {0,};
         int                      ret      = -1;
+        off_t                  off_ret  = -1;
 
         int    idx          = 0;
         int    align        = 4096;
@@ -2600,9 +2603,10 @@ posix_writev (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = lseek (_fd, offset, SEEK_SET);
+        off_ret = lseek (_fd, offset, SEEK_SET);
 
-        if (op_ret == -1) {
+        if (off_ret == -1) {
+                op_ret = -1;
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
 			"lseek(%"PRId64") on fd=%p failed: %s",
