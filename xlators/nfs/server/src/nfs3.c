@@ -324,7 +324,7 @@ ret:
 int
 nfs3svc_submit_vector_reply (rpcsvc_request_t *req, void *arg,
                              nfs3_serializer sfunc, struct iovec *payload,
-                             struct iobref *piobref)
+                             int vcount, struct iobref *piobref)
 {
         struct iovec            outmsg = {0, };
         struct iobuf            *iob = NULL;
@@ -343,8 +343,8 @@ nfs3svc_submit_vector_reply (rpcsvc_request_t *req, void *arg,
         iobuf_unref (iob);
 
         if (piobref)
-                ret = rpcsvc_request_attach_vector (req, *payload, NULL, piobref
-                                                    , 1);
+                ret = rpcsvc_request_attach_vectors (req, payload, vcount,
+                                                     piobref);
 
         if (ret == -1)
                 goto err;
@@ -1362,8 +1362,8 @@ rpcerr:
 
 
 int
-nfs3_read_reply (rpcsvc_request_t *req, nfsstat3 stat,
-                 count3 count, struct iovec *vec, struct iobref *iobref,
+nfs3_read_reply (rpcsvc_request_t *req, nfsstat3 stat, count3 count,
+                 struct iovec *vec, int vcount, struct iobref *iobref,
                  struct iatt *poststat, int is_eof)
 {
         read3res                res = {0, };
@@ -1376,11 +1376,10 @@ nfs3_read_reply (rpcsvc_request_t *req, nfsstat3 stat,
                  * would be 0 and count = 0.
                  */
                 if (count != 0) {
-                        xdr_bytes_round_up (vec, 1048576);
                         nfs3svc_submit_vector_reply (req, (void *)&res,
                                                      (nfs3_serializer)
                                                   xdr_serialize_read3res_nocopy,
-                                                    vec, iobref);
+                                                    vec, vcount, iobref);
                 } else
                         nfs3svc_submit_reply (req, (void *)&res,
                                               (nfs3_serializer)
@@ -1415,8 +1414,9 @@ nfs3svc_read_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 err:
         nfs3_log_read_res (rpcsvc_request_xid (cs->req), stat, op_errno,
-                           op_ret, is_eof);
-        nfs3_read_reply (cs->req, stat, op_ret, vector, iobref, stbuf, is_eof);
+                           op_ret, is_eof, vector, count);
+        nfs3_read_reply (cs->req, stat, op_ret, vector, count, iobref, stbuf,
+                         is_eof);
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -1445,7 +1445,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req), "READ", stat,
                                      -ret);
-                nfs3_read_reply (cs->req, stat, 0, NULL, NULL, NULL, 0);
+                nfs3_read_reply (cs->req, stat, 0, NULL, 0, NULL, NULL, 0);
                 nfs3_call_state_wipe (cs);
         }
 
@@ -1473,7 +1473,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req), "READ", stat,
                                      -ret);
-                nfs3_read_reply (cs->req, stat, 0, NULL, NULL, NULL, 0);
+                nfs3_read_reply (cs->req, stat, 0, NULL,0, NULL, NULL, 0);
                 nfs3_call_state_wipe (cs);
         }
 
@@ -1512,7 +1512,7 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (req), "READ", stat,
                                      -ret);
-                nfs3_read_reply (req, stat, 0, NULL, NULL, NULL, 0);
+                nfs3_read_reply (req, stat, 0, NULL,0, NULL, NULL, 0);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
