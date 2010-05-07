@@ -34,6 +34,8 @@
 #define AF_INET_SDP 27
 #endif
 
+static int gf_name_addr_enotspec_log;
+
 #include "transport.h"
 #include "socket.h"
 
@@ -139,13 +141,14 @@ client_fill_address_family (transport_t *this, sa_family_t *sa_family)
 
                 if (!(remote_host_data || connect_path_data) || 
                     (remote_host_data && connect_path_data)) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
-                                "transport.address-family not specified and "
-                                "not able to determine the "
-                                "same from other options (remote-host:%s and "
-                                "transport.unix.connect-path:%s)", 
-                                data_to_str (remote_host_data), 
-                                data_to_str (connect_path_data));
+                        GF_LOG_OCCASIONALLY (gf_name_addr_enotspec_log, 
+                                             this->xl->name, GF_LOG_ERROR,
+                                             "transport.address-family not specified and "
+                                             "not able to determine the "
+                                             "same from other options (remote-host:%s and "
+                                             "transport.unix.connect-path:%s)", 
+                                             data_to_str (remote_host_data), 
+                                             data_to_str (connect_path_data));
                         goto out;
                 } 
 

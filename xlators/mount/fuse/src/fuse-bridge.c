@@ -68,6 +68,8 @@
 
 #define MAX_FUSE_PROC_DELAY 1
 
+static int gf_fuse_conn_err_log;
+
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
                                void *msg);
@@ -719,11 +721,13 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 send_fuse_data (this, finh, &fao,
                                 FUSE_COMPAT_ATTR_OUT_SIZE);
         } else {
-                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
-                        gf_fop_list[frame->root->op],
-                        state->loc.path ? state->loc.path : "ERR",
-                        strerror (op_errno));
+                GF_LOG_OCCASIONALLY ( gf_fuse_conn_err_log, "glusterfs-fuse", 
+                                      GF_LOG_WARNING, 
+                                      "%"PRIu64": %s() %s => -1 (%s)", 
+                                      frame->root->unique,
+                                      gf_fop_list[frame->root->op],
+                                      state->loc.path ? state->loc.path : "ERR",
+                                      strerror (op_errno));
 
                 send_fuse_err (this, finh, op_errno);
         }
