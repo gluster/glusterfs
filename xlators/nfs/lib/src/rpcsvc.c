@@ -1647,6 +1647,33 @@ rpcsvc_request_attach_vector (rpcsvc_request_t *req, struct iovec msgvec,
 
 
 int
+rpcsvc_request_attach_vectors (rpcsvc_request_t *req, struct iovec *payload,
+                               int vcount, struct iobref *piobref)
+{
+        int     c = 0;
+        int     ret = -1;
+
+        for (;c < (vcount-1); c++) {
+                ret = rpcsvc_request_attach_vector (req, payload[c], NULL,
+                                                    piobref, 0);
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to attach "
+                                "vector");
+                        goto out;
+                }
+        }
+
+        ret = rpcsvc_request_attach_vector (req, payload[vcount-1], NULL,
+                                            piobref, 1);
+        if (ret < 0)
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to attach final vec");
+
+out:
+	return ret;
+}
+
+
+int
 rpcsvc_submit_vectors (rpcsvc_request_t *req)
 {
         int                     ret = -1;

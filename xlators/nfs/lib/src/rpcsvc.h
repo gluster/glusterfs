@@ -643,7 +643,9 @@ extern int rpcsvc_submit_vectors (rpcsvc_request_t *req);
 extern int rpcsvc_request_attach_vector (rpcsvc_request_t *req,
                                          struct iovec msgvec, struct iobuf *iob,
                                          struct iobref *ioref, int finalvector);
-
+extern int
+rpcsvc_request_attach_vectors (rpcsvc_request_t *req, struct iovec *payload,
+                               int vcount, struct iobref *piobref);
 
 typedef int (*auth_init_conn) (rpcsvc_conn_t *conn, void *priv);
 typedef int (*auth_init_request) (rpcsvc_request_t *req, void *priv);
