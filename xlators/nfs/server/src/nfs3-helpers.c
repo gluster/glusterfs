@@ -1529,9 +1529,7 @@ nfs3_fill_read3res (read3res *res, nfsstat3 stat, count3 count,
         res->read3res_u.resok.file_attributes = poa;
         res->read3res_u.resok.count = count;
         res->read3res_u.resok.eof = is_eof;
-        res->read3res_u.resok.data.data_len = xdr_length_round_up (count,
-                                                                   1048576);
-
+        res->read3res_u.resok.data.data_len = count;
 }
 
 
