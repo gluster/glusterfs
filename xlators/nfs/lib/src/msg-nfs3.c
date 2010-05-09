@@ -534,25 +534,3 @@ xdr_serialize_nfsstat3 (struct iovec outmsg, nfsstat3 *s)
 }
 
 
-ssize_t
-xdr_length_round_up (size_t len, size_t bufsize)
-{
-        int     roundup = 0;
-
-        roundup = len % XDR_BYTES_PER_UNIT;
-        if (roundup > 0)
-                roundup = XDR_BYTES_PER_UNIT - roundup;
-
-        if ((roundup > 0) && ((roundup + len) <= bufsize))
-                len += roundup;
-
-        return len;
-}
-
-int
-xdr_bytes_round_up (struct iovec *vec, size_t bufsize)
-{
-        vec->iov_len = xdr_length_round_up (vec->iov_len, bufsize);
-        return 0;
-}
-

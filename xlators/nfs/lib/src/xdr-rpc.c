@@ -188,3 +188,37 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
         return 0;
 }
 
+ssize_t
+xdr_length_round_up (size_t len, size_t bufsize)
+{
+        int     roundup = 0;
+
+        roundup = len % XDR_BYTES_PER_UNIT;
+        if (roundup > 0)
+                roundup = XDR_BYTES_PER_UNIT - roundup;
+
+        if ((roundup > 0) && ((roundup + len) <= bufsize))
+                len += roundup;
+
+        return len;
+}
+
+int
+xdr_bytes_round_up (struct iovec *vec, size_t bufsize)
+{
+        vec->iov_len = xdr_length_round_up (vec->iov_len, bufsize);
+        return 0;
+}
+
+void
+xdr_vector_round_up (struct iovec *vec, int vcount, uint32_t count)
+{
+        uint32_t round_count = 0;
+
+        round_count = xdr_length_round_up (count, 1048576);
+        round_count -= count;
+        if (round_count == 0)
+                return;
+
+        vec[vcount-1].iov_len += round_count;
+}
