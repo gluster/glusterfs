@@ -324,6 +324,7 @@ nfs_entry_loc_fill (inode_table_t *itable, ino_t ino, uint64_t gen, char *entry,
         inode_t         *entryinode = NULL;
         int             ret = -3;
         char            *resolvedpath = NULL;
+        int             pret = -3;
 
         if ((!itable) || (!entry) || (!loc))
                 return ret;
@@ -345,10 +346,17 @@ nfs_entry_loc_fill (inode_table_t *itable, ino_t ino, uint64_t gen, char *entry,
                          * lookup.
                          */
                         entryinode = inode_new (itable);
-                        ret = nfs_parent_inode_loc_fill (parent, entryinode,
-                                                         entry, loc);
-                        if (ret < 0)
-                                ret = -3;
+                        /* Cannot change ret because that must
+                         * continue to have -2.
+                         */
+                        pret = nfs_parent_inode_loc_fill (parent, entryinode,
+                                                          entry, loc);
+                        /* Only if parent loc fill fails, should we notify error
+                         * through ret, otherwise, we still need to force a
+                         * lookup by returning -2.
+                         */
+                        if (pret < 0)
+			         ret = -3;
                 }
                 goto err;
         }
