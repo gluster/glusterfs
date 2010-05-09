@@ -183,10 +183,4 @@ xdr_serialize_mountstat3 (struct iovec outmsg, mountstat3 *m);
 
 extern ssize_t
 xdr_serialize_nfsstat3 (struct iovec outmsg, nfsstat3 *s);
-
-extern int
-xdr_bytes_round_up (struct iovec *vec, size_t bufsize);
-
-extern ssize_t
-xdr_length_round_up (size_t len, size_t bufsize);
 #endif

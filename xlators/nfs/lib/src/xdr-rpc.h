@@ -71,4 +71,12 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
 #define rpc_call_verf_flavour(call)     (rpc_opaque_auth_flavour ((&(call)->ru.RM_cmb.cb_verf)))
 #define rpc_call_verf_len(call)         (rpc_opaque_auth_len ((&(call)->ru.RM_cmb.cb_verf)))
 
+extern int
+xdr_bytes_round_up (struct iovec *vec, size_t bufsize);
+
+extern ssize_t
+xdr_length_round_up (size_t len, size_t bufsize);
+
+void
+xdr_vector_round_up (struct iovec *vec, int vcount, uint32_t count);
 #endif
