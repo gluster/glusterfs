@@ -1372,6 +1372,7 @@ nfs3_read_reply (rpcsvc_request_t *req, nfsstat3 stat, count3 count,
         xlid = nfs3_request_xlator_id (req);
         nfs3_fill_read3res (&res, stat, count, poststat, is_eof, xlid);
         if (stat == NFS3_OK) {
+                xdr_vector_round_up (vec, vcount, count);
                 /* iob can be zero if the file size was zero. If so, op_ret
                  * would be 0 and count = 0.
                  */
