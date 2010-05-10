@@ -2211,9 +2211,9 @@ nfs3_log_read_res (uint32_t xid, nfsstat3 stat, int pstat, count3 count,
         nfs3_stat_to_errstr (xid, "READ", stat, pstat, errstr);
         if (vec)
                 gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", is_eof:"
-                        " %d, vector: count: %d, len: %"PRIu64, errstr, count,
+                        " %d, vector: count: %d, len: %zd", errstr, count,
                         is_eof, veccount, vec->iov_len);
-	else
+        else
                 gf_log (GF_NFS3, GF_LOG_DEBUG, "%s, count: %"PRIu32", is_eof:"
                         " %d", errstr, count, is_eof);
 }
