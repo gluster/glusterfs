@@ -32,6 +32,7 @@
 
 #include <sys/time.h>
 
+static int gf_log_subvol_full;
 
 int 
 dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -211,11 +212,12 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 
         if (subvol_filled) {
                 if (!(conf->du_stats[i].log++ % (GF_UNIVERSAL_ANSWER * 10))) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "disk space on subvolume '%s' is getting "
-                                "full (%.2f %%), consider adding more nodes", 
-                                subvol->name, 
-                                (100 - conf->du_stats[i].avail_percent));
+		  GF_LOG_OCCASIONALLY (gf_log_subvol_full,
+				       this->name, GF_LOG_WARNING,
+				       "disk space on subvolume '%s' is getting "
+				       "full (%.2f %%), consider adding more nodes", 
+				       subvol->name, 
+				       (100 - conf->du_stats[i].avail_percent));
                 }
         }
 
