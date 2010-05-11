@@ -2641,8 +2641,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 			server_lookup_cbk (stub->frame, NULL,
                                            stub->frame->this, -1, ENOENT,
 					   NULL, NULL, NULL);
-			server_loc_wipe (&stub->args.lookup.loc);
-			FREE (stub);
+			call_stub_destroy(stub);
 			return 0;
 		}
 		
@@ -2701,8 +2700,7 @@ server_stub_resume (call_stub_t *stub, int32_t op_ret, int32_t op_errno,
 			server_xattrop_cbk (stub->frame, NULL,
                                             stub->frame->this, -1, ENOENT,
                                             NULL);
-			server_loc_wipe (&stub->args.xattrop.loc);
-			FREE (stub);
+			call_stub_destroy(stub);
 			return 0;
 		}
 
