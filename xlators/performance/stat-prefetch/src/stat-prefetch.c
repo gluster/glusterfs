@@ -1678,7 +1678,7 @@ sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       &looked_up, NULL, &op_errno);
 
 out:
-	STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
+	SP_STACK_UNWIND (frame, op_ret, op_errno, inode, buf);
 	return 0;
 }
 
