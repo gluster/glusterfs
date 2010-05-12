@@ -3025,7 +3025,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
 {
         struct posix_private *priv  = NULL;
         int32_t  op_ret         = -1;
-        int32_t  op_errno       = ENOENT;
+        int32_t  op_errno       = 0;
         int32_t  list_offset    = 0;
         size_t   size           = 0;
         size_t   remaining_size = 0;
@@ -3134,8 +3134,11 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 }
 
                 op_ret = sys_lgetxattr (real_path, key, value, op_ret);
-                if (op_ret == -1)
+                if (op_ret == -1) {
+                        op_errno = errno;
+
                         break;
+                }
 
                 value [op_ret] = '\0';
                 if (strcmp (key, gen_key) != 0)

@@ -53,9 +53,6 @@
 #include "list.h"
 #include "dict.h"
 
-#include "compat.h"
-#include "compat-errno.h"
-
 /* TODO: when supporting posix acl, remove this definition */
 #define DISABLE_POSIX_ACL
 
@@ -69,6 +66,7 @@
 #define MAX_FUSE_PROC_DELAY 1
 
 static int gf_fuse_conn_err_log;
+static int gf_fuse_xattr_enotsup_log;
 
 typedef struct fuse_in_header fuse_in_header_t;
 typedef void (fuse_handler_t) (xlator_t *this, fuse_in_header_t *finh,
@@ -1087,60 +1085,6 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 }
 
 
-static int gf_fuse_xattr_enotsup_log;
-static int
-fuse_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                struct iatt *postbuf)
-{
-        fuse_state_t *state = frame->root->state;
-        fuse_in_header_t *finh = state->finh;
-
-        if (op_ret == 0) {
-                gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                        "%"PRIu64": %s() %s => 0", frame->root->unique,
-                        gf_fop_list[frame->root->op],
-                        state->loc.path ? state->loc.path : "ERR");
-
-                send_fuse_err (this, finh, 0);
-        } else {
-                if (frame->root->op == GF_FOP_SETXATTR) {
-                        op_ret = gf_compat_setxattr (state->dict);
-                        if (op_ret == 0)
-                                op_errno = 0;
-                        if (op_errno == ENOTSUP) {
-                                gf_fuse_xattr_enotsup_log++;
-                                if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
-                                        gf_log ("glusterfs-fuse",
-                                                GF_LOG_CRITICAL,
-                                                "extended attribute not "
-                                                "supported by the backend "
-                                                "storage");
-                        }
-                } else {
-                        if ((frame->root->op == GF_FOP_REMOVEXATTR)
-                            && (op_errno == ENOATTR)) {
-                                goto nolog;
-                        }
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%"PRIu64": %s() %s => -1 (%s)",
-                                frame->root->unique,
-                                gf_fop_list[frame->root->op],
-                                state->loc.path ? state->loc.path : "ERR",
-                                strerror (op_errno));
-                }
-        nolog:
-
-                send_fuse_err (this, finh, op_errno);
-        }
-
-        free_state (state);
-        STACK_DESTROY (frame->root);
-
-        return 0;
-}
-
-
 static int
 fuse_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
               int32_t op_ret, int32_t op_errno)
@@ -1156,32 +1100,12 @@ fuse_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 send_fuse_err (this, finh, 0);
         } else {
-                if (frame->root->op == GF_FOP_SETXATTR) {
-                        op_ret = gf_compat_setxattr (state->dict);
-                        if (op_ret == 0)
-                                op_errno = 0;
-                        if (op_errno == ENOTSUP) {
-                                gf_fuse_xattr_enotsup_log++;
-                                if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
-                                        gf_log ("glusterfs-fuse",
-                                                GF_LOG_CRITICAL,
-                                                "extended attribute not "
-                                                "supported by the backend "
-                                                "storage");
-                        }
-                } else {
-                        if ((frame->root->op == GF_FOP_REMOVEXATTR)
-                            && (op_errno == ENOATTR)) {
-                                goto nolog;
-                        }
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%"PRIu64": %s() %s => -1 (%s)",
-                                frame->root->unique,
-                                gf_fop_list[frame->root->op],
-                                state->loc.path ? state->loc.path : "ERR",
-                                strerror (op_errno));
-                }
-        nolog:
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": %s() %s => -1 (%s)",
+                        frame->root->unique,
+                        gf_fop_list[frame->root->op],
+                        state->loc.path ? state->loc.path : "ERR",
+                        strerror (op_errno));
 
                 send_fuse_err (this, finh, op_errno);
         }
@@ -1190,6 +1114,29 @@ fuse_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_DESTROY (frame->root);
 
         return 0;
+}
+
+
+static int
+fuse_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                struct iatt *postbuf)
+{
+        return fuse_err_cbk (frame, cookie, this, op_ret, op_errno);
+}
+
+
+static int
+fuse_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno)
+{
+        if (op_ret == -1 && op_errno == ENOTSUP)
+                GF_LOG_OCCASIONALLY (gf_fuse_xattr_enotsup_log,
+                                     "glusterfs-fuse", GF_LOG_CRITICAL,
+                                     "extended attribute not supported "
+                                     "by the backend storage");
+
+        return fuse_err_cbk (frame, cookie, this, op_ret, op_errno);
 }
 
 
@@ -2448,7 +2395,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 "%"PRIu64": SETXATTR %s/%"PRIu64" (%s)", finh->unique,
                 state->loc.path, finh->nodeid, name);
 
-        FUSE_FOP (state, fuse_err_cbk, GF_FOP_SETXATTR,
+        FUSE_FOP (state, fuse_setxattr_cbk, GF_FOP_SETXATTR,
                   setxattr, &state->loc, state->dict, fsi->flags);
 
         return;
@@ -2485,47 +2432,19 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char           *value = "";
         fuse_state_t   *state = NULL;
         fuse_in_header_t *finh = NULL;
-        int32_t         dummy_ret = 0;
         data_t         *value_data = NULL;
         fuse_private_t *priv = NULL;
         struct stat     st;
         char           *file = NULL;
         int32_t         fd = -1;
-        int             ret = -1;
         int32_t         len = 0;
         data_pair_t    *trav = NULL;
 
         priv  = this->private;
-        ret   = op_ret;
         state = frame->root->state;
         finh  = state->finh;
-        dummy_ret = 0;
 
-#ifdef GF_DARWIN_HOST_OS
-        /* This is needed in MacFuse, where MacOSX Finder needs some specific
-         * keys to be supported from FS
-         */
-
-        if (state->name) {
-                if (!dict) {
-                        dict = get_new_dict ();
-                        need_to_free_dict = 1;
-                }
-                dummy_ret = gf_compat_getxattr (state->name, dict);
-                if (dummy_ret != -1)
-                        ret = dummy_ret;
-        } else {
-                if (!dict) {
-                        dict = get_new_dict ();
-                        need_to_free_dict = 1;
-                }
-                dummy_ret = gf_compat_listxattr (ret, dict, state->size);
-                if (dummy_ret != -1)
-                        ret = dummy_ret;
-        }
-#endif /* DARWIN */
-
-        if (ret >= 0) {
+        if (op_ret >= 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": %s() %s => %d", frame->root->unique,
                         gf_fop_list[frame->root->op], state->loc.path, op_ret);
@@ -2535,17 +2454,15 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* if callback for getxattr */
                         value_data = dict_get (dict, state->name);
                         if (value_data) {
-                                ret = value_data->len; /* Don't return the value for '\0' */
-                                value = value_data->data;
-
-                                send_fuse_xattr (this, finh, value, ret, state->size);
-                                /* if(ret >...)...else if...else */
+                                send_fuse_xattr (this, finh, value_data->data,
+                                                 value_data->len, /* Don't return the value for '\0' */
+                                                 state->size);
+                                /* if(op_ret >...)...else if...else */
                         }  else if (!strcmp (state->name, "user.glusterfs-booster-volfile")) {
                                 if (!priv->volfile) {
                                         memset (&st, 0, sizeof (st));
                                         fd = fileno (this->ctx->specfp);
-                                        ret = fstat (fd, &st);
-                                        if (ret != 0) {
+                                        if (fstat (fd, &st) != 0) {
                                                 gf_log (this->name,
                                                         GF_LOG_ERROR,
                                                         "fstat on fd (%d) failed (%s)", fd, strerror (errno));
@@ -2555,15 +2472,15 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         priv->volfile_size = st.st_size;
                                         file = priv->volfile = GF_CALLOC (1, priv->volfile_size,
                                                                           gf_fuse_mt_char);
-                                        ret = lseek (fd, 0, SEEK_SET);
-                                        while ((ret = read (fd, file, GF_UNIT_KB)) > 0) {
-                                                file += ret;
+                                        len = lseek (fd, 0, SEEK_SET);
+                                        while ((len = read (fd, file, GF_UNIT_KB)) > 0) {
+                                                file += len;
                                         }
                                 }
 
                                 send_fuse_xattr (this, finh, priv->volfile,
                                                  priv->volfile_size, state->size);
-                                /* if(ret >...)...else if...else */
+                                /* if(op_ret >...)...else if...else */
                         } else if (!strcmp (state->name, "user.glusterfs-booster-path")) {
                                 send_fuse_xattr (this, finh, state->loc.path,
                                                  strlen (state->loc.path) + 1, state->size);
@@ -2597,12 +2514,12 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_errno != ENODATA) {
                         if (op_errno == ENOTSUP)
                         {
-                                gf_fuse_xattr_enotsup_log++;
-                                if (!(gf_fuse_xattr_enotsup_log % GF_UNIVERSAL_ANSWER))
-                                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                                                "extended attribute not "
-                                                "supported by the backend "
-                                                "storage");
+                                GF_LOG_OCCASIONALLY (gf_fuse_xattr_enotsup_log,
+                                                     "glusterfs-fuse",
+                                                     GF_LOG_ERROR,
+                                                     "extended attribute not "
+                                                     "supported by the backend "
+                                                     "storage");
                         }
                         else
                         {
