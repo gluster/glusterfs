@@ -142,6 +142,8 @@ static struct argp_option gf_options[] = {
          "Add/override a translator option for a volume with specified value"},
         {"read-only", ARGP_READ_ONLY_KEY, 0, 0,
          "Mount the filesystem in 'read-only' mode"},
+        {"mac-compat", ARGP_MAC_COMPAT_KEY, 0, 0,
+         "Provide stubs for attributes needed for seamless operation on Macs"},
 
         {0, 0, 0, 0, "Fuse options:"},
         {"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0,
@@ -373,15 +375,21 @@ _add_fuse_mount (xlator_t *graph)
 }
 
 static xlator_t *
-_add_ro_volume (xlator_t *graph)
+_add_volume (xlator_t *graph, const char *voltype)
 {
         cmd_args_t      *cmd_args = NULL;
         xlator_t        *top = NULL;
         glusterfs_ctx_t *ctx = NULL;
         xlator_list_t   *xlchild = NULL;
+        char            *shortvoltype = (char *)voltype;
 
         ctx = graph->ctx;
         cmd_args = &ctx->cmd_args;
+        for (;;) {
+                if (*(shortvoltype++) == '/')
+                        break;
+                assert (*shortvoltype);
+        }
 
         xlchild = CALLOC (sizeof (*xlchild), 1);
         if (!xlchild) {
@@ -390,12 +398,13 @@ _add_ro_volume (xlator_t *graph)
         xlchild->xlator = graph;
 
         top = CALLOC (1, sizeof (*top));
-        top->name = strdup ("read-only");
-        if (xlator_set_type (top, ZR_XLATOR_READ_ONLY) == -1) {
+        top->name = strdup (shortvoltype);
+        if (xlator_set_type (top, voltype) == -1) {
                 fprintf (stderr,
-                         "read-only volume initialization failed");
+                         "%s volume initialization failed",
+                         shortvoltype);
                 gf_log ("glusterfs", GF_LOG_ERROR,
-                        "read-only initialization failed");
+                        "%s initialization failed", shortvoltype);
                 return NULL;
         }
         top->children = xlchild;
@@ -841,6 +850,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
         case ARGP_READ_ONLY_KEY:
                 cmd_args->read_only = 1;
+                break;
+
+        case ARGP_MAC_COMPAT_KEY:
+                cmd_args->mac_compat = 1;
                 break;
 
         case ARGP_VOLUME_FILE_KEY:
@@ -1362,27 +1375,19 @@ main (int argc, char *argv[])
                          "on client side, exiting\n");
                 return -1;
         }
-        if (!fuse_volume_found && (cmd_args->mount_point != NULL)) {
+        if (cmd_args->mac_compat)
+                graph = _add_volume (graph, ZR_XLATOR_MAC_COMPAT);
+        if (graph && !fuse_volume_found && (cmd_args->mount_point != NULL)) {
                 /* Check for read-only option and add a read-only translator */
-                if (cmd_args->read_only) {
-                        if ((graph = _add_ro_volume (graph)) == NULL) {
-                                /* _add_fuse_mount() prints necessary
-                                 * error message
-                                 */
-                                fprintf (stderr,
-                                         "failed to load 'ro' option. exiting\n");
-                                gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
-                                return -1;
-                        }
-                }
-                if ((graph = _add_fuse_mount (graph)) == NULL) {
-                        /* _add_fuse_mount() prints necessary
-                         * error message
-                         */
-                        fprintf (stderr, "exiting\n");
-                        gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
-                        return -1;
-                }
+                if (cmd_args->read_only)
+                        graph = _add_volume (graph, ZR_XLATOR_READ_ONLY);
+                if (graph)
+                        graph = _add_fuse_mount (graph);
+        }
+        if (!graph) {
+                fprintf (stderr, "failed to complete xlator graph, exiting\n");
+                gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
+                return -1;
         }
 
         /* daemonize now */

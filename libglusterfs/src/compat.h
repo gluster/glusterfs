@@ -321,36 +321,6 @@ dirent_size (struct dirent *entry)
 }
 
 
-static inline int32_t
-gf_compat_getxattr (const char *key, dict_t *dict)
-{
-#ifdef GF_DARWIN_HOST_OS
-  return gf_darwin_compat_getxattr (key, dict);
-#endif
-  return -1;
-}
-
-
-static inline int32_t
-gf_compat_setxattr (dict_t *dict)
-{
-#ifdef GF_DARWIN_HOST_OS
-  return gf_darwin_compat_setxattr (dict);
-#endif
-  return -1;
-}
-
-
-static inline int32_t
-gf_compat_listxattr (int len, dict_t *dict, int size)
-{
-#ifdef GF_DARWIN_HOST_OS
-  return gf_darwin_compat_listxattr (len, dict, size);
-#endif
-  return len;
-}
-
-
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 /* Linux, Solaris, Cygwin */
 #define ST_ATIM_NSEC(stbuf) ((stbuf)->st_atim.tv_nsec)

@@ -210,6 +210,7 @@ struct _cmd_args {
 	char            *run_id;
 	int              debug_mode;
         int              read_only;
+        int              mac_compat;
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */
