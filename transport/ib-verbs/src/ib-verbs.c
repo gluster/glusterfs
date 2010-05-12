@@ -33,6 +33,8 @@
 #include "ib-verbs.h"
 #include <signal.h>
 
+static int gf_ib_connfail_log;
+
 int32_t
 gf_resolve_ip6 (const char *hostname, 
                 uint16_t port, 
@@ -2015,9 +2017,11 @@ tcp_connect_finish (transport_t *this)
                 }
 
                 if (ret == -1 && errno != EINPROGRESS) {
-                        gf_log (this->xl->name, GF_LOG_ERROR,
-                                "tcp connect to %s failed (%s)", 
-                                this->peerinfo.identifier, strerror (errno));
+		        GF_LOG_OCCASIONALLY (gf_ib_connfail_log, 
+					     this->xl->name, GF_LOG_ERROR,
+					     "tcp connect to %s failed (%s)", 
+					     this->peerinfo.identifier, 
+					     strerror (errno));
                         error = 1;
                 }
         }
