@@ -202,119 +202,36 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct stat *postparent)
 {
         dht_local_t  *local         = NULL;
-        int           this_call_cnt = 0;
         call_frame_t *prev          = NULL;
-	dht_layout_t *layout        = NULL;
 	dht_conf_t   *conf          = NULL;
-	int           ret  = -1;
-	int           is_dir = 0;
-	int           is_linkfile = 0;
 
         local = frame->local;
         prev  = cookie;
 	conf = this->private;
 
-        LOCK (&frame->lock);
-        {
-		if (op_ret == -1) {
-			local->op_errno = op_errno;
-
-			if ((op_errno != ENOTCONN) 
-                            && (op_errno != ENOENT)
-                            && (op_errno != ESTALE)) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"subvolume %s returned -1 (%s)",
-					prev->this->name, strerror (op_errno));
-			}
-                        
-                        if (op_errno == ESTALE) {
-                                /* propogate the ESTALE to parent. 
-                                 * setting local->layout_mismatch would send
-                                 * ESTALE to parent. */
-                                local->layout_mismatch = 1;
-                        }
-
-			goto unlock;
-		}
-
-		if (S_IFMT & (stbuf->st_mode ^ local->inode->st_mode)) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"mismatching filetypes 0%o v/s 0%o for %s",
-				(stbuf->st_mode & S_IFMT),
-				(local->inode->st_mode & S_IFMT),
-				local->loc.path);
-
-			local->op_ret = -1;
-			local->op_errno = EINVAL;
-
-			goto unlock;
-		}
-
-		layout = local->layout;
-		
-		is_dir = check_is_dir (inode, stbuf, xattr);
-		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
-		
-		if (is_linkfile) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"linkfile found in revalidate for %s",
-				local->loc.path);
-			local->layout_mismatch = 1;
-
-			goto unlock;
-		}
-
-		if (is_dir) {
-			ret = dht_layout_dir_mismatch (this, layout,
-						       prev->this, &local->loc,
-						       xattr);
-			if (ret != 0) {
-				gf_log (this->name, GF_LOG_DEBUG,
-					"mismatching layouts for %s", 
-					local->loc.path);
-			
-				local->layout_mismatch = 1;
-
-				goto unlock;
-			}
-		} 
-		
+        if (op_ret == 0) {
 		dht_stat_merge (this, &local->stbuf, stbuf, prev->this);
                 dht_stat_merge (this, &local->postparent, postparent,
                                 prev->this);
-		
-		local->op_ret = 0;
+
 		local->stbuf.st_ino = local->st_ino;
                 local->stbuf.st_dev = local->loc.inode->generation;
 
                 if (local->loc.parent)
                         local->postparent.st_ino = local->loc.parent->ino;
-
-		if (!local->xattr)
-			local->xattr = dict_ref (xattr);
 	}
-unlock:
-	UNLOCK (&frame->lock);
 
-        this_call_cnt = dht_frame_return (frame);
 
-        if (is_last_call (this_call_cnt)) {
-		if (!S_ISDIR (local->stbuf.st_mode)
-		    && (local->hashed_subvol != local->cached_subvol)
-		    && (local->stbuf.st_nlink == 1)
-		    && (conf->unhashed_sticky_bit)) {
+        if (!S_ISDIR (local->stbuf.st_mode)
+            && (local->hashed_subvol != local->cached_subvol)
+            && (local->stbuf.st_nlink == 1)
+            && (conf->unhashed_sticky_bit)) {
 			local->stbuf.st_mode |= S_ISVTX;
-		}
+        }
 
-		if (local->layout_mismatch) {
-			local->op_ret = -1;
-			local->op_errno = ESTALE;
-		}
-			
-		DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
-				  local->inode, &local->stbuf, local->xattr,
-                                  &local->postparent);
-	}
+        DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno,
+                          inode, &local->stbuf, xattr,
+                          &local->postparent);
 
         return 0;
 }
@@ -840,26 +757,19 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 
 		local->inode    = inode_ref (loc->inode);
 		local->st_ino   = loc->inode->ino;
-		
-		local->call_cnt = layout->cnt;
-		call_cnt = local->call_cnt;
-		
+
+
 		/* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
 		 *       revalidates directly go to the cached-subvolume.
 		 */
 		ret = dict_set_uint32 (local->xattr_req, 
 				       "trusted.glusterfs.dht", 4 * 4);
 
-		for (i = 0; i < layout->cnt; i++) {
-			subvol = layout->list[i].xlator;
-			
-			STACK_WIND (frame, dht_revalidate_cbk,
-				    subvol, subvol->fops->lookup,
-				    loc, local->xattr_req);
+                subvol = layout->list[0].xlator;
 
-			if (!--call_cnt)
-				break;
-		}
+                STACK_WIND (frame, dht_revalidate_cbk,
+                            subvol, subvol->fops->lookup,
+                            loc, local->xattr_req);
         } else {
         do_fresh_lookup:
 		/* TODO: remove the hard-coding */
