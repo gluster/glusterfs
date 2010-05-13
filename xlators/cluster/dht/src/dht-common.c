@@ -2201,7 +2201,7 @@ dht_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 subvol = dht_layout_search (this, layout, orig_entry->d_name);
 
-                if (!subvol || (subvol != prev->this)) {
+                if (!subvol || (subvol == prev->this)) {
                         entry = gf_dirent_for_name (orig_entry->d_name);
                         if (!entry) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -2317,7 +2317,20 @@ int
 dht_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t yoff)
 {
-        dht_do_readdir (frame, this, fd, size, yoff, GF_FOP_READDIR);
+        int          op = GF_FOP_READDIR;
+        dht_conf_t  *conf = NULL;
+        int          i = 0;
+
+        conf = this->private;
+
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (!conf->subvolume_status[i]) {
+                        op = GF_FOP_READDIRP;
+                        break;
+                }
+        }
+
+        dht_do_readdir (frame, this, fd, size, yoff, op);
         return 0;
 }
 
