@@ -2523,7 +2523,7 @@ init (xlator_t *this)
 
         /* configure 'options aggregate-size <size>' */
         conf->aggregate_size = WB_AGGREGATE_SIZE;
-        conf->disable_till = 1;
+        conf->disable_till = 0;
         ret = dict_get_str (options, "disable-for-first-nbytes", 
                             &str);
         if (ret == 0) {
@@ -2577,7 +2577,7 @@ init (xlator_t *this)
         }
 
         /* configure 'option flush-behind <on/off>' */
-        conf->flush_behind = 0;
+        conf->flush_behind = 1;
         ret = dict_get_str (options, "flush-behind", 
                             &str);
         if (ret == 0) {
