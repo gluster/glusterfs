@@ -19,7 +19,7 @@
 
 
 #ifndef STATEDUMP_H
-#define STATEDUMP_H   
+#define STATEDUMP_H
 
 #include <stdarg.h>
 #include "inode.h"
@@ -29,28 +29,46 @@
 #define GF_DUMP_LOGFILE_ROOT "/tmp/glusterdump"
 #define GF_DUMP_LOGFILE_ROOT_LEN 256
 
+#define GF_DUMP_OPTIONFILE "/tmp/glusterdump.input"
+
+typedef struct gf_dump_xl_options_ {
+        gf_boolean_t    dump_priv;
+        gf_boolean_t    dump_inode;
+        gf_boolean_t    dump_fd;
+} gf_dump_xl_options_t;
+
+typedef struct gf_dump_options_ {
+        gf_boolean_t            dump_mem;
+        gf_boolean_t            dump_iobuf;
+        gf_boolean_t            dump_callpool;
+        gf_dump_xl_options_t    xl_options; //options for all xlators
+} gf_dump_options_t;
+
 static inline
 void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)
 {
         char buf[GF_DUMP_MAX_BUF_LEN];
         va_list ap;
 
-        memset(buf, 0, sizeof(buf));
-        va_start(ap, fmt);
-        vsnprintf(buf, GF_DUMP_MAX_BUF_LEN, fmt, ap);
-        va_end(ap);
-        snprintf(key, GF_DUMP_MAX_BUF_LEN, "%s.%s", prefix, buf);  
+        memset (buf, 0, sizeof(buf));
+        va_start (ap, fmt);
+        vsnprintf (buf, GF_DUMP_MAX_BUF_LEN, fmt, ap);
+        va_end (ap);
+        snprintf (key, GF_DUMP_MAX_BUF_LEN, "%s.%s", prefix, buf);
 }
 
 #define gf_proc_dump_build_key(key, key_prefix, fmt...) \
 {\
-        _gf_proc_dump_build_key(key, key_prefix, ##fmt);\
+        _gf_proc_dump_build_key (key, key_prefix, ##fmt);\
 }
+
+
+#define GF_PROC_DUMP_SET_OPTION(opt,val) opt = val
 
 void
 gf_proc_dump_init();
 
-void 
+void
 gf_proc_dump_fini(void);
 
 void

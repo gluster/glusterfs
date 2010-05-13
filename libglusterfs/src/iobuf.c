@@ -695,40 +695,40 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 {
     
         char               msg[1024];
-        struct iobuf_arena *trav;
+        struct iobuf_arena *trav = NULL;
         int                i = 1;
         int                ret = -1;
 
         if (!iobuf_pool)
                 return;
 
-        memset(msg, 0, sizeof(msg));
+        memset (msg, 0, sizeof(msg));
 
-        ret = pthread_mutex_trylock(&iobuf_pool->mutex);
+        ret = pthread_mutex_trylock (&iobuf_pool->mutex);
 
         if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump iobuf pool"
+                gf_log ("", GF_LOG_WARNING, "Unable to dump iobuf pool"
                 " errno: %d", errno);
                 return;
         }
-        gf_proc_dump_add_section("iobuf.global");
-        gf_proc_dump_write("iobuf.global.iobuf_pool","%p", iobuf_pool);
-        gf_proc_dump_write("iobuf.global.iobuf_pool.page_size", "%d",
+        gf_proc_dump_add_section ("iobuf.global");
+        gf_proc_dump_write ("iobuf.global.iobuf_pool","%p", iobuf_pool);
+        gf_proc_dump_write ("iobuf.global.iobuf_pool.page_size", "%d",
 						 iobuf_pool->page_size);
-        gf_proc_dump_write("iobuf.global.iobuf_pool.arena_size", "%d",
+        gf_proc_dump_write( "iobuf.global.iobuf_pool.arena_size", "%d",
 						 iobuf_pool->arena_size);
-        gf_proc_dump_write("iobuf.global.iobuf_pool.arena_cnt", "%d",
+        gf_proc_dump_write ("iobuf.global.iobuf_pool.arena_cnt", "%d",
 						 iobuf_pool->arena_cnt);
 
         list_for_each_entry (trav, &iobuf_pool->arenas.list, list) {
-                snprintf(msg, sizeof(msg), "iobuf.global.iobuf_pool.arena.%d",
+                snprintf (msg, sizeof(msg), "iobuf.global.iobuf_pool.arena.%d",
                                                                             i);
-		gf_proc_dump_add_section(msg);
-                iobuf_arena_info_dump(trav,msg);
+		gf_proc_dump_add_section (msg);
+                iobuf_arena_info_dump (trav,msg);
                 i++;
         }
         
-        pthread_mutex_unlock(&iobuf_pool->mutex);
+        pthread_mutex_unlock (&iobuf_pool->mutex);
 
         return;
 }
