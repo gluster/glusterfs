@@ -2868,11 +2868,15 @@ nfs3svc_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 nfs3_fdcache_remove (nfs3, openfd);
          }
 
+         /* This is the unref equivalent of the ref done when the inode was
+          * created on a lookup or a create request.
+          * The inode is finally unrefed in call state wipe.
+          */
+        inode_unref (cs->resolvedloc.inode);
 do_not_unref_cached_fd:
         nfs3_log_common_res (rpcsvc_request_xid (cs->req), "REMOVE", stat,
                              op_errno);
         nfs3_remove_reply (cs->req, stat, preparent, postparent);
-        inode_unref (cs->resolvedloc.inode);
         nfs3_call_state_wipe (cs);
 
         return 0;
