@@ -2216,7 +2216,6 @@ fuse_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fde = (struct fuse_dirent *)(buf + size);
                 fde->ino = entry->d_ino;
                 fde->off = entry->d_off;
-                fde->type = d_type_from_stat (&entry->d_stat);
                 fde->namelen = strlen (entry->d_name);
                 strncpy (fde->name, entry->d_name, fde->namelen);
                 size += FUSE_DIRENT_SIZE (fde);
@@ -2252,8 +2251,8 @@ fuse_readdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 "%"PRIu64": READDIR (%p, size=%"PRIu32", offset=%"PRId64")",
                 finh->unique, fd, fri->size, fri->offset);
 
-        FUSE_FOP (state, fuse_readdir_cbk, GF_FOP_READDIRP,
-                  readdirp, fd, fri->size, fri->offset);
+        FUSE_FOP (state, fuse_readdir_cbk, GF_FOP_READDIR,
+                  readdir, fd, fri->size, fri->offset);
 }
 
 
