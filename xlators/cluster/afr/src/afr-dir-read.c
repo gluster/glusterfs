@@ -239,7 +239,7 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
                 if (local->op_ret == 0) {
                         ret = afr_fd_ctx_set (this, local->fd);
 
-                        if (!afr_is_opendir_done (this, fd->inode)) {
+                        if (!afr_is_opendir_done (this, local->fd->inode)) {
 
                                 /*
                                  * This is the first opendir on this inode. We need
