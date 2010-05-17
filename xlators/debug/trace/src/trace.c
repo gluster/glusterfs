@@ -171,9 +171,9 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                   localtime ((time_t *)&buf->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, buf {ia_gen=%"GF_PRI_DEV", "
+                                "%"PRId64": (op_ret=%d, buf {ia_gen=%"PRIu64", "
                                 "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
-                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"GF_PRI_DEV", ia_size=%"PRId64
+                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"PRIu64", ia_size=%"PRId64
                                 ", ia_blksize=%"GF_PRI_BLKSIZE", ia_blocks=%"PRId64", "
                                 "ia_atime=%s, ia_mtime=%s, ia_ctime=%s})",
                                 frame->root->unique, op_ret, buf->ia_gen, buf->ia_ino,
@@ -212,9 +212,9 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                   localtime ((time_t *)&buf->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, op_errno=%d, *buf {ia_gen=%"GF_PRI_DEV", "
+                                "%"PRId64": (op_ret=%d, op_errno=%d, *buf {ia_gen=%"PRIu64", "
                                 "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
-                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"GF_PRI_DEV", "
+                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"PRIu64", "
                                 "ia_size=%"PRId64", ia_blksize=%"GF_PRI_BLKSIZE", "
                                 "ia_blocks=%"PRId64", ia_atime=%s, ia_mtime=%s, ia_ctime=%s})",
                                 frame->root->unique, op_ret, op_errno, buf->ia_gen, buf->ia_ino,
@@ -1052,9 +1052,9 @@ trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                   localtime ((time_t *)&buf->ia_ctime));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, *buf {ia_gen=%"GF_PRI_DEV", "
+                                "%"PRId64": (op_ret=%d, *buf {ia_gen=%"PRIu64", "
                                 "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
-                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"GF_PRI_DEV", ia_size=%"PRId64", "
+                                "ia_uid=%d, ia_gid=%d, ia_rdev=%"PRIu64", ia_size=%"PRId64", "
                                 "ia_blksize=%"GF_PRI_BLKSIZE", ia_blocks=%"PRId64", ia_atime=%s, "
                                 "ia_mtime=%s, ia_ctime=%s})",
                                 frame->root->unique, op_ret, buf->ia_gen, buf->ia_ino,

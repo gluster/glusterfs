@@ -1117,7 +1117,8 @@ unify_open_lookup_cbk (call_frame_t *frame,
 		       int32_t op_errno,
 		       inode_t *inode,
 		       struct iatt *buf,
-		       dict_t *dict)
+		       dict_t *dict,
+		       struct iatt *postparent)
 {
 	int32_t callcnt = 0;
 	int16_t index = 0;
@@ -1209,7 +1210,8 @@ unify_open_readlink_cbk (call_frame_t *frame,
 			 xlator_t *this,
 			 int32_t op_ret,
 			 int32_t op_errno,
-			 const char *path)
+			 const char *path,
+			 struct iatt *sbuf)
 {
 	int16_t index = 0;
 	unify_private_t *priv = this->private;
