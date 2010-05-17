@@ -25,6 +25,7 @@
  * fuse_loc_fill() and inode_path() return success/failure.
  */
 
+
 #include <stdint.h>
 #include <signal.h>
 #include <pthread.h>
@@ -45,7 +46,13 @@
 #include "common-utils.h"
 #include "statedump.h"
 
+#ifdef GF_DARWIN_HOST_OS
+/* This is MacFUSE's marker for MacFUSE-specific code */
+#define __FreeBSD__ 10
+#include "fuse_kernel_macfuse.h"
+#else
 #include "fuse_kernel.h"
+#endif
 #include "fuse-misc.h"
 #include "fuse-mount.h"
 #include "fuse-mem-types.h"
@@ -60,7 +67,12 @@
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
-#define FUSE_713_OP_HIGH (FUSE_POLL + 1)
+#ifdef GF_LINUX_HOST_OS
+#define FUSE_OP_HIGH (FUSE_POLL + 1)
+#endif
+#ifdef GF_DARWIN_HOST_OS
+#define FUSE_OP_HIGH (FUSE_DESTROY + 1)
+#endif
 #define GLUSTERFS_XATTR_LEN_MAX  65536
 
 #define MAX_FUSE_PROC_DELAY 1
@@ -442,7 +454,14 @@ stat2attr (struct iatt *st, struct fuse_attr *fa)
         fa->uid        = st->ia_uid;
         fa->gid        = st->ia_gid;
         fa->rdev       = st->ia_rdev;
+#if FUSE_KERNEL_MINOR_VERSION >= 9
         fa->blksize    = st->ia_blksize;
+#endif
+#ifdef GF_DARWIN_HOST_OS
+        fa->crtime     = (uint64_t)-1;
+        fa->crtimensec = (uint32_t)-1;
+        fa->flags      = 0;
+#endif
 }
 
 
@@ -513,10 +532,14 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 feo.attr_valid_nsec =
                         calc_timeout_nsec (priv->attribute_timeout);
 
+#if FUSE_KERNEL_MINOR_VERSION >= 9
                 priv->proto_minor >= 9 ?
-                        send_fuse_obj (this, finh, &feo) :
-                        send_fuse_data (this, finh, &feo,
-                                        FUSE_COMPAT_ENTRY_OUT_SIZE);
+                send_fuse_obj (this, finh, &feo) :
+                send_fuse_data (this, finh, &feo,
+                                FUSE_COMPAT_ENTRY_OUT_SIZE);
+#else
+                send_fuse_obj (this, finh, &feo);
+#endif
         } else {
                 gf_log ("glusterfs-fuse",
                         (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_WARNING),
@@ -664,10 +687,14 @@ fuse_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fao.attr_valid_nsec =
                   calc_timeout_nsec (priv->attribute_timeout);
 
+#if FUSE_KERNEL_MINOR_VERSION >= 9
                 priv->proto_minor >= 9 ?
                 send_fuse_obj (this, finh, &fao) :
                 send_fuse_data (this, finh, &fao,
                                 FUSE_COMPAT_ATTR_OUT_SIZE);
+#else
+                send_fuse_obj (this, finh, &fao);
+#endif
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": %s() %s => -1 (%s)", frame->root->unique,
@@ -714,10 +741,14 @@ fuse_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fao.attr_valid_nsec =
                   calc_timeout_nsec (priv->attribute_timeout);
 
+#if FUSE_KERNEL_MINOR_VERSION >= 9
                 priv->proto_minor >= 9 ?
                 send_fuse_obj (this, finh, &fao) :
                 send_fuse_data (this, finh, &fao,
                                 FUSE_COMPAT_ATTR_OUT_SIZE);
+#else
+                send_fuse_obj (this, finh, &fao);
+#endif
         } else {
                 GF_LOG_OCCASIONALLY ( gf_fuse_conn_err_log, "glusterfs-fuse", 
                                       GF_LOG_WARNING, 
@@ -841,6 +872,19 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!IA_ISDIR (fd->inode->ia_type)) {
                         if (priv->direct_io_mode)
                                 foo.open_flags |= FOPEN_DIRECT_IO;
+#ifdef GF_DARWIN_HOST_OS
+                                /* In Linux: by default, buffer cache
+                                 * is purged upon open, setting
+                                 * FOPEN_KEEP_CACHE implies no-purge
+                                 *
+                                 * In MacFUSE: by default, buffer cache
+                                 * is left intact upon open, setting
+                                 * FOPEN_PURGE_UBC implies purge
+                                 *
+                                 * [[Innnnteresting...]]
+                                 */
+                                foo.open_flags |= FOPEN_PURGE_UBC;
+#endif
                 }
 
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -923,10 +967,14 @@ fuse_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (state->truncate_needed) {
                         fuse_do_truncate (state, state->size);
                 } else {
+#if FUSE_KERNEL_MINOR_VERSION >= 9
                         priv->proto_minor >= 9 ?
-                                send_fuse_obj (this, finh, &fao) :
-                                send_fuse_data (this, finh, &fao,
-                                                FUSE_COMPAT_ATTR_OUT_SIZE);
+                        send_fuse_obj (this, finh, &fao) :
+                        send_fuse_data (this, finh, &fao,
+                                        FUSE_COMPAT_ATTR_OUT_SIZE);
+#else
+                        send_fuse_obj (this, finh, &fao);
+#endif
                         op_done = 1;
                 }
         } else {
@@ -1020,8 +1068,10 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
          * linux-2.6.git;a=commit;h=v2.6.23-5896-gf333211
          */
         priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >= 9
         if (priv->proto_minor >= 9 && fsi->valid & FATTR_LOCKOWNER)
                 state->lk_owner = fsi->lock_owner;
+#endif
 
         if ((state->loc.inode == NULL && ret == 0) ||
             (ret < 0)) {
@@ -1286,8 +1336,10 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t         ret = -1;
 
         priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >= 12
         if (priv->proto_minor < 12)
                 name = (char *)msg + FUSE_COMPAT_MKNOD_IN_SIZE;
+#endif
 
         GET_STATE (this, finh, state);
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
@@ -1653,9 +1705,13 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fouh.error = 0;
                 iov_out[0].iov_base = &fouh;
                 iov_out[1].iov_base = &feo;
+#if FUSE_KERNEL_MINOR_VERSION >= 9
                 iov_out[1].iov_len = priv->proto_minor >= 9 ?
                                      sizeof (feo) :
                                      FUSE_COMPAT_ENTRY_OUT_SIZE;
+#else
+                iov_out[1].iov_len = sizeof (feo);
+#endif
                 iov_out[2].iov_base = &foo;
                 iov_out[2].iov_len = sizeof (foo);
                 if (send_fuse_iov (this, finh, iov_out, 3) == ENOENT) {
@@ -1684,7 +1740,11 @@ out:
 static void
 fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
+#if FUSE_KERNEL_MINOR_VERSION >= 12
         struct fuse_create_in *fci = msg;
+#else
+        struct fuse_open_in *fci = msg;
+#endif
         char         *name = (char *)(fci + 1);
 
         fuse_private_t        *priv = NULL;
@@ -1693,8 +1753,10 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t       ret = -1;
 
         priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >= 12
         if (priv->proto_minor < 12)
                 name = (char *)((struct fuse_open_in *)msg + 1);
+#endif
 
         GET_STATE (this, finh, state);
         state->flags = fci->flags;
@@ -1829,8 +1891,10 @@ fuse_readv (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         /* See comment by similar code in fuse_settatr */
         priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >= 9
         if (priv->proto_minor >= 9 && fri->read_flags & FUSE_READ_LOCKOWNER)
                 state->lk_owner = fri->lock_owner;
+#endif
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": READ (%p, size=%"PRIu32", offset=%"PRIu64")",
@@ -1905,8 +1969,10 @@ fuse_write (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         /* See comment by similar code in fuse_settatr */
         priv = this->private;
+#if FUSE_KERNEL_MINOR_VERSION >= 9
         if (priv->proto_minor >= 9 && fwi->write_flags & FUSE_WRITE_LOCKOWNER)
                 state->lk_owner = fwi->lock_owner;
+#endif
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": WRITE (%p, size=%"PRIu32", offset=%"PRId64")",
@@ -2352,6 +2418,18 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         char         *dict_value = NULL;
         int32_t       ret = -1;
 
+#ifdef GF_DARWIN_HOST_OS
+        if (fsi->position) {
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": SETXATTR %s/%"PRIu64" (%s):"
+                        "refusing positioned setxattr",
+                        finh->unique, state->loc.path, finh->nodeid, name);
+                send_fuse_err (this, finh, EINVAL);
+                FREE (finh);
+                return;
+        }
+#endif
+
 #ifdef DISABLE_POSIX_ACL
         if (!strncmp (name, "system.", 7)) {
                 send_fuse_err (this, finh, EOPNOTSUPP);
@@ -2557,6 +2635,26 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         fuse_state_t *state = NULL;
         int32_t       ret = -1;
+
+#ifdef GF_DARWIN_HOST_OS
+        if (fgxi->position) {
+                /* position can be used only for
+                 * resource fork queries which we
+                 * don't support anyway... so handling
+                 * it separately is just sort of a
+                 * matter of aesthetics, not strictly
+                 * necessary.
+                 */
+
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "%"PRIu64": GETXATTR %s/%"PRIu64" (%s):"
+                        "refusing positioned getxattr",
+                        finh->unique, state->loc.path, finh->nodeid, name);
+                send_fuse_err (this, finh, EINVAL);
+                FREE (finh);
+                return;
+        }
+#endif
 
 #ifdef DISABLE_POSIX_ACL
         if (!strncmp (name, "system.", 7)) {
@@ -2843,6 +2941,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fino.max_readahead = 1 << 17;
         fino.max_write = 1 << 17;
         fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
+#if FUSE_KERNEL_MINOR_VERSION >= 9
         if (fini->minor >= 6 /* fuse_init_in has flags */ &&
             fini->flags & FUSE_BIG_WRITES) {
                 /* no need for direct I/O mode by default if big writes are supported */
@@ -2858,7 +2957,7 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
         if (fini->minor < 9)
                 *priv->msg0_len_p = sizeof(*finh) + FUSE_COMPAT_WRITE_IN_SIZE;
-
+#endif
         ret = send_fuse_obj (this, finh, &fino);
         if (ret == 0)
                 gf_log ("glusterfs-fuse", GF_LOG_INFO,
@@ -2895,7 +2994,7 @@ fuse_destroy (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GF_FREE (finh);
 }
 
-static fuse_handler_t *fuse_ops[FUSE_713_OP_HIGH];
+static fuse_handler_t *fuse_ops[FUSE_OP_HIGH];
 
 int
 fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -3073,7 +3172,17 @@ fuse_thread_proc (void *data)
                 }
 
                 finh = (fuse_in_header_t *)iov_in[0].iov_base;
-                if (res != finh->len) {
+                if (res != finh->len
+#ifdef GF_DARWIN_HOST_OS
+                    /* work around fuse4bsd/MacFUSE msg size miscalculation bug,
+                     * that is, payload size is not taken into account for
+                     * buffered writes
+                     */
+                    && !(finh->opcode == FUSE_WRITE &&
+                         finh->len == sizeof(*finh) + sizeof(struct fuse_write_in) &&
+                         res == finh->len + ((struct fuse_write_in *)(finh + 1))->size)
+#endif
+                   ) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING, "inconsistent read on /dev/fuse");
                         break;
                 }
@@ -3105,6 +3214,12 @@ fuse_thread_proc (void *data)
 
                         msg = finh + 1;
                 }
+#ifdef GF_DARWIN_HOST_OS
+                if (finh->opcode >= FUSE_OP_HIGH)
+                        /* turn down MacFUSE specific messages */
+                        fuse_enosys (this, finh, msg);
+                else
+#endif
                 fuse_ops[finh->opcode] (this, finh, msg);
 
                 iobuf_unref (iobuf);
@@ -3405,7 +3520,7 @@ init (xlator_t *this_xl)
         pthread_mutex_init (&priv->child_up_mutex, NULL);
         priv->child_up_value = 1;
 
-        for (i = 0; i < FUSE_713_OP_HIGH; i++)
+        for (i = 0; i < FUSE_OP_HIGH; i++)
                 fuse_ops[i] = fuse_enosys;
         fuse_ops[FUSE_INIT]        = fuse_init;
         fuse_ops[FUSE_DESTROY]     = fuse_destroy;
@@ -3494,9 +3609,6 @@ struct xlator_dumpops dumpops = {
 
 struct volume_options options[] = {
         { .key  = {"direct-io-mode"},
-          .type = GF_OPTION_TYPE_BOOL
-        },
-        { .key  = {"macfuse-local"},
           .type = GF_OPTION_TYPE_BOOL
         },
         { .key  = {"mountpoint", "mount-point"},

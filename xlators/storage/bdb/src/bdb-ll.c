@@ -884,7 +884,7 @@ out:
 int32_t
 bdb_dirent_size (DBT *key)
 {
-        return ALIGN (24 /* FIX MEEEE!!! */ + key->size);
+        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + key->size);
 }
 
 

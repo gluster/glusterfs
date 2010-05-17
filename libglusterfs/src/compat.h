@@ -164,6 +164,10 @@ enum {
 #define F_SETLK64       F_SETLK
 #define F_SETLKW64      F_SETLKW
 
+#ifndef FTW_CONTINUE
+  #define FTW_CONTINUE 0
+#endif
+
 int32_t gf_darwin_compat_listxattr (int len, dict_t *dict, int size);
 int32_t gf_darwin_compat_getxattr (const char *key, dict_t *dict);
 int32_t gf_darwin_compat_setxattr (dict_t *dict);
@@ -298,7 +302,7 @@ size_t strnlen(const char *string, size_t maxlen);
          }))
 #endif 
 
-#define ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
+#define GF_DIR_ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -307,16 +311,16 @@ static inline int32_t
 dirent_size (struct dirent *entry)
 {
 #ifdef GF_BSD_HOST_OS
-        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
 #endif
 #ifdef GF_DARWIN_HOST_OS
-        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
+        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_namlen);
 #endif
 #ifdef GF_LINUX_HOST_OS
-        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 #endif
 #ifdef GF_SOLARIS_HOST_OS
-        return ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
+        return GF_DIR_ALIGN (24 /* FIX MEEEE!!! */ + entry->d_reclen);
 #endif
 }
 

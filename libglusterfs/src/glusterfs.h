@@ -219,11 +219,6 @@ struct _cmd_args {
 	double           fuse_entry_timeout;
 	double           fuse_attribute_timeout;
 	char            *volume_name;
-	int              non_local;       /* Used only by darwin os, 
-					     used for '-o local' option */
-	char            *icon_name;       /* This string will appear as 
-					     Desktop icon name when mounted
-					     on darwin */
 	int              fuse_nodev;
 	int              fuse_nosuid;
 

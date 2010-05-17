@@ -158,10 +158,6 @@ static struct argp_option gf_options[] = {
          "[default: 1]"},
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
          "Enable strict volume file checking"},
-#ifdef GF_DARWIN_HOST_OS
-        {"non-local", ARGP_NON_LOCAL_KEY, 0, 0,
-         "Mount the macfuse volume without '-o local' option"},
-#endif
         {0, 0, 0, 0, "Miscellaneous Options:"},
         {0, }
 };
@@ -345,11 +341,6 @@ _add_fuse_mount (xlator_t *graph)
                         "if O_APPEND is used. disabling 'direct-io-mode'");
         }
         ret = dict_set_static_ptr (top->options, ZR_DIRECT_IO_OPT, "disable");
-
-        if (cmd_args->non_local)
-                ret = dict_set_uint32 (top->options, "macfuse-local",
-                                       cmd_args->non_local);
-
 #else /* ! DARWIN HOST OS */
         switch (cmd_args->fuse_direct_io_mode_flag) {
         case 0: /* disable */
@@ -993,13 +984,6 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_XLATOR_OPTION_KEY:
                 gf_remember_xlator_option (&cmd_args->xlator_options, arg);
                 break;
-
-#ifdef GF_DARWIN_HOST_OS
-        case ARGP_NON_LOCAL_KEY:
-                cmd_args->non_local = _gf_true;
-                break;
-
-#endif /* DARWIN */
 
         case ARGP_KEY_NO_ARGS:
                 break;

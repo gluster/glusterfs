@@ -158,6 +158,14 @@ AC_CHECK_HEADERS([sys/xattr.h])
 
 AC_CHECK_HEADERS([sys/extattr.h])
 
+case $host_os in
+  darwin*)
+    if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 5; then
+      AC_MSG_ERROR([You need at least OS X 10.5 (Leopard) to build Glusterfs])
+    fi
+    ;;
+esac
+
 dnl Mac OS X does not have spinlocks
 AC_CHECK_FUNC([pthread_spin_init], [have_spinlock=yes])
 if test "x${have_spinlock}" = "xyes"; then
@@ -333,6 +341,7 @@ case $host_os in
 	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS}"
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
+	GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
 	;;
      solaris*)
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
@@ -352,7 +361,7 @@ case $host_os in
 	if test "x$ac_cv_header_execinfo_h" = "xyes"; then
 	   GF_GLUSTERFS_LDFLAGS="-lexecinfo"
 	fi				      
-	GF_FUSE_LDADD="-liconv -lfuse"
+	BUILD_FUSE_CLIENT=no
 	;;
      darwin*)
         GF_HOST_OS="GF_DARWIN_HOST_OS"
@@ -360,7 +369,7 @@ case $host_os in
 	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -bundle -undefined suppress -flat_namespace"
 	GF_GLUSTERFS_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D__DARWIN_64_BIT_INO_T -undefined suppress -flat_namespace"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"
-	GF_FUSE_LDADD="-liconv -lfuse_ino64"
+	GF_FUSE_CFLAGS="-I\$(CONTRIBDIR)/macfuse"
 	;;
 esac
 
@@ -370,7 +379,7 @@ AC_SUBST(GF_GLUSTERFS_CFLAGS)
 AC_SUBST(GF_CFLAGS)
 AC_SUBST(GF_LDFLAGS)
 AC_SUBST(GF_LDADD)
-AC_SUBST(GF_FUSE_LDADD)
+AC_SUBST(GF_FUSE_CFLAGS)
 
 CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)

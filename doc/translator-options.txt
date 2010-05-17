@@ -1,6 +1,5 @@
 mount/fuse:
 	* direct-io-mode            GF_OPTION_TYPE_BOOL   on|off|yes|no
-	* macfuse-local             GF_OPTION_TYPE_BOOL   on|off|yes|no
 	* mount-point (mountpoint)  GF_OPTION_TYPE_PATH   <any-posix-valid-path>
 	* attribute-timeout         GF_OPTION_TYPE_DOUBLE   0.0 
 	* entry-timeout             GF_OPTION_TYPE_DOUBLE   0.0
