@@ -273,7 +273,7 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct iatt *stbuf_p)
         }
 
 #ifndef GF_LINUX_HOST_OS
-        if (stbuf.ia_type != IA_IFDIR && stbuf.ia_type != IA_IFREG) {
+        if (!IA_ISDIR (stbuf.ia_type) && !IA_ISREG (stbuf.ia_type)) {
                 stbuf.ia_gen = (typeof(stbuf.ia_gen))stbuf.ia_mtime;
                 if (stbuf_p)
                         *stbuf_p = stbuf;
@@ -344,7 +344,7 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct iatt *stbuf_p)
         }
 
 #ifndef GF_LINUX_HOST_OS
-        if (stbuf.ia_type != IA_IFDIR && stbuf.ia_type != IA_IFREG) {
+        if (!IA_ISDIR (stbuf.ia_type) && !IA_ISREG (stbuf.ia_type)) {
                 stbuf.ia_gen = (typeof(stbuf.ia_gen))stbuf.ia_mtime;
                 return 0;
         }

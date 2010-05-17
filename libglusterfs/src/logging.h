@@ -30,11 +30,17 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#define GF_PRI_FSBLK       PRId64
+#ifdef GF_DARWIN_HOST_OS
+#define GF_PRI_FSBLK       "u"
+#define GF_PRI_DEV         PRId32
+#define GF_PRI_NLINK       PRIu16
+#else
+#define GF_PRI_FSBLK       PRIu64
+#define GF_PRI_DEV         PRIu64
+#define GF_PRI_NLINK       PRIu32
+#endif
 #define GF_PRI_BLKSIZE     PRId32
 #define GF_PRI_SIZET       "zu"
-#define GF_PRI_NLINK       PRId32
-#define GF_PRI_DEV         PRId64
 
 typedef enum {
 	GF_LOG_NONE,

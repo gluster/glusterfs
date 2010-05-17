@@ -73,6 +73,13 @@
 
 #include <fnmatch.h>
 
+#ifdef GF_DARWIN_HOST_OS
+#include "daemon.h"
+#else
+#define os_daemon(u, v) daemon (u, v)
+#endif
+
+
 /* using argp for command line parsing */
 static char gf_doc[] = "";
 static char argp_doc[] = "--volfile-server=SERVER [MOUNT-POINT]\n"       \
@@ -207,7 +214,7 @@ gf_daemon (int *pipe_fd)
 
         /*child continues*/
         close (pipe_fd[0]);
-        if (daemon (0, 0) == -1) {
+        if (os_daemon (0, 0) == -1) {
                 gf_log ("glusterfs", GF_LOG_ERROR,
                         "unable to run in daemon mode: %s",
                         strerror (errno));
@@ -1063,7 +1070,12 @@ zr_build_process_uuid ()
 
         localtime_r (&tv.tv_sec, &now);
         strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
-        snprintf (tmp_str, 1024, "%s-%d-%s:%ld",
+        snprintf (tmp_str, 1024, "%s-%d-%s:%"
+#ifdef GF_DARWIN_HOST_OS
+                  PRId32,
+#else
+                  "ld",
+#endif
                   hostname, getpid(), now_str, tv.tv_usec);
 
         return gf_strdup (tmp_str);
