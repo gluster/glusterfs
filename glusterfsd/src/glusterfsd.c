@@ -1371,12 +1371,16 @@ main (int argc, char *argv[])
                          "on client side, exiting\n");
                 return -1;
         }
-        if (cmd_args->mac_compat)
-                graph = _add_volume (graph, ZR_XLATOR_MAC_COMPAT);
         if (graph && !fuse_volume_found && (cmd_args->mount_point != NULL)) {
                 /* Check for read-only option and add a read-only translator */
                 if (cmd_args->read_only)
                         graph = _add_volume (graph, ZR_XLATOR_READ_ONLY);
+                if (graph
+#ifndef GF_DARWIN_HOST_OS
+                    && cmd_args->mac_compat
+#endif
+                )
+                        graph = _add_volume (graph, ZR_XLATOR_MAC_COMPAT);
                 if (graph)
                         graph = _add_fuse_mount (graph);
         }
