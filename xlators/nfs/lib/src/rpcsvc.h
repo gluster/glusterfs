@@ -38,6 +38,11 @@
 #include <pthread.h>
 #include <sys/uio.h>
 
+#ifdef GF_DARWIN_HOST_OS
+#include <nfs/rpcv2.h>
+#define NGRPS RPCAUTH_UNIXGIDS
+#endif
+
 #define GF_RPCSVC       "rpc-service"
 #define RPCSVC_THREAD_STACK_SIZE ((size_t)(1024 * GF_UNIT_KB))
 
