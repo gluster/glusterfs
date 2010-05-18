@@ -84,6 +84,8 @@ struct nfs3_fd_entry {
 struct nfs3_export {
         xlator_t                *subvol;
         int                     access;
+        int                     trusted_sync;
+        int                     trusted_write;
 };
 
 #define GF_NFS3_DEFAULT_VOLACCESS       (GF_NFS3_VOLACCESS_RW)

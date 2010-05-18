@@ -601,6 +601,29 @@ struct volume_options options[] = {
           .description = "Type of access desired for this subvolume: "
                          " read-only, read-write(default)"
         },
+        { .key  = {"nfs3.*.trusted-write"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "On an UNSTABLE write from client, return STABLE flag"
+                         " to force client to not send a COMMIT request. In "
+                         "some environments, combined with a replicated "
+                         "GlusterFS setup, this option can improve write "
+                         "performance. This flag allows user to trust Gluster"
+                         " replication logic to sync data to the disks and "
+                         "recover when required. COMMIT requests if received "
+                         "will be handled in a default manner by fsyncing."
+                         " STABLE writes are still handled in a sync manner. "
+                         "Off by default."
+
+        },
+        { .key  = {"nfs3.*.trusted-sync"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "All writes and COMMIT requests are treated as async."
+                         " This implies that no write requests are guaranteed"
+                         " to be on server disks when the write reply is "
+                         "received at the NFS client. Trusted sync includes "
+                         " trusted-write behaviour. Off by default."
+
+        },
         { .key  = {"rpc-auth.auth-unix"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "Disable or enable the AUTH_UNIX authentication type."
