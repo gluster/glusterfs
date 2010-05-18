@@ -1471,6 +1471,8 @@ fini (xlator_t *this)
 
         conf = this->private;
 
+        GF_FREE(conf);
+
         gf_log (this->name, GF_LOG_NORMAL,
                 "io-stats translator unloaded");
         return;
