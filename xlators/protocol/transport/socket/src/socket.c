@@ -245,6 +245,38 @@ __socket_nodelay (int fd)
         return ret;
 }
 
+
+int
+__socket_keepalive (int fd, int keepalive_intvl)
+{
+        int     on = 1;
+        int     ret = -1;
+
+        ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof (on));
+        if (ret == -1)
+                goto err;
+
+        if (keepalive_intvl == GF_USE_DEFAULT_KEEPALIVE)
+                goto done;
+
+        ret = setsockopt (fd, SOL_TCP, TCP_KEEPIDLE, &keepalive_intvl,
+                          sizeof (keepalive_intvl));
+        if (ret == -1)
+                goto err;
+
+        ret = setsockopt (fd, SOL_TCP, TCP_KEEPINTVL, &keepalive_intvl,
+                          sizeof (keepalive_intvl));
+        if (ret == -1)
+                goto err;
+done:
+        gf_log ("", GF_LOG_TRACE, "Keep-alive enabled for socket %d, interval "
+                "%d", fd, keepalive_intvl);
+
+err:
+        return ret;
+}
+
+
 int
 __socket_connect_finish (int fd)
 {
@@ -893,6 +925,15 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 }
                         }
 
+                        if (priv->keepalive) {
+                                ret = __socket_keepalive (new_sock,
+                                                          priv->keepaliveintvl);
+                                if (ret == -1)
+                                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                                "Failed to set keep-alive: %s",
+                                                strerror (errno));
+                        }
+
                         new_trans = GF_CALLOC (1, sizeof (*new_trans), 
                                                gf_common_mt_transport_t);
                         new_trans->xl = this->xl;
@@ -1068,6 +1109,15 @@ socket_connect (transport_t *this)
                                 priv->sock = -1;
                                 goto unlock;
                         }
+                }
+
+                if (priv->keepalive) {
+                        ret = __socket_keepalive (priv->sock,
+                                                  priv->keepaliveintvl);
+                        if (ret == -1)
+                                gf_log (this->xl->name, GF_LOG_ERROR,
+                                        "Failed to set keep-alive: %s",
+                                        strerror (errno));
                 }
 
                 SA (&this->myinfo.sockaddr)->sa_family =
@@ -1372,6 +1422,7 @@ socket_init (transport_t *this)
         gf_boolean_t      tmp_bool = 0;
         uint64_t          windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
         char             *optstr = NULL;
+        uint32_t          keepalive = 0;
 
         if (this->private) {
                 gf_log (this->xl->name, GF_LOG_DEBUG,
@@ -1451,6 +1502,29 @@ socket_init (transport_t *this)
         if (dict_get_str (this->xl->options, "transport.socket.lowlat",
                           &optstr) == 0) {
                 priv->lowlat = 1;
+        }
+
+        /* Enable Keep-alive by default. */
+        priv->keepalive = 1;
+        priv->keepaliveintvl = GF_USE_DEFAULT_KEEPALIVE;
+        if (dict_get_str (this->xl->options, "transport.socket.keepalive",
+                          &optstr) == 0) {
+                if (gf_string2boolean (optstr, &tmp_bool) == -1) {
+                        gf_log (this->xl->name, GF_LOG_ERROR,
+                                "'transport.socket.keepalive' takes only "
+                                 "boolean options, not taking any action");
+                        tmp_bool = 1;
+                }
+
+                if (!tmp_bool)
+                        priv->keepalive = 0;
+
+        }
+
+        if (dict_get_uint32 (this->xl->options,
+                             "transport.socket.keepalive-interval",
+                             &keepalive) == 0) {
+                priv->keepaliveintvl = keepalive;
         }
 
         priv->windowsize = (int)windowsize;
@@ -1546,6 +1620,12 @@ struct volume_options options[] = {
         },
         { .key   = {"transport.socket.lowlat"},
           .type  = GF_OPTION_TYPE_BOOL
+        },
+        { .key   = {"transport.socket.keepalive"},
+          .type  = GF_OPTION_TYPE_BOOL
+        },
+        { .key   = {"transport.socket.keepalive-interval"},
+          .type  = GF_OPTION_TYPE_INT
         },
         { .key = {NULL} }
 };
