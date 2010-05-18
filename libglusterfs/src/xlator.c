@@ -603,7 +603,12 @@ _volume_option_value_validate (xlator_t *xl,
         {
                 if (valid_internet_address (pair->value->data)) {
                         ret = 0;
-                }
+                } else {
+			gf_log (xl->name, GF_LOG_ERROR, "internet address '%s'"
+				" does not conform to standards.",
+				pair->value->data);
+			goto out;
+		}
 	}
         break;
 	case GF_OPTION_TYPE_ANY:
