@@ -53,6 +53,8 @@
 #define GF_MAX_SOCKET_WINDOW_SIZE       (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE       (128 * GF_UNIT_KB)
 
+#define GF_USE_DEFAULT_KEEPALIVE        (-1)
+
 typedef enum {
         SOCKET_PROTO_STATE_NADA = 0,
         SOCKET_PROTO_STATE_HEADER_COMING,
@@ -119,6 +121,8 @@ typedef struct {
         int                    windowsize;
         char                   lowlat;
         char                   nodelay;
+        int                    keepalive;
+        int                    keepaliveintvl;
 } socket_private_t;
 
 
