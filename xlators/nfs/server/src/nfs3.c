@@ -141,6 +141,9 @@
         } while (0)                                                     \
 
 
+#define nfs3_export_sync_trusted(nf3stt, xlid) ((nf3stt)->exports[xlid]).trusted_sync
+#define nfs3_export_write_trusted(nf3stt, xlid) ((nf3stt)->exports[xlid]).trusted_write
+
 int
 nfs3_solaris_zerolen_fh (struct nfs3_fh *fh, int fhlen)
 {
@@ -1594,6 +1597,73 @@ nfs3svc_write_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
+/*
+ * If this logic determines that the write should return a reply to the client
+ * after this function, the return value is -1 and the writetype is reset to
+ * the type of write we want to signify to the client.
+ *
+ * In case the write should continue to serve the request according to the type
+ * of stable write, a 0 is returned and writetype is left as it is.
+ */
+int
+nfs3_write_how (int *writetype, int write_trusted, int sync_trusted)
+{
+        int     ret = -1;
+
+        if (*writetype == UNSTABLE) {
+                /* On an UNSTABLE write, only return STABLE when trusted-write
+                 * is set. TW is also set when trusted-sync is set.
+                 */
+                if (write_trusted)
+                        *writetype = FILE_SYNC;
+
+                goto err;
+        } else if ((*writetype == DATA_SYNC) || (*writetype == FILE_SYNC)) {
+
+                /* On a STABLE write, if sync-trusted is on, only then, return
+                 * without syncing.
+                 */
+                if (sync_trusted)
+                        goto err;
+        }
+
+        ret = 0;
+err:
+        return ret;
+}
+
+
+/*
+ * Before going into the write reply logic, here is a matrix that shows the
+ * requirements for a write reply as given by RFC1813.
+ *
+ * Requested Write Type ||      Possible Returns
+ * ==============================================
+ * FILE_SYNC            ||      FILE_SYNC
+ * DATA_SYNC            ||      DATA_SYNC or FILE_SYNC
+ * UNSTABLE             ||      DATA_SYNC or FILE_SYNC or UNSTABLE
+ *
+ * Write types other than UNSTABLE are together called STABLE.
+ * RS - Return Stable
+ * RU - Return Unstable
+ * WS - Write Stable
+ * WU - Write Unstable
+ *
+ *+============================================+
+ *| Vol Opts -> || trusted-write| trusted-sync |
+ *| Write Type  ||              |              |
+ *|-------------||--------------|--------------|
+ *| STABLE      ||      WS      |   WU         |
+ *|             ||      RS      |   RS         |
+ *|-------------||--------------|--------------|
+ *| UNSTABLE    ||      WU      |   WU         |
+ *|             ||      RS      |   RS         |
+ *|-------------||--------------|--------------|
+ *| COMMIT      ||    fsync     | getattr      |
+ *+============================================+
+ *
+ *
+ */
 int32_t
 nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
@@ -1604,6 +1674,8 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs_user_t              nfu = {0, };
         nfs3_call_state_t       *cs = NULL;
         struct nfs3_state       *nfs3 = NULL;
+        int                     write_trusted = 0;
+        int                     sync_trusted = 0;
 
         cs = frame->local;
         nfs3 = rpcsvc_request_program_private (cs->req);
@@ -1612,11 +1684,15 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        /* So that we do send a reply if an unstable write was requested. */
-        ret = -1;
         stat = NFS3_OK;
         cs->maxcount = op_ret;
-        if (cs->writetype == UNSTABLE)
+
+        write_trusted = nfs3_export_write_trusted (cs->nfs3state,
+                                                   cs->resolvefh.xlatorid);
+        sync_trusted = nfs3_export_sync_trusted (cs->nfs3state,
+                                                 cs->resolvefh.xlatorid);
+        ret = nfs3_write_how (&cs->writetype, write_trusted, sync_trusted);
+        if (ret == -1)
                 goto err;
 
         nfs_request_user_init (&nfu, cs->req);
@@ -4386,6 +4462,13 @@ nfs3_commit_resume (void *carg)
 
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
+
+        if (nfs3_export_sync_trusted (cs->nfs3state, cs->resolvefh.xlatorid)) {
+                ret = -1;
+                stat = NFS3_OK;
+                goto nfs3err;
+        }
+
         nfs_request_user_init (&nfu, cs->req);
         ret = nfs_fsync (cs->nfsx, cs->vol, &nfu, cs->fd, 0,
                          nfs3svc_commit_cbk, cs);
@@ -4396,7 +4479,8 @@ nfs3err:
         if (ret < 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req), "COMMIT",
                                      stat, -ret);
-                nfs3_commit_reply (cs->req, stat, 0, NULL, NULL);
+                nfs3_commit_reply (cs->req, stat, cs->nfs3state->serverstart,
+                                   NULL, NULL);
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
@@ -4650,6 +4734,7 @@ nfs3_init_subvolume_options (struct nfs3_export *exp, dict_t *options)
         char            *optstr = NULL;
         char            searchkey[1024];
         char            *name = NULL;
+        gf_boolean_t    boolt = _gf_false;
 
         if ((!exp) || (!options))
                 return -1;
@@ -4694,8 +4779,75 @@ nfs3_init_subvolume_options (struct nfs3_export *exp, dict_t *options)
                 }
         }
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "%s: %s", exp->subvol->name,
-                (exp->access == GF_NFS3_VOLACCESS_RO)?"read-only":"read-write");
+        exp->trusted_sync = 0;
+        ret = snprintf (searchkey, 1024, "nfs3.%s.trusted-sync", name);
+        if (ret < 0) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "snprintf failed");
+                ret = -1;
+                goto err;
+        }
+
+        if (dict_get (options, searchkey)) {
+                ret = dict_get_str (options, searchkey, &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
+                                " option: %s", searchkey);
+                        ret = -1;
+                        goto err;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to convert str "
+                                "to gf_boolean_t");
+                        ret = -1;
+                        goto err;
+                }
+
+                if (boolt == _gf_true)
+                        exp->trusted_sync = 1;
+        }
+
+        exp->trusted_write = 0;
+        ret = snprintf (searchkey, 1024, "nfs3.%s.trusted-write", name);
+        if (ret < 0) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "snprintf failed");
+                ret = -1;
+                goto err;
+        }
+
+        if (dict_get (options, searchkey)) {
+                ret = dict_get_str (options, searchkey, &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to read "
+                                " option: %s", searchkey);
+                        ret = -1;
+                        goto err;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to convert str "
+                                "to gf_boolean_t");
+                        ret = -1;
+                        goto err;
+                }
+
+                if (boolt == _gf_true)
+                        exp->trusted_write = 1;
+        }
+
+        /* If trusted-sync is on, then we also switch on trusted-write because
+         * tw is included in ts. In write logic, we're then only checking for
+         * tw.
+         */
+        if (exp->trusted_sync)
+                exp->trusted_write = 1;
+
+        gf_log (GF_NFS3, GF_LOG_TRACE, "%s: %s, %s, %s", exp->subvol->name,
+                (exp->access == GF_NFS3_VOLACCESS_RO)?"read-only":"read-write",
+                (exp->trusted_sync == 0)?"no trusted_sync":"trusted_sync",
+                (exp->trusted_write == 0)?"no trusted_write":"trusted_write");
         ret = 0;
 err:
         return ret;
