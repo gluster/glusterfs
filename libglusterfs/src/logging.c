@@ -153,9 +153,9 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
 	const char  *basename = NULL;
 	FILE        *new_logfile = NULL;
 	va_list      ap;
-	time_t       utime = 0;
 	struct tm   *tm = NULL;
 	char         timestr[256];
+        struct timeval tv = {0,};
 
         char        *str1 = NULL;
         char        *str2 = NULL;
@@ -200,8 +200,11 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
 	}
 
 log:
-	utime = time (NULL);
-	tm    = localtime (&utime);
+        ret = gettimeofday (&tv, NULL);
+        if (-1 == ret)
+                goto out;
+
+	tm    = localtime (&tv.tv_sec);
 
 	if (level > loglevel) {
 		goto out;
@@ -212,6 +215,8 @@ log:
 		va_start (ap, fmt);
 
 		strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
+                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                          ".%ld", tv.tv_usec);
 
 		basename = strrchr (file, '/');
 		if (basename)
