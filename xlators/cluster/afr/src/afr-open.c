@@ -321,6 +321,11 @@ afr_up_down_flush_sh_unwind (call_frame_t *frame, xlator_t *this)
 
         local->call_count = call_count;
 
+        if (!local->loc.path) {
+                abandon = 1;
+                goto out;
+        }
+
         for (i = 0; i < priv->child_count; i++) {
                 if (!fd_ctx->opened_on[i] && local->child_up[i]) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -354,11 +359,20 @@ afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
         afr_local_t *local  = NULL;
         afr_self_heal_t *sh = NULL;
 
+        int ret = -1;
+
         priv  = this->private;
         local = frame->local;
         sh    = &local->self_heal;
 
-        inode_path (local->fd->inode, NULL, (char **)&local->loc.path);
+        ret = inode_path (local->fd->inode, NULL, (char **)&local->loc.path);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "Inode path failed. Possible open-unlink-write detected");
+                afr_up_down_flush_sh_unwind (frame, this);
+
+                return 0;
+        }
         local->loc.name   = strrchr (local->loc.path, '/');
         local->loc.inode  = inode_ref (local->fd->inode);
         local->loc.parent = inode_parent (local->fd->inode, 0, NULL);
