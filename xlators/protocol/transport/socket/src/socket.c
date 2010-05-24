@@ -259,15 +259,23 @@ __socket_keepalive (int fd, int keepalive_intvl)
         if (keepalive_intvl == GF_USE_DEFAULT_KEEPALIVE)
                 goto done;
 
-        ret = setsockopt (fd, SOL_TCP, TCP_KEEPIDLE, &keepalive_intvl,
+#ifdef GF_DARWIN_HOST_OS
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepalive_intvl,
+                          sizeof (keepalive_intvl));
+        if (ret == -1)
+                goto err;
+#else
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepalive_intvl,
                           sizeof (keepalive_intvl));
         if (ret == -1)
                 goto err;
 
-        ret = setsockopt (fd, SOL_TCP, TCP_KEEPINTVL, &keepalive_intvl,
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepalive_intvl,
                           sizeof (keepalive_intvl));
         if (ret == -1)
                 goto err;
+#endif
+
 done:
         gf_log ("", GF_LOG_TRACE, "Keep-alive enabled for socket %d, interval "
                 "%d", fd, keepalive_intvl);
