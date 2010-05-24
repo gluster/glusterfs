@@ -569,7 +569,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 
 	transport  = frame->root->trans;
 	client_pid = frame->root->pid;
-        owner      = (uint64_t) (long)frame->root;
+        owner      = frame->root->lk_owner;
 
 	pinode = pl_inode_get (this, inode);
 	if (!pinode) {

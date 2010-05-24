@@ -325,7 +325,7 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
 	trans = frame->root->trans;
         client_pid = frame->root->pid;
-        owner      = (uint64_t)(long)frame->root;
+        owner      = frame->root->lk_owner;
 
 	lock = new_entrylk_lock (pinode, basename, type, trans, client_pid, owner, dom->domain);
 	if (!lock) {
