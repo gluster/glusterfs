@@ -1435,6 +1435,12 @@ init (xlator_t *this)
 
         conf = GF_CALLOC (1, sizeof(*conf), gf_io_stats_mt_ios_conf);
 
+        if (!conf) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory.");
+                return -1;
+        }
+
         LOCK_INIT (&conf->lock);
 
         gettimeofday (&conf->cumulative.started_at, NULL);
