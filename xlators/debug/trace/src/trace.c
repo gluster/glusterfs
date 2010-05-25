@@ -761,7 +761,7 @@ trace_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (op_ret >= 0) {
                         statstr = trace_stat_to_str (buf);
                         preparentstr = trace_stat_to_str (preparent);
-                        preparentstr = trace_stat_to_str (postparent);
+                        postparentstr = trace_stat_to_str (postparent);
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, ino = %"PRIu64
