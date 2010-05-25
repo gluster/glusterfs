@@ -832,7 +832,7 @@ trace_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_RMDIR].enabled) {
                 if (op_ret >= 0) {
                         preparentstr = trace_stat_to_str (preparent);
-                        preparentstr = trace_stat_to_str (postparent);
+                        postparentstr = trace_stat_to_str (postparent);
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, *prebuf = {%s}, "
@@ -869,7 +869,7 @@ trace_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (trace_fop_names[GF_FOP_TRUNCATE].enabled) {
                 if (op_ret >= 0) {
                         preopstr = trace_stat_to_str (prebuf);
-                        postopstr = trace_stat_to_str (prebuf);
+                        postopstr = trace_stat_to_str (postbuf);
 
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, *prebuf = {%s}, "
