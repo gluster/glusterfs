@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libglrpcsvc.la
-libglrpcsvc_la_LDFLAGS = -module -avoidversion
+libglrpcsvc_la_LDFLAGS = -avoidversion
 
 libglrpcsvc_la_SOURCES = msg-nfs3.c xdr-nfs3.c xdr-rpc.c auth-unix.c rpcsvc-auth.c rpcsvc.c auth-null.c rpc-socket.c
 libglrpcsvc_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
