@@ -109,7 +109,7 @@ resolve_loc_touchup (call_frame_t *frame)
         loc     = state->loc_now;
 
         if (!loc->path) {
-                if (loc->parent) {
+                if (loc->parent && resolve->bname) {
                         ret = inode_path (loc->parent, resolve->bname, &path);
                 } else if (loc->inode) {
                         ret = inode_path (loc->inode, NULL, &path);
