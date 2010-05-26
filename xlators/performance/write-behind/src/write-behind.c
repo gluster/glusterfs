@@ -56,6 +56,7 @@ typedef struct wb_file {
         int32_t      refcount;
         int32_t      op_ret;
         int32_t      op_errno;
+        int32_t      flags;
         list_head_t  request;
         list_head_t  passive_requests;
         fd_t        *fd;
@@ -266,7 +267,7 @@ out:
 
 
 wb_file_t *
-wb_file_create (xlator_t *this, fd_t *fd)
+wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
 {
         wb_file_t *file = NULL;
         wb_conf_t *conf = this->private; 
@@ -288,6 +289,7 @@ wb_file_create (xlator_t *this, fd_t *fd)
         file->this = this;
         file->refcount = 1;
         file->window_conf = conf->window_size;
+        file->flags = flags;
 
         fd_ctx_set (fd, this, (uint64_t)(long)file);
 
@@ -1236,7 +1238,7 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wbflags = local->wbflags;
 
         if (op_ret != -1) {
-                file = wb_file_create (this, fd);
+                file = wb_file_create (this, fd, flags);
                 if (file == NULL) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1306,8 +1308,10 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         wb_file_t *file = NULL;
         wb_conf_t *conf = this->private;
 
+        flags = (long) frame->local;
+
         if (op_ret != -1) {
-                file = wb_file_create (this, fd);
+                file = wb_file_create (this, fd, flags);
                 if (file == NULL) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1355,10 +1359,14 @@ wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 size_t
 __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
 {
-        wb_request_t *request = NULL;
-        size_t        size = 0;
-        char          first_request = 1;
+        wb_request_t *request         = NULL;
+        size_t        size            = 0;
+        char          first_request   = 1;
         off_t         offset_expected = 0;
+        int           count           = 0;
+        wb_conf_t    *conf            = NULL;
+
+        conf = file->this->private;
 
         list_for_each_entry (request, list, list)
         {
@@ -1372,14 +1380,23 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
                                 first_request = 0;
                                 offset_expected = request->stub->args.writev.off;
                         }
-                        
+
                         if (request->stub->args.writev.off != offset_expected) {
+                                break;
+                        }
+
+                        if ((file->flags & O_APPEND)
+                            && (((size + request->write_size)
+                                 > conf->aggregate_size)
+                                || ((count + request->stub->args.writev.count)
+                                    > conf->aggregate_size))) {
                                 break;
                         }
 
                         size += request->write_size;
                         offset_expected += request->write_size;
                         file->aggregate_current -= request->write_size;
+                        count += request->stub->args.writev.count;
 
                         request->flags.write_request.stack_wound = 1;
                         list_add_tail (&request->winds, winds);
@@ -1454,15 +1471,14 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         request = list_entry (list->next, typeof (*request), list);
         file = request->file;
 
-        if (!wind_all && (file->aggregate_current < aggregate_conf)) {
-                __wb_can_wind (list, &other_fop_in_queue,
-                               &non_contiguous_writes, &incomplete_writes);
-        }
+        __wb_can_wind (list, &other_fop_in_queue,
+                       &non_contiguous_writes, &incomplete_writes);
 
-        if ((enable_trickling_writes && !incomplete_writes)
-            || (wind_all) || (non_contiguous_writes)
-            || (other_fop_in_queue)
-            || (file->aggregate_current >= aggregate_conf)) {
+        if (!incomplete_writes && ((enable_trickling_writes)
+                                   || (wind_all) || (non_contiguous_writes)
+                                   || (other_fop_in_queue)
+                                   || (file->aggregate_current
+                                       >= aggregate_conf))) {
                 size = __wb_mark_wind_all (file, list, winds);
         } 
 
@@ -2082,64 +2098,64 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             int32_t op_errno)
 {
         wb_local_t *local = NULL;
-        wb_file_t  *file = NULL;
-        wb_conf_t  *conf = NULL;
-        char        unwind = 0;
-        int32_t     ret = -1;
-        int         disabled = 0;
-        int64_t     disable_till = 0;
+        wb_file_t  *file  = NULL;
+        wb_conf_t  *conf  = NULL;
+        int32_t     ret   = -1;
 
         conf = this->private;
         local = frame->local;
 
-        if ((local != NULL) && (local->file != NULL)) {
-                file = local->file;
-
+        if (file != NULL) {
                 LOCK (&file->lock);
                 {
-                        disabled = file->disabled;
-                        disable_till = file->disable_till;
+                        if (file->op_ret == -1) {
+                                op_ret = file->op_ret;
+                                op_errno = file->op_errno;
+
+                                file->op_ret = 0;
+                        }
                 }
                 UNLOCK (&file->lock);
 
-                if (conf->flush_behind
-                    && (!disabled) && (disable_till == 0)) {
-                        unwind = 1;
-                } else {
-                        local->reply_count++;
-                        /* 
-                         * without flush-behind, unwind should wait for replies
-                         * of writes queued before and the flush 
-                         */
-                        if (local->reply_count == 2) {
-                                unwind = 1;
-                        }
+                ret = wb_process_queue (frame, file, 0);
+                if ((ret == -1) && (errno == ENOMEM)) {
+                        op_ret = -1;
+                        op_errno = ENOMEM;
                 }
-        } else {
-                unwind = 1;
+        }
+                
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
+
+        return 0;
+}
+
+int32_t
+wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
+{
+        wb_conf_t  *conf   = NULL;
+        wb_local_t *local  = NULL;
+
+        conf = this->private;
+
+        local = frame->local;
+
+        if (local && local->request) {
+                local->request->stub = NULL;
+                wb_request_unref (local->request);
         }
 
-        if (unwind) {
-                if (file != NULL) {
-                        LOCK (&file->lock);
-                        {
-                                if (file->op_ret == -1) {
-                                        op_ret = file->op_ret;
-                                        op_errno = file->op_errno;
-
-                                        file->op_ret = 0;
-                                }
-                        }
-                        UNLOCK (&file->lock);
-
-                        ret = wb_process_queue (frame, file, 0);
-                        if ((ret == -1) && (errno == ENOMEM)) {
-                                op_ret = -1;
-                                op_errno = ENOMEM;
-                        }
-                }
-                
-                STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
+        if (conf->flush_behind) {
+                STACK_WIND (frame,
+                            wb_ffr_bg_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->flush,
+                            fd);
+        } else {
+                STACK_WIND (frame,
+                            wb_ffr_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->flush,
+                            fd);
         }
 
         return 0;
@@ -2149,17 +2165,14 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
-        wb_conf_t    *conf = NULL;
-        wb_file_t    *file = NULL;
-        wb_local_t   *local = NULL;
-	uint64_t      tmp_file = 0;
-        call_stub_t  *stub = NULL;
-        call_frame_t *process_frame = NULL;
-        wb_local_t   *tmp_local = NULL;
-        wb_request_t *request = NULL;
-        int32_t       ret = 0;
-        int           disabled = 0;
-        int64_t       disable_till = 0;
+        wb_conf_t    *conf        = NULL;
+        wb_file_t    *file        = NULL;
+        wb_local_t   *local       = NULL;
+	uint64_t      tmp_file    = 0;
+        call_stub_t  *stub        = NULL;
+        wb_request_t *request     = NULL;
+        int32_t       ret         = 0;
+        call_frame_t *flush_frame = NULL;
 
         conf = this->private;
 
@@ -2185,88 +2198,73 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
                 local->file = file;
 
-                frame->local = local;
-                stub = fop_flush_cbk_stub (frame, wb_ffr_cbk, 0, 0);
-                if (stub == NULL) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                        return 0;
-                }
-
-                process_frame = copy_frame (frame);
-                if (process_frame == NULL) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                        call_stub_destroy (stub);
-                        return 0;
-                }
-
-                LOCK (&file->lock);
-                {
-                        disabled = file->disabled;
-                        disable_till = file->disable_till;
-                }
-                UNLOCK (&file->lock);
-                
-                if (conf->flush_behind
-                    && (!disabled) && (disable_till == 0)) {
-                        tmp_local = GF_CALLOC (1, sizeof (*local),
-                                               gf_wb_mt_wb_local_t);
-                        if (tmp_local == NULL) {
+                if (conf->flush_behind) {
+                        flush_frame = copy_frame (frame);
+                        if (flush_frame == NULL) {
                                 STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                                 
-                                STACK_DESTROY (process_frame->root);
-                                call_stub_destroy (stub);
                                 return 0;
                         }
-                        tmp_local->file = file;
-
-                        process_frame->local = tmp_local;
+                } else {
+                        flush_frame = frame;
                 }
 
-                fd_ref (fd);
+                flush_frame->local = local;
+
+                stub = fop_flush_stub (flush_frame, wb_flush_helper, fd);
+                if (stub == NULL) {
+                        if (flush_frame != frame) {
+                                STACK_DESTROY (flush_frame->root);
+                        }
+
+                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
+                        return 0;
+                }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
+                        if (flush_frame != frame) {
+                                STACK_DESTROY (flush_frame->root);
+                        }
 
-                        fd_unref (fd);
+                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
                         call_stub_destroy (stub);
-                        STACK_DESTROY (process_frame->root);
                         return 0;
                 }
 
-                ret = wb_process_queue (process_frame, file, 1); 
+                ret = wb_process_queue (flush_frame, file, 1); 
                 if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
+                        if (flush_frame != frame) {
+                                STACK_DESTROY (flush_frame->root);
+                        }
 
-                        fd_unref (fd);
+                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
                         call_stub_destroy (stub);
-                        STACK_DESTROY (process_frame->root);
                         return 0;
                 }
-        }
-                
-        if ((file != NULL) && conf->flush_behind
-            && (!disabled) && (disable_till == 0)) {
-                STACK_WIND (process_frame,
-                            wb_ffr_bg_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->flush,
-                            fd);
         } else {
-                STACK_WIND (frame,
-                            wb_ffr_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->flush,
-                            fd);
+                if (conf->flush_behind) {
+                        flush_frame = copy_frame (frame);
+                        if (flush_frame == NULL) {
+                                STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
+                                return 0;
+                        }
 
-                if (process_frame != NULL) {
-                        STACK_DESTROY (process_frame->root);
+                        STACK_WIND (flush_frame,
+                                    wb_ffr_bg_cbk,
+                                    FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->flush,
+                                    fd);
+                } else {
+                        STACK_WIND (frame,
+                                    wb_ffr_cbk,
+                                    FIRST_CHILD(this),
+                                    FIRST_CHILD(this)->fops->flush,
+                                    fd);
                 }
         }
 
-         
-        if (file != NULL) {
-                fd_unref (fd);
+        if (conf->flush_behind) {
+                STACK_UNWIND_STRICT (flush, frame, 0, 0);
         }
 
         return 0;
