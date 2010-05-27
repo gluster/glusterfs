@@ -533,7 +533,7 @@ server_resolve_fd (call_frame_t *frame)
 
         if (!state->fd) {
                 resolve->op_ret   = -1;
-                resolve->op_errno = EBADF;
+                resolve->op_errno = EBADFD;
         }
 
         server_resolve_all (frame);
