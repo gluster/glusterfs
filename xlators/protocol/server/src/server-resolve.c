@@ -25,6 +25,7 @@
 #include "server-protocol.h"
 #include "server-helpers.h"
 
+#include "compat-errno.h"
 
 int
 server_resolve_all (call_frame_t *frame);
