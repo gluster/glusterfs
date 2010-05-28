@@ -4,6 +4,7 @@ EXTRA_DIST = glusterfsd-Debian glusterfsd-Redhat glusterfsd-SuSE glusterfs-serve
 CLEANFILES = 
 
 initdir = @initdir@
+launchddir = @launchddir@
 
 $(GF_DISTRIBUTION): 
 	$(mkdir_p) $(DESTDIR)$(initdir)	
@@ -13,5 +14,6 @@ install-exec-local: $(GF_DISTRIBUTION)
 
 install-data-local: 
 if GF_DARWIN_HOST_OS
-	cp glusterfs-server.plist /Library/LaunchDaemons/com.gluster.glusterfs.plist 
+	$(mkdir_p) $(DESTDIR)$(launchddir)
+	$(INSTALL_PROGRAM) glusterfs-server.plist $(DESTDIR)$(launchddir)/com.gluster.glusterfs.plist
 endif

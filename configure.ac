@@ -135,6 +135,12 @@ AC_ARG_WITH(initdir,
             [initdir='/etc/init.d'])
 AC_SUBST(initdir)
 
+AC_ARG_WITH(launchddir,
+            [  --with-launchddir=DIR launchd services in DIR @<:@/Library/LaunchDaemons@:>@],
+            [launchddir=$withval],
+            [launchddir='/Library/LaunchDaemons'])
+AC_SUBST(launchddir)
+
 # LEX needs a check
 AC_PROG_LEX
 if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
