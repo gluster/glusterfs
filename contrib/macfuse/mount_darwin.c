@@ -139,6 +139,7 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
     int result;
     char *fdnam, *dev;
     const char *mountprog = MACFUSE_MOUNT_PROG;
+    sig_t chldf;
 
     /* mount_fusefs should not try to spawn the daemon */
     setenv("MOUNT_FUSEFS_SAFE", "1", 1);
@@ -156,7 +157,7 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
         return -1;
     }
 
-    signal(SIGCHLD, SIG_DFL); /* So that we can wait4() below. */
+    chldf = signal(SIGCHLD, SIG_DFL); /* So that we can wait4() below. */
 
     result = loadkmod();
     if (result == EINVAL)
@@ -246,7 +247,7 @@ mount:
     if (getenv("FUSE_NO_MOUNT") || ! mountpoint)
         goto out;
 
-    signal(SIGCHLD, SIG_IGN);
+    signal(SIGCHLD, chldf);
 
     pid = fork();
 
