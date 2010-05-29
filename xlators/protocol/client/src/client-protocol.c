@@ -921,7 +921,8 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND_STRICT (readlink, frame, -1, EINVAL,
+                             NULL, NULL);
         return 0;
 
 }
