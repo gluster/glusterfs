@@ -111,9 +111,9 @@ extern void
 nfs3_prep_readdir3args (readdir3args *ra, struct nfs3_fh *fh);
 
 extern void
-nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, uint64_t cverf,
-                       struct iatt *dirstat, gf_dirent_t *entries,count3 count,
-                       int is_eof, uint16_t xlid);
+nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, struct nfs3_fh *dfh,
+                       uint64_t cverf, struct iatt *dirstat,
+                       gf_dirent_t *entries, count3 count, int is_eof);
 
 extern void
 nfs3_prep_readdirp3args (readdirp3args *ra, struct nfs3_fh *fh);
@@ -339,4 +339,7 @@ nfs3_verify_dircookie (struct nfs3_state *nfs3, fd_t *dirfd, cookie3 cookie,
 
 extern int
 nfs3_fdcache_remove (struct nfs3_state *nfs3, fd_t *fd);
+
+extern int
+nfs3_is_parentdir_entry (char *entry);
 #endif

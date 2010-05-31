@@ -702,11 +702,64 @@ nfs3_prep_readdir3args (readdir3args *ra, struct nfs3_fh *fh)
 }
 
 
+int
+nfs3_is_dot_entry (char *entry)
+{
+        int     ret = 0;
+
+        if (!entry)
+                return 0;
+
+        if (strcmp (entry, ".") == 0)
+                ret = 1;
+
+        return ret;
+}
+
+
+int
+nfs3_is_parentdir_entry (char *entry)
+{
+        int     ret = 0;
+
+        if (!entry)
+                return 0;
+
+        if (strcmp (entry, "..") == 0)
+                ret = 1;
+
+        return ret;
+}
+
+
+void
+nfs3_funge_root_dotdot_dirent (gf_dirent_t *ent, struct nfs3_fh *dfh)
+{
+        if ((!ent) || (!dfh))
+                return;
+
+        if (nfs3_fh_is_root_fh (dfh) &&
+            nfs3_is_parentdir_entry (ent->d_name)) {
+                ent->d_ino = 1;
+                ent->d_stat.ia_ino = 1;
+                ent->d_stat.ia_gen = 0;
+        }
+
+        if (nfs3_fh_is_root_fh (dfh) &&
+            nfs3_is_dot_entry (ent->d_name)) {
+                ent->d_ino = 1;
+                ent->d_stat.ia_ino = 1;
+                ent->d_stat.ia_gen = 0;
+        }
+
+}
+
+
 entry3 *
-nfs3_fill_entry3 (gf_dirent_t *entry)
+nfs3_fill_entry3 (gf_dirent_t *entry, struct nfs3_fh *dfh)
 {
         entry3          *ent = NULL;
-        if (!entry)
+        if ((!entry) || (!dfh))
                 return NULL;
 
         ent = GF_CALLOC (1, sizeof (*ent), gf_nfs_mt_entry3);
@@ -714,6 +767,14 @@ nfs3_fill_entry3 (gf_dirent_t *entry)
                 return NULL;
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "Entry: %s", entry->d_name);
+
+        /* If the entry is . or .., we need to replace the physical ino and gen
+         * with 1 and 0 respectively if the directory is root. This funging is
+         * needed because there is no parent directory of the root. In that
+         * sense the behavious we provide is similar to the output of the
+         * command: "stat /.."
+         */
+        nfs3_funge_root_dotdot_dirent (entry, dfh);
         ent->fileid = entry->d_ino;
         ent->cookie = entry->d_off;
         ent->name = GF_CALLOC ((strlen (entry->d_name) + 1), sizeof (char),
@@ -775,6 +836,13 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh)
         if ((!entry) || (!dirfh))
                 return NULL;
 
+        /* If the entry is . or .., we need to replace the physical ino and gen
+         * with 1 and 0 respectively if the directory is root. This funging is
+         * needed because there is no parent directory of the root. In that
+         * sense the behavious we provide is similar to the output of the
+         * command: "stat /.."
+         */
+        nfs3_funge_root_dotdot_dirent (entry, dirfh);
         gf_log (GF_NFS3, GF_LOG_TRACE, "Entry: %s, ino: %"PRIu64,
                 entry->d_name, entry->d_ino);
         ent = GF_CALLOC (1, sizeof (*ent), gf_nfs_mt_entryp3);
@@ -802,9 +870,9 @@ err:
 
 
 void
-nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, uint64_t cverf,
-                       struct iatt *dirstat, gf_dirent_t *entries, count3 count,
-                       int is_eof, uint16_t xlid)
+nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
+                       uint64_t cverf, struct iatt *dirstat,
+                       gf_dirent_t *entries, count3 count, int is_eof)
 {
         post_op_attr    dirattr;
         entry3          *ent = NULL;
@@ -818,7 +886,7 @@ nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, uint64_t cverf,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (dirstat, xlid);
+        nfs3_map_xlid_to_statdev (dirstat, dirfh->xlatorid);
         dirattr = nfs3_stat_to_post_op_attr (dirstat);
         res->readdir3res_u.resok.dir_attributes = dirattr;
         res->readdir3res_u.resok.reply.eof = (bool_t)is_eof;
@@ -834,7 +902,7 @@ nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, uint64_t cverf,
                     (strcmp (entries->d_name, "..") == 0))
                         goto nextentry;
                         */
-                ent = nfs3_fill_entry3 (entries);
+                ent = nfs3_fill_entry3 (entries, dirfh);
                 if (!ent)
                         break;
 
