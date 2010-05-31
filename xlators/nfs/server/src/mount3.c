@@ -516,14 +516,26 @@ __mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
         if (list_empty (&ms->mountlist))
                 return 0;
 
+        if (dirpath[0] == '/')
+                exname = dirpath+1;
+        else
+                exname = dirpath;
+
         list_for_each_entry (me, &ms->mountlist, mlist) {
-                if (dirpath[0] == '/')
-                        exname = dirpath+1;
-                else
-                        exname = dirpath;
-                if ((strcmp (me->exname, exname) == 0) &&
-                    (strcmp (me->hostname, hostname) == 0))
-                        break;
+               if ((strcmp (me->exname, exname) == 0) &&
+                    (strcmp (me->hostname, hostname) == 0)) {
+                       ret = 0;
+                       break;
+               }
+        }
+
+        /* Need this check here because at the end of the search me might still
+         * be pointing to the last entry, which may not be the one we're
+         * looking for.
+         */
+        if (ret == -1)  {/* Not found in list. */
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Export not found");
+                goto ret;
         }
 
         if (!me)
