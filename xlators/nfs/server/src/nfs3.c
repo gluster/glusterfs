@@ -895,7 +895,15 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto xmit_res;
         }
 
-        nfs3_fh_build_parent_fh (&cs->fh, buf, &newfh);
+        /* If the buf inode shows that this is a root dir's buf, then the file
+         * handle needs to be specially crafted, in all other cases, we'll just
+         * create the handle normally using the buffer of the parent dir.
+         */
+        if (buf->ia_ino != 1)
+                nfs3_fh_build_parent_fh (&cs->fh, buf, &newfh);
+        else
+                newfh = nfs3_fh_build_root_fh (cs->nfs3state->exportslist,
+                                               cs->vol, *buf);
 
 xmit_res:
         nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), "LOOKUP", status,
@@ -926,18 +934,34 @@ nfs3_lookup_parentdir_resume (void *carg)
         /* At this point now, the loc in cs is for the directory file handle
          * sent by the client. This loc needs to be transformed into a loc that
          * represents the parent dir of cs->resolvedloc.inode.
+         *
+         * EXCEPT in the case where the .. is a parent of the root directory.
+         * In this case we'll be returning the file handle and attributes of the
+         * root itself.
          */
         nfs_request_user_init (&nfu, cs->req);
 
         /* Save the file handle from the LOOKUP request. We'll use this to
-         * build the file handle of the parent directory.
+         * build the file handle of the parent directory in case the parent is
+         * not root dir.
          */
         cs->fh = cs->resolvefh;
-        parent = inode_ref (cs->resolvedloc.parent);
-        nfs_loc_wipe (&cs->resolvedloc);
-        ret = nfs_inode_loc_fill (parent, &cs->resolvedloc);
-        if (ret < 0)
-                goto errtostat;
+
+        /* If fh is that of the root, the resolvedloc will already contain
+         * the loc for root. After that, we'll send lookup for the root dir
+         * itself since we cannot send the lookup on the parent of root.
+         *
+         * For all other cases, we'll send the lookup on the parent of the
+         * given directory file handle.
+         */
+        if (!nfs3_fh_is_root_fh (&cs->fh)) {
+                parent = inode_ref (cs->resolvedloc.parent);
+                nfs_loc_wipe (&cs->resolvedloc);
+                ret = nfs_inode_loc_fill (parent, &cs->resolvedloc);
+
+                if (ret < 0)
+                        goto errtostat;
+        }
 
         ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                           nfs3svc_lookup_parentdir_cbk, cs);
