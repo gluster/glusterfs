@@ -134,6 +134,7 @@ for line in sys.stdin:
         if linecount % dumpinterval == 0:
                 sys.stderr.write ("Dumping data..\n")
                 la.dump ()
+                del la
                 la = NFSLogAnalyzer ()
 
         if linecount % progmsgcount == 0:
