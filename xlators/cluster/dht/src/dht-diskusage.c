@@ -210,7 +210,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
         }
         UNLOCK (&conf->subvolume_lock);
 
-        if (subvol_filled) {
+        if (subvol_filled && conf->subvolume_status[i]) {
                 if (!(conf->du_stats[i].log++ % (GF_UNIVERSAL_ANSWER * 10))) {
 		  GF_LOG_OCCASIONALLY (gf_log_subvol_full,
 				       this->name, GF_LOG_WARNING,
