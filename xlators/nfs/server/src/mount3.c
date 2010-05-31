@@ -517,7 +517,10 @@ __mnt3svc_umount (struct mount3_state *ms, char *dirpath, char *hostname)
                 return 0;
 
         list_for_each_entry (me, &ms->mountlist, mlist) {
-                exname = dirpath+1;
+                if (dirpath[0] == '/')
+                        exname = dirpath+1;
+                else
+                        exname = dirpath;
                 if ((strcmp (me->exname, exname) == 0) &&
                     (strcmp (me->hostname, hostname) == 0))
                         break;
