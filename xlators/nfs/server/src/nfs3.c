@@ -993,21 +993,6 @@ nfs3err:
 
 
 int
-nfs3_is_parentdir_entry (char *entry)
-{
-        int     ret = 0;
-
-        if (!entry)
-                return 0;
-
-        if (strcmp (entry, "..") == 0)
-                ret = 1;
-
-        return ret;
-}
-
-
-int
 nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
 {
         xlator_t                        *vol = NULL;
@@ -3627,16 +3612,14 @@ nfs3_readdirp_reply (rpcsvc_request_t *req, nfsstat3 stat,struct nfs3_fh *dirfh,
 
 
 int
-nfs3_readdir_reply (rpcsvc_request_t *req, nfsstat3 stat, uint64_t cverf,
-                    struct iatt *dirstat, gf_dirent_t *entries, count3 count,
-                    int is_eof)
+nfs3_readdir_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *dirfh,
+                    uint64_t cverf, struct iatt *dirstat, gf_dirent_t *entries,
+                    count3 count, int is_eof)
 {
         readdir3res     res = {0, };
-        uint16_t        xlid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_readdir3res (&res, stat, cverf, dirstat, entries, count,
-                               is_eof, xlid);
+        nfs3_fill_readdir3res (&res, stat, dirfh, cverf, dirstat, entries, count
+                               , is_eof);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer) xdr_serialize_readdir3res);
         nfs3_free_readdir3res (&res);
@@ -3673,9 +3656,9 @@ nfs3err:
                 nfs3_log_readdir_res (rpcsvc_request_xid (cs->req), stat,
                                       op_errno, (uintptr_t)cs->fd,
                                       cs->dircount, is_eof);
-                nfs3_readdir_reply (cs->req, stat, (uintptr_t)cs->fd,
-                                    buf, &cs->entries, cs->dircount,
-                                    is_eof);
+                nfs3_readdir_reply (cs->req, stat, &cs->parent,
+                                    (uintptr_t)cs->fd, buf, &cs->entries,
+                                    cs->dircount, is_eof);
         } else {
                 nfs3_log_readdirp_res (rpcsvc_request_xid (cs->req), stat,
                                        op_errno, (uintptr_t)cs->fd,
@@ -3730,7 +3713,7 @@ err:
         if (cs->maxcount == 0) {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req), "READDIR",
                                      stat, op_errno);
-                nfs3_readdir_reply (cs->req, stat, 0, NULL, NULL, 0, 0);
+                nfs3_readdir_reply (cs->req, stat, NULL, 0, NULL, NULL, 0, 0);
         } else {
                 nfs3_log_common_res (rpcsvc_request_xid (cs->req), "READDIRP"
                                      , stat, op_errno);
@@ -3791,7 +3774,8 @@ nfs3err:
                 if (cs->maxcount == 0) {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
                                              "READDIR", stat, -ret);
-                        nfs3_readdir_reply (cs->req, stat, 0, NULL, NULL, 0, 0);
+                        nfs3_readdir_reply (cs->req, stat, NULL, 0, NULL, NULL,
+                                            0, 0);
                 } else {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
                                              "READDIRP", stat, -ret);
@@ -3826,7 +3810,8 @@ nfs3err:
                 if (cs->maxcount == 0) {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
                                              "READDIR", stat, -ret);
-                        nfs3_readdir_reply (cs->req, stat, 0, NULL, NULL, 0, 0);
+                        nfs3_readdir_reply (cs->req, stat, NULL, 0, NULL, NULL,
+                                            0, 0);
                 } else {
                         nfs3_log_common_res (rpcsvc_request_xid (cs->req),
                                              "READDIRP", stat, -ret);
@@ -3877,7 +3862,8 @@ nfs3err:
                 if (maxcount == 0) {
                         nfs3_log_common_res (rpcsvc_request_xid (req), "READDIR"
                                              , stat, -ret);
-                        nfs3_readdir_reply (req, stat, 0, NULL, NULL, 0, 0);
+                        nfs3_readdir_reply (req, stat, NULL, 0, NULL, NULL, 0,
+                                            0);
                 } else {
                         nfs3_log_common_res (rpcsvc_request_xid (req),"READDIRP"
                                              , stat, -ret);
