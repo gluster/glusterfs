@@ -51,6 +51,7 @@
 #define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
 #define ZR_DIRECT_IO_OPT        "direct-io-mode"
 #define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
+#define ZR_DUMP_FUSE            "dump-fuse"
 
 enum argp_option_keys {
 	ARGP_VOLFILE_SERVER_KEY = 's', 
@@ -79,6 +80,7 @@ enum argp_option_keys {
         ARGP_LOG_SERVER_PORT_KEY = 147,
         ARGP_READ_ONLY_KEY = 148,
         ARGP_MAC_COMPAT_KEY = 149,
+        ARGP_DUMP_FUSE_KEY = 150,
 };
 
 /* Moved here from fetch-spec.h */

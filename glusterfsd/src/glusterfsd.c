@@ -163,6 +163,8 @@ static struct argp_option gf_options[] = {
         {"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0,
          "Set attribute timeout to SECONDS for inodes in fuse kernel module "
          "[default: 1]"},
+        {"dump-fuse", ARGP_DUMP_FUSE_KEY, "PATH", 0,
+         "Dump fuse traffic to PATH"},
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
          "Enable strict volume file checking"},
         {0, 0, 0, 0, "Miscellaneous Options:"},
@@ -337,6 +339,10 @@ _add_fuse_mount (xlator_t *graph)
         if (cmd_args->volfile_check)
                 ret = dict_set_int32 (top->options, ZR_STRICT_VOLFILE_CHECK,
                                       cmd_args->volfile_check);
+
+        if (cmd_args->dump_fuse)
+                ret = dict_set_static_ptr (top->options, ZR_DUMP_FUSE,
+                                           cmd_args->dump_fuse);
 
 #ifdef GF_DARWIN_HOST_OS
         /* On Darwin machines, O_APPEND is not handled,
@@ -1000,6 +1006,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
                         argp_usage (state);
 
                 cmd_args->mount_point = gf_strdup (arg);
+                break;
+
+        case ARGP_DUMP_FUSE_KEY:
+                cmd_args->dump_fuse = gf_strdup (arg);
                 break;
         }
 
