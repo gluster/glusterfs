@@ -221,6 +221,7 @@ struct _cmd_args {
 	char            *volume_name;
 	int              fuse_nodev;
 	int              fuse_nosuid;
+	char            *dump_fuse;
 
 	/* key args */
 	char            *mount_point;

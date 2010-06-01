@@ -104,7 +104,10 @@ struct fuse_private {
         pthread_cond_t       child_up_cond;
         pthread_mutex_t      child_up_mutex;
         char                 child_up_value;
-
+        fuse_handler_t     **fuse_ops;
+        fuse_handler_t     **fuse_ops0;
+        pthread_mutex_t      fuse_dump_mutex;
+        int                  fuse_dump_fd;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -297,6 +300,22 @@ send_fuse_iov (xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
                 return errno;
         if (res != fouh->len)
                 return EINVAL;
+
+        if (priv->fuse_dump_fd != -1) {
+                char w = 'W';
+
+                pthread_mutex_lock (&priv->fuse_dump_mutex);
+                res = write (priv->fuse_dump_fd, &w, 1);
+                if (res != -1)
+                        res = writev (priv->fuse_dump_fd, iov_out, count);
+                pthread_mutex_unlock (&priv->fuse_dump_mutex);
+
+                if (res == -1)
+                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                                "failed to dump fuse message (W): %s",
+                                strerror (errno));
+        }
+
         return 0;
 }
 
@@ -2994,7 +3013,6 @@ fuse_destroy (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GF_FREE (finh);
 }
 
-static fuse_handler_t *fuse_ops[FUSE_OP_HIGH];
 
 int
 fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -3079,6 +3097,7 @@ fuse_thread_proc (void *data)
         struct iovec iov_in[2];
         void *msg = NULL;
         const size_t msg0_size = sizeof (*finh) + 128;
+        fuse_handler_t **fuse_ops = NULL;
         int             ret  = -1;
 
         struct timeval  now;
@@ -3086,6 +3105,7 @@ fuse_thread_proc (void *data)
 
         this = data;
         priv = this->private;
+        fuse_ops = priv->fuse_ops;
 
         THIS = this;
 
@@ -3387,6 +3407,78 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+
+static fuse_handler_t *fuse_std_ops[FUSE_OP_HIGH] = {
+        [FUSE_INIT]        = fuse_init,
+        [FUSE_DESTROY]     = fuse_destroy,
+        [FUSE_LOOKUP]      = fuse_lookup,
+        [FUSE_FORGET]      = fuse_forget,
+        [FUSE_GETATTR]     = fuse_getattr,
+        [FUSE_SETATTR]     = fuse_setattr,
+        [FUSE_OPENDIR]     = fuse_opendir,
+        [FUSE_READDIR]     = fuse_readdir,
+        [FUSE_RELEASEDIR]  = fuse_releasedir,
+        [FUSE_ACCESS]      = fuse_access,
+        [FUSE_READLINK]    = fuse_readlink,
+        [FUSE_MKNOD]       = fuse_mknod,
+        [FUSE_MKDIR]       = fuse_mkdir,
+        [FUSE_UNLINK]      = fuse_unlink,
+        [FUSE_RMDIR]       = fuse_rmdir,
+        [FUSE_SYMLINK]     = fuse_symlink,
+        [FUSE_RENAME]      = fuse_rename,
+        [FUSE_LINK]        = fuse_link,
+        [FUSE_CREATE]      = fuse_create,
+        [FUSE_OPEN]        = fuse_open,
+        [FUSE_READ]        = fuse_readv,
+        [FUSE_WRITE]       = fuse_write,
+        [FUSE_FLUSH]       = fuse_flush,
+        [FUSE_RELEASE]     = fuse_release,
+        [FUSE_FSYNC]       = fuse_fsync,
+        [FUSE_FSYNCDIR]    = fuse_fsyncdir,
+        [FUSE_STATFS]      = fuse_statfs,
+        [FUSE_SETXATTR]    = fuse_setxattr,
+        [FUSE_GETXATTR]    = fuse_getxattr,
+        [FUSE_LISTXATTR]   = fuse_listxattr,
+        [FUSE_REMOVEXATTR] = fuse_removexattr,
+        [FUSE_GETLK]       = fuse_getlk,
+        [FUSE_SETLK]       = fuse_setlk,
+        [FUSE_SETLKW]      = fuse_setlk,
+};
+
+
+static fuse_handler_t *fuse_dump_ops[FUSE_OP_HIGH] = {
+};
+
+
+static void
+fuse_dumper (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        fuse_private_t *priv = NULL;
+        struct iovec diov[3];
+        char r = 'R';
+        int ret = 0;
+
+        priv = this->private;
+
+        diov[0].iov_base = &r;
+        diov[0].iov_len  = 1;
+        diov[1].iov_base = finh;
+        diov[1].iov_len  = sizeof (*finh);
+        diov[2].iov_base = msg;
+        diov[2].iov_len  = finh->len - sizeof (*finh);
+
+        pthread_mutex_lock (&priv->fuse_dump_mutex);
+        ret = writev (priv->fuse_dump_fd, diov, 3);
+        pthread_mutex_unlock (&priv->fuse_dump_mutex);
+        if (ret == -1)
+                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                        "failed to dump fuse message (R): %s",
+                        strerror (errno));
+
+        return priv->fuse_ops0[finh->opcode] (this, finh, msg);
+}
+
+
 int
 init (xlator_t *this_xl)
 {
@@ -3483,15 +3575,32 @@ init (xlator_t *this_xl)
 
         priv->direct_io_mode = 2;
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
-        if (value_string) {
+        if (ret == 0) {
                 ret = gf_string2boolean (value_string, &priv->direct_io_mode);
         }
 
         priv->strict_volfile_check = 0;
         ret = dict_get_str (options, ZR_STRICT_VOLFILE_CHECK, &value_string);
-        if (value_string) {
+        if (ret == 0) {
                 ret = gf_string2boolean (value_string,
                                          &priv->strict_volfile_check);
+        }
+
+        priv->fuse_dump_fd = -1;
+        ret = dict_get_str (options, "dump-fuse", &value_string);
+        if (ret == 0) {
+                ret = unlink (value_string);
+                if (ret != -1 || errno == ENOENT)
+                        ret = open (value_string, O_RDWR|O_CREAT|O_EXCL,
+                                    S_IRUSR|S_IWUSR);
+                if (ret == -1) {
+                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                                "cannot open fuse dump file %s",
+                                 value_string);
+
+                        goto cleanup_exit;
+                }
+                priv->fuse_dump_fd = ret;
         }
 
         fsname = this_xl->ctx->cmd_args.volume_file;
@@ -3516,46 +3625,22 @@ init (xlator_t *this_xl)
 
         priv->first_call = 2;
 
+        pthread_mutex_init (&priv->fuse_dump_mutex, NULL);
         pthread_cond_init (&priv->child_up_cond, NULL);
         pthread_mutex_init (&priv->child_up_mutex, NULL);
         priv->child_up_value = 1;
 
-        for (i = 0; i < FUSE_OP_HIGH; i++)
-                fuse_ops[i] = fuse_enosys;
-        fuse_ops[FUSE_INIT]        = fuse_init;
-        fuse_ops[FUSE_DESTROY]     = fuse_destroy;
-        fuse_ops[FUSE_LOOKUP]      = fuse_lookup;
-        fuse_ops[FUSE_FORGET]      = fuse_forget;
-        fuse_ops[FUSE_GETATTR]     = fuse_getattr;
-        fuse_ops[FUSE_SETATTR]     = fuse_setattr;
-        fuse_ops[FUSE_OPENDIR]     = fuse_opendir;
-        fuse_ops[FUSE_READDIR]     = fuse_readdir;
-        fuse_ops[FUSE_RELEASEDIR]  = fuse_releasedir;
-        fuse_ops[FUSE_ACCESS]      = fuse_access;
-        fuse_ops[FUSE_READLINK]    = fuse_readlink;
-        fuse_ops[FUSE_MKNOD]       = fuse_mknod;
-        fuse_ops[FUSE_MKDIR]       = fuse_mkdir;
-        fuse_ops[FUSE_UNLINK]      = fuse_unlink;
-        fuse_ops[FUSE_RMDIR]       = fuse_rmdir;
-        fuse_ops[FUSE_SYMLINK]     = fuse_symlink;
-        fuse_ops[FUSE_RENAME]      = fuse_rename;
-        fuse_ops[FUSE_LINK]        = fuse_link;
-        fuse_ops[FUSE_CREATE]      = fuse_create;
-        fuse_ops[FUSE_OPEN]        = fuse_open;
-        fuse_ops[FUSE_READ]        = fuse_readv;
-        fuse_ops[FUSE_WRITE]       = fuse_write;
-        fuse_ops[FUSE_FLUSH]       = fuse_flush;
-        fuse_ops[FUSE_RELEASE]     = fuse_release;
-        fuse_ops[FUSE_FSYNC]       = fuse_fsync;
-        fuse_ops[FUSE_FSYNCDIR]    = fuse_fsyncdir;
-        fuse_ops[FUSE_STATFS]      = fuse_statfs;
-        fuse_ops[FUSE_SETXATTR]    = fuse_setxattr;
-        fuse_ops[FUSE_GETXATTR]    = fuse_getxattr;
-        fuse_ops[FUSE_LISTXATTR]   = fuse_listxattr;
-        fuse_ops[FUSE_REMOVEXATTR] = fuse_removexattr;
-        fuse_ops[FUSE_GETLK]       = fuse_getlk;
-        fuse_ops[FUSE_SETLK]       = fuse_setlk;
-        fuse_ops[FUSE_SETLKW]      = fuse_setlk;
+        for (i = 0; i < FUSE_OP_HIGH; i++) {
+                if (!fuse_std_ops[i])
+                        fuse_std_ops[i] = fuse_enosys;
+                if (!fuse_dump_ops[i])
+                        fuse_dump_ops[i] = fuse_dumper;
+        }
+        priv->fuse_ops = fuse_std_ops;
+        if (priv->fuse_dump_fd != -1) {
+                priv->fuse_ops0 = priv->fuse_ops;
+                priv->fuse_ops  = fuse_dump_ops;
+        }
 
         return 0;
 
@@ -3567,6 +3652,7 @@ cleanup_exit:
                 close (priv->fd);
         }
         GF_FREE (priv);
+        close (priv->fuse_dump_fd);
         return -1;
 }
 
@@ -3592,6 +3678,7 @@ fini (xlator_t *this_xl)
 
                 dict_del (this_xl->options, ZR_MOUNTPOINT_OPT);
                 gf_fuse_unmount (mount_point, priv->fd);
+                close (priv->fuse_dump_fd);
         }
 }
 
@@ -3612,6 +3699,9 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL
         },
         { .key  = {"mountpoint", "mount-point"},
+          .type = GF_OPTION_TYPE_PATH
+        },
+        { .key  = {"dump-fuse", "fuse-dumpfile"},
           .type = GF_OPTION_TYPE_PATH
         },
         { .key  = {"attribute-timeout"},
