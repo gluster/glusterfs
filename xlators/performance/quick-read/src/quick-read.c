@@ -20,6 +20,8 @@
 #include "quick-read.h"
 #include "statedump.h"
 
+#define QR_DEFAULT_CACHE_SIZE 134217728 /* 128MB */
+
 int32_t
 qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset);
@@ -2516,7 +2518,7 @@ init (xlator_t *this)
                 } 
         }
 
-        conf->cache_size = 65536;
+        conf->cache_size = QR_DEFAULT_CACHE_SIZE;
         ret = dict_get_str (this->options, "cache-size", &str);
         if (ret == 0) {
                 ret = gf_string2bytesize (str, &conf->cache_size);
