@@ -261,7 +261,7 @@ __qr_cache_prune (xlator_t *this)
         table = &priv->table;
         conf = &priv->conf;
 
-        size_to_prune = conf->cache_size - table->cache_used;
+        size_to_prune = table->cache_used - conf->cache_size;
 
         for (index=0; index < conf->max_pri; index++) {
                 list_for_each_entry_safe (curr, next, &table->lru[index], lru) {
@@ -283,7 +283,7 @@ done:
 inline char
 __qr_need_cache_prune (qr_conf_t *conf, qr_inode_table_t *table)
 {
-        return (table->cache_used >= conf->cache_size);
+        return (table->cache_used > conf->cache_size);
 }
 
         
