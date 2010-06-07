@@ -2509,7 +2509,7 @@ init (xlator_t *this)
 			"dangling volume. check volfile ");
 	}
 
-        priv = GF_CALLOC (1, sizeof (*conf), 
+        priv = GF_CALLOC (1, sizeof (*priv),
                           gf_qr_mt_qr_private_t);
         if (priv == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
