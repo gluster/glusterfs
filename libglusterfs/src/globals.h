@@ -27,12 +27,13 @@
 #define GF_REQUEST_MAXGROUPS    16
 
 #include "glusterfs.h"
-#include "xlator.h"
 
 /* CTX */
 #define CTX (glusterfs_ctx_get())
 
 glusterfs_ctx_t *glusterfs_ctx_get ();
+
+#include "xlator.h"
 
 /* THIS */
 #define THIS (*__glusterfs_this_location())

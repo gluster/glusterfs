@@ -6406,7 +6406,7 @@ init (xlator_t *this)
                 }
         }
 #endif
-        this->ctx->top = this;
+        this->graph->top = this;
 
         ret = 0;
 out:

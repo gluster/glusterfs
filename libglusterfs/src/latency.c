@@ -174,7 +174,7 @@ gf_latency_toggle (int signum)
 {
         glusterfs_ctx_t *ctx = NULL;
 
-        ctx = get_global_ctx_ptr ();
+        ctx = glusterfs_ctx_get ();
 
         if (ctx) {
                 ctx->measure_latency = !ctx->measure_latency;

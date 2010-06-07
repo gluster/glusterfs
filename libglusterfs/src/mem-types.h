@@ -77,6 +77,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_rpcsvc_conn_t,
         gf_common_mt_rpcsvc_program_t,
         gf_common_mt_rpcsvc_stage_t,
+        gf_common_mt_glusterfs_graph_t,
         gf_common_mt_end
 };
 #endif

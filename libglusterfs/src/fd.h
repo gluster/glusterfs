@@ -33,9 +33,10 @@
 
 struct _inode;
 struct _dict;
+
 struct _fd_ctx {
-	uint64_t key;
-	uint64_t value;
+	uint64_t  key;
+	uint64_t  value;
 };
 
 /* If this structure changes, please have mercy on the booster maintainer
@@ -55,11 +56,13 @@ struct _fd {
 };
 typedef struct _fd fd_t;
 
+
 struct fd_table_entry {
         fd_t    *fd;
         int     next_free;
 };
 typedef struct fd_table_entry fdentry_t;
+
 
 struct _fdtable {
         int             refcount;
@@ -69,6 +72,7 @@ struct _fdtable {
         int             first_free;
 };
 typedef struct _fdtable fdtable_t;
+
 
 /* Signifies no more entries in the fd table. */
 #define GF_FDTABLE_END  -1
@@ -81,58 +85,77 @@ typedef struct _fdtable fdtable_t;
 #include "logging.h"
 #include "xlator.h"
 
-inline void 
+
+inline void
 gf_fd_put (fdtable_t *fdtable, int32_t fd);
+
 
 fd_t *
 gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd);
 
+
 fdtable_t *
 gf_fd_fdtable_alloc (void);
 
-int32_t 
+
+int
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr);
+
 
 fdentry_t *
 gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count);
 
-void 
+
+void
 gf_fd_fdtable_destroy (fdtable_t *fdtable);
+
 
 fd_t *
 fd_ref (fd_t *fd);
 
+
 void
 fd_unref (fd_t *fd);
+
 
 fd_t *
 fd_create (struct _inode *inode, pid_t pid);
 
+
 fd_t *
 fd_lookup (struct _inode *inode, pid_t pid);
+
 
 uint8_t
 fd_list_empty (struct _inode *inode);
 
+
 fd_t *
 fd_bind (fd_t *fd);
+
 
 int
 fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value);
 
-int 
+
+int
 fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
 
-int 
+
+int
 fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
+
 
 int
 __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value);
 
-int 
+
+int
 __fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
 
-int 
+
+int
 __fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
+
 
 #endif /* _FD_H */

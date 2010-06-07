@@ -91,23 +91,31 @@ struct fuse_private {
         size_t               volfile_size;
         char                *mount_point;
         struct iobuf        *iobuf;
+
         pthread_t            fuse_thread;
         char                 fuse_thread_started;
+
         uint32_t             direct_io_mode;
         size_t              *msg0_len_p;
+
         double               entry_timeout;
         double               attribute_timeout;
-        pthread_cond_t       first_call_cond;
-        pthread_mutex_t      first_call_mutex;
-        char                 first_call;
+
+        pthread_cond_t       sync_cond;
+        pthread_mutex_t      sync_mutex;
+        char                 child_up;
+
+        char                 init_recvd;
+
         gf_boolean_t         strict_volfile_check;
-        pthread_cond_t       child_up_cond;
-        pthread_mutex_t      child_up_mutex;
-        char                 child_up_value;
+
         fuse_handler_t     **fuse_ops;
         fuse_handler_t     **fuse_ops0;
         pthread_mutex_t      fuse_dump_mutex;
         int                  fuse_dump_fd;
+
+        glusterfs_graph_t   *next_graph;
+        xlator_t            *active_subvol;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -138,8 +146,7 @@ typedef struct fuse_private fuse_private_t;
                         free_state (state);                             \
                         return;                                         \
                 }                                                       \
-                xl = frame->this->children ?                            \
-                        frame->this->children->xlator : NULL;           \
+                xl = fuse_state_subvol (state);                         \
                                                                         \
                 frame->root->state = state;                             \
                 frame->root->op    = op_num;                            \
@@ -190,6 +197,35 @@ typedef struct {
 } fuse_state_t;
 
 
+xlator_t *
+fuse_state_subvol (fuse_state_t *state)
+{
+        xlator_t *subvol = NULL;
+
+        if (!state)
+                return NULL;
+
+        if (state->loc.inode)
+                subvol = state->loc.inode->table->xl;
+
+        if (state->fd)
+                subvol = state->fd->inode->table->xl;
+
+        return subvol;
+}
+
+
+xlator_t *
+fuse_active_subvol (xlator_t *fuse)
+{
+        fuse_private_t *priv = NULL;
+
+        priv = fuse->private;
+
+        return priv->active_subvol;
+}
+
+
 static void
 free_state (fuse_state_t *state)
 {
@@ -231,7 +267,6 @@ get_state (xlator_t *this, fuse_in_header_t *finh)
         if (!state)
                 return NULL;
         state->pool = this->ctx->pool;
-        state->itable = this->itable;
         state->finh = finh;
         state->this = this;
 
@@ -349,12 +384,14 @@ send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error)
 }
 
 static inode_t *
-fuse_ino_to_inode (uint64_t ino, inode_table_t *table)
+fuse_ino_to_inode (uint64_t ino, xlator_t *fuse)
 {
-        inode_t *inode = NULL;
+        inode_t  *inode = NULL;
+        xlator_t *active_subvol = NULL;
 
         if (ino == 1) {
-                inode = table->root;
+                active_subvol = fuse_active_subvol (fuse);
+                inode = active_subvol->itable->root;
         } else {
                 inode = (inode_t *) (unsigned long) ino;
                 inode_ref (inode);
@@ -390,13 +427,13 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
         if (name) {
                 parent = loc->parent;
                 if (!parent) {
-                        parent = fuse_ino_to_inode (par, state->itable);
+                        parent = fuse_ino_to_inode (par, state->this);
                         loc->parent = parent;
                 }
 
                 inode = loc->inode;
                 if (!inode) {
-                        inode = inode_grep (state->itable, parent, name);
+                        inode = inode_grep (parent->table, parent, name);
                         loc->inode = inode;
                 }
 
@@ -411,7 +448,7 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
         } else {
                 inode = loc->inode;
                 if (!inode) {
-                        inode = fuse_ino_to_inode (ino, state->itable);
+                        inode = fuse_ino_to_inode (ino, state->this);
                         loc->inode = inode;
                 }
 
@@ -593,13 +630,15 @@ fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         fuse_state_t            *state = NULL;
         call_frame_t            *prev = NULL;
+        inode_table_t           *itable = NULL;
 
         state = frame->root->state;
         prev  = cookie;
 
         if (op_ret == -1 && state->is_revalidate == 1) {
+                itable = state->loc.inode->table;
                 inode_unref (state->loc.inode);
-                state->loc.inode = inode_new (state->itable);
+                state->loc.inode = inode_new (itable);
                 state->is_revalidate = 2;
 
                 STACK_WIND (frame, fuse_lookup_cbk,
@@ -639,7 +678,7 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "%"PRIu64": LOOKUP %s", finh->unique,
                         state->loc.path);
 
-                state->loc.inode = inode_new (state->itable);
+                state->loc.inode = inode_new (state->loc.parent->table);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": LOOKUP %s(%"PRId64")", finh->unique,
@@ -667,7 +706,7 @@ fuse_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        fuse_inode = fuse_ino_to_inode (finh->nodeid, this->itable);
+        fuse_inode = fuse_ino_to_inode (finh->nodeid, this);
 
         inode_forget (fuse_inode, ffi->nlookup);
         inode_unref (fuse_inode);
@@ -1371,7 +1410,7 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        state->loc.inode = inode_new (state->itable);
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": MKNOD %s", finh->unique,
@@ -1404,7 +1443,7 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        state->loc.inode = inode_new (state->itable);
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": MKDIR %s", finh->unique,
@@ -1501,7 +1540,7 @@ fuse_symlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        state->loc.inode = inode_new (state->itable);
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": SYMLINK %s -> %s", finh->unique,
@@ -1541,7 +1580,7 @@ fuse_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 buf->ia_blksize = this->ctx->page_size;
 
-                inode_rename (state->itable,
+                inode_rename (state->loc.parent->table,
                               state->loc.parent, state->loc.name,
                               state->loc2.parent, state->loc2.name,
                               state->loc.inode, buf);
@@ -1790,7 +1829,7 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        state->loc.inode = inode_new (state->itable);
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         fd = fd_create (state->loc.inode, finh->pid);
         state->fd = fd;
@@ -2530,9 +2569,7 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_in_header_t *finh = NULL;
         data_t         *value_data = NULL;
         fuse_private_t *priv = NULL;
-        struct stat     st;
-        char           *file = NULL;
-        int32_t         fd = -1;
+        int             ret = -1;
         int32_t         len = 0;
         data_pair_t    *trav = NULL;
 
@@ -2550,39 +2587,12 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         /* if callback for getxattr */
                         value_data = dict_get (dict, state->name);
                         if (value_data) {
-                                send_fuse_xattr (this, finh, value_data->data,
-                                                 value_data->len, /* Don't return the value for '\0' */
-                                                 state->size);
-                                /* if(op_ret >...)...else if...else */
-                        }  else if (!strcmp (state->name, "user.glusterfs-booster-volfile")) {
-                                if (!priv->volfile) {
-                                        memset (&st, 0, sizeof (st));
-                                        fd = fileno (this->ctx->specfp);
-                                        if (fstat (fd, &st) != 0) {
-                                                gf_log (this->name,
-                                                        GF_LOG_ERROR,
-                                                        "fstat on fd (%d) failed (%s)", fd, strerror (errno));
-                                                send_fuse_err (this, finh, ENODATA);
-                                        }
 
-                                        priv->volfile_size = st.st_size;
-                                        file = priv->volfile = GF_CALLOC (1, priv->volfile_size,
-                                                                          gf_fuse_mt_char);
-                                        len = lseek (fd, 0, SEEK_SET);
-                                        while ((len = read (fd, file, GF_UNIT_KB)) > 0) {
-                                                file += len;
-                                        }
-                                }
+                                ret = value_data->len; /* Don't return the value for '\0' */
+                                value = value_data->data;
 
-                                send_fuse_xattr (this, finh, priv->volfile,
-                                                 priv->volfile_size, state->size);
-                                /* if(op_ret >...)...else if...else */
-                        } else if (!strcmp (state->name, "user.glusterfs-booster-path")) {
-                                send_fuse_xattr (this, finh, state->loc.path,
-                                                 strlen (state->loc.path) + 1, state->size);
-                        } else if (!strcmp (state->name, "user.glusterfs-booster-mount")) {
-                                send_fuse_xattr (this, finh, priv->mount_point,
-                                                 strlen (priv->mount_point) + 1, state->size);
+                                send_fuse_xattr (this, finh, value, ret, state->size);
+                                /* if(ret >...)...else if...else */
                         } else {
                                 send_fuse_err (this, finh, ENODATA);
                         } /* if(value_data)...else */
@@ -2608,17 +2618,14 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
                 /* if failure - no need to check if listxattr or getxattr */
                 if (op_errno != ENODATA) {
-                        if (op_errno == ENOTSUP)
-                        {
+                        if (op_errno == ENOTSUP) {
                                 GF_LOG_OCCASIONALLY (gf_fuse_xattr_enotsup_log,
                                                      "glusterfs-fuse",
                                                      GF_LOG_ERROR,
                                                      "extended attribute not "
                                                      "supported by the backend "
                                                      "storage");
-                        }
-                        else
-                        {
+                        } else {
                                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                                         "%"PRIu64": %s() %s => -1 (%s)",
                                         frame->root->unique,
@@ -2937,13 +2944,15 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         priv = this->private;
 
-        if (!priv->first_call) {
+        if (priv->init_recvd) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
                         "got INIT after first message");
 
                 close (priv->fd);
                 goto out;
         }
+
+        priv->init_recvd = 1;
 
         if (fini->major != FUSE_KERNEL_VERSION) {
                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
@@ -3014,6 +3023,13 @@ fuse_destroy (xlator_t *this, fuse_in_header_t *finh, void *msg)
 }
 
 
+
+struct fuse_first_lookup {
+        pthread_mutex_t  mutex;
+        pthread_cond_t   cond;
+        char             fin;
+};
+
 int
 fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
@@ -3021,8 +3037,10 @@ fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        struct iatt *postparent)
 {
         fuse_private_t *priv = NULL;
+        struct fuse_first_lookup *stub = NULL;
 
         priv = this->private;
+        stub = frame->local;
 
         if (op_ret == 0) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -3031,13 +3049,14 @@ fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "first lookup on root failed.");
         }
-        STACK_DESTROY (frame->root);
-        pthread_mutex_lock (&priv->first_call_mutex);
+
+        pthread_mutex_lock (&stub->mutex);
         {
-                priv->first_call = 0;
-                pthread_cond_broadcast (&priv->first_call_cond);
+                stub->fin = 1;
+                pthread_cond_broadcast (&stub->cond);
         }
-        pthread_mutex_unlock (&priv->first_call_mutex);
+        pthread_mutex_unlock (&stub->mutex);
+
         return 0;
 }
 
@@ -3045,44 +3064,99 @@ fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 fuse_first_lookup (xlator_t *this)
 {
-        fuse_private_t *priv = NULL;
-        loc_t           loc;
-        call_frame_t   *frame = NULL;
-        xlator_t       *xl = NULL;
-        dict_t         *dict = NULL;
+        fuse_private_t            *priv = NULL;
+        loc_t                      loc = {0, };
+        call_frame_t              *frame = NULL;
+        xlator_t                  *xl = NULL;
+        dict_t                    *dict = NULL;
+        struct fuse_first_lookup   stub;
 
         priv = this->private;
-
-        pthread_cond_init (&priv->first_call_cond, NULL);
-        pthread_mutex_init (&priv->first_call_mutex, NULL);
 
         loc.path = "/";
         loc.name = "";
         loc.ino = 1;
-        loc.inode = fuse_ino_to_inode (1, this->itable);
+        loc.inode = fuse_ino_to_inode (1, this);
         loc.parent = NULL;
 
         dict = dict_new ();
         frame = create_frame (this, this->ctx->pool);
         frame->root->type = GF_OP_TYPE_FOP;
-        xl = this->children->xlator;
+
+        xl = priv->active_subvol;
+
+        pthread_mutex_init (&stub.mutex, NULL);
+        pthread_cond_init (&stub.cond, NULL);
+        stub.fin = 0;
+
+        frame->local = &stub;
 
         STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
                     &loc, dict);
         dict_unref (dict);
 
-        pthread_mutex_lock (&priv->first_call_mutex);
+        pthread_mutex_lock (&stub.mutex);
         {
-                while (priv->first_call) {
-                        pthread_cond_wait (&priv->first_call_cond,
-                                           &priv->first_call_mutex);
+                while (!stub.fin) {
+                        pthread_cond_wait (&stub.cond, &stub.mutex);
                 }
         }
-        pthread_mutex_unlock (&priv->first_call_mutex);
+        pthread_mutex_unlock (&stub.mutex);
+
+        pthread_mutex_destroy (&stub.mutex);
+        pthread_cond_destroy (&stub.cond);
+
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
 
         return 0;
 }
 
+
+int
+fuse_graph_sync (xlator_t *this)
+{
+        fuse_private_t   *priv = NULL;
+        int               need_first_lookup = 0;
+        struct timeval    now = {0, };
+        struct timespec   timeout = {0, };
+        int               ret = 0;
+
+        priv = this->private;
+
+        pthread_mutex_lock (&priv->sync_mutex);
+        {
+                if (!priv->next_graph)
+                        goto unlock;
+
+                priv->active_subvol = priv->next_graph->top;
+                priv->next_graph = NULL;
+                need_first_lookup = 1;
+
+                gettimeofday (&now, NULL);
+                timeout.tv_sec = now.tv_sec + MAX_FUSE_PROC_DELAY;
+                timeout.tv_nsec = now.tv_usec * 1000;
+
+                while (!priv->child_up) {
+                        ret = pthread_cond_timedwait (&priv->sync_cond,
+                                                      &priv->sync_mutex,
+                                                      &timeout);
+                        if (ret != 0) {
+			          gf_log (this->name, GF_LOG_DEBUG,
+					  "timedwait returned non zero value "
+					  "ret: %d errno: %d", ret, errno);
+				  break;
+			}
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&priv->sync_mutex);
+
+        if (need_first_lookup)
+                fuse_first_lookup (this);
+
+        return 0;
+}
 
 
 static void *
@@ -3098,10 +3172,6 @@ fuse_thread_proc (void *data)
         void *msg = NULL;
         const size_t msg0_size = sizeof (*finh) + 128;
         fuse_handler_t **fuse_ops = NULL;
-        int             ret  = -1;
-
-        struct timeval  now;
-        struct timespec timeout;
 
         this = data;
         priv = this->private;
@@ -3114,28 +3184,10 @@ fuse_thread_proc (void *data)
                               ->page_size;
         priv->msg0_len_p = &iov_in[0].iov_len;
 
-        pthread_mutex_lock (&priv->child_up_mutex);
-        {
-                gettimeofday (&now, NULL);
-                timeout.tv_sec = now.tv_sec + MAX_FUSE_PROC_DELAY;
-                timeout.tv_nsec = now.tv_usec * 1000;
-
-                while (priv->child_up_value) {
-
-                        ret = pthread_cond_timedwait (&priv->child_up_cond,
-                                                &priv->child_up_mutex,
-                                                &timeout);
-                        if (ret != 0) {
-			          gf_log (this->name, GF_LOG_DEBUG,
-					  " pthread_cond_timedout returned non zero value"
-					  " ret: %d errno: %d", ret, errno);
-				  break;
-			}
-                }
-        }
-        pthread_mutex_unlock (&priv->child_up_mutex);
-
         for (;;) {
+                if (priv->init_recvd)
+                        fuse_graph_sync (this);
+
                 iobuf = iobuf_get (this->ctx->iobuf_pool);
                 /* Add extra 128 byte to the first iov so that it can
                  * accomodate "ordinary" non-write requests. It's not
@@ -3161,14 +3213,6 @@ fuse_thread_proc (void *data)
 
                 res = readv (priv->fd, iov_in, 2);
 
-                if (priv->first_call) {
-                        if (priv->first_call > 1) {
-                                priv->first_call--;
-                        } else {
-                                fuse_first_lookup (this);
-                        }
-                }
-
                 if (res == -1) {
                         if (errno == ENODEV || errno == EBADF) {
                                 gf_log ("glusterfs-fuse", GF_LOG_NORMAL,
@@ -3187,11 +3231,13 @@ fuse_thread_proc (void *data)
                         goto cont_err;
                 }
                 if (res < sizeof (finh)) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING, "short read on /dev/fuse");
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "short read on /dev/fuse");
                         break;
                 }
 
                 finh = (fuse_in_header_t *)iov_in[0].iov_base;
+
                 if (res != finh->len
 #ifdef GF_DARWIN_HOST_OS
                     /* work around fuse4bsd/MacFUSE msg size miscalculation bug,
@@ -3203,7 +3249,8 @@ fuse_thread_proc (void *data)
                          res == finh->len + ((struct fuse_write_in *)(finh + 1))->size)
 #endif
                    ) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING, "inconsistent read on /dev/fuse");
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "inconsistent read on /dev/fuse");
                         break;
                 }
 
@@ -3313,8 +3360,8 @@ fuse_priv_dump (xlator_t  *this)
                             private->entry_timeout);
         gf_proc_dump_write("xlator.mount.fuse.attribute_timeout", "%lf",
                             private->attribute_timeout);
-        gf_proc_dump_write("xlator.mount.fuse.first_call", "%d",
-                            (int)private->first_call);
+        gf_proc_dump_write("xlator.mount.fuse.init_recvd", "%d",
+                            (int)private->init_recvd);
         gf_proc_dump_write("xlator.mount.fuse.strict_volfile_check", "%d",
                             (int)private->strict_volfile_check);
 
@@ -3322,55 +3369,87 @@ fuse_priv_dump (xlator_t  *this)
 }
 
 
-int32_t
+int
+fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
+{
+        inode_table_t  *itable = NULL;
+        int             ret = 0;
+        fuse_private_t *priv = NULL;
+
+        priv = this->private;
+
+        itable = inode_table_new (0, graph->top);
+        if (!itable)
+                return -1;
+
+        ((xlator_t *)graph->top)->itable = itable;
+
+        pthread_mutex_lock (&priv->sync_mutex);
+        {
+                priv->next_graph = graph;
+                priv->child_up = 0;
+
+                pthread_cond_signal (&priv->sync_cond);
+        }
+        pthread_mutex_unlock (&priv->sync_mutex);
+
+        return ret;
+}
+
+
+int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
-        int32_t         ret     = 0;
-        fuse_private_t *private = NULL;
+        int32_t             ret     = 0;
+        fuse_private_t     *private = NULL;
+        glusterfs_graph_t  *graph = NULL;
 
         private = this->private;
 
         switch (event)
         {
-        case GF_EVENT_CHILD_UP:
-        case GF_EVENT_CHILD_CONNECTING:
-        {
-                pthread_mutex_lock (&private->child_up_mutex);
-                {
-                        private->child_up_value = 0;
-                        pthread_cond_broadcast (&private->child_up_cond);
-                }
-                pthread_mutex_unlock (&private->child_up_mutex);
+        case GF_EVENT_GRAPH_NEW:
+                graph = data;
 
-                break;
-        }
+                ret = fuse_graph_setup (this, graph);
+                if (ret)
+                        break;
 
-        case GF_EVENT_PARENT_UP:
-        {
-                if (!private->fuse_thread_started)
-                {
+                if (!private->fuse_thread_started) {
                         private->fuse_thread_started = 1;
 
                         ret = pthread_create (&private->fuse_thread, NULL,
                                               fuse_thread_proc, this);
-
                         if (ret != 0) {
-                                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_DEBUG,
                                         "pthread_create() failed (%s)",
                                         strerror (errno));
-
-                                /* If fuse thread is not started, that means,
-                                   its hung, we can't use this process. */
-                                raise (SIGTERM);
+                                break;
                         }
                 }
 
-                default_notify (this, GF_EVENT_PARENT_UP, data);
+                break;
+
+//        case GF_EVENT_CHILD_CONNECTING:
+
+        case GF_EVENT_CHILD_UP:
+        {
+                /* set priv->active_subvol */
+                /* set priv->first_lookup = 1 */
+
+                pthread_mutex_lock (&private->sync_mutex);
+                {
+                        private->child_up = 1;
+                        pthread_cond_broadcast (&private->sync_cond);
+                }
+                pthread_mutex_unlock (&private->sync_mutex);
+
                 break;
         }
+
         case GF_EVENT_VOLFILE_MODIFIED:
         {
-                gf_log ("fuse", GF_LOG_CRITICAL,
+                gf_log (this->name, GF_LOG_CRITICAL,
                         "Remote volume file changed, try re-mounting.");
                 if (private->strict_volfile_check) {
                         //fuse_session_remove_chan (private->ch);
@@ -3385,7 +3464,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         default:
                 break;
         }
-        return 0;
+
+        return ret;
 }
 
 int32_t
@@ -3603,17 +3683,10 @@ init (xlator_t *this_xl)
                 priv->fuse_dump_fd = ret;
         }
 
-        fsname = this_xl->ctx->cmd_args.volume_file;
+        fsname = this_xl->ctx->cmd_args.volfile;
         fsname = (fsname ? fsname : this_xl->ctx->cmd_args.volfile_server);
         fsname = (fsname ? fsname : "glusterfs");
 
-        this_xl->itable = inode_table_new (0, this_xl);
-        if (!this_xl->itable) {
-                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
-                        "Out of memory");
-
-                goto cleanup_exit;
-        }
 
         priv->fd = gf_fuse_mount (priv->mount_point, fsname,
                                   "allow_other,default_permissions,"
@@ -3621,14 +3694,10 @@ init (xlator_t *this_xl)
         if (priv->fd == -1)
                 goto cleanup_exit;
 
-        this_xl->ctx->top = this_xl;
-
-        priv->first_call = 2;
-
         pthread_mutex_init (&priv->fuse_dump_mutex, NULL);
-        pthread_cond_init (&priv->child_up_cond, NULL);
-        pthread_mutex_init (&priv->child_up_mutex, NULL);
-        priv->child_up_value = 1;
+        pthread_cond_init (&priv->sync_cond, NULL);
+        pthread_mutex_init (&priv->sync_mutex, NULL);
+        priv->child_up = 0;
 
         for (i = 0; i < FUSE_OP_HIGH; i++) {
                 if (!fuse_std_ops[i])

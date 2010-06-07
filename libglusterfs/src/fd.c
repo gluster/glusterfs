@@ -30,17 +30,18 @@
 #endif
 
 
-static uint32_t 
+static int
 gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr);
+
 
 static fd_t *
 _fd_ref (fd_t *fd);
 
-/* 
-   Allocate in memory chunks of power of 2 starting from 1024B 
+/*
+   Allocate in memory chunks of power of 2 starting from 1024B
    Assumes fdtable->lock is held
 */
-static inline uint32_t 
+static inline int
 gf_roundup_power_of_two (uint32_t nr)
 {
         uint32_t result = 1;
@@ -57,6 +58,7 @@ gf_roundup_power_of_two (uint32_t nr)
 
         return result;
 }
+
 
 static int
 gf_fd_chain_fd_entries (fdentry_t *entries, uint32_t startidx,
@@ -80,18 +82,17 @@ gf_fd_chain_fd_entries (fdentry_t *entries, uint32_t startidx,
 }
 
 
-static uint32_t 
+static int
 gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 {
-	fdentry_t *oldfds = NULL;
-	uint32_t oldmax_fds = -1;
-  
-	if (fdtable == NULL || nr < 0)
-	{
+	fdentry_t   *oldfds = NULL;
+	uint32_t     oldmax_fds = -1;
+
+	if (fdtable == NULL || nr < 0) {
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
 		return EINVAL;
 	}
-  
+
 	nr /= (1024 / sizeof (fdentry_t));
 	nr = gf_roundup_power_of_two (nr + 1);
 	nr *= (1024 / sizeof (fdentry_t));
@@ -102,7 +103,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 	fdtable->fdentries = GF_CALLOC (nr, sizeof (fdentry_t),
                                         gf_common_mt_fdentry_t);
 	ERR_ABORT (fdtable->fdentries);
-	fdtable->max_fds = nr; 
+	fdtable->max_fds = nr;
 
 	if (oldfds) {
 		uint32_t cpy = oldmax_fds * sizeof (fdentry_t);
@@ -121,8 +122,9 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 	return 0;
 }
 
+
 fdtable_t *
-gf_fd_fdtable_alloc (void) 
+gf_fd_fdtable_alloc (void)
 {
 	fdtable_t *fdtable = NULL;
 
@@ -140,6 +142,7 @@ gf_fd_fdtable_alloc (void)
 
 	return fdtable;
 }
+
 
 fdentry_t *
 __gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
@@ -160,10 +163,12 @@ out:
         return fdentries;
 }
 
+
 fdentry_t *
 gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
 {
         fdentry_t       *entries = NULL;
+
         if (fdtable) {
                 pthread_mutex_lock (&fdtable->lock);
                 {
@@ -175,14 +180,15 @@ gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
         return entries;
 }
 
-void 
+
+void
 gf_fd_fdtable_destroy (fdtable_t *fdtable)
 {
         struct list_head  list = {0, };
         fd_t             *fd = NULL;
         fdentry_t        *fdentries = NULL;
         uint32_t          fd_count = 0;
-        int32_t           i = 0; 
+        int32_t           i = 0;
 
         INIT_LIST_HEAD (&list);
 
@@ -210,20 +216,21 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
 	}
 }
 
-int32_t 
+
+int
 gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
 {
 	int32_t         fd = -1;
         fdentry_t       *fde = NULL;
 	int             error;
         int             alloc_attempts = 0;
-  
+
 	if (fdtable == NULL || fdptr == NULL)
 	{
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
 		return EINVAL;
 	}
-  
+
 	pthread_mutex_lock (&fdtable->lock);
 	{
 fd_alloc_try_again:
@@ -268,20 +275,18 @@ out:
 }
 
 
-inline void 
+inline void
 gf_fd_put (fdtable_t *fdtable, int32_t fd)
 {
 	fd_t *fdptr = NULL;
         fdentry_t *fde = NULL;
 
-	if (fdtable == NULL || fd < 0)
-	{
+	if (fdtable == NULL || fd < 0) {
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
 		return;
 	}
-  
-	if (!(fd < fdtable->max_fds))
-	{
+
+	if (!(fd < fdtable->max_fds)) {
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
 		return;
 	}
@@ -316,16 +321,14 @@ fd_t *
 gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
 {
 	fd_t *fdptr = NULL;
-  
-	if (fdtable == NULL || fd < 0)
-	{
+
+	if (fdtable == NULL || fd < 0) {
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
 		errno = EINVAL;
 		return NULL;
 	}
-  
-	if (!(fd < fdtable->max_fds))
-	{
+
+	if (!(fd < fdtable->max_fds)) {
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
 		errno = EINVAL;
 		return NULL;
@@ -343,13 +346,15 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
 	return fdptr;
 }
 
+
 fd_t *
 _fd_ref (fd_t *fd)
 {
 	++fd->refcount;
-	
+
 	return fd;
 }
+
 
 fd_t *
 fd_ref (fd_t *fd)
@@ -364,9 +369,10 @@ fd_ref (fd_t *fd)
 	LOCK (&fd->inode->lock);
 	refed_fd = _fd_ref (fd);
 	UNLOCK (&fd->inode->lock);
-	
+
 	return refed_fd;
 }
+
 
 fd_t *
 _fd_unref (fd_t *fd)
@@ -375,25 +381,26 @@ _fd_unref (fd_t *fd)
 
 	--fd->refcount;
 
-	if (fd->refcount == 0){
+	if (fd->refcount == 0) {
 		list_del_init (&fd->inode_list);
 	}
-	
+
 	return fd;
 }
+
 
 static void
 fd_destroy (fd_t *fd)
 {
         xlator_t    *xl = NULL;
-	int i = 0;
+	int          i = 0;
         xlator_t    *old_THIS = NULL;
 
         if (fd == NULL){
                 gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
                 goto out;
         }
-  
+
         if (fd->inode == NULL){
                 gf_log ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
                 goto out;
@@ -402,7 +409,7 @@ fd_destroy (fd_t *fd)
 		goto out;
 
         if (IA_ISDIR (fd->inode->ia_type)) {
-		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
+		for (i = 0; i < fd->inode->table->xl->graph->xl_count; i++) {
 			if (fd->_ctx[i].key) {
 				xl = (xlator_t *)(long)fd->_ctx[i].key;
                                 old_THIS = THIS;
@@ -413,7 +420,7 @@ fd_destroy (fd_t *fd)
 			}
 		}
         } else {
-		for (i = 0; i < fd->inode->table->xl->ctx->xl_count; i++) {
+		for (i = 0; i < fd->inode->table->xl->graph->xl_count; i++) {
 			if (fd->_ctx[i].key) {
 				xl = (xlator_t *)(long)fd->_ctx[i].key;
                                 old_THIS = THIS;
@@ -424,17 +431,17 @@ fd_destroy (fd_t *fd)
 			}
 		}
         }
-        
+
         LOCK_DESTROY (&fd->lock);
 
 	GF_FREE (fd->_ctx);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
         GF_FREE (fd);
-        
 out:
         return;
 }
+
 
 void
 fd_unref (fd_t *fd)
@@ -445,20 +452,21 @@ fd_unref (fd_t *fd)
                 gf_log ("fd.c", GF_LOG_ERROR, "fd is NULL");
                 return;
         }
-        
+
         LOCK (&fd->inode->lock);
         {
                 _fd_unref (fd);
                 refcount = fd->refcount;
         }
         UNLOCK (&fd->inode->lock);
-        
+
         if (refcount == 0) {
                 fd_destroy (fd);
         }
 
         return ;
 }
+
 
 fd_t *
 fd_bind (fd_t *fd)
@@ -476,7 +484,7 @@ fd_bind (fd_t *fd)
                 list_add (&fd->inode_list, &inode->fd_list);
         }
         UNLOCK (&inode->lock);
-        
+
         return fd;
 }
 
@@ -484,22 +492,23 @@ fd_t *
 fd_create (inode_t *inode, pid_t pid)
 {
         fd_t *fd = NULL;
-  
+
         if (inode == NULL) {
                 gf_log ("fd", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
-  
+
         fd = GF_CALLOC (1, sizeof (fd_t), gf_common_mt_fd_t);
         ERR_ABORT (fd);
-  
+
 	fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) *
-			       inode->table->xl->ctx->xl_count),
+                                  inode->table->xl->graph->xl_count),
                               gf_common_mt_fd_ctx);
+
         fd->inode = inode_ref (inode);
         fd->pid = pid;
         INIT_LIST_HEAD (&fd->inode_list);
-        
+
         LOCK_INIT (&fd->lock);
 
         LOCK (&inode->lock);
@@ -508,6 +517,7 @@ fd_create (inode_t *inode, pid_t pid)
 
         return fd;
 }
+
 
 fd_t *
 fd_lookup (inode_t *inode, pid_t pid)
@@ -537,23 +547,25 @@ fd_lookup (inode_t *inode, pid_t pid)
                 }
         }
         UNLOCK (&inode->lock);
-        
+
         return fd;
 }
+
 
 uint8_t
 fd_list_empty (inode_t *inode)
 {
-        uint8_t empty = 0; 
+        uint8_t empty = 0;
 
         LOCK (&inode->lock);
         {
                 empty = list_empty (&inode->fd_list);
         }
         UNLOCK (&inode->lock);
-        
+
         return empty;
 }
+
 
 int
 __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
@@ -564,8 +576,8 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 
 	if (!fd || !xlator)
 		return -1;
-        
-        for (index = 0; index < xlator->ctx->xl_count; index++) {
+
+        for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (!fd->_ctx[index].key) {
                         if (set_idx == -1)
                                 set_idx = index;
@@ -577,12 +589,12 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
                         break;
                 }
         }
-	
+
         if (set_idx == -1) {
                 ret = -1;
                 goto out;
         }
-        
+
         fd->_ctx[set_idx].key   = (uint64_t)(long) xlator;
         fd->_ctx[set_idx].value = value;
 
@@ -598,7 +610,7 @@ fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 
 	if (!fd || !xlator)
 		return -1;
-        
+
         LOCK (&fd->lock);
         {
                 ret = __fd_ctx_set (fd, xlator, value);
@@ -609,7 +621,7 @@ fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 }
 
 
-int 
+int
 __fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
 	int index = 0;
@@ -617,26 +629,26 @@ __fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
 
 	if (!fd || !xlator)
 		return -1;
-        
-        for (index = 0; index < xlator->ctx->xl_count; index++) {
+
+        for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (fd->_ctx[index].key == (uint64_t)(long)xlator)
                         break;
         }
-        
-        if (index == xlator->ctx->xl_count) {
+
+        if (index == xlator->graph->xl_count) {
                 ret = -1;
                 goto out;
         }
 
-        if (value) 
+        if (value)
                 *value = fd->_ctx[index].value;
-        
+
 out:
 	return ret;
 }
 
 
-int 
+int
 fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
         int ret = 0;
@@ -654,7 +666,7 @@ fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
 }
 
 
-int 
+int
 __fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
 	int index = 0;
@@ -662,20 +674,20 @@ __fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 
 	if (!fd || !xlator)
 		return -1;
-        
-        for (index = 0; index < xlator->ctx->xl_count; index++) {
+
+        for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (fd->_ctx[index].key == (uint64_t)(long)xlator)
                         break;
         }
-        
-        if (index == xlator->ctx->xl_count) {
+
+        if (index == xlator->graph->xl_count) {
                 ret = -1;
                 goto out;
         }
-        
-        if (value) 
-                *value = fd->_ctx[index].value;		
-        
+
+        if (value)
+                *value = fd->_ctx[index].value;
+
         fd->_ctx[index].key   = 0;
         fd->_ctx[index].value = 0;
 
@@ -684,14 +696,14 @@ out:
 }
 
 
-int 
+int
 fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
         int ret = 0;
 
 	if (!fd || !xlator)
 		return -1;
-        
+
         LOCK (&fd->lock);
         {
                 ret = __fd_ctx_del (fd, xlator, value);
@@ -709,7 +721,7 @@ fd_dump (fd_t *fd, char *prefix)
 
         if (!fd)
                 return;
-    
+
         memset(key, 0, sizeof(key));
         gf_proc_dump_build_key(key, prefix, "pid");
         gf_proc_dump_write(key, "%d", fd->pid);
@@ -733,9 +745,10 @@ fdentry_dump (fdentry_t *fdentry, char *prefix)
         if (GF_FDENTRY_ALLOCATED != fdentry->next_free)
                 return;
 
-        if (fdentry->fd) 
+        if (fdentry->fd)
                 fd_dump(fdentry->fd, prefix);
 }
+
 
 void
 fdtable_dump (fdtable_t *fdtable, char *prefix)
@@ -746,7 +759,7 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
 
         if (!fdtable)
                 return;
-    
+
 	ret = pthread_mutex_trylock (&fdtable->lock);
 
         if (ret) {
@@ -763,7 +776,7 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
         gf_proc_dump_write(key, "%d", fdtable->first_free);
 
         for ( i = 0 ; i < fdtable->max_fds; i++) {
-                if (GF_FDENTRY_ALLOCATED == 
+                if (GF_FDENTRY_ALLOCATED ==
                                 fdtable->fdentries[i].next_free) {
                         gf_proc_dump_build_key(key, prefix, "fdentry[%d]", i);
                         gf_proc_dump_add_section(key);
@@ -773,4 +786,3 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
 
         pthread_mutex_unlock(&fdtable->lock);
 }
-

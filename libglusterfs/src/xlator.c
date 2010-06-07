@@ -703,6 +703,7 @@ xlator_set_type (xlator_t *xl,
 		gf_log ("xlator", GF_LOG_DEBUG, "%s", dlerror ());
 		return -1;
 	}
+        xl->dlhandle = handle;
 
 	if (!(xl->fops = dlsym (handle, "fops"))) {
 		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fops) on %s",
@@ -813,52 +814,26 @@ xlator_search_by_name (xlator_t *any, const char *name)
 }
 
 
-static int32_t
-xlator_init_rec (xlator_t *xl)
+static int
+__xlator_init(xlator_t *xl)
 {
-	xlator_t *trav = NULL;
-	int32_t ret = 0;
+        xlator_t *old_THIS = NULL;
+        int       ret = 0;
 
-	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
-		return 0;
-	}
+        old_THIS = THIS;
+        THIS = xl;
 
-	trav = xl;
-        while (trav->prev)
-                trav = trav->prev;
+        ret = xl->init (xl);
 
-        while (trav) {
-		ret = -1;
-                if (trav->mem_acct_init)
-                        trav->mem_acct_init (trav);
-		if (trav->init && !trav->ready) {
-			ret = xlator_init (trav);
-			if (ret) {
-				gf_log (trav->name, GF_LOG_ERROR,
-					"Initialization of volume '%s' failed,"
-					" review your volfile again",
-					trav->name);
-                                break;
-			} else {
-				trav->init_succeeded = 1;
-			}
-		} else {
-			gf_log (trav->name, GF_LOG_DEBUG, "No init() found");
-		}
-		/* This 'xl' is checked */
-		trav->ready = 1;
-                trav = trav->next;
-	}
+        THIS = old_THIS;
 
-	return ret;
+        return ret;
 }
 
 
-int32_t
-xlator_tree_init (xlator_t *xl)
+int
+xlator_init (xlator_t *xl)
 {
-	xlator_t *top = NULL;
 	int32_t ret = 0;
 
 	if (xl == NULL)	{
@@ -866,17 +841,30 @@ xlator_tree_init (xlator_t *xl)
 		return 0;
 	}
 
-	top = xl;
-/*
-	while (top->parents)
-		top = top->parents->xlator;
-*/
-	ret = xlator_init_rec (top);
+        ret = -1;
 
-	if (ret == 0 && top->notify) {
-		top->notify (top, GF_EVENT_PARENT_UP, NULL);
-	}
+        if (xl->mem_acct_init)
+                xl->mem_acct_init (xl);
 
+        if (!xl->init) {
+                gf_log (xl->name, GF_LOG_DEBUG, "No init() found");
+                goto out;
+        }
+
+        ret = __xlator_init (xl);
+
+        if (ret) {
+                gf_log (xl->name, GF_LOG_ERROR,
+                        "Initialization of volume '%s' failed,"
+                        " review your volfile again",
+                        xl->name);
+                goto out;
+        }
+
+        xl->init_succeeded = 1;
+
+        ret = 0;
+out:
 	return ret;
 }
 
@@ -930,22 +918,6 @@ xlator_notify (xlator_t *xl, int event, void *data, ...)
         return ret;
 }
 
-
-int
-xlator_init (xlator_t *xl)
-{
-        xlator_t *old_THIS = NULL;
-        int       ret = 0;
-
-        old_THIS = THIS;
-        THIS = xl;
-
-        ret = xl->init (xl);
-
-        THIS = old_THIS;
-
-        return ret;
-}
 
 int
 xlator_mem_acct_init (xlator_t *xl, int num_types)
@@ -1063,4 +1035,44 @@ loc_copy (loc_t *dst, loc_t *src)
 	ret = 0;
 out:
 	return ret;
+}
+
+
+int
+xlator_list_destroy (xlator_list_t *list)
+{
+        xlator_list_t *next = NULL;
+
+        while (list) {
+                next = list->next;
+                GF_FREE (list);
+                list = next;
+        }
+
+        return 0;
+}
+
+
+int
+xlator_destroy (xlator_t *xl)
+{
+        if (!xl)
+                return 0;
+
+        if (xl->name)
+                GF_FREE (xl->name);
+        if (xl->type)
+                GF_FREE (xl->type);
+        if (xl->dlhandle)
+                dlclose (xl->dlhandle);
+        if (xl->options)
+                dict_destroy (xl->options);
+
+        xlator_list_destroy (xl->children);
+
+        xlator_list_destroy (xl->parents);
+
+        GF_FREE (xl);
+
+        return 0;
 }

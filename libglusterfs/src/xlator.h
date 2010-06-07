@@ -30,7 +30,6 @@
 #include <inttypes.h>
 
 
-#include "glusterfs.h"
 #include "logging.h"
 #include "common-utils.h"
 #include "dict.h"
@@ -819,10 +818,11 @@ struct _xlator {
 	dict_t        *options;
 
 	/* Set after doing dlopen() */
+        void                  *dlhandle;
 	struct xlator_fops    *fops;
 	struct xlator_cbks    *cbks;
 	struct xlator_dumpops *dumpops;
-	struct list_head      volume_options;  /* list of volume_option_t */
+	struct list_head       volume_options;  /* list of volume_option_t */
 
 	void              (*fini) (xlator_t *this);
 	int32_t           (*init) (xlator_t *this);
@@ -833,12 +833,13 @@ struct _xlator {
         fop_latency_t latencies[GF_FOP_MAXVALUE];
 
 	/* Misc */
-	glusterfs_ctx_t  *ctx;
-	inode_table_t    *itable;
-	char              ready;
-	char              init_succeeded;
-	void             *private;
-        struct mem_acct   mem_acct;
+	glusterfs_ctx_t    *ctx;
+	glusterfs_graph_t  *graph; /* not set for fuse */
+	inode_table_t      *itable;
+	char                ready;
+	char                init_succeeded;
+	void               *private;
+        struct mem_acct     mem_acct;
 };
 
 #define xlator_has_parent(xl) (xl->parents != NULL)
@@ -852,6 +853,7 @@ xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 
 int xlator_notify (xlator_t *this, int32_t event, void *data, ...);
 int xlator_init (xlator_t *this);
+int xlator_destroy (xlator_t *xl);
 
 int32_t xlator_tree_init (xlator_t *xl);
 int32_t xlator_tree_free (xlator_t *xl);
