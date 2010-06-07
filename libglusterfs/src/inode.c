@@ -281,7 +281,7 @@ __inode_destroy (inode_t *inode)
         if (!inode->_ctx)
                 goto noctx;
 
-        for (index = 0; index < inode->table->xl->ctx->xl_count; index++) {
+        for (index = 0; index < inode->table->xl->graph->xl_count; index++) {
                 if (inode->_ctx[index].key) {
                         xl = (xlator_t *)(long)inode->_ctx[index].key;
                         old_THIS = THIS;
@@ -474,8 +474,9 @@ __inode_create (inode_table_t *table)
         INIT_LIST_HEAD (&newi->dentry_list);
 
         newi->_ctx = GF_CALLOC (1, (sizeof (struct _inode_ctx) *
-                                    table->xl->ctx->xl_count),
+                                    table->xl->graph->xl_count),
                                     gf_common_mt_inode_ctx);
+
         if (newi->_ctx == NULL) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
                 LOCK_DESTROY (&newi->lock);
@@ -1173,7 +1174,7 @@ __inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
         int index = 0;
         int put_idx = -1;
 
-        for (index = 0; index < xlator->ctx->xl_count; index++) {
+        for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (!inode->_ctx[index].key) {
                         if (put_idx == -1)
                                 put_idx = index;
@@ -1225,12 +1226,12 @@ __inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
         int index = 0;
         int ret = 0;
 
-        for (index = 0; index < xlator->ctx->xl_count; index++) {
+        for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (inode->_ctx[index].xl_key == xlator)
                         break;
         }
 
-        if (index == xlator->ctx->xl_count) {
+        if (index == xlator->graph->xl_count) {
                 ret = -1;
                 goto out;
         }
@@ -1277,12 +1278,12 @@ inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
         LOCK (&inode->lock);
         {
-                for (index = 0; index < xlator->ctx->xl_count; index++) {
+                for (index = 0; index < xlator->graph->xl_count; index++) {
                         if (inode->_ctx[index].xl_key == xlator)
                                 break;
                 }
 
-                if (index == xlator->ctx->xl_count) {
+                if (index == xlator->graph->xl_count) {
                         ret = -1;
                         goto unlock;
                 }
@@ -1371,7 +1372,7 @@ inode_dump (inode_t *inode, char *prefix)
         if (!inode->_ctx)
                 goto out;
 
-        for (i = 0; i < inode->table->xl->ctx->xl_count; i++) {
+        for (i = 0; i < inode->table->xl->graph->xl_count; i++) {
                 if (inode->_ctx[i].key) {
                         xl = (xlator_t *)(long)inode->_ctx[i].key;
                         if (xl->dumpops && xl->dumpops->inodectx)

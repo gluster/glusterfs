@@ -1,21 +1,21 @@
 libglusterfs_la_CFLAGS = -fPIC  -Wall -g -shared -nostartfiles $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
 
-libglusterfs_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 -D_GNU_SOURCE -DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" -D$(GF_HOST_OS) -DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" -I$(CONTRIBDIR)/rbtree  -DSCHEDULERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler\"
+libglusterfs_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 -D_GNU_SOURCE -DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" -D$(GF_HOST_OS) -DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" -I$(CONTRIBDIR)/rbtree  -DSCHEDULERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/scheduler\" -I$(CONTRIBDIR)/md5
 
 libglusterfs_la_LIBADD = @LEXLIB@
 
 lib_LTLIBRARIES = libglusterfs.la
 
-libglusterfs_la_SOURCES = dict.c spec.lex.c y.tab.c xlator.c logging.c  hashfn.c defaults.c common-utils.c timer.c inode.c call-stub.c compat.c fd.c compat-errno.c event.c mem-pool.c gf-dirent.c syscall.c iobuf.c globals.c statedump.c stack.c checksum.c md5.c $(CONTRIBDIR)/rbtree/rb.c rbthash.c latency.c
+libglusterfs_la_SOURCES = dict.c graph.lex.c y.tab.c xlator.c logging.c  hashfn.c defaults.c common-utils.c timer.c inode.c call-stub.c compat.c fd.c compat-errno.c event.c mem-pool.c gf-dirent.c syscall.c iobuf.c globals.c statedump.c stack.c checksum.c $(CONTRIBDIR)/md5/md5.c $(CONTRIBDIR)/rbtree/rb.c rbthash.c latency.c graph.c
 
-noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h logging.h  xlator.h  stack.h timer.h list.h inode.h call-stub.h compat.h fd.h revision.h compat-errno.h event.h mem-pool.h byte-order.h gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h checksum.h md5.h $(CONTRIBDIR)/rbtree/rb.h rbthash.h iatt.h latency.h
+noinst_HEADERS = common-utils.h defaults.h dict.h glusterfs.h hashfn.h logging.h  xlator.h  stack.h timer.h list.h inode.h call-stub.h compat.h fd.h revision.h compat-errno.h event.h mem-pool.h byte-order.h gf-dirent.h locking.h syscall.h iobuf.h globals.h statedump.h checksum.h $(CONTRIBDIR)/md5/md5.h $(CONTRIBDIR)/rbtree/rb.h rbthash.h iatt.h latency.h
 
-EXTRA_DIST = spec.l spec.y
+EXTRA_DIST = graph.l graph.y
 
-spec.lex.c: spec.l y.tab.h
-	$(LEX) -t $(srcdir)/spec.l > $@
+graph.lex.c: graph.l y.tab.h
+	$(LEX) -t $(srcdir)/graph.l > $@
 
-y.tab.c y.tab.h: spec.y
-	$(YACC) -d $(srcdir)/spec.y
+y.tab.c y.tab.h: graph.y
+	$(YACC) -d $(srcdir)/graph.y
 
-CLEANFILES = spec.lex.c y.tab.c y.tab.h
+CLEANFILES = graph.lex.c y.tab.c y.tab.h

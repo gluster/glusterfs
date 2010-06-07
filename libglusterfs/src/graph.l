@@ -33,33 +33,26 @@ static char *text;
 static int text_asize;
 static int text_size;
 
-void new_string(void)
-{
-	text = malloc(START_STRSIZE);
-	text_asize = START_STRSIZE;
-	text_size = 0;
-	*text = 0;
-}
-
 void append_string(const char *str, int size)
 {
 	int new_size = text_size + size + 1;
 	if (new_size > text_asize) {
 		new_size += START_STRSIZE - 1;
 		new_size &= -START_STRSIZE;
-		text = realloc(text, new_size);
+                if (!text) {
+                        text = GF_CALLOC (1, new_size,
+                                          gf_common_mt_char);
+                } else {
+                        text = GF_REALLOC (text, new_size);
+                }
+                if (!text)
+                        gf_log ("parser", GF_LOG_ERROR,
+                                "out of memory");
 		text_asize = new_size;
 	}
 	memcpy(text + text_size, str, size);
 	text_size += size;
 	text[text_size] = 0;
-}
-
-void alloc_string(const char *str, int size)
-{
-	text = malloc(size + 1);
-	memcpy(text, str, size);
-	text[size] = 0;
 }
 
 %}
@@ -71,10 +64,10 @@ OPTION [o][p][t][i][o][n]
 TYPE   [t][y][p][e]
 %%
 \#.*                   ;
-{VOLUME}               return SECTION_BEGIN;
+{VOLUME}               return VOLUME_BEGIN;
 {TYPE}                 return TYPE;
-{END}[-]{VOLUME}       return SECTION_END;
-{SUB}{VOLUME}[Ss]      return SUBSECTION;
+{END}[-]{VOLUME}       return VOLUME_END;
+{SUB}{VOLUME}[Ss]      return SUBVOLUME;
 {OPTION}               return OPTION;
 \"                     BEGIN(STRING);
 <STRING>{
@@ -83,12 +76,12 @@ TYPE   [t][y][p][e]
        \"         {
                        if (0) {
                               yyunput (0, NULL);
-                       } 
+                       }
                        BEGIN (INITIAL);
                        yylval = text;
                        return STRING_TOK;
        }
 }
-[^ \t\r\n\"\\]+ {    yylval = strdup (yytext) ; return ID; }
+[^ \t\r\n\"\\]+ {    yylval = gf_strdup (yytext) ; return ID; }
 [ \t\r\n]+             ;
 %%

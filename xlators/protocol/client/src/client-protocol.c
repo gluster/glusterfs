@@ -6327,7 +6327,7 @@ protocol_client_handshake (xlator_t *this, transport_t *trans)
                         ret = dict_set_str (options, "volfile-key",
                                             this->ctx->cmd_args.volfile_id);
                 ret = dict_set_uint32 (options, "volfile-checksum",
-                                       this->ctx->volfile_checksum);
+                                       this->graph->volfile_checksum);
         }
 
         dict_len = dict_serialized_length (options);

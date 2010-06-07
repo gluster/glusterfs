@@ -48,7 +48,6 @@
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
-static glusterfs_ctx_t *gf_global_ctx;
 
 
 struct dnscache6 {
@@ -179,85 +178,6 @@ err:
 	return -1;
 }
 
-char *gf_fop_list[GF_FOP_MAXVALUE];
-char *gf_mgmt_list[GF_MGMT_MAXVALUE];
-
-void
-gf_global_variable_init()
-{
-	gf_fop_list[GF_FOP_NULL]        = "NULL";
-	gf_fop_list[GF_FOP_STAT]        = "STAT";
-	gf_fop_list[GF_FOP_READLINK]    = "READLINK";
-	gf_fop_list[GF_FOP_MKNOD]       = "MKNOD";
-	gf_fop_list[GF_FOP_MKDIR]       = "MKDIR";
-	gf_fop_list[GF_FOP_UNLINK]      = "UNLINK";
-	gf_fop_list[GF_FOP_RMDIR]       = "RMDIR";
-	gf_fop_list[GF_FOP_SYMLINK]     = "SYMLINK";
-	gf_fop_list[GF_FOP_RENAME]      = "RENAME";
-	gf_fop_list[GF_FOP_LINK]        = "LINK";
-	gf_fop_list[GF_FOP_TRUNCATE]    = "TRUNCATE";
-	gf_fop_list[GF_FOP_OPEN]        = "OPEN";
-	gf_fop_list[GF_FOP_READ]        = "READ";
-	gf_fop_list[GF_FOP_WRITE]       = "WRITE";
-	gf_fop_list[GF_FOP_STATFS]      = "STATFS";
-	gf_fop_list[GF_FOP_FLUSH]       = "FLUSH";
-	gf_fop_list[GF_FOP_FSYNC]       = "FSYNC";
-	gf_fop_list[GF_FOP_SETXATTR]    = "SETXATTR";
-	gf_fop_list[GF_FOP_GETXATTR]    = "GETXATTR";
-	gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
-	gf_fop_list[GF_FOP_OPENDIR]     = "OPENDIR";
-	gf_fop_list[GF_FOP_FSYNCDIR]    = "FSYNCDIR";
-	gf_fop_list[GF_FOP_ACCESS]      = "ACCESS";
-	gf_fop_list[GF_FOP_CREATE]      = "CREATE";
-	gf_fop_list[GF_FOP_FTRUNCATE]   = "FTRUNCATE";
-	gf_fop_list[GF_FOP_FSTAT]       = "FSTAT";
-	gf_fop_list[GF_FOP_LK]          = "LK";
-	gf_fop_list[GF_FOP_LOOKUP]      = "LOOKUP";
-	gf_fop_list[GF_FOP_READDIR]     = "READDIR";
-	gf_fop_list[GF_FOP_INODELK]     = "INODELK";
-	gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
-	gf_fop_list[GF_FOP_ENTRYLK]     = "ENTRYLK";
-	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";
-	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";
-	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
-	gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
-	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
-	gf_fop_list[GF_FOP_FGETXATTR]   = "FGETXATTR";
-        gf_fop_list[GF_FOP_RCHECKSUM]   = "RCHECKSUM";
-        gf_fop_list[GF_FOP_SETATTR]     = "SETATTR";
-        gf_fop_list[GF_FOP_FSETATTR]    = "FSETATTR";
-	gf_fop_list[GF_FOP_READDIRP]    = "READDIRP";
-	gf_fop_list[GF_FOP_GETSPEC]     = "GETSPEC";
-	gf_fop_list[GF_FOP_FORGET]      = "FORGET";
-	gf_fop_list[GF_FOP_RELEASE]     = "RELEASE";
-	gf_fop_list[GF_FOP_RELEASEDIR]  = "RELEASEDIR";
-
-	gf_fop_list[GF_MGMT_NULL]  = "NULL";
-
-	/* Are there any more variables to be included? All global
-	   variables initialization should go here */
-
-	return;
-}
-
-void
-set_global_ctx_ptr (glusterfs_ctx_t *ctx)
-{
-	gf_global_ctx = ctx;
-}
-
-/*
- * Don't use this function other than in glusterfsd.c. libglusterfsclient does 
- * not set gf_global_ctx since there can be multiple glusterfs-contexts 
- * initialized in a single process. Instead access the context from ctx member
- * of the xlator object.
- */
-
-glusterfs_ctx_t *
-get_global_ctx_ptr (void)
-{
-	return gf_global_ctx;
-}
 
 void
 gf_log_volume_file (FILE *specfp)
@@ -397,8 +317,7 @@ gf_print_trace (int32_t signum)
 	/* Pending frames, (if any), list them in order */
 	ret = write (fd, "pending frames:\n", 16);
 	{
-		extern glusterfs_ctx_t *gf_global_ctx;
-		glusterfs_ctx_t *ctx = gf_global_ctx;
+		glusterfs_ctx_t *ctx = glusterfs_ctx_get ();
 		struct list_head *trav = ((call_pool_t *)ctx->pool)->all_frames.next;
 		while (trav != (&((call_pool_t *)ctx->pool)->all_frames)) {
 			call_frame_t *tmp = (call_frame_t *)(&((call_stack_t *)trav)->frames);

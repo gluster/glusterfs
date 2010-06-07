@@ -45,6 +45,7 @@
 #include "list.h"
 #include "logging.h"
 
+
 #define GF_YES 1
 #define GF_NO  0
 
@@ -95,7 +96,7 @@ typedef enum {
         GF_FOP_WRITE,
         GF_FOP_STATFS,
         GF_FOP_FLUSH,
-        GF_FOP_FSYNC,
+        GF_FOP_FSYNC,      /* 15 */
         GF_FOP_SETXATTR,
         GF_FOP_GETXATTR,
         GF_FOP_REMOVEXATTR,
@@ -104,7 +105,7 @@ typedef enum {
         GF_FOP_ACCESS,
         GF_FOP_CREATE,
         GF_FOP_FTRUNCATE,
-        GF_FOP_FSTAT,
+        GF_FOP_FSTAT,      /* 25 */
         GF_FOP_LK,
         GF_FOP_LOOKUP,
         GF_FOP_READDIR,
@@ -141,6 +142,7 @@ typedef enum {
         GF_OP_TYPE_MAX,
 } gf_op_type_t;
 
+
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
 typedef enum {
         GF_LK_GETLK = 0,
@@ -148,16 +150,19 @@ typedef enum {
         GF_LK_SETLKW,
 } glusterfs_lk_cmds_t;
 
+
 typedef enum {
         GF_LK_F_RDLCK = 0,
         GF_LK_F_WRLCK,
         GF_LK_F_UNLCK
 } glusterfs_lk_types_t;
 
+
 typedef enum {
-        GF_LOCK_POSIX, 
+        GF_LOCK_POSIX,
         GF_LOCK_INTERNAL
 } gf_lk_domain_t;
+
 
 typedef enum {
 	ENTRYLK_LOCK,
@@ -165,14 +170,17 @@ typedef enum {
 	ENTRYLK_LOCK_NB
 } entrylk_cmd;
 
+
 typedef enum {
 	ENTRYLK_RDLCK,
 	ENTRYLK_WRLCK
 } entrylk_type;
 
+
 typedef enum {
 	GF_XATTROP_ADD_ARRAY,
 } gf_xattrop_flags_t;
+
 
 #define GF_SET_IF_NOT_PRESENT 0x1 /* default behaviour */
 #define GF_SET_OVERWRITE      0x2 /* Overwrite with the buf given */
@@ -186,17 +194,18 @@ typedef enum {
 #define GF_REPLICATE_TRASH_DIR          ".landfill"
 
 struct _xlator_cmdline_option {
-	struct list_head cmd_args;
-	char *volume;
-	char *key;
-	char *value;
+	struct list_head    cmd_args;
+	char               *volume;
+	char               *key;
+	char               *value;
 };
 typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
+
 
 struct _cmd_args {
 	/* basic options */
 	char            *volfile_server;
-	char            *volume_file;
+	char            *volfile;
         char            *log_server;
 	gf_loglevel_t    log_level;
 	char            *log_file;
@@ -229,41 +238,61 @@ struct _cmd_args {
 };
 typedef struct _cmd_args cmd_args_t;
 
-struct _glusterfs_ctx {
-	cmd_args_t         cmd_args;
-	char              *process_uuid;
-	FILE              *specfp;
-	FILE              *pidfp;
-	char               fin;
-	void              *timer;
-	void              *ib;
-	void              *pool;
-	void              *graph;
-	void              *top; /* either fuse or server protocol */
-	void              *event_pool;
-        void              *iobuf_pool;
-	pthread_mutex_t    lock;
-	int                xl_count;
-        uint32_t           volfile_checksum;
-        size_t             page_size;
-        unsigned char      measure_latency; /* toggle switch for latency measurement */
-};
 
+struct _glusterfs_graph {
+        struct list_head          list;
+        char                      graph_uuid[128];
+        struct timeval            dob;
+        void                     *first;
+        void                     *top;   /* selected by -n */
+        int                       xl_count;
+        uint32_t                  volfile_checksum;
+};
+typedef struct _glusterfs_graph glusterfs_graph_t;
+
+
+struct _glusterfs_ctx {
+	cmd_args_t          cmd_args;
+	char               *process_uuid;
+	FILE               *pidfp;
+	char                fin;
+	void               *timer;
+	void               *ib;
+	void               *pool;
+	void               *event_pool;
+        void               *iobuf_pool;
+	pthread_mutex_t     lock;
+        size_t              page_size;
+        struct list_head    graphs; /* double linked list of graphs - one per volfile parse */
+        glusterfs_graph_t  *active; /* the latest graph in use */
+        void               *master; /* fuse, or libglusterfsclient (however, not protocol/server) */
+        void               *mgmt;   /* xlator implementing MOPs for centralized logging, volfile server */
+        unsigned char       measure_latency; /* toggle switch for latency measurement */
+        pthread_t           sigwaiter;
+};
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
+
 typedef enum {
-  GF_EVENT_PARENT_UP = 1,
-  GF_EVENT_POLLIN,
-  GF_EVENT_POLLOUT,
-  GF_EVENT_POLLERR,
-  GF_EVENT_CHILD_UP,
-  GF_EVENT_CHILD_DOWN,
-  GF_EVENT_CHILD_CONNECTING,
-  GF_EVENT_TRANSPORT_CLEANUP,
-  GF_EVENT_TRANSPORT_CONNECTED,
-  GF_EVENT_VOLFILE_MODIFIED,
+        GF_EVENT_PARENT_UP = 1,
+        GF_EVENT_POLLIN,
+        GF_EVENT_POLLOUT,
+        GF_EVENT_POLLERR,
+        GF_EVENT_CHILD_UP,
+        GF_EVENT_CHILD_DOWN,
+        GF_EVENT_CHILD_CONNECTING,
+        GF_EVENT_TRANSPORT_CLEANUP,
+        GF_EVENT_TRANSPORT_CONNECTED,
+        GF_EVENT_VOLFILE_MODIFIED,
+        GF_EVENT_GRAPH_NEW,
 } glusterfs_event_t;
+
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
 
+int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
+int glusterfs_graph_destroy (glusterfs_graph_t *graph);
+int glusterfs_graph_activate (glusterfs_ctx_t *ctx, glusterfs_graph_t *graph);
+glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
+glusterfs_graph_t *glusterfs_graph_new ();
 #endif /* _GLUSTERFS_H */

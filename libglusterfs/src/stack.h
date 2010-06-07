@@ -143,7 +143,7 @@ FRAME_DESTROY (call_frame_t *frame)
 static inline void
 STACK_DESTROY (call_stack_t *stack)
 {
-        glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
+        glusterfs_ctx_t *ctx = glusterfs_ctx_get ();
 
         if (ctx && ctx->measure_latency) {
                 gettimeofday (&stack->frames.end, NULL);
@@ -330,18 +330,18 @@ copy_frame (call_frame_t *frame)
 	{
 		list_add (&newstack->all_frames, &oldstack->all_frames);
 		newstack->pool->cnt++;
-		
 	}
 	UNLOCK (&oldstack->pool->lock);
 
 	return &newstack->frames;
 }
 
+
 static inline call_frame_t *
 create_frame (xlator_t *xl, call_pool_t *pool)
 {
-	call_stack_t *stack = NULL;
-        glusterfs_ctx_t *ctx = get_global_ctx_ptr ();
+	call_stack_t    *stack = NULL;
+        glusterfs_ctx_t *ctx = glusterfs_ctx_get ();
 
 	if (!xl || !pool) {
 		return NULL;

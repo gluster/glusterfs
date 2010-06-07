@@ -34,6 +34,8 @@
 #include "defaults.h"
 
 
+#if 0
+
 int glusterfs_graph_parent_up (xlator_t *graph);
 
 static int 
@@ -297,3 +299,5 @@ fetch_spec (glusterfs_ctx_t *ctx)
 	
 	return spec_fp;
 }
+
+#endif

@@ -82,8 +82,6 @@ enum _gf_boolean
 typedef enum _gf_boolean gf_boolean_t;
 
 void gf_global_variable_init(void);
-void set_global_ctx_ptr (glusterfs_ctx_t *ctx);
-glusterfs_ctx_t *get_global_ctx_ptr (void);
 
 in_addr_t gf_resolve_ip (const char *hostname, void **dnscache);
 
