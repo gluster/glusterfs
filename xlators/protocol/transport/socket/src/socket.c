@@ -259,7 +259,7 @@ __socket_keepalive (int fd, int keepalive_intvl)
         if (keepalive_intvl == GF_USE_DEFAULT_KEEPALIVE)
                 goto done;
 
-#ifdef GF_DARWIN_HOST_OS
+#ifndef GF_LINUX_HOST_OS
         ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepalive_intvl,
                           sizeof (keepalive_intvl));
         if (ret == -1)
