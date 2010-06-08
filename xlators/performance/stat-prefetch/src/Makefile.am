@@ -3,7 +3,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 stat_prefetch_la_LDFLAGS = -module -avoidversion
 stat_prefetch_la_SOURCES = stat-prefetch.c
-noinst_HEADERS = stat-prefetch.h
+noinst_HEADERS = stat-prefetch.h stat-prefetch-mem-types.h
 
 stat_prefetch_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
