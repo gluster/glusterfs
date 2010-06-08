@@ -5,7 +5,7 @@ server_la_LDFLAGS = -module -avoidversion
 server_la_SOURCES = nfs.c nfs-common.c nfs-fops.c nfs-inodes.c nfs-generics.c mount3.c nfs3-fh.c nfs3.c nfs3-helpers.c
 server_la_LIBADD = $(top_builddir)/xlators/nfs/lib/src/libglrpcsvc.la $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-noinst_HEADERS = nfs.h nfs-common.h nfs-fops.h nfs-inodes.h nfs-generics.h mount3.h nfs3-fh.h nfs3.h nfs3-helpers.h
+noinst_HEADERS = nfs.h nfs-common.h nfs-fops.h nfs-inodes.h nfs-generics.h mount3.h nfs3-fh.h nfs3.h nfs3-helpers.h nfs-mem-types.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -shared -nostartfiles $(GF_CFLAGS)\

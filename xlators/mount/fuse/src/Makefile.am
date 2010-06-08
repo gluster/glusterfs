@@ -1,6 +1,6 @@
 noinst_HEADERS = $(CONTRIBDIR)/fuse-include/fuse_kernel.h\
 	$(CONTRIBDIR)/fuse-include/fuse-mount.h\
-	$(CONTRIBDIR)/fuse-include/fuse-misc.h
+	$(CONTRIBDIR)/fuse-include/fuse-misc.h fuse-mem-types.h
 
 xlator_LTLIBRARIES = fuse.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mount
