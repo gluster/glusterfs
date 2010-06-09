@@ -74,7 +74,10 @@ def gfParser (volfile):
         line = line.strip()
         volfile_dict = {}
         if re.match(r"[a-zA-Z0-9_]+", line):
-            volfile_dict[line.split()[0]] = string.join (line.split()[1:], ' ') if line.split() > 1 else " "
+            if line.split() > 1:
+                volfile_dict[line.split()[0]] = string.join (line.split()[1:], ' ')  
+            else: 
+                volfile_dict[line.split()[0]] = " "
             volume_array.append(volfile_dict)
 
     return volume_array
