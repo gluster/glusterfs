@@ -940,15 +940,15 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
                 return -1;
         }
 
-        gf_log(xl->name, GF_LOG_DEBUG, "Allocated mem_acct_rec for %d types",
-                        num_types);
-
         for (i = 0; i < num_types; i++) {
                 ret = LOCK_INIT(&(xl->mem_acct.rec[i].lock));
                 if (ret) {
                         fprintf(stderr, "Unable to lock..errno : %d",errno);
                 }
         }
+
+        gf_log(xl->name, GF_LOG_DEBUG, "Allocated mem_acct_rec for %d types",
+                        num_types);
 
         return 0;
 }
