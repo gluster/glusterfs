@@ -2995,7 +2995,7 @@ int32_t
 sp_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
- 	STACK_UNWIND (frame, op_ret, op_errno, dict);
+ 	SP_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
  	return 0;
 }
 
