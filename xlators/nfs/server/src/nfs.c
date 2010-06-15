@@ -578,6 +578,11 @@ fini (xlator_t *this)
 struct xlator_cbks cbks = { };
 struct xlator_fops fops = { };
 
+/* TODO: If needed, per-volume options below can be extended to be export
++ * specific also because after export-dir is introduced, a volume is not
++ * neccessarily an export whereas different subdirectories within that volume
++ * can be and may need these options to be specified separately.
++ */
 struct volume_options options[] = {
         { .key  = {"nfs3.read-size"},
           .type = GF_OPTION_TYPE_SIZET,
@@ -623,6 +628,23 @@ struct volume_options options[] = {
                          "received at the NFS client. Trusted sync includes "
                          " trusted-write behaviour. Off by default."
 
+        },
+        { .key  = {"nfs3.*.export-dir"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "By default, all subvolumes of nfs are exported as "
+                         "individual exports. There are cases where a "
+                         "subdirectory or subdirectories in the volume need to "
+                         "be exported separately. This option can also be used "
+                         "in conjunction with nfs3.export-volumes option to "
+                         "restrict exports only to the subdirectories specified"
+                         " through this option. Must be an absolute path."
+        },
+        { .key  = {"nfs3.export-volumes"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "Enable or disable exporting whole volumes, instead "
+                         "if used in conjunction with nfs3.export-dir, can "
+                         "allow setting up only subdirectories as exports. On "
+                         "by default."
         },
         { .key  = {"rpc-auth.auth-unix"},
           .type = GF_OPTION_TYPE_BOOL,

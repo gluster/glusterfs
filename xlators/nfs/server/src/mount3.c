@@ -175,19 +175,19 @@ mnt3svc_set_mountres3 (mountstat3 stat, struct nfs3_fh *fh, int *authflavor,
 
 int
 mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
-                          xlator_t *exportxl)
+                          char  *expname)
 {
         struct mountentry       *me = NULL;
         int                     ret = -1;
 
-        if ((!ms) || (!req) || (!exportxl))
+        if ((!ms) || (!req) || (!expname))
                 return -1;
 
         me = (struct mountentry *)GF_CALLOC (1, sizeof (*me), gf_nfs_mt_mountentry);
         if (!me)
                 return -1;
 
-        strcpy (me->exname, exportxl->name);
+        strcpy (me->exname, expname);
         INIT_LIST_HEAD (&me->mlist);
         /* Must get the IP or hostname of the client so we
          * can map it into the mount entry.
@@ -243,8 +243,8 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         if (status != MNT3_OK)
                 goto xmit_res;
 
-        fh = nfs3_fh_build_root_fh (ms->nfsx->children, this, *buf);
-        mnt3svc_update_mountlist (ms, req, this);
+        fh = nfs3_fh_build_root_fh (ms->nfsx->children, this);
+        mnt3svc_update_mountlist (ms, req, this->name);
 xmit_res:
         gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d", status);
         if (op_ret == 0) {
@@ -261,26 +261,423 @@ xmit_res:
 
 
 int
-mnt3svc_mount (rpcsvc_request_t *req, xlator_t *nfsx, xlator_t * xl)
+mnt3_match_dirpath_export (char *expname, char *dirpath)
 {
-        loc_t           oploc = {0, };
-        int             ret = -1;
-        nfs_user_t      nfu = {0, };
+        int     ret = 0;
+        int     dlen = 0;
 
-        if ((!req) || (!xl))
+        if ((!expname) || (!dirpath))
+                return 0;
+
+        /* Some clients send a dirpath for mount that includes the slash at the
+         * end. String compare for searching the export will fail because our
+         * exports list does not include that slash. Remove the slash to
+         * compare.
+         */
+        dlen = strlen (dirpath);
+        if (dirpath [dlen - 1] == '/')
+                dirpath [dlen - 1] = '\0';
+
+        if (dirpath[0] != '/')
+                expname++;
+
+        if (strcmp (expname, dirpath) == 0)
+                ret = 1;
+
+        return ret;
+}
+
+
+int
+mnt3svc_mount_inode (rpcsvc_request_t *req, struct mount3_state *ms,
+                     xlator_t * xl, inode_t *exportinode)
+{
+        int             ret = -EFAULT;
+        nfs_user_t      nfu = {0, };
+        loc_t           exportloc = {0, };
+
+        if ((!req) || (!xl) || (!ms) || (!exportinode))
                 return ret;
 
-        ret = nfs_ino_loc_fill (xl->itable, 1, 0, &oploc);
+        ret = nfs_inode_loc_fill (exportinode, &exportloc);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Loc fill failed for export inode"
+                        ": ino %"PRIu64", gen: %"PRIu64", volume: %s",
+                        exportinode->ino, exportinode->generation, xl->name);
+                goto err;
+        }
+
         /* To service the mount request, all we need to do
          * is to send a lookup fop that returns the stat
          * for the root of the child volume. This is
          * used to build the root fh sent to the client.
          */
         nfs_request_user_init (&nfu, req);
-        ret = nfs_lookup (nfsx, xl, &nfu, &oploc, mnt3svc_lookup_mount_cbk,
-                          (void *)req);
-        nfs_loc_wipe (&oploc);
+        ret = nfs_lookup (ms->nfsx, xl, &nfu, &exportloc,
+                          mnt3svc_lookup_mount_cbk, (void *)req);
 
+        nfs_loc_wipe (&exportloc);
+err:
+        return ret;
+}
+
+
+/* For a volume mount request, we just have to create loc on the root inode,
+ * and send a lookup. In the lookup callback the mount reply is send along with
+ * the file handle.
+ */
+int
+mnt3svc_volume_mount (rpcsvc_request_t *req, struct mount3_state *ms,
+                      struct mnt3_export *exp)
+{
+        inode_t         *exportinode = NULL;
+        int             ret = -EFAULT;
+
+        if ((!req) || (!exp) || (!ms))
+                return ret;
+
+        exportinode = inode_get (exp->vol->itable, 1, 0);
+        if (!exportinode) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Faild to get root inode");
+                ret = -ENOENT;
+                goto err;
+        }
+
+        ret = mnt3svc_mount_inode (req, ms, exp->vol, exportinode);
+        inode_unref (exportinode);
+
+err:
+        return ret;
+}
+
+
+/* The catch with directory exports is that the first component of the export
+ * name will be the name of the volume.
+ * Any lookup that needs to be performed to build the directory's file handle
+ * needs to start from the directory path from the root of the volume. For that
+ * we need to strip out the volume name first.
+ */
+char *
+__volume_subdir (char *dirpath)
+{
+        char    *subdir = NULL;
+
+        if (!dirpath)
+                return NULL;
+
+        if (dirpath[0] == '/')
+                dirpath++;
+
+        subdir = index (dirpath, (int)'/');
+
+        return subdir;
+}
+
+
+void
+mnt3_resolve_state_wipe (mnt3_resolve_t *mres)
+{
+        if (!mres)
+                return;
+
+        nfs_loc_wipe (&mres->resolveloc);
+        GF_FREE (mres);
+
+}
+
+
+/* Sets up the component argument to contain the next component in the path and
+ * sets up path as an absolute path starting from the next component.
+ */
+char *
+__setup_next_component (char *path, char *component)
+{
+        char    *comp = NULL;
+        char    *nextcomp = NULL;
+
+        if ((!path) || (!component))
+                return NULL;
+
+        strcpy (component, path);
+        comp = index (component, (int)'/');
+        if (!comp)
+                goto err;
+
+        comp++;
+        nextcomp = index (comp, (int)'/');
+        if (nextcomp) {
+                strcpy (path, nextcomp);
+                *nextcomp = '\0';
+        } else
+                path[0] = '\0';
+
+err:
+        return comp;
+}
+
+int32_t
+mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, inode_t *inode,
+                         struct iatt *buf, dict_t *xattr,
+                         struct iatt *postparent);
+
+/* There are multiple components in the directory export path and each one
+ * needs to be looked up one after the other.
+ */
+int
+__mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
+{
+        char            dupsubdir[MNTPATHLEN];
+        char            *nextcomp = NULL;
+        int             ret = -EFAULT;
+        uint64_t        parino = 0;
+        uint64_t        pargen = 0;
+        nfs_user_t      nfu = {0, };
+
+        if (!mres)
+                return ret;
+
+        nextcomp = __setup_next_component (mres->remainingdir, dupsubdir);
+        if (!nextcomp)
+                goto err;
+
+        parino = mres->resolveloc.inode->ino;
+        pargen = mres->resolveloc.inode->generation;
+        /* Wipe the contents of the previous component */
+        nfs_loc_wipe (&mres->resolveloc);
+        ret = nfs_entry_loc_fill (mres->exp->vol->itable, parino, pargen,
+                                  nextcomp, &mres->resolveloc,
+                                  NFS_RESOLVE_CREATE);
+        if ((ret < 0) && (ret != -2)) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
+                        "inode: parent %"PRIu64", gen: %"PRIu64", entry %s",
+                        parino, pargen, nextcomp);
+                ret = -EFAULT;
+                goto err;
+        }
+
+        nfs_request_user_init (&nfu, mres->req);
+        ret = nfs_lookup (mres->mstate->nfsx, mres->exp->vol, &nfu,
+                          &mres->resolveloc, mnt3_resolve_subdir_cbk, mres);
+
+err:
+        return ret;
+}
+
+
+int32_t
+mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int32_t op_ret, int32_t op_errno, inode_t *inode,
+                         struct iatt *buf, dict_t *xattr,
+                         struct iatt *postparent)
+{
+        mnt3_resolve_t          *mres = NULL;
+        mountstat3              mntstat = MNT3ERR_SERVERFAULT;
+        struct nfs3_fh          fh = {{0}, };
+        int                     autharr[10];
+        int                     autharrlen = 0;
+        rpcsvc_t                *svc = NULL;
+        mountres3               res = {0, };
+
+        mres = frame->local;
+
+        if (op_ret == -1) {
+                mntstat = mnt3svc_errno_to_mnterr (op_errno);
+                goto err;
+        }
+
+        inode_link (mres->resolveloc.inode, mres->resolveloc.parent,
+                    mres->resolveloc.name, buf);
+
+        nfs3_fh_build_child_fh (&mres->parentfh, buf, &fh);
+        if (strlen (mres->remainingdir) <= 0) {
+                op_ret = -1;
+                mntstat = MNT3_OK;
+                mnt3svc_update_mountlist (mres->mstate, mres->req,
+                                          mres->exp->expname);
+                goto err;
+        }
+
+        mres->parentfh = fh;
+        op_ret = __mnt3_resolve_export_subdir_comp (mres);
+        if (op_ret < 0)
+                mntstat = mnt3svc_errno_to_mnterr (-op_ret);
+err:
+        if (op_ret == -1) {
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d",
+                        mntstat);
+                svc = rpcsvc_request_service (mres->req);
+                autharrlen = rpcsvc_auth_array (svc, this->name, autharr, 10);
+
+                res = mnt3svc_set_mountres3 (mntstat, &fh, autharr, autharrlen);
+                mnt3svc_submit_reply (mres->req, (void *)&res,
+                                      (mnt3_serializer)xdr_serialize_mountres3);
+                mnt3_resolve_state_wipe (mres);
+        }
+
+        return 0;
+}
+
+
+
+/* We will always have to perform a hard lookup on all the components of a
+ * directory export for a mount request because in the mount reply we need the
+ * file handle of the directory. Our file handle creation code is designed with
+ * the assumption that to build a child file/dir fh, we'll always have the
+ * parent dir's fh available so that we may copy the hash array of the previous
+ * dir levels.
+ *
+ * Since we do not store the file handles anywhere, for every mount request we
+ * must resolve the file handles of every component so that the parent dir file
+ * of the exported directory can be built.
+ */
+int
+__mnt3_resolve_export_subdir (mnt3_resolve_t *mres)
+{
+        char            dupsubdir[MNTPATHLEN];
+        char            *firstcomp = NULL;
+        int             ret = -EFAULT;
+        nfs_user_t      nfu = {0, };
+
+        if (!mres)
+                return ret;
+
+        firstcomp = __setup_next_component (mres->remainingdir, dupsubdir);
+        if (!firstcomp)
+                goto err;
+
+        ret = nfs_entry_loc_fill (mres->exp->vol->itable, 1, 0, firstcomp,
+                                  &mres->resolveloc, NFS_RESOLVE_CREATE);
+        if ((ret < 0) && (ret != -2)) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
+                        "inode for volume root: %s", mres->exp->vol->name);
+                ret = -EFAULT;
+                goto err;
+        }
+
+        nfs_request_user_init (&nfu, mres->req);
+        ret = nfs_lookup (mres->mstate->nfsx, mres->exp->vol, &nfu,
+                          &mres->resolveloc, mnt3_resolve_subdir_cbk, mres);
+
+err:
+        return ret;
+}
+
+
+int
+mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
+                            struct mnt3_export *exp)
+{
+        mnt3_resolve_t  *mres = NULL;
+        char            *volume_subdir = NULL;
+        int             ret = -EFAULT;
+
+        if ((!req) || (!ms) || (!exp))
+                return ret;
+
+        volume_subdir = __volume_subdir (exp->expname);
+        if (!volume_subdir)
+                goto err;
+
+        mres = GF_CALLOC (1, sizeof (mnt3_resolve_t), gf_nfs_mt_mnt3_resolve);
+        if (!mres) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                goto err;
+        }
+
+        mres->exp = exp;
+        mres->mstate = ms;
+        mres->req = req;
+        strcpy (mres->remainingdir, volume_subdir);
+        mres->parentfh = nfs3_fh_build_root_fh (mres->mstate->nfsx->children,
+                                                mres->exp->vol);
+
+        ret = __mnt3_resolve_export_subdir (mres);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve export dir: %s"
+                        , mres->exp->expname);
+                GF_FREE (mres);
+        }
+
+err:
+        return ret;
+}
+
+
+int
+mnt3svc_mount (rpcsvc_request_t *req, struct mount3_state *ms,
+               struct mnt3_export *exp)
+{
+        int     ret = -EFAULT;
+
+        if ((!req) || (!ms) || (!exp))
+                return ret;
+
+        if (exp->exptype == MNT3_EXPTYPE_VOLUME)
+                ret = mnt3svc_volume_mount (req, ms, exp);
+        else if (exp->exptype == MNT3_EXPTYPE_DIR)
+                ret = mnt3_resolve_export_subdir (req, ms, exp);
+
+        return ret;
+}
+
+
+/* mnt3_mntpath_to_xlator sets this to 1 if the mount is for a full
+* volume or 2 for a subdir in the volume.
+*/
+struct mnt3_export *
+mnt3_mntpath_to_export (struct mount3_state *ms, char *dirpath)
+{
+        struct mnt3_export      *exp = NULL;
+        struct mnt3_export      *found = NULL;
+
+        if ((!ms) || (!dirpath))
+                return NULL;
+
+        list_for_each_entry (exp, &ms->exportlist, explist) {
+
+                /* Search for the an exact match with the volume */
+                if (mnt3_match_dirpath_export (exp->expname, dirpath)) {
+                        found = exp;
+                        gf_log (GF_MNT, GF_LOG_DEBUG, "Found export volume: "
+                                "%s", exp->vol->name);
+                        goto foundexp;
+                }
+        }
+
+        gf_log (GF_MNT, GF_LOG_DEBUG, "Export not found");
+foundexp:
+        return found;
+}
+
+
+int
+mnt3_check_client_net (struct mount3_state *ms, rpcsvc_request_t *req,
+                       xlator_t *targetxl)
+{
+        rpcsvc_t        *svc = NULL;
+        int             ret = -1;
+
+        if ((!ms) || (!req) || (!targetxl))
+                return -1;
+
+        svc = rpcsvc_request_service (req);
+        ret = rpcsvc_conn_peer_check (svc->options, targetxl->name,
+                                      rpcsvc_request_conn (req));
+        if (ret == RPCSVC_AUTH_REJECT) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Peer not allowed");
+                goto err;
+        }
+
+        ret = rpcsvc_conn_privport_check (svc, targetxl->name,
+                                          rpcsvc_request_conn (req));
+        if (ret == RPCSVC_AUTH_REJECT) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Unprivileged port not allowed");
+                goto err;
+        }
+
+        ret = 0;
+err:
         return ret;
 }
 
@@ -291,10 +688,9 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         struct iovec            pvec = {0, };
         char                    path[MNTPATHLEN];
         int                     ret = -1;
-        xlator_t                *targetxl = NULL;
         struct mount3_state     *ms = NULL;
-        rpcsvc_t                *svc = NULL;
         mountstat3              mntstat = MNT3ERR_SERVERFAULT;
+        struct mnt3_export      *exp = NULL;
 
         if (!req)
                 return -1;
@@ -318,35 +714,26 @@ mnt3svc_mnt (rpcsvc_request_t *req)
 
         ret = 0;
         gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
-        targetxl = nfs_mntpath_to_xlator (ms->nfsx->children, path);
-        if (!targetxl) {
+        exp = mnt3_mntpath_to_export (ms, path);
+        if (!exp) {
                 ret = -1;
                 mntstat = MNT3ERR_NOENT;
                 goto mnterr;
         }
 
-        svc = rpcsvc_request_service (req);
-        ret = rpcsvc_conn_peer_check (svc->options, targetxl->name,
-                                      rpcsvc_request_conn (req));
-        if (ret == RPCSVC_AUTH_REJECT) {
+        ret = mnt3_check_client_net (ms, req, exp->vol);
+        if (ret == -1) {
                 mntstat = MNT3ERR_ACCES;
                 ret = -1;
-                gf_log (GF_MNT, GF_LOG_TRACE, "Peer not allowed");
-                goto mnterr;
-        }
-
-        ret = rpcsvc_conn_privport_check (svc, targetxl->name,
-                                          rpcsvc_request_conn (req));
-        if (ret == RPCSVC_AUTH_REJECT) {
-                mntstat = MNT3ERR_ACCES;
-                ret = -1;
-                gf_log (GF_MNT, GF_LOG_TRACE, "Unprivileged port not allowed");
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
                 goto rpcerr;
         }
 
-        mnt3svc_mount (req, ms->nfsx, targetxl);
+        ret = mnt3svc_mount (req, ms, exp);
+        if (ret < 0)
+                mntstat = mnt3svc_errno_to_mnterr (-ret);
 mnterr:
-        if (ret == -1) {
+        if (ret < 0) {
                 mnt3svc_mnt_error_reply (req, mntstat);
                 ret = 0;
         }
@@ -705,7 +1092,7 @@ rpcerr:
 
 
 exports
-mnt3_xlchildren_to_exports (rpcsvc_t *svc, xlator_list_t *cl)
+mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
 {
         struct exportnode       *elist = NULL;
         struct exportnode       *prev = NULL;
@@ -713,12 +1100,13 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, xlator_list_t *cl)
         size_t                  namelen = 0;
         int                     ret = -1;
         char                    *addrstr = NULL;
+        struct mnt3_export      *ent = NULL;
 
-        if ((!cl) || (!svc))
+        if ((!ms) || (!svc))
                 return NULL;
 
-        while (cl) {
-                namelen = strlen (cl->xlator->name);
+        list_for_each_entry(ent, &ms->exportlist, explist) {
+                namelen = strlen (ent->expname) + 1;
                 elist = GF_CALLOC (1, sizeof (*elist), gf_nfs_mt_exportnode);
                 if (!elist) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation"
@@ -734,10 +1122,9 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, xlator_list_t *cl)
                         goto free_list;
                 }
 
-                strcpy (elist->ex_dir, "/");
-                strcat (elist->ex_dir, cl->xlator->name);
+                strcpy (elist->ex_dir, ent->expname);
 
-                addrstr = rpcsvc_volume_allowed (svc->options,cl->xlator->name);
+                addrstr = rpcsvc_volume_allowed (svc->options, ent->vol->name);
                 if (addrstr)
                         addrstr = gf_strdup (addrstr);
                 else
@@ -760,8 +1147,6 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, xlator_list_t *cl)
 
                 if (!first)
                         first = elist;
-
-                cl = cl->next;
         }
 
         ret = 0;
@@ -794,8 +1179,7 @@ mnt3svc_export (rpcsvc_request_t *req)
         }
 
         /* Using the children translator names, build the export list */
-        elist = mnt3_xlchildren_to_exports (rpcsvc_request_service (req),
-                                            ms->nfsx->children);
+        elist = mnt3_xlchildren_to_exports (rpcsvc_request_service (req), ms);
         if (!elist) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to build exports list");
                 rpcsvc_request_seterr (req, SYSTEM_ERR);
@@ -813,10 +1197,224 @@ err:
 }
 
 
+struct mnt3_export *
+mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath)
+{
+        struct mnt3_export      *exp = NULL;
+        int                     alloclen = 0;
+        int                     ret = -1;
+
+        if ((!ms) || (!xl))
+                return NULL;
+
+        exp = GF_CALLOC (1, sizeof (*exp), gf_nfs_mt_mnt3_export);
+        if (!exp) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                return NULL;
+        }
+
+        INIT_LIST_HEAD (&exp->explist);
+        if (exportpath)
+                alloclen = strlen (xl->name) + 2 + strlen (exportpath);
+        else
+                alloclen = strlen (xl->name) + 2;
+
+        exp->expname = GF_CALLOC (alloclen, sizeof (char), gf_nfs_mt_char);
+        if (!exp->expname) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Memory allocation failed");
+                GF_FREE (exp);
+                exp = NULL;
+                goto err;
+        }
+
+        if (exportpath) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Initing dir export: %s:%s",
+                        xl->name, exportpath);
+                exp->exptype = MNT3_EXPTYPE_DIR;
+                ret = snprintf (exp->expname, alloclen, "/%s%s", xl->name,
+                                exportpath);
+        } else {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Initing volume export: %s",
+                        xl->name);
+                exp->exptype = MNT3_EXPTYPE_VOLUME;
+                ret = snprintf (exp->expname, alloclen, "/%s", xl->name);
+        }
+
+        exp->vol = xl;
+err:
+        return exp;
+}
+
+
+int
+__mnt3_init_volume_direxports (struct mount3_state *ms, xlator_t *xlator,
+                               char *optstr)
+{
+        struct mnt3_export      *newexp = NULL;
+        int                     ret = -1;
+        char                    *savptr = NULL;
+        char                    *dupopt = NULL;
+        char                    *token = NULL;
+
+        if ((!ms) || (!xlator) || (!optstr))
+                return -1;
+
+        dupopt = gf_strdup (optstr);
+        if (!dupopt) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "gf_strdup failed");
+                goto err;
+        }
+
+        token = strtok_r (dupopt, ",", &savptr);
+        while (token) {
+                newexp = mnt3_init_export_ent (ms, xlator, token);
+                if (!newexp) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to init dir "
+                                "export: %s", token);
+                        ret = -1;
+                        goto err;
+                }
+
+                list_add_tail (&newexp->explist, &ms->exportlist);
+                token = strtok_r (NULL, ",", &savptr);
+        }
+
+        ret = 0;
+err:
+        if (dupopt)
+                GF_FREE (dupopt);
+
+        return ret;
+}
+
+
+int
+__mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
+{
+        struct mnt3_export      *newexp = NULL;
+        int                     ret = -1;
+        char                    searchstr[1024];
+        char                    *optstr  = NULL;
+
+        if ((!ms) || (!xlator) || (!opts))
+                return -1;
+
+        ret = snprintf (searchstr, 1024, "nfs3.%s.export-dir", xlator->name);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "snprintf failed");
+                ret = -1;
+                goto err;
+        }
+
+        if (dict_get (opts, searchstr)) {
+                ret = dict_get_str (opts, searchstr, &optstr);
+                if (ret < 0) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option: "
+                                "%s", searchstr);
+                        ret = -1;
+                        goto err;
+                }
+
+                ret = __mnt3_init_volume_direxports (ms, xlator, optstr);
+                if (ret == -1) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Dir export setup failed"
+                                " for volume: %s", xlator->name);
+                        goto err;
+                }
+
+        }
+
+        if (ms->export_volumes) {
+                newexp = mnt3_init_export_ent (ms, xlator, NULL);
+                if (!newexp) {
+                        ret = -1;
+                        goto err;
+                }
+
+                list_add_tail (&newexp->explist, &ms->exportlist);
+        }
+        ret = 0;
+
+
+err:
+        return ret;
+}
+
+
+int
+__mnt3_init_volume_export (struct mount3_state *ms, dict_t *opts)
+{
+        int                     ret = -1;
+        char                    *optstr  = NULL;
+        /* On by default. */
+        gf_boolean_t            boolt = _gf_true;
+
+        if ((!ms) || (!opts))
+                return -1;
+
+        if (!dict_get (opts, "nfs3.export-volumes")) {
+                ret = 0;
+                goto err;
+        }
+
+        ret = dict_get_str (opts, "nfs3.export-volumes", &optstr);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option: "
+                        "nfs3.export-volumes");
+                ret = -1;
+                goto err;
+        }
+
+        gf_string2boolean (optstr, &boolt);
+        ret = 0;
+
+err:
+        if (boolt == _gf_false) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Volume exports disabled");
+                ms->export_volumes = 0;
+        } else {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Volume exports enabled");
+                ms->export_volumes = 1;
+        }
+
+        return ret;
+}
+
+
+int
+mnt3_init_options (struct mount3_state *ms, dict_t *options)
+{
+        xlator_list_t   *volentry = NULL;
+        int             ret = -1;
+
+        if ((!ms) || (!options))
+                return -1;
+
+        __mnt3_init_volume_export (ms, options);
+        volentry = ms->nfsx->children;
+        while (volentry) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Initing options for: %s",
+                        volentry->xlator->name);
+                ret = __mnt3_init_volume (ms, options, volentry->xlator);
+                if (ret < 0) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Volume init failed");
+                        goto err;
+                }
+
+                volentry = volentry->next;
+        }
+
+        ret = 0;
+err:
+        return ret;
+}
+
+
 struct mount3_state *
 mnt3_init_state (xlator_t *nfsx)
 {
         struct mount3_state     *ms = NULL;
+        int                     ret = -1;
 
         if (!nfsx)
                 return NULL;
@@ -829,7 +1427,13 @@ mnt3_init_state (xlator_t *nfsx)
 
         ms->iobpool = nfsx->ctx->iobuf_pool;
         ms->nfsx = nfsx;
-        ms->exports = nfsx->children;
+        INIT_LIST_HEAD (&ms->exportlist);
+        ret = mnt3_init_options (ms, nfsx->options);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Options init failed");
+                return NULL;
+        }
+
         INIT_LIST_HEAD (&ms->mountlist);
         LOCK_INIT (&ms->mountlock);
 

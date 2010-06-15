@@ -33,6 +33,7 @@
 #include "list.h"
 #include "xdr-nfs3.h"
 #include "locking.h"
+#include "nfs3-fh.h"
 
 /* Registered with portmap */
 #define GF_MOUNTV3_PORT         38465
@@ -60,12 +61,28 @@ struct mountentry {
         char                    hostname[MNTPATHLEN];
 };
 
+#define MNT3_EXPTYPE_VOLUME     1
+#define MNT3_EXPTYPE_DIR        2
+
+struct mnt3_export {
+        struct list_head        explist;
+
+        /* The string that may contain either the volume name if the full volume
+         * is exported or the subdirectory in the volume.
+         */
+        char                    *expname;
+        xlator_t                *vol;
+        int                     exptype;
+};
+
 struct mount3_state {
         xlator_t                *nfsx;
 
         /* The buffers for all network IO are got from this pool. */
         struct iobuf_pool       *iobpool;
-        xlator_list_t           *exports;
+
+        /* List of exports, can be volumes or directories in those volumes. */
+        struct list_head        exportlist;
 
         /* List of current mount points over all the exports from this
          * server.
@@ -74,5 +91,22 @@ struct mount3_state {
 
         /* Used to protect the mountlist. */
         gf_lock_t               mountlock;
+
+        /* Set to 0 if exporting full volumes is disabled. On by default. */
+        int                     export_volumes;
 };
+
+
+struct mount3_resolve_state {
+        struct mnt3_export      *exp;
+        struct mount3_state     *mstate;
+        rpcsvc_request_t        *req;
+
+        char                    remainingdir[MNTPATHLEN];
+        loc_t                   resolveloc;
+        struct nfs3_fh          parentfh;
+};
+
+typedef struct mount3_resolve_state mnt3_resolve_t;
+
 #endif
