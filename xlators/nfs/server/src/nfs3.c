@@ -903,7 +903,7 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 nfs3_fh_build_parent_fh (&cs->fh, buf, &newfh);
         else
                 newfh = nfs3_fh_build_root_fh (cs->nfs3state->exportslist,
-                                               cs->vol, *buf);
+                                               cs->vol);
 
 xmit_res:
         nfs3_log_newfh_res (rpcsvc_request_xid (cs->req), "LOOKUP", status,

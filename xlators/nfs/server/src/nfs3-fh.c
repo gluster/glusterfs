@@ -75,9 +75,10 @@ nfs3_fh_init (struct nfs3_fh *fh, struct iatt *buf)
 
 
 struct nfs3_fh
-nfs3_fh_build_root_fh (xlator_list_t *cl, xlator_t *xl, struct iatt buf)
+nfs3_fh_build_root_fh (xlator_list_t *cl, xlator_t *xl)
 {
         struct nfs3_fh  fh = {{0}, };
+        struct iatt     buf = {0, };
         if ((!cl) || (!xl))
                 return fh;
 

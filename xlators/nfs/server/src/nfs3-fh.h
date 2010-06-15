@@ -84,7 +84,7 @@ extern xlator_t *
 nfs3_fh_to_xlator (xlator_list_t *cl, struct nfs3_fh *fh);
 
 extern struct nfs3_fh
-nfs3_fh_build_root_fh (xlator_list_t *cl, xlator_t *xl, struct iatt buf);
+nfs3_fh_build_root_fh (xlator_list_t *cl, xlator_t *xl);
 
 extern int
 nfs3_fh_is_root_fh (struct nfs3_fh *fh);
