@@ -83,6 +83,28 @@ nfs_fop_local_wipe (xlator_t *nfsx, struct nfs_fop_local *l)
         return;
 }
 
+pthread_mutex_t         ctr = PTHREAD_MUTEX_INITIALIZER;
+unsigned int            cval = 1;
+
+
+int
+nfs_frame_getctr ()
+{
+        int val = 0;
+
+        pthread_mutex_lock (&ctr);
+        {
+                if (cval == 0)
+                        cval = 1;
+                val = cval;
+                cval++;
+        }
+        pthread_mutex_unlock (&ctr);
+
+        return val;
+}
+
+
 call_frame_t *
 nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
 {
@@ -109,6 +131,7 @@ nfs_create_frame (xlator_t *xl, nfs_user_t *nfu)
                 gf_log (GF_NFS, GF_LOG_TRACE, "gid: %d", nfu->gids[x]);
                 frame->root->groups[y] = nfu->gids[x];
         }
+        frame->root->lk_owner = nfs_frame_getctr ();
 
 err:
         return frame;
