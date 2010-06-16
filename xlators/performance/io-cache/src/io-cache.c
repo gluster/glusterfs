@@ -1568,10 +1568,17 @@ ioc_priv_dump (xlator_t *this)
 void
 fini (xlator_t *this)
 {
-	ioc_table_t *table = this->private;
+	ioc_table_t *table = NULL;
+
+        table = this->private;
 
         if (table == NULL)
                 return;
+
+        if (table->mem_pool != NULL) {
+                mem_pool_destroy (table->mem_pool);
+                table->mem_pool = NULL;
+        }
 
 	pthread_mutex_destroy (&table->table_lock);
 	GF_FREE (table);
