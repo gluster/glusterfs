@@ -1469,6 +1469,11 @@ fini (xlator_t *this)
         if (table == NULL)
                 return;
 
+        if (table->mem_pool != NULL) {
+                mem_pool_destroy (table->mem_pool);
+                table->mem_pool = NULL;
+        }
+
 	pthread_mutex_destroy (&table->table_lock);
 	FREE (table);
 
