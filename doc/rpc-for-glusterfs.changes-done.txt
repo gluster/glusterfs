@@ -1,0 +1,18 @@
+This document serves as a basic coding standard/practise for further
+developments after proper protocol layer is implemented.
+
+With this release we are bringing abstraction based on xlator driven
+operation and protocol driven operation. ie, all the client side (fuse)
+operations are xlator driven operations and will come with 'op' value
+taken from 'libglusterfs/'.
+
+All the server protocol driven operations are driven by which ever
+version of protocol is used.
+
+All the currently implemented fops will remain, and 'getspec' being generated
+by top level and passes through translator graph, is treated as an 'fop'.
+
+All new 'gluster' and 'glusterd' related calls will be _mgmt_ calls instead of
+fops. All release, releasedir and forget are treated as fops (but they won't
+come with requirement to use STACK_WIND and STACK_UNWIND).
+

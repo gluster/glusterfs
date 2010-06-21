@@ -1,3 +1,1 @@
-SUBDIRS = lib auth legacy
-
-CLEANFILES = 
+SUBDIRS = lib auth legacy rpc client server

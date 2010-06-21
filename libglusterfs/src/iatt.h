@@ -30,6 +30,7 @@
 #include <sys/stat.h> /* for iatt <--> stat conversions */
 #include <unistd.h>
 
+#include "compat.h"
 
 typedef enum {
         IA_INVAL = 0,

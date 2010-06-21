@@ -1,3 +1,1 @@
 SUBDIRS = addr login
-
-CLEANFILES = 

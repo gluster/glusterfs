@@ -42,7 +42,7 @@ typedef enum {
 	AUTH_DONT_CARE
 } auth_result_t;
 
-typedef auth_result_t (*auth_fn_t) (dict_t *input_params, 
+typedef auth_result_t (*auth_fn_t) (dict_t *input_params,
 				    dict_t *config_params);
 
 typedef struct {
@@ -51,8 +51,8 @@ typedef struct {
 	volume_opt_list_t *vol_opt;
 } auth_handle_t;
 
-auth_result_t gf_authenticate (dict_t *input_params, 
-			       dict_t *config_params, 
+auth_result_t gf_authenticate (dict_t *input_params,
+			       dict_t *config_params,
 			       dict_t *auth_modules);
 int32_t gf_auth_init (xlator_t *xl, dict_t *auth_modules);
 void gf_auth_fini (dict_t *auth_modules);
