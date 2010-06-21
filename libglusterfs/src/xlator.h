@@ -836,7 +836,6 @@ struct _xlator {
 	glusterfs_ctx_t    *ctx;
 	glusterfs_graph_t  *graph; /* not set for fuse */
 	inode_table_t      *itable;
-	char                ready;
 	char                init_succeeded;
 	void               *private;
         struct mem_acct     mem_acct;

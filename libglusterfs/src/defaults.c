@@ -1277,7 +1277,7 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
 	{
 		xlator_list_t *parent = this->parents;
 		while (parent) {
-                        if (parent->xlator->ready)
+                        if (parent->xlator->init_succeeded)
                                 xlator_notify (parent->xlator, event,
                                                this, NULL);
 			parent = parent->next;
