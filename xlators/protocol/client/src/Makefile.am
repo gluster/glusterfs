@@ -1,6 +1,6 @@
 
 xlator_LTLIBRARIES = client.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/alpha/protocol
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
 
 client_la_LDFLAGS = -module -avoidversion
 
