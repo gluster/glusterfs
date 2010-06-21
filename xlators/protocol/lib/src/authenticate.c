@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2007-2009 Gluster, Inc. <http://www.gluster.com>
+  Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -68,7 +68,7 @@ init (dict_t *this,
 
 	handle = dlopen (auth_file, RTLD_LAZY);
 	if (!handle) {
-		gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n", 
+		gf_log ("authenticate", GF_LOG_ERROR, "dlopen(%s): %s\n",
 			auth_file, dlerror ());
 		dict_set (this, key, data_from_dynptr (NULL, 0));
 		GF_FREE (auth_file);
@@ -76,7 +76,7 @@ init (dict_t *this,
 		return;
 	}
 	GF_FREE (auth_file);
-  
+
 	authenticate = dlsym (handle, "gf_auth");
 	if (!authenticate) {
 		gf_log ("authenticate", GF_LOG_ERROR,
@@ -100,12 +100,12 @@ init (dict_t *this,
 	if (auth_handle->vol_opt->given_opt == NULL) {
 		gf_log ("authenticate", GF_LOG_DEBUG,
 			"volume option validation not specified");
-	} 
+	}
 
 	auth_handle->authenticate = authenticate;
 	auth_handle->handle = handle;
 
-	dict_set (this, key, 
+	dict_set (this, key,
 		  data_from_dynptr (auth_handle, sizeof (*auth_handle)));
 }
 
@@ -133,10 +133,10 @@ gf_auth_init (xlator_t *xl, dict_t *auth_modules)
 		while (pair) {
 			handle = data_to_ptr (pair->value);
 			if (handle) {
-				list_add_tail (&(handle->vol_opt->list), 
+				list_add_tail (&(handle->vol_opt->list),
 					       &(xl->volume_options));
-				if (-1 == 
-				    validate_xlator_volume_options (xl, 
+				if (-1 ==
+				    validate_xlator_volume_options (xl,
 								    handle->vol_opt->given_opt)) {
 					gf_log ("authenticate", GF_LOG_ERROR,
 						"volume option validation "
@@ -158,7 +158,7 @@ gf_auth_init (xlator_t *xl, dict_t *auth_modules)
 static dict_t *__input_params;
 static dict_t *__config_params;
 
-void 
+void
 map (dict_t *this,
      char *key,
      data_t *value,
@@ -168,17 +168,17 @@ map (dict_t *this,
 	auth_fn_t authenticate;
 	auth_handle_t *handle = NULL;
 
-	if (value && (handle = data_to_ptr (value)) && 
+	if (value && (handle = data_to_ptr (value)) &&
 	    (authenticate = handle->authenticate)) {
-		dict_set (res, key, 
-			  int_to_data (authenticate (__input_params, 
+		dict_set (res, key,
+			  int_to_data (authenticate (__input_params,
 						     __config_params)));
 	} else {
 		dict_set (res, key, int_to_data (AUTH_DONT_CARE));
 	}
 }
 
-void 
+void
 reduce (dict_t *this,
 	char *key,
 	data_t *value,
@@ -206,11 +206,11 @@ reduce (dict_t *this,
 	}
 }
 
- 
-auth_result_t 
-gf_authenticate (dict_t *input_params, 
-		 dict_t *config_params, 
-		 dict_t *auth_modules) 
+
+auth_result_t
+gf_authenticate (dict_t *input_params,
+		 dict_t *config_params,
+		 dict_t *auth_modules)
 {
 	dict_t *results = NULL;
 	int64_t result = AUTH_DONT_CARE;
@@ -235,12 +235,12 @@ gf_authenticate (dict_t *input_params,
 			"accepting remote-client %s", name);
 		result = AUTH_REJECT;
 	}
-    
+
 	dict_destroy (results);
 	return result;
 }
 
-void 
+void
 gf_auth_fini (dict_t *auth_modules)
 {
 	int32_t dummy;

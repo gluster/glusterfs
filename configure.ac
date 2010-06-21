@@ -84,6 +84,16 @@ AC_CONFIG_FILES([Makefile
 		xlators/protocol/auth/addr/src/Makefile
 		xlators/protocol/auth/login/Makefile
 		xlators/protocol/auth/login/src/Makefile
+                xlators/protocol/rpc/Makefile
+                xlators/protocol/rpc/rpc-lib/Makefile
+                xlators/protocol/rpc/rpc-lib/src/Makefile
+                xlators/protocol/rpc/rpc-transport/Makefile
+                xlators/protocol/rpc/rpc-transport/socket/Makefile
+                xlators/protocol/rpc/rpc-transport/socket/src/Makefile
+		xlators/protocol/client/Makefile
+		xlators/protocol/client/src/Makefile
+		xlators/protocol/server/Makefile
+		xlators/protocol/server/src/Makefile
 		xlators/features/Makefile
 		xlators/features/locks/Makefile
 		xlators/features/locks/src/Makefile
