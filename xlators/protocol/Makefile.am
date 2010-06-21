@@ -1,3 +1,3 @@
-SUBDIRS = lib transport client server auth
+SUBDIRS = lib auth legacy
 
 CLEANFILES = 

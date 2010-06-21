@@ -5479,6 +5479,10 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
         if (ret < 0)
                 gf_log (trans->xl->name, GF_LOG_DEBUG,
                         "failed to set peer-info");
+        ret = dict_set_str (params, "peer-info-name", peerinfo->identifier);
+        if (ret < 0)
+                gf_log (trans->xl->name, GF_LOG_DEBUG,
+                        "failed to set peer-info-name");
 
         if (conf->auth_modules == NULL) {
                 gf_log (trans->xl->name, GF_LOG_ERROR,

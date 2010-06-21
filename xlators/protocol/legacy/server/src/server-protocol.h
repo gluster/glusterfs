@@ -31,10 +31,11 @@
 #include "xlator.h"
 #include "logging.h"
 #include "call-stub.h"
-#include "authenticate.h"
 #include "fd.h"
 #include "byte-order.h"
 #include "server-mem-types.h"
+#include "authenticate.h"
+#include "transport.h"
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
