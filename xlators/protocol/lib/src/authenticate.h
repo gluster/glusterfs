@@ -34,7 +34,6 @@
 #include "dict.h"
 #include "compat.h"
 #include "list.h"
-#include "transport.h"
 #include "xlator.h"
 
 typedef enum {

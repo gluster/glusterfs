@@ -223,12 +223,11 @@ gf_authenticate (dict_t *input_params,
 
 	dict_foreach (results, reduce, &result);
 	if (AUTH_DONT_CARE == result) {
-		data_t *peerinfo_data = dict_get (input_params, "peer-info");
+		data_t *peerinfo_data = dict_get (input_params, "peer-info-name");
 		char *name = NULL;
 
 		if (peerinfo_data) {
-			peer_info_t *peerinfo = data_to_ptr (peerinfo_data);
-			name = peerinfo->identifier;
+			name = peerinfo_data->data;
 		}
 
 		gf_log ("auth", GF_LOG_ERROR,
