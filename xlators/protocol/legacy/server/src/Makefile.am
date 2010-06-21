@@ -1,11 +1,11 @@
 
-xlator_LTLIBRARIES = server.la
-xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/protocol
+xlator_LTLIBRARIES = server-old.la
+xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/legacy/protocol
 
-server_la_LDFLAGS = -module -avoidversion
+server_old_la_LDFLAGS = -module -avoidversion
 
-server_la_SOURCES = server-protocol.c server-resolve.c server-helpers.c
-server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la   \
+server_old_la_SOURCES = server-protocol.c server-resolve.c server-helpers.c
+server_old_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la   \
 	$(top_builddir)/xlators/protocol/legacy/lib/src/libgfproto.la \
 	$(top_builddir)/xlators/protocol/lib/src/libgfproto1.la
 
@@ -20,3 +20,5 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 
 CLEANFILES =
 
+install-data-hook:
+	ln -sf server.so $(DESTDIR)$(xlatordir)/server-old.so
