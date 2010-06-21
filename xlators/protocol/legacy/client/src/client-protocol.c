@@ -6506,7 +6506,7 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int                  i          = 0;
-        int                  ret        = -1;
+        int                  ret        = 0;
         int                  child_down = 1;
         int                  was_not_down = 0;
         transport_t         *trans      = NULL;
