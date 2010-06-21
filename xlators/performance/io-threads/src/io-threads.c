@@ -2158,6 +2158,8 @@ init (xlator_t *this)
                 goto out;
         }
 
+        set_stack_size (conf);
+
         thread_count = IOT_DEFAULT_THREADS;
 
 	if (dict_get (options, "thread-count")) {
