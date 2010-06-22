@@ -26,6 +26,20 @@
 #endif
 
 #include <rpc/rpc.h>
+
+struct auth_glusterfs_parms {
+	u_quad_t lk_owner;
+	u_int pid;
+	u_int uid;
+	u_int gid;
+	u_int ngrps;
+	u_int groups[16];
+};
+typedef struct auth_glusterfs_parms auth_glusterfs_parms;
+
+bool_t
+xdr_auth_glusterfs_parms (XDR *xdrs, auth_glusterfs_parms *objp);
+
 #define XDR_BYTES_PER_UNIT      4
 
 /* Returns the address of the byte that follows the

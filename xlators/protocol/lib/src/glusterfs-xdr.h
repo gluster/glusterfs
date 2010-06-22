@@ -1136,16 +1136,6 @@ struct gf_dump_version_rsp {
 };
 typedef struct gf_dump_version_rsp gf_dump_version_rsp;
 
-struct auth_glusterfs_parms {
-	u_quad_t lk_owner;
-	u_int pid;
-	u_int uid;
-	u_int gid;
-	u_int ngrps;
-	u_int groups[16];
-};
-typedef struct auth_glusterfs_parms auth_glusterfs_parms;
-
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -1236,7 +1226,6 @@ extern  bool_t xdr_gfs3_release_req (XDR *, gfs3_release_req*);
 extern  bool_t xdr_gf_common_rsp (XDR *, gf_common_rsp*);
 extern  bool_t xdr_gf_dump_version_req (XDR *, gf_dump_version_req *);
 extern  bool_t xdr_gf_dump_version_rsp (XDR *, gf_dump_version_rsp *);
-extern  bool_t xdr_auth_glusterfs_parms (XDR *, auth_glusterfs_parms*);
 
 #else /* K&R C */
 extern bool_t xdr_gf_statfs ();
@@ -1326,7 +1315,6 @@ extern bool_t xdr_gf_notify_rsp ();
 extern bool_t xdr_gf_common_rsp ();
 extern bool_t xdr_gf_dump_version_req ();
 extern bool_t xdr_gf_dump_version_rsp ();
-extern bool_t xdr_auth_glusterfs_parms ();
 
 #endif /* K&R C */
 

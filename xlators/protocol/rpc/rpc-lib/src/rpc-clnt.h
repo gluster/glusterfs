@@ -23,7 +23,7 @@
 #include "stack.h"
 #include "rpc-transport.h"
 #include "timer.h"
-#include "glusterfs-xdr.h"
+#include "xdr-common.h"
 
 typedef enum {
         RPC_CLNT_CONNECT,
