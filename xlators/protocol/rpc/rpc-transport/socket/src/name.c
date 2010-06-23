@@ -90,7 +90,7 @@ af_unix_client_bind (rpc_transport_t *this,
         struct sockaddr_un *addr = NULL;
         int32_t ret = 0;
 
-        path_data = dict_get (this->options, "rpc-transport.socket.bind-path");
+        path_data = dict_get (this->options, "transport.socket.bind-path");
         if (path_data) {
                 char *path = data_to_str (path_data);
                 if (!path || strlen (path) > UNIX_PATH_MAX) {
@@ -130,20 +130,20 @@ client_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
         }
 
         address_family_data = dict_get (this->options,
-                                        "rpc-transport.address-family");
+                                        "transport.address-family");
         if (!address_family_data) {
                 data_t *remote_host_data = NULL, *connect_path_data = NULL;
                 remote_host_data = dict_get (this->options, "remote-host");
                 connect_path_data = dict_get (this->options,
-                                              "rpc-transport.socket.connect-path");
+                                              "transport.socket.connect-path");
 
                 if (!(remote_host_data || connect_path_data) ||
                     (remote_host_data && connect_path_data)) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "rpc-transport.address-family not specified and "
+                                "transport.address-family not specified and "
                                 "not able to determine the "
                                 "same from other options (remote-host:%s and "
-                                "rpc-transport.unix.connect-path:%s)",
+                                "transport.unix.connect-path:%s)",
                                 data_to_str (remote_host_data),
                                 data_to_str (connect_path_data));
                         goto out;
@@ -270,10 +270,10 @@ af_unix_client_get_remote_sockaddr (rpc_transport_t *this,
         int32_t ret = 0;
 
         connect_path_data = dict_get (this->options,
-                                      "rpc-transport.socket.connect-path");
+                                      "transport.socket.connect-path");
         if (!connect_path_data) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "option rpc-transport.unix.connect-path not specified for "
+                        "option transport.unix.connect-path not specified for "
                         "address-family unix");
                 ret = -1;
                 goto err;
@@ -282,7 +282,7 @@ af_unix_client_get_remote_sockaddr (rpc_transport_t *this,
         connect_path = data_to_str (connect_path_data);
         if (!connect_path) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "rpc-transport.unix.connect-path is null-string");
+                        "transport.unix.connect-path is null-string");
                 ret = -1;
                 goto err;
         }
@@ -317,10 +317,10 @@ af_unix_server_get_local_sockaddr (rpc_transport_t *this,
 
 
         listen_path_data = dict_get (this->options,
-                                     "rpc-transport.socket.listen-path");
+                                     "transport.socket.listen-path");
         if (!listen_path_data) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "missing option rpc-transport.socket.listen-path");
+                        "missing option transport.socket.listen-path");
                 ret = -1;
                 goto err;
         }
@@ -333,7 +333,7 @@ af_unix_server_get_local_sockaddr (rpc_transport_t *this,
 
         if (strlen (listen_path) > UNIX_PATH_MAX) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "option rpc-transport.unix.listen-path has value length "
+                        "option transport.unix.listen-path has value length "
                         "%"GF_PRI_SIZET" > %d",
                         strlen (listen_path), UNIX_PATH_MAX);
                 ret = -1;
@@ -362,8 +362,8 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
 
         options = this->options;
 
-        listen_port_data = dict_get (options, "rpc-transport.socket.listen-port");
-        listen_host_data = dict_get (options, "rpc-transport.socket.bind-address");
+        listen_port_data = dict_get (options, "transport.socket.listen-port");
+        listen_host_data = dict_get (options, "transport.socket.bind-address");
 
         if (listen_port_data)
         {
@@ -527,7 +527,7 @@ server_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
         }
 
         address_family_data = dict_get (this->options,
-                                        "rpc-transport.address-family");
+                                        "transport.address-family");
         if (address_family_data) {
                 char *address_family = NULL;
                 address_family = data_to_str (address_family_data);

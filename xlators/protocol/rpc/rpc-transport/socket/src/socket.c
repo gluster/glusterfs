@@ -2190,13 +2190,13 @@ socket_init (rpc_transport_t *this)
 
         // By default, we enable NODELAY
         priv->nodelay = 1;
-        if (dict_get (this->options, "rpc-transport.socket.nodelay")) {
+        if (dict_get (this->options, "transport.socket.nodelay")) {
                 optstr = data_to_str (dict_get (this->options,
-                                                "rpc-transport.socket.nodelay"));
+                                                "transport.socket.nodelay"));
 
                 if (gf_string2boolean (optstr, &tmp_bool) == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "'rpc-transport.socket.nodelay' takes only "
+                                "'transport.socket.nodelay' takes only "
                                 "boolean options, not taking any action");
                         tmp_bool = 1;
                 }
@@ -2209,7 +2209,7 @@ socket_init (rpc_transport_t *this)
 
 
         optstr = NULL;
-        if (dict_get_str (this->options, "rpc-transport.window-size",
+        if (dict_get_str (this->options, "transport.window-size",
                           &optstr) == 0) {
                 if (gf_string2bytesize (optstr, &windowsize) != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -2220,7 +2220,7 @@ socket_init (rpc_transport_t *this)
 
         optstr = NULL;
 
-        if (dict_get_str (this->options, "rpc-transport.socket.lowlat",
+        if (dict_get_str (this->options, "transport.socket.lowlat",
                           &optstr) == 0) {
                 priv->lowlat = 1;
         }
@@ -2263,26 +2263,26 @@ init (rpc_transport_t *this)
 
 struct volume_options options[] = {
         { .key   = {"remote-port",
-                    "rpc-transport.remote-port",
-                    "rpc-transport.socket.remote-port"},
+                    "transport.remote-port",
+                    "transport.socket.remote-port"},
           .type  = GF_OPTION_TYPE_INT
         },
-        { .key   = {"rpc-transport.socket.listen-port", "listen-port"},
+        { .key   = {"transport.socket.listen-port", "listen-port"},
           .type  = GF_OPTION_TYPE_INT
         },
-        { .key   = {"rpc-transport.socket.bind-address", "bind-address" },
+        { .key   = {"transport.socket.bind-address", "bind-address" },
           .type  = GF_OPTION_TYPE_INTERNET_ADDRESS
         },
-        { .key   = {"rpc-transport.socket.connect-path", "connect-path"},
+        { .key   = {"transport.socket.connect-path", "connect-path"},
           .type  = GF_OPTION_TYPE_ANY
         },
-        { .key   = {"rpc-transport.socket.bind-path", "bind-path"},
+        { .key   = {"transport.socket.bind-path", "bind-path"},
           .type  = GF_OPTION_TYPE_ANY
         },
-        { .key   = {"rpc-transport.socket.listen-path", "listen-path"},
+        { .key   = {"transport.socket.listen-path", "listen-path"},
           .type  = GF_OPTION_TYPE_ANY
         },
-        { .key   = { "rpc-transport.address-family",
+        { .key   = { "transport.address-family",
                      "address-family" },
           .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
                     "unix", "inet-sdp" },
@@ -2292,15 +2292,15 @@ struct volume_options options[] = {
         { .key   = {"non-blocking-io"},
           .type  = GF_OPTION_TYPE_BOOL
         },
-        { .key   = {"rpc-transport.window-size"},
+        { .key   = {"transport.window-size"},
           .type  = GF_OPTION_TYPE_SIZET,
           .min   = GF_MIN_SOCKET_WINDOW_SIZE,
           .max   = GF_MAX_SOCKET_WINDOW_SIZE,
         },
-        { .key   = {"rpc-transport.socket.nodelay"},
+        { .key   = {"transport.socket.nodelay"},
           .type  = GF_OPTION_TYPE_BOOL
         },
-        { .key   = {"rpc-transport.socket.lowlat"},
+        { .key   = {"transport.socket.lowlat"},
           .type  = GF_OPTION_TYPE_BOOL
         },
         { .key = {NULL} }
