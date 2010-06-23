@@ -63,8 +63,8 @@ __saved_frames_get_timedout (struct saved_frames *frames, uint32_t timeout,
 
 
 struct saved_frame *
-__saved_frames_put (struct saved_frames *frames, void *frame,
-                    int32_t procnum, rpc_clnt_prog_t *prog, int64_t callid)
+__saved_frames_put (struct saved_frames *frames, void *frame, int32_t procnum,
+                    rpc_clnt_prog_t *prog, fop_cbk_fn_t cbk, int64_t callid)
 {
 	struct saved_frame *saved_frame = NULL;
 
@@ -82,6 +82,7 @@ __saved_frames_put (struct saved_frames *frames, void *frame,
 	saved_frame->procnum      = procnum;
 	saved_frame->callid       = callid;
         saved_frame->prog         = prog;
+        saved_frame->cbkfn        = cbk;
 
 	gettimeofday (&saved_frame->saved_at, NULL);
 
@@ -179,14 +180,14 @@ call_bail (void *data)
                 strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
 
 		gf_log (conn->trans->name, GF_LOG_ERROR,
-			"bailing out frame type(%s) op(%s) frame sent = %s. "
-                        "frame-timeout = %d",
-			trav->prog->progname,
-                        trav->prog->actor[trav->procnum].procname, frame_sent,
+			"bailing out frame type(%s) op(%s(%d)) sent = %s. "
+                        "timeout = %d",
+			trav->prog->progname, (trav->prog->procnames) ?
+                        trav->prog->procnames[trav->procnum] : "--",
+                        trav->procnum, frame_sent,
                         conn->frame_timeout);
 
-		trav->prog->actor [trav->procnum].cbkfn (&req, &iov, 1,
-                                                         trav->frame);
+		trav->cbkfn (&req, &iov, 1, trav->frame);
 
                 list_del_init (&trav->list);
                 GF_FREE (trav);
@@ -199,7 +200,7 @@ out:
 /* to be called with conn->lock held */
 struct saved_frame *
 __save_frame (struct rpc_clnt *rpc_clnt, call_frame_t *frame, int procnum,
-            rpc_clnt_prog_t *prog, uint64_t callid)
+              rpc_clnt_prog_t *prog, fop_cbk_fn_t cbk, uint64_t callid)
 {
         rpc_clnt_connection_t *conn        = NULL;
         struct timeval         timeout     = {0, };
@@ -208,7 +209,7 @@ __save_frame (struct rpc_clnt *rpc_clnt, call_frame_t *frame, int procnum,
         conn = &rpc_clnt->conn;
 
         saved_frame = __saved_frames_put (conn->saved_frames, frame,
-                                          procnum, prog, callid);
+                                          procnum, prog, cbk, callid);
         if (saved_frame == NULL) {
                 goto out;
         }
@@ -307,14 +308,14 @@ saved_frames_unwind (struct saved_frames *saved_frames)
 
 	list_for_each_entry_safe (trav, tmp, &saved_frames->sf.list, list) {
 		gf_log ("rpc-clnt", GF_LOG_ERROR,
-			"forced unwinding frame type(%s) op(%s)",
-			trav->prog->progname,
-                        trav->prog->actor [trav->procnum].procname);
+			"forced unwinding frame type(%s) op(%s(%d))",
+			trav->prog->progname, (trav->prog->procnames) ?
+                        trav->prog->procnames[trav->procnum] : "--",
+                        trav->procnum);
 
 		saved_frames->count--;
 
-		trav->prog->actor [trav->procnum].cbkfn (&req, &iov, 1,
-                                                         trav->frame);
+		trav->cbkfn (&req, &iov, 1, trav->frame);
 
 		list_del_init (&trav->list);
 		GF_FREE (trav);
@@ -655,9 +656,7 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
                         "failed");
         }
 
-        saved_frame->prog->actor [request_info->procnum].cbkfn (&req, req.rsp,
-                                                                req.rspcnt,
-                                                                saved_frame->frame);
+        saved_frame->cbkfn (&req, req.rsp, req.rspcnt, saved_frame->frame);
 
         if (ret == 0) {
                 rpc_clnt_reply_deinit (&req);
@@ -1155,7 +1154,8 @@ out:
 
 
 int
-rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
+rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
+                 int procnum, fop_cbk_fn_t cbkfn,
                  struct iovec *proghdr, int proghdrcount,
                  struct iovec *progpayload, int progpayloadcount,
                  struct iobref *iobref, void *frame)
@@ -1242,7 +1242,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
                 if ((ret >= 0) && frame) {
                         gettimeofday (&conn->last_sent, NULL);
                         /* Save the frame in queue */
-                        __save_frame (rpc, frame, procnum, prog, callid);
+                        __save_frame (rpc, frame, procnum, prog, cbkfn, callid);
                 }
 
         }
@@ -1264,7 +1264,7 @@ out:
 
         if (frame && (ret == -1)) {
                 rpcreq.rpc_status = -1;
-                prog->actor [procnum].cbkfn (&rpcreq, NULL, 0, frame);
+                cbkfn (&rpcreq, NULL, 0, frame);
         }
         return ret;
 }

@@ -532,5 +532,7 @@ ssize_t
 xdr_to_lookup_rsp (struct iovec inmsg, void *args);
 ssize_t
 xdr_to_readv_rsp (struct iovec inmsg, void *args);
+ssize_t
+xdr_to_getspec_rsp (struct iovec inmsg, void *args);
 
 #endif /* !_MSG_XDR_H */

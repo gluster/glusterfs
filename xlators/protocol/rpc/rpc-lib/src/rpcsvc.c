@@ -492,6 +492,7 @@ rpcsvc_conn_alloc (rpcsvc_t *svc, rpc_transport_t *trans)
 
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "rx pool: %d", poolcount);
         conn->rxpool = mem_pool_new (rpcsvc_request_t, poolcount);
+        /* TODO: leak */
         if (!conn->rxpool) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "mem pool allocation failed");
                 goto free_conn;

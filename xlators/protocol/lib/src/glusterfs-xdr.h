@@ -294,16 +294,6 @@ gf_stat_from_iatt (struct gf_iatt *gf_stat, struct iatt *iatt)
 }
 
 
-struct gf_dirent_nb {
-	uint64_t       d_ino;
-	uint64_t       d_off;
-	uint32_t       d_len;
-	uint32_t       d_type;
-        struct gf_iatt d_stat;
-	char           d_name[0];
-} __attribute__((packed));
-
-
 /* Gluster FS Payload structures */
 
 struct gfs3_stat_req {
@@ -831,17 +821,6 @@ struct gfs3_readdir_req {
 };
 typedef struct gfs3_readdir_req gfs3_readdir_req;
 
-struct gfs3_readdir_rsp {
-	u_quad_t gfs_id;
-	int op_ret;
-	int op_errno;
-	struct {
-		u_int buf_len;
-		char *buf_val;
-	} buf;
-};
-typedef struct gfs3_readdir_rsp gfs3_readdir_rsp;
-
 struct gfs3_readdirp_req {
 	u_quad_t gfs_id;
 	u_quad_t ino;
@@ -851,17 +830,6 @@ struct gfs3_readdirp_req {
 	u_int size;
 };
 typedef struct gfs3_readdirp_req gfs3_readdirp_req;
-
-struct gfs3_readdirp_rsp {
-	u_quad_t gfs_id;
-	int op_ret;
-	int op_errno;
-	struct {
-		u_int buf_len;
-		char *buf_val;
-	} buf;
-};
-typedef struct gfs3_readdirp_rsp gfs3_readdirp_rsp;
 
 struct gf_setvolume_req {
 	u_quad_t gfs_id;
@@ -1136,6 +1104,44 @@ struct gf_dump_version_rsp {
 };
 typedef struct gf_dump_version_rsp gf_dump_version_rsp;
 
+struct gfs3_dirlist {
+	u_quad_t d_ino;
+	u_quad_t d_off;
+	u_int d_len;
+	u_int d_type;
+	char *name;
+	struct gfs3_dirlist *nextentry;
+};
+typedef struct gfs3_dirlist gfs3_dirlist;
+
+struct gfs3_readdir_rsp {
+	u_quad_t gfs_id;
+	int op_ret;
+	int op_errno;
+	struct gfs3_dirlist *reply;
+};
+typedef struct gfs3_readdir_rsp gfs3_readdir_rsp;
+
+struct gfs3_dirplist {
+	u_quad_t d_ino;
+	u_quad_t d_off;
+	u_int d_len;
+	u_int d_type;
+	char *name;
+	struct gf_iatt stat;
+	struct gfs3_dirplist *nextentry;
+};
+typedef struct gfs3_dirplist gfs3_dirplist;
+
+struct gfs3_readdirp_rsp {
+	u_quad_t gfs_id;
+	int op_ret;
+	int op_errno;
+	struct gfs3_dirplist *reply;
+};
+typedef struct gfs3_readdirp_rsp gfs3_readdirp_rsp;
+
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -1194,9 +1200,11 @@ extern  bool_t xdr_gfs3_opendir_req (XDR *, gfs3_opendir_req*);
 extern  bool_t xdr_gfs3_opendir_rsp (XDR *, gfs3_opendir_rsp*);
 extern  bool_t xdr_gfs3_fsyncdir_req (XDR *, gfs3_fsyncdir_req*);
 extern  bool_t xdr_gfs3_readdir_req (XDR *, gfs3_readdir_req*);
+extern  bool_t xdr_gfs3_dirlist (XDR *, gfs3_dirlist*);
 extern  bool_t xdr_gfs3_readdir_rsp (XDR *, gfs3_readdir_rsp*);
-extern  bool_t xdr_gfs3_readdirp_req (XDR *, gfs3_readdirp_req*);
+extern  bool_t xdr_gfs3_dirplist (XDR *, gfs3_dirplist*);
 extern  bool_t xdr_gfs3_readdirp_rsp (XDR *, gfs3_readdirp_rsp*);
+extern  bool_t xdr_gfs3_readdirp_req (XDR *, gfs3_readdirp_req*);
 extern  bool_t xdr_gf_setvolume_req (XDR *, gf_setvolume_req*);
 extern  bool_t xdr_gf_setvolume_rsp (XDR *, gf_setvolume_rsp*);
 extern  bool_t xdr_gfs3_access_req (XDR *, gfs3_access_req*);
@@ -1283,9 +1291,11 @@ extern bool_t xdr_gfs3_opendir_req ();
 extern bool_t xdr_gfs3_opendir_rsp ();
 extern bool_t xdr_gfs3_fsyncdir_req ();
 extern bool_t xdr_gfs3_readdir_req ();
+extern bool_t xdr_gfs3_dirlist ();
 extern bool_t xdr_gfs3_readdir_rsp ();
-extern bool_t xdr_gfs3_readdirp_req ();
+extern bool_t xdr_gfs3_dirplist ();
 extern bool_t xdr_gfs3_readdirp_rsp ();
+extern bool_t xdr_gfs3_readdirp_req ();
 extern bool_t xdr_gf_setvolume_req ();
 extern bool_t xdr_gf_setvolume_rsp ();
 extern bool_t xdr_gfs3_access_req ();

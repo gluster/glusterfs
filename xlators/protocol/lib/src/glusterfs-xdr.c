@@ -1148,21 +1148,6 @@ xdr_gfs3_readdir_req (XDR *xdrs, gfs3_readdir_req *objp)
 }
 
 bool_t
-xdr_gfs3_readdir_rsp (XDR *xdrs, gfs3_readdir_rsp *objp)
-{
-
-	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_ret))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_errno))
-		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->buf.buf_val, (u_int *) &objp->buf.buf_len, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
 xdr_gfs3_readdirp_req (XDR *xdrs, gfs3_readdirp_req *objp)
 {
 
@@ -1177,21 +1162,6 @@ xdr_gfs3_readdirp_req (XDR *xdrs, gfs3_readdirp_req *objp)
 	 if (!xdr_u_quad_t (xdrs, &objp->offset))
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->size))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
-xdr_gfs3_readdirp_rsp (XDR *xdrs, gfs3_readdirp_rsp *objp)
-{
-
-	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_ret))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_errno))
-		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->buf.buf_val, (u_int *) &objp->buf.buf_len, ~0))
 		 return FALSE;
 	return TRUE;
 }
@@ -1759,3 +1729,70 @@ xdr_gf_dump_version_rsp (XDR *xdrs, gf_dump_version_rsp *objp)
 	return TRUE;
 }
 
+
+
+bool_t
+xdr_gfs3_dirlist (XDR *xdrs, gfs3_dirlist *objp)
+{
+	 if (!xdr_u_quad_t (xdrs, &objp->d_ino))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->d_off))
+		 return FALSE;
+	 if (!xdr_u_int (xdrs, &objp->d_len))
+		 return FALSE;
+	 if (!xdr_u_int (xdrs, &objp->d_type))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->name, ~0))
+		 return FALSE;
+	 if (!xdr_pointer (xdrs, (char **)&objp->nextentry, sizeof (gfs3_dirlist), (xdrproc_t) xdr_gfs3_dirlist))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gfs3_readdir_rsp (XDR *xdrs, gfs3_readdir_rsp *objp)
+{
+	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_pointer (xdrs, (char **)&objp->reply, sizeof (gfs3_dirlist), (xdrproc_t) xdr_gfs3_dirlist))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gfs3_dirplist (XDR *xdrs, gfs3_dirplist *objp)
+{
+	 if (!xdr_u_quad_t (xdrs, &objp->d_ino))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->d_off))
+		 return FALSE;
+	 if (!xdr_u_int (xdrs, &objp->d_len))
+		 return FALSE;
+	 if (!xdr_u_int (xdrs, &objp->d_type))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->name, ~0))
+		 return FALSE;
+	 if (!xdr_gf_iatt (xdrs, &objp->stat))
+		 return FALSE;
+	 if (!xdr_pointer (xdrs, (char **)&objp->nextentry, sizeof (gfs3_dirplist), (xdrproc_t) xdr_gfs3_dirplist))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gfs3_readdirp_rsp (XDR *xdrs, gfs3_readdirp_rsp *objp)
+{
+	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_pointer (xdrs, (char **)&objp->reply, sizeof (struct gfs3_dirplist), (xdrproc_t) xdr_gfs3_dirplist))
+		 return FALSE;
+	return TRUE;
+}
