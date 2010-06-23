@@ -60,8 +60,12 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
          */
         retlen = sfunc (*outmsg, arg);
         if (retlen == -1) {
+                /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
+                   failure of RPC return values.. client should get
+                   notified about this, so there are no missing frames */
                 gf_log ("", GF_LOG_ERROR, "Failed to encode message");
-                goto ret;
+                req->rpc_err = GARBAGE_ARGS;
+                retlen = 0;
         }
 
         outmsg->iov_len = retlen;

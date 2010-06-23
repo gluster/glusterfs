@@ -86,4 +86,9 @@ destroy_server_conn_state (server_connection_t *conn);
 int
 server_build_config (xlator_t *this, server_conf_t *conf);
 
+int serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp);
+int serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
+int readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
+int readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
+
 #endif /* !_SERVER_HELPERS_H */

@@ -28,6 +28,7 @@
 #include "inode.h"
 #include "client-mem-types.h"
 #include "protocol-common.h"
+#include "glusterfs-xdr.h"
 
 struct clnt_options {
         char *remote_subvolume;
@@ -116,10 +117,17 @@ void this_fd_set_ctx (fd_t *file, xlator_t *this, loc_t *loc,
 int client_local_wipe (clnt_local_t *local);
 int client_submit_request (xlator_t *this, void *req,
                            call_frame_t *frame, rpc_clnt_prog_t *prog,
-                           int procnum, struct iobref *iobref,
-                           gfs_serialize_t sfunc);
+                           int procnum, fop_cbk_fn_t cbk,
+                           struct iobref *iobref, gfs_serialize_t sfunc);
 
 int protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx);
 int protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx);
+
+int unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries);
+int unserialize_rsp_direntp (struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries);
+
+int clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
+int clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
+
 
 #endif /* !_CLIENT_H */

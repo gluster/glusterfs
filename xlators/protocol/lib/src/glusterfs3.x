@@ -491,10 +491,40 @@ struct   gfs3_finodelk_req {
 	unsigned hyper offset;
 	unsigned int size;
 };
-struct gfs3_readdir_res {
+struct gfs3_dirlist {
+	unsigned hyper  d_ino;
+	unsigned hyper  d_off;
+        unsigned int    d_len;
+	unsigned int    d_type;
+	char           *name;
+	struct gfs3_dirlist *nextentry;
+};
+
+struct gfs3_readdir_rsp {
         unsigned hyper gfs_id;
-	opaque     buf<>;
-}  ;
+        int    op_ret;
+        int    op_errno;
+        struct gfs3_dirlist reply;
+};
+
+
+
+struct gfs3_dirplist {
+	unsigned hyper  d_ino;
+	unsigned hyper  d_off;
+        unsigned int    d_len;
+	unsigned int    d_type;
+	char           *name;
+	struct gf_iatt  name_attributes;
+	struct gfs3_dirplist *nextentry;
+};
+
+struct gfs3_readdirp_rsp {
+        unsigned hyper gfs_id;
+        int    op_ret;
+        int    op_errno;
+	struct gfs3_dirlistp reply;
+};
 
 
  struct gfs3_readdirp_req {
@@ -504,12 +534,6 @@ struct gfs3_readdir_res {
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
-}  ;
- struct gfs3_readdirp_rsp {
-        unsigned hyper gfs_id;
-        int    op_ret;
-        int    op_errno;
-        opaque     buf<>;
 }  ;
 
 

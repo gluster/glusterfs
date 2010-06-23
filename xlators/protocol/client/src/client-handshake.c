@@ -33,6 +33,9 @@
 extern rpc_clnt_prog_t clnt3_1_fop_prog;
 extern rpc_clnt_prog_t clnt3_1_mgmt_prog;
 
+int client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                     void *myframe);
+
 /* Handshake */
 
 void
@@ -113,7 +116,6 @@ out:
         return;
 }
 
-
 void
 client_start_ping (void *data)
 {
@@ -185,7 +187,7 @@ client_start_ping (void *data)
                 goto fail;
 
         ret = client_submit_request (this, NULL, frame, conf->handshake,
-                                     GF_HNDSK_PING, NULL, NULL);
+                                     GF_HNDSK_PING, client_ping_cbk, NULL, NULL);
 
         return;
 fail:
@@ -244,13 +246,12 @@ out:
 
 
 int
-client_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myframe)
+client3_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myframe)
 {
         gf_getspec_rsp           rsp   = {0,};
         call_frame_t            *frame = NULL;
         clnt_conf_t             *conf = NULL;
         int                      ret   = 0;
-        char                     spec[(32*1024)] = {0,};
 
         frame = myframe;
         conf  = frame->this->private;
@@ -261,8 +262,7 @@ client_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myf
                 goto out;
         }
 
-        rsp.spec = spec;
-        ret = xdr_to_dump_version_rsp (*iov, &rsp);
+        ret = xdr_to_getspec_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -277,11 +277,39 @@ client_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myf
         }
 
 out:
-        /* no _STRICT for mops */
         STACK_UNWIND_STRICT (getspec, frame, rsp.op_ret, rsp.op_errno, rsp.spec);
+
+        /* Don't use 'GF_FREE', this is allocated by libc */
+        if (rsp.spec)
+                free (rsp.spec);
+
         return 0;
 }
 
+int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
+{
+        clnt_conf_t    *conf     = NULL;
+        clnt_args_t    *args     = NULL;
+        gf_getspec_req  req      = {0,};
+        int             op_errno = ESTALE;
+
+        if (!frame || !this || !data)
+                goto unwind;
+
+        args = data;
+        conf = this->private;
+        req.flags = args->flags;
+        req.key   = (char *)args->name;
+
+        client_submit_request (this, &req, frame, conf->handshake, GF_HNDSK_GETSPEC,
+                               client3_getspec_cbk, NULL, xdr_from_getspec_req);
+
+        return 0;
+unwind:
+        STACK_UNWIND_STRICT (getspec, frame, -1, op_errno, NULL);
+        return 0;
+
+}
 
 int
 client_post_handshake (call_frame_t *frame, xlator_t *this)
@@ -556,7 +584,8 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                 goto fail;
 
         ret = client_submit_request (this, &req, fr, conf->handshake,
-                                     GF_HNDSK_SETVOLUME, NULL, xdr_from_setvolume_req);
+                                     GF_HNDSK_SETVOLUME, client_setvolume_cbk,
+                                     NULL, xdr_from_setvolume_req);
 
 fail:
         if (req.dict.dict_val)
@@ -711,6 +740,7 @@ client_handshake (xlator_t *this, struct rpc_clnt *rpc)
         req.gfs_id = 123456;
         ret = client_submit_request (this, &req, frame, conf->handshake,
                                      GF_HNDSK_DUMP_VERSION,
+                                     client_dump_version_cbk,
                                      NULL, xdr_from_dump_version_req);
 
 out:
@@ -720,19 +750,18 @@ out:
 
 /* */
 /* This table should ideally remain same irrespective of versions */
-static rpc_clnt_procedure_t clnt_handshake_actors[] = {
-        [GF_HNDSK_NULL]         = { "NULL", NULL, NULL},
-        [GF_HNDSK_DUMP_VERSION] = { "VERSION", NULL, client_dump_version_cbk},
-        [GF_HNDSK_SETVOLUME]    = { "SETVOLUME", NULL,  client_setvolume_cbk},
-        [GF_HNDSK_GETSPEC]      = { "GETSPEC", NULL, client_getspec_cbk },
-        [GF_HNDSK_PING]         = { "PING", NULL, client_ping_cbk },
+
+char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
+        [GF_HNDSK_NULL]         = "NULL",
+        [GF_HNDSK_DUMP_VERSION] = "VERSION",
+        [GF_HNDSK_SETVOLUME]    = "SETVOLUME",
+        [GF_HNDSK_GETSPEC]      = "GETSPEC",
+        [GF_HNDSK_PING]         = "PING",
 };
 
 rpc_clnt_prog_t clnt_handshake_prog = {
-        .progname = "GlusterFS Handshake",
-        .prognum  = GLUSTER_HNDSK_PROGRAM,
-        .progver  = GLUSTER_HNDSK_VERSION,
-        .actor    = clnt_handshake_actors,
-        .numproc  = (sizeof (*clnt_handshake_actors) /
-                     sizeof (rpc_clnt_procedure_t)),
+        .progname  = "GlusterFS Handshake",
+        .prognum   = GLUSTER_HNDSK_PROGRAM,
+        .progver   = GLUSTER_HNDSK_VERSION,
+        .procnames = clnt_handshake_procs,
 };

@@ -45,8 +45,7 @@ typedef int (*rpc_clnt_notify_t) (struct rpc_clnt *rpc, void *mydata,
 typedef int (*fop_cbk_fn_t) (struct rpc_req *req, struct iovec *iov, int count,
                              void *myframe);
 
-typedef int (*clnt_fn_t) (call_frame_t *, xlator_t *,
-                          struct rpc_clnt_program *, void *args);
+typedef int (*clnt_fn_t) (call_frame_t *fr, xlator_t *xl, void *args);
 
 struct saved_frame {
 	union {
@@ -61,37 +60,29 @@ struct saved_frame {
 	struct timeval           saved_at;
 	int32_t                  procnum;
         struct rpc_clnt_program *prog;
+        fop_cbk_fn_t             cbkfn;
 	uint64_t                 callid;
         rpc_transport_rsp_t      rsp;
 };
-
 
 struct saved_frames {
 	int64_t            count;
 	struct saved_frame sf;
 };
 
-/* TODO: */
-struct xptr_clnt {
-        int    remote_port;
-        char * remote_host;
-
-        /* xptr specific */
-        peer_info_t  peerinfo;
-};
 
 /* Initialized by procnum */
 typedef struct rpc_clnt_procedure {
         char         *procname;
         clnt_fn_t     fn;
-        fop_cbk_fn_t  cbkfn;
 } rpc_clnt_procedure_t;
 
 typedef struct rpc_clnt_program {
         char                 *progname;
         int                   prognum;
         int                   progver;
-        rpc_clnt_procedure_t *actor;
+        rpc_clnt_procedure_t *proctable;
+        char                **procnames;
         int                   numproc;
 } rpc_clnt_prog_t;
 
@@ -158,7 +149,8 @@ struct rpc_clnt * rpc_clnt_init (struct rpc_clnt_config *config,
 int rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
                               void *mydata);
 
-int rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
+int rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
+                     int procnum, fop_cbk_fn_t cbkfn,
                      struct iovec *proghdr, int proghdrcount,
                      struct iovec *progpayload, int progpayloadcount,
                      struct iobref *iobref, void *frame);

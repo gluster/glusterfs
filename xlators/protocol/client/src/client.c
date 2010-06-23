@@ -39,8 +39,8 @@ void
 client_start_ping (void *data);
 
 int
-client_submit_request (xlator_t *this, void *req,
-                       call_frame_t *frame, rpc_clnt_prog_t *prog, int procnum,
+client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
+                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
                        struct iobref *iobref, gfs_serialize_t sfunc)
 {
         int          ret         = -1;
@@ -81,7 +81,7 @@ client_submit_request (xlator_t *this, void *req,
                 count = 1;
         }
         /* Send the msg */
-        ret = rpc_clnt_submit (conf->rpc, prog, procnum, &iov, count, NULL, 0,
+        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL, 0,
                                iobref, frame);
 
         if (ret == 0) {
@@ -131,13 +131,13 @@ client_releasedir (xlator_t *this, fd_t *fd)
 
         args.fd = fd;
 
-        proc = &conf->fops->actor[GF_FOP_RELEASEDIR];
+        proc = &conf->fops->proctable[GF_FOP_RELEASEDIR];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
                         goto out;
                 }
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
         }
 out:
 	return 0;
@@ -157,13 +157,13 @@ client_release (xlator_t *this, fd_t *fd)
                 goto out;
 
         args.fd = fd;
-        proc = &conf->fops->actor[GF_FOP_RELEASE];
+        proc = &conf->fops->proctable[GF_FOP_RELEASE];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
                         goto out;
                 }
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
         }
 out:
 	return 0;
@@ -186,9 +186,9 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc = loc;
         args.dict = xattr_req;
 
-        proc = &conf->fops->actor[GF_FOP_LOOKUP];
+        proc = &conf->fops->proctable[GF_FOP_LOOKUP];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         /* think of avoiding a missing frame */
         if (ret)
@@ -213,9 +213,9 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         args.loc = loc;
 
-        proc = &conf->fops->actor[GF_FOP_STAT];
+        proc = &conf->fops->proctable[GF_FOP_STAT];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (stat, frame, -1, ENOTCONN, NULL);
@@ -240,9 +240,9 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         args.loc    = loc;
         args.offset = offset;
 
-        proc = &conf->fops->actor[GF_FOP_TRUNCATE];
+        proc = &conf->fops->proctable[GF_FOP_TRUNCATE];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (truncate, frame, -1, ENOTCONN, NULL, NULL);
@@ -267,9 +267,9 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         args.fd     = fd;
         args.offset = offset;
 
-        proc = &conf->fops->actor[GF_FOP_FTRUNCATE];
+        proc = &conf->fops->proctable[GF_FOP_FTRUNCATE];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOTCONN, NULL, NULL);
@@ -294,9 +294,9 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         args.loc  = loc;
         args.mask = mask;
 
-        proc = &conf->fops->actor[GF_FOP_ACCESS];
+        proc = &conf->fops->proctable[GF_FOP_ACCESS];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (access, frame, -1, ENOTCONN);
@@ -322,9 +322,9 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         args.loc  = loc;
         args.size = size;
 
-        proc = &conf->fops->actor[GF_FOP_READLINK];
+        proc = &conf->fops->proctable[GF_FOP_READLINK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (readlink, frame, -1, ENOTCONN, NULL, NULL);
@@ -351,9 +351,9 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         args.mode = mode;
         args.rdev = rdev;
 
-        proc = &conf->fops->actor[GF_FOP_MKNOD];
+        proc = &conf->fops->proctable[GF_FOP_MKNOD];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (mknod, frame, -1, ENOTCONN,
@@ -380,9 +380,9 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc = loc;
         args.mode = mode;
 
-        proc = &conf->fops->actor[GF_FOP_MKDIR];
+        proc = &conf->fops->proctable[GF_FOP_MKDIR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (mkdir, frame, -1, ENOTCONN,
@@ -407,9 +407,9 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         args.loc = loc;
 
-        proc = &conf->fops->actor[GF_FOP_UNLINK];
+        proc = &conf->fops->proctable[GF_FOP_UNLINK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (unlink, frame, -1, ENOTCONN,
@@ -432,9 +432,9 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         args.loc = loc;
 
-        proc = &conf->fops->actor[GF_FOP_RMDIR];
+        proc = &conf->fops->proctable[GF_FOP_RMDIR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         /* think of avoiding a missing frame */
         if (ret)
@@ -462,9 +462,9 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         args.linkname = linkpath;
         args.loc      = loc;
 
-        proc = &conf->fops->actor[GF_FOP_SYMLINK];
+        proc = &conf->fops->proctable[GF_FOP_SYMLINK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (symlink, frame, -1, ENOTCONN,
@@ -490,9 +490,9 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         args.oldloc = oldloc;
         args.newloc = newloc;
-        proc = &conf->fops->actor[GF_FOP_RENAME];
+        proc = &conf->fops->proctable[GF_FOP_RENAME];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (rename, frame, -1, ENOTCONN,
@@ -519,9 +519,9 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         args.oldloc = oldloc;
         args.newloc = newloc;
 
-        proc = &conf->fops->actor[GF_FOP_LINK];
+        proc = &conf->fops->proctable[GF_FOP_LINK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (link, frame, -1, ENOTCONN,
@@ -550,9 +550,9 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.mode = mode;
         args.fd = fd;
 
-        proc = &conf->fops->actor[GF_FOP_CREATE];
+        proc = &conf->fops->proctable[GF_FOP_CREATE];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (create, frame, -1, ENOTCONN,
@@ -581,9 +581,9 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.fd = fd;
         args.wbflags = wbflags;
 
-        proc = &conf->fops->actor[GF_FOP_OPEN];
+        proc = &conf->fops->proctable[GF_FOP_OPEN];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 
 out:
         if (ret)
@@ -611,9 +611,9 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         args.size   = size;
         args.offset = offset;
 
-        proc = &conf->fops->actor[GF_FOP_READ];
+        proc = &conf->fops->proctable[GF_FOP_READ];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 
 out:
         if (ret)
@@ -646,9 +646,9 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.offset = off;
         args.iobref = iobref;
 
-        proc = &conf->fops->actor[GF_FOP_WRITE];
+        proc = &conf->fops->proctable[GF_FOP_WRITE];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (writev, frame, -1, ENOTCONN, NULL, NULL);
@@ -672,9 +672,9 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         args.fd = fd;
 
-        proc = &conf->fops->actor[GF_FOP_FLUSH];
+        proc = &conf->fops->proctable[GF_FOP_FLUSH];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (flush, frame, -1, ENOTCONN);
@@ -700,9 +700,9 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.fd    = fd;
         args.flags = flags;
 
-        proc = &conf->fops->actor[GF_FOP_FSYNC];
+        proc = &conf->fops->proctable[GF_FOP_FSYNC];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fsync, frame, -1, ENOTCONN, NULL, NULL);
@@ -726,9 +726,9 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         args.fd = fd;
 
-        proc = &conf->fops->actor[GF_FOP_FSTAT];
+        proc = &conf->fops->proctable[GF_FOP_FSTAT];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fstat, frame, -1, ENOTCONN, NULL);
@@ -753,9 +753,9 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         args.loc = loc;
         args.fd  = fd;
 
-        proc = &conf->fops->actor[GF_FOP_OPENDIR];
+        proc = &conf->fops->proctable[GF_FOP_OPENDIR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (opendir, frame, -1, ENOTCONN, NULL);
@@ -780,9 +780,9 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         args.fd    = fd;
         args.flags = flags;
 
-        proc = &conf->fops->actor[GF_FOP_FSYNCDIR];
+        proc = &conf->fops->proctable[GF_FOP_FSYNCDIR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fsyncdir, frame, -1, ENOTCONN);
@@ -806,9 +806,9 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         args.loc = loc;
 
-        proc = &conf->fops->actor[GF_FOP_STATFS];
+        proc = &conf->fops->proctable[GF_FOP_STATFS];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (statfs, frame, -1, ENOTCONN, NULL);
@@ -835,9 +835,9 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         args.dict  = dict;
         args.flags = flags;
 
-        proc = &conf->fops->actor[GF_FOP_SETXATTR];
+        proc = &conf->fops->proctable[GF_FOP_SETXATTR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (setxattr, frame, -1, ENOTCONN);
@@ -864,9 +864,9 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.dict = dict;
         args.flags = flags;
 
-        proc = &conf->fops->actor[GF_FOP_FSETXATTR];
+        proc = &conf->fops->proctable[GF_FOP_FSETXATTR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fsetxattr, frame, -1, ENOTCONN);
@@ -893,9 +893,9 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.fd = fd;
         args.name = name;
 
-        proc = &conf->fops->actor[GF_FOP_FGETXATTR];
+        proc = &conf->fops->proctable[GF_FOP_FGETXATTR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fgetxattr, frame, -1, ENOTCONN, NULL);
@@ -921,9 +921,9 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.name = name;
         args.loc  = loc;
 
-        proc = &conf->fops->actor[GF_FOP_GETXATTR];
+        proc = &conf->fops->proctable[GF_FOP_GETXATTR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (getxattr, frame, -1, ENOTCONN, NULL);
@@ -950,9 +950,9 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.flags = flags;
         args.dict = dict;
 
-        proc = &conf->fops->actor[GF_FOP_XATTROP];
+        proc = &conf->fops->proctable[GF_FOP_XATTROP];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (xattrop, frame, -1, ENOTCONN, NULL);
@@ -979,9 +979,9 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.flags = flags;
         args.dict = dict;
 
-        proc = &conf->fops->actor[GF_FOP_FXATTROP];
+        proc = &conf->fops->proctable[GF_FOP_FXATTROP];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fxattrop, frame, -1, ENOTCONN, NULL);
@@ -1007,9 +1007,9 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.name = name;
         args.loc  = loc;
 
-        proc = &conf->fops->actor[GF_FOP_REMOVEXATTR];
+        proc = &conf->fops->proctable[GF_FOP_REMOVEXATTR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (removexattr, frame, -1, ENOTCONN);
@@ -1035,9 +1035,9 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         args.cmd   = cmd;
         args.flock = lock;
 
-        proc = &conf->fops->actor[GF_FOP_LK];
+        proc = &conf->fops->proctable[GF_FOP_LK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (lk, frame, -1, ENOTCONN, NULL);
@@ -1064,9 +1064,9 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.flock  = lock;
         args.volume = volume;
 
-        proc = &conf->fops->actor[GF_FOP_INODELK];
+        proc = &conf->fops->proctable[GF_FOP_INODELK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (inodelk, frame, -1, ENOTCONN);
@@ -1094,9 +1094,9 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.flock  = lock;
         args.volume = volume;
 
-        proc = &conf->fops->actor[GF_FOP_FINODELK];
+        proc = &conf->fops->proctable[GF_FOP_FINODELK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (finodelk, frame, -1, ENOTCONN);
@@ -1125,9 +1125,9 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.volume       = volume;
         args.cmd_entrylk  = cmd;
 
-        proc = &conf->fops->actor[GF_FOP_ENTRYLK];
+        proc = &conf->fops->proctable[GF_FOP_ENTRYLK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (entrylk, frame, -1, ENOTCONN);
@@ -1157,9 +1157,9 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.volume       = volume;
         args.cmd_entrylk  = cmd;
 
-        proc = &conf->fops->actor[GF_FOP_FENTRYLK];
+        proc = &conf->fops->proctable[GF_FOP_FENTRYLK];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOTCONN);
@@ -1184,9 +1184,9 @@ client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc = loc;
         args.flags = flag;
 
-        proc = &conf->fops->actor[GF_FOP_CHECKSUM];
+        proc = &conf->fops->proctable[GF_FOP_CHECKSUM];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (checksum, frame, -1, ENOTCONN, NULL, NULL);
@@ -1213,9 +1213,9 @@ client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         args.offset = offset;
         args.len = len;
 
-        proc = &conf->fops->actor[GF_FOP_RCHECKSUM];
+        proc = &conf->fops->proctable[GF_FOP_RCHECKSUM];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (rchecksum, frame, -1, ENOTCONN, 0, NULL);
@@ -1240,9 +1240,9 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.size = size;
         args.offset = off;
 
-        proc = &conf->fops->actor[GF_FOP_READDIR];
+        proc = &conf->fops->proctable[GF_FOP_READDIR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (readdir, frame, -1, ENOTCONN, NULL);
@@ -1268,9 +1268,9 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.size = size;
         args.offset = off;
 
-        proc = &conf->fops->actor[GF_FOP_READDIRP];
+        proc = &conf->fops->proctable[GF_FOP_READDIRP];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (readdirp, frame, -1, ENOTCONN, NULL);
@@ -1296,9 +1296,9 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.stbuf = stbuf;
         args.valid = valid;
 
-        proc = &conf->fops->actor[GF_FOP_SETATTR];
+        proc = &conf->fops->proctable[GF_FOP_SETATTR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (setattr, frame, -1, ENOTCONN, NULL, NULL);
@@ -1323,9 +1323,9 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.stbuf = stbuf;
         args.valid = valid;
 
-        proc = &conf->fops->actor[GF_FOP_FSETATTR];
+        proc = &conf->fops->proctable[GF_FOP_FSETATTR];
         if (proc->fn)
-                ret = proc->fn (frame, this, conf->fops, &args);
+                ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOTCONN, NULL, NULL);
@@ -1333,25 +1333,29 @@ out:
 	return 0;
 }
 
-/////////////////
+
 int32_t
 client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
                 int32_t flags)
 {
-        int                 ret  = -1;
-        clnt_conf_t        *conf = NULL;
-        gf_getspec_req      req  = {0,};
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+        rpc_clnt_procedure_t *proc = NULL;
+        clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->handshake)
+        if (!conf->fops || !conf->handshake)
                 goto out;
 
-        req.key   = (char *)key;
-        req.flags = flags;
+        args.name = key;
+        args.flags = flags;
 
-        client_submit_request (this, &req, frame, conf->handshake,
-                               GF_HNDSK_GETSPEC, NULL, xdr_from_getspec_req);
-        ret = 0;
+        /* For all other xlators, getspec is an fop, hence its in fops table */
+        proc = &conf->fops->proctable[GF_FOP_GETSPEC];
+        if (proc->fn) {
+                /* But at protocol level, this is handshake */
+                ret = proc->fn (frame, this, &args);
+        }
 out:
         if (ret)
                 STACK_UNWIND_STRICT (getspec, frame, -1, EINVAL, NULL);
@@ -1502,9 +1506,7 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                         "remote-port is %d", conf->rpc_conf.remote_port);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "defaulting remote-port to %d",
-                        GF_PROTOCOL_DEFAULT_PORT);
-                conf->rpc_conf.remote_port = GF_PROTOCOL_DEFAULT_PORT;
+                        "defaulting remote-port to 'auto'");
         }
 
         ret = dict_get_int32 (this->options, "ping-timeout",
@@ -1520,7 +1522,8 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
 
         ret = 0;
 out:
-        return ret;}
+        return ret;
+}
 
 
 static int32_t

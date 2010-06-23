@@ -20,11 +20,6 @@
 #ifndef _PROTOCOL_COMMON_H
 #define _PROTOCOL_COMMON_H
 
-#define GF_PROTOCOL_DEFAULT_PORT 6971
-
-#define GF_LOCAL_IOV 1 /* All headers are here */
-#define GF_EXTRA_IOV 2 /* needed for write/read etc */
-
 enum gf_fop_procnum {
         GFS3_OP_NULL,    /* 0 */
         GFS3_OP_STAT,
@@ -79,6 +74,7 @@ enum gf_handshake_procnum {
         GF_HNDSK_SETVOLUME,
         GF_HNDSK_GETSPEC,
         GF_HNDSK_PING,
+        GF_HNDSK_MAXVALUE,
 };
 
 enum gf_mgmt_procnum {
@@ -95,10 +91,5 @@ enum gf_mgmt_procnum {
 
 #define GLUSTER_HNDSK_PROGRAM   14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION   1   /* 0.0.1 */
-
-int
-gf_dirent_unserialize (gf_dirent_t *entries, const char *buf, size_t buf_size);
-int
-gf_dirent_serialize (gf_dirent_t *entries, char *buf, size_t buf_size);
 
 #endif /* !_PROTOCOL_COMMON_H */

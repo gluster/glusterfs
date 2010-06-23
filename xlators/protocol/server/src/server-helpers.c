@@ -1390,3 +1390,103 @@ server_print_request (call_frame_t *frame)
                 op, caller,
                 resolve_vars, loc_vars, resolve2_vars, loc2_vars, other_vars);
 }
+
+int
+serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
+{
+	gf_dirent_t         *entry = NULL;
+        gfs3_dirplist       *trav = NULL;
+        gfs3_dirplist       *prev = NULL;
+	int                  ret = -1;
+
+	list_for_each_entry (entry, &entries->list, list) {
+                trav = GF_CALLOC (1, sizeof (*trav), 0);
+                if (!trav)
+                        goto out;
+
+                trav->d_ino  = entry->d_ino;
+                trav->d_off  = entry->d_off;
+                trav->d_len  = entry->d_len;
+                trav->d_type = entry->d_type;
+                //trav->name   = memdup (entry->d_name, entry->d_len + 1);
+                trav->name   = entry->d_name;
+
+                gf_stat_from_iatt (&trav->stat, &entry->d_stat);
+
+                if (prev)
+                        prev->nextentry = trav;
+                else
+                        rsp->reply = trav;
+
+                prev = trav;
+	}
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+int
+serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
+{
+	gf_dirent_t         *entry = NULL;
+        gfs3_dirlist        *trav = NULL;
+        gfs3_dirlist        *prev = NULL;
+	int                  ret = -1;
+
+	list_for_each_entry (entry, &entries->list, list) {
+                trav = GF_CALLOC (1, sizeof (*trav), 0);
+                if (!trav)
+                        goto out;
+                trav->d_ino  = entry->d_ino;
+                trav->d_off  = entry->d_off;
+                trav->d_len  = entry->d_len;
+                trav->d_type = entry->d_type;
+                trav->name   = entry->d_name;
+                if (prev)
+                        prev->nextentry = trav;
+                else
+                        rsp->reply = trav;
+
+                prev = trav;
+	}
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+readdir_rsp_cleanup (gfs3_readdir_rsp *rsp)
+{
+        gfs3_dirlist *prev = NULL;
+        gfs3_dirlist *trav = NULL;
+
+        trav = rsp->reply;
+        prev = trav;
+        while (trav) {
+                trav = trav->nextentry;
+                GF_FREE (prev);
+                prev = trav;
+        }
+
+        return 0;
+}
+
+int
+readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
+{
+        gfs3_dirplist *prev = NULL;
+        gfs3_dirplist *trav = NULL;
+
+        trav = rsp->reply;
+        prev = trav;
+        while (trav) {
+                trav = trav->nextentry;
+                GF_FREE (prev);
+                prev = trav;
+        }
+
+        return 0;
+}

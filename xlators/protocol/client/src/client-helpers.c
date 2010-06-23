@@ -25,7 +25,6 @@
 #include "client.h"
 #include "fd.h"
 
-
 clnt_fd_ctx_t *
 this_fd_del_ctx (fd_t *file, xlator_t *this)
 {
@@ -103,6 +102,111 @@ client_local_wipe (clnt_local_t *local)
                         fd_unref (local->fd);
 
                  GF_FREE (local);
+        }
+
+        return 0;
+}
+
+int
+unserialize_rsp_dirent (struct gfs3_readdir_rsp *rsp, gf_dirent_t *entries)
+{
+        struct gfs3_dirlist  *trav      = NULL;
+	gf_dirent_t          *entry     = NULL;
+        int                   entry_len = 0;
+        int                   ret       = -1;
+
+        trav = rsp->reply;
+        while (trav) {
+                entry_len = gf_dirent_size (trav->name);
+                entry = GF_CALLOC (1, entry_len, gf_common_mt_gf_dirent_t);
+                if (!entry)
+                        goto out;
+
+                entry->d_ino  = trav->d_ino;
+                entry->d_off  = trav->d_off;
+                entry->d_len  = trav->d_len;
+                entry->d_type = trav->d_type;
+
+                strcpy (entry->d_name, trav->name);
+
+		list_add_tail (&entry->list, &entries->list);
+
+                trav = trav->nextentry;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+unserialize_rsp_direntp (struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries)
+{
+        struct gfs3_dirplist *trav      = NULL;
+	gf_dirent_t          *entry     = NULL;
+        int                   entry_len = 0;
+        int                   ret       = -1;
+
+        trav = rsp->reply;
+
+        while (trav) {
+                entry_len = gf_dirent_size (trav->name);
+                entry = GF_CALLOC (1, entry_len, gf_common_mt_gf_dirent_t);
+                if (!entry)
+                        goto out;
+
+                entry->d_ino  = trav->d_ino;
+                entry->d_off  = trav->d_off;
+                entry->d_len  = trav->d_len;
+                entry->d_type = trav->d_type;
+
+                gf_stat_to_iatt (&trav->stat, &entry->d_stat);
+
+                strcpy (entry->d_name, trav->name);
+
+		list_add_tail (&entry->list, &entries->list);
+
+                trav = trav->nextentry;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
+{
+        gfs3_dirplist *prev = NULL;
+        gfs3_dirplist *trav = NULL;
+
+        trav = rsp->reply;
+        prev = trav;
+        while (trav) {
+                trav = trav->nextentry;
+                /* on client, the rpc lib allocates this */
+                free (prev->name);
+                free (prev);
+                prev = trav;
+        }
+
+        return 0;
+}
+
+int
+clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp)
+{
+        gfs3_dirlist *prev = NULL;
+        gfs3_dirlist *trav = NULL;
+
+        trav = rsp->reply;
+        prev = trav;
+        while (trav) {
+                trav = trav->nextentry;
+                /* on client, the rpc lib allocates this */
+                free (prev->name);
+                free (prev);
+                prev = trav;
         }
 
         return 0;

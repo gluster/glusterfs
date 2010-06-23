@@ -44,6 +44,7 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -158,6 +159,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 out:
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret   = op_ret;
         rsp.op_errno = gf_errno_to_error (op_errno);
 
@@ -182,6 +184,7 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -216,6 +219,7 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -256,6 +260,7 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -297,6 +302,7 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -336,6 +342,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -374,6 +381,7 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -396,6 +404,7 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -440,6 +449,7 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -480,6 +490,7 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -518,6 +529,7 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -544,22 +556,18 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_readdir_rsp  rsp   = {0,};
         server_state_t   *state = NULL;
         rpcsvc_request_t *req   = NULL;
+        int               ret   = 0;
 
         req           = frame->local;
         frame->local  = NULL;
 
         state = CALL_STATE(frame);
         if (op_ret > 0) {
-                rsp.buf.buf_len = gf_dirent_serialize (entries, NULL, 0);
-                if (rsp.buf.buf_len > 0) {
-                        rsp.buf.buf_val = GF_CALLOC (1, rsp.buf.buf_len, 0);
-                        if (!rsp.buf.buf_val) {
-                                op_ret   = -1;
-                                op_errno = ENOMEM;
-                                goto unwind;
-                        }
-                        gf_dirent_serialize (entries, rsp.buf.buf_val,
-                                             rsp.buf.buf_len);
+                ret = serialize_rsp_dirent (entries, &rsp);
+                if (ret == -1) {
+                        op_ret   = -1;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
         } else {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -569,15 +577,14 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 unwind:
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
-
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_readdir_rsp);
 
-        if (rsp.buf.buf_val)
-                GF_FREE (rsp.buf.buf_val);
+        readdir_rsp_cleanup (&rsp);
 
         return 0;
 }
@@ -593,6 +600,7 @@ server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -632,6 +640,7 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local  = NULL;
 
         rsp.fd        = fd_no;
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -651,6 +660,7 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -703,12 +713,13 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
         }
 out:
+        req               = frame->local;
+        frame->local      = NULL;
+
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
-
-        req               = frame->local;
-        frame->local      = NULL;
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_getxattr_rsp);
@@ -766,6 +777,7 @@ out:
         req               = frame->local;
         frame->local      = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
@@ -788,6 +800,7 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -808,6 +821,7 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -830,6 +844,7 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -878,6 +893,7 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -929,6 +945,7 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -971,6 +988,7 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1022,6 +1040,7 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1055,6 +1074,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1088,6 +1108,7 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1121,6 +1142,7 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1152,6 +1174,7 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1184,6 +1207,7 @@ server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1205,6 +1229,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1240,6 +1265,7 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1272,6 +1298,7 @@ server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1300,6 +1327,7 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1346,6 +1374,7 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local  = NULL;
 
         rsp.fd        = fd_no;
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1426,6 +1455,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         frame->local  = NULL;
 
         rsp.fd        = fd_no;
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1447,6 +1477,7 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1481,6 +1512,7 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1515,6 +1547,7 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1563,6 +1596,7 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
         frame->local  = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1627,6 +1661,7 @@ out:
         req               = frame->local;
         frame->local      = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
@@ -1696,6 +1731,7 @@ out:
         req               = frame->local;
         frame->local      = NULL;
 
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
@@ -1717,21 +1753,19 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gfs3_readdirp_rsp  rsp   = {0,};
         server_state_t    *state = NULL;
         rpcsvc_request_t  *req   = NULL;
+        int                ret   = 0;
 
         req           = frame->local;
         frame->local  = NULL;
 
         state = CALL_STATE(frame);
         if (op_ret > 0) {
-                rsp.buf.buf_len = gf_dirent_serialize (entries, NULL, 0);
-                rsp.buf.buf_val = GF_CALLOC (1, rsp.buf.buf_len, 0);
-                if (!rsp.buf.buf_val) {
-                        op_ret = -1;
+                ret = serialize_rsp_direntp (entries, &rsp);
+                if (ret == -1) {
+                        op_ret   = -1;
                         op_errno = ENOMEM;
-                        rsp.buf.buf_len = 0;
                         goto out;
                 }
-                gf_dirent_serialize (entries, rsp.buf.buf_val, rsp.buf.buf_len);
         } else {
                 gf_log (this->name, GF_LOG_TRACE,
                         "%"PRId64": READDIRP %"PRId64" (%"PRId64") ==>"
@@ -1742,14 +1776,14 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
+        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_readdirp_rsp);
 
-        if (rsp.buf.buf_val)
-                GF_FREE (rsp.buf.buf_val);
+        readdirp_rsp_cleanup (&rsp);
 
         return 0;
 }
