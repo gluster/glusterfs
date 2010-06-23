@@ -856,14 +856,14 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	type = str;
 
 	/* Backward compatibility */
-	ret = dict_get_str (options, "rpc-transport-type", &type);
+	ret = dict_get_str (options, "transport-type", &type);
 	if (ret < 0) {
-		ret = dict_set_str (options, "rpc-transport-type", "socket");
+		ret = dict_set_str (options, "transport-type", "socket");
 		if (ret < 0)
 			gf_log ("dict", GF_LOG_DEBUG,
-				"setting rpc-transport-type failed");
+				"setting transport-type failed");
 		gf_log ("rpc-transport", GF_LOG_WARNING,
-			"missing 'option rpc-transport-type'. defaulting to "
+			"missing 'option transport-type'. defaulting to "
 			"\"socket\"");
 	} else {
 		{
@@ -883,11 +883,11 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		    (is_ibsdp == 0)) {
 			if (is_unix == 0)
 				ret = dict_set_str (options,
-						    "rpc-transport.address-family",
+						    "transport.address-family",
 						    "unix");
 			if (is_ibsdp == 0)
 				ret = dict_set_str (options,
-						    "rpc-transport.address-family",
+						    "transport.address-family",
 						    "inet-sdp");
 
 			if (ret < 0)
@@ -895,17 +895,17 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 					"setting address-family failed");
 
 			ret = dict_set_str (options,
-					    "rpc-transport-type", "socket");
+					    "transport-type", "socket");
 			if (ret < 0)
 				gf_log ("dict", GF_LOG_DEBUG,
-					"setting rpc-transport-type failed");
+					"setting transport-type failed");
 		}
 	}
 
-	ret = dict_get_str (options, "rpc-transport-type", &type);
+	ret = dict_get_str (options, "transport-type", &type);
 	if (ret < 0) {
 		gf_log ("rpc-transport", GF_LOG_ERROR,
-			"'option rpc-transport-type <xx>' missing in volume '%s'",
+			"'option transport-type <xx>' missing in volume '%s'",
 			trans_name);
 		goto fail;
 	}
@@ -922,7 +922,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	if (handle == NULL) {
 		gf_log ("rpc-transport", GF_LOG_ERROR, "%s", dlerror ());
 		gf_log ("rpc-transport", GF_LOG_ERROR,
-			"volume '%s': rpc-transport-type '%s' is not valid or "
+			"volume '%s': transport-type '%s' is not valid or "
 			"not found on this machine",
 			trans_name, type);
 		goto fail;
