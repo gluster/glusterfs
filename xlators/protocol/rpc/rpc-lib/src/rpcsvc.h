@@ -38,8 +38,6 @@
 
 #include <pthread.h>
 #include <sys/uio.h>
-
-#include <sys/uio.h>
 #include <inttypes.h>
 #include "compat.h"
 

@@ -178,7 +178,11 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
                 return -1;
 
         au->aup_machname = machname;
+#ifdef GF_DARWIN_HOST_OS
+        au->aup_gids = (int *)gids;
+#else
         au->aup_gids = gids;
+#endif
 
         xdrmem_create (&xdr, msgbuf, msglen, XDR_DECODE);
 
