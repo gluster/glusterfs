@@ -2267,7 +2267,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        local = GF_CALLOC (1, sizeof (*local), 0);
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
                 goto out;
         }
@@ -2340,7 +2340,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        local = GF_CALLOC (1, sizeof (*local), 0);
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
                 goto out;
         }

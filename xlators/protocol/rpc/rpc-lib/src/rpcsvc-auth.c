@@ -39,7 +39,7 @@ rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
         if ((!list) || (!init) || (!idfier))
                 return -1;
 
-        new = GF_CALLOC (1, sizeof (*new), 0);
+        new = GF_CALLOC (1, sizeof (*new), gf_common_mt_rpcsvc_auth_list);
         if (!new) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Memory allocation failed");
                 return -1;

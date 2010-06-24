@@ -474,30 +474,14 @@ out:
         return 0;
 }
 
-static int32_t
-mem_acct_init (xlator_t *this)
-{
-        int     ret = -1;
-
-        if (!this)
-                return ret;
-
-        ret = xlator_mem_acct_init (this, gf_server_mt_end + 1);
-
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                                "failed");
-                return ret;
-        }
-
-        return ret;
-}
-
 int
 init (xlator_t *this)
 {
         int32_t        ret = -1;
         server_conf_t *conf = NULL;
+
+        if (!this)
+                goto out;
 
         if (this->children == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -511,11 +495,14 @@ init (xlator_t *this)
                 goto out;
         }
 
-        ret = mem_acct_init (this);
-        if (ret)
+        ret = xlator_mem_acct_init (this, gf_server_mt_end + 1);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Failed to Initialize memory accounting");
                 goto out;
+        }
 
-        conf = GF_CALLOC (1, sizeof (server_conf_t), 0);
+        conf = GF_CALLOC (1, sizeof (server_conf_t), gf_server_mt_server_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
         INIT_LIST_HEAD (&conf->conns);

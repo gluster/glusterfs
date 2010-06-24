@@ -30,6 +30,7 @@ enum gf_server_mem_types_ {
         gf_server_mt_locker_t,
         gf_server_mt_lock_table_t,
         gf_server_mt_conn_t,
+        gf_server_mt_dirent_rsp_t,
         gf_server_mt_rsp_buf_t,
         gf_server_mt_volfile_ctx_t,
         gf_server_mt_end,

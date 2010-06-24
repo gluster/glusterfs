@@ -571,7 +571,8 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                 ret = -1;
                 goto fail;
         }
-        req.dict.dict_val = GF_CALLOC (1, req.dict.dict_len, 0);
+        req.dict.dict_val = GF_CALLOC (1, req.dict.dict_len,
+                                       gf_client_mt_clnt_req_buf_t);
         ret = dict_serialize (options, req.dict.dict_val);
         if (ret < 0) {
                 gf_log (this->name, GF_LOG_ERROR,

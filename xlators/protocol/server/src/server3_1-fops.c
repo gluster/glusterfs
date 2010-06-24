@@ -105,7 +105,8 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if ((op_ret >= 0) && dict) {
-                rsp.dict.dict_val = GF_CALLOC (1, rsp.dict.dict_len, 0);
+                rsp.dict.dict_val = GF_CALLOC (1, rsp.dict.dict_len,
+                                               gf_server_mt_rsp_buf_t);
                 if (!rsp.dict.dict_val) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -695,7 +696,8 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         goto out;
                 }
 
-                rsp.dict.dict_val = GF_CALLOC (len, sizeof (char), 0);
+                rsp.dict.dict_val = GF_CALLOC (len, sizeof (char),
+                                               gf_server_mt_rsp_buf_t);
                 if (!rsp.dict.dict_val) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -755,7 +757,7 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         len = 0;
                         goto out;
                 }
-                rsp.dict.dict_val = GF_CALLOC (1, len, 0);
+                rsp.dict.dict_val = GF_CALLOC (1, len, gf_server_mt_rsp_buf_t);
                 if (!rsp.dict.dict_val) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1640,7 +1642,7 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         len = 0;
                         goto out;
                 }
-                rsp.dict.dict_val = GF_CALLOC (1, len, 0);
+                rsp.dict.dict_val = GF_CALLOC (1, len, gf_server_mt_rsp_buf_t);
                 if (!rsp.dict.dict_val) {
                         op_ret = -1;
                         op_errno = ENOMEM;
@@ -1709,7 +1711,7 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         len = 0;
                         goto out;
                 }
-                rsp.dict.dict_val = GF_CALLOC (1, len, 0);
+                rsp.dict.dict_val = GF_CALLOC (1, len, gf_server_mt_rsp_buf_t);
                 if (!rsp.dict.dict_val) {
                         op_ret = -1;
                         op_errno = ENOMEM;

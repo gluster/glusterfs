@@ -68,7 +68,8 @@ __saved_frames_put (struct saved_frames *frames, void *frame, int32_t procnum,
 {
 	struct saved_frame *saved_frame = NULL;
 
-	saved_frame = GF_CALLOC (sizeof (*saved_frame), 1, 0);
+	saved_frame = GF_CALLOC (1, sizeof (*saved_frame),
+                                 gf_common_mt_rpcclnt_savedframe_t);
 	if (!saved_frame) {
                 gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -234,7 +235,8 @@ saved_frames_new (void)
 {
 	struct saved_frames *saved_frames = NULL;
 
-	saved_frames = GF_CALLOC (sizeof (*saved_frames), 1, 0);
+	saved_frames = GF_CALLOC (1, sizeof (*saved_frames),
+                                  gf_common_mt_rpcclnt_savedframe_t);
 	if (!saved_frames) {
                 gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
 		return NULL;
@@ -876,13 +878,14 @@ rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
         int                    ret  = -1;
         struct rpc_clnt       *rpc  = NULL;
 
-        rpc = GF_CALLOC (1, sizeof (*rpc), 0);
+        rpc = GF_CALLOC (1, sizeof (*rpc), gf_common_mt_rpcclnt_t);
         if (!rpc) {
                 gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         pthread_mutex_init (&rpc->lock, NULL);
+        rpc->ctx = ctx;
 
         ret = rpc_clnt_connection_init (rpc, ctx, options, name);
         if (ret == -1) {
@@ -891,7 +894,6 @@ rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
                 rpc = NULL;
                 goto out;
         }
-        rpc->ctx = ctx;
 out:
         return rpc;
 }
