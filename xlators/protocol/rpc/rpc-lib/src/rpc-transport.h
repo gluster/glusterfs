@@ -26,6 +26,7 @@
 #endif
 
 #include <inttypes.h>
+#include <rpc/rpc.h>
 #include <rpc/auth.h>
 #include <rpc/rpc_msg.h>
 

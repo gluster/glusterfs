@@ -7,6 +7,7 @@
 #define _GLUSTERFS3_H_RPCGEN
 
 #include <rpc/rpc.h>
+#include "xdr-common.h"
 #include "iatt.h"
 
 #ifdef __cplusplus
