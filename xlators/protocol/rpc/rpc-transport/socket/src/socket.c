@@ -396,7 +396,7 @@ __socket_ioq_new (rpc_transport_t *this, rpc_transport_msg_t *msg)
         priv = this->private;
 
         /* TODO: use mem-pool */
-        entry = GF_CALLOC (1, sizeof (*entry), 0);
+        entry = GF_CALLOC (1, sizeof (*entry), gf_common_mt_ioq);
         if (!entry)
                 return NULL;
 
@@ -1054,7 +1054,7 @@ __socket_read_reply (rpc_transport_t *this)
 
         buf = rpc_xid_addr (iobuf_ptr (priv->incoming.iobuf));
 
-        request_info = GF_CALLOC (1, sizeof (*request_info), 0);
+        request_info = GF_CALLOC (1, sizeof (*request_info), gf_common_mt_rpc_trans_reqinfo_t);
         if (request_info == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -1501,7 +1501,8 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 }
                         }
 
-                        new_trans = GF_CALLOC (1, sizeof (*new_trans), 0);
+                        new_trans = GF_CALLOC (1, sizeof (*new_trans),
+                                               gf_common_mt_rpc_trans_t);
                         new_trans->fini = this->fini;
                         new_trans->name = gf_strdup (this->name);
 
@@ -2152,7 +2153,7 @@ socket_init (rpc_transport_t *this)
                 return -1;
         }
 
-        priv = GF_CALLOC (1, sizeof (*priv), 0);
+        priv = GF_CALLOC (1, sizeof (*priv), gf_common_mt_socket_private_t);
         if (!priv) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "calloc (1, %"GF_PRI_SIZET") returned NULL",

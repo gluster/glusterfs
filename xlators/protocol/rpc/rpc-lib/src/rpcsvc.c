@@ -480,7 +480,7 @@ rpcsvc_conn_alloc (rpcsvc_t *svc, rpc_transport_t *trans)
         int             ret = -1;
         unsigned int    poolcount = 0;
 
-        conn = GF_CALLOC (1, sizeof(*conn), 0);
+        conn = GF_CALLOC (1, sizeof(*conn), gf_common_mt_rpcsvc_conn_t);
         if (!conn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "memory allocation failed");
                 return NULL;
@@ -538,7 +538,7 @@ rpcsvc_notify_wrapper_alloc (void)
 {
         rpcsvc_notify_wrapper_t *wrapper = NULL;
 
-        wrapper = GF_CALLOC (1, sizeof (*wrapper), 0);
+        wrapper = GF_CALLOC (1, sizeof (*wrapper), gf_common_mt_rpcsvc_wrapper_t);
         if (!wrapper) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "memory allocation failed");
                 goto out;
@@ -609,7 +609,8 @@ rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
 
         pthread_mutex_lock (&svc->rpclock);
         {
-                wrappers = GF_CALLOC (svc->notify_count, sizeof (*wrapper), 0);
+                wrappers = GF_CALLOC (svc->notify_count, sizeof (*wrapper),
+                                      gf_common_mt_rpcsvc_wrapper_t);
                 if (!wrappers) {
                         goto unlock;
                 }
@@ -1181,6 +1182,8 @@ rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn, rpc_transport_pollin_t *msg)
                         }
                 } else if (actor->actor) {
                         rpcsvc_conn_ref (req->conn);
+                        /* Before going to xlator code, set the THIS properly */
+                        THIS = conn->svc->mydata;
                         ret = actor->actor (req);
                 }
         }
@@ -1761,7 +1764,8 @@ rpcsvc_listener_alloc (rpcsvc_t *svc, rpcsvc_conn_t *conn)
         rpcsvc_listener_t *listener = NULL;
         int                ret      = -1;
 
-        listener = GF_CALLOC (1, sizeof (*listener), 0);
+        listener = GF_CALLOC (1, sizeof (*listener),
+                              gf_common_mt_rpcsvc_listener_t);
         if (!listener) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "memory allocation failed");
                 goto out;
@@ -1887,7 +1891,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
         if (!svc)
                 return -1;
 
-        newprog = GF_CALLOC (1, sizeof(*newprog), 0);
+        newprog = GF_CALLOC (1, sizeof(*newprog), gf_common_mt_rpcsvc_program_t);
         if (!newprog)
                 return -1;
 
@@ -1948,7 +1952,7 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         if ((!ctx) || (!options))
                 return NULL;
 
-        svc = GF_CALLOC (1, sizeof (*svc), 0);
+        svc = GF_CALLOC (1, sizeof (*svc), gf_common_mt_rpcsvc_t);
         if (!svc)
                 return NULL;
 

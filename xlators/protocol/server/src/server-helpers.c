@@ -289,7 +289,7 @@ server_copy_frame (call_frame_t *frame)
 
         new_frame = copy_frame (frame);
 
-        new_state = GF_CALLOC (1, sizeof (server_state_t), 0);
+        new_state = GF_CALLOC (1, sizeof (server_state_t), gf_server_mt_state_t);
 
         new_frame->root->op    = frame->root->op;
         new_frame->root->type  = frame->root->type;
@@ -315,7 +315,7 @@ gf_add_locker (struct _lock_table *table, const char *volume,
         struct _locker *new = NULL;
         uint8_t         dir = 0;
 
-        new = GF_CALLOC (1, sizeof (struct _locker), 0);
+        new = GF_CALLOC (1, sizeof (struct _locker), gf_server_mt_locker_t);
         if (new == NULL) {
                 gf_log ("server", GF_LOG_ERROR,
                         "failed to allocate memory for \'struct _locker\'");
@@ -455,7 +455,7 @@ gf_lock_table_new (void)
 {
         struct _lock_table *new = NULL;
 
-        new = GF_CALLOC (1, sizeof (struct _lock_table), 0);
+        new = GF_CALLOC (1, sizeof (struct _lock_table), gf_server_mt_lock_table_t);
         if (new == NULL) {
                 gf_log ("server-protocol", GF_LOG_CRITICAL,
                         "failed to allocate memory for new lock table");
@@ -893,7 +893,8 @@ server_connection_get (xlator_t *this, const char *id)
                 }
 
                 if (!conn) {
-                        conn = (void *) GF_CALLOC (1, sizeof (*conn), 0);
+                        conn = (void *) GF_CALLOC (1, sizeof (*conn),
+                                                   gf_server_mt_conn_t);
 
                         conn->id = gf_strdup (id);
                         conn->fdtable = gf_fd_fdtable_alloc ();
@@ -959,7 +960,7 @@ server_alloc_frame (rpcsvc_request_t *req)
         frame = create_frame (conn->this, req->conn->svc->ctx->pool);
         GF_VALIDATE_OR_GOTO("server", frame, out);
 
-        state = GF_CALLOC (1, sizeof (*state), 0);
+        state = GF_CALLOC (1, sizeof (*state), gf_server_mt_state_t);
         GF_VALIDATE_OR_GOTO("server", state, out);
 
         if (conn->bound_xl)
@@ -1091,7 +1092,7 @@ create_server_conn_state (xlator_t *this, rpc_transport_t *xprt)
         server_connection_t *conn = NULL;
         int                  ret = -1;
 
-        conn = GF_CALLOC (1, sizeof (*conn), 0);
+        conn = GF_CALLOC (1, sizeof (*conn), gf_server_mt_conn_t);
         if (!conn)
                 goto out;
 
@@ -1400,7 +1401,7 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
 	int                  ret = -1;
 
 	list_for_each_entry (entry, &entries->list, list) {
-                trav = GF_CALLOC (1, sizeof (*trav), 0);
+                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
                 if (!trav)
                         goto out;
 
@@ -1436,7 +1437,7 @@ serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
 	int                  ret = -1;
 
 	list_for_each_entry (entry, &entries->list, list) {
-                trav = GF_CALLOC (1, sizeof (*trav), 0);
+                trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
                 if (!trav)
                         goto out;
                 trav->d_ino  = entry->d_ino;

@@ -76,7 +76,16 @@ enum gf_common_mem_types_ {
         gf_common_mt_rpcsvc_t,
         gf_common_mt_rpcsvc_conn_t,
         gf_common_mt_rpcsvc_program_t,
+        gf_common_mt_rpcsvc_listener_t,
+        gf_common_mt_rpcsvc_wrapper_t,
         gf_common_mt_rpcsvc_stage_t,
+        gf_common_mt_rpcclnt_t,
+        gf_common_mt_rpcclnt_savedframe_t,
+        gf_common_mt_rpc_trans_t,
+        gf_common_mt_rpc_trans_pollin_t,
+        gf_common_mt_rpc_trans_handover_t,
+        gf_common_mt_rpc_trans_reqinfo_t,
+        gf_common_mt_rpc_trans_rsp_t,
         gf_common_mt_glusterfs_graph_t,
         gf_common_mt_end
 };

@@ -537,11 +537,12 @@ server_setvolume (rpcsvc_request_t *req)
 
 
         peerinfo = &req->conn->trans->peerinfo;
-        ret = dict_set_static_ptr (params, "peer-info", peerinfo);
-        if (ret < 0)
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to set peer-info");
-
+        if (peerinfo) {
+                ret = dict_set_static_ptr (params, "peer-info", peerinfo);
+                if (ret < 0)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to set peer-info");
+        }
         if (conf->auth_modules == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Authentication module not initialized");
@@ -553,7 +554,7 @@ server_setvolume (rpcsvc_request_t *req)
         if (ret == AUTH_ACCEPT) {
                 gf_log (this->name, GF_LOG_INFO,
                         "accepted client from %s",
-                        peerinfo->identifier);
+                        (peerinfo)?peerinfo->identifier:"");
                 op_ret = 0;
                 conn->bound_xl = xl;
                 ret = dict_set_str (reply, "ERROR", "Success");
@@ -563,7 +564,7 @@ server_setvolume (rpcsvc_request_t *req)
         } else {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Cannot authenticate client from %s",
-                        peerinfo->identifier);
+                        (peerinfo)? peerinfo->identifier:"<>");
                 op_ret = -1;
                 op_errno = EACCES;
                 ret = dict_set_str (reply, "ERROR", "Authentication failed");
@@ -621,7 +622,8 @@ fail:
         }
 
         if (rsp.dict.dict_len) {
-                rsp.dict.dict_val = GF_CALLOC (1, rsp.dict.dict_len, 0);
+                rsp.dict.dict_val = GF_CALLOC (1, rsp.dict.dict_len,
+                                               gf_server_mt_rsp_buf_t);
                 if (rsp.dict.dict_val) {
                         ret = dict_serialize (reply, rsp.dict.dict_val);
                         if (ret < 0) {

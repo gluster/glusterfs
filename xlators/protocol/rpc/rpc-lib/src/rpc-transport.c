@@ -659,7 +659,7 @@ rpc_transport_pollin_alloc (rpc_transport_t *this, struct iobuf *iobuf,
                             size_t vectored_size, void *private)
 {
         rpc_transport_pollin_t *msg = NULL;
-        msg = GF_CALLOC (1, sizeof (*msg), 0);
+        msg = GF_CALLOC (1, sizeof (*msg), gf_common_mt_rpc_trans_pollin_t);
         if (!msg) {
                 gf_log ("rpc-transport", GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -703,7 +703,7 @@ rpc_transport_same_process_pollin_alloc (rpc_transport_t *this,
                 goto err;
         }
 
-        msg = GF_CALLOC (1, sizeof (*msg), 0);
+        msg = GF_CALLOC (1, sizeof (*msg), gf_common_mt_rpc_trans_pollin_t);
         if (!msg) {
                 gf_log ("rpc-transport", GF_LOG_ERROR, "out of memory");
                 goto err;
@@ -799,7 +799,7 @@ rpc_transport_handover_alloc (rpc_transport_pollin_t *pollin)
 {
         rpc_transport_handover_t *msg = NULL;
 
-        msg = GF_CALLOC (1, sizeof (*msg), 0);
+        msg = GF_CALLOC (1, sizeof (*msg), gf_common_mt_rpc_trans_handover_t);
         if (!msg) {
                 gf_log ("rpc_transport", GF_LOG_ERROR, "out of memory");
                 goto out;
@@ -846,7 +846,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	GF_VALIDATE_OR_GOTO("rpc-transport", ctx, fail);
 	GF_VALIDATE_OR_GOTO("rpc-transport", trans_name, fail);
 
-	trans = GF_CALLOC (1, sizeof (struct rpc_transport), 0);
+	trans = GF_CALLOC (1, sizeof (struct rpc_transport), gf_common_mt_rpc_trans_t);
 	GF_VALIDATE_OR_GOTO("rpc-transport", trans, fail);
 
         trans->name = gf_strdup (trans_name);
@@ -949,7 +949,8 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		goto fail;
 	}
 
-	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t), 0);
+	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
+                             gf_common_mt_volume_opt_list_t);
         if (!vol_opt) {
                 gf_log (trans_name, GF_LOG_ERROR, "out of memory");
                 goto fail;
@@ -1017,7 +1018,7 @@ rpc_transport_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
         if (this->peer_trans) {
                 peer_trans = this->peer_trans;
 
-                rsp = GF_CALLOC (1, sizeof (*rsp), 0);
+                rsp = GF_CALLOC (1, sizeof (*rsp), gf_common_mt_rpc_trans_rsp_t);
                 if (!rsp) {
                         ret = -ENOMEM;
                         goto fail;
