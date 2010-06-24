@@ -1059,7 +1059,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
+        STACK_UNWIND_STRICT (mkdir, frame, -1, EINVAL, loc->inode, NULL, NULL, NULL);
         return 0;
 
 }
