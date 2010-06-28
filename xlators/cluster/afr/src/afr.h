@@ -579,6 +579,9 @@ typedef struct {
 /* have we tried all children? */
 #define all_tried(i, count)  ((i) == (count) - 1)
 
+void
+afr_set_lk_owner (call_frame_t *frame, xlator_t *this);
+
 int
 afr_fd_ctx_set (xlator_t *this, fd_t *fd);
 

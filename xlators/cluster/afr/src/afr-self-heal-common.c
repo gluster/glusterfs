@@ -1536,6 +1536,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
 	local = frame->local;
 	priv  = this->private;
 
+        afr_set_lk_owner (frame, this);
+
         if (local->self_heal.background) {
                 LOCK (&priv->lock);
                 {
