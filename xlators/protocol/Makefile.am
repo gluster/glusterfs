@@ -1,1 +1,1 @@
-SUBDIRS = lib auth legacy rpc client server
+SUBDIRS = lib auth legacy client server
