@@ -4309,7 +4309,7 @@ server_fentrylk (rpcsvc_request_t *req)
                 state->name = gf_strdup (args.name);
         state->volume = gf_strdup (args.volume);
 
-        resolve_and_resume (frame, server_finodelk_resume);
+        resolve_and_resume (frame, server_fentrylk_resume);
 out:
         return 0;
 }

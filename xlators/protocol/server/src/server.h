@@ -76,9 +76,6 @@ void
 server_connection_put (xlator_t *this, server_connection_t *conn);
 
 int
-server_connection_destroy (xlator_t *this, server_connection_t *conn);
-
-int
 server_connection_cleanup (xlator_t *this, server_connection_t *conn);
 
 int server_null (rpcsvc_request_t *req);
