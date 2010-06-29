@@ -41,7 +41,7 @@
 #define GF_LOG_ERRNO(errno) ((errno == ENOTCONN) ? GF_LOG_DEBUG : GF_LOG_ERROR)
 #define SA(ptr) ((struct sockaddr *)ptr)
 
-int socket_init (transport_t *this);
+static int socket_init (transport_t *this);
 
 /*
  * return value:
@@ -50,7 +50,7 @@ int socket_init (transport_t *this);
  * > 0 = incomplete
  */
 
-int
+static int
 __socket_rwv (transport_t *this, struct iovec *vector, int count,
               struct iovec **pending_vector, int *pending_count,
               int write)
@@ -134,7 +134,7 @@ __socket_rwv (transport_t *this, struct iovec *vector, int count,
 }
 
 
-int
+static int
 __socket_readv (transport_t *this, struct iovec *vector, int count,
                 struct iovec **pending_vector, int *pending_count)
 {
@@ -147,7 +147,7 @@ __socket_readv (transport_t *this, struct iovec *vector, int count,
 }
 
 
-int
+static int
 __socket_writev (transport_t *this, struct iovec *vector, int count,
                  struct iovec **pending_vector, int *pending_count)
 {
@@ -160,7 +160,7 @@ __socket_writev (transport_t *this, struct iovec *vector, int count,
 }
 
 
-int
+static int
 __socket_disconnect (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -180,7 +180,7 @@ __socket_disconnect (transport_t *this)
 }
 
 
-int
+static int
 __socket_server_bind (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -215,7 +215,7 @@ __socket_server_bind (transport_t *this)
 }
 
 
-int
+static int
 __socket_nonblock (int fd)
 {
         int flags = 0;
@@ -230,7 +230,7 @@ __socket_nonblock (int fd)
 }
 
 
-int
+static int
 __socket_nodelay (int fd)
 {
         int     on = 1;
@@ -246,7 +246,7 @@ __socket_nodelay (int fd)
 }
 
 
-int
+static int
 __socket_keepalive (int fd, int keepalive_intvl)
 {
         int     on = 1;
@@ -285,7 +285,7 @@ err:
 }
 
 
-int
+static int
 __socket_connect_finish (int fd)
 {
         int       ret = -1;
@@ -303,7 +303,7 @@ __socket_connect_finish (int fd)
 }
 
 
-void
+static void
 __socket_reset (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -328,7 +328,7 @@ __socket_reset (transport_t *this)
 }
 
 
-struct ioq *
+static struct ioq *
 __socket_ioq_new (transport_t *this, char *buf, int len,
                   struct iovec *vector, int count, struct iobref *iobref)
 {
@@ -379,7 +379,7 @@ __socket_ioq_new (transport_t *this, char *buf, int len,
 }
 
 
-void
+static void
 __socket_ioq_entry_free (struct ioq *entry)
 {
         list_del_init (&entry->list);
@@ -394,7 +394,7 @@ __socket_ioq_entry_free (struct ioq *entry)
 }
 
 
-void
+static void
 __socket_ioq_flush (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -411,7 +411,7 @@ __socket_ioq_flush (transport_t *this)
 }
 
 
-int
+static int
 __socket_ioq_churn_entry (transport_t *this, struct ioq *entry)
 {
         int ret = -1;
@@ -431,7 +431,7 @@ __socket_ioq_churn_entry (transport_t *this, struct ioq *entry)
 }
 
 
-int
+static int
 __socket_ioq_churn (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -460,7 +460,7 @@ __socket_ioq_churn (transport_t *this)
 }
 
 
-int
+static int
 socket_event_poll_err (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -481,7 +481,7 @@ socket_event_poll_err (transport_t *this)
 }
 
 
-int
+static int
 socket_event_poll_out (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -507,7 +507,7 @@ socket_event_poll_out (transport_t *this)
 }
 
 
-int
+static int
 __socket_proto_validate_header (transport_t *this,
 				struct socket_header *header,
 				size_t *size1_p, size_t *size2_p)
@@ -560,7 +560,7 @@ __socket_proto_validate_header (transport_t *this,
 
 /* socket protocol state machine */
 
-int
+static int
 __socket_proto_state_machine (transport_t *this)
 {
         int                   ret = -1;
@@ -741,7 +741,7 @@ unlock:
 }
 
 
-int
+static int
 socket_proto_state_machine (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -759,7 +759,7 @@ socket_proto_state_machine (transport_t *this)
 }
 
 
-int
+static int
 socket_event_poll_in (transport_t *this)
 {
         int ret = -1;
@@ -776,7 +776,7 @@ socket_event_poll_in (transport_t *this)
 }
 
 
-int
+static int
 socket_connect_finish (transport_t *this)
 {
         int               ret = -1;
@@ -831,7 +831,7 @@ socket_connect_finish (transport_t *this)
 			priv->connected = 1;
 			priv->connect_finish_log = 0;
 			event = GF_EVENT_CHILD_UP;
-			get_transport_identifiers (this);
+			gf_get_transport_identifiers (this);
 		}
         }
 unlock:
@@ -844,7 +844,7 @@ unlock:
 }
 
 
-int
+static int
 socket_event_handler (int fd, int idx, void *data,
                       int poll_in, int poll_out, int poll_err)
 {
@@ -882,7 +882,7 @@ socket_event_handler (int fd, int idx, void *data,
 }
 
 
-int
+static int
 socket_server_event_handler (int fd, int idx, void *data,
                              int poll_in, int poll_out, int poll_err)
 {
@@ -965,7 +965,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                                 goto unlock;
                         }
 
-                        get_transport_identifiers (new_trans);
+                        gf_get_transport_identifiers (new_trans);
                         socket_init (new_trans);
                         new_trans->ops = this->ops;
                         new_trans->init = this->init;
@@ -998,7 +998,7 @@ unlock:
 }
 
 
-int
+static int
 socket_disconnect (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -1016,7 +1016,7 @@ socket_disconnect (transport_t *this)
 }
 
 
-int
+static int
 socket_connect (transport_t *this)
 {
         int                      ret = -1;
@@ -1049,7 +1049,7 @@ socket_connect (transport_t *this)
                 goto err;
         }
 
-        ret = socket_client_get_remote_sockaddr (this, SA (&sockaddr),
+        ret = gf_socket_client_get_remote_sockaddr (this, SA (&sockaddr),
                                                  &sockaddr_len, &sa_family);
         if (ret == -1) {
                 /* logged inside client_get_remote_sockaddr */
@@ -1131,7 +1131,7 @@ socket_connect (transport_t *this)
                 SA (&this->myinfo.sockaddr)->sa_family =
 			SA (&this->peerinfo.sockaddr)->sa_family;
 
-                ret = client_bind (this, SA (&this->myinfo.sockaddr),
+                ret = gf_client_bind (this, SA (&this->myinfo.sockaddr),
 				   &this->myinfo.sockaddr_len, priv->sock);
                 if (ret == -1) {
                         gf_log (this->xl->name, GF_LOG_WARNING,
@@ -1170,7 +1170,7 @@ err:
 }
 
 
-int
+static int
 socket_listen (transport_t *this)
 {
         socket_private_t *       priv = NULL;
@@ -1198,7 +1198,7 @@ socket_listen (transport_t *this)
                 return ret;
         }
 
-        ret = socket_server_get_local_sockaddr (this, SA (&sockaddr), 
+        ret = gf_socket_server_get_local_sockaddr (this, SA (&sockaddr),
                                                 &sockaddr_len, &sa_family);
         if (ret == -1) {
                 return ret;
@@ -1310,7 +1310,7 @@ unlock:
 }
 
 
-int
+static int
 socket_receive (transport_t *this, char **hdr_p, size_t *hdrlen_p,
                 struct iobuf **iobuf_p)
 {
@@ -1353,7 +1353,7 @@ unlock:
 
 
 /* TODO: implement per transfer limit */
-int
+static int
 socket_submit (transport_t *this, char *buf, int len,
                struct iovec *vector, int count,
                struct iobref *iobref)
@@ -1423,7 +1423,7 @@ struct transport_ops tops = {
 };
 
 
-int
+static int
 socket_init (transport_t *this)
 {
         socket_private_t *priv = NULL;
@@ -1554,24 +1554,6 @@ fini (transport_t *this)
         GF_FREE (priv);
 }
 
-int32_t
-mem_acct_init (xlator_t *this)
-{
-        int     ret = -1;
-
-        if (!this)
-                return ret;
-
-        ret = xlator_mem_acct_init (this, gf_common_mt_end + 1);
-        
-        if (ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                                "failed");
-                return ret;
-        }
-
-        return ret;
-}
 
 int32_t
 init (transport_t *this)

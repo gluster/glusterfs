@@ -77,21 +77,13 @@ typedef struct _server_connection server_connection_t;
 
 
 server_connection_t *
-server_connection_get (xlator_t *this, const char *id);
+gf_server_connection_get (xlator_t *this, const char *id);
 
 void
-server_connection_put (xlator_t *this, server_connection_t *conn);
+gf_server_connection_put (xlator_t *this, server_connection_t *conn);
 
 int
-server_connection_destroy (xlator_t *this, server_connection_t *conn);
-
-int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn);
-
-int
-server_nop_cbk (call_frame_t *frame, void *cookie,
-		xlator_t *this, int32_t op_ret, int32_t op_errno);
-
+gf_server_connection_cleanup (xlator_t *this, server_connection_t *conn);
 
 struct _volfile_ctx {
         struct _volfile_ctx *next;
@@ -149,7 +141,7 @@ typedef struct {
 typedef int (*server_resume_fn_t) (call_frame_t *frame, xlator_t *bound_xl);
 
 int
-resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn);
+gf_resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn);
 
 struct _server_state {
 	transport_t      *trans;

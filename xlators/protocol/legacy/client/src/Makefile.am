@@ -18,4 +18,4 @@ AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \
 CLEANFILES = 
 
 install-data-hook:
-	ln -sf client.so $(DESTDIR)$(xlatordir)/client-old.so
+	ln -sf client-old.so $(DESTDIR)$(xlatordir)/client.so

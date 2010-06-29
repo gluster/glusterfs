@@ -26,148 +26,6 @@
 #include "server-helpers.h"
 
 
-/* server_loc_fill - derive a loc_t for a given inode number
- *
- * NOTE: make sure that @loc is empty, because any pointers it holds with reference will
- *       be leaked after returning from here.
- */
-int
-server_loc_fill (loc_t *loc, server_state_t *state,
-                 ino_t ino, ino_t par,
-                 const char *name, const char *path)
-{
-        inode_t *inode = NULL;
-        inode_t *parent = NULL;
-        int32_t  ret = -1;
-        char    *dentry_path = NULL;
-
-
-        GF_VALIDATE_OR_GOTO ("server", loc, out);
-        GF_VALIDATE_OR_GOTO ("server", state, out);
-        GF_VALIDATE_OR_GOTO ("server", path, out);
-
-        /* anything beyond this point is success */
-        ret = 0;
-        loc->ino = ino;
-        inode = loc->inode;
-        if (inode == NULL) {
-                if (ino)
-                        inode = inode_search (state->itable, ino, NULL);
-
-                if ((inode == NULL) &&
-                    (par && name))
-                        inode = inode_search (state->itable, par, name);
-
-                loc->inode = inode;
-                if (inode)
-                        loc->ino = inode->ino;
-        }
-
-        parent = loc->parent;
-        if (parent == NULL) {
-                if (inode)
-                        parent = inode_parent (inode, par, name);
-                else
-                        parent = inode_search (state->itable, par, NULL);
-                loc->parent = parent;
-        }
-
-        if (name && parent) {
-                ret = inode_path (parent, name, &dentry_path);
-                if (ret < 0) {
-                        gf_log (state->bound_xl->name, GF_LOG_DEBUG,
-                                "failed to build path for %"PRId64"/%s: %s",
-                                parent->ino, name, strerror (-ret));
-                }
-        } else if (inode) {
-                ret = inode_path (inode, NULL, &dentry_path);
-                if (ret < 0) {
-                        gf_log (state->bound_xl->name, GF_LOG_DEBUG,
-                                "failed to build path for %"PRId64": %s",
-                                inode->ino, strerror (-ret));
-                }
-        }
-
-        if (dentry_path) {
-                if (strcmp (dentry_path, path)) {
-                        gf_log (state->bound_xl->name, GF_LOG_DEBUG,
-                                "paths differ for inode(%"PRId64"): "
-                                "client path = %s. dentry path = %s",
-                                ino, path, dentry_path);
-                }
-
-                loc->path = dentry_path;
-                loc->name = strrchr (loc->path, '/');
-                if (loc->name)
-                        loc->name++;
-        } else {
-                loc->path = gf_strdup (path);
-                loc->name = strrchr (loc->path, '/');
-                if (loc->name)
-                        loc->name++;
-        }
-
-out:
-        return ret;
-}
-
-/*
- * stat_to_str - convert struct iatt to a ASCII string
- * @stbuf: struct iatt pointer
- *
- * not for external reference
- */
-char *
-stat_to_str (struct iatt *stbuf)
-{
-        int   ret = 0;
-        char *tmp_buf = NULL;
-
-        uint64_t dev = stbuf->ia_gen;
-        uint64_t ino = stbuf->ia_ino;
-        uint32_t mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
-        uint32_t nlink = stbuf->ia_nlink;
-        uint32_t uid = stbuf->ia_uid;
-        uint32_t gid = stbuf->ia_gid;
-        uint64_t rdev = stbuf->ia_rdev;
-        uint64_t size = stbuf->ia_size;
-        uint32_t blksize = stbuf->ia_blksize;
-        uint64_t blocks = stbuf->ia_blocks;
-        uint32_t atime = stbuf->ia_atime;
-        uint32_t mtime = stbuf->ia_mtime;
-        uint32_t ctime = stbuf->ia_ctime;
-
-        uint32_t atime_nsec = stbuf->ia_atime_nsec;
-        uint32_t mtime_nsec = stbuf->ia_mtime_nsec;
-        uint32_t ctime_nsec = stbuf->ia_ctime_nsec;
-
-
-        ret = gf_asprintf (&tmp_buf,
-                        GF_STAT_PRINT_FMT_STR,
-                        dev,
-                        ino,
-                        mode,
-                        nlink,
-                        uid,
-                        gid,
-                        rdev,
-                        size,
-                        blksize,
-                        blocks,
-                        atime,
-                        atime_nsec,
-                        mtime,
-                        mtime_nsec,
-                        ctime,
-                        ctime_nsec);
-        if (-1 == ret) {
-                gf_log ("protocol/server", GF_LOG_DEBUG,
-                        "asprintf failed while setting up stat buffer string");
-                return NULL;
-        }
-        return tmp_buf;
-}
-
 
 void
 server_loc_wipe (loc_t *loc)
@@ -216,7 +74,7 @@ server_resolve_wipe (server_resolve_t *resolve)
 
 
 void
-free_state (server_state_t *state)
+free_server_state (server_state_t *state)
 {
         if (state->trans) {
                 transport_unref (state->trans);
@@ -258,180 +116,6 @@ free_state (server_state_t *state)
 	GF_FREE (state);
 }
 
-
-call_frame_t *
-server_copy_frame (call_frame_t *frame)
-{
-        call_frame_t *new_frame = NULL;
-        server_state_t *state = NULL, *new_state = NULL;
-
-        state = frame->root->state;
-
-        new_frame = copy_frame (frame);
-
-	new_state = GF_CALLOC (1, sizeof (server_state_t),
-                               gf_server_mt_server_state_t);
-
-        new_frame->root->op    = frame->root->op;
-        new_frame->root->type  = frame->root->type;
-        new_frame->root->trans = state->trans;
-        new_frame->root->state = new_state;
-
-        new_state->bound_xl = state->bound_xl;
-        new_state->trans    = transport_ref (state->trans);
-        new_state->itable   = state->itable;
-
-        new_state->resolve.fd_no  = -1;
-        new_state->resolve2.fd_no = -1;
-
-        return new_frame;
-}
-
-
-int
-gf_add_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc, fd_t *fd, pid_t pid)
-{
-        int32_t         ret = -1;
-        struct _locker *new = NULL;
-        uint8_t         dir = 0;
-
-	new = GF_CALLOC (1, sizeof (struct _locker),
-                         gf_server_mt_locker);
-        if (new == NULL) {
-                gf_log ("server", GF_LOG_ERROR,
-                        "failed to allocate memory for \'struct _locker\'");
-                goto out;
-        }
-        INIT_LIST_HEAD (&new->lockers);
-
-        new->volume = gf_strdup (volume);
-
-        if (fd == NULL) {
-                loc_copy (&new->loc, loc);
-                dir = IA_ISDIR (new->loc.inode->ia_type);
-        } else {
-                new->fd = fd_ref (fd);
-                dir = IA_ISDIR (fd->inode->ia_type);
-        }
-
-        new->pid = pid;
-
-        LOCK (&table->lock);
-        {
-                if (dir)
-                        list_add_tail (&new->lockers, &table->dir_lockers);
-                else
-                        list_add_tail (&new->lockers, &table->file_lockers);
-        }
-        UNLOCK (&table->lock);
-out:
-        return ret;
-}
-
-
-int
-gf_del_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc, fd_t *fd, pid_t pid)
-{
-        struct _locker    *locker = NULL;
-        struct _locker    *tmp = NULL;
-        int32_t            ret = 0;
-        uint8_t            dir = 0;
-        struct list_head  *head = NULL;
-        struct list_head   del;
-
-        INIT_LIST_HEAD (&del);
-
-        if (fd) {
-                dir = IA_ISDIR (fd->inode->ia_type);
-        } else {
-                dir = IA_ISDIR (loc->inode->ia_type);
-        }
-
-        LOCK (&table->lock);
-        {
-                if (dir) {
-                        head = &table->dir_lockers;
-                } else {
-                        head = &table->file_lockers;
-                }
-
-                list_for_each_entry_safe (locker, tmp, head, lockers) {
-                        if (locker->fd && fd &&
-                            (locker->fd == fd) && (locker->pid == pid)
-                            && !strcmp (locker->volume, volume)) {
-                                list_move_tail (&locker->lockers, &del);
-                        } else if (locker->loc.inode &&
-                                   loc &&
-                                   (locker->loc.inode == loc->inode) &&
-                                   (locker->pid == pid)
-                                   && !strcmp (locker->volume, volume)) {
-                                list_move_tail (&locker->lockers, &del);
-                        }
-                }
-        }
-        UNLOCK (&table->lock);
-
-        tmp = NULL;
-        locker = NULL;
-
-        list_for_each_entry_safe (locker, tmp, &del, lockers) {
-                list_del_init (&locker->lockers);
-                if (locker->fd)
-                        fd_unref (locker->fd);
-                else
-                        loc_wipe (&locker->loc);
-
-                GF_FREE (locker->volume);
-		GF_FREE (locker);
-	}
-
-        return ret;
-}
-
-
-int
-gf_direntry_to_bin (dir_entry_t *head, char *buffer)
-{
-        dir_entry_t   *trav = NULL;
-        uint32_t       len = 0;
-        uint32_t       this_len = 0;
-        size_t         buflen = -1;
-        char          *ptr = NULL;
-        char          *tmp_buf = NULL;
-
-        trav = head->next;
-        while (trav) {
-                len += strlen (trav->name);
-                len += 1;
-                len += strlen (trav->link);
-                len += 1; /* for '\n' */
-                len += 256; // max possible for statbuf;
-                trav = trav->next;
-        }
-
-        ptr = buffer;
-        trav = head->next;
-        while (trav) {
-                tmp_buf = stat_to_str (&trav->buf);
-                /* tmp_buf will have \n before \0 */
-
-                this_len = sprintf (ptr, "%s/%s%s\n",
-                                    trav->name, tmp_buf,
-                                    trav->link);
-
-                GF_FREE (tmp_buf);
-                trav = trav->next;
-                ptr += this_len;
-        }
-
-        buflen = strlen (buffer);
-
-        return buflen;
-}
-
-
 static struct _lock_table *
 gf_lock_table_new (void)
 {
@@ -452,7 +136,22 @@ out:
 }
 
 
-int
+static int
+gf_server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno)
+{
+        server_state_t *state = NULL;
+
+        state = CALL_STATE(frame);
+
+        if (state)
+                free_state (state);
+        STACK_DESTROY (frame->root);
+        return 0;
+}
+
+
+static int
 do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                        call_frame_t *frame, struct _lock_table *ltable)
 {
@@ -497,14 +196,14 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                 tmp_frame->root->trans = conn;
 
                 if (locker->fd) {
-                        STACK_WIND (tmp_frame, server_nop_cbk,
+                        STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                     bound_xl,
                                     bound_xl->fops->finodelk,
                                     locker->volume,
                                     locker->fd, F_SETLK, &flock);
                         fd_unref (locker->fd);
                 } else {
-                        STACK_WIND (tmp_frame, server_nop_cbk,
+                        STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                     bound_xl,
                                     bound_xl->fops->inodelk,
                                     locker->volume,
@@ -527,7 +226,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                 tmp_frame->root->trans = conn;
 
                 if (locker->fd) {
-                        STACK_WIND (tmp_frame, server_nop_cbk,
+                        STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                     bound_xl,
                                     bound_xl->fops->fentrylk,
                                     locker->volume,
@@ -535,7 +234,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
                         fd_unref (locker->fd);
                 } else {
-                        STACK_WIND (tmp_frame, server_nop_cbk,
+                        STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                     bound_xl,
                                     bound_xl->fops->entrylk,
                                     locker->volume,
@@ -573,7 +272,7 @@ server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
 }
 
 
-int
+static int
 do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                fdentry_t *fdentries, int fd_count)
 {
@@ -611,7 +310,7 @@ out:
         return ret;
 }
 
-int
+static int
 do_connection_cleanup (xlator_t *this, server_connection_t *conn,
                        struct _lock_table *ltable, fdentry_t *fdentries, int fd_count)
 {
@@ -648,7 +347,7 @@ out:
 
 
 int
-server_connection_cleanup (xlator_t *this, server_connection_t *conn)
+gf_server_connection_cleanup (xlator_t *this, server_connection_t *conn)
 {
         char                do_cleanup = 0;
         struct _lock_table *ltable = NULL;
@@ -686,7 +385,7 @@ out:
 }
 
 
-int
+static int
 server_connection_destroy (xlator_t *this, server_connection_t *conn)
 {
         call_frame_t       *frame = NULL, *tmp_frame = NULL;
@@ -752,14 +451,14 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         tmp_frame->root->trans = conn;
 
                         if (locker->fd) {
-                                STACK_WIND (tmp_frame, server_nop_cbk,
+                                STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                             bound_xl,
                                             bound_xl->fops->finodelk,
                                             locker->volume,
                                             locker->fd, F_SETLK, &flock);
                                 fd_unref (locker->fd);
                         } else {
-                                STACK_WIND (tmp_frame, server_nop_cbk,
+                                STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                             bound_xl,
                                             bound_xl->fops->inodelk,
                                             locker->volume,
@@ -782,7 +481,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         tmp_frame->root->trans = conn;
 
                         if (locker->fd) {
-                                STACK_WIND (tmp_frame, server_nop_cbk,
+                                STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                             bound_xl,
                                             bound_xl->fops->fentrylk,
                                             locker->volume,
@@ -790,7 +489,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                             ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
                                 fd_unref (locker->fd);
                         } else {
-                                STACK_WIND (tmp_frame, server_nop_cbk,
+                                STACK_WIND (tmp_frame, gf_server_nop_cbk,
                                             bound_xl,
                                             bound_xl->fops->entrylk,
                                             locker->volume,
@@ -854,7 +553,7 @@ out:
 
 
 server_connection_t *
-server_connection_get (xlator_t *this, const char *id)
+gf_server_connection_get (xlator_t *this, const char *id)
 {
 	server_connection_t *conn = NULL;
 	server_connection_t *trav = NULL;
@@ -894,7 +593,7 @@ server_connection_get (xlator_t *this, const char *id)
 
 
 void
-server_connection_put (xlator_t *this, server_connection_t *conn)
+gf_server_connection_put (xlator_t *this, server_connection_t *conn)
 {
         server_conf_t       *conf = NULL;
         server_connection_t *todel = NULL;

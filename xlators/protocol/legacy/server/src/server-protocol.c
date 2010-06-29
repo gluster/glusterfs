@@ -44,7 +44,7 @@
 #include "md5.h"
 
 
-void
+static void
 print_caller (char *str, int size, call_frame_t *frame)
 {
         int              filled = 0;
@@ -63,7 +63,7 @@ print_caller (char *str, int size, call_frame_t *frame)
 }
 
 
-void
+static void
 server_print_resolve (char *str, int size, server_resolve_t *resolve)
 {
         int filled = 0;
@@ -98,7 +98,7 @@ server_print_resolve (char *str, int size, server_resolve_t *resolve)
 }
 
 
-void
+static void
 server_print_loc (char *str, int size, loc_t *loc)
 {
         int filled = 0;
@@ -125,7 +125,7 @@ server_print_loc (char *str, int size, loc_t *loc)
 }
 
 
-void
+static void
 server_print_params (char *str, int size, server_state_t *state)
 {
         int filled = 0;
@@ -172,7 +172,7 @@ server_print_params (char *str, int size, server_state_t *state)
 }
 
 
-int
+static int
 server_resolve_is_empty (server_resolve_t *resolve)
 {
         if (resolve->fd_no != -1)
@@ -196,54 +196,8 @@ server_resolve_is_empty (server_resolve_t *resolve)
         return 1;
 }
 
-
 void
-server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
-{
-        server_conf_t   *conf = NULL;
-        server_state_t  *state = NULL;
-        xlator_t        *this = NULL;
-        char             caller[512];
-        char             fdstr[32];
-        char            *op = "UNKNOWN";
-
-        this = frame->this;
-        conf = this->private;
-
-        if (!conf->trace)
-                return;
-
-        state = CALL_STATE (frame);
-
-        print_caller (caller, 256, frame);
-
-        switch (frame->root->type) {
-        case GF_OP_TYPE_FOP_REQUEST:
-        case GF_OP_TYPE_FOP_REPLY:
-                op = gf_fop_list[frame->root->op];
-                break;
-        case GF_OP_TYPE_MOP_REQUEST:
-        case GF_OP_TYPE_MOP_REPLY:
-                op = gf_mop_list[frame->root->op];
-                break;
-        case GF_OP_TYPE_CBK_REQUEST:
-        case GF_OP_TYPE_CBK_REPLY:
-                op = gf_cbk_list[frame->root->op];
-                break;
-        }
-
-        fdstr[0] = '\0';
-        if (state->fd)
-                snprintf (fdstr, 32, " fd=%p", state->fd);
-
-        gf_log (this->name, GF_LOG_NORMAL,
-                "%s%s => (%d, %d)%s",
-                op, caller, op_ret, op_errno, fdstr);
-}
-
-
-void
-server_print_request (call_frame_t *frame)
+gf_server_print_request (call_frame_t *frame)
 {
         server_conf_t   *conf = NULL;
         xlator_t        *this = NULL;
@@ -307,6 +261,52 @@ server_print_request (call_frame_t *frame)
 
 
 static void
+server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
+{
+        server_conf_t   *conf = NULL;
+        server_state_t  *state = NULL;
+        xlator_t        *this = NULL;
+        char             caller[512];
+        char             fdstr[32];
+        char            *op = "UNKNOWN";
+
+        this = frame->this;
+        conf = this->private;
+
+        if (!conf->trace)
+                return;
+
+        state = CALL_STATE (frame);
+
+        print_caller (caller, 256, frame);
+
+        switch (frame->root->type) {
+        case GF_OP_TYPE_FOP_REQUEST:
+        case GF_OP_TYPE_FOP_REPLY:
+                op = gf_fop_list[frame->root->op];
+                break;
+        case GF_OP_TYPE_MOP_REQUEST:
+        case GF_OP_TYPE_MOP_REPLY:
+                op = gf_mop_list[frame->root->op];
+                break;
+        case GF_OP_TYPE_CBK_REQUEST:
+        case GF_OP_TYPE_CBK_REPLY:
+                op = gf_cbk_list[frame->root->op];
+                break;
+        }
+
+        fdstr[0] = '\0';
+        if (state->fd)
+                snprintf (fdstr, 32, " fd=%p", state->fd);
+
+        gf_log (this->name, GF_LOG_NORMAL,
+                "%s%s => (%d, %d)%s",
+                op, caller, op_ret, op_errno, fdstr);
+}
+
+
+
+static void
 protocol_server_reply (call_frame_t *frame, int type, int op,
                        gf_hdr_common_t *hdr, size_t hdrlen,
                        struct iovec *vector, int count,
@@ -347,6 +347,109 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
 }
 
 
+static int
+gf_add_locker (struct _lock_table *table, const char *volume,
+               loc_t *loc, fd_t *fd, pid_t pid)
+{
+        int32_t         ret = -1;
+        struct _locker *new = NULL;
+        uint8_t         dir = 0;
+
+	new = GF_CALLOC (1, sizeof (struct _locker),
+                         gf_server_mt_locker);
+        if (new == NULL) {
+                gf_log ("server", GF_LOG_ERROR,
+                        "failed to allocate memory for \'struct _locker\'");
+                goto out;
+        }
+        INIT_LIST_HEAD (&new->lockers);
+
+        new->volume = gf_strdup (volume);
+
+        if (fd == NULL) {
+                loc_copy (&new->loc, loc);
+                dir = IA_ISDIR (new->loc.inode->ia_type);
+        } else {
+                new->fd = fd_ref (fd);
+                dir = IA_ISDIR (fd->inode->ia_type);
+        }
+
+        new->pid = pid;
+
+        LOCK (&table->lock);
+        {
+                if (dir)
+                        list_add_tail (&new->lockers, &table->dir_lockers);
+                else
+                        list_add_tail (&new->lockers, &table->file_lockers);
+        }
+        UNLOCK (&table->lock);
+out:
+        return ret;
+}
+
+
+static int
+gf_del_locker (struct _lock_table *table, const char *volume,
+               loc_t *loc, fd_t *fd, pid_t pid)
+{
+        struct _locker    *locker = NULL;
+        struct _locker    *tmp = NULL;
+        int32_t            ret = 0;
+        uint8_t            dir = 0;
+        struct list_head  *head = NULL;
+        struct list_head   del;
+
+        INIT_LIST_HEAD (&del);
+
+        if (fd) {
+                dir = IA_ISDIR (fd->inode->ia_type);
+        } else {
+                dir = IA_ISDIR (loc->inode->ia_type);
+        }
+
+        LOCK (&table->lock);
+        {
+                if (dir) {
+                        head = &table->dir_lockers;
+                } else {
+                        head = &table->file_lockers;
+                }
+
+                list_for_each_entry_safe (locker, tmp, head, lockers) {
+                        if (locker->fd && fd &&
+                            (locker->fd == fd) && (locker->pid == pid)
+                            && !strcmp (locker->volume, volume)) {
+                                list_move_tail (&locker->lockers, &del);
+                        } else if (locker->loc.inode &&
+                                   loc &&
+                                   (locker->loc.inode == loc->inode) &&
+                                   (locker->pid == pid)
+                                   && !strcmp (locker->volume, volume)) {
+                                list_move_tail (&locker->lockers, &del);
+                        }
+                }
+        }
+        UNLOCK (&table->lock);
+
+        tmp = NULL;
+        locker = NULL;
+
+        list_for_each_entry_safe (locker, tmp, &del, lockers) {
+                list_del_init (&locker->lockers);
+                if (locker->fd)
+                        fd_unref (locker->fd);
+                else
+                        loc_wipe (&locker->loc);
+
+                GF_FREE (locker->volume);
+		GF_FREE (locker);
+	}
+
+        return ret;
+}
+
+
 /*
  * server_lk_cbk - lk callback for server protocol
  * @frame: call frame
@@ -358,7 +461,7 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
  *
  * not for external reference
  */
-int
+static int
 server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
@@ -395,7 +498,7 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
@@ -440,7 +543,7 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno)
 {
@@ -498,7 +601,7 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
@@ -543,7 +646,7 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno)
 {
@@ -597,7 +700,7 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno)
 {
@@ -633,7 +736,7 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                   struct iatt *postparent)
@@ -693,7 +796,7 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *stbuf, struct iatt *preparent,
@@ -749,7 +852,7 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
                   inode_t *inode, struct iatt *stbuf, struct iatt *preparent,
@@ -804,7 +907,7 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno)
 {
@@ -850,7 +953,7 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
@@ -902,7 +1005,7 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno)
 {
@@ -937,7 +1040,7 @@ server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
@@ -992,7 +1095,7 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct statvfs *buf)
 {
@@ -1032,7 +1135,7 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno)
 {
@@ -1069,7 +1172,7 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
@@ -1123,7 +1226,7 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
@@ -1187,7 +1290,7 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno)
 {
@@ -1214,7 +1317,7 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno)
 {
@@ -1251,7 +1354,7 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
                    struct iatt *preoldparent, struct iatt *postoldparent,
@@ -1314,7 +1417,7 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent)
@@ -1379,7 +1482,7 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *stbuf, struct iatt *preparent,
@@ -1436,7 +1539,7 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *stbuf, struct iatt *preparent,
@@ -1505,7 +1608,7 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf)
@@ -1554,7 +1657,7 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
 {
@@ -1601,7 +1704,7 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf)
@@ -1650,7 +1753,7 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno)
 {
@@ -1693,7 +1796,7 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf)
@@ -1743,7 +1846,7 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
@@ -1777,7 +1880,7 @@ server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  * not for external reference
  */
 
-int
+static int
 server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf)
@@ -1828,7 +1931,7 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno,
                   struct iovec *vector, int32_t count,
@@ -1878,7 +1981,7 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
@@ -1936,7 +2039,7 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    fd_t *fd, inode_t *inode, struct iatt *stbuf,
@@ -2034,7 +2137,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, const char *buf,
                      struct iatt *sbuf)
@@ -2088,7 +2191,7 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *stbuf)
 {
@@ -2136,7 +2239,7 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  * not for external reference
  */
 
-int
+static int
 server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *statpre, struct iatt *statpost)
@@ -2185,7 +2288,7 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *statpre, struct iatt *statpost)
@@ -2237,7 +2340,7 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  *
  * not for external reference
  */
-int
+static int
 server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno,
                    inode_t *inode, struct iatt *stbuf, dict_t *dict,
@@ -2348,7 +2451,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
@@ -2411,7 +2514,7 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
@@ -2476,7 +2579,7 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+static int
 server_lookup_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t    *state = NULL;
@@ -2504,7 +2607,7 @@ err:
 }
 
 
-int
+static int
 server_lookup (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -2563,7 +2666,7 @@ server_lookup (call_frame_t *frame, xlator_t *bound_xl,
                 state->dict = xattr_req;
         }
 
-        resolve_and_resume (frame, server_lookup_resume);
+        gf_resolve_and_resume (frame, server_lookup_resume);
 
         return 0;
 err:
@@ -2581,7 +2684,7 @@ err:
  *
  * not for external reference
  */
-int
+static int
 server_forget (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -2591,7 +2694,7 @@ server_forget (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 
-int
+static int
 server_stat_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -2611,7 +2714,7 @@ err:
 }
 
 
-int
+static int
 server_stat (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
@@ -2628,13 +2731,13 @@ server_stat (call_frame_t *frame, xlator_t *bound_xl,
                 state->resolve.path  = gf_strdup (req->path);
         }
 
-        resolve_and_resume (frame, server_stat_resume);
+        gf_resolve_and_resume (frame, server_stat_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_setattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -2656,7 +2759,7 @@ err:
 }
 
 
-int
+static int
 server_setattr (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -2675,13 +2778,13 @@ server_setattr (call_frame_t *frame, xlator_t *bound_xl,
         gf_stat_to_iatt (&req->stbuf, &state->stbuf);
         state->valid = ntoh32 (req->valid);
 
-        resolve_and_resume (frame, server_setattr_resume);
+        gf_resolve_and_resume (frame, server_setattr_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_fsetattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -2703,7 +2806,7 @@ err:
 }
 
 
-int
+static int
 server_fsetattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -2721,13 +2824,13 @@ server_fsetattr (call_frame_t *frame, xlator_t *bound_xl,
         gf_stat_to_iatt (&req->stbuf, &state->stbuf);
         state->valid = ntoh32 (req->valid);
 
-        resolve_and_resume (frame, server_fsetattr_resume);
+        gf_resolve_and_resume (frame, server_fsetattr_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_readlink_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -2748,7 +2851,7 @@ err:
 }
 
 
-int
+static int
 server_readlink (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -2766,13 +2869,13 @@ server_readlink (call_frame_t *frame, xlator_t *bound_xl,
 
         state->size  = ntoh32 (req->size);
 
-        resolve_and_resume (frame, server_readlink_resume);
+        gf_resolve_and_resume (frame, server_readlink_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_create_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -2800,7 +2903,7 @@ err:
 }
 
 
-int
+static int
 server_create (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -2822,13 +2925,13 @@ server_create (call_frame_t *frame, xlator_t *bound_xl,
         state->mode           = ntoh32 (req->mode);
         state->flags          = gf_flags_to_flags (ntoh32 (req->flags));
 
-        resolve_and_resume (frame, server_create_resume);
+        gf_resolve_and_resume (frame, server_create_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_open_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t  *state = NULL;
@@ -2853,7 +2956,7 @@ err:
 }
 
 
-int
+static int
 server_open (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
@@ -2871,13 +2974,13 @@ server_open (call_frame_t *frame, xlator_t *bound_xl,
 
         state->flags = gf_flags_to_flags (ntoh32 (req->flags));
 
-        resolve_and_resume (frame, server_open_resume);
+        gf_resolve_and_resume (frame, server_open_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_readv_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t    *state = NULL;
@@ -2899,7 +3002,7 @@ err:
 }
 
 
-int
+static int
 server_readv (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
@@ -2915,13 +3018,13 @@ server_readv (call_frame_t *frame, xlator_t *bound_xl,
         state->size           = ntoh32 (req->size);
         state->offset         = ntoh64 (req->offset);
 
-        resolve_and_resume (frame, server_readv_resume);
+        gf_resolve_and_resume (frame, server_readv_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_writev_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t   *state = NULL;
@@ -2950,7 +3053,7 @@ err:
 }
 
 
-int
+static int
 server_writev (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -2975,13 +3078,13 @@ server_writev (call_frame_t *frame, xlator_t *bound_xl,
                 state->iobref = iobref;
         }
 
-        resolve_and_resume (frame, server_writev_resume);
+        gf_resolve_and_resume (frame, server_writev_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_release (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -3004,7 +3107,7 @@ server_release (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 
-int
+static int
 server_fsync_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t    *state = NULL;
@@ -3026,7 +3129,7 @@ err:
 }
 
 
-int
+static int
 server_fsync (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
@@ -3041,14 +3144,14 @@ server_fsync (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.fd_no = ntoh64 (req->fd);
         state->flags         = ntoh32 (req->data);
 
-        resolve_and_resume (frame, server_fsync_resume);
+        gf_resolve_and_resume (frame, server_fsync_resume);
 
         return 0;
 }
 
 
 
-int
+static int
 server_flush_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t    *state = NULL;
@@ -3069,7 +3172,7 @@ err:
 }
 
 
-int
+static int
 server_flush (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
@@ -3083,14 +3186,14 @@ server_flush (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = ntoh64 (req->fd);
 
-        resolve_and_resume (frame, server_flush_resume);
+        gf_resolve_and_resume (frame, server_flush_resume);
 
         return 0;
 }
 
 
 
-int
+static int
 server_ftruncate_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t    *state = NULL;
@@ -3112,7 +3215,7 @@ err:
 }
 
 
-int
+static int
 server_ftruncate (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
@@ -3127,13 +3230,13 @@ server_ftruncate (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.fd_no  = ntoh64 (req->fd);
         state->offset         = ntoh64 (req->offset);
 
-        resolve_and_resume (frame, server_ftruncate_resume);
+        gf_resolve_and_resume (frame, server_ftruncate_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_fstat_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t     *state = NULL;
@@ -3154,7 +3257,7 @@ err:
 }
 
 
-int
+static int
 server_fstat (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
@@ -3168,13 +3271,13 @@ server_fstat (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.fd_no   = ntoh64 (req->fd);
 
-        resolve_and_resume (frame, server_fstat_resume);
+        gf_resolve_and_resume (frame, server_fstat_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_truncate_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3196,7 +3299,7 @@ err:
 
 
 
-int
+static int
 server_truncate (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -3213,13 +3316,13 @@ server_truncate (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.gen   = ntoh64 (req->gen);
         state->offset        = ntoh64 (req->offset);
 
-        resolve_and_resume (frame, server_truncate_resume);
+        gf_resolve_and_resume (frame, server_truncate_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_unlink_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3240,7 +3343,7 @@ err:
 }
 
 
-int
+static int
 server_unlink (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -3260,13 +3363,13 @@ server_unlink (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.path   = gf_strdup (req->path);
         state->resolve.bname  = gf_strdup (req->bname + pathlen);
 
-        resolve_and_resume (frame, server_unlink_resume);
+        gf_resolve_and_resume (frame, server_unlink_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_setxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3288,7 +3391,7 @@ err:
 }
 
 
-int
+static int
 server_setxattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -3331,7 +3434,7 @@ server_setxattr (call_frame_t *frame, xlator_t *bound_xl,
                 state->dict = dict;
         }
 
-        resolve_and_resume (frame, server_setxattr_resume);
+        gf_resolve_and_resume (frame, server_setxattr_resume);
 
         return 0;
 err:
@@ -3345,7 +3448,7 @@ err:
 }
 
 
-int
+static int
 server_fsetxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3367,7 +3470,7 @@ err:
 }
 
 
-int
+static int
 server_fsetxattr (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
@@ -3408,7 +3511,7 @@ server_fsetxattr (call_frame_t *frame, xlator_t *bound_xl,
                 state->dict = dict;
         }
 
-        resolve_and_resume (frame, server_fsetxattr_resume);
+        gf_resolve_and_resume (frame, server_fsetxattr_resume);
 
         return 0;
 err:
@@ -3421,7 +3524,7 @@ err:
 }
 
 
-int
+static int
 server_fxattrop_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3442,7 +3545,7 @@ err:
 }
 
 
-int
+static int
 server_fxattrop (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -3486,7 +3589,7 @@ server_fxattrop (call_frame_t *frame, xlator_t *bound_xl,
                 dict = NULL;
         }
 
-        resolve_and_resume (frame, server_fxattrop_resume);
+        gf_resolve_and_resume (frame, server_fxattrop_resume);
 
         return 0;
 
@@ -3499,7 +3602,7 @@ fail:
 }
 
 
-int
+static int
 server_xattrop_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3520,7 +3623,7 @@ err:
 }
 
 
-int
+static int
 server_xattrop (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -3563,7 +3666,7 @@ server_xattrop (call_frame_t *frame, xlator_t *bound_xl,
                 dict = NULL;
         }
 
-        resolve_and_resume (frame, server_xattrop_resume);
+        gf_resolve_and_resume (frame, server_xattrop_resume);
 
         return 0;
 
@@ -3576,7 +3679,7 @@ fail:
 }
 
 
-int
+static int
 server_getxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3597,7 +3700,7 @@ err:
 }
 
 
-int
+static int
 server_getxattr (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -3621,13 +3724,13 @@ server_getxattr (call_frame_t *frame, xlator_t *bound_xl,
         if (namelen)
                 state->name = gf_strdup (req->name + pathlen);
 
-        resolve_and_resume (frame, server_getxattr_resume);
+        gf_resolve_and_resume (frame, server_getxattr_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_fgetxattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3648,7 +3751,7 @@ err:
 }
 
 
-int
+static int
 server_fgetxattr (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
@@ -3667,13 +3770,13 @@ server_fgetxattr (call_frame_t *frame, xlator_t *bound_xl,
         if (namelen)
                 state->name = gf_strdup (req->name);
 
-        resolve_and_resume (frame, server_fgetxattr_resume);
+        gf_resolve_and_resume (frame, server_fgetxattr_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_removexattr_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -3694,7 +3797,7 @@ err:
 }
 
 
-int
+static int
 server_removexattr (call_frame_t *frame, xlator_t *bound_xl,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
@@ -3713,13 +3816,13 @@ server_removexattr (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.gen    = ntoh64 (req->gen);
         state->name           = gf_strdup (req->name + pathlen);
 
-        resolve_and_resume (frame, server_removexattr_resume);
+        gf_resolve_and_resume (frame, server_removexattr_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_statfs_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t      *state = NULL;
@@ -3741,7 +3844,7 @@ err:
 }
 
 
-int
+static int
 server_statfs (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -3760,13 +3863,13 @@ server_statfs (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.gen    = ntoh64 (req->gen);
         state->resolve.path   = gf_strdup (req->path);
 
-        resolve_and_resume (frame, server_statfs_resume);
+        gf_resolve_and_resume (frame, server_statfs_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_opendir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t  *state = NULL;
@@ -3789,7 +3892,7 @@ err:
 }
 
 
-int
+static int
 server_opendir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -3805,13 +3908,13 @@ server_opendir (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.ino    = ntoh64 (req->ino);
         state->resolve.gen    = ntoh64 (req->gen);
 
-        resolve_and_resume (frame, server_opendir_resume);
+        gf_resolve_and_resume (frame, server_opendir_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
                    gf_hdr_common_t *hdr, size_t hdrlen,
                    struct iobuf *iobuf)
@@ -3843,7 +3946,7 @@ server_releasedir (call_frame_t *frame, xlator_t *bound_xl,
  *
  * not for external reference
  */
-int
+static int
 server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
@@ -3885,7 +3988,7 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-int
+static int
 server_readdirp_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t  *state = NULL;
@@ -3914,7 +4017,7 @@ err:
  *
  * not for external reference
  */
-int
+static int
 server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
                  size_t hdrlen, struct iobuf *iobuf)
 {
@@ -3932,13 +4035,13 @@ server_readdirp (call_frame_t *frame, xlator_t *bound_xl, gf_hdr_common_t *hdr,
         state->size   = ntoh32 (req->size);
         state->offset = ntoh64 (req->offset);
 
-        resolve_and_resume (frame, server_readdirp_resume);
+        gf_resolve_and_resume (frame, server_readdirp_resume);
 
         return 0;
 }
 
 
-int
+static int
  server_readdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t  *state = NULL;
@@ -3967,7 +4070,7 @@ err:
  *
  * not for external reference
  */
-int
+static int
 server_readdir (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -3986,12 +4089,12 @@ server_readdir (call_frame_t *frame, xlator_t *bound_xl,
         state->size   = ntoh32 (req->size);
         state->offset = ntoh64 (req->offset);
 
-        resolve_and_resume (frame, server_readdir_resume);
+        gf_resolve_and_resume (frame, server_readdir_resume);
 
         return 0;
 }
 
-int
+static int
 server_fsyncdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4022,7 +4125,7 @@ err:
  *
  * not for external reference
  */
-int
+static int
 server_fsyncdir (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -4040,13 +4143,13 @@ server_fsyncdir (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.fd_no = ntoh64 (req->fd);
         state->flags = ntoh32 (req->data);
 
-        resolve_and_resume (frame, server_fsyncdir_resume);
+        gf_resolve_and_resume (frame, server_fsyncdir_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_mknod_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4071,7 +4174,7 @@ err:
 
 
 
-int
+static int
 server_mknod (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
@@ -4093,13 +4196,13 @@ server_mknod (call_frame_t *frame, xlator_t *bound_xl,
         state->mode = ntoh32 (req->mode);
         state->dev  = ntoh64 (req->dev);
 
-        resolve_and_resume (frame, server_mknod_resume);
+        gf_resolve_and_resume (frame, server_mknod_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_mkdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 
 {
@@ -4124,7 +4227,7 @@ err:
 }
 
 
-int
+static int
 server_mkdir (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
@@ -4145,13 +4248,13 @@ server_mkdir (call_frame_t *frame, xlator_t *bound_xl,
 
         state->mode = ntoh32 (req->mode);
 
-        resolve_and_resume (frame, server_mkdir_resume);
+        gf_resolve_and_resume (frame, server_mkdir_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_rmdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4170,7 +4273,7 @@ err:
         return 0;
 }
 
-int
+static int
 server_rmdir (call_frame_t *frame, xlator_t *bound_xl,
               gf_hdr_common_t *hdr, size_t hdrlen,
               struct iobuf *iobuf)
@@ -4189,13 +4292,13 @@ server_rmdir (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.path    = gf_strdup (req->path);
         state->resolve.bname   = gf_strdup (req->bname + pathlen);
 
-        resolve_and_resume (frame, server_rmdir_resume);
+        gf_resolve_and_resume (frame, server_rmdir_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_inodelk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4216,7 +4319,7 @@ err:
 }
 
 
-int
+static int
 server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -4267,12 +4370,12 @@ server_inodelk (call_frame_t *frame, xlator_t *bound_xl,
                 break;
         }
 
-        resolve_and_resume (frame, server_inodelk_resume);
+        gf_resolve_and_resume (frame, server_inodelk_resume);
 
         return 0;
 }
 
-int
+static int
 server_finodelk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4295,7 +4398,7 @@ err:
         return 0;
 }
 
-int
+static int
 server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -4342,13 +4445,13 @@ server_finodelk (call_frame_t *frame, xlator_t *bound_xl,
                 break;
         }
 
-        resolve_and_resume (frame, server_finodelk_resume);
+        gf_resolve_and_resume (frame, server_finodelk_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_entrylk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4370,7 +4473,7 @@ err:
 }
 
 
-int
+static int
 server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -4399,12 +4502,12 @@ server_entrylk (call_frame_t *frame, xlator_t *bound_xl,
         state->cmd            = ntoh32 (req->cmd);
         state->type           = ntoh32 (req->type);
 
-        resolve_and_resume (frame, server_entrylk_resume);
+        gf_resolve_and_resume (frame, server_entrylk_resume);
 
         return 0;
 }
 
-int
+static int
 server_fentrylk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4427,7 +4530,7 @@ err:
         return 0;
 }
 
-int
+static int
 server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -4454,13 +4557,13 @@ server_fentrylk (call_frame_t *frame, xlator_t *bound_xl,
         state->volume = gf_strdup (req->volume + namelen);
 
 
-        resolve_and_resume (frame, server_finodelk_resume);
+        gf_resolve_and_resume (frame, server_fentrylk_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_access_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4481,7 +4584,7 @@ err:
 }
 
 
-int
+static int
 server_access (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -4499,13 +4602,13 @@ server_access (call_frame_t *frame, xlator_t *bound_xl,
 
         state->mask  = ntoh32 (req->mask);
 
-        resolve_and_resume (frame, server_access_resume);
+        gf_resolve_and_resume (frame, server_access_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_symlink_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4530,7 +4633,7 @@ err:
 
 
 
-int
+static int
 server_symlink (call_frame_t *frame, xlator_t *bound_xl,
                 gf_hdr_common_t *hdr, size_t hdrlen,
                 struct iobuf *iobuf)
@@ -4552,13 +4655,13 @@ server_symlink (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.bname  = gf_strdup (req->bname + pathlen);
         state->name           = gf_strdup (req->linkname + pathlen + baselen);
 
-        resolve_and_resume (frame, server_symlink_resume);
+        gf_resolve_and_resume (frame, server_symlink_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_link_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4592,7 +4695,7 @@ err:
 }
 
 
-int
+static int
 server_link (call_frame_t *frame, xlator_t *this,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
@@ -4620,13 +4723,13 @@ server_link (call_frame_t *frame, xlator_t *this,
         state->resolve2.par    = ntoh64 (req->newpar);
         state->resolve2.gen    = ntoh64 (req->newgen);
 
-        resolve_and_resume (frame, server_link_resume);
+        gf_resolve_and_resume (frame, server_link_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_rename_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4658,7 +4761,7 @@ err:
 }
 
 
-int
+static int
 server_rename (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -4692,12 +4795,12 @@ server_rename (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve2.par   = ntoh64 (req->newpar);
         state->resolve2.gen   = ntoh64 (req->newgen);
 
-        resolve_and_resume (frame, server_rename_resume);
+        gf_resolve_and_resume (frame, server_rename_resume);
 
         return 0;
 }
 
-int
+static int
 server_lk_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -4731,7 +4834,7 @@ err:
  * not for external reference
  */
 
-int
+static int
 server_lk (call_frame_t *frame, xlator_t *bound_xl,
            gf_hdr_common_t *hdr, size_t hdrlen,
            struct iobuf *iobuf)
@@ -4781,13 +4884,13 @@ server_lk (call_frame_t *frame, xlator_t *bound_xl,
         }
 
 
-        resolve_and_resume (frame, server_lk_resume);
+        gf_resolve_and_resume (frame, server_lk_resume);
 
         return 0;
 }
 
 /* xxx_MOPS */
-int
+static int
 _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
 {
         server_conf_t       *conf         = NULL;
@@ -4942,7 +5045,7 @@ out:
         return ret;
 }
 
-int
+static int
 _validate_volfile_checksum (xlator_t *this, char *key,
                             uint32_t checksum)
 {
@@ -5008,7 +5111,7 @@ out:
  * @params:
  *
  */
-int
+static int
 mop_getspec (call_frame_t *frame, xlator_t *bound_xl,
              gf_hdr_common_t *hdr, size_t hdrlen,
              struct iobuf *iobuf)
@@ -5090,7 +5193,7 @@ fail:
 }
 
 
-int
+static int
 server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      uint8_t *fchecksum, uint8_t *dchecksum)
@@ -5122,7 +5225,7 @@ server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-int
+static int
 server_checksum_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -5150,7 +5253,7 @@ err:
         return 0;
 }
 
-int
+static int
 server_checksum (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -5167,13 +5270,13 @@ server_checksum (call_frame_t *frame, xlator_t *bound_xl,
         state->resolve.ino = ntoh64 (req->ino);
         state->flags = ntoh32 (req->flag);
 
-        resolve_and_resume (frame, server_checksum_resume);
+        gf_resolve_and_resume (frame, server_checksum_resume);
 
         return 0;
 }
 
 
-int
+static int
 server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
                       uint32_t weak_checksum, uint8_t *strong_checksum)
@@ -5206,7 +5309,7 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-int
+static int
 server_rchecksum_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state = NULL;
@@ -5234,7 +5337,7 @@ err:
 
 }
 
-int
+static int
 server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
                   gf_hdr_common_t *hdr, size_t hdrlen,
                   struct iobuf *iobuf)
@@ -5254,7 +5357,7 @@ server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
         state->offset = ntoh64 (req->offset);
         state->size   = ntoh32 (req->len);
 
-        resolve_and_resume (frame, server_rchecksum_resume);
+        gf_resolve_and_resume (frame, server_rchecksum_resume);
 
         return 0;
 }
@@ -5267,7 +5370,7 @@ server_rchecksum (call_frame_t *frame, xlator_t *bound_xl,
  * @params: parameter dictionary
  *
  */
-int
+static int
 mop_getvolume (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *hdr, size_t hdrlen,
                struct iobuf *iobuf)
@@ -5280,7 +5383,7 @@ struct __get_xl_struct {
         xlator_t *reply;
 };
 
-void __check_and_set (xlator_t *each, void *data)
+static void __check_and_set (xlator_t *each, void *data)
 {
         if (!strcmp (each->name,
                      ((struct __get_xl_struct *) data)->name))
@@ -5308,7 +5411,7 @@ get_xlator_by_name (xlator_t *some_xl, const char *name)
  * @params: parameter dictionary
  *
  */
-int
+static int
 mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
                gf_hdr_common_t *req_hdr, size_t req_hdrlen,
                struct iobuf *iobuf)
@@ -5379,7 +5482,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
         }
 
 
-        conn = server_connection_get (frame->this, process_uuid);
+        conn = gf_server_connection_get (frame->this, process_uuid);
         if (trans->xl_private != conn)
                 trans->xl_private = conn;
 
@@ -5590,7 +5693,7 @@ fail:
 }
 
 
-int
+static int
 mop_ping (call_frame_t *frame, xlator_t *bound_xl,
           gf_hdr_common_t *hdr, size_t hdrlen,
           struct iobuf *iobuf)
@@ -5611,7 +5714,7 @@ mop_ping (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 
-int
+static int
 mop_log (call_frame_t *frame, xlator_t *bound_xl,
          gf_hdr_common_t *hdr, size_t hdrlen,
          struct iobuf *iobuf)
@@ -5637,7 +5740,7 @@ mop_log (call_frame_t *frame, xlator_t *bound_xl,
 
 
 /* ENOSYS operations (for backword compatibility) */
-int
+static int
 server_setdents (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -5661,7 +5764,7 @@ server_setdents (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 /* */
-int
+static int
 server_getdents (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
@@ -5685,7 +5788,7 @@ server_getdents (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 /* */
-int
+static int
 server_lock_notify (call_frame_t *frame, xlator_t *bound_xl,
                     gf_hdr_common_t *hdr, size_t hdrlen,
                     struct iobuf *iobuf)
@@ -5709,7 +5812,7 @@ server_lock_notify (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 /* */
-int
+static int
 server_lock_fnotify (call_frame_t *frame, xlator_t *bound_xl,
                      gf_hdr_common_t *hdr, size_t hdrlen,
                      struct iobuf *iobuf)
@@ -5733,7 +5836,7 @@ server_lock_fnotify (call_frame_t *frame, xlator_t *bound_xl,
 }
 
 
-int
+static int
 mop_stats (call_frame_t *frame, xlator_t *bound_xl,
            gf_hdr_common_t *hdr, size_t hdrlen,
            struct iobuf *iobuf)
@@ -5756,37 +5859,6 @@ mop_stats (call_frame_t *frame, xlator_t *bound_xl,
         return 0;
 }
 
-/*
- * unknown_op_cbk - This function is called when a opcode for unknown
- *                  type is called. Helps to keep the backward/forward
- *                  compatiblity
- * @frame: call frame
- * @type:
- * @opcode:
- *
- */
-
-int
-unknown_op_cbk (call_frame_t *frame, int32_t type, int32_t opcode)
-{
-        gf_hdr_common_t    *hdr = NULL;
-        gf_fop_flush_rsp_t *rsp = NULL;
-        size_t              hdrlen = 0;
-        int32_t             gf_errno = 0;
-
-        hdrlen = gf_hdr_len (rsp, 0);
-        hdr    = gf_hdr_new (rsp, 0);
-        rsp    = gf_param (hdr);
-
-        hdr->rsp.op_ret = hton32 (-1);
-        gf_errno        = gf_errno_to_error (ENOSYS);
-        hdr->rsp.op_errno = hton32 (gf_errno);
-
-        protocol_server_reply (frame, type, opcode,
-                               hdr, hdrlen, NULL, 0, NULL);
-
-        return 0;
-}
 
 /*
  * get_frame_for_transport - get call frame for specified transport object
@@ -5835,7 +5907,7 @@ out:
 }
 
 
-int
+static int
 server_decode_groups (call_frame_t *frame, gf_hdr_common_t *hdr)
 {
         int     i = 0;
@@ -5969,7 +6041,7 @@ static gf_op_t gf_cbks[] = {
         [GF_CBK_RELEASEDIR] = server_releasedir
 };
 
-int
+static int
 protocol_server_interpret (xlator_t *this, transport_t *trans,
                            char *hdr_p, size_t hdrlen, struct iobuf *iobuf)
 {
@@ -6048,35 +6120,11 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
 
 
 /*
- * server_nop_cbk - nop callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-int
-server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno)
-{
-        server_state_t *state = NULL;
-
-        state = CALL_STATE(frame);
-
-        if (state)
-                free_state (state);
-        STACK_DESTROY (frame->root);
-        return 0;
-}
-
-/*
  * server_fd - fdtable dump function for server protocol
  * @this:
  *
  */
-int
+static int
 server_fd (xlator_t *this)
 {
          server_conf_t        *conf = NULL;
@@ -6134,13 +6182,13 @@ server_fd (xlator_t *this)
         return 0;
  }
 
-int
+static int
 server_priv (xlator_t *this)
 {
         return 0;
 }
 
-int
+static int
 server_inode (xlator_t *this)
 {
          server_conf_t        *conf = NULL;
@@ -6220,7 +6268,7 @@ out:
 }
 
 
-int
+static int
 validate_auth_options (xlator_t *this, dict_t *dict)
 {
         int            ret = -1;
@@ -6419,7 +6467,7 @@ out:
 
 
 
-int
+static int
 protocol_server_pollin (xlator_t *this, transport_t *trans)
 {
         char                *hdr = NULL;
@@ -6506,7 +6554,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                          * FIXME: shouldn't we check for return value?
                          * what should be done if cleanup fails?
                          */
-                        server_connection_cleanup (this, trans->xl_private);
+                        gf_server_connection_cleanup (this, trans->xl_private);
                 }
         }
         break;
@@ -6514,7 +6562,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_TRANSPORT_CLEANUP:
         {
                 if (trans->xl_private) {
-                        server_connection_put (this, trans->xl_private);
+                        gf_server_connection_put (this, trans->xl_private);
                 } else {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "transport (%s) cleaned up even before "

@@ -2135,7 +2135,7 @@ tcp_connect_finish (transport_t *this)
                                 goto unlock;
                         }
 
-                        get_transport_identifiers (this);
+                        gf_ibverbs_get_transport_identifiers (this);
                         priv->tcp_connected = 1;
                 }
 
@@ -2249,8 +2249,9 @@ ib_verbs_connect (struct transport *this)
                 }
         }
 
-        ret = ibverbs_client_get_remote_sockaddr (this, (struct sockaddr *)&sockaddr, 
-                                                  &sockaddr_len);
+        ret = gf_ibverbs_client_get_remote_sockaddr (this,
+                                                     (struct sockaddr *)&sockaddr,
+                                                     &sockaddr_len);
         if (ret != 0) {
                 gf_log (this->xl->name, GF_LOG_DEBUG,
                         "cannot get remote address to connect");
@@ -2299,9 +2300,9 @@ ib_verbs_connect (struct transport *this)
                         }
                 }
 
-                ret = client_bind (this, 
-                                   (struct sockaddr *)&this->myinfo.sockaddr, 
-                                   &this->myinfo.sockaddr_len, priv->sock);
+                ret = gf_ibverbs_client_bind (this,
+                                              (struct sockaddr *)&this->myinfo.sockaddr,
+                                              &this->myinfo.sockaddr_len, priv->sock);
                 if (ret == -1)
                 {
                         gf_log (this->xl->name, GF_LOG_WARNING,
@@ -2393,7 +2394,7 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
         priv->peer.trans = this;
         transport_ref (this);
 
-        get_transport_identifiers (this);
+        gf_ibverbs_get_transport_identifiers (this);
 
         priv->tcp_connected = 1;
         priv->handshake.incoming.state = IB_VERBS_HANDSHAKE_START;
@@ -2434,9 +2435,9 @@ ib_verbs_listen (transport_t *this)
         char service[NI_MAXSERV], host[NI_MAXHOST];
 
         memset (&sockaddr, 0, sizeof (sockaddr));
-        ret = ibverbs_server_get_local_sockaddr (this, 
-                                                 (struct sockaddr *)&sockaddr,
-                                                 &sockaddr_len);
+        ret = gf_ibverbs_server_get_local_sockaddr (this,
+                                                    (struct sockaddr *)&sockaddr,
+                                                    &sockaddr_len);
         if (ret != 0) {
                 gf_log (this->xl->name, GF_LOG_DEBUG,
                         "cannot find network address of server to bind to");

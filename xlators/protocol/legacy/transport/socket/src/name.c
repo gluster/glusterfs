@@ -121,7 +121,7 @@ err:
         return ret;
 }
 
-int32_t
+static int32_t
 client_fill_address_family (transport_t *this, sa_family_t *sa_family)
 {
         data_t  *address_family_data = NULL;
@@ -351,9 +351,9 @@ err:
         return ret;
 }
 
-static int32_t 
-af_inet_server_get_local_sockaddr (transport_t *this, 
-                                   struct sockaddr *addr, 
+static int32_t
+af_inet_server_get_local_sockaddr (transport_t *this,
+                                   struct sockaddr *addr,
                                    socklen_t *addr_len)
 {
         struct addrinfo hints, *res = 0;
@@ -422,10 +422,10 @@ out:
         return ret;
 }
 
-int32_t 
-client_bind (transport_t *this, 
-             struct sockaddr *sockaddr, 
-             socklen_t *sockaddr_len, 
+int32_t
+gf_client_bind (transport_t *this,
+             struct sockaddr *sockaddr,
+             socklen_t *sockaddr_len,
              int sock)
 {
         int ret = 0;
@@ -465,8 +465,8 @@ client_bind (transport_t *this,
 }
 
 int32_t
-socket_client_get_remote_sockaddr (transport_t *this,
-                                   struct sockaddr *sockaddr, 
+gf_socket_client_get_remote_sockaddr (transport_t *this,
+                                   struct sockaddr *sockaddr,
                                    socklen_t *sockaddr_len,
                                    sa_family_t *sa_family)
 {
@@ -519,7 +519,7 @@ err:
 }
 
 
-int32_t
+static int32_t
 server_fill_address_family (transport_t *this, sa_family_t *sa_family)
 {
         data_t  *address_family_data = NULL;
@@ -564,7 +564,7 @@ out:
 
 
 int32_t
-socket_server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, 
+gf_socket_server_get_local_sockaddr (transport_t *this, struct sockaddr *addr,
                                   socklen_t *addr_len, sa_family_t *sa_family)
 {
         int32_t ret = -1;
@@ -604,8 +604,8 @@ err:
         return ret;
 }
 
-int32_t 
-fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr, 
+static int32_t
+fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr,
                              int32_t addr_len, char *identifier)
 {
         int32_t ret = 0, tmpaddr_len = 0;
@@ -675,7 +675,7 @@ fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr,
 }
 
 int32_t
-get_transport_identifiers (transport_t *this)
+gf_get_transport_identifiers (transport_t *this)
 {
         int32_t ret = 0;
         char is_inet_sdp = 0;
