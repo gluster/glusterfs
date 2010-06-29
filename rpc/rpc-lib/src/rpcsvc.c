@@ -1168,7 +1168,7 @@ rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn, rpc_transport_pollin_t *msg)
         if (!actor)
                 goto err_reply;
 
-        if (actor) {
+        if (actor && (req->rpc_err == SUCCESS)) {
                 if (req->vectorediob) {
                         if (actor->vector_actor) {
                                 rpcsvc_conn_ref (conn);
@@ -1189,7 +1189,7 @@ rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn, rpc_transport_pollin_t *msg)
         }
 
 err_reply:
-        if (ret == RPCSVC_ACTOR_ERROR)
+        if ((ret == RPCSVC_ACTOR_ERROR) || (req->rpc_err != SUCCESS))
                 ret = rpcsvc_error_reply (req);
 
         /* No need to propagate error beyond this function since the reply

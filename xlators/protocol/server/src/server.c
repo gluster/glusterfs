@@ -474,6 +474,25 @@ out:
         return 0;
 }
 
+int32_t
+mem_acct_init (xlator_t *this)
+{
+        int     ret = -1;
+
+        if (!this)
+                return ret;
+
+        ret = xlator_mem_acct_init (this, gf_server_mt_end + 1);
+
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
+                                "failed");
+                return ret;
+        }
+
+        return ret;
+}
+
 int
 init (xlator_t *this)
 {
@@ -492,13 +511,6 @@ init (xlator_t *this)
         if (this->parents != NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "protocol/server should not have parent volumes");
-                goto out;
-        }
-
-        ret = xlator_mem_acct_init (this, gf_server_mt_end + 1);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Failed to Initialize memory accounting");
                 goto out;
         }
 

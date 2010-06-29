@@ -1526,7 +1526,7 @@ out:
 }
 
 
-static int32_t
+int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
@@ -1564,10 +1564,6 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "Volume is dangling. ");
         }
-
-        ret = mem_acct_init (this);
-        if (ret)
-                goto out;
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_client_mt_clnt_conf_t);
         if (!conf)
