@@ -41,32 +41,8 @@
 
 #define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
 
-char *
-stat_to_str (struct iatt *stbuf);
-
-call_frame_t *
-server_copy_frame (call_frame_t *frame);
-
 void free_state (server_state_t *state);
 
 void server_loc_wipe (loc_t *loc);
-
-int32_t
-gf_add_locker (struct _lock_table *table, const char *volume,
-	       loc_t *loc,
-	       fd_t *fd,
-	       pid_t pid);
-
-int32_t
-gf_del_locker (struct _lock_table *table, const char *volume,
-	       loc_t *loc,
-	       fd_t *fd,
-	       pid_t pid);
-
-int32_t
-gf_direntry_to_bin (dir_entry_t *head, char *bufferp);
-
-void
-server_print_request (call_frame_t *frame);
 
 #endif /* __SERVER_HELPERS_H__ */

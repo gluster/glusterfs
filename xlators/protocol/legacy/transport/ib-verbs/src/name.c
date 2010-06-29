@@ -412,11 +412,11 @@ out:
         return ret;
 }
 
-int32_t 
-client_bind (transport_t *this, 
-             struct sockaddr *sockaddr, 
-             socklen_t *sockaddr_len, 
-             int sock)
+int32_t
+gf_ibverbs_client_bind (transport_t *this,
+                        struct sockaddr *sockaddr,
+                        socklen_t *sockaddr_len,
+                        int sock)
 {
         int ret = 0;
 
@@ -457,9 +457,9 @@ client_bind (transport_t *this,
 }
 
 int32_t
-ibverbs_client_get_remote_sockaddr (transport_t *this, 
-                                    struct sockaddr *sockaddr, 
-                                    socklen_t *sockaddr_len)
+gf_ibverbs_client_get_remote_sockaddr (transport_t *this,
+                                       struct sockaddr *sockaddr,
+                                       socklen_t *sockaddr_len)
 {
         int32_t ret = 0;
         char is_inet_sdp = 0;
@@ -506,9 +506,9 @@ err:
 }
 
 int32_t
-ibverbs_server_get_local_sockaddr (transport_t *this, 
-                                   struct sockaddr *addr, 
-                                   socklen_t *addr_len)
+gf_ibverbs_server_get_local_sockaddr (transport_t *this,
+                                      struct sockaddr *addr,
+                                      socklen_t *addr_len)
 {
         data_t *address_family_data = NULL;
         int32_t ret = 0;
@@ -647,7 +647,7 @@ fill_inet6_inet_identifiers (transport_t *this, struct sockaddr_storage *addr,
 }
 
 int32_t
-get_transport_identifiers (transport_t *this)
+gf_ibverbs_get_transport_identifiers (transport_t *this)
 {
         int32_t ret = 0;
         char is_inet_sdp = 0;

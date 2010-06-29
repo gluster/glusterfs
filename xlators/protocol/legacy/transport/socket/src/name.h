@@ -22,23 +22,23 @@
 
 #include "compat.h"
 
-int32_t 
-client_bind (transport_t *this, 
-             struct sockaddr *sockaddr, 
-             socklen_t *sockaddr_len, 
-             int sock);
+int32_t
+gf_client_bind (transport_t *this,
+                struct sockaddr *sockaddr,
+                socklen_t *sockaddr_len,
+                int sock);
 
 int32_t
-socket_client_get_remote_sockaddr (transport_t *this, 
-                                   struct sockaddr *sockaddr, 
-                                   socklen_t *sockaddr_len,
-                                   sa_family_t *sa_family);
+gf_socket_client_get_remote_sockaddr (transport_t *this,
+                                      struct sockaddr *sockaddr,
+                                      socklen_t *sockaddr_len,
+                                      sa_family_t *sa_family);
 
 int32_t
-socket_server_get_local_sockaddr (transport_t *this, struct sockaddr *addr, 
-                                  socklen_t *addr_len, sa_family_t *sa_family);
+gf_socket_server_get_local_sockaddr (transport_t *this, struct sockaddr *addr,
+                                     socklen_t *addr_len, sa_family_t *sa_family);
 
 int32_t
-get_transport_identifiers (transport_t *this);
+gf_get_transport_identifiers (transport_t *this);
 
 #endif /* _SOCKET_NAME_H */

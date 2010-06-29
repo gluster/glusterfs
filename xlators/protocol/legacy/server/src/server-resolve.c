@@ -27,16 +27,20 @@
 
 #include "compat-errno.h"
 
-int
+void
+gf_server_print_request (call_frame_t *frame);
+
+static int
 server_resolve_all (call_frame_t *frame);
-int
+static int
 resolve_entry_simple (call_frame_t *frame);
-int
+static int
 resolve_inode_simple (call_frame_t *frame);
-int
+static int
 resolve_path_simple (call_frame_t *frame);
 
-int
+
+static int
 component_count (const char *path)
 {
         int         count = 0;
@@ -53,7 +57,7 @@ component_count (const char *path)
 }
 
 
-int
+static int
 prepare_components (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
@@ -96,7 +100,7 @@ prepare_components (call_frame_t *frame)
 }
 
 
-int
+static int
 resolve_loc_touchup (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
@@ -135,7 +139,7 @@ resolve_loc_touchup (call_frame_t *frame)
 }
 
 
-int
+static int
 resolve_deep_continue (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
@@ -165,7 +169,7 @@ resolve_deep_continue (call_frame_t *frame)
 }
 
 
-int
+static int
 resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
                   dict_t *xattr, struct iatt *postparent)
@@ -223,7 +227,7 @@ get_out_of_here:
 }
 
 
-int
+static int
 resolve_path_deep (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
@@ -253,7 +257,7 @@ resolve_path_deep (call_frame_t *frame)
 }
 
 
-int
+static int
 resolve_path_simple (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
@@ -317,7 +321,7 @@ out:
   > 0  - indecisive, need to perform deep resolution
 */
 
-int
+static int
 resolve_entry_simple (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
@@ -407,7 +411,7 @@ out:
 }
 
 
-int
+static int
 server_resolve_entry (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
@@ -438,7 +442,7 @@ server_resolve_entry (call_frame_t *frame)
 }
 
 
-int
+static int
 resolve_inode_simple (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
@@ -483,7 +487,7 @@ out:
 }
 
 
-int
+static int
 server_resolve_inode (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
@@ -514,7 +518,7 @@ server_resolve_inode (call_frame_t *frame)
 }
 
 
-int
+static int
 server_resolve_fd (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
@@ -543,7 +547,7 @@ server_resolve_fd (call_frame_t *frame)
 }
 
 
-int
+static int
 server_resolve (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
@@ -582,7 +586,7 @@ server_resolve (call_frame_t *frame)
 }
 
 
-int
+static int
 server_resolve_done (call_frame_t *frame)
 {
         server_state_t    *state = NULL;
@@ -591,7 +595,7 @@ server_resolve_done (call_frame_t *frame)
         state = CALL_STATE (frame);
         bound_xl = BOUND_XL (frame);
 
-        server_print_request (frame);
+        gf_server_print_request (frame);
 
         state->resume_fn (frame, bound_xl);
 
@@ -603,7 +607,7 @@ server_resolve_done (call_frame_t *frame)
  * This function is called multiple times, once per resolving one location/fd.
  * state->resolve_now is used to decide which location/fd is to be resolved now
  */
-int
+static int
 server_resolve_all (call_frame_t *frame)
 {
         server_state_t    *state = NULL;
@@ -640,7 +644,7 @@ server_resolve_all (call_frame_t *frame)
 
 
 int
-resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn)
+gf_resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn)
 {
         server_state_t    *state = NULL;
         xlator_t          *this  = NULL;
