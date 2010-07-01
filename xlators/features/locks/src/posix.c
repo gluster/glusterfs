@@ -761,6 +761,12 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         owner      = frame->root->lk_owner;
         priv       = this->private;
 
+	if ((flock->l_start < 0) || (flock->l_len < 0)) {
+                op_ret = -1;
+		op_errno = EINVAL;
+		goto unwind;
+	}
+
         pl_inode = pl_inode_get (this, fd->inode);
         if (!pl_inode) {
                 gf_log (this->name, GF_LOG_ERROR,
