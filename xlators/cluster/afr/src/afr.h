@@ -269,7 +269,8 @@ typedef struct _afr_local {
 
 		struct {
 			int32_t cmd;
-			struct flock flock;
+			struct flock user_flock;
+                        struct flock ret_flock;
 			unsigned char *locked_nodes;
 		} lk;
 
