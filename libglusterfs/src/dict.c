@@ -581,9 +581,10 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 	int32_t ret = 0;
 	int32_t cnt = 0;
 
-	if (!buf || fill == NULL || !*fill) {
+	if (!buf || !fill || !(*fill)) {
 		gf_log ("dict", GF_LOG_ERROR,
-			"@buf=%p @fill=%p @*fill=%p", buf, fill, *fill);
+			"@buf=%p @fill=%p @*fill=%p",
+                        buf, fill, (fill) ? (*fill) : NULL);
 		return NULL;
 	}
 

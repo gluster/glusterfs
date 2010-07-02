@@ -96,7 +96,8 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local   = frame->local;
         tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
-                gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
         }
         loop_count = local->loop_count;
 
@@ -113,7 +114,8 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
                 tmp_path = memdup (local->newpath, count);
                 if (!tmp_path) {
-                        gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                        goto out;
                 }
 
                 tmp_loc.path = tmp_path;
@@ -156,7 +158,8 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
         tmp_path = memdup (local->newpath, count);
         if (!tmp_path) {
-                gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto out;
         }
         tmp_loc.path = tmp_path;
 
@@ -167,7 +170,8 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie);
-        GF_FREE (tmp_str);
+        if (tmp_str)
+                GF_FREE (tmp_str);
 
         return 0;
 }
@@ -399,6 +403,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                goto out;
         }
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
@@ -439,7 +444,8 @@ trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
-        GF_FREE (tmp_str);
+        if (tmp_str)
+                GF_FREE (tmp_str);
 
         return 0;
 }
@@ -848,13 +854,14 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local   = frame->local;
         if (!local)
-                return 0;
+                goto out;
 
         loop_count = local->loop_count;
 
         tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                goto out;
         }
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
@@ -902,6 +909,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 loop_count = ++local->loop_count;
         }
         UNLOCK (&frame->lock);
+
         tmp_dirname = strchr (tmp_str, '/');
         while (tmp_dirname) {
                 count = tmp_dirname - tmp_str;
@@ -926,7 +934,8 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
-        GF_FREE (tmp_str);
+        if (tmp_str)
+                GF_FREE (tmp_str);
 
         return 0;
 }
@@ -1213,13 +1222,14 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         local   = frame->local;
         if (!local)
-                return 0;
+                goto out;
 
         loop_count = local->loop_count;
 
         tmp_str = gf_strdup (local->newpath);
         if (!tmp_str) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                goto out;
         }
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
@@ -1292,7 +1302,8 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
-        GF_FREE (tmp_str);
+        if (tmp_str)
+                GF_FREE (tmp_str);
 
         return 0;
 }
@@ -1484,6 +1495,7 @@ init (xlator_t *this)
                                           gf_trash_mt_trash_elim_pattern_t);
                         if (!trav) {
                                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
+                                break;
                         }
                         trav->pattern = component;
                         trav->next = _priv->eliminate;

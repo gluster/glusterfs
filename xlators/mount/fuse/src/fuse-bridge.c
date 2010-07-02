@@ -1364,9 +1364,8 @@ fuse_readlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
         if ((state->loc.inode == NULL) ||
             (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "%"PRIu64" READLINK %s/%"PRId64" (fuse_loc_fill() returned NULL inode)",
-                        finh->unique, state->loc.path,
-                        state->loc.inode->ino);
+                        "%"PRIu64" READLINK %s (fuse_loc_fill() returned NULL inode)",
+                        finh->unique, state->loc.path);
                 send_fuse_err (this, finh, ENOENT);
                 free_state (state);
                 return;
@@ -3719,9 +3718,9 @@ cleanup_exit:
         if (priv) {
                 GF_FREE (priv->mount_point);
                 close (priv->fd);
+                close (priv->fuse_dump_fd);
+                GF_FREE (priv);
         }
-        GF_FREE (priv);
-        close (priv->fuse_dump_fd);
         return -1;
 }
 

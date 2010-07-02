@@ -1718,8 +1718,8 @@ ib_verbs_init (transport_t *this)
 
                 if (!priv->device) {
                         gf_log ("transport/ib-verbs", GF_LOG_ERROR,
-                                "could not create ib_verbs device for %s", 
-                                priv->device->device_name);
+                                "could not create ib_verbs device for %s",
+                                options->device_name);
                         ret = -1;
 			goto cleanup;
                 }

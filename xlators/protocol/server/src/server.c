@@ -593,9 +593,8 @@ init (xlator_t *this)
 
         ret = 0;
 out:
-        if (ret)
+        if (ret && this)
                 this->fini (this);
-
 
         return ret;
 }

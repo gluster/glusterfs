@@ -382,7 +382,7 @@ yyerror (const char *str)
         extern char  *yytext;
         extern int    yylineno;
 
-        if (curr && curr->name) {
+        if (curr && curr->name && yytext) {
                 if (!strcmp (yytext, "volume")) {
                         gf_log ("parser", GF_LOG_ERROR,
                                 "'end-volume' not defined for volume '%s'",

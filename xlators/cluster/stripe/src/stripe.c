@@ -3284,7 +3284,6 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         call_frame_t     *rframe = NULL;
         stripe_local_t   *rlocal = NULL;
         xlator_list_t    *trav = NULL;
-        stripe_private_t *priv = NULL;
         stripe_fd_ctx_t  *fctx = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
@@ -3293,7 +3292,6 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (fd->inode, err);
 
         trav = this->children;
-        priv = this->private;
 
         fd_ctx_get (fd, this, &tmp_fctx);
         if (!tmp_fctx) {
@@ -3303,6 +3301,11 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         fctx = (stripe_fd_ctx_t *)(long)tmp_fctx;
         stripe_size = fctx->stripe_size;
 
+        if (!stripe_size) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Wrong stripe size for the file");
+                goto err;
+        }
         /* The file is stripe across the child nodes. Send the read request
          * to the child nodes appropriately after checking which region of
          * the file is in which child node. Always '0-<stripe_size>' part of
@@ -3310,7 +3313,7 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
          */
         rounded_start = floor (offset, stripe_size);
         rounded_end = roof (offset+size, stripe_size);
-        num_stripe = rounded_end/stripe_size - rounded_start/stripe_size;
+        num_stripe = (rounded_end- rounded_start)/stripe_size;
 
         local = GF_CALLOC (1, sizeof (stripe_local_t),
                            gf_stripe_mt_stripe_local_t);
@@ -3361,7 +3364,7 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         return 0;
 err:
-        if (local->fd)
+        if (local && local->fd)
                 fd_unref (local->fd);
 
         STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);

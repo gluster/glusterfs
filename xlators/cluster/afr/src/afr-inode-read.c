@@ -802,7 +802,7 @@ afr_readv_cbk (call_frame_t *frame, void *cookie,
 
 out:
 	if (unwind) {
-                if (buf)
+                if (buf && local)
                         buf->ia_ino = local->cont.readv.ino;
 
 		AFR_STACK_UNWIND (readv, frame, op_ret, op_errno,

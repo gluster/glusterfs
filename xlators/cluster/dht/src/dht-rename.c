@@ -260,6 +260,12 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	local = frame->local;
 	prev  = cookie;
 
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "!local, should not happen");
+                goto out;
+        }
+
 	this_call_cnt = dht_frame_return (frame);
 
 	if (op_ret == -1) {
@@ -273,12 +279,14 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         WIPE (&local->preparent);
         WIPE (&local->postparent);
 
-	if (is_last_call (this_call_cnt))
+	if (is_last_call (this_call_cnt)) {
 		DHT_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
 				  &local->stbuf, &local->preoldparent,
                                   &local->postoldparent, &local->preparent,
                                   &local->postparent);
+        }
 
+out:
 	return 0;
 }
 

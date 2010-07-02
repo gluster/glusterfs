@@ -45,12 +45,14 @@ void append_string(const char *str, int size)
                 } else {
                         text = GF_REALLOC (text, new_size);
                 }
-                if (!text)
+                if (!text) {
                         gf_log ("parser", GF_LOG_ERROR,
                                 "out of memory");
+                        return;
+                }
 		text_asize = new_size;
 	}
-	memcpy(text + text_size, str, size);
+        memcpy(text + text_size, str, size);
 	text_size += size;
 	text[text_size] = 0;
 }
