@@ -200,8 +200,10 @@ __rpcsvc_auth_get_handler (rpcsvc_request_t *req)
                 return NULL;
 
         svc = rpcsvc_request_service (req);
-        if (!svc)
-                gf_log ("", 1, "something wrong, !svc");
+        if (!svc) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "!svc");
+                goto err;
+        }
 
         if (list_empty (&svc->authschemes)) {
                 gf_log (GF_RPCSVC, GF_LOG_WARNING, "No authentication!");

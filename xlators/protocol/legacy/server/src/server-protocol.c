@@ -147,7 +147,7 @@ server_print_params (char *str, int size, server_state_t *state)
                                     "wbflags=%d,", state->wbflags);
         if (state->size)
                 filled += snprintf (str + filled, size - filled,
-                                    "size=%Zu,", state->size);
+                                    "size=%zu,", state->size);
         if (state->offset)
                 filled += snprintf (str + filled, size - filled,
                                     "offset=%"PRId64",", state->offset);
@@ -667,8 +667,8 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_errno        = gf_errno_to_error (op_errno);
         hdr->rsp.op_errno = hton32 (gf_errno);
 
+        state = CALL_STATE(frame);
         if (op_ret >= 0) {
-                state = CALL_STATE(frame);
                 if (state->cmd == ENTRYLK_UNLOCK)
                         gf_del_locker (conn->ltable, state->volume,
                                        NULL, state->fd, frame->root->pid);
@@ -5656,7 +5656,7 @@ mop_setvolume (call_frame_t *frame, xlator_t *bound_xl,
 fail:
         dict_len = dict_serialized_length (reply);
         if (dict_len < 0) {
-                gf_log (xl->name, GF_LOG_DEBUG,
+                gf_log ("server", GF_LOG_DEBUG,
                         "failed to get serialized length of reply dict");
                 op_ret   = -1;
                 op_errno = EINVAL;
@@ -5670,7 +5670,7 @@ fail:
         if (dict_len) {
                 ret = dict_serialize (reply, rsp->buf);
                 if (ret < 0) {
-                        gf_log (xl->name, GF_LOG_DEBUG,
+                        gf_log ("server", GF_LOG_DEBUG,
                                 "failed to serialize reply dict");
                         op_ret = -1;
                         op_errno = -ret;
@@ -6524,14 +6524,18 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int          ret = 0;
-        transport_t *trans = data;
+        transport_t *trans = NULL;
         peer_info_t *peerinfo = NULL;
         peer_info_t *myinfo = NULL;
 
-        if (trans != NULL) {
-                peerinfo = &(trans->peerinfo);
-                myinfo = &(trans->myinfo);
+        trans = data;
+        if (!trans) {
+                gf_log (this->name, GF_LOG_ERROR, "!trans");
+                goto out;
         }
+
+        peerinfo = &(trans->peerinfo);
+        myinfo = &(trans->myinfo);
 
         switch (event) {
         case GF_EVENT_POLLIN:
@@ -6576,7 +6580,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 default_notify (this, event, data);
                 break;
         }
-
+out:
         return ret;
 }
 

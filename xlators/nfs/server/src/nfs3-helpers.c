@@ -394,12 +394,12 @@ nfs3_fill_lookup3res_success (lookup3res *res, nfsstat3 stat,
 
         obj.attributes_follow = FALSE;
         dir.attributes_follow = FALSE;
-        if (buf) {
+        if (buf && fh) {
                 nfs3_map_xlid_to_statdev (buf, fh->xlatorid);
                 obj = nfs3_stat_to_post_op_attr (buf);
         }
 
-        if (postparent) {
+        if (postparent && fh) {
                 nfs3_map_xlid_to_statdev (postparent, fh->xlatorid);
                 dir = nfs3_stat_to_post_op_attr (postparent);
         }

@@ -336,7 +336,7 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                 }
         }
 
-	chunk = ((unsigned long) 0xffffffff) / cnt;
+	chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
 
 	start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
 

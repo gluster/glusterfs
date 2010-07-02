@@ -530,7 +530,7 @@ out:
                 dict_ref (xattr);
 
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno,
-                             loc->inode, &buf, xattr, &postparent);
+                             (loc)?loc->inode:NULL, &buf, xattr, &postparent);
 
         if (xattr)
                 dict_unref (xattr);
@@ -1175,7 +1175,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno,
-                             loc->inode, &stbuf, &preparent, &postparent);
+                             (loc)?loc->inode:NULL, &stbuf, &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1430,7 +1430,7 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno,
-                             loc->inode, &stbuf, &preparent, &postparent);
+                             (loc)?loc->inode:NULL, &stbuf, &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1702,7 +1702,7 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno,
-                             loc->inode, &stbuf, &preparent, &postparent);
+                             (loc)?loc->inode:NULL, &stbuf, &preparent, &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_path);
@@ -1925,7 +1925,8 @@ posix_link (call_frame_t *frame, xlator_t *this,
         SET_TO_OLD_FS_ID ();
 
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno,
-                             oldloc->inode, &stbuf, &preparent, &postparent);
+                             (oldloc)?oldloc->inode:NULL, &stbuf, &preparent,
+                             &postparent);
 
         if ((op_ret == -1) && (!was_present)) {
                 unlink (real_newpath);
@@ -2145,7 +2146,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
         }
 
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno,
-                             fd, loc->inode, &stbuf, &preparent, &postparent);
+                             fd, (loc)?loc->inode:NULL, &stbuf, &preparent,
+                             &postparent);
 
         return 0;
 }
@@ -3543,11 +3545,11 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
         if (loc) {
                 path  = gf_strdup (loc->path);
                 inode = loc->inode;
-        } else {
+        } else if (fd) {
                 inode = fd->inode;
         }
 
-	while (trav) {
+	while (trav && inode) {
 		count = trav->value->len / sizeof (int32_t);
 		array = GF_CALLOC (count, sizeof (int32_t),
                                    gf_posix_mt_int32_t);

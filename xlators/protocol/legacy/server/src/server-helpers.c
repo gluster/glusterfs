@@ -427,15 +427,17 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 INIT_LIST_HEAD (&file_lockers);
                 INIT_LIST_HEAD (&dir_lockers);
 
-                LOCK (&ltable->lock);
-                {
-                        list_splice_init (&ltable->file_lockers,
-                                          &file_lockers);
+                if (ltable) {
+                        LOCK (&ltable->lock);
+                        {
+                                list_splice_init (&ltable->file_lockers,
+                                                  &file_lockers);
 
-                        list_splice_init (&ltable->dir_lockers, &dir_lockers);
+                                list_splice_init (&ltable->dir_lockers, &dir_lockers);
+                        }
+                        UNLOCK (&ltable->lock);
+                        GF_FREE (ltable);
                 }
-                UNLOCK (&ltable->lock);
-                GF_FREE (ltable);
 
                 flock.l_type  = F_UNLCK;
                 flock.l_start = 0;

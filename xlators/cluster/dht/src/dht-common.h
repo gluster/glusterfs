@@ -183,9 +183,11 @@ typedef struct dht_disk_layout dht_disk_layout_t;
 #define DHT_STACK_UNWIND(fop, frame, params ...) do {           \
 		dht_local_t *__local = NULL;                    \
                 xlator_t *__xl = NULL;                          \
-                __xl = frame->this;                             \
-		__local = frame->local;                         \
-		frame->local = NULL;                            \
+                if (frame) {                                    \
+                        __xl = frame->this;                     \
+                        __local = frame->local;                 \
+                        frame->local = NULL;                    \
+                }                                               \
 		STACK_UNWIND_STRICT (fop, frame, params);       \
 		dht_local_wipe (__xl, __local);                 \
 	} while (0)

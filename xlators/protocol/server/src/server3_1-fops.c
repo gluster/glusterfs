@@ -4737,7 +4737,7 @@ server_lookup (rpcsvc_request_t *req)
                 if (buf == NULL) {
                         gf_log (conn->bound_xl->name, GF_LOG_ERROR,
                                 "out of memory");
-                        goto err;
+                        goto out;
                 }
 
                 ret = dict_unserialize (buf, args.dict.dict_len,
@@ -4748,7 +4748,7 @@ server_lookup (rpcsvc_request_t *req)
                                 "unserialize req-buffer to dictionary",
                                 frame->root->unique, state->resolve.path,
                                 state->resolve.ino);
-                        goto err;
+                        goto out;
                 }
 
                 state->dict = xattr_req;
@@ -4761,7 +4761,7 @@ server_lookup (rpcsvc_request_t *req)
         resolve_and_resume (frame, server_lookup_resume);
 
         return 0;
-err:
+out:
         if (xattr_req)
                 dict_unref (xattr_req);
 
@@ -4771,7 +4771,7 @@ err:
 
         server_lookup_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
                            NULL, NULL);
-
+err:
         return 0;
 }
 

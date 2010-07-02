@@ -541,15 +541,17 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 INIT_LIST_HEAD (&file_lockers);
                 INIT_LIST_HEAD (&dir_lockers);
 
-                LOCK (&ltable->lock);
-                {
-                        list_splice_init (&ltable->file_lockers,
-                                          &file_lockers);
+                if (ltable) {
+                        LOCK (&ltable->lock);
+                        {
+                                list_splice_init (&ltable->file_lockers,
+                                                  &file_lockers);
 
-                        list_splice_init (&ltable->dir_lockers, &dir_lockers);
+                                list_splice_init (&ltable->dir_lockers, &dir_lockers);
+                        }
+                        UNLOCK (&ltable->lock);
+                        GF_FREE (ltable);
                 }
-                UNLOCK (&ltable->lock);
-                GF_FREE (ltable);
 
                 flock.l_type  = F_UNLCK;
                 flock.l_start = 0;
@@ -1030,7 +1032,7 @@ server_print_params (char *str, int size, server_state_t *state)
                                     "wbflags=%d,", state->wbflags);
         if (state->size)
                 filled += snprintf (str + filled, size - filled,
-                                    "size=%Zu,", state->size);
+                                    "size=%zu,", state->size);
         if (state->offset)
                 filled += snprintf (str + filled, size - filled,
                                     "offset=%"PRId64",", state->offset);

@@ -614,7 +614,7 @@ server_setvolume (rpcsvc_request_t *req)
 fail:
         rsp.dict.dict_len = dict_serialized_length (reply);
         if (rsp.dict.dict_len < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log ("server-handshake", GF_LOG_DEBUG,
                         "failed to get serialized length of reply dict");
                 op_ret   = -1;
                 op_errno = EINVAL;
@@ -627,7 +627,7 @@ fail:
                 if (rsp.dict.dict_val) {
                         ret = dict_serialize (reply, rsp.dict.dict_val);
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log ("server-handshake", GF_LOG_DEBUG,
                                         "failed to serialize reply dict");
                                 op_ret = -1;
                                 op_errno = -ret;

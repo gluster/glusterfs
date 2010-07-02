@@ -573,6 +573,7 @@ sp_fd_ctx_new (xlator_t *this, inode_t *parent, char *name, sp_cache_t *cache)
                 if (fd_ctx->name == NULL) {
                         sp_fd_ctx_free (fd_ctx);
                         fd_ctx = NULL;
+                        goto out;
                 }
         }
 
@@ -1099,8 +1100,8 @@ wind:
         }
 
 unwind:
-	SP_STACK_UNWIND (lookup, frame, op_ret, op_errno, loc->inode, &buf,
-                         NULL, &postparent);
+	SP_STACK_UNWIND (lookup, frame, op_ret, op_errno, (loc)?loc->inode:NULL,
+                         &buf, NULL, &postparent);
 
         return 0;
 }

@@ -867,7 +867,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
 		size = ret;
 
 		for (i = 0; i < size; i++) {
-			if (!events[i].events)
+			if (!events || !events[i].events)
 				continue;
 
 			ret = event_dispatch_epoll_handler (event_pool,

@@ -2744,7 +2744,7 @@ init (xlator_t *this)
 
         int32_t background_count  = 0;
 	int32_t lock_server_count = 1;
-        int32_t window_size;
+        int32_t window_size       = 0;
 
 	int    fav_ret       = -1;
 	int    read_ret      = -1;
@@ -2780,8 +2780,8 @@ init (xlator_t *this)
 				   &background_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"Setting background self-heal count to %d.",
-			window_size);
+			"Setting background self-heal count to %d",
+			background_count);
 
 		priv->background_self_heal_count = background_count;
 	}
@@ -2819,7 +2819,7 @@ init (xlator_t *this)
 				   &window_size);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
-			"Setting data self-heal window size to %d.",
+			"Setting data self-heal window size to %d",
 			window_size);
 
 		priv->data_self_heal_window_size = window_size;

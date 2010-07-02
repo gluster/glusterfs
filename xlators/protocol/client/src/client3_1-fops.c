@@ -280,7 +280,6 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        frame->local = NULL;
         STACK_UNWIND_STRICT (mkdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent);
@@ -2115,9 +2114,11 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
         }
 
 out:
-        fdctx->remote_fd = -1;
-        inode_unref (fdctx->inode);
-        GF_FREE (fdctx);
+        if (fdctx) {
+                fdctx->remote_fd = -1;
+                inode_unref (fdctx->inode);
+                GF_FREE (fdctx);
+        }
 
         return ret;
 }
@@ -2237,8 +2238,10 @@ out:
         if (fdctx)
                 client_fdctx_destroy (frame->this, fdctx);
 
-        frame->local = NULL;
-        STACK_DESTROY (frame->root);
+        if (frame) {
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
 
         client_local_wipe (local);
 
@@ -2555,15 +2558,16 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
-        frame->local = NULL;
+        if (frame)
+                frame->local = NULL;
+
         STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
 
         if (local)
                 client_local_wipe (local);
 
-        if (req.dict.dict_val) {
+        if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);
-        }
 
         return 0;
 }
@@ -2900,8 +2904,11 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        frame->local = NULL;
+        if (frame)
+                frame->local = NULL;
+
         STACK_UNWIND_STRICT (symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+
         if (local)
                 client_local_wipe (local);
         return 0;
@@ -3074,8 +3081,11 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        frame->local = NULL;
+        if (frame)
+                frame->local = NULL;
+
         STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+
         if (local)
                 client_local_wipe (local);
         return 0;
@@ -3130,8 +3140,11 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        frame->local = NULL;
+        if (frame)
+                frame->local = NULL;
+
         STACK_UNWIND_STRICT (mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+
         if (local)
                 client_local_wipe (local);
         return 0;
@@ -3187,7 +3200,9 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        frame->local = NULL;
+        if (frame)
+                frame->local = NULL;
+
         STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
         if (local)
                 client_local_wipe (local);
@@ -3243,8 +3258,11 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        frame->local = NULL;
+        if (frame)
+                frame->local = NULL;
+
         STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL);
+
         if (local)
                 client_local_wipe (local);
         return 0;
@@ -3555,7 +3573,8 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        frame->local = NULL;
+        if (frame)
+                frame->local = NULL;
         STACK_UNWIND_STRICT (opendir, frame, -1, op_errno, NULL);
         if (local)
                 client_local_wipe (local);

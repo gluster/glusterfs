@@ -253,7 +253,10 @@ STACK_DESTROY (call_stack_t *stack)
 		ret_fn_t      fn = NULL;                                \
 		call_frame_t *_parent = NULL;                           \
                 xlator_t     *old_THIS = NULL;                          \
-                                                                        \
+                if (!frame) {                                           \
+                        gf_log ("stack", GF_LOG_CRITICAL, "!frame");    \
+                        break;                                          \
+                }                                                       \
                 fn = frame->ret;                                        \
                 _parent = frame->parent;                                \
 		_parent->ref_count--;					\
@@ -277,6 +280,10 @@ STACK_DESTROY (call_stack_t *stack)
 		call_frame_t *_parent = NULL;                           \
                 xlator_t     *old_THIS = NULL;                          \
                                                                         \
+                if (!frame) {                                           \
+                        gf_log ("stack", GF_LOG_CRITICAL, "!frame");    \
+                        break;                                          \
+                }                                                       \
                 fn = (fop_##op##_cbk_t )frame->ret;                     \
                 _parent = frame->parent;                                \
 		_parent->ref_count--;					\

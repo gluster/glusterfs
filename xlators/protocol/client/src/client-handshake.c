@@ -520,7 +520,7 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
         options = this->options;
         conf    = this->private;
 
-        if (conf->fops || !dict_get (options, "fops-version")) {
+        if (conf->fops) {
                 ret = dict_set_int32 (options, "fops-version",
                                       conf->fops->prognum);
                 if (ret < 0) {

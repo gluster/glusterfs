@@ -252,11 +252,11 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
                 vector = stub->args.writev.vector;
                 count = stub->args.writev.count;
 
-                frame = stub->frame;
-                local = frame->local;
                 request->write_size = iov_length (vector, count);
-                local->op_ret = request->write_size;
-                local->op_errno = 0;
+                if (local) {
+                        local->op_ret = request->write_size;
+                        local->op_errno = 0;
+                }
 
                 request->flags.write_request.virgin = 1;
         }

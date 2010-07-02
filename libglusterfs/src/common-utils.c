@@ -150,7 +150,8 @@ gf_resolve_ip6 (const char *hostname,
 		*addr_info = cache->next;
 	}
 
-	cache->next = cache->next->ai_next;
+        if (cache->next)
+                cache->next = cache->next->ai_next;
 	if (cache->next) {
 		ret = getnameinfo((struct sockaddr *)cache->next->ai_addr,
 				  cache->next->ai_addrlen,

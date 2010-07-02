@@ -302,6 +302,8 @@ call_bail (void *data)
                         gf_ops = gf_cbks;
                         gf_op_list = gf_cbk_list;
                         break;
+                default:
+                        goto out;
                 }
 
                 localtime_r (&trav->saved_at.tv_sec, &frame_sent_tm);
@@ -3255,15 +3257,15 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         client_local_t      *local = NULL;
         char                *buf = NULL;
 
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
+
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_client_local_t);
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         loc_copy (&local->loc, loc);
 
         frame->local = local;
-
-        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
-        GF_VALIDATE_OR_GOTO (this->name, loc->path, unwind);
 
         if (loc->ino != 1 && loc->parent) {
                 ret = inode_ctx_get2 (loc->parent, this, &par, &gen);
@@ -3319,7 +3321,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return ret;
 
 unwind:
-        STACK_UNWIND (frame, op_ret, op_errno, loc->inode, NULL, NULL);
+        STACK_UNWIND (frame, op_ret, op_errno, (loc)?loc->inode:NULL, NULL, NULL);
         return ret;
 }
 
