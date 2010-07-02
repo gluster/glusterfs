@@ -348,7 +348,7 @@ gf_remember_xlator_option (struct list_head *options, char *arg)
         if (!dot)
                 goto out;
 
-        option->volume = GF_CALLOC ((dot - arg), sizeof (char),
+        option->volume = GF_CALLOC ((dot - arg) + 1, sizeof (char),
                                     gfd_mt_char);
         strncpy (option->volume, arg, (dot - arg));
 
@@ -356,7 +356,7 @@ gf_remember_xlator_option (struct list_head *options, char *arg)
         if (!equals)
                 goto out;
 
-        option->key = GF_CALLOC ((equals - dot), sizeof (char),
+        option->key = GF_CALLOC ((equals - dot) + 1, sizeof (char),
                                  gfd_mt_char);
         strncpy (option->key, dot + 1, (equals - dot - 1));
 
