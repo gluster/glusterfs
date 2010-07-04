@@ -1802,12 +1802,45 @@ err:
 
 
 int
+nfs3_flush_call_state (nfs3_call_state_t *cs, fd_t *openedfd)
+{
+        if ((!cs) || (!openedfd))
+                return -1;
+
+        gf_log (GF_NFS3, GF_LOG_TRACE, "Calling resume");
+        cs->resolve_ret = 0;
+        gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd done: %d",
+                openedfd->refcount);
+        cs->fd = fd_ref (openedfd);
+        list_del (&cs->openwait_q);
+        nfs3_call_resume (cs);
+
+        return 0;
+}
+
+
+int
+nfs3_flush_inode_queue (struct inode_op_queue *inode_q, fd_t *openedfd)
+{
+        nfs3_call_state_t       *cstmp = NULL;
+        nfs3_call_state_t       *cs = NULL;
+
+        if ((!openedfd) || (!inode_q))
+                return -1;
+
+        list_for_each_entry_safe (cs, cstmp, &inode_q->opq, openwait_q)
+                nfs3_flush_call_state (cs, openedfd);
+
+        return 0;
+}
+
+
+int
 nfs3_flush_open_wait_call_states (nfs3_call_state_t *cs, fd_t *openedfd)
 {
-        struct list_head        *inode_q = NULL;
+        struct inode_op_queue   *inode_q = NULL;
         uint64_t                ctxaddr = 0;
         int                     ret = 0;
-        nfs3_call_state_t       *cstmp = NULL;
 
         if (!cs)
                 return -1;
@@ -1819,25 +1852,19 @@ nfs3_flush_open_wait_call_states (nfs3_call_state_t *cs, fd_t *openedfd)
                 goto out;
         }
 
-        inode_q = (struct list_head *)(long)ctxaddr;
+        inode_q = (struct inode_op_queue *)(long)ctxaddr;
         if (!inode_q)
                 goto out;
 
-        list_for_each_entry_safe (cs, cstmp, inode_q, openwait_q) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Calling resume");
-                cs->resolve_ret = 0;
-                if (openedfd) {
-                        gf_log (GF_NFS3, GF_LOG_TRACE, "Opening uncached fd done: %d",
-                        openedfd->refcount);
-                        cs->fd = fd_ref (openedfd);
-                }
-                nfs3_call_resume (cs);
+        pthread_mutex_lock (&inode_q->qlock);
+        {
+                nfs3_flush_inode_queue (inode_q, openedfd);
         }
+        pthread_mutex_unlock (&inode_q->qlock);
 
 out:
         return 0;
 }
-
 
 
 int
@@ -1846,11 +1873,16 @@ __nfs3_fdcache_update_entry (struct nfs3_state *nfs3, fd_t *fd)
         uint64_t                ctxaddr = 0;
         struct nfs3_fd_entry    *fde = NULL;
 
+        if ((!nfs3) || (!fd))
+                return -1;
+
         gf_log (GF_NFS3, GF_LOG_TRACE, "Updating fd: 0x%lx", (long int)fd);
         fd_ctx_get (fd, nfs3->nfsx, &ctxaddr);
         fde = (struct nfs3_fd_entry *)(long)ctxaddr;
-        list_del (&fde->list);
-        list_add_tail (&fde->list, &nfs3->fdlru);
+        if (fde) {
+                list_del (&fde->list);
+                list_add_tail (&fde->list, &nfs3->fdlru);
+        }
 
         return 0;
 }
@@ -1990,61 +2022,104 @@ nfs3_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-/* Returns 1 if the current call is the first one to be queued. If so, the
- * caller will need to send the open fop. If this is a non-first call to be
- * queued, it means the fd opening is in progress.
- *
- * Returns 0, if this is a non-first call.
- */
-int
-__nfs3_queue_call_state (nfs3_call_state_t *cs)
+
+struct inode_op_queue *
+__nfs3_get_inode_queue (nfs3_call_state_t *cs)
 {
-        struct list_head        *inode_q = NULL;
+        struct inode_op_queue   *inode_q = NULL;
         int                     ret = -1;
         uint64_t                ctxaddr = 0;
 
         ret = __inode_ctx_get (cs->resolvedloc.inode, cs->nfsx, &ctxaddr);
         if (ret == 0) {
-                inode_q = (struct list_head *)(long)ctxaddr;
-                goto attach_cs;
+                inode_q = (struct inode_op_queue *)(long)ctxaddr;
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Inode queue already inited");
+                goto err;
         }
 
-        inode_q = GF_CALLOC (1, sizeof (*inode_q), gf_nfs_mt_list_head);
+        inode_q = GF_CALLOC (1, sizeof (*inode_q), gf_nfs_mt_inode_q);
+        if (!inode_q) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Memory allocation failed");
+                goto err;
+        }
+
+        gf_log (GF_NFS3, GF_LOG_TRACE, "Initing inode queue");
+        INIT_LIST_HEAD (&inode_q->opq);
+        pthread_mutex_init (&inode_q->qlock, NULL);
+        __inode_ctx_put (cs->resolvedloc.inode, cs->nfsx, (uintptr_t)inode_q);
+
+err:
+        return inode_q;
+}
+
+
+struct inode_op_queue *
+nfs3_get_inode_queue (nfs3_call_state_t *cs)
+{
+        struct inode_op_queue   *inode_q = NULL;
+
+        LOCK (&cs->resolvedloc.inode->lock);
+        {
+                inode_q = __nfs3_get_inode_queue (cs);
+        }
+        UNLOCK (&cs->resolvedloc.inode->lock);
+
+        return inode_q;
+}
+
+
+#define GF_NFS3_FD_OPEN_INPROGRESS      1
+#define GF_NFS3_FD_NEEDS_OPEN           0
+
+
+int
+__nfs3_queue_call_state (struct inode_op_queue *inode_q, nfs3_call_state_t *cs)
+{
+        int     ret = -1;
+
         if (!inode_q)
                 goto err;
 
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Initing inode queue");
-        INIT_LIST_HEAD (inode_q);
-        __inode_ctx_put (cs->resolvedloc.inode, cs->nfsx, (uintptr_t)inode_q);
+        pthread_mutex_lock (&inode_q->qlock);
+        {
+                if (list_empty (&inode_q->opq)) {
+                        gf_log (GF_NFS3, GF_LOG_TRACE, "First call in queue");
+                        ret = GF_NFS3_FD_NEEDS_OPEN;
+                } else
+                        ret = GF_NFS3_FD_OPEN_INPROGRESS;
 
-attach_cs:
-        if (list_empty (inode_q)) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "First call in queue");
-                ret = 1;
-        } else
-                ret = 0;
-
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Queueing call state");
-        list_add_tail (&cs->openwait_q, inode_q);
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Queueing call state");
+                list_add_tail (&cs->openwait_q, &inode_q->opq);
+        }
+        pthread_mutex_unlock (&inode_q->qlock);
 
 err:
         return ret;
 }
 
 
+/* Returns GF_NFS3_FD_NEEDS_OPEN if the current call is the first one to be
+ * queued. If so, the caller will need to send the open fop. If this is a
+ * non-first call to be queued, it means the fd opening is in progress and
+ * GF_NFS3_FD_OPEN_INPROGRESS is returned.
+ *
+ * Returns -1 on error.
+ */
 int
 nfs3_queue_call_state (nfs3_call_state_t *cs)
 {
-        int     ret = 0;
-        if (!cs)
-                return -1;
+        struct inode_op_queue   *inode_q = NULL;
+        int                     ret = -1;
 
-        LOCK (&cs->resolvedloc.inode->lock);
-        {
-                ret = __nfs3_queue_call_state (cs);
+        inode_q = nfs3_get_inode_queue (cs);
+        if (!inode_q) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to get inode op queue");
+                goto err;
         }
-        UNLOCK (&cs->resolvedloc.inode->lock);
 
+        ret = __nfs3_queue_call_state (inode_q, cs);
+
+err:
         return ret;
 }
 
@@ -2059,7 +2134,12 @@ __nfs3_file_open_and_resume (nfs3_call_state_t *cs)
                 return ret;
 
         ret = nfs3_queue_call_state (cs);
-        if (ret != 1) {
+        if (ret == -1) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Error queueing call state");
+                ret = -EFAULT;
+                goto out;
+        } else if (ret == GF_NFS3_FD_OPEN_INPROGRESS) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Open in progress. Will wait.");
                 ret = 0;
                 goto out;
         }
@@ -2073,26 +2153,41 @@ out:
 }
 
 
-
-int
-nfs3_file_open_and_resume (nfs3_call_state_t *cs, nfs3_resume_fn_t resume)
+fd_t *
+nfs3_fdcache_getfd (struct nfs3_state *nfs3, inode_t *inode)
 {
-        fd_t                    *fd = NULL;
-        int                     ret = -EFAULT;
-        struct nfs3_state       *nfs3 = NULL;
+        fd_t    *fd = NULL;
 
-        if ((!cs))
-                return ret;
+        if ((!nfs3) || (!inode))
+                return NULL;
 
-        cs->resume_fn = resume;
-        gf_log (GF_NFS3, GF_LOG_TRACE, "Opening: %s", cs->resolvedloc.path);
-        fd = fd_lookup (cs->resolvedloc.inode, 0);
+        fd = fd_lookup (inode, 0);
         if (fd) {
-                nfs3 = rpcsvc_request_program_private (cs->req);
                 /* Already refd by fd_lookup, so no need to ref again. */
                 gf_log (GF_NFS3, GF_LOG_TRACE, "fd found in state: %d",
                         fd->refcount);
                 nfs3_fdcache_update (nfs3, fd);
+        } else
+                gf_log (GF_NFS3, GF_LOG_TRACE, "fd not found in state");
+
+        return fd;
+}
+
+
+
+int
+nfs3_file_open_and_resume (nfs3_call_state_t *cs, nfs3_resume_fn_t resume)
+{
+        fd_t    *fd = NULL;
+        int     ret = -EFAULT;
+
+        if (!cs)
+                return ret;
+
+        cs->resume_fn = resume;
+        gf_log (GF_NFS3, GF_LOG_TRACE, "Opening: %s", cs->resolvedloc.path);
+        fd = nfs3_fdcache_getfd (cs->nfs3state, cs->resolvedloc.inode);
+        if (fd) {
                 cs->fd = fd;    /* Gets unrefd when the call state is wiped. */
                 cs->resolve_ret = 0;
                 nfs3_call_resume (cs);

@@ -42,6 +42,7 @@ enum gf_nfs_mem_types_ {
         gf_nfs_mt_list_head,
         gf_nfs_mt_mnt3_resolve,
         gf_nfs_mt_mnt3_export,
+        gf_nfs_mt_inode_q,
         gf_nfs_mt_end
 };
 #endif

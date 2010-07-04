@@ -199,6 +199,14 @@ struct nfs3_local {
 
 typedef struct nfs3_local nfs3_call_state_t;
 
+/* Queue of ops waiting for open fop to return. */
+struct inode_op_queue {
+        struct list_head        opq;
+        pthread_mutex_t         qlock;
+};
+
+
+
 
 extern rpcsvc_program_t *
 nfs3svc_init (xlator_t *nfsx);
