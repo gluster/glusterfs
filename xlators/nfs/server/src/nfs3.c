@@ -215,7 +215,6 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
         if (!list_empty (&cs->entries.list))
                 gf_dirent_free (&cs->entries);
 
-        list_del (&cs->openwait_q);
         nfs_loc_wipe (&cs->oploc);
         nfs_loc_wipe (&cs->resolvedloc);
         if (cs->iob)
