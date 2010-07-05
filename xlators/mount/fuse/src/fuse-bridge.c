@@ -3648,7 +3648,7 @@ init (xlator_t *this_xl)
 
         ret = dict_get_double (options, "entry-timeout",
                                &priv->entry_timeout);
-        if (!priv->entry_timeout)
+        if (ret != 0)
                 priv->entry_timeout = 1.0; /* default */
 
 
