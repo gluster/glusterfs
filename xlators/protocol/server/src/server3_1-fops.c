@@ -42,7 +42,6 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -75,7 +74,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
 
         req = frame->local;
-        frame->local = NULL;
 
         if (state->is_revalidate == 1 && op_ret == -1) {
                 state->is_revalidate = 2;
@@ -183,7 +181,6 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         server_state_t   *state = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -218,7 +215,6 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t    *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -259,7 +255,6 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t    *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -301,7 +296,6 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         gf_common_rsp        rsp   = {0,};
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -341,7 +335,6 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t    *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -380,7 +373,6 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -403,7 +395,6 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req    = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -448,7 +439,6 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req        = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -489,7 +479,6 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req        = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -528,7 +517,6 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -560,7 +548,6 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int               ret   = 0;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         state = CALL_STATE(frame);
         if (op_ret > 0) {
@@ -599,7 +586,6 @@ server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -638,7 +624,6 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.fd        = fd_no;
         rsp.gfs_id    = req->gfs_id;
@@ -659,7 +644,6 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -716,7 +700,6 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 out:
         req               = frame->local;
-        frame->local      = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
@@ -777,7 +760,6 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         req               = frame->local;
-        frame->local      = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
@@ -800,7 +782,6 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -821,7 +802,6 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -844,7 +824,6 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -893,7 +872,6 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req    = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -945,7 +923,6 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req        = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -988,7 +965,6 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req        = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1040,7 +1016,6 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t  *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1074,7 +1049,6 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1108,7 +1082,6 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t   *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1142,7 +1115,6 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1174,7 +1146,6 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1207,7 +1178,6 @@ server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1229,7 +1199,6 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1265,7 +1234,6 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1298,7 +1266,6 @@ server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t  *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1327,7 +1294,6 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t   *req = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1373,7 +1339,6 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.fd        = fd_no;
         rsp.gfs_id    = req->gfs_id;
@@ -1454,7 +1419,6 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.fd        = fd_no;
         rsp.gfs_id    = req->gfs_id;
@@ -1477,7 +1441,6 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t  *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1512,7 +1475,6 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1547,7 +1509,6 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         rpcsvc_request_t *req   = NULL;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1596,7 +1557,6 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         req           = frame->local;
-        frame->local  = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
@@ -1661,7 +1621,6 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 out:
         req               = frame->local;
-        frame->local      = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
@@ -1731,7 +1690,6 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 out:
         req               = frame->local;
-        frame->local      = NULL;
 
         rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
@@ -1758,7 +1716,6 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                ret   = 0;
 
         req           = frame->local;
-        frame->local  = NULL;
 
         state = CALL_STATE(frame);
         if (op_ret > 0) {

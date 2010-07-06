@@ -98,6 +98,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
 
         if (frame) {
                 state = CALL_STATE (frame);
+                frame->local = NULL;
         }
 
         if (!iobref) {
