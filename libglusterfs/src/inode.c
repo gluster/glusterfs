@@ -282,8 +282,8 @@ __inode_destroy (inode_t *inode)
                 goto noctx;
 
         for (index = 0; index < inode->table->xl->graph->xl_count; index++) {
-                if (inode->_ctx[index].key) {
-                        xl = (xlator_t *)(long)inode->_ctx[index].key;
+                if (inode->_ctx[index].xl_key) {
+                        xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
                         old_THIS = THIS;
                         THIS = xl;
                         if (xl->cbks->forget)
@@ -1175,7 +1175,7 @@ __inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
         int put_idx = -1;
 
         for (index = 0; index < xlator->graph->xl_count; index++) {
-                if (!inode->_ctx[index].key) {
+                if (!inode->_ctx[index].xl_key) {
                         if (put_idx == -1)
                                 put_idx = index;
                         /* dont break, to check if key already exists
@@ -1373,8 +1373,8 @@ inode_dump (inode_t *inode, char *prefix)
                 goto out;
 
         for (i = 0; i < inode->table->xl->graph->xl_count; i++) {
-                if (inode->_ctx[i].key) {
-                        xl = (xlator_t *)(long)inode->_ctx[i].key;
+                if (inode->_ctx[i].xl_key) {
+                        xl = (xlator_t *)(long)inode->_ctx[i].xl_key;
                         if (xl->dumpops && xl->dumpops->inodectx)
                                 xl->dumpops->inodectx (xl, inode);
                 }
