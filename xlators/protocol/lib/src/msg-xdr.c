@@ -333,13 +333,6 @@ xdr_serialize_opendir_rsp (struct iovec outmsg, void *rsp)
 }
 
 ssize_t
-xdr_serialize_checksum_rsp (struct iovec outmsg, void *rsp)
-{
-        return xdr_serialize_generic (outmsg, (void *)rsp,
-                                      (xdrproc_t)xdr_gfs3_checksum_rsp);
-}
-
-ssize_t
 xdr_serialize_ftruncate_rsp (struct iovec outmsg, void *rsp)
 {
         return xdr_serialize_generic (outmsg, (void *)rsp,
@@ -578,13 +571,6 @@ xdr_to_fstat_req (struct iovec inmsg, void *args)
 {
         return xdr_to_generic (inmsg, (void *)args,
                                (xdrproc_t)xdr_gfs3_fstat_req);
-}
-
-ssize_t
-xdr_to_checksum_req (struct iovec inmsg, void *args)
-{
-        return xdr_to_generic (inmsg, (void *)args,
-                               (xdrproc_t)xdr_gfs3_checksum_req);
 }
 ssize_t
 xdr_to_rchecksum_req (struct iovec inmsg, void *args)
@@ -953,13 +939,6 @@ xdr_from_statfs_req (struct iovec outmsg, void *req)
 
 }
 ssize_t
-xdr_from_checksum_req (struct iovec outmsg, void *req)
-{
-        return xdr_serialize_generic (outmsg, (void *)req,
-                                      (xdrproc_t)xdr_gfs3_checksum_req);
-
-}
-ssize_t
 xdr_from_rchecksum_req (struct iovec outmsg, void *req)
 {
         return xdr_serialize_generic (outmsg, (void *)req,
@@ -1204,13 +1183,6 @@ xdr_to_statfs_rsp (struct iovec outmsg, void *rsp)
 {
         return xdr_to_generic (outmsg, (void *)rsp,
                                       (xdrproc_t)xdr_gfs3_statfs_rsp);
-
-}
-ssize_t
-xdr_to_checksum_rsp (struct iovec outmsg, void *rsp)
-{
-        return xdr_to_generic (outmsg, (void *)rsp,
-                                      (xdrproc_t)xdr_gfs3_checksum_rsp);
 
 }
 ssize_t

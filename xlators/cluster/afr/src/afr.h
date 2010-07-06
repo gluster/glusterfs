@@ -273,11 +273,6 @@ typedef struct _afr_local {
 			unsigned char *locked_nodes;
 		} lk;
 
-		struct {
-			uint8_t *file_checksum;
-			uint8_t *dir_checksum;
-		} checksum;
-
 		/* inode read */
 
 		struct {

@@ -1258,34 +1258,6 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
-server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno,
-                     uint8_t *fchecksum, uint8_t *dchecksum)
-{
-        gfs3_checksum_rsp  rsp = {0,};
-        rpcsvc_request_t  *req = NULL;
-
-        req           = frame->local;
-
-        rsp.gfs_id    = req->gfs_id;
-        rsp.op_ret    = op_ret;
-        rsp.op_errno  = gf_errno_to_error (op_errno);
-
-        if (op_ret >= 0) {
-                rsp.fchecksum.fchecksum_val = (char *)fchecksum;
-                rsp.fchecksum.fchecksum_len = NAME_MAX;
-                rsp.dchecksum.dchecksum_val = (char *)dchecksum;
-                rsp.dchecksum.dchecksum_len = NAME_MAX;
-        }
-
-        server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
-                             xdr_serialize_checksum_rsp);
-
-        return 0;
-}
-
-
-int
 server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
                       uint32_t weak_checksum, uint8_t *strong_checksum)
@@ -1774,32 +1746,6 @@ err:
 
         return 0;
 
-}
-
-int
-server_checksum_resume (call_frame_t *frame, xlator_t *bound_xl)
-{
-        server_state_t *state = NULL;
-        int             op_ret = 0;
-        int             op_errno = 0;
-
-        state = CALL_STATE (frame);
-
-        if (state->resolve.op_ret != 0) {
-                op_ret   = state->resolve.op_ret;
-                op_errno = state->resolve.op_errno;
-                goto err;
-        }
-
-        STACK_WIND (frame, server_checksum_cbk, bound_xl,
-                    bound_xl->fops->checksum, &state->loc, state->flags);
-
-        return 0;
-err:
-        server_checksum_cbk (frame, NULL, frame->this, state->resolve.op_ret,
-                             state->resolve.op_errno, NULL, NULL);
-
-        return 0;
 }
 
 int
@@ -4536,48 +4482,6 @@ out:
         return 0;
 }
 
-int
-server_checksum (rpcsvc_request_t *req)
-{
-        server_state_t      *state                 = NULL;
-        server_connection_t *conn                  = NULL;
-        call_frame_t        *frame                 = NULL;
-        gfs3_checksum_req    args                  = {0,};
-        char                 path[SERVER_PATH_MAX] = {0,};
-
-        if (!req)
-                return 0;
-
-        conn = req->conn->trans->xl_private;
-
-        args.path = path;
-        if (!xdr_to_checksum_req (req->msg[0], &args)) {
-                //failed to decode msg;
-                req->rpc_err = GARBAGE_ARGS;
-                goto out;
-        }
-
-        frame = get_frame_from_request (req);
-        if (!frame) {
-                // something wrong, mostly insufficient memory
-                req->rpc_err = GARBAGE_ARGS; /* TODO */
-                goto out;
-        }
-
-        state = CALL_STATE (frame);
-
-        state->resolve.type = RESOLVE_MAY;
-        state->resolve.path = gf_strdup (args.path);
-        state->resolve.gen  = args.gen;
-        state->resolve.ino  = args.ino;
-        state->flags        = args.flag;
-
-        resolve_and_resume (frame, server_checksum_resume);
-out:
-        return 0;
-}
-
-
 
 int
 server_rchecksum (rpcsvc_request_t *req)
@@ -4808,7 +4712,6 @@ rpcsvc_actor_t glusterfs3_1_fop_actors[] = {
         [GFS3_OP_FINODELK]    = { "FINODELK",   GFS3_OP_FINODELK, server_finodelk, NULL, NULL },
 	[GFS3_OP_ENTRYLK]     = { "ENTRYLK",    GFS3_OP_ENTRYLK, server_entrylk, NULL, NULL },
 	[GFS3_OP_FENTRYLK]    = { "FENTRYLK",   GFS3_OP_FENTRYLK, server_fentrylk, NULL, NULL },
-        [GFS3_OP_CHECKSUM]    = { "CHECKSUM",   GFS3_OP_CHECKSUM, server_checksum, NULL, NULL },
         [GFS3_OP_XATTROP]     = { "XATTROP",    GFS3_OP_XATTROP, server_xattrop, NULL, NULL },
         [GFS3_OP_FXATTROP]    = { "FXATTROP",   GFS3_OP_FXATTROP, server_fxattrop, NULL, NULL },
         [GFS3_OP_FGETXATTR]   = { "FGETXATTR",  GFS3_OP_FGETXATTR, server_fgetxattr, NULL, NULL },

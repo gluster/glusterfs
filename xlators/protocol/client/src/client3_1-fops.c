@@ -1549,47 +1549,6 @@ out:
 }
 
 int
-client3_1_checksum_cbk (struct rpc_req *req, struct iovec *iov, int count,
-                        void *myframe)
-{
-        call_frame_t *frame = NULL;
-        gfs3_checksum_rsp rsp        = {0,};
-        int              ret        = 0;
-
-        frame = myframe;
-
-        if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = ENOTCONN;
-                goto out;
-        }
-
-        ret = xdr_to_checksum_rsp (*iov, &rsp);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
-                goto out;
-        }
-
-out:
-        STACK_UNWIND_STRICT (checksum, frame, rsp.op_ret,
-                             gf_error_to_errno (rsp.op_errno),
-                             (uint8_t *)rsp.fchecksum.fchecksum_val,
-                             (uint8_t *)rsp.dchecksum.dchecksum_val);
-
-        /* This is allocated by the libc while decoding RPC msg */
-        /* Hence no 'GF_FREE', but just 'free' */
-        if (rsp.fchecksum.fchecksum_val) {
-                free (rsp.fchecksum.fchecksum_val);
-        }
-        if (rsp.dchecksum.dchecksum_val) {
-                free (rsp.dchecksum.dchecksum_val);
-        }
-        return 0;
-}
-
-int
 client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                   void *myframe)
 {
@@ -4421,48 +4380,6 @@ unwind:
 }
 
 
-
-
-int32_t
-client3_1_checksum (call_frame_t *frame, xlator_t *this,
-                    void *data)
-{
-        clnt_conf_t       *conf     = NULL;
-        clnt_args_t       *args     = NULL;
-        gfs3_checksum_req  req      = {0,};
-        int                ret      = 0;
-        int                op_errno = ESTALE;
-
-        if (!frame || !this || !data)
-                goto unwind;
-
-        args = data;
-
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
-        req.path = (char *)args->loc->path;
-        req.flag = args->flags;
-        req.gfs_id = GFS3_OP_CHECKSUM;
-
-        conf = this->private;
-
-        client_submit_request (this, &req, frame, conf->fops, GFS3_OP_CHECKSUM,
-                               client3_1_checksum_cbk, NULL, xdr_from_checksum_req);
-
-        return 0;
-unwind:
-        STACK_UNWIND_STRICT (checksum, frame, -1, op_errno, NULL, NULL);
-        return 0;
-}
-
-
-
 int32_t
 client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
                      void *data)
@@ -4748,7 +4665,6 @@ rpc_clnt_procedure_t clnt3_1_fop_actors[GF_FOP_MAXVALUE] = {
         [GF_FOP_FINODELK]    = { "FINODELK",    client3_1_finodelk },
         [GF_FOP_ENTRYLK]     = { "ENTRYLK",     client3_1_entrylk },
         [GF_FOP_FENTRYLK]    = { "FENTRYLK",    client3_1_fentrylk },
-        [GF_FOP_CHECKSUM]    = { "CHECKSUM",    client3_1_checksum },
         [GF_FOP_XATTROP]     = { "XATTROP",     client3_1_xattrop },
         [GF_FOP_FXATTROP]    = { "FXATTROP",    client3_1_fxattrop },
         [GF_FOP_FGETXATTR]   = { "FGETXATTR",   client3_1_fgetxattr },
@@ -4797,7 +4713,6 @@ char *clnt3_1_fop_names[GFS3_OP_MAXVALUE] = {
         [GFS3_OP_FINODELK]    = "FINODELK",
         [GFS3_OP_ENTRYLK]     = "ENTRYLK",
         [GFS3_OP_FENTRYLK]    = "FENTRYLK",
-        [GFS3_OP_CHECKSUM]    = "CHECKSUM",
         [GFS3_OP_XATTROP]     = "XATTROP",
         [GFS3_OP_FXATTROP]    = "FXATTROP",
         [GFS3_OP_FGETXATTR]   = "FGETXATTR",

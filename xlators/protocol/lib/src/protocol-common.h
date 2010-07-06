@@ -54,7 +54,6 @@ enum gf_fop_procnum {
         GFS3_OP_FINODELK,
 	GFS3_OP_ENTRYLK,
 	GFS3_OP_FENTRYLK,
-        GFS3_OP_CHECKSUM,
         GFS3_OP_XATTROP,
         GFS3_OP_FXATTROP,
         GFS3_OP_FGETXATTR,

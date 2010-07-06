@@ -634,21 +634,6 @@ struct gfs3_fstat_req {
 };
 
 
-struct   gfs3_checksum_req {
-        unsigned hyper gfs_id;
-	unsigned hyper  ino;
-        unsigned hyper  gen;
-	unsigned int  flag;
-	string      path<>;
-};
- struct gfs3_checksum_rsp {
-        unsigned hyper gfs_id;
-        int    op_ret;
-        int    op_errno;
-        opaque fchecksum<>;
-	opaque dchecksum<>;
-}  ;
-
  struct gfs3_setattr_req {
         unsigned hyper gfs_id;
         unsigned hyper       ino;

@@ -85,7 +85,6 @@ fill_defaults (xlator_t *xl)
 	SET_DEFAULT_FOP (entrylk);
 	SET_DEFAULT_FOP (fentrylk);
 	SET_DEFAULT_FOP (lookup);
-	SET_DEFAULT_FOP (checksum);
 	SET_DEFAULT_FOP (rchecksum);
 	SET_DEFAULT_FOP (xattrop);
 	SET_DEFAULT_FOP (fxattrop);

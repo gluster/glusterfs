@@ -99,8 +99,6 @@ gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops, void 
                 fop = GF_FOP_ENTRYLK;
 	else if (fops->fentrylk == fn)
                 fop = GF_FOP_FENTRYLK;
-        else if (fops->checksum == fn)
-                fop = GF_FOP_CHECKSUM;
         else if (fops->xattrop == fn)
                 fop = GF_FOP_XATTROP;
         else if (fops->fxattrop == fn)

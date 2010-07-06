@@ -93,9 +93,6 @@ ssize_t
 xdr_serialize_ftruncate_rsp (struct iovec outmsg, void *rsp);
 
 ssize_t
-xdr_serialize_checksum_rsp (struct iovec outmsg, void *rsp);
-
-ssize_t
 xdr_serialize_statfs_rsp (struct iovec outmsg, void *rsp);
 
 
@@ -266,9 +263,6 @@ ssize_t
 xdr_to_rmdir_req (struct iovec inmsg, void *args);
 
 ssize_t
-xdr_to_checksum_req (struct iovec inmsg, void *args);
-
-ssize_t
 xdr_to_rchecksum_req (struct iovec inmsg, void *args);
 
 ssize_t
@@ -367,9 +361,6 @@ xdr_from_xattrop_req (struct iovec outmsg, void *args);
 
 ssize_t
 xdr_from_fxattrop_req (struct iovec outmsg, void *args);
-
-ssize_t
-xdr_from_checksum_req (struct iovec outmsg, void *args);
 
 ssize_t
 xdr_from_rchecksum_req (struct iovec outmsg, void *args);
@@ -514,8 +505,6 @@ xdr_to_symlink_rsp (struct iovec inmsg, void *args);
 ssize_t
 xdr_to_fgetxattr_rsp (struct iovec inmsg, void *args);
 
-ssize_t
-xdr_to_checksum_rsp (struct iovec inmsg, void *args);
 ssize_t
 xdr_to_rchecksum_rsp (struct iovec inmsg, void *args);
 

@@ -72,7 +72,6 @@ gf_op_list_init()
 	gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
 	gf_fop_list[GF_FOP_ENTRYLK]     = "ENTRYLK";
 	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";
-	gf_fop_list[GF_FOP_CHECKSUM]    = "CHECKSUM";
 	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
 	gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
 	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";

@@ -1365,39 +1365,6 @@ xdr_gfs3_fentrylk_req (XDR *xdrs, gfs3_fentrylk_req *objp)
 	return TRUE;
 }
 
-bool_t
-xdr_gfs3_checksum_req (XDR *xdrs, gfs3_checksum_req *objp)
-{
-
-	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
-		 return FALSE;
-	 if (!xdr_u_quad_t (xdrs, &objp->ino))
-		 return FALSE;
-	 if (!xdr_u_quad_t (xdrs, &objp->gen))
-		 return FALSE;
-	 if (!xdr_u_int (xdrs, &objp->flag))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->path, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
-xdr_gfs3_checksum_rsp (XDR *xdrs, gfs3_checksum_rsp *objp)
-{
-
-	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_ret))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_errno))
-		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->fchecksum.fchecksum_val, (u_int *) &objp->fchecksum.fchecksum_len, ~0))
-		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->dchecksum.dchecksum_val, (u_int *) &objp->dchecksum.dchecksum_len, ~0))
-		 return FALSE;
-	return TRUE;
-}
 
 bool_t
 xdr_gfs3_setattr_req (XDR *xdrs, gfs3_setattr_req *objp)

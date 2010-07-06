@@ -5217,71 +5217,6 @@ client_getspec_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
         return 0;
 }
 
-int
-client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_fop_checksum_req_t *req = NULL;
-        size_t                 hdrlen = -1;
-        int                    ret = -1;
-        ino_t                  ino = 0;
-        uint64_t               gen = 0;
-
-        hdrlen = gf_hdr_len (req, strlen (loc->path) + 1);
-        hdr    = gf_hdr_new (req, strlen (loc->path) + 1);
-        req    = gf_param (hdr);
-
-        ret = inode_ctx_get2 (loc->inode, this, &ino, &gen);
-        if (loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "CHECKSUM %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        loc->inode->ino, loc->path);
-                STACK_UNWIND (frame, -1, EINVAL, NULL, NULL);
-                return 0;
-
-        }
-
-        req->ino  = hton64 (ino);
-        req->gen  = hton64 (gen);
-        req->flag = hton32 (flag);
-        strcpy (req->path, loc->path);
-
-        ret = protocol_client_xfer (frame, this,
-                                    CLIENT_CHANNEL (this, CHANNEL_BULK),
-                                    GF_OP_TYPE_FOP_REQUEST, GF_PROTO_FOP_CHECKSUM,
-                                    hdr, hdrlen, NULL, 0, NULL);
-
-        return ret;
-}
-
-
-int
-client_checksum_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
-                     struct iobuf *iobuf)
-{
-        gf_fop_checksum_rsp_t *rsp = NULL;
-        int32_t                op_ret = 0;
-        int32_t                op_errno = 0;
-        int32_t                gf_errno = 0;
-        unsigned char         *fchecksum = NULL;
-        unsigned char         *dchecksum = NULL;
-
-        rsp = gf_param (hdr);
-
-        op_ret   = ntoh32 (hdr->rsp.op_ret);
-        gf_errno = ntoh32 (hdr->rsp.op_errno);
-        op_errno = gf_error_to_errno (gf_errno);
-
-        if (op_ret >= 0) {
-                fchecksum = rsp->fchecksum;
-                dchecksum = rsp->dchecksum + NAME_MAX;
-        }
-
-        STACK_UNWIND (frame, op_ret, op_errno, fchecksum, dchecksum);
-        return 0;
-}
-
 
 int
 client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
@@ -6023,7 +5958,6 @@ static gf_op_t gf_fops[] = {
         [GF_PROTO_FOP_FINODELK]       =  client_finodelk_cbk,
         [GF_PROTO_FOP_ENTRYLK]        =  client_entrylk_cbk,
         [GF_PROTO_FOP_FENTRYLK]       =  client_fentrylk_cbk,
-        [GF_PROTO_FOP_CHECKSUM]       =  client_checksum_cbk,
         [GF_PROTO_FOP_RCHECKSUM]      =  client_rchecksum_cbk,
         [GF_PROTO_FOP_XATTROP]        =  client_xattrop_cbk,
         [GF_PROTO_FOP_FXATTROP]       =  client_fxattrop_cbk,
@@ -6687,7 +6621,6 @@ struct xlator_fops fops = {
         .entrylk     = client_entrylk,
         .fentrylk    = client_fentrylk,
         .lookup      = client_lookup,
-        .checksum    = client_checksum,
         .rchecksum   = client_rchecksum,
         .xattrop     = client_xattrop,
         .fxattrop    = client_fxattrop,
