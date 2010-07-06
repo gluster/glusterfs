@@ -220,7 +220,7 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         if (cmd_args->fuse_attribute_timeout >= 0)
                 ret = dict_set_double (master->options, ZR_ATTR_TIMEOUT_OPT,
                                        cmd_args->fuse_attribute_timeout);
-        if (cmd_args->fuse_entry_timeout)
+        if (cmd_args->fuse_entry_timeout >= 0)
                 ret = dict_set_double (master->options, ZR_ENTRY_TIMEOUT_OPT,
                                        cmd_args->fuse_entry_timeout);
 
