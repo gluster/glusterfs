@@ -26,155 +26,155 @@
 #include "error-gen.h"
 
 sys_error_t error_no_list[] = {
-        [ERR_LOOKUP]            = { .error_no_count = 4,
+        [GF_FOP_LOOKUP]            = { .error_no_count = 4,
                                     .error_no = {ENOENT,ENOTDIR,
                                                  ENAMETOOLONG,EAGAIN}},
-        [ERR_STAT]              = { .error_no_count = 7,
+        [GF_FOP_STAT]              = { .error_no_count = 7,
                                     .error_no = {EACCES,EBADF,EFAULT,
                                                  ENAMETOOLONG,ENOENT,
                                                  ENOMEM,ENOTDIR}},
-        [ERR_READLINK]          = { .error_no_count = 8,
+        [GF_FOP_READLINK]          = { .error_no_count = 8,
                                     .error_no = {EACCES,EFAULT,EINVAL,EIO,
                                                  ENAMETOOLONG,ENOENT,ENOMEM,
                                                  ENOTDIR}},
-        [ERR_MKNOD]             = { .error_no_count = 11,
+        [GF_FOP_MKNOD]             = { .error_no_count = 11,
                                     .error_no = {EACCES,EEXIST,EFAULT,
                                                  EINVAL,ENAMETOOLONG,
                                                  ENOENT,ENOMEM,ENOSPC,
                                                  ENOTDIR,EPERM,EROFS}},
-        [ERR_MKDIR]             = { .error_no_count = 10,
+        [GF_FOP_MKDIR]             = { .error_no_count = 10,
                                     .error_no = {EACCES,EEXIST,EFAULT,
                                                  ENAMETOOLONG,ENOENT,
                                                  ENOMEM,ENOSPC,ENOTDIR,
 						 EPERM,EROFS}},
-        [ERR_UNLINK]            = { .error_no_count = 10,
+        [GF_FOP_UNLINK]            = { .error_no_count = 10,
                                     .error_no = {EACCES,EBUSY,EFAULT,EIO,
                                                  EISDIR,ENAMETOOLONG,
                                                  ENOENT,ENOMEM,ENOTDIR,
                                                  EPERM,EROFS}},
-        [ERR_RMDIR]             = { .error_no_count = 8,
+        [GF_FOP_RMDIR]             = { .error_no_count = 8,
                                     .error_no = {EACCES,EBUSY,EFAULT,
                                                  ENOMEM,ENOTDIR,ENOTEMPTY,
                                                  EPERM,EROFS}},
-        [ERR_SYMLINK]           = { .error_no_count = 11,
+        [GF_FOP_SYMLINK]           = { .error_no_count = 11,
                                     .error_no = {EACCES,EEXIST,EFAULT,EIO,
                                                  ENAMETOOLONG,ENOENT,ENOMEM,
                                                  ENOSPC,ENOTDIR,EPERM,
                                                  EROFS}},
-        [ERR_RENAME]            = { .error_no_count = 13,
+        [GF_FOP_RENAME]            = { .error_no_count = 13,
                                     .error_no = {EACCES,EBUSY,EFAULT,
                                                  EINVAL,EISDIR,EMLINK,
                                                  ENAMETOOLONG,ENOENT,ENOMEM,
                                                  ENOSPC,ENOTDIR,EEXIST,
                                                  EXDEV}},
-        [ERR_LINK]              = { .error_no_count = 13,
+        [GF_FOP_LINK]              = { .error_no_count = 13,
                                     .error_no = {EACCES,EFAULT,EEXIST,EIO,
                                                  EMLINK,ENAMETOOLONG,
                                                  ENOENT,ENOMEM,ENOSPC,
                                                  ENOTDIR,EPERM,EROFS,
                                                  EXDEV}},
-        [ERR_TRUNCATE]          = { .error_no_count = 10,
+        [GF_FOP_TRUNCATE]          = { .error_no_count = 10,
                                     .error_no = {EACCES,EFAULT,EFBIG,
                                                  EINTR,EINVAL,EIO,EISDIR,
                                                  ENAMETOOLONG,ENOENT,
                                                  EISDIR}},
-        [ERR_CREATE]            = {.error_no_count = 10,
+        [GF_FOP_CREATE]            = {.error_no_count = 10,
                                    .error_no = {EACCES,EEXIST,EFAULT,
                                                 EISDIR,EMFILE,ENAMETOOLONG,
                                                 ENFILE,ENODEV,ENOENT,
                                                 ENODEV}},
-        [ERR_OPEN]              = { .error_no_count = 10,
+        [GF_FOP_OPEN]              = { .error_no_count = 10,
                                     .error_no = {EACCES,EEXIST,EFAULT,
                                                  EISDIR,EMFILE,
                                                  ENAMETOOLONG,ENFILE,
                                                  ENODEV,ENOENT,ENOMEM}},
-        [ERR_READV]             = { .error_no_count = 5,
+        [GF_FOP_READ]              = { .error_no_count = 5,
                                     .error_no = {EINVAL,EBADF,EFAULT,EISDIR,
                                                  ENAMETOOLONG}},
-        [ERR_WRITEV]            = { .error_no_count = 5,
+        [GF_FOP_WRITE]             = { .error_no_count = 5,
                                     .error_no = {EINVAL,EBADF,EFAULT,EISDIR,
                                                  ENAMETOOLONG}},
-        [ERR_STATFS]            = {.error_no_count = 10,
+        [GF_FOP_STATFS]            = {.error_no_count = 10,
                                    .error_no = {EACCES,EBADF,EFAULT,EINTR,
                                                 EIO,ENAMETOOLONG,ENOENT,
                                                 ENOMEM,ENOSYS,ENOTDIR}},
-        [ERR_FLUSH]             = { .error_no_count = 5,
+        [GF_FOP_FLUSH]             = { .error_no_count = 5,
                                     .error_no = {EACCES,EFAULT,
                                                  ENAMETOOLONG,ENOSYS,
                                                  ENOENT}},
-        [ERR_FSYNC]             = { .error_no_count = 4,
+        [GF_FOP_FSYNC]             = { .error_no_count = 4,
                                     .error_no = {EBADF,EIO,EROFS,EINVAL}},
-        [ERR_SETXATTR]          = { .error_no_count = 4,
+        [GF_FOP_SETXATTR]          = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,EINTR,
                                                  ENAMETOOLONG}},
-        [ERR_GETXATTR]          = { .error_no_count = 4,
+        [GF_FOP_GETXATTR]          = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,ENAMETOOLONG,
                                                  EINTR}},
-        [ERR_REMOVEXATTR]       = { .error_no_count = 4,
+        [GF_FOP_REMOVEXATTR]       = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,ENAMETOOLONG,
                                                  EINTR}},
-        [ERR_OPENDIR]           = { .error_no_count = 8,
+        [GF_FOP_OPENDIR]           = { .error_no_count = 8,
                                     .error_no = {EACCES,EEXIST,EFAULT,
                                                  EISDIR,EMFILE,
                                                  ENAMETOOLONG,ENFILE,
                                                  ENODEV}},
-        [ERR_READDIR]           = { .error_no_count = 5,
+        [GF_FOP_READDIR]           = { .error_no_count = 5,
                                     .error_no = {EINVAL,EACCES,EBADF,
                                                  EMFILE,ENOENT}},
-        [ERR_READDIRP]          = { .error_no_count = 5,
+        [GF_FOP_READDIRP]          = { .error_no_count = 5,
                                     .error_no = {EINVAL,EACCES,EBADF,
                                                  EMFILE,ENOENT}},
-        [ERR_FSYNCDIR]          = { .error_no_count = 4,
+        [GF_FOP_FSYNCDIR]          = { .error_no_count = 4,
                                     .error_no = {EBADF,EIO,EROFS,EINVAL}},
-        [ERR_ACCESS]            = { .error_no_count = 8,
+        [GF_FOP_ACCESS]            = { .error_no_count = 8,
                                     .error_no = {EACCES,ENAMETOOLONG,
                                                  ENOENT,ENOTDIR,EROFS,
                                                  EFAULT,EINVAL,EIO}},
-        [ERR_FTRUNCATE]         = { .error_no_count = 9,
+        [GF_FOP_FTRUNCATE]         = { .error_no_count = 9,
                                     .error_no = {EACCES,EFAULT,EFBIG,
                                                  EINTR,EINVAL,EIO,EISDIR,
                                                  ENAMETOOLONG,ENOENT}},
-        [ERR_FSTAT]             = { .error_no_count = 7,
+        [GF_FOP_FSTAT]             = { .error_no_count = 7,
                                     .error_no = {EACCES,EBADF,EFAULT,
                                                  ENAMETOOLONG,ENOENT,
                                                  ENOMEM,ENOTDIR}},
-        [ERR_LK]                = { .error_no_count = 4,
+        [GF_FOP_LK]                = { .error_no_count = 4,
                                     .error_no = {EACCES,EFAULT,ENOENT,
                                                  EINTR}},
-        [ERR_CHECKSUM]          = { .error_no_count = 4,
+        [GF_FOP_CHECKSUM]          = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,
                                                  ENAMETOOLONG,EINTR}},
-        [ERR_XATTROP]           = { .error_no_count = 5,
+        [GF_FOP_XATTROP]           = { .error_no_count = 5,
                                     .error_no = {EACCES,EFAULT,
                                                  ENAMETOOLONG,ENOSYS,
                                                  ENOENT}},
-        [ERR_FXATTROP]          = { .error_no_count = 4,
+        [GF_FOP_FXATTROP]          = { .error_no_count = 4,
                                     .error_no = {EBADF,EIO,EROFS,EINVAL}},
-        [ERR_INODELK]           = { .error_no_count = 4,
+        [GF_FOP_INODELK]           = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,EINTR,
                                                  ENAMETOOLONG}},
-        [ERR_FINODELK]          = { .error_no_count = 4,
+        [GF_FOP_FINODELK]          = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,EINTR,
                                                  ENAMETOOLONG}},
-        [ERR_ENTRYLK]           = { .error_no_count = 4,
+        [GF_FOP_ENTRYLK]           = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,
                                                  ENAMETOOLONG,EINTR}},
-        [ERR_FENTRYLK]          = { .error_no_count = 10,
+        [GF_FOP_FENTRYLK]          = { .error_no_count = 10,
                                     .error_no = {EACCES,EEXIST,EFAULT,
                                                  EISDIR,EMFILE,
                                                  ENAMETOOLONG,ENFILE,
                                                  ENODEV,ENOENT,ENOMEM}},
-        [ERR_SETATTR]           = {.error_no_count = 11,
+        [GF_FOP_SETATTR]           = {.error_no_count = 11,
                                     .error_no = {EACCES,EFAULT,EIO,
                                                  ENAMETOOLONG,ENOENT,
                                                  ENOMEM,ENOTDIR,EPERM,
                                                  EROFS,EBADF,EIO}},
-        [ERR_FSETATTR]          = { .error_no_count = 11,
+        [GF_FOP_FSETATTR]          = { .error_no_count = 11,
                                     .error_no = {EACCES,EFAULT,EIO,
                                                  ENAMETOOLONG,ENOENT,
                                                  ENOMEM,ENOTDIR,EPERM,
                                                  EROFS,EBADF,EIO}},
-        [ERR_GETSPEC]           = { .error_no_count = 4,
+        [GF_FOP_GETSPEC]           = { .error_no_count = 4,
                                     .error_no = {EACCES,EBADF,ENAMETOOLONG,
                                                  EINTR}}
 };
@@ -184,7 +184,7 @@ generate_rand_no (int op_no)
 {
         int             rand_no = 0;
 
-        if (op_no < NO_OF_FOPS)
+        if (op_no < GF_FOP_MAXVALUE)
                 rand_no = rand () % error_no_list[op_no].error_no_count;
         return rand_no;
 }
@@ -248,83 +248,83 @@ int
 get_fop_int (char **op_no_str)
 {
         if (!strcmp ((*op_no_str), "lookup"))
-                return ERR_LOOKUP;
+                return GF_FOP_LOOKUP;
         else if (!strcmp ((*op_no_str), "stat"))
-                return ERR_STAT;
+                return GF_FOP_STAT;
         else if (!strcmp ((*op_no_str), "readlink"))
-                return ERR_READLINK;
+                return GF_FOP_READLINK;
         else if (!strcmp ((*op_no_str), "mknod"))
-                return ERR_MKNOD;
+                return GF_FOP_MKNOD;
         else if (!strcmp ((*op_no_str), "mkdir"))
-                return ERR_MKDIR;
+                return GF_FOP_MKDIR;
         else if (!strcmp ((*op_no_str), "unlink"))
-                return ERR_UNLINK;
+                return GF_FOP_UNLINK;
         else if (!strcmp ((*op_no_str), "rmdir"))
-                return ERR_RMDIR;
+                return GF_FOP_RMDIR;
         else if (!strcmp ((*op_no_str), "symlink"))
-                return ERR_SYMLINK;
+                return GF_FOP_SYMLINK;
         else if (!strcmp ((*op_no_str), "rename"))
-                return ERR_RENAME;
+                return GF_FOP_RENAME;
         else if (!strcmp ((*op_no_str), "link"))
-                return ERR_LINK;
+                return GF_FOP_LINK;
         else if (!strcmp ((*op_no_str), "truncate"))
-                return ERR_TRUNCATE;
+                return GF_FOP_TRUNCATE;
         else if (!strcmp ((*op_no_str), "create"))
-                return ERR_CREATE;
+                return GF_FOP_CREATE;
         else if (!strcmp ((*op_no_str), "open"))
-                return ERR_OPEN;
+                return GF_FOP_OPEN;
         else if (!strcmp ((*op_no_str), "readv"))
-                return ERR_READV;
+                return GF_FOP_READ;
         else if (!strcmp ((*op_no_str), "writev"))
-                return ERR_WRITEV;
+                return GF_FOP_WRITE;
         else if (!strcmp ((*op_no_str), "statfs"))
-                return ERR_STATFS;
+                return GF_FOP_STATFS;
         else if (!strcmp ((*op_no_str), "flush"))
-                return ERR_FLUSH;
+                return GF_FOP_FLUSH;
         else if (!strcmp ((*op_no_str), "fsync"))
-                return ERR_FSYNC;
+                return GF_FOP_FSYNC;
         else if (!strcmp ((*op_no_str), "setxattr"))
-                return ERR_SETXATTR;
+                return GF_FOP_SETXATTR;
         else if (!strcmp ((*op_no_str), "getxattr"))
-                return ERR_GETXATTR;
+                return GF_FOP_GETXATTR;
         else if (!strcmp ((*op_no_str), "removexattr"))
-                return ERR_REMOVEXATTR;
+                return GF_FOP_REMOVEXATTR;
         else if (!strcmp ((*op_no_str), "opendir"))
-                return ERR_OPENDIR;
+                return GF_FOP_OPENDIR;
         else if (!strcmp ((*op_no_str), "readdir"))
-                return ERR_READDIR;
+                return GF_FOP_READDIR;
         else if (!strcmp ((*op_no_str), "readdirp"))
-                return ERR_READDIRP;
+                return GF_FOP_READDIRP;
         else if (!strcmp ((*op_no_str), "fsyncdir"))
-                return ERR_FSYNCDIR;
+                return GF_FOP_FSYNCDIR;
         else if (!strcmp ((*op_no_str), "access"))
-                return ERR_ACCESS;
+                return GF_FOP_ACCESS;
         else if (!strcmp ((*op_no_str), "ftruncate"))
-                return ERR_FTRUNCATE;
+                return GF_FOP_FTRUNCATE;
         else if (!strcmp ((*op_no_str), "fstat"))
-                return ERR_FSTAT;
+                return GF_FOP_FSTAT;
         else if (!strcmp ((*op_no_str), "lk"))
-                return ERR_LK;
+                return GF_FOP_LK;
         else if (!strcmp ((*op_no_str), "checksum"))
-                return ERR_CHECKSUM;
+                return GF_FOP_CHECKSUM;
         else if (!strcmp ((*op_no_str), "xattrop"))
-                return ERR_XATTROP;
+                return GF_FOP_XATTROP;
         else if (!strcmp ((*op_no_str), "fxattrop"))
-                return ERR_FXATTROP;
+                return GF_FOP_FXATTROP;
         else if (!strcmp ((*op_no_str), "inodelk"))
-                return ERR_INODELK;
+                return GF_FOP_INODELK;
         else if (!strcmp ((*op_no_str), "finodelk"))
-                return ERR_FINODELK;
+                return GF_FOP_FINODELK;
         else if (!strcmp ((*op_no_str), "etrylk"))
-                return ERR_ENTRYLK;
+                return GF_FOP_ENTRYLK;
         else if (!strcmp ((*op_no_str), "fentrylk"))
-                return ERR_FENTRYLK;
+                return GF_FOP_FENTRYLK;
         else if (!strcmp ((*op_no_str), "setattr"))
-                return ERR_SETATTR;
+                return GF_FOP_SETATTR;
         else if (!strcmp ((*op_no_str), "fsetattr"))
-                return ERR_FSETATTR;
+                return GF_FOP_FSETATTR;
         else if (!strcmp ((*op_no_str), "getspec"))
-                return ERR_GETSPEC;
+                return GF_FOP_GETSPEC;
 	else
                 return -1;
 }
@@ -361,12 +361,13 @@ error_gen (xlator_t *this, int op_no)
                 else {
 
                         rand_no = generate_rand_no (op_no);
-                        if (op_no >= NO_OF_FOPS)
+                        if (op_no >= GF_FOP_MAXVALUE)
                                 op_no = 0;
                         if (rand_no >= error_no_list[op_no].error_no_count)
                                 rand_no = 0;
                         ret = error_no_list[op_no].error_no[rand_no];
                 }
+                egp->failure_iter_no = 3 + (rand () % GF_UNIVERSAL_ANSWER);
         }
         return ret;
 }
@@ -392,10 +393,10 @@ error_gen_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_LOOKUP];
+        enable = egp->enable[GF_FOP_LOOKUP];
 
         if (enable)
-                op_errno = error_gen (this, ERR_LOOKUP);
+                op_errno = error_gen (this, GF_FOP_LOOKUP);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -436,10 +437,10 @@ error_gen_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_STAT];
+        enable = egp->enable[GF_FOP_STAT];
 
         if (enable)
-                op_errno = error_gen (this, ERR_STAT);
+                op_errno = error_gen (this, GF_FOP_STAT);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -475,10 +476,10 @@ error_gen_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_SETATTR];
+        enable = egp->enable[GF_FOP_SETATTR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_SETATTR);
+                op_errno = error_gen (this, GF_FOP_SETATTR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -503,10 +504,10 @@ error_gen_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int             enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FSETATTR];
+        enable = egp->enable[GF_FOP_FSETATTR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FSETATTR);
+                op_errno = error_gen (this, GF_FOP_FSETATTR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -542,10 +543,10 @@ error_gen_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_TRUNCATE];
+        enable = egp->enable[GF_FOP_TRUNCATE];
 
         if (enable)
-                op_errno = error_gen (this, ERR_TRUNCATE);
+                op_errno = error_gen (this, GF_FOP_TRUNCATE);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -582,10 +583,10 @@ error_gen_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FTRUNCATE];
+        enable = egp->enable[GF_FOP_FTRUNCATE];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FTRUNCATE);
+                op_errno = error_gen (this, GF_FOP_FTRUNCATE);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -621,10 +622,10 @@ error_gen_access (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_ACCESS];
+        enable = egp->enable[GF_FOP_ACCESS];
 
         if (enable)
-                op_errno = error_gen (this, ERR_ACCESS);
+                op_errno = error_gen (this, GF_FOP_ACCESS);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -659,10 +660,10 @@ error_gen_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_READLINK];
+        enable = egp->enable[GF_FOP_READLINK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_READLINK);
+                op_errno = error_gen (this, GF_FOP_READLINK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -700,10 +701,10 @@ error_gen_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_MKNOD];
+        enable = egp->enable[GF_FOP_MKNOD];
 
         if (enable)
-                op_errno = error_gen (this, ERR_MKNOD);
+                op_errno = error_gen (this, GF_FOP_MKNOD);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -741,10 +742,10 @@ error_gen_mkdir (call_frame_t *frame, xlator_t *this,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_MKDIR];
+        enable = egp->enable[GF_FOP_MKDIR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_MKDIR);
+                op_errno = error_gen (this, GF_FOP_MKDIR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -780,10 +781,10 @@ error_gen_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_UNLINK];
+        enable = egp->enable[GF_FOP_UNLINK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_UNLINK);
+                op_errno = error_gen (this, GF_FOP_UNLINK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -818,10 +819,10 @@ error_gen_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_RMDIR];
+        enable = egp->enable[GF_FOP_RMDIR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_RMDIR);
+                op_errno = error_gen (this, GF_FOP_RMDIR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -858,10 +859,10 @@ error_gen_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_SYMLINK];
+        enable = egp->enable[GF_FOP_SYMLINK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_SYMLINK);
+                op_errno = error_gen (this, GF_FOP_SYMLINK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -900,10 +901,10 @@ error_gen_rename (call_frame_t *frame, xlator_t *this,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_RENAME];
+        enable = egp->enable[GF_FOP_RENAME];
 
         if (enable)
-                op_errno = error_gen (this, ERR_RENAME);
+                op_errno = error_gen (this, GF_FOP_RENAME);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -941,10 +942,10 @@ error_gen_link (call_frame_t *frame, xlator_t *this,
         int             enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_LINK];
+        enable = egp->enable[GF_FOP_LINK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_LINK);
+                op_errno = error_gen (this, GF_FOP_LINK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -982,10 +983,10 @@ error_gen_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int             enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_CREATE];
+        enable = egp->enable[GF_FOP_CREATE];
 
         if (enable)
-                op_errno = error_gen (this, ERR_CREATE);
+                op_errno = error_gen (this, GF_FOP_CREATE);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1020,10 +1021,10 @@ error_gen_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_OPEN];
+        enable = egp->enable[GF_FOP_OPEN];
 
         if (enable)
-                op_errno = error_gen (this, ERR_OPEN);
+                op_errno = error_gen (this, GF_FOP_OPEN);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1060,10 +1061,10 @@ error_gen_readv (call_frame_t *frame, xlator_t *this,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_READV];
+        enable = egp->enable[GF_FOP_READ];
 
         if (enable)
-                op_errno = error_gen (this, ERR_READV);
+                op_errno = error_gen (this, GF_FOP_READ);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1101,10 +1102,10 @@ error_gen_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_WRITEV];
+        enable = egp->enable[GF_FOP_WRITE];
 
         if (enable)
-                op_errno = error_gen (this, ERR_WRITEV);
+                op_errno = error_gen (this, GF_FOP_WRITE);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1137,10 +1138,10 @@ error_gen_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FLUSH];
+        enable = egp->enable[GF_FOP_FLUSH];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FLUSH);
+                op_errno = error_gen (this, GF_FOP_FLUSH);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1175,10 +1176,10 @@ error_gen_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FSYNC];
+        enable = egp->enable[GF_FOP_FSYNC];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FSYNC);
+                op_errno = error_gen (this, GF_FOP_FSYNC);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1211,10 +1212,10 @@ error_gen_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FSTAT];
+        enable = egp->enable[GF_FOP_FSTAT];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FSTAT);
+                op_errno = error_gen (this, GF_FOP_FSTAT);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1247,10 +1248,10 @@ error_gen_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_OPENDIR];
+        enable = egp->enable[GF_FOP_OPENDIR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_OPENDIR);
+                op_errno = error_gen (this, GF_FOP_OPENDIR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1283,10 +1284,10 @@ error_gen_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FSYNCDIR];
+        enable = egp->enable[GF_FOP_FSYNCDIR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FSYNCDIR);
+                op_errno = error_gen (this, GF_FOP_FSYNCDIR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1320,10 +1321,10 @@ error_gen_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_STATFS];
+        enable = egp->enable[GF_FOP_STATFS];
 
         if (enable)
-                op_errno = error_gen (this, ERR_STATFS);
+                op_errno = error_gen (this, GF_FOP_STATFS);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1358,10 +1359,10 @@ error_gen_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_SETXATTR];
+        enable = egp->enable[GF_FOP_SETXATTR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_SETXATTR);
+                op_errno = error_gen (this, GF_FOP_SETXATTR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1395,10 +1396,10 @@ error_gen_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_GETXATTR];
+        enable = egp->enable[GF_FOP_GETXATTR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_GETXATTR);
+                op_errno = error_gen (this, GF_FOP_GETXATTR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1433,10 +1434,10 @@ error_gen_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_XATTROP];
+        enable = egp->enable[GF_FOP_XATTROP];
 
         if (enable)
-                op_errno = error_gen (this, ERR_XATTROP);
+                op_errno = error_gen (this, GF_FOP_XATTROP);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1471,10 +1472,10 @@ error_gen_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FXATTROP];
+        enable = egp->enable[GF_FOP_FXATTROP];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FXATTROP);
+                op_errno = error_gen (this, GF_FOP_FXATTROP);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1509,10 +1510,10 @@ error_gen_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_REMOVEXATTR];
+        enable = egp->enable[GF_FOP_REMOVEXATTR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_REMOVEXATTR);
+                op_errno = error_gen (this, GF_FOP_REMOVEXATTR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1546,10 +1547,10 @@ error_gen_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_LK];
+        enable = egp->enable[GF_FOP_LK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_LK);
+                op_errno = error_gen (this, GF_FOP_LK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1585,10 +1586,10 @@ error_gen_inodelk (call_frame_t *frame, xlator_t *this,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_INODELK];
+        enable = egp->enable[GF_FOP_INODELK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_INODELK);
+                op_errno = error_gen (this, GF_FOP_INODELK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1624,10 +1625,10 @@ error_gen_finodelk (call_frame_t *frame, xlator_t *this,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FINODELK];
+        enable = egp->enable[GF_FOP_FINODELK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FINODELK);
+                op_errno = error_gen (this, GF_FOP_FINODELK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1663,10 +1664,10 @@ error_gen_entrylk (call_frame_t *frame, xlator_t *this,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_ENTRYLK];
+        enable = egp->enable[GF_FOP_ENTRYLK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_ENTRYLK);
+                op_errno = error_gen (this, GF_FOP_ENTRYLK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1702,10 +1703,10 @@ error_gen_fentrylk (call_frame_t *frame, xlator_t *this,
         int             enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_FENTRYLK];
+        enable = egp->enable[GF_FOP_FENTRYLK];
 
         if (enable)
-                op_errno = error_gen (this, ERR_FENTRYLK);
+                op_errno = error_gen (this, GF_FOP_FENTRYLK);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1743,10 +1744,10 @@ error_gen_getspec (call_frame_t *frame, xlator_t *this, const char *key,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_GETSPEC];
+        enable = egp->enable[GF_FOP_GETSPEC];
 
         if (enable)
-                op_errno = error_gen (this, ERR_GETSPEC);
+                op_errno = error_gen (this, GF_FOP_GETSPEC);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1782,10 +1783,10 @@ error_gen_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_CHECKSUM];
+        enable = egp->enable[GF_FOP_CHECKSUM];
 
         if (enable)
-                op_errno = error_gen (this, ERR_CHECKSUM);
+                op_errno = error_gen (this, GF_FOP_CHECKSUM);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1819,10 +1820,10 @@ error_gen_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_READDIR];
+        enable = egp->enable[GF_FOP_READDIR];
 
         if (enable)
-                op_errno = error_gen (this, ERR_READDIR);
+                op_errno = error_gen (this, GF_FOP_READDIR);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1856,10 +1857,10 @@ error_gen_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         int              enable = 1;
 
         egp = this->private;
-        enable = egp->enable[ERR_READDIRP];
+        enable = egp->enable[GF_FOP_READDIRP];
 
         if (enable)
-                op_errno = error_gen (this, ERR_READDIRP);
+                op_errno = error_gen (this, GF_FOP_READDIRP);
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
@@ -1930,7 +1931,7 @@ init (xlator_t *this)
 
         LOCK_INIT (&pvt->lock);
 
-        for (i = 0; i < NO_OF_FOPS; i++)
+        for (i = 0; i < GF_FOP_MAXVALUE; i++)
                 pvt->enable[i] = 0;
         if (!error_no) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1954,7 +1955,7 @@ init (xlator_t *this)
         if (!enable) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "All fops are enabled.");
-                for (i = 0; i < NO_OF_FOPS; i++)
+                for (i = 0; i < GF_FOP_MAXVALUE; i++)
                         pvt->enable[i] = 1;
         } else {
                 error_enable_fops = data_to_str (enable);
@@ -1979,6 +1980,9 @@ init (xlator_t *this)
                 }
         }
         this->private = pvt;
+
+        /* Give some seed value here */
+        srand (time(NULL));
 out:
         return ret;
 }
