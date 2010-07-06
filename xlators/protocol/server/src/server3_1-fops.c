@@ -2664,6 +2664,7 @@ server_stat (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_STAT;
 
         state = CALL_STATE (frame);
         {
@@ -2704,6 +2705,7 @@ server_setattr (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_SETATTR;
 
         state = CALL_STATE (frame);
 
@@ -2743,6 +2745,7 @@ server_fsetattr (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FSETATTR;
 
         state = CALL_STATE (frame);
 
@@ -2783,6 +2786,7 @@ server_readlink (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_READLINK;
 
         state = CALL_STATE (frame);
 
@@ -2829,6 +2833,7 @@ server_create (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_CREATE;
 
         state = CALL_STATE (frame);
 
@@ -2871,6 +2876,7 @@ server_open (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_OPEN;
 
         state = CALL_STATE (frame);
 
@@ -2909,6 +2915,7 @@ server_readv (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_READ;
 
         state = CALL_STATE (frame);
 
@@ -2955,6 +2962,7 @@ server_writev_vec (rpcsvc_request_t *req, struct iobuf *iobuf)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_WRITE;
 
         state = CALL_STATE (frame);
 
@@ -3045,7 +3053,7 @@ server_fsync (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
-
+        frame->root->op = GF_FOP_FSYNC;
 
         state = CALL_STATE (frame);
 
@@ -3082,6 +3090,7 @@ server_flush (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FLUSH;
 
         state = CALL_STATE (frame);
 
@@ -3117,6 +3126,7 @@ server_ftruncate (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FTRUNCATE;
 
         state = CALL_STATE (frame);
 
@@ -3152,6 +3162,7 @@ server_fstat (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FSTAT;
 
         state = CALL_STATE (frame);
 
@@ -3188,6 +3199,7 @@ server_truncate (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_TRUNCATE;
 
         state = CALL_STATE (frame);
 
@@ -3231,6 +3243,7 @@ server_unlink (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_UNLINK;
 
         state = CALL_STATE (frame);
 
@@ -3279,6 +3292,7 @@ server_setxattr (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_SETXATTR;
 
         state = CALL_STATE (frame);
 
@@ -3356,6 +3370,7 @@ server_fsetxattr (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FSETXATTR;
 
         state = CALL_STATE (frame);
 
@@ -3428,6 +3443,7 @@ server_fxattrop (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FXATTROP;
 
         state = CALL_STATE(frame);
 
@@ -3506,6 +3522,7 @@ server_xattrop (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_XATTROP;
 
         state = CALL_STATE(frame);
 
@@ -3579,6 +3596,7 @@ server_getxattr (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_GETXATTR;
 
         state = CALL_STATE (frame);
 
@@ -3623,6 +3641,7 @@ server_fgetxattr (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FGETXATTR;
 
         state = CALL_STATE (frame);
 
@@ -3668,6 +3687,7 @@ server_removexattr (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_REMOVEXATTR;
 
         state = CALL_STATE (frame);
 
@@ -3710,6 +3730,7 @@ server_opendir (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_OPENDIR;
 
         state = CALL_STATE (frame);
 
@@ -3749,6 +3770,7 @@ server_readdirp (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_READDIRP;
 
         state = CALL_STATE(frame);
 
@@ -3787,6 +3809,7 @@ server_readdir (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_READDIR;
 
         state = CALL_STATE(frame);
 
@@ -3825,6 +3848,7 @@ server_fsyncdir (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FSYNCDIR;
 
         state = CALL_STATE(frame);
 
@@ -3868,6 +3892,7 @@ server_mknod (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_MKNOD;
 
         state = CALL_STATE (frame);
 
@@ -3915,6 +3940,7 @@ server_mkdir (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_MKDIR;
 
         state = CALL_STATE (frame);
 
@@ -3961,6 +3987,7 @@ server_rmdir (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_RMDIR;
 
         state = CALL_STATE (frame);
 
@@ -4007,6 +4034,7 @@ server_inodelk (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_INODELK;
 
         state = CALL_STATE (frame);
 
@@ -4077,6 +4105,7 @@ server_finodelk (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FINODELK;
 
         state = CALL_STATE(frame);
 
@@ -4151,6 +4180,7 @@ server_entrylk (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_ENTRYLK;
 
         state = CALL_STATE (frame);
 
@@ -4200,6 +4230,7 @@ server_fentrylk (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_FENTRYLK;
 
         state = CALL_STATE(frame);
 
@@ -4244,6 +4275,7 @@ server_access (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_ACCESS;
 
         state = CALL_STATE (frame);
 
@@ -4291,6 +4323,7 @@ server_symlink (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_SYMLINK;
 
         state = CALL_STATE (frame);
 
@@ -4340,6 +4373,7 @@ server_link (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_LINK;
 
         state = CALL_STATE (frame);
 
@@ -4393,6 +4427,7 @@ server_rename (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_RENAME;
 
         state = CALL_STATE (frame);
 
@@ -4438,6 +4473,7 @@ server_lk (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_LK;
 
         state = CALL_STATE (frame);
 
@@ -4508,6 +4544,7 @@ server_rchecksum (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_RCHECKSUM;
 
         state = CALL_STATE(frame);
 
@@ -4571,6 +4608,7 @@ server_lookup (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto err;
         }
+        frame->root->op = GF_FOP_LOOKUP;
 
         /* NOTE: lookup() uses req->ino only to identify if a lookup()
          *       is requested for 'root' or not
@@ -4662,6 +4700,7 @@ server_statfs (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS; /* TODO */
                 goto out;
         }
+        frame->root->op = GF_FOP_STATFS;
 
         state = CALL_STATE (frame);
 
