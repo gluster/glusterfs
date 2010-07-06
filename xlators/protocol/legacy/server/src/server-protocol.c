@@ -5193,84 +5193,26 @@ fail:
 }
 
 
-static int
-server_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno,
-                     uint8_t *fchecksum, uint8_t *dchecksum)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_fop_checksum_rsp_t *rsp = NULL;
-        size_t                 hdrlen = 0;
-        int32_t                gf_errno = 0;
-
-        hdrlen = gf_hdr_len (rsp, NAME_MAX + 1 + NAME_MAX + 1);
-        hdr    = gf_hdr_new (rsp, NAME_MAX + 1 + NAME_MAX + 1);
-        rsp    = gf_param (hdr);
-
-        hdr->rsp.op_ret = hton32 (op_ret);
-        gf_errno        = gf_errno_to_error (op_errno);
-        hdr->rsp.op_errno = hton32 (gf_errno);
-
-        if (op_ret >= 0) {
-                memcpy (rsp->fchecksum, fchecksum, NAME_MAX);
-                rsp->fchecksum[NAME_MAX] =  '\0';
-                memcpy (rsp->dchecksum + NAME_MAX,
-                        dchecksum, NAME_MAX);
-                rsp->dchecksum[NAME_MAX + NAME_MAX] = '\0';
-        }
-
-        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_CHECKSUM,
-                               hdr, hdrlen, NULL, 0, NULL);
-
-        return 0;
-}
-
-static int
-server_checksum_resume (call_frame_t *frame, xlator_t *bound_xl)
-{
-        server_state_t *state = NULL;
-        int             op_ret = 0;
-        int             op_errno = 0;
-
-        state = CALL_STATE (frame);
-
-        if (state->resolve.op_ret != 0) {
-                op_ret   = state->resolve.op_ret;
-                op_errno = state->resolve.op_errno;
-                goto err;
-        }
-
-        STACK_WIND (frame, server_checksum_cbk,
-                    BOUND_XL(frame),
-                    BOUND_XL(frame)->fops->checksum,
-                    &state->loc, state->flags);
-
-        return 0;
-err:
-        server_checksum_cbk (frame, NULL, frame->this, state->resolve.op_ret,
-                             state->resolve.op_errno, NULL, NULL);
-
-        return 0;
-}
 
 static int
 server_checksum (call_frame_t *frame, xlator_t *bound_xl,
                  gf_hdr_common_t *hdr, size_t hdrlen,
                  struct iobuf *iobuf)
 {
-        gf_fop_checksum_req_t *req = NULL;
-        server_state_t        *state = NULL;
+        gf_hdr_common_t     *rsp_hdr = NULL;
+        gf_mop_ping_rsp_t   *rsp = NULL;     /* Using for  NULL */
+        size_t               rsp_hdrlen = 0;
+        int32_t              gf_errno = 0;
 
-        req = gf_param (hdr);
-        state = CALL_STATE (frame);
+        rsp_hdrlen = gf_hdr_len (rsp, 0);
+        rsp_hdr    = gf_hdr_new (rsp, 0);
 
-        state->resolve.type = RESOLVE_MAY;
-        state->resolve.path = gf_strdup (req->path);
-        state->resolve.gen = ntoh64 (req->gen);
-        state->resolve.ino = ntoh64 (req->ino);
-        state->flags = ntoh32 (req->flag);
+        gf_errno = gf_errno_to_error (ENOSYS);
+        hdr->rsp.op_errno = hton32 (gf_errno);
+        hdr->rsp.op_ret = -1;
 
-        gf_resolve_and_resume (frame, server_checksum_resume);
+        protocol_server_reply (frame, GF_OP_TYPE_FOP_REPLY, GF_PROTO_FOP_CHECKSUM,
+                               rsp_hdr, rsp_hdrlen, NULL, 0, NULL);
 
         return 0;
 }

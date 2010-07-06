@@ -943,29 +943,6 @@ struct gfs3_fentrylk_req {
 };
 typedef struct gfs3_fentrylk_req gfs3_fentrylk_req;
 
-struct gfs3_checksum_req {
-	u_quad_t gfs_id;
-	u_quad_t ino;
-	u_quad_t gen;
-	u_int flag;
-	char *path;
-};
-typedef struct gfs3_checksum_req gfs3_checksum_req;
-
-struct gfs3_checksum_rsp {
-	u_quad_t gfs_id;
-	int op_ret;
-	int op_errno;
-	struct {
-		u_int fchecksum_len;
-		char *fchecksum_val;
-	} fchecksum;
-	struct {
-		u_int dchecksum_len;
-		char *dchecksum_val;
-	} dchecksum;
-};
-typedef struct gfs3_checksum_rsp gfs3_checksum_rsp;
 
 struct gfs3_setattr_req {
 	u_quad_t gfs_id;
@@ -1217,8 +1194,6 @@ extern  bool_t xdr_gfs3_fstat_req (XDR *, gfs3_fstat_req*);
 extern  bool_t xdr_gfs3_fstat_rsp (XDR *, gfs3_fstat_rsp*);
 extern  bool_t xdr_gfs3_entrylk_req (XDR *, gfs3_entrylk_req*);
 extern  bool_t xdr_gfs3_fentrylk_req (XDR *, gfs3_fentrylk_req*);
-extern  bool_t xdr_gfs3_checksum_req (XDR *, gfs3_checksum_req*);
-extern  bool_t xdr_gfs3_checksum_rsp (XDR *, gfs3_checksum_rsp*);
 extern  bool_t xdr_gfs3_setattr_req (XDR *, gfs3_setattr_req*);
 extern  bool_t xdr_gfs3_setattr_rsp (XDR *, gfs3_setattr_rsp*);
 extern  bool_t xdr_gfs3_fsetattr_req (XDR *, gfs3_fsetattr_req*);
@@ -1308,8 +1283,6 @@ extern bool_t xdr_gfs3_fstat_req ();
 extern bool_t xdr_gfs3_fstat_rsp ();
 extern bool_t xdr_gfs3_entrylk_req ();
 extern bool_t xdr_gfs3_fentrylk_req ();
-extern bool_t xdr_gfs3_checksum_req ();
-extern bool_t xdr_gfs3_checksum_rsp ();
 extern bool_t xdr_gfs3_setattr_req ();
 extern bool_t xdr_gfs3_setattr_rsp ();
 extern bool_t xdr_gfs3_fsetattr_req ();

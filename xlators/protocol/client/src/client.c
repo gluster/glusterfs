@@ -1169,34 +1169,6 @@ out:
 
 
 int32_t
-client_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                 int32_t flag)
-{
-        int          ret  = -1;
-        clnt_conf_t *conf = NULL;
-        rpc_clnt_procedure_t *proc = NULL;
-        clnt_args_t  args = {0,};
-
-        conf = this->private;
-        if (!conf->fops)
-                goto out;
-
-        args.loc = loc;
-        args.flags = flag;
-
-        proc = &conf->fops->proctable[GF_FOP_CHECKSUM];
-        if (proc->fn)
-                ret = proc->fn (frame, this, &args);
-out:
-        if (ret)
-                STACK_UNWIND_STRICT (checksum, frame, -1, ENOTCONN, NULL, NULL);
-
-	return 0;
-}
-
-
-
-int32_t
 client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                   int32_t len)
 {
@@ -1741,7 +1713,6 @@ struct xlator_fops fops = {
         .entrylk     = client_entrylk,
         .fentrylk    = client_fentrylk,
         .lookup      = client_lookup,
-        .checksum    = client_checksum,
         .rchecksum   = client_rchecksum,
         .xattrop     = client_xattrop,
         .fxattrop    = client_fxattrop,

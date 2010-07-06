@@ -91,14 +91,6 @@ typedef int32_t (*fop_getspec_cbk_t) (call_frame_t *frame,
 				      int32_t op_errno,
 				      char *spec_data);
 
-typedef int32_t (*fop_checksum_cbk_t) (call_frame_t *frame,
-				       void *cookie,
-				       xlator_t *this,
-				       int32_t op_ret,
-				       int32_t op_errno,
-				       uint8_t *file_checksum,
-				       uint8_t *dir_checksum);
-
 typedef int32_t (*fop_rchecksum_cbk_t) (call_frame_t *frame,
                                         void *cookie,
                                         xlator_t *this,
@@ -112,10 +104,6 @@ typedef int32_t (*fop_getspec_t) (call_frame_t *frame,
 				  xlator_t *this,
 				  const char *key,
 				  int32_t flag);
-typedef int32_t (*fop_checksum_t) (call_frame_t *frame,
-				   xlator_t *this,
-				   loc_t *loc,
-				   int32_t flag);
 
 typedef int32_t (*fop_rchecksum_t) (call_frame_t *frame,
                                     xlator_t *this,
@@ -681,7 +669,6 @@ struct xlator_fops {
 	fop_finodelk_t       finodelk;
 	fop_entrylk_t        entrylk;
 	fop_fentrylk_t       fentrylk;
-	fop_checksum_t       checksum;
 	fop_rchecksum_t      rchecksum;
 	fop_xattrop_t        xattrop;
 	fop_fxattrop_t       fxattrop;
@@ -725,7 +712,6 @@ struct xlator_fops {
 	fop_finodelk_cbk_t       finodelk_cbk;
 	fop_entrylk_cbk_t        entrylk_cbk;
 	fop_fentrylk_cbk_t       fentrylk_cbk;
-	fop_checksum_cbk_t       checksum_cbk;
 	fop_rchecksum_cbk_t      rchecksum_cbk;
 	fop_xattrop_cbk_t        xattrop_cbk;
 	fop_fxattrop_cbk_t       fxattrop_cbk;

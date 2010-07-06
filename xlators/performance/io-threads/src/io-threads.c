@@ -1269,58 +1269,6 @@ out:
 }
 
 
-int
-iot_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		  int32_t op_ret, int32_t op_errno, uint8_t *file_checksum,
-                  uint8_t *dir_checksum)
-{
-	STACK_UNWIND_STRICT (checksum, frame, op_ret, op_errno, file_checksum,
-                             dir_checksum);
-	return 0;
-}
-
-
-int
-iot_checksum_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                      int32_t flags)
-{
-	STACK_WIND (frame, iot_checksum_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->checksum,
-		    loc, flags);
-
-	return 0;
-}
-
-
-int
-iot_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags)
-{
-	call_stub_t *stub = NULL;
-        int         ret = -1;
-
-	stub = fop_checksum_stub (frame, iot_checksum_wrapper, loc, flags);
-
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR,
-                        "cannot create fop_checksum call stub"
-                        "(out of memory)");
-                ret = -ENOMEM;
-                goto out;
-	}
-        ret = iot_schedule_unordered ((iot_conf_t *)this->private, loc->inode,
-                                      stub);
-out:
-        if (ret < 0) {
-		STACK_UNWIND_STRICT (checksum, frame, -1, -ret, NULL, NULL);
-
-                if (stub != NULL) {
-                        call_stub_destroy (stub);
-                }
-        }
-	return 0;
-}
-
 
 int
 iot_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -2231,7 +2179,6 @@ struct xlator_fops fops = {
 	.fstat       = iot_fstat,       /* O */
 	.truncate    = iot_truncate,    /* V */
 	.ftruncate   = iot_ftruncate,   /* O */
-	.checksum    = iot_checksum,    /* U */
 	.unlink      = iot_unlink,      /* U */
         .lookup      = iot_lookup,      /* U */
         .setattr     = iot_setattr,     /* U */

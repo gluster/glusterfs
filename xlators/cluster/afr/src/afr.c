@@ -376,13 +376,6 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 			GF_FREE (local->cont.lk.locked_nodes);
 	}
 
-	{ /* checksum */
-		if (local->cont.checksum.file_checksum)
-			GF_FREE (local->cont.checksum.file_checksum);
-		if (local->cont.checksum.dir_checksum)
-			GF_FREE (local->cont.checksum.dir_checksum);
-	}
-
 	{ /* create */
 		if (local->cont.create.fd)
 			fd_unref (local->cont.create.fd);
@@ -2167,104 +2160,6 @@ out:
 	return 0;
 }
 
-
-int32_t
-afr_checksum_cbk (call_frame_t *frame, void *cookie,
-		  xlator_t *this, int32_t op_ret, int32_t op_errno,
-		  uint8_t *file_checksum, uint8_t *dir_checksum)
-		
-{
-	afr_local_t *local = NULL;
-	
-	int call_count = -1;
-
-	local = frame->local;
-
-	LOCK (&frame->lock);
-	{
-		if (op_ret == 0 && (local->op_ret != 0)) {
-			local->op_ret = 0;
-
-			local->cont.checksum.file_checksum = 
-                                        GF_MALLOC (NAME_MAX, gf_afr_mt_char);
-			memcpy (local->cont.checksum.file_checksum, file_checksum, 
-				NAME_MAX);
-
-			local->cont.checksum.dir_checksum = 
-                                       GF_MALLOC (NAME_MAX, gf_afr_mt_char);
-			memcpy (local->cont.checksum.dir_checksum, dir_checksum, 
-				NAME_MAX);
-
-		}
-
-		local->op_errno = op_errno;
-	}
-	UNLOCK (&frame->lock);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0)
-		AFR_STACK_UNWIND (checksum, frame, local->op_ret, local->op_errno,
-				  local->cont.checksum.file_checksum, 
-				  local->cont.checksum.dir_checksum);
-
-	return 0;
-}
-
-
-int32_t
-afr_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc,
-	      int32_t flag)
-{
-	afr_private_t *priv = NULL;
-	afr_local_t *local  = NULL;
-
-	int ret = -1;
-
-	int i = 0;
-	int32_t call_count = 0;
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
-
-	VALIDATE_OR_GOTO (frame, out);
-	VALIDATE_OR_GOTO (this, out);
-	VALIDATE_OR_GOTO (this->private, out);
-
-	priv = this->private;
-
-	ALLOC_OR_GOTO (local, afr_local_t, out);
-
-	ret = AFR_LOCAL_INIT (local, priv);
-	if (ret < 0) {
-		op_errno = -ret;
-		goto out;
-	}
-
-	call_count = local->call_count;
-	frame->local = local;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND (frame, afr_checksum_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->checksum,
-				    loc, flag);
-
-			if (!--call_count)
-				break;
-		}
-	}
-
-	op_ret = 0;
-out:
-	if (op_ret == -1) {
-		AFR_STACK_UNWIND (checksum, frame, op_ret, op_errno,
-                                  NULL, NULL);
-	}
-	return 0;
-}
-
-
 int32_t
 afr_statfs_cbk (call_frame_t *frame, void *cookie,
 		xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -3054,7 +2949,6 @@ struct xlator_fops fops = {
 	.finodelk    = afr_finodelk,
 	.entrylk     = afr_entrylk,
 	.fentrylk    = afr_fentrylk,
-	.checksum    = afr_checksum,
 
 	/* inode read */
 	.access      = afr_access,

@@ -1328,32 +1328,6 @@ io_stats_lk (call_frame_t *frame, xlator_t *this,
 
 
 int
-io_stats_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno,
-                       uint8_t *fchecksum, uint8_t *dchecksum)
-{
-        STACK_UNWIND_STRICT (checksum, frame, op_ret, op_errno,
-                             fchecksum, dchecksum);
-
-        return 0;
-}
-
-
-int
-io_stats_checksum (call_frame_t *frame, xlator_t *this,
-                   loc_t *loc, int32_t flag)
-{
-        STACK_WIND (frame, io_stats_checksum_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->checksum,
-                    loc, flag);
-
-        return 0;
-}
-
-
-
-int
 io_stats_release (xlator_t *this, fd_t *fd)
 {
         struct ios_fd  *iosfd = NULL;
@@ -1518,7 +1492,6 @@ struct xlator_fops fops = {
         .finodelk    = io_stats_finodelk,
         .entrylk     = io_stats_entrylk,
         .lookup      = io_stats_lookup,
-        .checksum    = io_stats_checksum,
         .xattrop     = io_stats_xattrop,
         .fxattrop    = io_stats_fxattrop,
         .setattr     = io_stats_setattr,

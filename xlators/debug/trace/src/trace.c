@@ -1902,37 +1902,6 @@ trace_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
 }
 
 
-int
-trace_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                    int32_t op_ret, int32_t op_errno,
-                    uint8_t *fchecksum, uint8_t *dchecksum)
-{
-        gf_log (this->name, GF_LOG_NORMAL,
-                "%"PRId64": op_ret (%d), op_errno(%d)",
-                frame->root->unique, op_ret, op_errno);
-
-        STACK_UNWIND_STRICT (checksum, frame, op_ret, op_errno,
-                             fchecksum, dchecksum);
-
-        return 0;
-}
-
-
-int
-trace_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flag)
-{
-        gf_log (this->name, GF_LOG_NORMAL,
-                "%"PRId64": loc->path (%s) flag (%d)",
-                frame->root->unique, loc->path, flag);
-
-        STACK_WIND (frame, trace_checksum_cbk,
-                    FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->checksum,
-                    loc, flag);
-
-        return 0;
-}
-
 
 void
 enable_all_calls (int enabled)
@@ -2089,7 +2058,6 @@ struct xlator_fops fops = {
         .finodelk    = trace_finodelk,
         .entrylk     = trace_entrylk,
         .lookup      = trace_lookup,
-        .checksum    = trace_checksum,
         .xattrop     = trace_xattrop,
         .fxattrop    = trace_fxattrop,
         .setattr     = trace_setattr,

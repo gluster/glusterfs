@@ -406,11 +406,6 @@ struct xlator_fops fops = {
 	.fxattrop    = dht_fxattrop,
         .setattr     = dht_setattr, 
         .fsetattr    = dht_fsetattr,
-#if 0
-	.setdents    = dht_setdents,
-	.getdents    = dht_getdents,
-	.checksum    = dht_checksum,
-#endif
 };
 
 struct xlator_dumpops dumpops = {

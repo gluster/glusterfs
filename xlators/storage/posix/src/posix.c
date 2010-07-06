@@ -4104,79 +4104,6 @@ posix_readdirp (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-
-int32_t
-posix_checksum (call_frame_t *frame, xlator_t *this,
-                loc_t *loc, int32_t flag)
-{
-        char *          real_path                      = NULL;
-        DIR *           dir                            = NULL;
-        struct dirent * dirent                         = NULL;
-        uint8_t         file_checksum[NAME_MAX] = {0,};
-        uint8_t         dir_checksum[NAME_MAX]  = {0,};
-        int32_t         op_ret                         = -1;
-        int32_t         op_errno                       = 0;
-        int             i                              = 0;
-        int             length                         = 0;
-
-        struct iatt buf                        = {0,};
-        char        tmp_real_path[ZR_PATH_MAX] = {0,};
-        int         ret                        = -1;
-
-        MAKE_REAL_PATH (real_path, this, loc->path);
-
-        dir = opendir (real_path);
-
-        if (!dir){
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR,
-			"opendir() failed on `%s': %s",
-                        real_path, strerror (op_errno));
-                goto out;
-        }
-
-        while ((dirent = readdir (dir))) {
-                errno = 0;
-                if (!dirent) {
-                        if (errno != 0) {
-                                op_errno = errno;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "readdir() failed on dir=%p: %s",
-					dir, strerror (errno));
-                                goto out;
-                        }
-                        break;
-                }
-
-                length = strlen (dirent->d_name);
-
-                strcpy (tmp_real_path, real_path);
-                strcat (tmp_real_path, "/");
-                strcat (tmp_real_path, dirent->d_name);
-                ret = posix_lstat_with_gen (this, tmp_real_path, &buf);
-
-                if (ret == -1)
-                        continue;
-
-                if (IA_ISDIR (buf.ia_type)) {
-                        for (i = 0; i < length; i++)
-                                dir_checksum[i] ^= dirent->d_name[i];
-                } else {
-                        for (i = 0; i < length; i++)
-                                file_checksum[i] ^= dirent->d_name[i];
-                }
-        }
-        closedir (dir);
-
-        op_ret = 0;
-
- out:
-        STACK_UNWIND_STRICT (checksum, frame, op_ret, op_errno,
-                             file_checksum, dir_checksum);
-
-        return 0;
-}
-
 int32_t
 posix_priv (xlator_t *this)
 {
@@ -4629,7 +4556,6 @@ struct xlator_fops fops = {
 	.finodelk    = posix_finodelk,
 	.entrylk     = posix_entrylk,
 	.fentrylk    = posix_fentrylk,
-        .checksum    = posix_checksum,
         .rchecksum   = posix_rchecksum,
 	.xattrop     = posix_xattrop,
 	.fxattrop    = posix_fxattrop,

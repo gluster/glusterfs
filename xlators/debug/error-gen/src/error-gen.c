@@ -141,9 +141,6 @@ sys_error_t error_no_list[] = {
         [GF_FOP_LK]                = { .error_no_count = 4,
                                     .error_no = {EACCES,EFAULT,ENOENT,
                                                  EINTR}},
-        [GF_FOP_CHECKSUM]          = { .error_no_count = 4,
-                                    .error_no = {EACCES,EBADF,
-                                                 ENAMETOOLONG,EINTR}},
         [GF_FOP_XATTROP]           = { .error_no_count = 5,
                                     .error_no = {EACCES,EFAULT,
                                                  ENAMETOOLONG,ENOSYS,
@@ -305,8 +302,6 @@ get_fop_int (char **op_no_str)
                 return GF_FOP_FSTAT;
         else if (!strcmp ((*op_no_str), "lk"))
                 return GF_FOP_LK;
-        else if (!strcmp ((*op_no_str), "checksum"))
-                return GF_FOP_CHECKSUM;
         else if (!strcmp ((*op_no_str), "xattrop"))
                 return GF_FOP_XATTROP;
         else if (!strcmp ((*op_no_str), "fxattrop"))
@@ -1764,45 +1759,6 @@ error_gen_getspec (call_frame_t *frame, xlator_t *this, const char *key,
 
 
 int
-error_gen_checksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			int32_t op_ret, int32_t op_errno,
-			uint8_t *file_checksum, uint8_t *dir_checksum)
-{
-	STACK_UNWIND (frame, op_ret, op_errno,
-		      file_checksum, dir_checksum);
-	return 0;
-}
-
-
-int
-error_gen_checksum (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		    int32_t flag)
-{
-	int              op_errno = 0;
-        eg_t            *egp = NULL;
-        int              enable = 1;
-
-        egp = this->private;
-        enable = egp->enable[GF_FOP_CHECKSUM];
-
-        if (enable)
-                op_errno = error_gen (this, GF_FOP_CHECKSUM);
-
-	if (op_errno) {
-		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL, NULL);
-		return 0;
-	}
-
-	STACK_WIND (frame, error_gen_checksum_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->checksum,
-		    loc, flag);
-	return 0;
-}
-
-
-int
 error_gen_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
 {
@@ -2036,7 +1992,6 @@ struct xlator_fops fops = {
 	.fstat       = error_gen_fstat,
 	.lk          = error_gen_lk,
 	.lookup_cbk  = error_gen_lookup_cbk,
-	.checksum    = error_gen_checksum,
 	.xattrop     = error_gen_xattrop,
 	.fxattrop    = error_gen_fxattrop,
 	.inodelk     = error_gen_inodelk,
