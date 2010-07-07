@@ -406,23 +406,11 @@ ssize_t
 xdr_from_release_req (struct iovec outmsg, void *args);
 
 ssize_t
-xdr_from_dump_version_req (struct iovec outmsg, void *args);
-
-ssize_t
 xdr_from_setvolume_req (struct iovec outmsg, void *args);
 
 ssize_t
 xdr_to_setvolume_rsp (struct iovec inmsg, void *args);
 
-ssize_t
-xdr_to_dump_version_rsp (struct iovec inmsg, void *args);
-
-
-ssize_t
-xdr_serialize_dump_version_rsp (struct iovec outmsg, void *args);
-
-ssize_t
-xdr_to_dump_version_req (struct iovec inmsg, void *args);
 
 
 ssize_t

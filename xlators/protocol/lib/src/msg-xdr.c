@@ -341,24 +341,6 @@ xdr_serialize_ftruncate_rsp (struct iovec outmsg, void *rsp)
 
 
 ssize_t
-xdr_serialize_dump_version_rsp (struct iovec outmsg, void *rsp)
-{
-        return xdr_serialize_generic (outmsg, (void *)rsp,
-                                      (xdrproc_t)xdr_gf_dump_version_rsp);
-}
-
-
-/* Decode */
-
-
-ssize_t
-xdr_to_dump_version_req (struct iovec inmsg, void *args)
-{
-        return xdr_to_generic (inmsg, (void *)args,
-                               (xdrproc_t)xdr_gf_dump_version_req);
-}
-
-ssize_t
 xdr_to_lookup_req (struct iovec inmsg, void *args)
 {
         return xdr_to_generic (inmsg, (void *)args,
@@ -960,13 +942,6 @@ xdr_from_setvolume_req (struct iovec outmsg, void *req)
 
 }
 ssize_t
-xdr_from_dump_version_req (struct iovec outmsg, void *req)
-{
-        return xdr_serialize_generic (outmsg, (void *)req,
-                                      (xdrproc_t)xdr_gf_dump_version_req);
-
-}
-ssize_t
 xdr_from_rmdir_req (struct iovec outmsg, void *req)
 {
         return xdr_serialize_generic (outmsg, (void *)req,
@@ -1204,13 +1179,6 @@ xdr_to_setvolume_rsp (struct iovec outmsg, void *rsp)
 {
         return xdr_to_generic (outmsg, (void *)rsp,
                                       (xdrproc_t)xdr_gf_setvolume_rsp);
-
-}
-ssize_t
-xdr_to_dump_version_rsp (struct iovec outmsg, void *rsp)
-{
-        return xdr_to_generic (outmsg, (void *)rsp,
-                                      (xdrproc_t)xdr_gf_dump_version_rsp);
 
 }
 ssize_t

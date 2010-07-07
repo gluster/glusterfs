@@ -33,6 +33,7 @@
 #include "xdr-rpc.h"
 #include "iobuf.h"
 #include "globals.h"
+#include "xdr-common.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -44,6 +45,8 @@
 #include <fnmatch.h>
 #include <stdarg.h>
 #include <stdio.h>
+
+struct rpcsvc_program gluster_dump_prog;
 
 
 #define rpcsvc_alloc_request(con, request)                              \
@@ -1931,6 +1934,89 @@ free_prog:
         return ret;
 }
 
+static void
+free_prog_details (gf_dump_rsp *rsp)
+{
+        gf_prog_detail *prev = NULL;
+        gf_prog_detail *trav = NULL;
+
+        trav = rsp->prog;
+        while (trav) {
+                prev = trav;
+                trav = trav->next;
+                GF_FREE (prev);
+        }
+}
+
+static int
+build_prog_details (rpcsvc_request_t *req, gf_dump_rsp *rsp)
+{
+        int               ret     = -1;
+        rpcsvc_program_t *program = NULL;
+        gf_prog_detail   *prog    = NULL;
+        gf_prog_detail   *prev    = NULL;
+
+        if (!req || !req->conn || !req->conn->svc)
+                goto out;
+
+        list_for_each_entry (program, &req->conn->svc->programs, program) {
+                prog = GF_CALLOC (1, sizeof (*prog), 0);
+                if (!prog)
+                        goto out;
+                prog->progname = program->progname;
+                prog->prognum  = program->prognum;
+                prog->progver  = program->progver;
+                if (!rsp->prog)
+                        rsp->prog = prog;
+                if (prev)
+                        prev->next = prog;
+                prev = prog;
+        }
+        if (prev)
+                ret = 0;
+out:
+        return ret;
+}
+
+static int
+rpcsvc_dump (rpcsvc_request_t *req)
+{
+        char         rsp_buf[8 * 1024] = {0,};
+        gf_dump_rsp  rsp      = {0,};
+        struct iovec iov      = {0,};
+        int          op_errno = EINVAL;
+        int          ret      = -1;
+
+        if (!req)
+                goto fail;
+
+        ret = build_prog_details (req, &rsp);
+        if (ret < 0) {
+                op_errno = -ret;
+                goto fail;
+        }
+
+fail:
+        rsp.op_errno = gf_errno_to_error (op_errno);
+        rsp.op_ret   = ret;
+
+        iov.iov_base = rsp_buf;
+        iov.iov_len  = (8 * 1024);
+
+        ret = xdr_serialize_dump_rsp (iov, &rsp);
+        if (ret < 0) {
+                req->rpc_err = GARBAGE_ARGS;
+                op_errno = EINVAL;
+                goto fail;
+        }
+
+        ret = rpcsvc_submit_generic (req, &iov, 1, NULL, 0,
+                                     NULL);
+
+        free_prog_details (&rsp);
+
+        return 0;
+}
 
 int
 rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
@@ -2004,6 +2090,12 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
 
         svc->listener = listener;
 
+        ret = rpcsvc_program_register (svc, gluster_dump_prog);
+        if (ret) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                        "failed to register DUMP program");
+                goto free_svc;
+        }
         ret = 0;
 free_svc:
         if (ret == -1) {
@@ -2013,3 +2105,19 @@ free_svc:
 
         return svc;
 }
+
+
+rpcsvc_actor_t gluster_dump_actors[] = {
+        [GF_DUMP_NULL] = {"NULL", GF_DUMP_NULL, NULL, NULL, NULL },
+        [GF_DUMP_DUMP] = {"DUMP", GF_DUMP_DUMP, rpcsvc_dump, NULL, NULL },
+        [GF_DUMP_MAXVALUE] = {"MAXVALUE", GF_DUMP_MAXVALUE, NULL, NULL, NULL },
+};
+
+
+struct rpcsvc_program gluster_dump_prog = {
+        .progname  = "GF-DUMP",
+        .prognum   = GLUSTER_DUMP_PROGRAM,
+        .progver   = GLUSTER_DUMP_VERSION,
+        .actors    = gluster_dump_actors,
+        .numactors = 2,
+};

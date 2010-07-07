@@ -241,52 +241,6 @@ out:
         return ret;
 }
 
-int
-build_program_list (server_conf_t *conf, char *list)
-{
-        /* Reply in "Name:Program-Number:Program-Version,..." format */
-        sprintf (list, "%s:%d:%d",
-                 glusterfs3_1_fop_prog.progname,
-                 glusterfs3_1_fop_prog.prognum,
-                 glusterfs3_1_fop_prog.progver);
-        /* TODO: keep adding new versions to the list here */
-        return 0;
-}
-
-int
-server_dump_version (rpcsvc_request_t *req)
-{
-        char                     list[8192]  = {0,};
-        server_conf_t           *conf     = NULL;
-        int                      ret      = -1;
-        int                      op_errno = EINVAL;
-        gf_dump_version_req      args     = {0,};
-        gf_dump_version_rsp      rsp      = {0,};
-
-        conf = ((xlator_t *)req->conn->svc->mydata)->private;
-
-        if (xdr_to_glusterfs_req (req, &args, xdr_to_dump_version_req)) {
-                //failed to decode msg;
-                req->rpc_err = GARBAGE_ARGS;
-                goto fail;
-        }
-
-        build_program_list (conf, list);
-        rsp.msg.msg_val = list;
-        rsp.msg.msg_len = strlen (list) + 1;
-        ret = 0;
-fail:
-        rsp.op_errno = gf_errno_to_error (op_errno);
-        rsp.op_ret   = ret;
-
-        server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
-                             (gfs_serialize_t)xdr_serialize_dump_version_rsp);
-
-        if (args.key)
-                free (args.key);
-
-        return 0;
-}
 
 int
 server_getspec (rpcsvc_request_t *req)
@@ -672,11 +626,10 @@ server_ping (rpcsvc_request_t *req)
 
 
 rpcsvc_actor_t gluster_handshake_actors[] = {
-        [GF_HNDSK_NULL] = {"NULL", GF_HNDSK_NULL, server_null, NULL, NULL },
-        [GF_HNDSK_DUMP_VERSION] = {"VERSION",   GF_HNDSK_DUMP_VERSION, server_dump_version, NULL, NULL },
+        [GF_HNDSK_NULL]      = {"NULL",      GF_HNDSK_NULL,      server_null, NULL, NULL },
         [GF_HNDSK_SETVOLUME] = {"SETVOLUME", GF_HNDSK_SETVOLUME, server_setvolume, NULL, NULL },
-        [GF_HNDSK_GETSPEC] = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL },
-        [GF_HNDSK_PING] = {"PING",      GF_HNDSK_PING,      server_ping, NULL, NULL },
+        [GF_HNDSK_GETSPEC]   = {"GETSPEC",   GF_HNDSK_GETSPEC,   server_getspec, NULL, NULL },
+        [GF_HNDSK_PING]      = {"PING",      GF_HNDSK_PING,      server_ping, NULL, NULL },
 };
 
 
@@ -684,8 +637,6 @@ struct rpcsvc_program gluster_handshake_prog = {
         .progname  = "GlusterFS Handshake",
         .prognum   = GLUSTER_HNDSK_PROGRAM,
         .progver   = GLUSTER_HNDSK_VERSION,
-
         .actors    = gluster_handshake_actors,
-        .numactors = 5,
-        .progport  = 7008,
+        .numactors = GF_HNDSK_MAXVALUE,
 };

@@ -69,7 +69,6 @@ enum gf_fop_procnum {
 
 enum gf_handshake_procnum {
         GF_HNDSK_NULL,
-        GF_HNDSK_DUMP_VERSION,
         GF_HNDSK_SETVOLUME,
         GF_HNDSK_GETSPEC,
         GF_HNDSK_PING,

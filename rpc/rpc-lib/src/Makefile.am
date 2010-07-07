@@ -2,7 +2,8 @@ lib_LTLIBRARIES = libgfrpc.la
 libgfrpc_la_LDFLAGS = -module -avoidversion
 
 libgfrpc_la_SOURCES = auth-unix.c rpcsvc-auth.c rpcsvc.c auth-null.c \
-	rpc-transport.c xdr-rpc.c xdr-rpcclnt.c rpc-clnt.c auth-glusterfs.c
+	rpc-transport.c xdr-rpc.c xdr-rpcclnt.c rpc-clnt.c auth-glusterfs.c \
+	rpc-common.c
 libgfrpc_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = rpcsvc.h rpc-transport.h xdr-common.h xdr-rpc.h xdr-rpcclnt.h \
