@@ -27,6 +27,16 @@
 
 #include <rpc/rpc.h>
 
+enum {
+        GF_DUMP_NULL,
+        GF_DUMP_DUMP,
+        GF_DUMP_MAXVALUE,
+} gf_dump_procnum_t;
+
+#define GLUSTER_DUMP_PROGRAM 123451501 /* Completely random */
+#define GLUSTER_DUMP_VERSION 1
+
+
 #if GF_DARWIN_HOST_OS
 #define xdr_u_quad_t xdr_u_int64_t
 #define xdr_quad_t   xdr_int64_t
@@ -43,8 +53,41 @@ struct auth_glusterfs_parms {
 };
 typedef struct auth_glusterfs_parms auth_glusterfs_parms;
 
-bool_t
+struct gf_dump_req {
+	u_quad_t gfs_id;
+};
+typedef struct gf_dump_req gf_dump_req;
+
+struct gf_prog_detail {
+	char    *progname;
+	u_quad_t prognum;
+	u_quad_t progver;
+	struct gf_prog_detail *next;
+};
+typedef struct gf_prog_detail gf_prog_detail;
+
+struct gf_dump_rsp {
+	u_quad_t gfs_id;
+	int op_ret;
+	int op_errno;
+	struct gf_prog_detail *prog;
+};
+typedef struct gf_dump_rsp gf_dump_rsp;
+
+extern bool_t
 xdr_auth_glusterfs_parms (XDR *xdrs, auth_glusterfs_parms *objp);
+extern bool_t xdr_gf_dump_req (XDR *, gf_dump_req*);
+extern bool_t xdr_gf_prog_detail (XDR *, gf_prog_detail*);
+extern bool_t xdr_gf_dump_rsp (XDR *, gf_dump_rsp*);
+
+ssize_t
+xdr_serialize_dump_rsp (struct iovec outmsg, void *rsp);
+ssize_t
+xdr_to_dump_req (struct iovec inmsg, void *args);
+ssize_t
+xdr_from_dump_req (struct iovec outmsg, void *rsp);
+ssize_t
+xdr_to_dump_rsp (struct iovec inmsg, void *args);
 
 #define XDR_BYTES_PER_UNIT      4
 

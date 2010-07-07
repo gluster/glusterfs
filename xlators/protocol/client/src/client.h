@@ -48,6 +48,7 @@ typedef struct clnt_conf {
         rpc_clnt_prog_t       *fops;
         rpc_clnt_prog_t       *mgmt;
         rpc_clnt_prog_t       *handshake;
+        rpc_clnt_prog_t       *dump;
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {

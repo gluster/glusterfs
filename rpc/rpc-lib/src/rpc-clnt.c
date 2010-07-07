@@ -1202,9 +1202,9 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
 
                 if (conn->connected ||
                     /* FIXME: hack!! hack!! find a neater way to do this */
-                    ((prog->prognum == GLUSTER_HNDSK_PROGRAM) &&
-                     ((procnum == GF_HNDSK_SETVOLUME) ||
-                      (procnum == GF_HNDSK_DUMP_VERSION)))) {
+                    (((prog->prognum == GLUSTER_HNDSK_PROGRAM) &&
+                     (procnum == GF_HNDSK_SETVOLUME)) ||
+                     (prog->prognum == GLUSTER_DUMP_PROGRAM))) {
                         if (proghdr) {
                                 proglen += iov_length (proghdr, proghdrcount);
                         }

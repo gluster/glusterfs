@@ -32,6 +32,8 @@
 #include "compat-errno.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
+extern rpc_clnt_prog_t clnt_dump_prog;
+
 int
 client_handshake (xlator_t *this, struct rpc_clnt *rpc);
 
@@ -1558,6 +1560,7 @@ init (xlator_t *this)
                 goto out;
 
         conf->handshake = &clnt_handshake_prog;
+        conf->dump      = &clnt_dump_prog;
         this->private = conf;
 
         ret = 0;

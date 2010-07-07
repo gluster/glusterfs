@@ -732,19 +732,20 @@ struct gf_common_rsp {
 } ;
 
 
-struct gf_dump_version_req {
-	unsigned hyper gfs_id;
-        unsigned int   flags;
-        string         key<>;
+struct gf_dump_req {
+       unsigned hyper gfs_id;
 };
 
+struct gf_prog_detail {
+       string progname<>;
+       unsigned hyper prognum;
+       unsigned hyper progver;
+       struct gf_prog_detail *next;
+};
 
-struct gf_dump_version_rsp {
-        unsigned hyper gfs_id;
-        int op_ret;
-	int op_errno;
-        unsigned int flags;
-        opaque msg<>;
+struct gf_dump_rsp {
+       unsigned hyper gfs_id;
+       struct gf_prog_detail *prog;
 };
 
 struct auth_glusterfs_parms {

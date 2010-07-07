@@ -1063,25 +1063,6 @@ struct gf_common_rsp {
 };
 typedef struct gf_common_rsp gf_common_rsp;
 
-struct gf_dump_version_req {
-	u_quad_t gfs_id;
-        u_int  flags;
-        char *key;
-};
-typedef struct gf_dump_version_req gf_dump_version_req;
-
-struct gf_dump_version_rsp {
-	u_quad_t gfs_id;
-	int op_ret;
-	int op_errno;
-        u_int flags;
-	struct {
-		u_int msg_len;
-		char *msg_val;
-	} msg;
-};
-typedef struct gf_dump_version_rsp gf_dump_version_rsp;
-
 struct gfs3_dirlist {
 	u_quad_t d_ino;
 	u_quad_t d_off;
@@ -1208,8 +1189,6 @@ extern  bool_t xdr_gf_notify_rsp (XDR *, gf_notify_rsp*);
 extern  bool_t xdr_gfs3_releasedir_req (XDR *, gfs3_releasedir_req*);
 extern  bool_t xdr_gfs3_release_req (XDR *, gfs3_release_req*);
 extern  bool_t xdr_gf_common_rsp (XDR *, gf_common_rsp*);
-extern  bool_t xdr_gf_dump_version_req (XDR *, gf_dump_version_req *);
-extern  bool_t xdr_gf_dump_version_rsp (XDR *, gf_dump_version_rsp *);
 
 #else /* K&R C */
 extern bool_t xdr_gf_statfs ();
@@ -1297,8 +1276,6 @@ extern bool_t xdr_gf_log_req ();
 extern bool_t xdr_gf_notify_req ();
 extern bool_t xdr_gf_notify_rsp ();
 extern bool_t xdr_gf_common_rsp ();
-extern bool_t xdr_gf_dump_version_req ();
-extern bool_t xdr_gf_dump_version_rsp ();
 
 #endif /* K&R C */
 

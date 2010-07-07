@@ -596,88 +596,59 @@ fail:
 }
 
 int
-select_server_supported_programs (xlator_t *this, char *msg)
+select_server_supported_programs (xlator_t *this, gf_prog_detail *prog)
 {
-        clnt_conf_t *conf        = NULL;
-        char        *tmp_str     = NULL;
-        char        *prog_str    = NULL;
-        char        *dup_str     = NULL;
-        char        *tmp_str1    = NULL;
-        char        *tmp_msg     = NULL;
-        char        *progname    = NULL;
-        char        *progver_str = NULL;
-        char        *prognum_str = NULL;
-        int          ret         = -1;
-        int          progver     = 0;
-        int          prognum     = 0;
+        gf_prog_detail *trav     = NULL;
+        clnt_conf_t    *conf     = NULL;
+        int             ret      = -1;
 
-        if (!this || !msg)
+        if (!this || !prog)
                 goto out;
 
         conf = this->private;
+        trav = prog;
 
-        /* Reply in "Name:Program-Number:Program-Version,..." format */
-        tmp_msg = gf_strdup (msg);
-        prog_str = strtok_r (tmp_msg, ",", &tmp_str);
-        while (prog_str) {
-                dup_str = gf_strdup (prog_str);
-
-                progname = strtok_r (dup_str, ":", &tmp_str1);
-                prognum_str = strtok_r (NULL, ":", &tmp_str1);
-                if (!prognum_str) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "Supported versions not formatted");
-                        goto out;
-                }
-                sscanf (prognum_str, "%d", &prognum);
-                progver_str = strtok_r (NULL, ":", &tmp_str1);
-                if (!progver_str) {
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "Supported versions not formatted");
-                        goto out;
-                }
-                sscanf (progver_str, "%d", &progver);
-
+        while (trav) {
                 /* Select 'programs' */
-                if ((clnt3_1_fop_prog.prognum == prognum) &&
-                    (clnt3_1_fop_prog.progver == progver)) {
+                if ((clnt3_1_fop_prog.prognum == trav->prognum) &&
+                    (clnt3_1_fop_prog.progver == trav->progver)) {
                         conf->fops = &clnt3_1_fop_prog;
                         gf_log (this->name, GF_LOG_INFO,
-                                "Using Program %s, Num (%s), Version (%s)",
-                                progname, prognum_str, progver_str);
+                                "Using Program %s, Num (%"PRId64"), "
+                                "Version (%"PRId64")",
+                                trav->progname, trav->prognum, trav->progver);
                         ret = 0;
                 }
-                if ((clnt3_1_mgmt_prog.prognum == prognum) &&
-                    (clnt3_1_mgmt_prog.progver == progver)) {
+                if ((clnt3_1_mgmt_prog.prognum == trav->prognum) &&
+                    (clnt3_1_mgmt_prog.progver == trav->progver)) {
                         conf->mgmt = &clnt3_1_mgmt_prog;
                         gf_log (this->name, GF_LOG_INFO,
-                                "Using Program %s, Num (%s), Version (%s)",
-                                progname, prognum_str, progver_str);
+                                "Using Program %s, Num (%"PRId64"), "
+                                "Version (%"PRId64")",
+                                trav->progname, trav->prognum, trav->progver);
                         ret = 0;
                 }
-
-                prog_str = strtok_r (NULL, ",", &tmp_str);
-                GF_FREE (dup_str);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "%s (%"PRId64") not supported", trav->progname,
+                                trav->progver);
+                }
+                trav = trav->next;
         }
 
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "none of the server versions are supported by client");
-        }
-        ret = 0;
 out:
-        if (tmp_msg)
-                GF_FREE (tmp_msg);
         return ret;
 }
 
 int
 client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myframe)
 {
-        gf_dump_version_rsp  rsp   = {0,};
-        call_frame_t            *frame = NULL;
-        clnt_conf_t             *conf = NULL;
-        int                      ret   = 0;
+        gf_dump_rsp     rsp   = {0,};
+        gf_prog_detail *trav  = NULL;
+        gf_prog_detail *next  = NULL;
+        call_frame_t   *frame = NULL;
+        clnt_conf_t    *conf  = NULL;
+        int             ret   = 0;
 
         frame = myframe;
         conf  = frame->this->private;
@@ -687,7 +658,7 @@ client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count, void
                 goto out;
         }
 
-        ret = xdr_to_dump_version_rsp (*iov, &rsp);
+        ret = xdr_to_dump_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -700,12 +671,11 @@ client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count, void
 
         /* Check for the proper version string */
         /* Reply in "Name:Program-Number:Program-Version,..." format */
-        ret = select_server_supported_programs (frame->this,
-                                                rsp.msg.msg_val);
+        ret = select_server_supported_programs (frame->this, rsp.prog);
         if (ret) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
                         "Server versions are not present in this "
-                        "release (%s)", rsp.msg.msg_val);
+                        "release");
                 goto out;
         }
 
@@ -713,8 +683,13 @@ client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count, void
 
 out:
         /* don't use GF_FREE, buffer was allocated by libc */
-        if (rsp.msg.msg_val) {
-                free (rsp.msg.msg_val);
+        if (rsp.prog) {
+                trav = rsp.prog;
+                while (trav) {
+                        next = trav->next;
+                        free (trav);
+                        trav = next;
+                }
         }
 
         STACK_DESTROY (frame->root);
@@ -724,10 +699,10 @@ out:
 int
 client_handshake (xlator_t *this, struct rpc_clnt *rpc)
 {
-        call_frame_t        *frame = NULL;
-        clnt_conf_t         *conf  = NULL;
-        gf_dump_version_req  req   = {0,};
-        int                  ret   = 0;
+        call_frame_t *frame = NULL;
+        clnt_conf_t  *conf  = NULL;
+        gf_dump_req   req   = {0,};
+        int           ret   = 0;
 
         conf = this->private;
         if (!conf->handshake)
@@ -737,24 +712,17 @@ client_handshake (xlator_t *this, struct rpc_clnt *rpc)
         if (!frame)
                 goto out;
 
-        req.key = "fop-handshake";
-        req.gfs_id = 123456;
-        ret = client_submit_request (this, &req, frame, conf->handshake,
-                                     GF_HNDSK_DUMP_VERSION,
-                                     client_dump_version_cbk,
-                                     NULL, xdr_from_dump_version_req);
+        req.gfs_id = 0xbabe;
+        ret = client_submit_request (this, &req, frame, conf->dump,
+                                     GF_DUMP_DUMP, client_dump_version_cbk,
+                                     NULL, xdr_from_dump_req);
 
 out:
         return ret;
 }
 
-
-/* */
-/* This table should ideally remain same irrespective of versions */
-
 char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
         [GF_HNDSK_NULL]         = "NULL",
-        [GF_HNDSK_DUMP_VERSION] = "VERSION",
         [GF_HNDSK_SETVOLUME]    = "SETVOLUME",
         [GF_HNDSK_GETSPEC]      = "GETSPEC",
         [GF_HNDSK_PING]         = "PING",
@@ -765,4 +733,16 @@ rpc_clnt_prog_t clnt_handshake_prog = {
         .prognum   = GLUSTER_HNDSK_PROGRAM,
         .progver   = GLUSTER_HNDSK_VERSION,
         .procnames = clnt_handshake_procs,
+};
+
+char *clnt_dump_proc[GF_DUMP_MAXVALUE] = {
+        [GF_DUMP_NULL] = "NULL",
+        [GF_DUMP_DUMP] = "DUMP",
+};
+
+rpc_clnt_prog_t clnt_dump_prog = {
+        .progname  = "GF-DUMP",
+        .prognum   = GLUSTER_DUMP_PROGRAM,
+        .progver   = GLUSTER_DUMP_VERSION,
+        .procnames = clnt_dump_proc,
 };

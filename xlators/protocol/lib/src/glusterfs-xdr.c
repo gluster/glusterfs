@@ -1667,38 +1667,6 @@ xdr_gf_common_rsp (XDR *xdrs, gf_common_rsp *objp)
 
 
 bool_t
-xdr_gf_dump_version_req (XDR *xdrs, gf_dump_version_req *objp)
-{
-
-	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
-		 return FALSE;
-	 if (!xdr_u_int (xdrs, &objp->flags))
-		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->key, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-bool_t
-xdr_gf_dump_version_rsp (XDR *xdrs, gf_dump_version_rsp *objp)
-{
-
-	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_ret))
-		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->op_errno))
-		 return FALSE;
-	 if (!xdr_u_int (xdrs, &objp->flags))
-		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->msg.msg_val, (u_int *) &objp->msg.msg_len, ~0))
-		 return FALSE;
-	return TRUE;
-}
-
-
-
-bool_t
 xdr_gfs3_dirlist (XDR *xdrs, gfs3_dirlist *objp)
 {
 	 if (!xdr_u_quad_t (xdrs, &objp->d_ino))
