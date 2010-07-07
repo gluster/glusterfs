@@ -654,6 +654,89 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
+
+int32_t
+ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+               int32_t op_ret, int32_t op_errno, inode_t *inode,
+               struct iatt *buf, struct iatt *preparent,
+               struct iatt *postparent)
+{
+	ioc_local_t *local     = NULL;
+	ioc_table_t *table     = NULL;
+	ioc_inode_t *ioc_inode = NULL;
+	uint32_t     weight    = 0xffffffff;
+	const char  *path      = NULL;
+
+        local = frame->local;
+        table = this->private;
+        path = local->file_loc.path;
+
+	if (op_ret != -1) {
+                /* assign weight */
+                weight = ioc_get_priority (table, path);
+
+                ioc_inode = ioc_inode_update (table, inode, weight);
+
+                ioc_inode_lock (ioc_inode);
+                {
+                        ioc_inode->cache.mtime = buf->ia_mtime;
+                        ioc_inode->cache.mtime_nsec = buf->ia_mtime_nsec;
+                        ioc_inode->ia_size = buf->ia_size;
+                }
+                ioc_inode_unlock (ioc_inode);
+
+                inode_ctx_put (inode, this,
+                               (uint64_t)(long)ioc_inode);
+	}
+  
+	frame->local = NULL;
+	GF_FREE (local);
+
+	STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
+                             preparent, postparent);
+	return 0;
+}
+
+
+int32_t
+ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+           dev_t rdev)
+{
+        ioc_local_t *local = NULL;
+        int32_t      op_errno = -1, ret = -1;
+
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_ioc_mt_ioc_local_t);
+        if (local == NULL) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        ret = loc_copy (&local->file_loc, loc);
+        if (ret != 0) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                goto unwind;
+        }
+
+        frame->local = local;
+
+	STACK_WIND (frame,
+		    ioc_mknod_cbk,
+		    FIRST_CHILD(this),
+		    FIRST_CHILD(this)->fops->mknod,
+		    loc, mode, rdev);
+        return 0;
+
+unwind:
+	STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL,
+                             NULL, NULL);
+
+	return 0;
+}
+
+
 /*
  * ioc_open - open fop for io cache
  * @frame:
@@ -1596,7 +1679,8 @@ struct xlator_fops fops = {
 	.ftruncate   = ioc_ftruncate,
 	.lookup      = ioc_lookup,
 	.lk          = ioc_lk,
-        .setattr     = ioc_setattr
+        .setattr     = ioc_setattr,
+        .mknod       = ioc_mknod
 };
 
 
