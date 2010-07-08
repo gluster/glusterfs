@@ -190,51 +190,59 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         xlator_t        *master = NULL;
 
         cmd_args = &ctx->cmd_args;
-
-        if (!cmd_args->mount_point)
+        master = ctx->master;
+        if (!master && !cmd_args->mount_point)
                 return 0;
 
-        master = GF_CALLOC (1, sizeof (*master),
-                            gfd_mt_xlator_t);
-        if (!master)
-                goto err;
+        if (!master) {
+                master = GF_CALLOC (1, sizeof (*master),
+                                    gfd_mt_xlator_t);
+                if (!master)
+                        goto err;
 
-        master->name = gf_strdup ("fuse");
-        if (!master->name)
-                goto err;
+                master->name = gf_strdup ("fuse");
+                if (!master->name)
+                        goto err;
 
-        if (xlator_set_type (master, ZR_XLATOR_FUSE) == -1) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "MOUNT-POINT %s initialization failed",
-                        cmd_args->mount_point);
-                goto err;
+                if (xlator_set_type (master, ZR_XLATOR_FUSE) == -1) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "MOUNT-POINT %s initialization failed",
+                                cmd_args->mount_point);
+                        goto err;
+                }
+
+                master->options  = get_new_dict ();
+
+                ctx->master = master;
         }
+        master->ctx = ctx;
 
-        master->ctx      = ctx;
-        master->options  = get_new_dict ();
-
-        ret = dict_set_static_ptr (master->options, ZR_MOUNTPOINT_OPT,
+        if (cmd_args->mount_point)
+                ret = dict_set_static_ptr (master->options, ZR_MOUNTPOINT_OPT,
                                    cmd_args->mount_point);
-        if (ret < 0) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "failed to set mount-point to options dictionary");
-                goto err;
-        }
 
-        if (cmd_args->fuse_attribute_timeout >= 0)
+        if (ret == 0 && cmd_args->fuse_attribute_timeout >= 0)
                 ret = dict_set_double (master->options, ZR_ATTR_TIMEOUT_OPT,
                                        cmd_args->fuse_attribute_timeout);
-        if (cmd_args->fuse_entry_timeout >= 0)
+
+        if (ret == 0 && cmd_args->fuse_entry_timeout >= 0)
                 ret = dict_set_double (master->options, ZR_ENTRY_TIMEOUT_OPT,
                                        cmd_args->fuse_entry_timeout);
 
-        if (cmd_args->volfile_check)
+        if (ret == 0 && cmd_args->volfile_check)
                 ret = dict_set_int32 (master->options, ZR_STRICT_VOLFILE_CHECK,
                                       cmd_args->volfile_check);
 
-        if (cmd_args->dump_fuse)
+        if (ret == 0 && cmd_args->dump_fuse)
                 ret = dict_set_static_ptr (master->options, ZR_DUMP_FUSE,
                                            cmd_args->dump_fuse);
+
+        if (ret) {
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "failed to set mount-point to options "
+                        "dictionary");
+                goto err;
+        }
 
         switch (cmd_args->fuse_direct_io_mode) {
         case GF_OPTION_DISABLE: /* disable */
@@ -253,8 +261,6 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         ret = xlator_init (master);
         if (ret)
                 goto err;
-
-        ctx->master = master;
 
         return 0;
 
@@ -1180,14 +1186,10 @@ glusterfs_volumes_init (glusterfs_ctx_t *ctx)
         }
 
         ret = glusterfs_graph_prepare (graph, ctx);
-
-        if (ret) {
-                glusterfs_graph_destroy (graph);
-                ret = -1;
-                goto out;
-        }
-
-        ret = glusterfs_graph_activate (ctx, graph);
+        if (!ret)
+                ret = create_fuse_mount (ctx);
+        if (!ret)
+                ret = glusterfs_graph_activate (ctx, graph);
 
         if (ret) {
                 glusterfs_graph_destroy (graph);
@@ -1230,10 +1232,6 @@ main (int argc, char *argv[])
                 goto out;
 
         gf_proc_dump_init();
-
-        ret = create_fuse_mount (ctx);
-        if (ret)
-                goto out;
 
         ret = daemonize (ctx);
         if (ret)
