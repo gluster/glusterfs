@@ -194,6 +194,61 @@ err:
 
 
 int
+glusterfs_set_master (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
+{
+        xlator_t *trav = NULL;
+        xlator_list_t *chp = NULL, **chpp = NULL;
+
+        for (trav = graph->first; trav; trav = trav->next) {
+                if (strcmp (trav->type, "mount/fuse") != 0)
+                        continue;
+
+                if (ctx->master) {
+                        gf_log ("graph", GF_LOG_ERROR,
+                                "there can be at most one fuse volume");
+
+                        return -1;
+                }
+
+                if (!trav->children || trav->children->next) {
+                        gf_log ("graph", GF_LOG_ERROR,
+                                "fuse volume not configured with exactly one "
+                                "child");
+                        return -1;
+                }
+
+                if (xlator_has_parent (trav)) {
+                        gf_log ("graph", GF_LOG_ERROR,
+                                "fuse volume cannot have parents");
+
+                        return -1;
+                }
+
+                ctx->master = trav;
+                if (trav == graph->top)
+                        graph->top = trav->children->xlator;
+                for (chpp = &trav->children->xlator->parents;
+                     *chpp;
+                     chpp = &(*chpp)->next) {
+                        if ((*chpp)->xlator == trav) {
+                                chp = *chpp;
+                                *chpp = chp->next;
+                                GF_FREE (chp);
+                                if (!*chpp)
+                                        break;
+                        }
+                }
+                if (trav == graph->first)
+                        graph->first = trav->next;
+                if (trav->prev)
+                        trav->prev->next = trav->next;
+        }
+
+        return 0;
+}
+
+
+int
 glusterfs_graph_readonly (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
         int ret = 0;
@@ -383,6 +438,11 @@ glusterfs_graph_settop (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
         for (trav = graph->first; trav; trav = trav->next) {
                 if (strcmp (trav->name, volume_name) == 0) {
+                        if (strcmp (trav->type, "mount/fuse") == 0) {
+                                gf_log ("graph", GF_LOG_ERROR,
+                                        "fuse volume cannot be set as top");
+                                break;
+                        }
                         graph->top = trav;
                         return 0;
                 }
@@ -425,6 +485,11 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
         /* XXX: attach to -n volname */
         ret = glusterfs_graph_settop (graph, ctx);
+        if (ret)
+                return -1;
+
+        /* XXX: take fuse from volfile  */
+        ret = glusterfs_set_master (graph, ctx);
         if (ret)
                 return -1;
 
