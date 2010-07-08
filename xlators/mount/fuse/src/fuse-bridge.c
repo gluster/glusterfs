@@ -44,6 +44,7 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "common-utils.h"
+#include "glusterfsd-common.h"
 #include "statedump.h"
 
 #ifdef GF_DARWIN_HOST_OS
@@ -62,10 +63,6 @@
 
 /* TODO: when supporting posix acl, remove this definition */
 #define DISABLE_POSIX_ACL
-
-#define ZR_MOUNTPOINT_OPT       "mountpoint"
-#define ZR_DIRECT_IO_OPT        "direct-io-mode"
-#define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
 
 #ifdef GF_LINUX_HOST_OS
 #define FUSE_OP_HIGH (FUSE_POLL + 1)
@@ -3766,19 +3763,19 @@ struct volume_options options[] = {
         { .key  = {"direct-io-mode"},
           .type = GF_OPTION_TYPE_BOOL
         },
-        { .key  = {"mountpoint", "mount-point"},
+        { .key  = {ZR_MOUNTPOINT_OPT, "mount-point"},
           .type = GF_OPTION_TYPE_PATH
         },
-        { .key  = {"dump-fuse", "fuse-dumpfile"},
+        { .key  = {ZR_DUMP_FUSE, "fuse-dumpfile"},
           .type = GF_OPTION_TYPE_PATH
         },
-        { .key  = {"attribute-timeout"},
+        { .key  = {ZR_ATTR_TIMEOUT_OPT},
           .type = GF_OPTION_TYPE_DOUBLE
         },
-        { .key  = {"entry-timeout"},
+        { .key  = {ZR_ENTRY_TIMEOUT_OPT},
           .type = GF_OPTION_TYPE_DOUBLE
         },
-        { .key  = {"strict-volfile-check"},
+        { .key  = {ZR_STRICT_VOLFILE_CHECK},
           .type = GF_OPTION_TYPE_BOOL
         },
         { .key = {NULL} },
