@@ -76,16 +76,56 @@ enum gf_handshake_procnum {
 };
 
 enum gf_mgmt_procnum {
-        GF1_MGMT_NULL,    /* 0 */
+        GD_MGMT_NULL,    /* 0 */
+        GD_MGMT_PROBE_QUERY,
+        GD_MGMT_FRIEND_ADD,
+        GD_MGMT_CLUSTER_LOCK,
+        GD_MGMT_CLUSTER_UNLOCK,
+        GD_MGMT_STAGE_OP,
+        GD_MGMT_COMMIT_OP,
+        GD_MGMT_CLI_PROBE,
+        GD_MGMT_CLI_CREATE_VOLUME,
+        GD_MGMT_CLI_GET_VOLUME,
+        GD_MGMT_CLI_DELETE_VOLUME,
+        GD_MGMT_CLI_START_VOLUME,
+        GD_MGMT_CLI_STOP_VOLUME,
+        GD_MGMT_CLI_RENAME_VOLUME,
+        GD_MGMT_CLI_DEFRAG_VOLUME,
+        GD_MGMT_CLI_SET_VOLUME,
+        GD_MGMT_CLI_ADD_BRICK,
+        GD_MGMT_CLI_REMOVE_BRICK,
+        GD_MGMT_CLI_REPLACE_BRICK,
+        GD_MGMT_MAXVALUE,
 };
 
+enum gf_cli_procnum {
+        GF1_CLI_NULL = GD_MGMT_MAXVALUE+1,    /* 0 */
+        GF1_CLI_PROBE,
+        GF1_CLI_CREATE_VOLUME,
+        GF1_CLI_GET_VOLUME,
+        GF1_CLI_DELETE_VOLUME,
+        GF1_CLI_START_VOLUME,
+        GF1_CLI_STOP_VOLUME,
+        GF1_CLI_RENAME_VOLUME,
+        GF1_CLI_DEFRAG_VOLUME,
+        GF1_CLI_SET_VOLUME,
+        GF1_CLI_ADD_BRICK,
+        GF1_CLI_REMOVE_BRICK,
+        GF1_CLI_REPLACE_BRICK,
+        GF1_CLI_MAXVALUE,
+};
 
 #define GLUSTER3_1_FOP_PROGRAM   1298437 /* Completely random */
 #define GLUSTER3_1_FOP_VERSION   310 /* 3.1.0 */
 #define GLUSTER3_1_FOP_PROCCNT   GFS3_OP_MAXVALUE
 
-#define GLUSTER1_MGMT_PROGRAM   1298433 /* Completely random */
-#define GLUSTER1_MGMT_VERSION   1   /* 0.0.1 */
+#define GLUSTERD1_MGMT_PROGRAM   1298433 /* Completely random */
+#define GLUSTERD1_MGMT_VERSION   1   /* 0.0.1 */
+#define GLUSTERD1_MGMT_PROCCNT   GD_MGMT_MAXVALUE
+
+#define GLUSTER3_1_CLI_PROGRAM   1298433 /* Completely random */
+#define GLUSTER3_1_CLI_VERSION   1   /* 0.0.1 */
+#define GLUSTER3_1_CLI_PROCCNT   GF1_CLI_MAXVALUE
 
 #define GLUSTER_HNDSK_PROGRAM   14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION   1   /* 0.0.1 */

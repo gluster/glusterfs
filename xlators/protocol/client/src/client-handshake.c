@@ -31,7 +31,6 @@
 #include "compat-errno.h"
 
 extern rpc_clnt_prog_t clnt3_1_fop_prog;
-extern rpc_clnt_prog_t clnt3_1_mgmt_prog;
 
 int client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe);
@@ -613,15 +612,6 @@ select_server_supported_programs (xlator_t *this, gf_prog_detail *prog)
                 if ((clnt3_1_fop_prog.prognum == trav->prognum) &&
                     (clnt3_1_fop_prog.progver == trav->progver)) {
                         conf->fops = &clnt3_1_fop_prog;
-                        gf_log (this->name, GF_LOG_INFO,
-                                "Using Program %s, Num (%"PRId64"), "
-                                "Version (%"PRId64")",
-                                trav->progname, trav->prognum, trav->progver);
-                        ret = 0;
-                }
-                if ((clnt3_1_mgmt_prog.prognum == trav->prognum) &&
-                    (clnt3_1_mgmt_prog.progver == trav->progver)) {
-                        conf->mgmt = &clnt3_1_mgmt_prog;
                         gf_log (this->name, GF_LOG_INFO,
                                 "Using Program %s, Num (%"PRId64"), "
                                 "Version (%"PRId64")",

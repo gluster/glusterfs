@@ -117,6 +117,7 @@ xdr_auth_glusterfs_parms (XDR *xdrs, auth_glusterfs_parms *objp)
 	return TRUE;
 }
 
+
 ssize_t
 xdr_to_glusterfs_auth (char *buf, struct auth_glusterfs_parms *req)
 {

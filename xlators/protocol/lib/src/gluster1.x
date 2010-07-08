@@ -1,0 +1,144 @@
+ enum gf1_cluster_type {
+        GF_CLUSTER_TYPE_NONE = 0,
+        GF_CLUSTER_TYPE_STRIPE,
+        GF_CLUSTER_TYPE_REPLICATE
+} ;
+
+ enum gf1_cli_replace_op {
+        GF_REPLACE_OP_NONE = 0,
+        GF_REPLACE_OP_START,
+        GF_REPLACE_OP_STOP,
+        GF_REPLACE_OP_PAUSE,
+        GF_REPLACE_OP_ABORT,
+        GF_REPLACE_OP_STATUS
+} ;
+
+ struct gf1_cli_probe_req {
+        string  hostname<>;
+}  ;
+
+ struct gf1_cli_probe_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  hostname<>;
+}  ;
+
+ struct gf1_cli_create_vol_req {
+        string  volname<>;
+        gf1_cluster_type type;
+        int     count;
+        opaque  bricks<>;
+}  ;
+
+ struct gf1_cli_create_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+ struct gf1_cli_delete_vol_req {
+        string volname<>;
+}  ;
+        
+ struct gf1_cli_delete_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+ struct gf1_cli_start_vol_req {
+        string volname<>;
+}  ;
+
+
+ struct gf1_cli_start_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+ struct gf1_cli_stop_vol_req {
+        string volname<>;
+}  ;
+
+
+ struct gf1_cli_stop_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+
+ struct gf1_cli_rename_vol_req {
+        string old_volname<>;
+        string new_volname<>;
+}  ;
+
+ struct gf1_cli_rename_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+ struct gf1_cli_defrag_vol_req {
+        string volname<>;
+}  ;
+
+ struct gf1_cli_defrag_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+ struct gf1_cli_add_brick_req {
+        string volname<>;
+        gf1_cluster_type type;
+        int    count;
+        opaque bricks<>;
+}  ;
+
+ struct gf1_cli_add_brick_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+ struct gf1_cli_remove_brick_req {
+        string volname<>;
+        gf1_cluster_type type;
+        int    count;
+        opaque bricks<>;
+}  ;
+
+
+ struct gf1_cli_remove_brick_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+ struct gf1_cli_replace_brick_req {
+        string volname<>;
+        gf1_cli_replace_op op;
+        opaque src_brick<>;
+        opaque dst_brick<>;
+}  ;
+
+ struct gf1_cli_replace_brick_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;
+
+
+struct gf1_cli_set_vol_req {
+        string volname<>;
+        opaque dict<>;
+} ;
+
+
+ struct gf1_cli_set_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+}  ;

@@ -2,7 +2,7 @@
   Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
-  GlusterFS is GF_FREE software; you can redistribute it and/or modify
+  GlusterFS is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published
   by the Free Software Foundation; either version 3 of the License,
   or (at your option) any later version.
@@ -1144,7 +1144,7 @@ daemonize (glusterfs_ctx_t *ctx)
         if (cmd_args->debug_mode)
                 goto postfork;
 
-        os_daemon (0, 0);
+        ret = os_daemon (0, 0);
 
 postfork:
         ret = glusterfs_pidfile_update (ctx);

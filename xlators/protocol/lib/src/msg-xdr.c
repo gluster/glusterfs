@@ -1202,3 +1202,11 @@ xdr_to_common_rsp (struct iovec outmsg, void *rsp)
                                (xdrproc_t)xdr_gf_common_rsp);
 
 }
+
+ssize_t
+xdr_to_mgmt_probe_query_req (struct iovec outmsg, void *req)
+{
+
+        return xdr_serialize_generic (outmsg, (void *)req,
+                                      (xdrproc_t)xdr_gfs3_setattr_req);
+}

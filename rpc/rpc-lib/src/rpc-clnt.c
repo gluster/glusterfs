@@ -746,8 +746,9 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                 }
                 pthread_mutex_unlock (&conn->lock);
 
-                ret = clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_DISCONNECT,
-                                      NULL);
+                if (clnt->notifyfn)
+                        ret = clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_DISCONNECT,
+                                              NULL);
                 break;
         }
 
@@ -789,7 +790,8 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
 
         case RPC_TRANSPORT_CONNECT:
         {
-                ret = clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_CONNECT, NULL);
+                if (clnt->notifyfn)
+                        ret = clnt->notifyfn (clnt, clnt->mydata, RPC_CLNT_CONNECT, NULL);
                 break;
         }
 
@@ -1200,45 +1202,39 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
 
                 ret = -1;
 
-                if (conn->connected ||
-                    /* FIXME: hack!! hack!! find a neater way to do this */
-                    (((prog->prognum == GLUSTER_HNDSK_PROGRAM) &&
-                     (procnum == GF_HNDSK_SETVOLUME)) ||
-                     (prog->prognum == GLUSTER_DUMP_PROGRAM))) {
-                        if (proghdr) {
-                                proglen += iov_length (proghdr, proghdrcount);
-                        }
+                if (proghdr) {
+                        proglen += iov_length (proghdr, proghdrcount);
+                }
 
-                        if (progpayload) {
-                                proglen += iov_length (progpayload,
-                                                       progpayloadcount);
-                        }
+                if (progpayload) {
+                        proglen += iov_length (progpayload,
+                                               progpayloadcount);
+                }
 
-                        request_iob = rpc_clnt_record (rpc, frame, prog,
-                                                       procnum, proglen,
-                                                       &rpchdr, callid);
-                        if (!request_iob) {
-                                gf_log ("rpc-clnt", GF_LOG_DEBUG,
-                                        "cannot build rpc-record");
-                                goto unlock;
-                        }
+                request_iob = rpc_clnt_record (rpc, frame, prog,
+                                               procnum, proglen,
+                                               &rpchdr, callid);
+                if (!request_iob) {
+                        gf_log ("rpc-clnt", GF_LOG_DEBUG,
+                                "cannot build rpc-record");
+                        goto unlock;
+                }
 
-                        iobref_add (iobref, request_iob);
+                iobref_add (iobref, request_iob);
 
-                        req.msg.rpchdr = &rpchdr;
-                        req.msg.rpchdrcount = 1;
-                        req.msg.proghdr = proghdr;
-                        req.msg.proghdrcount = proghdrcount;
-                        req.msg.progpayload = progpayload;
-                        req.msg.progpayloadcount = progpayloadcount;
-                        req.msg.iobref = iobref;
+                req.msg.rpchdr = &rpchdr;
+                req.msg.rpchdrcount = 1;
+                req.msg.proghdr = proghdr;
+                req.msg.proghdrcount = proghdrcount;
+                req.msg.progpayload = progpayload;
+                req.msg.progpayloadcount = progpayloadcount;
+                req.msg.iobref = iobref;
 
-                        ret = rpc_transport_submit_request (rpc->conn.trans,
-                                                            &req);
-                        if (ret == -1) {
-                                gf_log ("rpc-clnt", GF_LOG_DEBUG,
-                                        "transmission of rpc-request failed");
-                        }
+                ret = rpc_transport_submit_request (rpc->conn.trans,
+                                                    &req);
+                if (ret == -1) {
+                        gf_log ("rpc-clnt", GF_LOG_DEBUG,
+                                "transmission of rpc-request failed");
                 }
 
                 if ((ret >= 0) && frame) {

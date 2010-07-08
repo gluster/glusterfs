@@ -1,0 +1,3 @@
+SUBDIRS = glusterd
+
+CLEANFILES = 
