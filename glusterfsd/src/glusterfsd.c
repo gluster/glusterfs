@@ -204,7 +204,7 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 if (!master->name)
                         goto err;
 
-                if (xlator_set_type (master, ZR_XLATOR_FUSE) == -1) {
+                if (xlator_set_type (master, "mount/fuse") == -1) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "MOUNT-POINT %s initialization failed",
                                 cmd_args->mount_point);
@@ -1189,7 +1189,7 @@ glusterfs_volumes_init (glusterfs_ctx_t *ctx)
         if (!ret)
                 ret = create_fuse_mount (ctx);
         if (!ret)
-                ret = glusterfs_graph_activate (ctx, graph);
+                ret = glusterfs_graph_activate (graph, ctx);
 
         if (ret) {
                 glusterfs_graph_destroy (graph);

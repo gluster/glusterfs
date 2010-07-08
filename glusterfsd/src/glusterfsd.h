@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2009 Gluster, Inc. <http://www.gluster.com>
+   Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -25,6 +25,8 @@
 #include "config.h"
 #endif
 
+#include "glusterfsd-common.h"
+
 #define DEFAULT_CLIENT_VOLFILE                CONFDIR "/glusterfs.vol"
 #define DEFAULT_SERVER_VOLFILE                CONFDIR "/glusterfsd.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"
@@ -42,16 +44,6 @@
 
 #define ENABLE_NO_DAEMON_MODE     1
 #define ENABLE_DEBUG_MODE         1
-
-#define ZR_XLATOR_READ_ONLY     "features/read-only"
-#define ZR_XLATOR_MAC_COMPAT    "features/mac-compat"
-#define ZR_XLATOR_FUSE          "mount/fuse"
-#define ZR_MOUNTPOINT_OPT       "mountpoint"
-#define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
-#define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
-#define ZR_DIRECT_IO_OPT        "direct-io-mode"
-#define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
-#define ZR_DUMP_FUSE            "dump-fuse"
 
 enum argp_option_keys {
 	ARGP_VOLFILE_SERVER_KEY = 's',

@@ -522,7 +522,7 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
 
 int
-glusterfs_graph_activate (glusterfs_ctx_t *ctx, glusterfs_graph_t *graph)
+glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
         int ret = 0;
 

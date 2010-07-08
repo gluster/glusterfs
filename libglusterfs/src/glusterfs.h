@@ -295,7 +295,7 @@ typedef enum {
 
 int glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 int glusterfs_graph_destroy (glusterfs_graph_t *graph);
-int glusterfs_graph_activate (glusterfs_ctx_t *ctx, glusterfs_graph_t *graph);
+int glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx);
 glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
 glusterfs_graph_t *glusterfs_graph_new ();
 #endif /* _GLUSTERFS_H */
