@@ -34,10 +34,12 @@
 #define GF_PRI_FSBLK       "u"
 #define GF_PRI_DEV         PRId32
 #define GF_PRI_NLINK       PRIu16
+#define GF_PRI_SUSECONDS   PRId32
 #else
 #define GF_PRI_FSBLK       PRIu64
 #define GF_PRI_DEV         PRIu64
 #define GF_PRI_NLINK       PRIu32
+#define GF_PRI_SUSECONDS   "ld"
 #endif
 #define GF_PRI_BLKSIZE     PRId32
 #define GF_PRI_SIZET       "zu"

@@ -651,12 +651,7 @@ generate_uuid ()
 
         localtime_r (&tv.tv_sec, &now);
         strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
-        snprintf (tmp_str, 1024, "%s-%d-%s:%"
-#ifdef GF_DARWIN_HOST_OS
-                  PRId32,
-#else
-                  "ld",
-#endif
+        snprintf (tmp_str, 1024, "%s-%d-%s:%" GF_PRI_SUSECONDS,
                   hostname, getpid(), now_str, tv.tv_usec);
 
         return gf_strdup (tmp_str);
@@ -1149,7 +1144,7 @@ daemonize (glusterfs_ctx_t *ctx)
         if (cmd_args->debug_mode)
                 goto postfork;
 
-        daemon (0, 0);
+        os_daemon (0, 0);
 
 postfork:
         ret = glusterfs_pidfile_update (ctx);

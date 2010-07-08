@@ -416,7 +416,7 @@ fill_uuid (char *uuid, int size)
 
         localtime_r (&tv.tv_sec, &now);
         strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
-        snprintf (uuid, size, "%s-%d-%s:%ld",
+        snprintf (uuid, size, "%s-%d-%s:%"GF_PRI_SUSECONDS,
                   hostname, getpid(), now_str, tv.tv_usec);
 
         return;

@@ -120,7 +120,6 @@ AC_CONFIG_FILES([Makefile
 		extras/benchmarking/Makefile
                 extras/volgen/Makefile
                 extras/volgen/glusterfs-volgen
-		contrib/Makefile
 		contrib/fuse-util/Makefile
                 xlators/features/access-control/Makefile
                 xlators/features/access-control/src/Makefile
@@ -230,7 +229,7 @@ AC_ARG_ENABLE([fusermount],
 
 BUILD_FUSERMOUNT="no"
 if test "x$enable_fusermount" = "xyes"; then
-  FUSERMOUNT_SUBDIR="contrib"
+  FUSERMOUNT_SUBDIR="contrib/fuse-util"
   BUILD_FUSERMOUNT="yes"
   AC_DEFINE(GF_FUSERMOUNT, 1, [Use our own fusermount])
 fi

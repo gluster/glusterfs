@@ -1,6 +1,6 @@
 EXTRA_DIST = autogen.sh COPYING INSTALL README AUTHORS THANKS NEWS glusterfs.spec
 
-SUBDIRS = argp-standalone libglusterfs rpc xlators glusterfsd $(FUSERMOUNT_SUBDIR) doc extras contrib
+SUBDIRS = argp-standalone libglusterfs rpc xlators glusterfsd $(FUSERMOUNT_SUBDIR) doc extras
 
 CLEANFILES = 
 
