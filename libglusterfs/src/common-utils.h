@@ -136,6 +136,8 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
 #define GF_FILE_CONTENT_REQUESTED(_xattr_req,_content_limit) \
 	(dict_get_uint64 (_xattr_req, "glusterfs.content", _content_limit) == 0)
 
+#define GF_ASSERT(x)    assert (x);
+
 static inline void
 iov_free (struct iovec *vector, int count)
 {

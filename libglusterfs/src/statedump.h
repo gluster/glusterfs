@@ -73,4 +73,7 @@ fdtable_dump(fdtable_t *fdtable, char *prefix);
 
 void
 inode_dump(inode_t *inode, char *prefix);
+
+void
+glusterd_init (int sig);
 #endif /* STATEDUMP_H */

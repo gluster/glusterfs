@@ -1,3 +1,3 @@
-SUBDIRS = cluster storage protocol performance debug features encryption mount nfs
+SUBDIRS = cluster storage protocol performance debug features encryption mount nfs mgmt
 
 CLEANFILES = 

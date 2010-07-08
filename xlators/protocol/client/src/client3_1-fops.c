@@ -4734,8 +4734,4 @@ rpc_clnt_prog_t clnt3_1_fop_prog = {
         .procnames = clnt3_1_fop_names,
 };
 
-rpc_clnt_prog_t clnt3_1_mgmt_prog = {
-        .progname = "Gluster Mgmt 3.1",
-        .prognum  = GLUSTER1_MGMT_PROGRAM,
-        .progver  = GLUSTER1_MGMT_VERSION,
-};
+

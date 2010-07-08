@@ -1,0 +1,467 @@
+/*
+  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
+
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
+
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
+*/
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/file.h>
+#include <netdb.h>
+#include <signal.h>
+#include <libgen.h>
+
+#include <sys/utsname.h>
+
+#include <stdint.h>
+#include <pthread.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <time.h>
+#include <semaphore.h>
+#include <errno.h>
+
+#ifndef _CONFIG_H
+#define _CONFIG_H
+#include "config.h"
+#endif
+
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+
+#ifdef HAVE_MALLOC_STATS
+#ifdef DEBUG
+#include <mcheck.h>
+#endif
+#endif
+
+#include "cli.h"
+#include "cli-cmd.h"
+#include "cli-mem-types.h"
+
+#include "xlator.h"
+#include "glusterfs.h"
+#include "compat.h"
+#include "logging.h"
+#include "dict.h"
+#include "list.h"
+#include "timer.h"
+#include "stack.h"
+#include "revision.h"
+#include "common-utils.h"
+#include "event.h"
+#include "globals.h"
+#include "syscall.h"
+
+#include <fnmatch.h>
+
+/* using argp for command line parsing */
+static char gf_doc[] = "";
+
+static char argp_doc[] = "COMMAND [PARAM ...]";
+
+const char *argp_program_version = ""                                 \
+        PACKAGE_NAME" "PACKAGE_VERSION" built on "__DATE__" "__TIME__ \
+        "\nRepository revision: " GLUSTERFS_REPOSITORY_REVISION "\n"  \
+        "Copyright (c) 2006-2010 Gluster Inc. "                       \
+        "<http://www.gluster.com>\n"                                  \
+        "GlusterFS comes with ABSOLUTELY NO WARRANTY.\n"              \
+        "You may redistribute copies of GlusterFS under the terms of "\
+        "the GNU General Public License.";
+
+const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
+
+static struct argp_option gf_options[] = {
+        {0, 0, 0, 0, "Basic options:"},
+        {"debug", ARGP_DEBUG_KEY, 0, 0,
+         "Process runs in foreground and logs to console"},
+        {0, }
+};
+
+struct rpc_clnt *global_rpc;
+
+rpc_clnt_prog_t *cli_rpc_prog;
+
+
+extern struct rpc_clnt_program cli3_1_prog;
+
+static error_t
+parse_opts (int key, char *arg, struct argp_state *argp_state)
+{
+        struct cli_state  *state = NULL;
+        char             **argv = NULL;
+
+        state = argp_state->input;
+
+        switch (key) {
+        case ARGP_DEBUG_KEY:
+                break;
+        case ARGP_KEY_ARG:
+                if (!state->argc) {
+                        argv = calloc (state->argc + 2,
+                                       sizeof (*state->argv));
+                } else {
+                        argv = realloc (state->argv, (state->argc + 2) *
+                                        sizeof (*state->argv));
+                }
+                if (!argv)
+                        return -1;
+
+                state->argv = argv;
+
+                argv[state->argc] = strdup (arg);
+                if (!argv[state->argc])
+                        return -1;
+                state->argc++;
+                argv[state->argc] = NULL;
+
+                break;
+        }
+
+        return 0;
+}
+
+
+static char *
+generate_uuid ()
+{
+        char           tmp_str[1024] = {0,};
+        char           hostname[256] = {0,};
+        struct timeval tv = {0,};
+        struct tm      now = {0, };
+        char           now_str[32];
+
+        if (gettimeofday (&tv, NULL) == -1) {
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "gettimeofday: failed %s",
+                        strerror (errno));
+        }
+
+        if (gethostname (hostname, 256) == -1) {
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "gethostname: failed %s",
+                        strerror (errno));
+        }
+
+        localtime_r (&tv.tv_sec, &now);
+        strftime (now_str, 32, "%Y/%m/%d-%H:%M:%S", &now);
+        snprintf (tmp_str, 1024, "%s-%d-%s:%"
+#ifdef GF_DARWIN_HOST_OS
+                  PRId32,
+#else
+                  "ld",
+#endif
+                  hostname, getpid(), now_str, tv.tv_usec);
+
+        return gf_strdup (tmp_str);
+}
+
+static int
+glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
+{
+        cmd_args_t    *cmd_args = NULL;
+        struct rlimit  lim = {0, };
+        call_pool_t   *pool = NULL;
+
+        xlator_mem_acct_init (THIS, cli_mt_end);
+
+        ctx->process_uuid = generate_uuid ();
+        if (!ctx->process_uuid)
+                return -1;
+
+        ctx->page_size  = 128 * GF_UNIT_KB;
+
+        ctx->iobuf_pool = iobuf_pool_new (8 * GF_UNIT_MB, ctx->page_size);
+        if (!ctx->iobuf_pool)
+                return -1;
+
+        ctx->event_pool = event_pool_new (DEFAULT_EVENT_POOL_SIZE);
+        if (!ctx->event_pool)
+                return -1;
+
+        pool = GF_CALLOC (1, sizeof (call_pool_t),
+                          cli_mt_call_pool_t);
+        if (!pool)
+                return -1;
+        INIT_LIST_HEAD (&pool->all_frames);
+        LOCK_INIT (&pool->lock);
+        ctx->pool = pool;
+
+        pthread_mutex_init (&(ctx->lock), NULL);
+
+        cmd_args = &ctx->cmd_args;
+
+        /* parsing command line arguments */
+        cmd_args->log_file  = "/dev/stderr";
+        cmd_args->log_level = GF_LOG_NORMAL;
+
+        INIT_LIST_HEAD (&cmd_args->xlator_options);
+
+        lim.rlim_cur = RLIM_INFINITY;
+        lim.rlim_max = RLIM_INFINITY;
+        setrlimit (RLIMIT_CORE, &lim);
+
+        return 0;
+}
+
+
+static int
+logging_init (glusterfs_ctx_t *ctx)
+{
+        cmd_args_t *cmd_args = NULL;
+
+        cmd_args = &ctx->cmd_args;
+
+        if (gf_log_init (cmd_args->log_file) == -1) {
+                fprintf (stderr,
+                         "failed to open logfile %s.  exiting\n",
+                         cmd_args->log_file);
+                return -1;
+        }
+
+        gf_log_set_loglevel (cmd_args->log_level);
+
+        return 0;
+}
+
+int
+cli_submit_request (void *req, call_frame_t *frame, 
+                    rpc_clnt_prog_t *prog, 
+                    int procnum, struct iobref *iobref, 
+                    cli_serialize_t sfunc, xlator_t *this,
+                    fop_cbk_fn_t cbkfn)
+{
+        int                     ret         = -1;
+        int                     count      = 0;
+        char                    start_ping = 0;
+        struct iovec            iov         = {0, };
+        struct iobuf            *iobuf = NULL;
+        char                    new_iobref = 0;
+
+        GF_ASSERT (this);
+
+        iobuf = iobuf_get (this->ctx->iobuf_pool);
+        if (!iobuf) {
+                goto out;
+        };
+
+        if (!iobref) {
+                iobref = iobref_new ();
+                if (!iobref) {
+                        goto out;
+                }
+
+                new_iobref = 1;
+        }
+
+        iobref_add (iobref, iobuf);
+
+        iov.iov_base = iobuf->ptr;
+        iov.iov_len  = 128 * GF_UNIT_KB;
+
+
+        /* Create the xdr payload */
+        if (req && sfunc) {
+                ret = sfunc (iov, req);
+                if (ret == -1) {
+                        goto out;
+                }
+                iov.iov_len = ret;
+                count = 1;
+        }
+
+        /* Send the msg */
+        ret = rpc_clnt_submit (global_rpc, prog, procnum, cbkfn, 
+                               &iov, count, 
+                               NULL, 0, iobref, frame);
+
+        if (ret == 0) {
+                pthread_mutex_lock (&global_rpc->conn.lock);
+                {
+                        if (!global_rpc->conn.ping_started) {
+                                start_ping = 1;
+                        }
+                }
+                pthread_mutex_unlock (&global_rpc->conn.lock);
+        }
+
+        if (start_ping)
+                //client_start_ping ((void *) this);
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
+parse_cmdline (int argc, char *argv[], struct cli_state *state)
+{
+        int         ret = 0;
+        struct argp argp = { 0,};
+
+        argp.options    = gf_options;
+        argp.parser     = parse_opts;
+        argp.args_doc   = argp_doc;
+        argp.doc        = gf_doc;
+
+        ret = argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, state);
+
+        return ret;
+}
+
+
+int
+cli_cmd_tree_init (struct cli_cmd_tree *tree)
+{
+        struct cli_cmd_word  *root = NULL;
+        int                   ret = 0;
+
+        root = &tree->root;
+        root->tree = tree;
+
+        return ret;
+}
+
+
+int
+cli_state_init (struct cli_state *state)
+{
+        struct cli_cmd_tree  *tree = NULL;
+        int                   ret = 0;
+
+        tree = &state->tree;
+        tree->state = state;
+
+        ret = cli_cmd_tree_init (tree);
+
+        return ret;
+}
+
+
+int
+cli_out (const char *fmt, ...)
+{
+        struct cli_state *state = NULL;
+        va_list           ap;
+
+        state = global_state;
+
+        va_start (ap, fmt);
+
+#ifdef HAVE_READLINE
+        if (state->rl_enabled && !state->rl_processing)
+                return cli_rl_out(state, fmt, ap);
+#endif
+
+        return vprintf (fmt, ap);
+}
+
+struct rpc_clnt *
+cli_rpc_init (struct cli_state *state)
+{
+        struct rpc_clnt         *rpc = NULL;
+        struct rpc_clnt_config  rpc_cfg = {0,};
+        dict_t                  *options = NULL;
+        int                     ret = -1;
+
+        rpc_cfg.remote_host = "localhost";
+        rpc_cfg.remote_port = CLI_GLUSTERD_PORT;
+
+        cli_rpc_prog = &cli3_1_prog;
+        options = dict_new ();
+        if (!options)
+                goto out;
+        
+        ret = dict_set_str (options, "remote-host", "localhost");
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options, "remote-port", CLI_GLUSTERD_PORT);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (options, "transport.address-family", "inet");
+        if (ret)
+                goto out;
+
+        rpc = rpc_clnt_init (&rpc_cfg, options, THIS->ctx, THIS->name);
+
+out:
+        return rpc;
+}
+
+struct cli_state *global_state;
+
+int
+main (int argc, char *argv[])
+{
+        struct cli_state   state = {0, };
+        int                ret = -1;
+        glusterfs_ctx_t   *ctx = NULL;
+
+        ret = glusterfs_globals_init ();
+        if (ret)
+                return ret;
+
+        ctx = glusterfs_ctx_get ();
+        if (!ctx)
+                return ENOMEM;
+
+        ret = glusterfs_ctx_defaults_init (ctx);
+        if (ret)
+                goto out;
+
+        ret = cli_state_init (&state);
+        if (ret)
+                goto out;
+
+        state.ctx = ctx;
+        global_state = &state;
+
+        ret = parse_cmdline (argc, argv, &state);
+        if (ret)
+                goto out;
+
+        ret = logging_init (ctx);
+        if (ret)
+                goto out;
+
+        ret = cli_cmds_register (&state);
+        if (ret)
+                goto out;
+
+        ret = cli_input_init (&state);
+        if (ret)
+                goto out;
+
+        global_rpc = cli_rpc_init (&state);
+        if (!global_rpc)
+                goto out;
+
+        ret = event_dispatch (ctx->event_pool);
+
+out:
+//        glusterfs_ctx_destroy (ctx);
+
+        return ret;
+}

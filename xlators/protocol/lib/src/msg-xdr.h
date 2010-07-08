@@ -512,4 +512,13 @@ xdr_to_readv_rsp (struct iovec inmsg, void *args);
 ssize_t
 xdr_to_getspec_rsp (struct iovec inmsg, void *args);
 
+ssize_t
+xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc);
+
+ssize_t
+xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc);
+
+ssize_t
+xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
+                        struct iovec *pendingpayload);
 #endif /* !_MSG_XDR_H */

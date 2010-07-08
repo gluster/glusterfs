@@ -9,6 +9,6 @@ libgfproto1_la_CPPFLAGS = -D_FILE_OFFSET_BITS=64 -D__USE_FILE_OFFSET64 -D_GNU_SO
 
 libgfproto1_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
-libgfproto1_la_SOURCES = authenticate.c msg-xdr.c glusterfs-xdr.c
+libgfproto1_la_SOURCES = authenticate.c msg-xdr.c glusterfs-xdr.c gluster1_xdr.c glusterd1_xdr.c cli-xdr.c
 
-noinst_HEADERS = authenticate.h protocol-common.h msg-xdr.h glusterfs-xdr.h
+noinst_HEADERS = authenticate.h protocol-common.h msg-xdr.h glusterfs-xdr.h cli-xdr.h glusterd1.h gluster1.h

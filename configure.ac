@@ -108,6 +108,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/encryption/Makefile
 		xlators/encryption/rot-13/Makefile
 		xlators/encryption/rot-13/src/Makefile
+                cli/Makefile
+                cli/src/Makefile
 		doc/Makefile
 		doc/examples/Makefile
 		doc/hacker-guide/Makefile
@@ -128,6 +130,9 @@ AC_CONFIG_FILES([Makefile
                 xlators/nfs/lib/src/Makefile
                 xlators/nfs/server/Makefile
                 xlators/nfs/server/src/Makefile
+                xlators/mgmt/Makefile
+                xlators/mgmt/glusterd/Makefile
+                xlators/mgmt/glusterd/src/Makefile
 		glusterfs.spec])
 
 AC_CANONICAL_HOST
@@ -391,6 +396,16 @@ case $host_os in
 	;;
 esac
 
+BUILD_READLINE=no
+AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
+AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
+AC_CHECK_LIB([readline -lncurses],[readline],[RLLIBS="-lreadline -lncurses"])
+
+if test "x$RLLIBS" != "x"; then
+   AC_DEFINE(HAVE_READLINE, 1, [readline enabled CLI])
+   BUILD_READLINE=yes
+fi
+
 AC_SUBST(GF_HOST_OS)
 AC_SUBST(GF_GLUSTERFS_LDFLAGS)
 AC_SUBST(GF_GLUSTERFS_CFLAGS)
@@ -398,6 +413,7 @@ AC_SUBST(GF_CFLAGS)
 AC_SUBST(GF_LDFLAGS)
 AC_SUBST(GF_LDADD)
 AC_SUBST(GF_FUSE_CFLAGS)
+AC_SUBST(RLLIBS)
 
 CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
@@ -414,4 +430,5 @@ echo "Infiniband verbs   : $BUILD_IBVERBS"
 echo "epoll IO multiplex : $BUILD_EPOLL"
 echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
 echo "fusermount         : $BUILD_FUSERMOUNT"
+echo "readline           : $BUILD_READLINE"
 echo
