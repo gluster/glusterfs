@@ -201,6 +201,10 @@ struct _xlator_cmdline_option {
 typedef struct _xlator_cmdline_option xlator_cmdline_option_t;
 
 
+#define GF_OPTION_ENABLE   _gf_true
+#define GF_OPTION_DISABLE  _gf_false
+#define GF_OPTION_DEFERRED 2
+
 struct _cmd_args {
 	/* basic options */
 	char            *volfile_server;
@@ -222,7 +226,7 @@ struct _cmd_args {
 	struct list_head xlator_options;  /* list of xlator_option_t */
 
 	/* fuse options */
-	int              fuse_direct_io_mode_flag;
+	int              fuse_direct_io_mode;
         int              volfile_check;
 	double           fuse_entry_timeout;
 	double           fuse_attribute_timeout;

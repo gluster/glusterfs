@@ -150,15 +150,19 @@ static struct argp_option gf_options[] = {
          "Add/override a translator option for a volume with specified value"},
         {"read-only", ARGP_READ_ONLY_KEY, 0, 0,
          "Mount the filesystem in 'read-only' mode"},
-        {"mac-compat", ARGP_MAC_COMPAT_KEY, 0, 0,
-         "Provide stubs for attributes needed for seamless operation on Macs"},
+        {"mac-compat", ARGP_MAC_COMPAT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+         "Provide stubs for attributes needed for seamless operation on Macs "
+#ifdef GF_DARWIN_HOST_OS
+         "[default: \"on\" on client side, else \"off\"]"
+#else
+         "[default: \"off\"]"
+#endif
+         },
 
         {0, 0, 0, 0, "Fuse options:"},
-        {"disable-direct-io-mode", ARGP_DISABLE_DIRECT_IO_MODE_KEY, 0, 0,
-         "Disable direct I/O mode in fuse kernel module"
-         " [default if big writes are supported]"},
-        {"enable-direct-io-mode", ARGP_ENABLE_DIRECT_IO_MODE_KEY, 0, 0,
-         "Force direct I/O mode in fuse kernel module"},
+        {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
+         "Use direct I/O mode in fuse kernel module"
+         " [default: \"off\" if big writes are supported, else \"on\"]"},
         {"entry-timeout", ARGP_ENTRY_TIMEOUT_KEY, "SECONDS", 0,
          "Set entry timeout to SECONDS in fuse kernel module [default: 1]"},
         {"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0,
@@ -232,34 +236,19 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 ret = dict_set_static_ptr (master->options, ZR_DUMP_FUSE,
                                            cmd_args->dump_fuse);
 
-#ifdef GF_DARWIN_HOST_OS
-        /* On Darwin machines, O_APPEND is not handled,
-         * which may corrupt the data
-         */
-
-        if (cmd_args->fuse_direct_io_mode_flag == 1) {
-                gf_log ("glusterfsd", GF_LOG_DEBUG,
-                        "'direct-io-mode' in fuse causes data corruption "
-                        "if O_APPEND is used. disabling 'direct-io-mode'");
-        }
-        ret = dict_set_static_ptr (top->options, ZR_DIRECT_IO_OPT, "disable");
-
-#else /* ! DARWIN HOST OS */
-        switch (cmd_args->fuse_direct_io_mode_flag) {
-        case 0: /* disable */
+        switch (cmd_args->fuse_direct_io_mode) {
+        case GF_OPTION_DISABLE: /* disable */
                 ret = dict_set_static_ptr (master->options, ZR_DIRECT_IO_OPT,
                                            "disable");
                 break;
-        case 1: /* enable */
+        case GF_OPTION_ENABLE: /* enable */
                 ret = dict_set_static_ptr (master->options, ZR_DIRECT_IO_OPT,
                                            "enable");
                 break;
-        case 2: /* default */
+        case GF_OPTION_DEFERRED: /* default */
         default:
                 break;
         }
-
-#endif /* GF_DARWIN_HOST_OS */
 
         ret = xlator_init (master);
         if (ret)
@@ -393,6 +382,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
         cmd_args_t *cmd_args = NULL;
         uint32_t    n = 0;
         double      d = 0.0;
+        gf_boolean_t b = _gf_false;
 
         cmd_args = state->input;
 
@@ -418,7 +408,17 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 break;
 
         case ARGP_MAC_COMPAT_KEY:
-                cmd_args->mac_compat = 1;
+                if (!arg)
+                        arg = "on";
+
+                if (gf_string2boolean (arg, &b) == 0) {
+                        cmd_args->mac_compat = b;
+
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "invalid value \"%s\" for mac-compat", arg);
                 break;
 
         case ARGP_VOLUME_FILE_KEY:
@@ -520,12 +520,18 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 cmd_args->debug_mode = ENABLE_DEBUG_MODE;
                 break;
 
-        case ARGP_DISABLE_DIRECT_IO_MODE_KEY:
-                cmd_args->fuse_direct_io_mode_flag = 0;
-                break;
+        case ARGP_DIRECT_IO_MODE_KEY:
+                if (!arg)
+                        arg = "on";
 
-        case ARGP_ENABLE_DIRECT_IO_MODE_KEY:
-                cmd_args->fuse_direct_io_mode_flag = 1;
+                if (gf_string2boolean (arg, &b) == 0) {
+                        cmd_args->fuse_direct_io_mode = b;
+
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown direct I/O mode setting \"%s\"", arg);
                 break;
 
         case ARGP_ENTRY_TIMEOUT_KEY:
@@ -786,7 +792,16 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
 
         /* parsing command line arguments */
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
-        cmd_args->fuse_direct_io_mode_flag = _gf_true;
+#ifdef GF_DARWIN_HOST_OS
+        cmd_args->mac_compat = GF_OPTION_DEFERRED;
+        /* On Darwin machines, O_APPEND is not handled,
+         * which may corrupt the data
+         */
+        cmd_args->fuse_direct_io_mode = GF_OPTION_DISABLE;
+#else
+        cmd_args->mac_compat = GF_OPTION_DISABLE;
+        cmd_args->fuse_direct_io_mode = GF_OPTION_DEFERRED;
+#endif
         cmd_args->fuse_attribute_timeout = -1;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);

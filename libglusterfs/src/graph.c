@@ -131,6 +131,14 @@ glusterfs_graph_insert (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
         xlator_list_t   *xlchild = NULL;
         xlator_list_t   *xlparent = NULL;
 
+        if (!ctx->master) {
+                gf_log ("glusterfs", GF_LOG_ERROR,
+                        "volume \"%s\" can be added from command line only "
+                        "on client side", type);
+
+                return -1;
+        }
+
         ixl = GF_CALLOC (1, sizeof (*ixl), gf_common_mt_xlator_t);
         if (!ixl)
                 return -1;
@@ -210,13 +218,11 @@ glusterfs_graph_mac_compat (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
         cmd_args = &ctx->cmd_args;
 
-#ifdef GF_DARWIN_HOST_OS
-        if (!cmd_args->mac_compat)
+        if (cmd_args->mac_compat == GF_OPTION_DISABLE)
                 return 0;
 
-        ret = glusterfs_graph_insert (graph, ctx, ZR_XLATOR_MAC_COMPAT,
+        ret = glusterfs_graph_insert (graph, ctx, "features/mac-compat",
                                       "mac-compat-autoload");
-#endif
 
         return ret;
 }
