@@ -216,12 +216,7 @@ log:
 
 		strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
                 snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
-#ifdef GF_DARWIN_HOST_OS
-                          ".%"PRId32,
-#else
-                          ".%ld",
-#endif
-                          tv.tv_usec);
+                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
 
 		basename = strrchr (file, '/');
 		if (basename)
