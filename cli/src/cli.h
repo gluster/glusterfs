@@ -34,6 +34,7 @@
 
 enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
+	ARGP_PORT_KEY = 'p',
 };
 
 struct cli_state;
@@ -89,6 +90,8 @@ struct cli_state {
         /* autocompletion state */
         char                **matches;
         char                **matchesp;
+
+        int                   remote_port;
 };
 
 
