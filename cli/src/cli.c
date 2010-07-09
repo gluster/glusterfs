@@ -94,6 +94,8 @@ static struct argp_option gf_options[] = {
         {0, 0, 0, 0, "Basic options:"},
         {"debug", ARGP_DEBUG_KEY, 0, 0,
          "Process runs in foreground and logs to console"},
+        {"remote-port", ARGP_PORT_KEY, "PORT", 0,
+         "glusterd port to connect with"},
         {0, }
 };
 
@@ -114,6 +116,9 @@ parse_opts (int key, char *arg, struct argp_state *argp_state)
 
         switch (key) {
         case ARGP_DEBUG_KEY:
+                break;
+        case ARGP_PORT_KEY:
+                state->remote_port = strtol (arg, NULL, 0);
                 break;
         case ARGP_KEY_ARG:
                 if (!state->argc) {
@@ -383,9 +388,8 @@ cli_rpc_init (struct cli_state *state)
         struct rpc_clnt_config  rpc_cfg = {0,};
         dict_t                  *options = NULL;
         int                     ret = -1;
+        int                     port = CLI_GLUSTERD_PORT;
 
-        rpc_cfg.remote_host = "localhost";
-        rpc_cfg.remote_port = CLI_GLUSTERD_PORT;
 
         cli_rpc_prog = &cli3_1_prog;
         options = dict_new ();
@@ -396,7 +400,13 @@ cli_rpc_init (struct cli_state *state)
         if (ret)
                 goto out;
 
-        ret = dict_set_int32 (options, "remote-port", CLI_GLUSTERD_PORT);
+        if (state->remote_port)
+                port = state->remote_port;
+
+        rpc_cfg.remote_host = "localhost";
+        rpc_cfg.remote_port = port;
+
+        ret = dict_set_int32 (options, "remote-port", port);
         if (ret)
                 goto out;
 
