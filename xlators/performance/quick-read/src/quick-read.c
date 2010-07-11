@@ -2343,6 +2343,11 @@ qr_priv_dump (xlator_t *this)
         char            key[GF_DUMP_MAX_BUF_LEN];
         char            key_prefix[GF_DUMP_MAX_BUF_LEN];
         qr_private_t   *priv = NULL;
+        qr_inode_table_t *table = NULL;
+        uint32_t        file_count = 0;
+        uint32_t        i = 0;
+        qr_inode_t     *curr = NULL;
+        
 
         if (!this)
                 return -1;
@@ -2356,6 +2361,9 @@ qr_priv_dump (xlator_t *this)
                 return -1;
         }
 
+        table = &priv->table;
+                
+
         gf_proc_dump_build_key (key_prefix,
                                 "xlator.performance.quick-read",
                                 "priv");
@@ -2367,6 +2375,22 @@ qr_priv_dump (xlator_t *this)
         gf_proc_dump_build_key (key, key_prefix, "cache_timeout");
         gf_proc_dump_write (key, "%d", conf->cache_timeout);
 
+        if (!table) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "table is NULL");
+                goto out;
+        } else {
+                for (i = 0; i > conf->max_pri; i++) {
+                        list_for_each_entry (curr, &table->lru[i], lru) {
+                                file_count++;
+                        }
+                }
+        }
+
+        gf_proc_dump_build_key (key, key_prefix, "total_files_cached");
+        gf_proc_dump_write (key, "%d", file_count);
+
+out:
         return 0;
 }
 
