@@ -106,7 +106,7 @@ out:
 
 int32_t
 glusterd_unlock (uuid_t uuid)
-{        
+{
         uuid_t  owner;
         char    new_owner_str[50];
         char    owner_str[50];
@@ -162,8 +162,8 @@ glusterd_get_uuid (uuid_t *uuid)
 
 int
 glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
-                         call_frame_t *frame, rpc_clnt_prog_t *prog, 
-                         int procnum, struct iobref *iobref, 
+                         call_frame_t *frame, rpc_clnt_prog_t *prog,
+                         int procnum, struct iobref *iobref,
                          gd_serialize_t sfunc, xlator_t *this,
                          fop_cbk_fn_t cbkfn)
 {
@@ -205,8 +205,8 @@ glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
                 count = 1;
         }
         /* Send the msg */
-        ret = rpc_clnt_submit (peerinfo->rpc, prog, procnum, cbkfn, 
-                               &iov, count, 
+        ret = rpc_clnt_submit (peerinfo->rpc, prog, procnum, cbkfn,
+                               &iov, count,
                                NULL, 0, iobref, frame);
 
         if (ret == 0) {
@@ -235,7 +235,7 @@ out:
 
 
 struct iobuf *
-glusterd_serialize_reply (rpcsvc_request_t *req, void *arg, 
+glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
                           gd_serialize_t sfunc, struct iovec *outmsg)
 {
         struct iobuf            *iob = NULL;
@@ -337,7 +337,7 @@ glusterd_check_volume_exists (char *volname)
         struct stat stbuf = {0,};
         int32_t ret = -1;
 
-        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR, 
+        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR,
                   volname);
 
         ret = stat (pathname, &stbuf);
@@ -371,7 +371,7 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
         *volinfo = new_volinfo;
 
         ret = 0;
-        
+
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -433,4 +433,18 @@ glusterd_brickinfo_from_brick (char *brick, glusterd_brickinfo_t **brickinfo)
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
+}
+
+
+int32_t
+glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
+{
+        GF_ASSERT (peerinfo);
+        if (peerinfo->rpc) {
+                rpc_clnt_destroy (peerinfo->rpc);
+                peerinfo->rpc = NULL;
+        }
+        GF_FREE (peerinfo->hostname);
+
+        return 0;
 }

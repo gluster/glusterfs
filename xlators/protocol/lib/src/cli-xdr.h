@@ -33,86 +33,140 @@ ssize_t
 gf_xdr_to_cli_probe_req (struct iovec inmsg, void *args);
 
 ssize_t
+gf_xdr_to_cli_probe_rsp (struct iovec inmsg, void *args);
+
+ssize_t
 gf_xdr_from_cli_probe_req (struct iovec outmsg, void *req);
 
 ssize_t
+gf_xdr_serialize_cli_deprobe_rsp (struct iovec outmsg, void *rsp);
+
+ssize_t
+gf_xdr_to_cli_deprobe_req (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_to_cli_deprobe_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_from_cli_deprobe_req (struct iovec outmsg, void *req);
+
+ssize_t
+gf_xdr_serialize_cli_peer_list_rsp (struct iovec outmsg, void *rsp);
+
+ssize_t
+gf_xdr_to_cli_peer_list_req (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_to_cli_peer_list_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_from_cli_peer_list_req (struct iovec outmsg, void *req);
+
+ssize_t
 gf_xdr_serialize_cli_create_vol_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_create_vol_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_create_vol_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_create_vol_req (struct iovec outmsg, void *req);
-  
+
 ssize_t
 gf_xdr_serialize_cli_delete_vol_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_delete_vol_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_delete_vol_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_delete_vol_req (struct iovec outmsg, void *req);
-  
+
 ssize_t
 gf_xdr_serialize_cli_start_vol_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_start_vol_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_start_vol_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_start_vol_req (struct iovec outmsg, void *req);
-  
+
 ssize_t
 gf_xdr_serialize_cli_stop_vol_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_stop_vol_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_stop_vol_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_stop_vol_req (struct iovec outmsg, void *req);
-  
+
 ssize_t
 gf_xdr_serialize_cli_rename_vol_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_rename_vol_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_rename_vol_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_rename_vol_req (struct iovec outmsg, void *req);
-  
+
 ssize_t
 gf_xdr_serialize_cli_defrag_vol_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_defrag_vol_req (struct iovec inmsg, void *args);
-  
+
 ssize_t
 gf_xdr_from_cli_defrag_vol_req (struct iovec outmsg, void *req);
-  
+
+ssize_t
+gf_xdr_to_cli_defrag_vol_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_serialize_cli_add_brick_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_add_brick_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_add_brick_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_add_brick_req (struct iovec outmsg, void *req);
-  
+
 ssize_t
 gf_xdr_serialize_cli_remove_brick_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_remove_brick_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_remove_brick_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_remove_brick_req (struct iovec outmsg, void *req);
-  
+
 ssize_t
 gf_xdr_serialize_cli_replace_brick_rsp (struct iovec outmsg, void *rsp);
-  
+
 ssize_t
 gf_xdr_to_cli_replace_brick_req (struct iovec inmsg, void *args);
-  
+
+ssize_t
+gf_xdr_to_cli_replace_brick_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 gf_xdr_from_cli_replace_brick_req (struct iovec outmsg, void *req);
 
@@ -122,6 +176,8 @@ gf_xdr_serialize_cli_set_vol_rsp (struct iovec outmsg, void *rsp);
 ssize_t
 gf_xdr_to_cli_set_vol_req (struct iovec inmsg, void *args);
 
+ssize_t
+gf_xdr_to_cli_set_vol_rsp (struct iovec inmsg, void *args);
 
 ssize_t
 gf_xdr_from_cli_set_vol_req (struct iovec outmsg, void *req);

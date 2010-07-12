@@ -83,7 +83,10 @@ enum gf_mgmt_procnum {
         GD_MGMT_CLUSTER_UNLOCK,
         GD_MGMT_STAGE_OP,
         GD_MGMT_COMMIT_OP,
+        GD_MGMT_FRIEND_REMOVE,
         GD_MGMT_CLI_PROBE,
+        GD_MGMT_CLI_DEPROBE,
+        GD_MGMT_CLI_LIST_FRIENDS,
         GD_MGMT_CLI_CREATE_VOLUME,
         GD_MGMT_CLI_GET_VOLUME,
         GD_MGMT_CLI_DELETE_VOLUME,
@@ -101,6 +104,8 @@ enum gf_mgmt_procnum {
 enum gf_cli_procnum {
         GF1_CLI_NULL = GD_MGMT_MAXVALUE+1,    /* 0 */
         GF1_CLI_PROBE,
+        GF1_CLI_DEPROBE,
+        GF1_CLI_LIST_FRIENDS,
         GF1_CLI_CREATE_VOLUME,
         GF1_CLI_GET_VOLUME,
         GF1_CLI_DELETE_VOLUME,

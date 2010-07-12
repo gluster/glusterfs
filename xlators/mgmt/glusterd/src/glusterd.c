@@ -33,7 +33,6 @@
 #include "rpcsvc.h"
 #include "fnmatch.h"
 #include "xlator.h"
-//#include "protocol.h"
 #include "call-stub.h"
 #include "defaults.h"
 #include "list.h"
@@ -41,7 +40,6 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include "statedump.h"
-//#include "md5.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 
@@ -94,46 +92,6 @@ glusterd_uuid_init ()
 }
 
 
-/* xxx_MOPS */
-
-#if 0
-
-#endif
-
-
-
-
-
-
-
-
-
-
-/*
- * glusterd_nop_cbk - nop callback for server protocol
- * @frame: call frame
- * @cookie:
- * @this:
- * @op_ret: return value
- * @op_errno: errno
- *
- * not for external reference
- */
-/*int
-glusterd_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno)
-{
-        glusterd_state_t *state = NULL;
-
-        state = GLUSTERD_CALL_STATE(frame);
-
-        if (state)
-                free_state (state);
-        STACK_DESTROY (frame->root);
-        return 0;
-}
-*/
-
 
 int
 glusterd_priv (xlator_t *this)
@@ -152,7 +110,7 @@ mem_acct_init (xlator_t *this)
                 return ret;
 
         ret = xlator_mem_acct_init (this, gf_gld_mt_end + 1);
-        
+
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                         " failed");
@@ -181,23 +139,12 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
         {
-                /* Have a structure per new connection */
-                /* TODO: Should we create anything here at all ? * /
-                conn = create_server_conn_state (this, xprt);
-                if (!conn)
-                        goto out;
-
-                xprt->protocol_private = conn;
-                */
                 xprt->mydata = this;
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
-               /* conn = get_server_conn_state (this, xprt);
-                if (conn)
-                        destroy_server_conn_state (conn);
-                */
                 break;
+
         default:
                 break;
         }
@@ -263,7 +210,7 @@ init (xlator_t *this)
         gf_log (this->name, GF_LOG_NORMAL, "Using %s as working directory",
                 dirname);
 
-        
+
         rpc = rpcsvc_init (this->ctx, this->options);
         if (rpc == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -313,7 +260,7 @@ init (xlator_t *this)
 
         ret = glusterd_uuid_init ();
 
-        if (ret < 0) 
+        if (ret < 0)
                 goto out;
 
         glusterd_friend_sm_init ();
@@ -328,34 +275,10 @@ out:
 
 
 
-/*int
-glusterd_pollin (xlator_t *this, transport_t *trans)
-{
-        char                *hdr = NULL;
-        size_t               hdrlen = 0;
-        int                  ret = -1;
-        struct iobuf        *iobuf = NULL;
-
-
-        ret = transport_receive (trans, &hdr, &hdrlen, &iobuf);
-
-        if (ret == 0)
-                ret = glusterd_interpret (this, trans, hdr,
-                                          hdrlen, iobuf);
-
-        ret = glusterd_friend_sm ();
-
-        glusterd_op_sm ();
-
-        GF_FREE (hdr);
-
-        return ret;
-}
-*/
 
 /*
- * fini - finish function for server protocol, called before
- *        unloading server protocol.
+ * fini - finish function for glusterd, called before
+ *        unloading gluster.
  *
  * @this:
  *
@@ -373,7 +296,7 @@ out:
 }
 
 /*
- * server_protocol_notify - notify function for server protocol
+ * notify - notify function for glusterd
  * @this:
  * @trans:
  * @event:
@@ -393,12 +316,12 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         }
 */
         switch (event) {
-        
+
                 case GF_EVENT_POLLIN:
           //              ret = glusterd_pollin (this, trans);
                         break;
 
-        
+
                 case GF_EVENT_POLLERR:
                         break;
 
@@ -408,49 +331,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 default:
                         default_notify (this, event, data);
                         break;
-        
+
         }
 
         return ret;
-}
-
-
-void
-glusterd_init (int signum)
-{
-        int ret = -1;
-
-        glusterfs_this_set ((xlator_t *)CTX->active);
-
-        ret = glusterd_probe_begin (NULL, "localhost");
-
-        if (!ret) {
-                ret = glusterd_friend_sm ();
-
-                glusterd_op_sm ();
-        }
-
-        gf_log ("glusterd", GF_LOG_WARNING, "ret = %d", ret);
-
-        //return 0;
-}
-
-void
-glusterd_op_init (int signum) 
-{
-        int     ret = -1;
-
-        glusterfs_this_set ((xlator_t *)CTX->active);
-
-        //ret = glusterd_create_volume ("vol1");
-
-/*        if (!ret) {
-                glusterd_friend_sm ();
-                glusterd_op_sm ();
-        }
-*/
-
-        gf_log ("glusterd", GF_LOG_WARNING, "ret = %d", ret);
 }
 
 

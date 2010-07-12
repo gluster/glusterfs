@@ -36,38 +36,14 @@
 #include "authenticate.h"
 #include "fd.h"
 #include "byte-order.h"
-//#include "protocol.h"
 #include "glusterd-mem-types.h"
 #include "rpcsvc.h"
+#include "glusterd-sm.h"
 #include "glusterd1.h"
 
 
-
-
-/*struct _glusterd_connection {
-	struct list_head    list;
-	char               *id;
-	int                 ref;
-        int                 active_transports;
-	pthread_mutex_t     lock;
-	char                disconnected;
-	xlator_t           *bound_xl;
-};
-
-typedef struct _glusterd_connection glusterd_connection_t;
-*/
-
-
-typedef enum glusterd_peer_state_ {
-        GD_PEER_STATE_NONE = 0,
-        GD_PEER_STATE_INBOUND,
-        GD_PEER_STATE_OUTBOUND,
-        GD_PEER_STATE_FRIEND
-} glusterd_peer_state_t;
-
-
-typedef struct glusterd_peer_state_info_ {
-        glusterd_peer_state_t   state;
+/*typedef struct glusterd_peer_state_info_ {
+        glusterd_friend_sm_state_t   state;
         struct timeval          transition_time;
 }glusterd_peer_state_info_t;
 
@@ -79,11 +55,11 @@ struct glusterd_peerinfo_ {
         int                             port;
         struct list_head                uuid_list;
         struct list_head                op_peers_list;
- //       struct list_head                pending_uuid;
         struct rpc_clnt                 *rpc;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
+*/
 
 typedef struct {
         struct _volfile_ctx *volfile;
@@ -142,12 +118,12 @@ int
 glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname);
 
 int
-glusterd_friend_find (uuid_t uuid, char *hostname, 
+glusterd_friend_find (uuid_t uuid, char *hostname,
                       glusterd_peerinfo_t **peerinfo);
 
 int
 glusterd_friend_add (const char *hoststr,
-                     glusterd_peer_state_t state,
+                     glusterd_friend_sm_state_t state,
                      uuid_t *uuid, struct rpc_clnt    *rpc,
                      glusterd_peerinfo_t **friend);
 /*
@@ -169,18 +145,18 @@ int
 glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status);
 
 int
-glusterd_op_stage_send_resp (rpcsvc_request_t *req, 
+glusterd_op_stage_send_resp (rpcsvc_request_t *req,
                              int32_t op, int32_t status);
 
 int
-glusterd_op_commmit_send_resp (rpcsvc_request_t *req, 
+glusterd_op_commmit_send_resp (rpcsvc_request_t *req,
                                int32_t op, int32_t status);
 
 int32_t
 glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict);
 
 int
-glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, 
+glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
                      rpc_clnt_event_t event,
                      void *data);
 int
@@ -211,8 +187,25 @@ int
 glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
                               int32_t op_errno, char *hostname);
 
+int
+glusterd_op_commit_send_resp (rpcsvc_request_t *req,
+                               int32_t op, int32_t status);
 
 int
-glusterd_op_commit_send_resp (rpcsvc_request_t *req, 
-                               int32_t op, int32_t status);
+glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname);
+
+int
+glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr);
+
+int
+glusterd_handle_cli_deprobe (rpcsvc_request_t *req);
+
+int
+glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req);
+
+int32_t
+glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags);
+
+int
+glusterd_handle_cli_list_friends (rpcsvc_request_t *req);
 #endif

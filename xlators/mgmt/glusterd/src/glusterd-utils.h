@@ -61,8 +61,8 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
 
 int
 glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
-                         call_frame_t *frame, struct rpc_clnt_program *prog, 
-                         int procnum, struct iobref *iobref, 
+                         call_frame_t *frame, struct rpc_clnt_program *prog,
+                         int procnum, struct iobref *iobref,
                          gd_serialize_t sfunc, xlator_t *this,
                          fop_cbk_fn_t cbkfn);
 
@@ -77,4 +77,7 @@ glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo);
 
 int32_t
 glusterd_brickinfo_from_brick (char *brick, glusterd_brickinfo_t **brickinfo);
+
+int32_t
+glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo);
 #endif
