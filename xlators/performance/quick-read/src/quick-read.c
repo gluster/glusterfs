@@ -2380,7 +2380,7 @@ qr_priv_dump (xlator_t *this)
                         "table is NULL");
                 goto out;
         } else {
-                for (i = 0; i > conf->max_pri; i++) {
+                for (i = 0; i < conf->max_pri; i++) {
                         list_for_each_entry (curr, &table->lru[i], lru) {
                                 file_count++;
                         }
