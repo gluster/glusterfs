@@ -336,6 +336,28 @@ complete_none (const char *txt, int times)
 }
 
 
+void *
+cli_rl_input (void *_data)
+{
+        struct cli_state *state = NULL;
+        char             *line = NULL;
+
+        state = _data;
+
+        for (;;) {
+                line = readline (state->prompt);
+                if (!line)
+                        break;
+
+                cli_rl_process_line (line);
+
+                free (line);
+        }
+
+        return NULL;
+}
+
+
 int
 cli_rl_enable (struct cli_state *state)
 {
@@ -344,6 +366,14 @@ cli_rl_enable (struct cli_state *state)
         rl_pre_input_hook = NULL;
         rl_attempted_completion_function = cli_rl_autocomplete;
         rl_completion_entry_function = complete_none;
+
+        if (!state->rl_async) {
+                ret = pthread_create (&state->input, NULL,
+                                      cli_rl_input, state);
+                if (ret == 0)
+                        state->rl_enabled = 1;
+                goto out;
+        }
 
         ret = event_register (state->ctx->event_pool, 0, cli_rl_stdin, state,
                               1, 0);

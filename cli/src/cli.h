@@ -85,6 +85,7 @@ struct cli_state {
         /* terminal I/O */
         const char           *prompt;
         int                   rl_enabled;
+        int                   rl_async;
         int                   rl_processing;
 
         /* autocompletion state */
