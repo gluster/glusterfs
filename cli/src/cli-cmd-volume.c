@@ -52,7 +52,7 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, "localhost");
-        } 
+        }
 
 out:
         if (ret)
@@ -116,7 +116,7 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
-        } 
+        }
 
 out:
         if (ret)
@@ -147,7 +147,7 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
-        } 
+        }
 
 out:
         if (ret)
@@ -178,7 +178,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
-        } 
+        }
 
 out:
         if (ret)
@@ -224,12 +224,12 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
-        } 
+        }
 
 out:
         if (ret) {
                 char *volname = (char *) words[2];
-                if (dict) 
+                if (dict)
                         dict_destroy (dict);
                 cli_out ("Renaming Volume %s failed", volname );
         }
@@ -259,7 +259,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
-        } 
+        }
 
 out:
         if (ret)
@@ -290,7 +290,7 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         GF_ASSERT (words[3]);
 
-        ret = cli_cmd_volume_set_parse (words, wordcount, &dict); 
+        ret = cli_cmd_volume_set_parse (words, wordcount, &dict);
 
         if (ret)
                 goto out;
@@ -298,7 +298,7 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         //TODO: Build validation here
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
-        } 
+        }
 
 out:
         if (ret) {
@@ -334,7 +334,7 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
-        } 
+        }
 
 out:
         if (ret) {
@@ -368,7 +368,7 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
-        } 
+        }
 
 out:
         if (ret) {
@@ -406,7 +406,7 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
-        } 
+        }
 
 out:
         if (ret) {

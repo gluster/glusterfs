@@ -28,6 +28,7 @@
 #include <pthread.h>
 #include <uuid/uuid.h>
 
+#include "rpc-clnt.h"
 #include "glusterfs.h"
 #include "xlator.h"
 #include "logging.h"
@@ -35,27 +36,52 @@
 #include "authenticate.h"
 #include "fd.h"
 #include "byte-order.h"
-#include "glusterd.h"
+//#include "glusterd.h"
 #include "rpcsvc.h"
-
 
 typedef enum glusterd_friend_sm_state_ {
         GD_FRIEND_STATE_DEFAULT = 0,
         GD_FRIEND_STATE_REQ_SENT,
         GD_FRIEND_STATE_REQ_RCVD,
         GD_FRIEND_STATE_BEFRIENDED,
+        GD_FRIEND_STATE_REQ_ACCEPTED,
         GD_FRIEND_STATE_REQ_SENT_RCVD,
         GD_FRIEND_STATE_REJECTED,
+        GD_FRIEND_STATE_UNFRIEND_SENT,
         GD_FRIEND_STATE_MAX
 } glusterd_friend_sm_state_t;
+
+typedef struct glusterd_peer_state_info_ {
+        glusterd_friend_sm_state_t   state;
+        struct timeval          transition_time;
+}glusterd_peer_state_info_t;
+
+
+struct glusterd_peerinfo_ {
+        uuid_t                          uuid;
+        char                            uuid_str[50];
+        glusterd_peer_state_info_t      state;
+        char                            *hostname;
+        int                             port;
+        struct list_head                uuid_list;
+        struct list_head                op_peers_list;
+        struct rpc_clnt                 *rpc;
+};
+
+typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
+
+
 
 typedef enum glusterd_friend_sm_event_type_ {
         GD_FRIEND_EVENT_NONE = 0,
         GD_FRIEND_EVENT_PROBE,
         GD_FRIEND_EVENT_INIT_FRIEND_REQ,
         GD_FRIEND_EVENT_RCVD_ACC,
+        GD_FRIEND_EVENT_LOCAL_ACC,
         GD_FRIEND_EVENT_RCVD_RJT,
+        GD_FRIEND_EVENT_LOCAL_RJT,
         GD_FRIEND_EVENT_RCVD_FRIEND_REQ,
+        GD_FRIEND_EVENT_INIT_REMOVE_FRIEND,
         GD_FRIEND_EVENT_REMOVE_FRIEND,
         GD_FRIEND_EVENT_MAX
 } glusterd_friend_sm_event_type_t;

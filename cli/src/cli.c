@@ -249,9 +249,9 @@ logging_init (glusterfs_ctx_t *ctx)
 }
 
 int
-cli_submit_request (void *req, call_frame_t *frame, 
-                    rpc_clnt_prog_t *prog, 
-                    int procnum, struct iobref *iobref, 
+cli_submit_request (void *req, call_frame_t *frame,
+                    rpc_clnt_prog_t *prog,
+                    int procnum, struct iobref *iobref,
                     cli_serialize_t sfunc, xlator_t *this,
                     fop_cbk_fn_t cbkfn)
 {
@@ -295,8 +295,8 @@ cli_submit_request (void *req, call_frame_t *frame,
         }
 
         /* Send the msg */
-        ret = rpc_clnt_submit (global_rpc, prog, procnum, cbkfn, 
-                               &iov, count, 
+        ret = rpc_clnt_submit (global_rpc, prog, procnum, cbkfn,
+                               &iov, count,
                                NULL, 0, iobref, frame);
 
         if (ret == 0) {
@@ -395,7 +395,7 @@ cli_rpc_init (struct cli_state *state)
         options = dict_new ();
         if (!options)
                 goto out;
-        
+
         ret = dict_set_str (options, "remote-host", "localhost");
         if (ret)
                 goto out;

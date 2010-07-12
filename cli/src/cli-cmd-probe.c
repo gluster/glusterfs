@@ -37,6 +37,24 @@ extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
+void
+cli_cmd_probe_usage ()
+{
+        cli_out ("Usage: probe <hostname>\n");
+}
+
+void
+cli_cmd_deprobe_usage ()
+{
+        cli_out ("Usage: detach <hostname>\n");
+}
+
+void
+cli_cmd_peer_status_usage ()
+{
+        cli_out ("Usage: peer status <hostname>\n");
+}
+
 int
 cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
                    const char **words, int wordcount)
@@ -45,7 +63,11 @@ cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
 
-        //cli_out ("probe not implemented\n");
+        if (wordcount != 2) {
+                cli_cmd_probe_usage ();
+                goto out;
+        }
+
         proc = &cli_rpc_prog->proctable[GF1_CLI_PROBE];
 
         frame = create_frame (THIS, THIS->ctx->pool);
@@ -53,21 +75,83 @@ cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, "localhost");
-        } 
+                ret = proc->fn (frame, THIS, (char *)words[1] );
+        }
 
 out:
         if (ret)
-                cli_out ("Probe failed!");
+                cli_out ("Probe failed\n");
         return ret;
 }
 
 
+int
+cli_cmd_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                     const char **words, int wordcount)
+{
+        int             ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+
+        if (wordcount != 2) {
+                cli_cmd_deprobe_usage ();
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_DEPROBE];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, (char *)words[1] );
+        }
+
+out:
+        if (ret)
+                cli_out ("Detach failed\n");
+        return ret;
+}
+
+int
+cli_cmd_peer_status_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                        const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+
+        if (wordcount != 2) {
+                cli_cmd_peer_status_usage ();
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_LIST_FRIENDS];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, (char *)words[1] );
+        }
+
+out:
+        if (ret)
+                cli_out ("Command Execution failed\n");
+        return ret;
+}
 
 struct cli_cmd cli_probe_cmds[] = {
-        { "probe <VOLNAME>",
+        { "probe <HOSTNAME>",
           cli_cmd_probe_cbk },
 
+        { "detach <HOSTNAME>",
+          cli_cmd_deprobe_cbk },
+
+        { "peer status",
+          cli_cmd_peer_status_cbk},
 
         { NULL, NULL }
 };

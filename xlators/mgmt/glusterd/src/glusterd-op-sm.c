@@ -77,20 +77,20 @@ glusterd_op_get_len (glusterd_op_t op)
         return 0;
 }
 
-int 
+int
 glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
 {
         int                     len = 0;
         int                     ret = -1;
         gd1_mgmt_stage_op_req   *stage_req = NULL;
-        
+
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
         GF_ASSERT (req);
 
         len = glusterd_op_get_len (op);
 
-        stage_req = GF_CALLOC (1, sizeof (*stage_req), 
+        stage_req = GF_CALLOC (1, sizeof (*stage_req),
                                gf_gld_mt_mop_stage_req_t);
 
         if (!stage_req) {
@@ -98,7 +98,7 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                 goto out;
         }
 
-        stage_req->buf.buf_val = GF_CALLOC (1, len, 
+        stage_req->buf.buf_val = GF_CALLOC (1, len,
                                             gf_gld_mt_mop_stage_req_t);
 
         if (!stage_req->buf.buf_val) {
@@ -116,7 +116,7 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                                 dict_t  *dict = NULL;
                                 dict = glusterd_op_get_ctx (op);
                                 GF_ASSERT (dict);
-                                ret = dict_serialize (dict, 
+                                ret = dict_serialize (dict,
                                                       stage_req->buf.buf_val);
                                 if (ret) {
                                         goto out;
@@ -166,13 +166,13 @@ glusterd_xfer_stage_req (xlator_t *this, int32_t *lock_count)
                 //No pending ops, inject stage_acc
 
                 glusterd_op_sm_event_t  *event = NULL;
-        
-                ret = glusterd_op_sm_new_event (GD_OP_EVENT_STAGE_ACC, 
+
+                ret = glusterd_op_sm_new_event (GD_OP_EVENT_STAGE_ACC,
                                                 &event);
 
                 if (ret)
                         goto out;
-        
+
                 ret = glusterd_op_sm_inject_event (event);
 
                 return ret;
@@ -192,12 +192,12 @@ glusterd_xfer_stage_req (xlator_t *this, int32_t *lock_count)
         list_for_each_entry (peerinfo, &opinfo.op_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
-                GF_ASSERT (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED); 
+                GF_ASSERT (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED);
 
-        
+
                 ret = glusterd_xfer (dummy_frame, this,
                                      peerinfo->trans,
-                                     GF_OP_TYPE_MOP_REQUEST, 
+                                     GF_OP_TYPE_MOP_REQUEST,
                                      GF_MOP_STAGE_OP,
                                      hdr, hdrlen, NULL, 0, NULL);
                 if (!ret)
@@ -206,7 +206,7 @@ glusterd_xfer_stage_req (xlator_t *this, int32_t *lock_count)
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
                                             pending_lock);
-        if (i < GD_OP_MAX) 
+        if (i < GD_OP_MAX)
                 opinfo.pending_op[i] = 0;
 
         *lock_count = pending_lock;
@@ -247,13 +247,13 @@ glusterd_xfer_commit_req (xlator_t *this, int32_t *lock_count)
                 //No pending ops, inject stage_acc
 
                 glusterd_op_sm_event_t  *event = NULL;
-        
-                ret = glusterd_op_sm_new_event (GD_OP_EVENT_COMMIT_ACC, 
+
+                ret = glusterd_op_sm_new_event (GD_OP_EVENT_COMMIT_ACC,
                                                 &event);
 
                 if (ret)
                         goto out;
-        
+
                 ret = glusterd_op_sm_inject_event (event);
 
                 return ret;
@@ -273,12 +273,12 @@ glusterd_xfer_commit_req (xlator_t *this, int32_t *lock_count)
         list_for_each_entry (peerinfo, &opinfo.op_peers, op_peers_list) {
                 GF_ASSERT (peerinfo);
 
-                GF_ASSERT (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED); 
+                GF_ASSERT (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED);
 
-        
+
                 ret = glusterd_xfer (dummy_frame, this,
                                      peerinfo->trans,
-                                     GF_OP_TYPE_MOP_REQUEST, 
+                                     GF_OP_TYPE_MOP_REQUEST,
                                      GF_MOP_STAGE_OP,
                                      hdr, hdrlen, NULL, 0, NULL);
                 if (!ret)
@@ -287,7 +287,7 @@ glusterd_xfer_commit_req (xlator_t *this, int32_t *lock_count)
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
                                             pending_lock);
-        if (i < GD_OP_MAX) 
+        if (i < GD_OP_MAX)
                 opinfo.pending_op[i] = 0;
 
         *lock_count = pending_lock;
@@ -323,10 +323,10 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        exists = glusterd_check_volume_exists (volname); 
+        exists = glusterd_check_volume_exists (volname);
 
         if (exists) {
-                gf_log ("", GF_LOG_ERROR, "Volume with name: %s exists", 
+                gf_log ("", GF_LOG_ERROR, "Volume with name: %s exists",
                         volname);
                 ret = -1;
         } else {
@@ -394,7 +394,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        ret = dict_get_int32 (dict, "count", &volinfo->brick_count); 
+        ret = dict_get_int32 (dict, "count", &volinfo->brick_count);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get count");
@@ -756,8 +756,8 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
 
 static int
-glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo, 
-                                 glusterd_op_sm_t *state, 
+glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
+                                 glusterd_op_sm_t *state,
                                  glusterd_op_sm_event_type_t event_type)
 {
 
@@ -766,7 +766,7 @@ glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
 
         gf_log ("", GF_LOG_NORMAL, "Transitioning from %d to %d",
                      opinfo->state.state, state[event_type].next_state);
-        opinfo->state.state = 
+        opinfo->state.state =
                 state[event_type].next_state;
         return 0;
 }
@@ -777,10 +777,10 @@ glusterd_op_sm_t glusterd_op_state_default [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_send_lock},//EVENT_START_LOCK
         {GD_OP_STATE_LOCKED, glusterd_op_ac_lock}, //EVENT_LOCK
-        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_RCVD_RJT
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
@@ -792,10 +792,10 @@ glusterd_op_sm_t glusterd_op_state_lock_sent [] = {
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_LOCK
-        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_rcvd_lock_acc}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_send_stage_op}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_rcvd_lock_acc}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_send_stage_op}, //EVENT_ALL_ACC
+        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_RCVD_RJT
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
@@ -807,10 +807,10 @@ glusterd_op_sm_t glusterd_op_state_locked [] = {
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_LOCK
-        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_RCVD_RJT
         {GD_OP_STATE_STAGED, glusterd_op_ac_stage_op}, //EVENT_STAGE_OP
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
@@ -822,10 +822,10 @@ glusterd_op_sm_t glusterd_op_state_stage_op_sent [] = {
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCK
-        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_rcvd_stage_op_acc}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_send_stage_op}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_send_commit_op}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_rcvd_stage_op_acc}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_send_stage_op}, //EVENT_ALL_ACC
+        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_send_commit_op}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_UNLOCK_SENT,   glusterd_op_ac_send_unlock}, //EVENT_RCVD_RJT
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
@@ -837,10 +837,10 @@ glusterd_op_sm_t glusterd_op_state_staged [] = {
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_STAGED, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_LOCK
-        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_RCVD_RJT
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMITED, glusterd_op_ac_commit_op}, //EVENT_COMMIT_OP
@@ -852,10 +852,10 @@ glusterd_op_sm_t glusterd_op_state_commit_op_sent [] = {
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCK
-        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_rcvd_commit_op_acc}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_commit_op}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_send_unlock}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_rcvd_commit_op_acc}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_commit_op}, //EVENT_ALL_ACC
+        {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_send_unlock}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_commit_error}, //EVENT_RCVD_RJT
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
@@ -867,10 +867,10 @@ glusterd_op_sm_t glusterd_op_state_commited [] = {
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_LOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_RCVD_RJT
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
@@ -882,10 +882,10 @@ glusterd_op_sm_t glusterd_op_state_unlock_sent [] = {
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_NONE
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_LOCK
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_rcvd_unlock_acc}, //EVENT_RCVD_ACC 
-        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_ALL_ACC 
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC 
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC 
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_rcvd_unlock_acc}, //EVENT_RCVD_ACC
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_RCVD_RJT
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
@@ -915,7 +915,7 @@ glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
         GF_ASSERT (GD_OP_EVENT_NONE <= event_type &&
                         GD_OP_EVENT_MAX > event_type);
 
-        event = GF_CALLOC (1, sizeof (*event), gf_gld_mt_op_sm_event_t); 
+        event = GF_CALLOC (1, sizeof (*event), gf_gld_mt_op_sm_event_t);
 
         if (!event)
                 return -1;
@@ -949,11 +949,11 @@ glusterd_op_sm ()
         glusterd_op_sm_t                *state = NULL;
         glusterd_op_sm_event_type_t     event_type = 0;
 
-        
+
         while (!list_empty (&gd_op_sm_queue)) {
-	
+
                 list_for_each_entry_safe (event, tmp, &gd_op_sm_queue, list) {
-		
+
                         list_del_init (&event->list);
                         event_type = event->event;
 
@@ -963,22 +963,22 @@ glusterd_op_sm ()
 
                         handler = state[event_type].handler;
                         GF_ASSERT (handler);
-                
+
                         ret = handler (event, event->ctx);
 
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_ERROR, 
+                                gf_log ("glusterd", GF_LOG_ERROR,
                                         "handler returned: %d", ret);
                                 return ret;
                         }
 
-                        ret = glusterd_op_sm_transition_state (&opinfo, state, 
+                        ret = glusterd_op_sm_transition_state (&opinfo, state,
                                                                 event_type);
 
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_ERROR, 
+                                gf_log ("glusterd", GF_LOG_ERROR,
                                         "Unable to transition"
-                                        "state from %d to %d", 
+                                        "state from %d to %d",
                                          opinfo.state.state,
                                          state[event_type].next_state);
                                 return ret;
@@ -987,7 +987,7 @@ glusterd_op_sm ()
                         GF_FREE (event);
                 }
         }
-        
+
 
         ret = 0;
 
@@ -997,7 +997,7 @@ glusterd_op_sm ()
 int32_t
 glusterd_op_set_op (glusterd_op_t op)
 {
- 
+
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
 
@@ -1012,7 +1012,7 @@ glusterd_op_set_op (glusterd_op_t op)
 int32_t
 glusterd_op_set_ctx (glusterd_op_t op, void *ctx)
 {
- 
+
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
 

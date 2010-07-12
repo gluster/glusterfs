@@ -59,7 +59,7 @@ glusterd_ha_create_volume (glusterd_volinfo_t *volinfo)
         int     fd = -1;
 
         GF_ASSERT (volinfo);
-        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR, 
+        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR,
                   volinfo->volname);
 
         ret = mkdir (pathname, 0x777);
@@ -72,7 +72,7 @@ glusterd_ha_create_volume (glusterd_volinfo_t *volinfo)
 
         snprintf (filepath, 1024, "%s/info", pathname);
 
-        fd = open (filepath, O_RDWR | O_CREAT | O_APPEND, 0644); 
+        fd = open (filepath, O_RDWR | O_CREAT | O_APPEND, 0644);
 
         if (-1 == fd) {
                 gf_log ("", GF_LOG_ERROR, "open() failed on path %s,"
@@ -99,7 +99,7 @@ out:
         return ret;
 }
 
-        
+
 int32_t
 glusterd_ha_delete_volume (glusterd_volinfo_t *volinfo)
 {
@@ -108,7 +108,7 @@ glusterd_ha_delete_volume (glusterd_volinfo_t *volinfo)
         char    filepath[PATH_MAX] = {0,};
 
         GF_ASSERT (volinfo);
-        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR, 
+        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR,
                   volinfo->volname);
 
         snprintf (filepath, 1024, "%s/info", pathname);

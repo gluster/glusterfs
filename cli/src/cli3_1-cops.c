@@ -34,7 +34,7 @@
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
 int
-gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
 {
         gf1_cli_probe_rsp    rsp   = {0,};
@@ -44,7 +44,7 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_probe_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_probe_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 //rsp.op_ret   = -1;
@@ -64,7 +64,137 @@ out:
 }
 
 int
-gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
+                       int count, void *myframe)
+{
+        gf1_cli_deprobe_rsp    rsp   = {0,};
+        int                   ret   = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_deprobe_req (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                //rsp.op_ret   = -1;
+                //rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_NORMAL, "Received resp to deprobe");
+        cli_out ("Detach %s", (rsp.op_ret) ? "Unsuccessful": "Successful");
+
+        cli_cmd_broadcast_response ();
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
+gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+        gf1_cli_peer_list_rsp      rsp   = {0,};
+        int                        ret   = 0;
+        dict_t                     *dict = NULL;
+        char                       *uuid_buf = NULL;
+        char                       *hostname_buf = NULL;
+        int32_t                    i = 1;
+        char                       key[256] = {0,};
+        int32_t                    state = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_peer_list_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                //rsp.op_ret   = -1;
+                //rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+
+        gf_log ("cli", GF_LOG_NORMAL, "Received resp to list: %d",
+                rsp.op_ret);
+
+        if (!rsp.op_ret) {
+
+                if (!rsp.friends.friends_len) {
+                        cli_out ("No peers present");
+                        goto out;
+                }
+
+                dict = dict_new ();
+
+                if (!dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (rsp.friends.friends_val,
+                                        rsp.friends.friends_len,
+                                        &dict);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                        "Unable to allocate memory");
+                        goto out;
+                }
+
+                ret = dict_get_int32 (dict, "count", &count);
+
+                if (ret) {
+                        goto out;
+                }
+
+                cli_out ("Number of Peers: %d", count);
+
+                while ( i <= count) {
+                        snprintf (key, 256, "friend%d.uuid", i);
+                        ret = dict_get_str (dict, key, &uuid_buf);
+                        if (ret)
+                                goto out;
+
+                        snprintf (key, 256, "friend%d.hostname", i);
+                        ret = dict_get_str (dict, key, &hostname_buf);
+                        if (ret)
+                                goto out;
+
+                        snprintf (key, 256, "friend%d.state", i);
+                        ret = dict_get_int32 (dict, key, &state);
+                        if (ret)
+                                goto out;
+
+                        cli_out ("hostname:%s, uuid:%s, state:%d\n",
+                                  hostname_buf, uuid_buf, state);
+                        i++;
+                }
+        } else {
+                ret = -1;
+                goto out;
+        }
+
+
+        ret = 0;
+
+out:
+        if (ret)
+                cli_out ("Command Execution Failed\n");
+
+        if (dict)
+                dict_destroy (dict);
+
+        return ret;
+}
+
+
+int
+gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_create_vol_rsp  rsp   = {0,};
@@ -74,7 +204,7 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_create_vol_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_create_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -82,7 +212,7 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to create volume");
-        cli_out ("Create Volume %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Create Volume %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -92,7 +222,7 @@ out:
 }
 
 int
-gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_delete_vol_rsp  rsp   = {0,};
@@ -102,7 +232,7 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_delete_vol_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_delete_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -110,7 +240,7 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to delete volume");
-        cli_out ("Delete Volume %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Delete Volume %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -120,7 +250,7 @@ out:
 }
 
 int
-gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_start_vol_rsp  rsp   = {0,};
@@ -130,7 +260,7 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_start_vol_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_start_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -138,7 +268,7 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to start volume");
-        cli_out ("Start Volume %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Start Volume %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -148,7 +278,7 @@ out:
 }
 
 int
-gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_stop_vol_rsp  rsp   = {0,};
@@ -158,7 +288,7 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_stop_vol_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_stop_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -166,7 +296,7 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to stop volume");
-        cli_out ("Delete Volume %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Delete Volume %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -176,7 +306,7 @@ out:
 }
 
 int
-gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_defrag_vol_rsp  rsp   = {0,};
@@ -186,7 +316,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_defrag_vol_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_defrag_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -194,7 +324,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
-        cli_out ("Defrag Volume %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Defrag Volume %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -204,7 +334,7 @@ out:
 }
 
 int
-gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_rename_vol_rsp  rsp   = {0,};
@@ -214,7 +344,7 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_rename_vol_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_rename_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -222,7 +352,7 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
-        cli_out ("Rename Volume %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Rename Volume %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -232,7 +362,7 @@ out:
 }
 
 int
-gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_set_vol_rsp  rsp   = {0,};
@@ -242,7 +372,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_set_vol_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_set_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -250,7 +380,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to set");
-        cli_out ("Set Volume %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Set Volume %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -260,7 +390,7 @@ out:
 }
 
 int
-gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_add_brick_rsp       rsp   = {0,};
@@ -270,7 +400,7 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_add_brick_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_add_brick_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -278,7 +408,7 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to add brick");
-        cli_out ("Add Brick %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Add Brick %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -289,7 +419,7 @@ out:
 
 
 int
-gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_remove_brick_rsp        rsp   = {0,};
@@ -299,14 +429,14 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_remove_brick_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_remove_brick_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
         }
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to remove brick");
-        cli_out ("Remove Brick %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Remove Brick %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -317,7 +447,7 @@ out:
 
 
 int
-gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov, 
+gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_replace_brick_rsp       rsp   = {0,};
@@ -327,7 +457,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_replace_brick_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_replace_brick_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -335,7 +465,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to replace brick");
-        cli_out ("Replace Brick %s", (rsp.op_ret) ? "Unsuccessful": 
+        cli_out ("Replace Brick %s", (rsp.op_ret) ? "Unsuccessful":
                                         "Successful");
 
         ret = 0;
@@ -345,7 +475,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_probe (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         gf1_cli_probe_req      req = {0,};
@@ -374,7 +504,65 @@ out:
 }
 
 int32_t
-gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
+                   void *data)
+{
+        gf1_cli_deprobe_req      req = {0,};
+        int                      ret = 0;
+        char                     *hostname = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        hostname = data;
+
+        req.hostname = hostname;
+
+        ret = cli_submit_request (&req, frame, cli_rpc_prog,
+                                   GD_MGMT_CLI_DEPROBE, NULL,
+                                   gf_xdr_from_cli_deprobe_req,
+                                   this, gf_cli3_1_deprobe_cbk);
+
+        if (!ret) {
+                //ret = cli_cmd_await_response ();
+        }
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_list_friends (call_frame_t *frame, xlator_t *this,
+                        void *data)
+{
+        gf1_cli_peer_list_req   req = {0,};
+        int                     ret = 0;
+
+        if (!frame || !this) {
+                ret = -1;
+                goto out;
+        }
+
+        req.flags = GF_CLI_LIST_ALL;
+
+        ret = cli_submit_request (&req, frame, cli_rpc_prog,
+                                   GD_MGMT_CLI_LIST_FRIENDS, NULL,
+                                   gf_xdr_from_cli_peer_list_req,
+                                   this, gf_cli3_1_list_friends_cbk);
+
+        if (!ret) {
+                //ret = cli_cmd_await_response ();
+        }
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+
+int32_t
+gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_create_vol_req  req = {0,};
@@ -433,7 +621,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_delete_vol_req  req = {0,};
@@ -447,7 +635,7 @@ gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
         req.volname = data;
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_DELETE_VOLUME, NULL, 
+                                   GD_MGMT_CLI_DELETE_VOLUME, NULL,
                                    gf_xdr_from_cli_delete_vol_req,
                                    this, gf_cli3_1_delete_volume_cbk);
 
@@ -458,7 +646,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_start_vol_req   req = {0,};
@@ -472,7 +660,7 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
         req.volname = data;
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_START_VOLUME, NULL, 
+                                   GD_MGMT_CLI_START_VOLUME, NULL,
                                    gf_xdr_from_cli_start_vol_req,
                                    this, gf_cli3_1_start_volume_cbk);
 
@@ -483,7 +671,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_stop_vol_req   req = {0,};
@@ -497,7 +685,7 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
         req.volname = data;
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_STOP_VOLUME, NULL, 
+                                   GD_MGMT_CLI_STOP_VOLUME, NULL,
                                    gf_xdr_from_cli_stop_vol_req,
                                    this, gf_cli3_1_stop_volume_cbk);
 
@@ -508,7 +696,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_defrag_vol_req   req = {0,};
@@ -522,7 +710,7 @@ gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
         req.volname = data;
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_DEFRAG_VOLUME, NULL, 
+                                   GD_MGMT_CLI_DEFRAG_VOLUME, NULL,
                                    gf_xdr_from_cli_defrag_vol_req,
                                    this, gf_cli3_1_defrag_volume_cbk);
 
@@ -533,7 +721,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_rename_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_rename_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_rename_vol_req  req = {0,};
@@ -547,18 +735,18 @@ gf_cli3_1_rename_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_get_str (dict, "old-volname", &req.old_volname);  
+        ret = dict_get_str (dict, "old-volname", &req.old_volname);
 
         if (ret)
                 goto out;
 
         ret = dict_get_str (dict, "new-volname", &req.new_volname);
-        
+
         if (ret)
                 goto out;
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_RENAME_VOLUME, NULL, 
+                                   GD_MGMT_CLI_RENAME_VOLUME, NULL,
                                    gf_xdr_from_cli_rename_vol_req,
                                    this, gf_cli3_1_rename_volume_cbk);
 
@@ -569,7 +757,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_set_vol_req     req = {0,};
@@ -583,7 +771,7 @@ gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_get_str (dict, "volname", &req.volname);  
+        ret = dict_get_str (dict, "volname", &req.volname);
 
         if (ret)
                 goto out;
@@ -599,7 +787,7 @@ gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
 
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_SET_VOLUME, NULL, 
+                                   GD_MGMT_CLI_SET_VOLUME, NULL,
                                    gf_xdr_from_cli_set_vol_req,
                                    this, gf_cli3_1_set_volume_cbk);
 
@@ -610,7 +798,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_add_brick_req  req = {0,};
@@ -624,7 +812,7 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_get_str (dict, "volname", &req.volname);  
+        ret = dict_get_str (dict, "volname", &req.volname);
 
         if (ret)
                 goto out;
@@ -635,7 +823,7 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         ret = dict_get_int32 (dict, "count", &req.count);
-        
+
         if (ret)
                 goto out;
 
@@ -649,7 +837,7 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_ADD_BRICK, NULL, 
+                                   GD_MGMT_CLI_ADD_BRICK, NULL,
                                    gf_xdr_from_cli_add_brick_req,
                                    this, gf_cli3_1_add_brick_cbk);
 
@@ -664,7 +852,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_remove_brick_req  req = {0,};
@@ -678,7 +866,7 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_get_str (dict, "volname", &req.volname);  
+        ret = dict_get_str (dict, "volname", &req.volname);
 
         if (ret)
                 goto out;
@@ -689,7 +877,7 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         ret = dict_get_int32 (dict, "count", &req.count);
-        
+
         if (ret)
                 goto out;
 
@@ -703,7 +891,7 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_REMOVE_BRICK, NULL, 
+                                   GD_MGMT_CLI_REMOVE_BRICK, NULL,
                                    gf_xdr_from_cli_remove_brick_req,
                                    this, gf_cli3_1_remove_brick_cbk);
 
@@ -718,7 +906,7 @@ out:
 }
 
 int32_t
-gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this, 
+gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
         gf1_cli_replace_brick_req  req = {0,};
@@ -734,7 +922,7 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
 
         dict = data;
 
-        ret = dict_get_str (dict, "volname", &req.volname);  
+        ret = dict_get_str (dict, "volname", &req.volname);
 
         if (ret)
                 goto out;
@@ -763,7 +951,7 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_REPLACE_BRICK, NULL, 
+                                   GD_MGMT_CLI_REPLACE_BRICK, NULL,
                                    gf_xdr_from_cli_replace_brick_req,
                                    this, gf_cli3_1_replace_brick_cbk);
 
@@ -784,6 +972,8 @@ out:
 struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
         [GF1_CLI_PROBE]  = { "PROBE_QUERY",  gf_cli3_1_probe},
+        [GF1_CLI_DEPROBE]  = { "DEPROBE_QUERY",  gf_cli3_1_deprobe},
+        [GF1_CLI_LIST_FRIENDS]  = { "DEPROBE_QUERY",  gf_cli3_1_list_friends},
         [GF1_CLI_CREATE_VOLUME] = {"CREATE_VOLUME", gf_cli3_1_create_volume},
         [GF1_CLI_DELETE_VOLUME] = {"DELETE_VOLUME", gf_cli3_1_delete_volume},
         [GF1_CLI_START_VOLUME] = {"START_VOLUME", gf_cli3_1_start_volume},

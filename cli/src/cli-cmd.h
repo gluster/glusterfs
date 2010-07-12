@@ -36,6 +36,8 @@ int cli_cmd_volume_register (struct cli_state *state);
 
 int cli_cmd_probe_register (struct cli_state *state);
 
+int cli_cmd_misc_register (struct cli_state *state);
+
 struct cli_cmd_word *cli_cmd_nextword (struct cli_cmd_word *word,
                                        const char *text);
 void cli_cmd_tokens_destroy (char **tokens);
