@@ -675,8 +675,20 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
         }
         pthread_mutex_unlock (&conn->lock);
 
-        if (do_cleanup && conn->bound_xl)
-                ret = do_connection_cleanup (this, conn, ltable, fdentries, fd_count);
+        if (do_cleanup) {
+	       if (conn->bound_xl) {
+		       ret = do_connection_cleanup (this, conn, ltable, fdentries, fd_count);
+	       } else {
+		       if (ltable){
+			       free(ltable);
+			       ltable = NULL;
+		       }
+		       if (fdentries){
+			       free(fdentries);
+			       fdentries = NULL;
+		       }
+	       }
+	}
 
 out:
         return ret;
@@ -705,6 +717,26 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 goto out;
         }
 
+	pthread_mutex_lock (&(conn->lock));
+	{
+		if (conn->ltable) {
+			ltable = conn->ltable;
+			conn->ltable = NULL;
+		}
+	}
+	pthread_mutex_unlock (&conn->lock);
+
+	pthread_mutex_lock (&(conn->lock));
+	{
+		if (conn->fdtable) {
+			fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
+					&fd_count);
+			gf_fd_fdtable_destroy (conn->fdtable);
+			conn->fdtable = NULL;
+		}
+	}
+	pthread_mutex_unlock (&conn->lock);
+
         bound_xl = (xlator_t *) (conn->bound_xl);
 
         if (bound_xl) {
@@ -712,15 +744,6 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                    ok since this function is called in
                    GF_EVENT_TRANSPORT_CLEANUP */
                 frame = create_frame (this, this->ctx->pool);
-
-                pthread_mutex_lock (&(conn->lock));
-                {
-                        if (conn->ltable) {
-                                ltable = conn->ltable;
-                                conn->ltable = NULL;
-                        }
-                }
-                pthread_mutex_unlock (&conn->lock);
 
                 INIT_LIST_HEAD (&file_lockers);
                 INIT_LIST_HEAD (&dir_lockers);
@@ -802,17 +825,6 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         free (locker);
                 }
 
-                pthread_mutex_lock (&(conn->lock));
-                {
-                        if (conn->fdtable) {
-                                fdentries = gf_fd_fdtable_get_all_fds (conn->fdtable,
-                                                                       &fd_count);
-                                gf_fd_fdtable_destroy (conn->fdtable);
-                                conn->fdtable = NULL;
-                        }
-                }
-                pthread_mutex_unlock (&conn->lock);
-
                 if (fdentries != NULL) {
                         for (i = 0; i < fd_count; i++) {
                                 fd = fdentries[i].fd;
@@ -829,7 +841,16 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         }
                         FREE (fdentries);
                 }
-        }
+        } else {
+		if (ltable){
+			free(ltable);
+			ltable = NULL;
+		}
+		if (fdentries){
+			free(fdentries);
+			fdentries = NULL;
+		}
+	}
 
         if (frame) {
                 state = CALL_STATE (frame);
