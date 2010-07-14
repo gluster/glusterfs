@@ -18,8 +18,8 @@
 */
 
 
-#include "cli-xdr.h"
-
+#include "cli1.h"
+#include "xdr-generic.h"
 
 ssize_t
 gf_xdr_serialize_cli_probe_rsp (struct iovec outmsg, void *rsp)

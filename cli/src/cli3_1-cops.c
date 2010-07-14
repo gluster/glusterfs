@@ -24,12 +24,13 @@
 #endif
 
 #include "cli.h"
-#include "gluster1.h"
-#include "cli-xdr.h"
 #include "compat-errno.h"
-#include "protocol-common.h"
 #include "cli-cmd.h"
 #include <sys/uio.h>
+
+#include "cli1-xdr.h"
+#include "cli1.h"
+#include "protocol-common.h"
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 

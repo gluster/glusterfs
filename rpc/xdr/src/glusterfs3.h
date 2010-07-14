@@ -18,12 +18,12 @@
 */
 
 
-#ifndef _MSG_XDR_H
-#define _MSG_XDR_H
+#ifndef _GLUSTERFS3_H
+#define _GLUSTERFS3_H
 
 #include <sys/uio.h>
 
-#include "glusterfs-xdr.h"
+#include "glusterfs3-xdr.h"
 
 #define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
 #define xdr_decoded_remaining_len(xdr)         ((&xdr)->x_handy)
@@ -498,6 +498,7 @@ xdr_to_rchecksum_rsp (struct iovec inmsg, void *args);
 
 ssize_t
 xdr_to_lk_rsp (struct iovec inmsg, void *args);
+
 ssize_t
 xdr_to_readdirp_rsp (struct iovec inmsg, void *args);
 
@@ -512,13 +513,4 @@ xdr_to_readv_rsp (struct iovec inmsg, void *args);
 ssize_t
 xdr_to_getspec_rsp (struct iovec inmsg, void *args);
 
-ssize_t
-xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc);
-
-ssize_t
-xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc);
-
-ssize_t
-xdr_to_generic_payload (struct iovec inmsg, void *args, xdrproc_t proc,
-                        struct iovec *pendingpayload);
-#endif /* !_MSG_XDR_H */
+#endif /* !_GLUSTERFS3_H */

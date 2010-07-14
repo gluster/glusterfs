@@ -27,9 +27,10 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "glusterfs.h"
-#include "msg-xdr.h"
 #include "statedump.h"
 #include "compat-errno.h"
+
+#include "glusterfs3.h"
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
 extern rpc_clnt_prog_t clnt_dump_prog;

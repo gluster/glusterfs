@@ -28,7 +28,7 @@
 #include "inode.h"
 #include "client-mem-types.h"
 #include "protocol-common.h"
-#include "glusterfs-xdr.h"
+#include "glusterfs3-xdr.h"
 
 struct clnt_options {
         char *remote_subvolume;

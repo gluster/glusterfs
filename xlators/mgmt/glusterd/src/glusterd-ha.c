@@ -42,8 +42,9 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-ha.h"
-#include "gd-xdr.h"
-#include "cli-xdr.h"
+
+#include "glusterd1.h"
+#include "cli1.h"
 #include "rpc-clnt.h"
 
 #include <sys/resource.h>

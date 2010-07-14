@@ -41,10 +41,11 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
-#include "gd-xdr.h"
-#include "cli-xdr.h"
+
+#include "glusterd1.h"
+#include "cli1.h"
 #include "rpc-clnt.h"
-#include "gluster1.h"
+#include "glusterd1-xdr.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>

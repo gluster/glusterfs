@@ -24,8 +24,9 @@
 #endif
 
 #include "rpc-clnt.h"
+#include "glusterd1-xdr.h"
 #include "glusterd1.h"
-#include "gd-xdr.h"
+
 #include "compat-errno.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-sm.h"

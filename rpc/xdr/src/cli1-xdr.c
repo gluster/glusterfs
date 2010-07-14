@@ -3,7 +3,7 @@
  * It was generated using rpcgen.
  */
 
-#include "gluster1.h"
+#include "cli1-xdr.h"
 
 bool_t
 xdr_gf1_cluster_type (XDR *xdrs, gf1_cluster_type *objp)

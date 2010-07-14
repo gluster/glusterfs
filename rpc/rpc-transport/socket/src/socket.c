@@ -32,9 +32,12 @@
 #include "byte-order.h"
 #include "common-utils.h"
 #include "compat-errno.h"
-#include "protocol-common.h"
 
-#include "glusterfs-xdr.h"
+
+/* ugly #includes below */
+#include "protocol-common.h"
+#include "glusterfs3-xdr.h"
+
 #include <fcntl.h>
 #include <errno.h>
 #include <netinet/tcp.h>

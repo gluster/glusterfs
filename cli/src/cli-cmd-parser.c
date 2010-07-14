@@ -31,9 +31,10 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "protocol-common.h"
 #include "dict.h"
-#include "gluster1.h"
+
+#include "protocol-common.h"
+#include "cli1-xdr.h"
 
 int32_t
 cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options)
