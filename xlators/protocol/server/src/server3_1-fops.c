@@ -25,8 +25,8 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include "glusterfs-xdr.h"
-#include "msg-xdr.h"
+#include "glusterfs3-xdr.h"
+#include "glusterfs3.h"
 #include "compat-errno.h"
 
 #include "md5.h"

@@ -28,7 +28,7 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include "glusterfs-xdr.h"
+#include "glusterfs3-xdr.h"
 #include "call-stub.h"
 #include "statedump.h"
 #include "defaults.h"

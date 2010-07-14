@@ -3,7 +3,7 @@
  * It was generated using rpcgen.
  */
 
-#include "glusterfs-xdr.h"
+#include "glusterfs3-xdr.h"
 #include "iatt.h"
 
 bool_t

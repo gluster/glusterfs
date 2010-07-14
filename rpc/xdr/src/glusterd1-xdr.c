@@ -3,7 +3,7 @@
  * It was generated using rpcgen.
  */
 
-#include "glusterd1.h"
+#include "glusterd1-xdr.h"
 
 bool_t
 xdr_gd1_mgmt_probe_req (XDR *xdrs, gd1_mgmt_probe_req *objp)

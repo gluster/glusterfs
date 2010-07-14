@@ -33,7 +33,6 @@
 #include "xlator.h"
 #include "logging.h"
 #include "call-stub.h"
-#include "authenticate.h"
 #include "fd.h"
 #include "byte-order.h"
 //#include "glusterd.h"

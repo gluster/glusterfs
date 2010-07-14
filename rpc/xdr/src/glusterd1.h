@@ -18,13 +18,13 @@
 */
 
 
-#ifndef _MSG_GD_XDR_H
-#define _MSG_GD_XDR_H
+#ifndef _GLUSTERD1_H
+#define _GLUSTERD1_H
 
 #include <sys/uio.h>
 
-#include "msg-xdr.h"
-#include "glusterd1.h"
+#include "xdr-generic.h"
+#include "glusterd1-xdr.h"
 
 ssize_t
 gd_xdr_to_mgmt_probe_req (struct iovec inmsg, void *args);

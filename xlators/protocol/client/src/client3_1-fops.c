@@ -24,8 +24,8 @@
 #endif
 
 #include "client.h"
-#include "glusterfs-xdr.h"
-#include "msg-xdr.h"
+#include "glusterfs3-xdr.h"
+#include "glusterfs3.h"
 #include "compat-errno.h"
 
 int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data);

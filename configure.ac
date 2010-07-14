@@ -31,6 +31,8 @@ AC_CONFIG_FILES([Makefile
                 rpc/rpc-transport/Makefile
                 rpc/rpc-transport/socket/Makefile
                 rpc/rpc-transport/socket/src/Makefile
+                rpc/xdr/Makefile
+                rpc/xdr/src/Makefile
 		xlators/Makefile
 		xlators/mount/Makefile
 		xlators/mount/fuse/Makefile
@@ -71,8 +73,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/debug/io-stats/Makefile
 		xlators/debug/io-stats/src/Makefile
 		xlators/protocol/Makefile
-		xlators/protocol/lib/Makefile
-		xlators/protocol/lib/src/Makefile
 		xlators/protocol/legacy/Makefile
 		xlators/protocol/legacy/lib/Makefile
 		xlators/protocol/legacy/lib/src/Makefile

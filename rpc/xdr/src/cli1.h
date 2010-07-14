@@ -18,13 +18,12 @@
 */
 
 
-#ifndef _MSG_CLI_XDR_H
-#define _MSG_CLI_XDR_H
+#ifndef _CLI1_H
+#define _CLI1_H
 
 #include <sys/uio.h>
 
-#include "msg-xdr.h"
-#include "gluster1.h"
+#include "cli1-xdr.h"
 
 ssize_t
 gf_xdr_serialize_cli_probe_rsp (struct iovec outmsg, void *rsp);
@@ -182,4 +181,4 @@ gf_xdr_to_cli_set_vol_rsp (struct iovec inmsg, void *args);
 ssize_t
 gf_xdr_from_cli_set_vol_req (struct iovec outmsg, void *req);
 
-#endif /* !_MSG_CLI_XDR_H */
+#endif /* !_CLI1_H */

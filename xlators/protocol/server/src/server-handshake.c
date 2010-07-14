@@ -25,9 +25,9 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include "glusterfs-xdr.h"
+#include "glusterfs3-xdr.h"
 #include "compat-errno.h"
-#include "msg-xdr.h"
+#include "glusterfs3.h"
 #include "authenticate.h"
 
 struct __get_xl_struct {

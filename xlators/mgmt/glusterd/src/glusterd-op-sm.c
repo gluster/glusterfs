@@ -44,7 +44,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-ha.h"
-#include "gluster1.h"
+#include "cli1.h"
 
 static struct list_head gd_op_sm_queue;
 glusterd_op_info_t    opinfo;

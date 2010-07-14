@@ -1,1 +1,1 @@
-SUBDIRS = lib auth legacy client server
+SUBDIRS = auth legacy client server

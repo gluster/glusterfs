@@ -33,13 +33,12 @@
 #include "xlator.h"
 #include "logging.h"
 #include "call-stub.h"
-#include "authenticate.h"
 #include "fd.h"
 #include "byte-order.h"
 #include "glusterd-mem-types.h"
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
-#include "glusterd1.h"
+#include "glusterd1-xdr.h"
 
 
 

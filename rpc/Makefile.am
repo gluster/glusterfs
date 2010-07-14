@@ -1,1 +1,1 @@
-SUBDIRS = rpc-lib rpc-transport
+SUBDIRS = rpc-lib rpc-transport xdr
