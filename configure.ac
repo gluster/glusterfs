@@ -114,6 +114,7 @@ AC_CONFIG_FILES([Makefile
 		doc/examples/Makefile
 		doc/hacker-guide/Makefile
 		extras/Makefile
+                extras/glusterfs-defrag
 		extras/init.d/Makefile
 		extras/init.d/glusterfs-server.plist
                 extras/init.d/glusterfsd-Debian

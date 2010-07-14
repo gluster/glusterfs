@@ -3032,6 +3032,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         size_t   size           = 0;
         size_t   remaining_size = 0;
         char     key[1024]      = {0,};
+        char     host_buf[1024] = {0,};
         char     gen_key[1024]  = {0,};
         char *   value          = NULL;
         char *   list           = NULL;
@@ -3072,18 +3073,18 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         }
 
 	if (loc->inode && IA_ISREG (loc->inode->ia_type) && name &&
-	    (strcmp (name, "trusted.glusterfs.location") == 0)) {
-                ret = dict_set_static_ptr (dict, 
-                                           "trusted.glusterfs.location", 
-                                           priv->hostname);
+	    (strcmp (name, GF_XATTR_PATHINFO_KEY) == 0)) {
+                snprintf (host_buf, 1024, "%s:%s", priv->hostname,
+                          real_path);
+                ret = dict_set_str (dict, GF_XATTR_PATHINFO_KEY,
+                                    host_buf);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "could not set hostname (%s) in dictionary",
-                                priv->hostname);
+                                "could not set value (%s) in dictionary",
+                                host_buf);
                 }
                 goto done;
 	}
-        
 
         size = sys_llistxattr (real_path, NULL, 0);
         if (size == -1) {
@@ -4260,17 +4261,16 @@ mem_acct_init (xlator_t *this)
 int
 init (xlator_t *this)
 {
-        int                    ret      = 0;
-        int                    op_ret   = -1;
-	gf_boolean_t           tmp_bool = 0;
-        struct stat            buf      = {0,};
-        struct posix_private * _private = NULL;
-        data_t *               dir_data = NULL;
-	data_t *               tmp_data = NULL;
-        uint64_t               time64   = 0;
-
-        int dict_ret = 0;
-        int32_t janitor_sleep;
+        struct posix_private  *_private      = NULL;
+        data_t                *dir_data      = NULL;
+	data_t                *tmp_data      = NULL;
+        struct stat            buf           = {0,};
+	gf_boolean_t           tmp_bool      = 0;
+        uint64_t               time64        = 0;
+        int                    dict_ret      = 0;
+        int                    ret           = 0;
+        int                    op_ret        = -1;
+        int32_t                janitor_sleep = 0;
 
         dir_data = dict_get (this->options, "directory");
 
@@ -4370,10 +4370,19 @@ init (xlator_t *this)
 
         LOCK_INIT (&_private->lock);
 
-        ret = gethostname (_private->hostname, 256);
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_WARNING, 
-                        "could not find hostname (%s)", strerror (errno));
+        ret = dict_get_str (this->options, "hostname", &_private->hostname);
+        if (ret) {
+                _private->hostname = GF_CALLOC (256, sizeof (char),
+                                                gf_common_mt_char);
+                if (!_private->hostname) {
+                        gf_log (this->name, GF_LOG_ERROR, "not enough memory");
+                        goto out;
+                }
+                ret = gethostname (_private->hostname, 256);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "could not find hostname (%s)", strerror (errno));
+                }
         }
 
         _private->export_statfs = 1;
@@ -4574,6 +4583,8 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {"directory"},
 	  .type = GF_OPTION_TYPE_PATH },
+	{ .key  = {"hostname"},
+	  .type = GF_OPTION_TYPE_ANY },
 	{ .key  = {"export-statfs-size"},
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {"mandate-attribute"},
