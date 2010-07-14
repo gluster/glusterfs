@@ -410,6 +410,22 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         hdr->rsp.op_errno = hton32 (gf_errno);
 
         if (op_ret == 0) {
+                switch (lock->l_type) {
+                case F_RDLCK:
+                        lock->l_type = GF_LK_F_RDLCK;
+                        break;
+                case F_WRLCK:
+                        lock->l_type = GF_LK_F_WRLCK;
+                        break;
+                case F_UNLCK:
+                        lock->l_type = GF_LK_F_UNLCK;
+                        break;
+                default:
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Unknown lock type: %"PRId32"!", lock->l_type);
+                        break;
+                }
+
                 gf_flock_from_flock (&rsp->flock, lock);
         } else if (op_errno != ENOSYS) {
                 state = CALL_STATE(frame);
