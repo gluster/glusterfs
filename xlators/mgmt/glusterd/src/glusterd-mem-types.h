@@ -29,6 +29,7 @@ enum gf_gld_mem_types_ {
         gf_gld_mt_glusterd_state_t,
         gf_gld_mt_glusterd_conf_t,
         gf_gld_mt_locker,
+        gf_gld_mt_string,
         gf_gld_mt_lock_table,
         gf_gld_mt_char,
         gf_gld_mt_glusterd_connection_t,

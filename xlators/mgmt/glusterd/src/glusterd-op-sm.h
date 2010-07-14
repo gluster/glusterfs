@@ -133,12 +133,17 @@ typedef struct glusterd_op_lock_ctx_ glusterd_op_lock_ctx_t;
 
 struct glusterd_op_stage_ctx_ {
         rpcsvc_request_t        *req;
-        void                    *stage_req;
+        gd1_mgmt_stage_op_req   stage_req;
 };
 
 typedef struct glusterd_op_stage_ctx_ glusterd_op_stage_ctx_t;
 
-typedef glusterd_op_stage_ctx_t glusterd_op_commit_ctx_t;
+struct glusterd_op_commit_ctx_ {
+        rpcsvc_request_t        *req;
+        gd1_mgmt_stage_op_req   stage_req;
+};
+
+typedef struct glusterd_op_commit_ctx_ glusterd_op_commit_ctx_t;
 
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
@@ -158,9 +163,20 @@ glusterd_op_set_ctx (glusterd_op_t op, void *ctx);
 int32_t
 glusterd_op_set_op (glusterd_op_t op);
 
-int 
+int32_t
+glusterd_op_clear_pending_op (glusterd_op_t op);
+
+int32_t
+glusterd_op_clear_commit_op (glusterd_op_t op);
+
+int
 glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req);
 
+int32_t
+glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req);
+
+int32_t
+glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req);
 
 void *
 glusterd_op_get_ctx (glusterd_op_t op);

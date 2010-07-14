@@ -430,9 +430,9 @@ glusterd_sm_t *glusterd_friend_state_table [] = {
         glusterd_state_req_sent,
         glusterd_state_req_rcvd,
         glusterd_state_befriended,
+        glusterd_state_req_accepted,
         glusterd_state_req_sent_rcvd,
         glusterd_state_rejected,
-        glusterd_state_req_accepted,
         glusterd_state_unfriend_sent,
 };
 
@@ -481,54 +481,56 @@ glusterd_friend_sm ()
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_friend_sm_event_type_t event_type = 0;
 
-	list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
+        while (!list_empty (&gd_friend_sm_queue)) {
+                list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
 
-                list_del_init (&event->list);
-                peerinfo = event->peerinfo;
-                event_type = event->event;
+                        list_del_init (&event->list);
+                        peerinfo = event->peerinfo;
+                        event_type = event->event;
 
-                if (!peerinfo &&
-                   (GD_FRIEND_EVENT_PROBE == event_type ||
-                    GD_FRIEND_EVENT_RCVD_FRIEND_REQ == event_type)) {
-                        ret = glusterd_friend_add (NULL,
-                                                  GD_FRIEND_STATE_DEFAULT,
-                                                  NULL, NULL, &peerinfo);
+                        if (!peerinfo &&
+                           (GD_FRIEND_EVENT_PROBE == event_type ||
+                            GD_FRIEND_EVENT_RCVD_FRIEND_REQ == event_type)) {
+                                ret = glusterd_friend_add (NULL,
+                                                          GD_FRIEND_STATE_DEFAULT,
+                                                          NULL, NULL, &peerinfo);
+
+                                if (ret) {
+                                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to add peer, "
+                                                "ret = %d", ret);
+                                        continue;
+                                }
+                                GF_ASSERT (peerinfo);
+                                event->peerinfo = peerinfo;
+                        }
+
+
+                        state = glusterd_friend_state_table[peerinfo->state.state];
+
+                        GF_ASSERT (state);
+
+                        handler = state[event_type].handler;
+                        GF_ASSERT (handler);
+
+                        ret = handler (event, event->ctx);
 
                         if (ret) {
-                                gf_log ("glusterd", GF_LOG_ERROR, "Unable to add peer, "
-                                        "ret = %d", ret);
-                                continue;
+                                gf_log ("glusterd", GF_LOG_ERROR, "handler returned: "
+                                                "%d", ret);
+                                return ret;
                         }
-                        GF_ASSERT (peerinfo);
-                        event->peerinfo = peerinfo;
+
+                        ret = glusterd_friend_sm_transition_state (peerinfo, state, event_type);
+
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_ERROR, "Unable to transition"
+                                        "state from %d to %d", peerinfo->state.state,
+                                         state[event_type].next_state);
+                                return ret;
+                        }
+
+                        GF_FREE (event);
                 }
-
-
-                state = glusterd_friend_state_table[peerinfo->state.state];
-
-                GF_ASSERT (state);
-
-                handler = state[event_type].handler;
-                GF_ASSERT (handler);
-
-                ret = handler (event, event->ctx);
-
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "handler returned: "
-                                        "%d", ret);
-                        return ret;
-                }
-
-                ret = glusterd_friend_sm_transition_state (peerinfo, state, event_type);
-
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to transition"
-                                "state from %d to %d", peerinfo->state.state,
-                                 state[event_type].next_state);
-                        return ret;
-                }
-
-                GF_FREE (event);
         }
 
 
