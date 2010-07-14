@@ -65,7 +65,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gd_xdr_to_mgmt_probe_req (*iov, &rsp);
+        ret = gd_xdr_to_mgmt_probe_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 //rsp.op_ret   = -1;
@@ -146,7 +146,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
         }
 
-        ret = gd_xdr_to_mgmt_friend_req (*iov, &rsp);
+        ret = gd_xdr_to_mgmt_friend_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -229,7 +229,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
                 goto respond;
         }
 
-        ret = gd_xdr_to_mgmt_friend_req (*iov, &rsp);
+        ret = gd_xdr_to_mgmt_friend_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -306,7 +306,7 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
         }
 
-        ret = gd_xdr_to_mgmt_cluster_lock_req (*iov, &rsp);
+        ret = gd_xdr_to_mgmt_cluster_lock_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -374,7 +374,7 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
         }
 
-        ret = gd_xdr_to_mgmt_cluster_unlock_req (*iov, &rsp);
+        ret = gd_xdr_to_mgmt_cluster_unlock_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -442,7 +442,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
         }
 
-        ret = gd_xdr_to_mgmt_stage_op_req (*iov, &rsp);
+        ret = gd_xdr_to_mgmt_stage_op_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -510,7 +510,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
         }
 
-        ret = gd_xdr_to_mgmt_commit_op_req (*iov, &rsp);
+        ret = gd_xdr_to_mgmt_commit_op_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
@@ -826,11 +826,20 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
                 return ret;
         }
 
+        glusterd_op_clear_pending_op (i);
+
 
         ret = glusterd_op_build_payload (i, &req);
 
         if (ret)
                 goto out;
+
+        ret = glusterd_op_stage_validate (req);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Staging failed");
+                goto out;
+        }
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
@@ -885,7 +894,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         GF_ASSERT (priv);
 
         for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
-                if (opinfo.pending_op[i])
+                if (opinfo.commit_op[i])
                         break;
         }
 
@@ -906,11 +915,19 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
                 return ret;
         }
 
+        glusterd_op_clear_commit_op (i);
 
         ret = glusterd_op_build_payload (i, (gd1_mgmt_stage_op_req **)&req);
 
         if (ret)
                 goto out;
+
+        ret = glusterd_op_commit_perform ((gd1_mgmt_stage_op_req *)req);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Commit failed");
+                goto out;
+        }
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);

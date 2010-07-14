@@ -42,24 +42,6 @@
 #include "glusterd1.h"
 
 
-/*typedef struct glusterd_peer_state_info_ {
-        glusterd_friend_sm_state_t   state;
-        struct timeval          transition_time;
-}glusterd_peer_state_info_t;
-
-
-struct glusterd_peerinfo_ {
-        uuid_t                          uuid;
-        glusterd_peer_state_info_t      state;
-        char                            *hostname;
-        int                             port;
-        struct list_head                uuid_list;
-        struct list_head                op_peers_list;
-        struct rpc_clnt                 *rpc;
-};
-
-typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
-*/
 
 typedef struct {
         struct _volfile_ctx *volfile;
@@ -99,20 +81,11 @@ typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 
 typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
-//void glusterd_init (int);
-
+#define GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv) \
+        snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,\
+                  volinfo->volname);
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr);
-
-/*int
-glusterd_interpret (xlator_t *this, transport_t *trans,
-                    char *hdr_p, size_t hdrlen, struct iobuf *iobuf);
-
-
-int
-glusterd_friend_probe (const char *hoststr);
-*/
-
 
 int
 glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname);
@@ -126,17 +99,7 @@ glusterd_friend_add (const char *hoststr,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid, struct rpc_clnt    *rpc,
                      glusterd_peerinfo_t **friend);
-/*
-int
-glusterd_xfer_friend_req_msg (glusterd_peerinfo_t *peerinfo, xlator_t *this);
 
-int
-glusterd_xfer_cluster_lock_req (xlator_t *this, int32_t *lock_count);
-*/
-
-/*int
-glusterd_xfer_cluster_unlock_req (xlator_t *this, int32_t *unlock_count);
-*/
 
 int
 glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status);

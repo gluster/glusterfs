@@ -29,7 +29,6 @@
 #include <libgen.h>
 #include <uuid/uuid.h>
 
-//#include "transport.h"
 #include "fnmatch.h"
 #include "xlator.h"
 #include "protocol-common.h"
@@ -41,11 +40,11 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include "statedump.h"
-//#include "md5.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-ha.h"
+#include "gluster1.h"
 
 static struct list_head gd_op_sm_queue;
 glusterd_op_info_t    opinfo;
@@ -77,6 +76,22 @@ glusterd_op_get_len (glusterd_op_t op)
         return 0;
 }
 
+static int
+glusterd_op_sm_inject_all_acc ()
+{
+        glusterd_op_sm_event_t *event = NULL;
+        int32_t                 ret = -1;
+
+        ret = glusterd_op_sm_new_event (GD_OP_EVENT_ALL_ACC, &event);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_op_sm_inject_event (event);
+out:
+        return ret;
+}
+
 int
 glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
 {
@@ -98,17 +113,10 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                 goto out;
         }
 
-        stage_req->buf.buf_val = GF_CALLOC (1, len,
-                                            gf_gld_mt_mop_stage_req_t);
-
-        if (!stage_req->buf.buf_val) {
-                gf_log ("", GF_LOG_ERROR, "Out of Memory");
-                goto out;
-        }
 
         glusterd_get_uuid (&stage_req->uuid);
         stage_req->op = op;
-        stage_req->buf.buf_len = len;
+        //stage_req->buf.buf_len = len;
 
         switch (op) {
                 case GD_OP_CREATE_VOLUME:
@@ -116,8 +124,9 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                                 dict_t  *dict = NULL;
                                 dict = glusterd_op_get_ctx (op);
                                 GF_ASSERT (dict);
-                                ret = dict_serialize (dict,
-                                                      stage_req->buf.buf_val);
+                                ret = dict_allocate_and_serialize (dict,
+                                                &stage_req->buf.buf_val,
+                                        (size_t *)&stage_req->buf.buf_len);
                                 if (ret) {
                                         goto out;
                                 }
@@ -137,168 +146,6 @@ out:
 
 
 
-/*static int
-glusterd_xfer_stage_req (xlator_t *this, int32_t *lock_count)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        size_t                hdrlen = -1;
-        int                   ret = -1;
-        glusterd_conf_t       *priv = NULL;
-        call_frame_t          *dummy_frame = NULL;
-        glusterd_peerinfo_t   *peerinfo = NULL;
-        int                   pending_lock = 0;
-        int                   i = 0;
-
-        GF_ASSERT (this);
-        GF_ASSERT (lock_count);
-
-        priv = this->private;
-        GF_ASSERT (priv);
-
-
-        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
-                if (opinfo.pending_op[i])
-                        break;
-        }
-
-        if (GD_OP_MAX == i) {
-
-                //No pending ops, inject stage_acc
-
-                glusterd_op_sm_event_t  *event = NULL;
-
-                ret = glusterd_op_sm_new_event (GD_OP_EVENT_STAGE_ACC,
-                                                &event);
-
-                if (ret)
-                        goto out;
-
-                ret = glusterd_op_sm_inject_event (event);
-
-                return ret;
-        }
-
-
-        ret = glusterd_op_build_payload (i, &hdr, &hdrlen);
-
-        if (ret)
-                goto out;
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-
-        if (!dummy_frame)
-                goto out;
-
-        list_for_each_entry (peerinfo, &opinfo.op_peers, op_peers_list) {
-                GF_ASSERT (peerinfo);
-
-                GF_ASSERT (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED);
-
-
-                ret = glusterd_xfer (dummy_frame, this,
-                                     peerinfo->trans,
-                                     GF_OP_TYPE_MOP_REQUEST,
-                                     GF_MOP_STAGE_OP,
-                                     hdr, hdrlen, NULL, 0, NULL);
-                if (!ret)
-                        pending_lock++;
-        }
-
-        gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
-                                            pending_lock);
-        if (i < GD_OP_MAX)
-                opinfo.pending_op[i] = 0;
-
-        *lock_count = pending_lock;
-
-out:
-        if (hdr)
-                GF_FREE (hdr);
-
-        return ret;
-} */
-
-/*static int
-glusterd_xfer_commit_req (xlator_t *this, int32_t *lock_count)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        size_t                hdrlen = -1;
-        int                   ret = -1;
-        glusterd_conf_t       *priv = NULL;
-        call_frame_t          *dummy_frame = NULL;
-        glusterd_peerinfo_t   *peerinfo = NULL;
-        int                   pending_lock = 0;
-        int                   i = 0;
-
-        GF_ASSERT (this);
-        GF_ASSERT (lock_count);
-
-        priv = this->private;
-        GF_ASSERT (priv);
-
-
-        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
-                if (opinfo.commit_op[i])
-                        break;
-        }
-
-        if (GD_OP_MAX == i) {
-
-                //No pending ops, inject stage_acc
-
-                glusterd_op_sm_event_t  *event = NULL;
-
-                ret = glusterd_op_sm_new_event (GD_OP_EVENT_COMMIT_ACC,
-                                                &event);
-
-                if (ret)
-                        goto out;
-
-                ret = glusterd_op_sm_inject_event (event);
-
-                return ret;
-        }
-
-
-        ret = glusterd_op_build_payload (i, &hdr, &hdrlen);
-
-        if (ret)
-                goto out;
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-
-        if (!dummy_frame)
-                goto out;
-
-        list_for_each_entry (peerinfo, &opinfo.op_peers, op_peers_list) {
-                GF_ASSERT (peerinfo);
-
-                GF_ASSERT (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED);
-
-
-                ret = glusterd_xfer (dummy_frame, this,
-                                     peerinfo->trans,
-                                     GF_OP_TYPE_MOP_REQUEST,
-                                     GF_MOP_STAGE_OP,
-                                     hdr, hdrlen, NULL, 0, NULL);
-                if (!ret)
-                        pending_lock++;
-        }
-
-        gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
-                                            pending_lock);
-        if (i < GD_OP_MAX)
-                opinfo.pending_op[i] = 0;
-
-        *lock_count = pending_lock;
-
-out:
-        if (hdr)
-                GF_FREE (hdr);
-
-        return ret;
-}*/
-
 static int
 glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
 {
@@ -308,6 +155,10 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
         gf_boolean_t                            exists = _gf_false;
 
         GF_ASSERT (req);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
 
         ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
 
@@ -351,8 +202,14 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         xlator_t                                *this = NULL;
         char                                    *brick = NULL;
         int32_t                                 count = 0;
-        int32_t                                 i = 0;
-        char                                    key[50];
+        int32_t                                 i = 1;
+        //char                                    key[50] = {0,};
+        int32_t                                 sub_count = 0;
+        char                                    path[PATH_MAX] = {0,};
+        char                                    cmd_str[8192] = {0,};
+        char                                    *bricks    = NULL;
+        char                                    *brick_list = NULL;
+        char                                    *saveptr = NULL;
 
         GF_ASSERT (req);
 
@@ -361,6 +218,10 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
 
         priv = this->private;
         GF_ASSERT (priv);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
 
         ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
 
@@ -403,21 +264,80 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
 
         count = volinfo->brick_count;
 
+        ret = dict_get_str (dict, "bricks", &bricks);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                goto out;
+        }
+
+        if (bricks)
+                brick_list = gf_strdup (bricks);
+
+        if (count)
+                brick = strtok_r (brick_list+1, " \n", &saveptr);
+
         while ( i <= count) {
-                snprintf (key, 50, "brick%d", i);
-                ret = dict_get_str (dict, key, &brick);
-                if (ret)
-                        goto out;
 
                 ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
 
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
+                brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
         }
 
         ret = glusterd_ha_create_volume (volinfo);
+
+        if (ret)
+                goto out;
+
+
+        GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv);
+
+        switch (volinfo->type) {
+
+                case GF_CLUSTER_TYPE_REPLICATE:
+                {
+                        ret = dict_get_int32 (dict, "replica-count",
+                                              &sub_count);
+                        if (ret)
+                                goto out;
+                        snprintf (cmd_str, 8192,
+                                  "glusterfs-volgen -n %s -c %s -r 1 %s",
+                                   volname, path, bricks);
+                        ret = system (cmd_str);
+                        break;
+                }
+
+                case GF_CLUSTER_TYPE_STRIPE:
+                {
+                        ret = dict_get_int32 (dict, "stripe-count",
+                                              &sub_count);
+                        if (ret)
+                                goto out;
+                        snprintf (cmd_str, 8192,
+                                  "glusterfs-volgen -n %s -c %s -r 0 %s",
+                                  volname, path, bricks);
+                        ret = system (cmd_str);
+                        break;
+                }
+
+                case GF_CLUSTER_TYPE_NONE:
+                {
+                        snprintf (cmd_str, 8192,
+                                  "glusterfs-volgen -n %s -c %s %s",
+                                  volname, path, bricks);
+                        ret = system (cmd_str);
+                        break;
+                }
+
+                default:
+                        gf_log ("", GF_LOG_ERROR, "Unkown type: %d",
+                                volinfo->type);
+                        ret = -1;
+        }
 
 out:
         return ret;
@@ -447,9 +367,14 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         proc = &priv->mgmt->proctable[GD_MGMT_CLUSTER_LOCK];
         if (proc->fn) {
                 ret = proc->fn (NULL, this, NULL);
+                if (ret)
+                        goto out;
         }
-        // TODO: if pending_count = 0, inject ALL_ACC here
 
+        if (!opinfo.pending_count)
+                ret = glusterd_op_sm_inject_all_acc ();
+
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -466,12 +391,22 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         this = THIS;
         priv = this->private;
 
+        ret = glusterd_unlock (priv->uuid);
+
+        if (ret)
+                goto out;
+
         proc = &priv->mgmt->proctable[GD_MGMT_CLUSTER_UNLOCK];
         if (proc->fn) {
                 ret = proc->fn (NULL, this, NULL);
+                if (ret)
+                        goto out;
         }
-        // TODO: if pending_count = 0, inject ALL_ACC here
 
+        if (!opinfo.pending_count)
+                ret = glusterd_op_sm_inject_all_acc ();
+
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -568,9 +503,14 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         GF_ASSERT (proc);
         if (proc->fn) {
                 ret = proc->fn (NULL, this, NULL);
+                if (ret)
+                        goto out;
         }
-        // TODO: if pending_count = 0, inject ALL_ACC here
 
+        if (!opinfo.pending_count)
+                ret = glusterd_op_sm_inject_all_acc ();
+
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -595,9 +535,14 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         GF_ASSERT (proc);
         if (proc->fn) {
                 ret = proc->fn (NULL, this, NULL);
+                if (!ret)
+                        goto out;
         }
-        // TODO: if pending_count = 0, inject ALL_ACC here
 
+        if (!opinfo.pending_count)
+                ret = glusterd_op_sm_inject_all_acc ();
+
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -624,9 +569,9 @@ glusterd_op_ac_rcvd_stage_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_sm_inject_event (new_event);
 
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
-out:
         return ret;
 }
 
@@ -704,16 +649,12 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         stage_ctx = ctx;
 
-        req = stage_ctx->stage_req;
+        req = &stage_ctx->stage_req;
 
-        switch (req->op) {
-                case GD_OP_CREATE_VOLUME:
-                        status = glusterd_op_stage_create_volume (req);
-                        break;
+        status = glusterd_op_stage_validate (req);
 
-                default:
-                        gf_log ("", GF_LOG_ERROR, "Unknown op %d",
-                                req->op);
+        if (status) {
+                gf_log ("", GF_LOG_ERROR, "Validate failed: %d", status);
         }
 
         ret = glusterd_op_stage_send_resp (stage_ctx->req, req->op, status);
@@ -735,16 +676,12 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         commit_ctx = ctx;
 
-        req = commit_ctx->stage_req;
+        req = &commit_ctx->stage_req;
 
-        switch (req->op) {
-                case GD_OP_CREATE_VOLUME:
-                        ret = glusterd_op_create_volume (req);
-                        break;
+        status = glusterd_op_commit_perform (req);
 
-                default:
-                        gf_log ("", GF_LOG_ERROR, "Unknown op %d",
-                                req->op);
+        if (status) {
+                gf_log ("", GF_LOG_ERROR, "Commit failed: %d", status);
         }
 
         ret = glusterd_op_commit_send_resp (commit_ctx->req, req->op, status);
@@ -771,7 +708,50 @@ glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
         return 0;
 }
 
+int32_t
+glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req)
+{
+        int     ret = -1;
 
+        GF_ASSERT (req);
+
+        switch (req->op) {
+                case GD_OP_CREATE_VOLUME:
+                        ret = glusterd_op_stage_create_volume (req);
+                        break;
+
+                default:
+                        gf_log ("", GF_LOG_ERROR, "Unknown op %d",
+                                req->op);
+        }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
+int32_t
+glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req)
+{
+        int     ret = -1;
+
+        GF_ASSERT (req);
+
+        switch (req->op) {
+                case GD_OP_CREATE_VOLUME:
+                        ret = glusterd_op_create_volume (req);
+                        break;
+
+                default:
+                        gf_log ("", GF_LOG_ERROR, "Unknown op %d",
+                                req->op);
+        }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
 
 glusterd_op_sm_t glusterd_op_state_default [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_NONE
@@ -853,7 +833,7 @@ glusterd_op_sm_t glusterd_op_state_commit_op_sent [] = {
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_LOCK
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_rcvd_commit_op_acc}, //EVENT_RCVD_ACC
-        {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_commit_op}, //EVENT_ALL_ACC
+        {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_send_unlock}, //EVENT_ALL_ACC
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
         {GD_OP_STATE_UNLOCK_SENT,    glusterd_op_ac_send_unlock}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_commit_error}, //EVENT_RCVD_RJT
@@ -1004,6 +984,32 @@ glusterd_op_set_op (glusterd_op_t op)
         opinfo.op[op] = 1;
         opinfo.pending_op[op] = 1;
         opinfo.commit_op[op] = 1;
+
+        return 0;
+
+}
+
+int32_t
+glusterd_op_clear_pending_op (glusterd_op_t op)
+{
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        opinfo.pending_op[op] = 0;
+
+        return 0;
+
+}
+
+int32_t
+glusterd_op_clear_commit_op (glusterd_op_t op)
+{
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        opinfo.commit_op[op] = 0;
 
         return 0;
 

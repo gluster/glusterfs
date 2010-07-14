@@ -52,14 +52,19 @@
 int32_t
 glusterd_ha_create_volume (glusterd_volinfo_t *volinfo)
 {
-        char    pathname[PATH_MAX] = {0,};
-        int32_t ret = -1;
-        char    filepath[PATH_MAX] = {0,};
-        char    buf[4096] = {0,};
-        int     fd = -1;
+        char                    pathname[PATH_MAX] = {0,};
+        int32_t                 ret = -1;
+        char                    filepath[PATH_MAX] = {0,};
+        char                    buf[4096] = {0,};
+        int                     fd = -1;
+        glusterd_conf_t         *priv = NULL;
 
         GF_ASSERT (volinfo);
-        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR,
+        priv = THIS->private;
+
+        GF_ASSERT (priv);
+
+        snprintf (pathname, 1024, "%s/vols/%s", priv->workdir,
                   volinfo->volname);
 
         ret = mkdir (pathname, 0x777);

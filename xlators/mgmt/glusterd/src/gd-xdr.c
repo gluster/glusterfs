@@ -113,6 +113,49 @@ gd_xdr_to_mgmt_commit_op_req (struct iovec inmsg, void *args)
         return xdr_to_generic (inmsg, (void *)args,
                                (xdrproc_t)xdr_gd1_mgmt_commit_op_req);
 }
+
+ssize_t
+gd_xdr_to_mgmt_probe_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
+}
+
+ssize_t
+gd_xdr_to_mgmt_friend_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
+}
+
+ssize_t
+gd_xdr_to_mgmt_cluster_lock_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
+}
+
+ssize_t
+gd_xdr_to_mgmt_cluster_unlock_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
+}
+
+ssize_t
+gd_xdr_to_mgmt_stage_op_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_stage_op_rsp);
+}
+
+ssize_t
+gd_xdr_to_mgmt_commit_op_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
+}
+
 ssize_t
 gd_xdr_from_mgmt_probe_req (struct iovec outmsg, void *req)
 {

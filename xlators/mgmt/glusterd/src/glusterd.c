@@ -170,6 +170,7 @@ init (xlator_t *this)
         struct stat     buf = {0,};
         char            *port_str = NULL;
         int             port_num = 0;
+        char            voldir [PATH_MAX];
 
 
         dir_data = dict_get (this->options, "working-directory");
@@ -210,6 +211,15 @@ init (xlator_t *this)
         gf_log (this->name, GF_LOG_NORMAL, "Using %s as working directory",
                 dirname);
 
+        snprintf (voldir, PATH_MAX, "%s/vols", dirname);
+
+        ret = mkdir (voldir, 0644);
+
+        if (-1 == ret) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create volume directory %s"
+                        " ,errno = %d", voldir, errno);
+        }
 
         rpc = rpcsvc_init (this->ctx, this->options);
         if (rpc == NULL) {

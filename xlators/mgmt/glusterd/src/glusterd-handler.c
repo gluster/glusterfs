@@ -363,24 +363,19 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         char                            str[50];
-        gd1_mgmt_stage_op_req           *stage_req = NULL;
+        gd1_mgmt_stage_op_req           stage_req = {{0,}};
         glusterd_op_sm_event_t          *event = NULL;
         glusterd_op_stage_ctx_t         *ctx = NULL;
 
         GF_ASSERT (req);
 
-        stage_req = GF_CALLOC (1, sizeof (*stage_req),
-                               gf_gld_mt_mop_stage_req_t);
-
-        GF_ASSERT (stage_req);
-
-        if (!gd_xdr_to_mgmt_stage_op_req (req->msg[0], stage_req)) {
+        if (!gd_xdr_to_mgmt_stage_op_req (req->msg[0], &stage_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
 
-        uuid_unparse (stage_req->uuid, str);
+        uuid_unparse (stage_req.uuid, str);
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received stage op from uuid: %s", str);
 
@@ -399,7 +394,18 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         }
 
         //CHANGE THIS
-        ctx->stage_req = &stage_req;
+        uuid_copy (ctx->stage_req.uuid, stage_req.uuid);
+        ctx->stage_req.op = stage_req.op;
+        ctx->stage_req.buf.buf_len = stage_req.buf.buf_len;
+        ctx->stage_req.buf.buf_val = GF_CALLOC (1, stage_req.buf.buf_len,
+                                                gf_gld_mt_string);
+        if (!ctx->stage_req.buf.buf_val)
+                goto out;
+
+        memcpy (ctx->stage_req.buf.buf_val, stage_req.buf.buf_val,
+                stage_req.buf.buf_len);
+
+
         ctx->req   = req;
         event->ctx = ctx;
 
@@ -447,7 +453,16 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
 
         ctx->req = req;
         //CHANGE THIS
-        ctx->stage_req   = &commit_req;
+        uuid_copy (ctx->stage_req.uuid, commit_req.uuid);
+        ctx->stage_req.op = commit_req.op;
+        ctx->stage_req.buf.buf_len = commit_req.buf.buf_len;
+        ctx->stage_req.buf.buf_val = GF_CALLOC (1, commit_req.buf.buf_len,
+                                                gf_gld_mt_string);
+        if (!ctx->stage_req.buf.buf_val)
+                goto out;
+
+        memcpy (ctx->stage_req.buf.buf_val, commit_req.buf.buf_val,
+                commit_req.buf.buf_len);
         event->ctx = ctx;
 
         ret = glusterd_op_sm_inject_event (event);
@@ -1531,9 +1546,9 @@ glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
         char        *volname   = NULL;
         char        *bricks    = NULL;
         int          type      = 0;
-        int          sub_count = 2;
+        //int          sub_count = 2;
         int          count     = 0;
-        char         cmd_str[8192] = {0,};
+        //char         cmd_str[8192] = {0,};
 
         GF_ASSERT (req);
         GF_ASSERT (dict);
@@ -1558,38 +1573,38 @@ glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
         if (ret)
                 goto out;
 
-        switch (type) {
-        case GF_CLUSTER_TYPE_REPLICATE:
-        {
-                ret = dict_get_int32 (dict, "replica-count", &sub_count);
-                if (ret)
-                        goto out;
-                snprintf (cmd_str, 8192,
-                          "glusterfs-volgen -n %s -c /etc/glusterd -r 1 %s",
-                          volname, bricks);
-                ret = system (cmd_str);
-                break;
-        }
-        case GF_CLUSTER_TYPE_STRIPE:
-        {
-                ret = dict_get_int32 (dict, "stripe-count", &sub_count);
-                if (ret)
-                        goto out;
-                snprintf (cmd_str, 8192,
-                          "glusterfs-volgen -n %s -c /etc/glusterd -r 0 %s",
-                          volname, bricks);
-                ret = system (cmd_str);
-                break;
-        }
-        case GF_CLUSTER_TYPE_NONE:
-        {
-                snprintf (cmd_str, 8192,
-                          "glusterfs-volgen -n %s -c /etc/glusterd %s",
-                          volname, bricks);
-                ret = system (cmd_str);
-                break;
-        }
-        }
+        /*switch (type) {
+                case GF_CLUSTER_TYPE_REPLICATE:
+                {
+                        ret = dict_get_int32 (dict, "replica-count", &sub_count);
+                        if (ret)
+                                goto out;
+                        snprintf (cmd_str, 8192,
+                                  "glusterfs-volgen -n %s -c /etc/glusterd -r 1 %s",
+                                  volname, bricks);
+                        ret = system (cmd_str);
+                        break;
+                }
+                case GF_CLUSTER_TYPE_STRIPE:
+                {
+                        ret = dict_get_int32 (dict, "stripe-count", &sub_count);
+                        if (ret)
+                                goto out;
+                        snprintf (cmd_str, 8192,
+                                  "glusterfs-volgen -n %s -c /etc/glusterd -r 0 %s",
+                                  volname, bricks);
+                        ret = system (cmd_str);
+                        break;
+                }
+                case GF_CLUSTER_TYPE_NONE:
+                {
+                        snprintf (cmd_str, 8192,
+                                  "glusterfs-volgen -n %s -c /etc/glusterd %s",
+                                  volname, bricks);
+                        ret = system (cmd_str);
+                        break;
+                }
+        } */
 
         ret = glusterd_op_txn_begin ();
 
@@ -1698,7 +1713,7 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
 
-                default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
+                //default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
                 break;
 
         default:
