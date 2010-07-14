@@ -27,6 +27,7 @@
 #ifndef _DHT_H
 #define _DHT_H
 
+#define GF_XATTR_FIX_LAYOUT_KEY   "trusted.distribute.fix.layout"
 #define GF_DHT_LOOKUP_UNHASHED_ON   1
 #define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 
@@ -116,6 +117,10 @@ struct dht_local {
 	int32_t flags;
 	mode_t  mode;
 	dev_t   rdev;
+
+        /* need for file-info */
+        char   *pathinfo;
+        char   *key;
 };
 typedef struct dht_local dht_local_t;
 

@@ -1410,6 +1410,127 @@ err:
 
 
 int
+dht_fix_layout_cbk (call_frame_t *frame, void *cookie,
+                    xlator_t *this, int32_t op_ret, int32_t op_errno)
+{
+        DHT_STACK_UNWIND (getxattr, frame, -1, ENODATA, NULL);
+
+        return 0;
+}
+
+static void
+fill_layout_info (dht_layout_t *layout, char *buf)
+{
+        int i = 0;
+        char tmp_buf[128] = {0,};
+
+        for (i = 0; i < layout->cnt; i++) {
+                snprintf (tmp_buf, 128, "(%s %u %u)",
+                          layout->list[i].xlator->name,
+                          layout->list[i].start,
+                          layout->list[i].stop);
+                if (i)
+                        strcat (buf, " ");
+                strcat (buf, tmp_buf);
+        }
+}
+
+int
+dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int op_ret, int op_errno, dict_t *xattr)
+{
+	dht_local_t  *local = NULL;
+        int ret = 0;
+        int flag = 0;
+        int this_call_cnt = 0;
+        char *value_got = NULL;
+        char  layout_buf[8192] = {0,};
+        char  xattr_buf[8192 + 1024] = {0,};
+        dict_t *dict = NULL;
+
+        local = frame->local;
+
+        if (op_ret != -1) {
+                ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &value_got);
+                if (!ret) {
+                        if (!local->pathinfo)
+                                local->pathinfo = GF_CALLOC (8192, sizeof (char),
+                                                             gf_common_mt_char);
+                        if (local->pathinfo)
+                                strcat (local->pathinfo, value_got);
+                }
+        }
+
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt)) {
+                if (local->layout->cnt > 1) {
+                        /* Set it for directory */
+                        fill_layout_info (local->layout, layout_buf);
+                        flag = 1;
+                }
+
+                dict = dict_new ();
+
+                if (flag && local->pathinfo)
+                        snprintf (xattr_buf, 9216, "((%s %s) (%s-layout %s))",
+                                  this->name, local->pathinfo, this->name,
+                                  layout_buf);
+                else if (local->pathinfo)
+                        snprintf (xattr_buf, 9216, "(%s %s)",
+                                  this->name, local->pathinfo);
+                else if (flag)
+                        snprintf (xattr_buf, 9216, "(%s-layout %s)",
+                                  this->name, layout_buf);
+
+                ret = dict_set_str (dict, GF_XATTR_PATHINFO_KEY,
+                                    xattr_buf);
+
+                if (local->pathinfo)
+                        GF_FREE (local->pathinfo);
+                GF_FREE (local->key);
+
+                DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
+
+                if (dict)
+                        dict_unref (dict);
+
+                return 0;
+        }
+
+        if (local->pathinfo)
+                strcat (local->pathinfo, " Link: ");
+
+        /* This will happen if there pending */
+        STACK_WIND (frame, dht_pathinfo_getxattr_cbk, local->hashed_subvol,
+                    local->hashed_subvol->fops->getxattr,
+                    &local->loc, local->key);
+
+        return 0;
+}
+
+int
+dht_linkinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                           int op_ret, int op_errno, dict_t *xattr)
+{
+        int   ret   = 0;
+        char *value = NULL;
+
+        if (op_ret != -1) {
+                ret = dict_get_str (xattr, GF_XATTR_PATHINFO_KEY, &value);
+                if (!ret) {
+                        ret = dict_set_str (xattr, GF_XATTR_LINKINFO_KEY, value);
+                        if (!ret)
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "failed to set linkinfo");
+                }
+        }
+
+        DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr);
+
+        return 0;
+}
+
+int
 dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, dict_t *xattr)
 {
@@ -1429,9 +1550,14 @@ int
 dht_getxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, const char *key)
 {
-	xlator_t     *subvol = NULL;
-        int           op_errno = -1;
-
+	xlator_t     *subvol        = NULL;
+	xlator_t     *hashed_subvol = NULL;
+	xlator_t     *cached_subvol = NULL;
+	dht_conf_t   *conf          = NULL;
+	dht_local_t  *local         = NULL;
+        dht_layout_t *layout        = NULL;
+        int           op_errno      = -1;
+        int           ret           = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1439,6 +1565,91 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
+        conf   = this->private;
+        layout = dht_layout_get (this, loc->inode);
+        if (key && (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)) {
+                hashed_subvol = dht_subvol_get_hashed (this, loc);
+                cached_subvol = dht_subvol_get_cached (this, loc->inode);
+
+                local = dht_local_init (frame);
+                if (!local) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        goto err;
+                }
+
+                ret = loc_dup (loc, &local->loc);
+                if (ret == -1) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        goto err;
+                }
+                local->key = gf_strdup (key);
+                if (!local->key) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        goto err;
+                }
+                local->layout = layout;
+
+                local->call_cnt = 1;
+                if (hashed_subvol != cached_subvol) {
+                        local->call_cnt = 2;
+                        local->hashed_subvol = hashed_subvol;
+                }
+
+                STACK_WIND (frame, dht_pathinfo_getxattr_cbk, cached_subvol,
+                            cached_subvol->fops->getxattr, loc, key);
+
+                return 0;
+        }
+        if (key && (strcmp (key, GF_XATTR_LINKINFO_KEY) == 0)) {
+                hashed_subvol = dht_subvol_get_hashed (this, loc);
+                cached_subvol = dht_subvol_get_cached (this, loc->inode);
+                if (hashed_subvol == cached_subvol) {
+                        op_errno = ENODATA;
+                        goto err;
+                }
+                if (hashed_subvol) {
+                        STACK_WIND (frame, dht_linkinfo_getxattr_cbk, hashed_subvol,
+                                    hashed_subvol->fops->getxattr, loc,
+                                    GF_XATTR_PATHINFO_KEY);
+                        return 0;
+                }
+                op_errno = ENODATA;
+                goto err;
+        }
+        if (key && (strcmp (key, GF_XATTR_FIX_LAYOUT_KEY) == 0)) {
+                if (layout->cnt < conf->subvolume_cnt) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "expanding layout of %s from %d to %d",
+                                loc->path, layout->cnt, conf->subvolume_cnt);
+                        local = dht_local_init (frame);
+                        if (!local) {
+                                op_errno = ENOMEM;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Out of memory");
+                                goto err;
+                        }
+
+                        ret = loc_dup (loc, &local->loc);
+                        if (ret == -1) {
+                                op_errno = ENOMEM;
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Out of memory");
+                                goto err;
+                        }
+                        local->layout = layout;
+                        dht_selfheal_new_directory (frame, dht_fix_layout_cbk,
+                                                    layout);
+                        return 0;
+                }
+                op_errno = ENODATA;
+                goto err;
+        }
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_DEBUG,

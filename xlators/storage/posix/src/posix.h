@@ -73,7 +73,7 @@ struct posix_private {
 
         gf_lock_t lock;
 
-        char   hostname[256];
+        char   *hostname;
         /* Statistics, provides activity of the server */
 
 	struct timeval prev_fetch_time;

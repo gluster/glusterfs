@@ -270,6 +270,7 @@ class CreateVolfile:
             exp_fd.write ("#   option background-unlink yes # (default: no) boolean type\n")
 
             exp_fd.write ("    option directory %s\n" % export)
+            exp_fd.write ("    option hostname %s\n" % host)
             exp_fd.write ("end-volume\n\n")
 
             if self.nfs:
