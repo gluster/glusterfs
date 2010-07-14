@@ -1375,9 +1375,21 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 /* TODO: check return value */
                                 ret = dict_set_int64 (dict, size_key,
                                                       local->stripe_size);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: set stripe-size failed",
+                                                local->loc.path);
                                 ret = dict_set_int32 (dict, count_key,
                                                       priv->child_count);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: set child_count failed",
+                                                local->loc.path);
                                 ret = dict_set_int32 (dict, index_key, i);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: set stripe-index failed",
+                                                local->loc.path);
 
                                 STACK_WIND (frame,
                                             stripe_mknod_ifreg_setxattr_cbk,
@@ -1984,9 +1996,23 @@ stripe_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 /* TODO: check return values */
                                 ret = dict_set_int64 (dict, size_key,
                                                       local->stripe_size);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: set stripe-size failed",
+                                                local->loc.path);
+
                                 ret = dict_set_int32 (dict, count_key,
                                                       priv->child_count);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: set stripe-size failed",
+                                                local->loc.path);
+
                                 ret = dict_set_int32 (dict, index_key, i);
+                                if (ret)
+                                        gf_log (this->name, GF_LOG_ERROR,
+                                                "%s: set stripe-size failed",
+                                                local->loc.path);
 
                                 STACK_WIND (frame, stripe_create_setxattr_cbk,
                                             priv->xl_array[i],
@@ -3283,15 +3309,12 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
         stripe_local_t   *local = NULL;
         call_frame_t     *rframe = NULL;
         stripe_local_t   *rlocal = NULL;
-        xlator_list_t    *trav = NULL;
         stripe_fd_ctx_t  *fctx = NULL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
-
-        trav = this->children;
 
         fd_ctx_get (fd, this, &tmp_fctx);
         if (!tmp_fctx) {
@@ -3422,10 +3445,8 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                struct iovec *vector, int32_t count, off_t offset,
                struct iobref *iobref)
 {
-        struct iovec     *tmp_vec = vector;
-        stripe_private_t *priv = NULL;
+        struct iovec     *tmp_vec = NULL;
         stripe_local_t   *local = NULL;
-        xlator_list_t    *trav = NULL;
         stripe_fd_ctx_t  *fctx = NULL;
         int32_t           op_errno = 1;
         int32_t           idx = 0;
@@ -3442,8 +3463,6 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         VALIDATE_OR_GOTO (fd, err);
         VALIDATE_OR_GOTO (fd->inode, err);
 
-        priv = this->private;
-
         fd_ctx_get (fd, this, &tmp_fctx);
         if (!tmp_fctx) {
                 op_errno = EINVAL;
@@ -3454,7 +3473,7 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         /* File has to be stripped across the child nodes */
         for (idx = 0; idx< count; idx ++) {
-                total_size += tmp_vec[idx].iov_len;
+                total_size += vector[idx].iov_len;
         }
         remaining_size = total_size;
 
@@ -3470,8 +3489,6 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         while (1) {
                 /* Send striped chunk of the vector to child
                    nodes appropriately. */
-                trav = this->children;
-
                 idx = (((offset + offset_offset) /
                         local->stripe_size) % fctx->stripe_count);
 
