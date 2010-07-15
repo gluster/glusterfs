@@ -35,7 +35,6 @@
 
 #include "byte-order.h"
 #include "iatt.h"
-#include <uuid/uuid.h>
 
 /* Any changes in the protocol structure or adding new '[f,m]ops' needs to 
  * bump the protocol version by "0.1" 
@@ -1034,38 +1033,6 @@ typedef struct {
 	uint64_t ino_array[0];
 } __attribute__((packed)) gf_cbk_forget_req_t;
 typedef struct { } __attribute__((packed)) gf_cbk_forget_rsp_t;
-
-
-
-typedef struct {
-        char    volname[0];
-        char    exportpath[0];
-} __attribute__((packed)) gf_mop_create_volume_t;
-typedef struct {
-} __attribute__ ((packed))gf_mop_create_volume_rsp_t;
-
-typedef struct {
-        uuid_t  uuid;
-} __attribute__((packed)) gf_mop_cluster_lock_req_t;
-typedef struct {
-        uuid_t  uuid;
-} __attribute__ ((packed))gf_mop_cluster_lock_rsp_t;
-
-typedef gf_mop_cluster_lock_req_t gf_mop_cluster_unlock_req_t;
-typedef gf_mop_cluster_lock_rsp_t gf_mop_cluster_unlock_rsp_t;
-
-typedef struct {
-        uuid_t  uuid;
-        int32_t op;
-        int32_t len;
-        char    buf[0];    
-} __attribute__((packed)) gf_mop_stage_req_t;
-typedef struct {
-        uuid_t  uuid;
-        int32_t op;
-} __attribute__ ((packed))gf_mop_stage_rsp_t;
-
-typedef gf_mop_stage_rsp_t gf_mop_commit_rsp_t;
 
 typedef struct {
 	uint32_t pid;
