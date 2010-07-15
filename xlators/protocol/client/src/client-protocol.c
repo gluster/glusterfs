@@ -1020,6 +1020,13 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         uint64_t            gen = 0;
         client_local_t     *local = NULL;
 
+        if (loc->ino == 1) { /*Fail mkdir for root dir */
+                 gf_log (this->name, GF_LOG_ERROR,
+                         "MKDIR %"PRId64"/%s (%s): Failing mkdir call on "
+                          "root", loc->ino, loc->name, loc->path);
+                 goto unwind;
+        }
+
         local = calloc (1, sizeof (*local));
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
