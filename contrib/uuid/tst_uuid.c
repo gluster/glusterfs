@@ -41,7 +41,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <uuid/uuid.h>
+#include "uuid.h"
 
 static int test_uuid(const char * uuid, int isValid)
 {
