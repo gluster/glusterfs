@@ -833,6 +833,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         size_t             pathlen = 0;
         ino_t              ino = 0;
         ino_t              gen = 0;
+        int32_t            op_errno = EINVAL;
 
         pathlen = STRLEN_0 (loc->path);
 
@@ -842,6 +843,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                         "STAT %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                op_errno = ENOENT;
                 goto unwind;
         }
 
@@ -864,7 +866,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL);
         return 0;
 
 }
@@ -1362,6 +1364,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         ino_t              newpar = 0;
         uint64_t           newgen = 0;
         client_local_t    *local = NULL;
+        int32_t            op_errno = EINVAL;
 
         local = calloc (1, sizeof (*local));
         GF_VALIDATE_OR_GOTO (this->name, local, unwind);
@@ -1381,6 +1384,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                         "failed to get remote inode number for source inode",
                         newloc->parent->ino, newloc->name, newloc->path,
                         oldloc->ino, oldloc->path);
+                op_errno = ENOENT;
                 goto unwind;
         }
 
@@ -1417,7 +1421,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 unwind:
         if (hdr)
                 free (hdr);
-        STACK_UNWIND (frame, -1, EINVAL, oldloc->inode, NULL);
+        STACK_UNWIND (frame, -1, op_errno, oldloc->inode, NULL);
         return 0;
 }
 
@@ -3347,6 +3351,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
                                 "LOOKUP %"PRId64"/%s (%s): failed to get "
                                 "remote inode number for parent",
                                 loc->parent->ino, loc->name, loc->path);
+                        op_errno = ENOENT;
                         goto unwind;
                 }
                 GF_VALIDATE_OR_GOTO (this->name, loc->name, unwind);
@@ -3561,6 +3566,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         ino_t                 ino = 0;
         uint64_t              gen = 0;
         int                   ret = -1;
+        int32_t               op_errno = EINVAL;
 
         GF_VALIDATE_OR_GOTO ("client", this, unwind);
         GF_VALIDATE_OR_GOTO (this->name, frame, unwind);
@@ -3573,6 +3579,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                         "SETATTR %"PRId64" (%s): "
                         "failed to get remote inode number",
                         loc->inode->ino, loc->path);
+                op_errno = ENOENT;
                 goto unwind;
         }
 
@@ -3596,7 +3603,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         return ret;
 unwind:
-        STACK_UNWIND (frame, -1, EINVAL, NULL);
+        STACK_UNWIND (frame, -1, op_errno, NULL);
         return 0;
 }
 
