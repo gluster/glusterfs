@@ -27,7 +27,7 @@
 #include <sys/resource.h>
 
 #include <libgen.h>
-#include <uuid/uuid.h>
+#include "uuid.h"
 
 #include "fnmatch.h"
 #include "xlator.h"

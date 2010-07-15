@@ -26,7 +26,7 @@
 #endif
 
 #include <pthread.h>
-#include <uuid/uuid.h>
+#include "uuid.h"
 
 #include "glusterfs.h"
 #include "xlator.h"
