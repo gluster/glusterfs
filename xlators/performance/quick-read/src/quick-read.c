@@ -2347,7 +2347,7 @@ qr_priv_dump (xlator_t *this)
         uint32_t        file_count = 0;
         uint32_t        i = 0;
         qr_inode_t     *curr = NULL;
-        
+        uint64_t       total_size = 0;
 
         if (!this)
                 return -1;
@@ -2383,12 +2383,15 @@ qr_priv_dump (xlator_t *this)
                 for (i = 0; i < conf->max_pri; i++) {
                         list_for_each_entry (curr, &table->lru[i], lru) {
                                 file_count++;
+                                total_size += curr->stbuf.ia_size;
                         }
                 }
         }
 
         gf_proc_dump_build_key (key, key_prefix, "total_files_cached");
         gf_proc_dump_write (key, "%d", file_count);
+        gf_proc_dump_build_key (key, key_prefix, "total_cache_used");
+        gf_proc_dump_write (key, "%d", total_size);
 
 out:
         return 0;
