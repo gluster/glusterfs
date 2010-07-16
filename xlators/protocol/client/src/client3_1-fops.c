@@ -1949,6 +1949,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        rsp.op_errno = op_errno;
         frame->local = NULL;
         STACK_UNWIND_STRICT (lookup, frame, rsp.op_ret, rsp.op_errno, inode,
                              &stbuf, xattr, &postparent);
@@ -2961,6 +2962,7 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
                         "RENAME %"PRId64"/%s (%s): failed to get remote inode "
                         "number for source parent", args->oldloc->parent->ino,
                         args->oldloc->name, args->oldloc->path);
+                        op_errno = ENOENT;
                         goto unwind;
         }
 
@@ -4558,6 +4560,7 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
                         "STAT %"PRId64" (%s): "
                         "failed to get remote inode number",
                         args->loc->inode->ino, args->loc->path);
+                        op_errno = ENOENT;
                         goto unwind;
         }
         req.path = (char *)args->loc->path;
