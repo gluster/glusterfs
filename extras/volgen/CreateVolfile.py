@@ -17,8 +17,6 @@
 
 import os, sys, string
 
-num_replica = 2
-num_stripe = 4
 #Cachesize calculator
 cache_size = "`echo $(( $(grep 'MemTotal' /proc/meminfo | sed 's/[^0-9]//g') / 5120 ))`"
 
@@ -43,6 +41,8 @@ class CreateVolfile:
         self.volume_size_server = options.size_server
         self.volume_size_client = options.size_client
         self.nfs = options.need_nfs
+        self.num_replica = options.num_replica
+        self.num_stripe = options.num_stripe
 
     def create_mount_volfile (self):
 
@@ -76,11 +76,11 @@ class CreateVolfile:
                 if self.transport == 'ib-verbs':
                     mount_fd.write ("    option transport.ib-verbs.port %d\n" %
                                     self.ib_devport)
-                    mount_fd.write ("    option transport.remote-port %d\n" %
+                    mount_fd.write ("    option remote-port %d\n" %
                                     self.gfs_ib_port)
                 if self.transport == 'tcp':
                     mount_fd.write ("    option transport.socket.nodelay on\n")
-                    mount_fd.write ("    option transport.remote-port %d\n" %
+                    mount_fd.write ("    option remote-port %d\n" %
                                     self.gfs_port)
 
                 mount_fd.write ("    option remote-subvolume brick%s\n" %
@@ -99,7 +99,7 @@ class CreateVolfile:
 
         # Stripe section.. if given
         if raid_type is 0:
-            max_stripe_idx = len (subvolumes) / num_stripe
+            max_stripe_idx = len (subvolumes) / self.num_stripe
             stripe_idx = 0
             index = 0
             while index < max_stripe_idx:
@@ -107,29 +107,30 @@ class CreateVolfile:
                 mount_fd.write ("    type cluster/stripe\n")
                 mount_fd.write ("#    option block-size 128k\n")
                 mount_fd.write ("#    option use-xattr no\n")
-
-                mount_fd.write ("    subvolumes %s %s %s %s\n" %
-                                (subvolumes[stripe_idx],
-                                 subvolumes[stripe_idx+1],
-                                 subvolumes[stripe_idx+2],
-                                 subvolumes[stripe_idx+3]))
-                mount_fd.write ("end-volume\n\n")
-                stripe_idx += 4
+                mount_fd.write ("    subvolumes %s" % subvolumes[stripe_idx])
+                sub_idx = 1
+                while sub_idx < self.num_stripe:
+                    mount_fd.write (" %s" % subvolumes[stripe_idx+sub_idx])
+                    sub_idx += 1
+                mount_fd.write ("\nend-volume\n\n")
+                stripe_idx += self.num_stripe
                 index +=1
 
         # Replicate section
         if raid_type is 1:
-            max_mirror_idx = len (subvolumes) / num_replica
+            max_mirror_idx = len (subvolumes) / self.num_replica
             mirror_idx = 0
             index = 0
             while index < max_mirror_idx:
                 mount_fd.write ("volume mirror-%d\n" % index)
                 mount_fd.write ("    type cluster/replicate\n")
-                mount_fd.write ("    subvolumes %s %s\n" %
-                                (subvolumes[mirror_idx],
-                                 subvolumes[mirror_idx+1]))
-                mount_fd.write ("end-volume\n\n")
-                mirror_idx += 2
+                mount_fd.write ("    subvolumes %s" % subvolumes[mirror_idx])
+                sub_idx = 1
+                while sub_idx < self.num_replica:
+                    mount_fd.write (" %s" % subvolumes[mirror_idx + sub_idx])
+                    sub_idx += 1
+                mount_fd.write ("\nend-volume\n\n")
+                mirror_idx += self.num_replica
                 index += 1
 
         # Distribute section
@@ -270,7 +271,6 @@ class CreateVolfile:
             exp_fd.write ("#   option background-unlink yes # (default: no) boolean type\n")
 
             exp_fd.write ("    option directory %s\n" % export)
-            exp_fd.write ("    option hostname %s\n" % host)
             exp_fd.write ("end-volume\n\n")
 
             if self.nfs:
