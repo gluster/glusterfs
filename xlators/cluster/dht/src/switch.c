@@ -895,11 +895,13 @@ init (xlator_t *this)
                 goto err;
         }
 
-	conf->search_unhashed =  GF_DHT_LOOKUP_UNHASHED_AUTO;
+        conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
 	if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
                 /* If option is not "auto", other options _should_ be boolean */
                 if (strcasecmp (temp_str, "auto"))
                         gf_string2boolean (temp_str, &conf->search_unhashed);
+                else
+                        conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
 	}
 
 	conf->unhashed_sticky_bit = 0;
