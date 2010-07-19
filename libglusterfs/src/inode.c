@@ -313,9 +313,6 @@ __inode_passivate (inode_t *inode)
 {
         dentry_t      *dentry = NULL;
         dentry_t      *t = NULL;
-        inode_table_t *table = NULL;
-
-        table = inode->table;
 
         list_move_tail (&inode->list, &inode->table->lru);
         inode->table->lru_size++;
@@ -332,9 +329,6 @@ __inode_retire (inode_t *inode)
 {
         dentry_t      *dentry = NULL;
         dentry_t      *t = NULL;
-        inode_table_t *table = NULL;
-
-        table = inode->table;
 
         list_move_tail (&inode->list, &inode->table->purge);
         inode->table->purge_size++;
@@ -1138,7 +1132,7 @@ inode_from_path (inode_table_t *itable, const char *path)
                 curr = inode_grep (itable, parent, component);
 
                 if (curr == NULL) {
-                        component = strtok_r (NULL, "/", &strtokptr);
+                        strtok_r (NULL, "/", &strtokptr);
                         break;
                 }
 
