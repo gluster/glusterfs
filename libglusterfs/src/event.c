@@ -351,7 +351,6 @@ event_dispatch_poll_handler (struct event_pool *event_pool,
 
 	handler = NULL;
 	data    = NULL;
-	idx     = -1;
 
 	pthread_mutex_lock (&event_pool->mutex);
 	{
@@ -785,7 +784,6 @@ event_dispatch_epoll_handler (struct event_pool *event_pool,
 	event_data = (void *)&events[i].data;
 	handler = NULL;
 	data = NULL;
-	idx = -1;
 
 	pthread_mutex_lock (&event_pool->mutex);
 	{
