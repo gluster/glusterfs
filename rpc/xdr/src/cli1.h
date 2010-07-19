@@ -181,4 +181,16 @@ gf_xdr_to_cli_set_vol_rsp (struct iovec inmsg, void *args);
 ssize_t
 gf_xdr_from_cli_set_vol_req (struct iovec outmsg, void *req);
 
+ssize_t
+gf_xdr_serialize_cli_get_vol_rsp (struct iovec outmsg, void *rsp);
+
+ssize_t
+gf_xdr_to_cli_get_vol_req (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_to_cli_get_vol_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_from_cli_get_vol_req (struct iovec outmsg, void *req);
+
 #endif /* !_CLI1_H */

@@ -84,6 +84,7 @@ enum gf_mgmt_procnum {
         GD_MGMT_STAGE_OP,
         GD_MGMT_COMMIT_OP,
         GD_MGMT_FRIEND_REMOVE,
+        GD_MGMT_FRIEND_UPDATE,
         GD_MGMT_CLI_PROBE,
         GD_MGMT_CLI_DEPROBE,
         GD_MGMT_CLI_LIST_FRIENDS,

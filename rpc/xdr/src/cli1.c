@@ -107,6 +107,35 @@ gf_xdr_from_cli_peer_list_req (struct iovec outmsg, void *req)
         return xdr_serialize_generic (outmsg, (void *)req,
                                       (xdrproc_t)xdr_gf1_cli_peer_list_req);
 }
+
+ssize_t
+gf_xdr_serialize_cli_get_vol_rsp (struct iovec outmsg, void *rsp)
+{
+        return xdr_serialize_generic (outmsg, (void *)rsp,
+                                      (xdrproc_t)xdr_gf1_cli_get_vol_rsp);
+
+}
+
+ssize_t
+gf_xdr_to_cli_get_vol_req (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_get_vol_req);
+}
+
+ssize_t
+gf_xdr_to_cli_get_vol_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_get_vol_rsp);
+}
+
+ssize_t
+gf_xdr_from_cli_get_vol_req (struct iovec outmsg, void *req)
+{
+        return xdr_serialize_generic (outmsg, (void *)req,
+                                      (xdrproc_t)xdr_gf1_cli_get_vol_req);
+}
 ssize_t
 gf_xdr_serialize_cli_create_vol_rsp (struct iovec outmsg, void *rsp)
 {

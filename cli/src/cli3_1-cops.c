@@ -127,6 +127,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 
                 if (!rsp.friends.friends_len) {
                         cli_out ("No peers present");
+                        ret = 0;
                         goto out;
                 }
 
@@ -193,7 +194,113 @@ out:
         return ret;
 }
 
+int
+gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+        gf1_cli_get_vol_rsp        rsp   = {0,};
+        int                        ret   = 0;
+        dict_t                     *dict = NULL;
+        char                       *volname = NULL;
+        int32_t                    i = 1;
+        char                       key[256] = {0,};
+        int32_t                    status = 0;
+        int32_t                    type = 0;
+        int32_t                    brick_count = 0;
 
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_get_vol_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                //rsp.op_ret   = -1;
+                //rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+
+        gf_log ("cli", GF_LOG_NORMAL, "Received resp to get vol: %d",
+                rsp.op_ret);
+
+        if (!rsp.op_ret) {
+
+                if (!rsp.volumes.volumes_len) {
+                        cli_out ("No volumes present");
+                        ret = 0;
+                        goto out;
+                }
+
+                dict = dict_new ();
+
+                if (!dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (rsp.volumes.volumes_val,
+                                        rsp.volumes.volumes_len,
+                                        &dict);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                        "Unable to allocate memory");
+                        goto out;
+                }
+
+                ret = dict_get_int32 (dict, "count", &count);
+
+                if (ret) {
+                        goto out;
+                }
+
+                cli_out ("Number of Volumes: %d", count);
+
+                while ( i <= count) {
+                        snprintf (key, 256, "volume%d.name", i);
+                        ret = dict_get_str (dict, key, &volname);
+                        if (ret)
+                                goto out;
+
+                        snprintf (key, 256, "volume%d.type", i);
+                        ret = dict_get_int32 (dict, key, &type);
+                        if (ret)
+                                goto out;
+
+                        snprintf (key, 256, "volume%d.status", i);
+                        ret = dict_get_int32 (dict, key, &status);
+                        if (ret)
+                                goto out;
+
+                        snprintf (key, 256, "volume%d.brick_count", i);
+                        ret = dict_get_int32 (dict, key, &brick_count);
+                        if (ret)
+                                goto out;
+
+                        cli_out ("Volume Name:%s, type:%d, status:%d,"
+                                  "brick_count: %d\n",
+                                  volname, type, status, brick_count);
+                        i++;
+                }
+        } else {
+                ret = -1;
+                goto out;
+        }
+
+
+        ret = 0;
+
+out:
+        cli_cmd_broadcast_response ();
+        if (ret)
+                cli_out ("Command Execution Failed\n");
+
+        if (dict)
+                dict_destroy (dict);
+
+        return ret;
+}
 int
 gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
@@ -561,6 +668,32 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
+                        void *data)
+{
+        gf1_cli_get_vol_req     req = {0,};
+        int                     ret = 0;
+
+        if (!frame || !this) {
+                ret = -1;
+                goto out;
+        }
+
+        req.flags = GF_CLI_GET_VOLUME_ALL;
+
+        ret = cli_submit_request (&req, frame, cli_rpc_prog,
+                                   GD_MGMT_CLI_GET_VOLUME, NULL,
+                                   gf_xdr_from_cli_get_vol_req,
+                                   this, gf_cli3_1_get_volume_cbk);
+
+        if (!ret) {
+                ret = cli_cmd_await_response ();
+        }
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 int32_t
 gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
@@ -974,13 +1107,14 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
         [GF1_CLI_PROBE]  = { "PROBE_QUERY",  gf_cli3_1_probe},
         [GF1_CLI_DEPROBE]  = { "DEPROBE_QUERY",  gf_cli3_1_deprobe},
-        [GF1_CLI_LIST_FRIENDS]  = { "DEPROBE_QUERY",  gf_cli3_1_list_friends},
+        [GF1_CLI_LIST_FRIENDS]  = { "LIST_FRIENDS",  gf_cli3_1_list_friends},
         [GF1_CLI_CREATE_VOLUME] = {"CREATE_VOLUME", gf_cli3_1_create_volume},
         [GF1_CLI_DELETE_VOLUME] = {"DELETE_VOLUME", gf_cli3_1_delete_volume},
         [GF1_CLI_START_VOLUME] = {"START_VOLUME", gf_cli3_1_start_volume},
         [GF1_CLI_STOP_VOLUME] = {"STOP_VOLUME", gf_cli3_1_stop_volume},
         [GF1_CLI_RENAME_VOLUME] = {"RENAME_VOLUME", gf_cli3_1_rename_volume},
         [GF1_CLI_DEFRAG_VOLUME] = {"DEFRAG_VOLUME", gf_cli3_1_defrag_volume},
+        [GF1_CLI_GET_VOLUME] = {"GET_VOLUME", gf_cli3_1_get_volume},
         [GF1_CLI_SET_VOLUME] = {"SET_VOLUME", gf_cli3_1_set_volume},
         [GF1_CLI_ADD_BRICK] = {"ADD_BRICK", gf_cli3_1_add_brick},
         [GF1_CLI_REMOVE_BRICK] = {"REMOVE_BRICK", gf_cli3_1_remove_brick},

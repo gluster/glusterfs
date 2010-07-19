@@ -14,6 +14,13 @@ extern "C" {
 #endif
 
 
+enum glusterd_volume_status {
+	GLUSTERD_STATUS_NONE = 0,
+	GLUSTERD_STATUS_STARTED = 0 + 1,
+	GLUSTERD_STATUS_STOPPED = 0 + 2,
+};
+typedef enum glusterd_volume_status glusterd_volume_status;
+
 struct gd1_mgmt_probe_req {
 	u_char uuid[16];
 	char *hostname;
@@ -114,9 +121,17 @@ struct gd1_mgmt_commit_op_rsp {
 };
 typedef struct gd1_mgmt_commit_op_rsp gd1_mgmt_commit_op_rsp;
 
+struct gd1_mgmt_friend_update {
+	u_char uuid[16];
+	u_char friend_uuid[16];
+	char *hostname;
+};
+typedef struct gd1_mgmt_friend_update gd1_mgmt_friend_update;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
+extern  bool_t xdr_glusterd_volume_status (XDR *, glusterd_volume_status*);
 extern  bool_t xdr_gd1_mgmt_probe_req (XDR *, gd1_mgmt_probe_req*);
 extern  bool_t xdr_gd1_mgmt_probe_rsp (XDR *, gd1_mgmt_probe_rsp*);
 extern  bool_t xdr_gd1_mgmt_friend_req (XDR *, gd1_mgmt_friend_req*);
@@ -131,8 +146,10 @@ extern  bool_t xdr_gd1_mgmt_stage_op_req (XDR *, gd1_mgmt_stage_op_req*);
 extern  bool_t xdr_gd1_mgmt_stage_op_rsp (XDR *, gd1_mgmt_stage_op_rsp*);
 extern  bool_t xdr_gd1_mgmt_commit_op_req (XDR *, gd1_mgmt_commit_op_req*);
 extern  bool_t xdr_gd1_mgmt_commit_op_rsp (XDR *, gd1_mgmt_commit_op_rsp*);
+extern  bool_t xdr_gd1_mgmt_friend_update (XDR *, gd1_mgmt_friend_update*);
 
 #else /* K&R C */
+extern bool_t xdr_glusterd_volume_status ();
 extern bool_t xdr_gd1_mgmt_probe_req ();
 extern bool_t xdr_gd1_mgmt_probe_rsp ();
 extern bool_t xdr_gd1_mgmt_friend_req ();
@@ -147,6 +164,7 @@ extern bool_t xdr_gd1_mgmt_stage_op_req ();
 extern bool_t xdr_gd1_mgmt_stage_op_rsp ();
 extern bool_t xdr_gd1_mgmt_commit_op_req ();
 extern bool_t xdr_gd1_mgmt_commit_op_rsp ();
+extern bool_t xdr_gd1_mgmt_friend_update ();
 
 #endif /* K&R C */
 

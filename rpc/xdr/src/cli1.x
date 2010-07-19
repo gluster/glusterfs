@@ -13,8 +13,12 @@
         GF_REPLACE_OP_STATUS
 } ;
 
-enum gf1_cli_enum_friends_list {
+enum gf1_cli_friends_list {
         GF_CLI_LIST_ALL = 1
+} ;
+
+enum gf1_cli_get_volume {
+        GF_CLI_GET_VOLUME_ALL = 1
 } ;
 
  struct gf1_cli_probe_req {
@@ -46,6 +50,17 @@ struct gf1_cli_peer_list_rsp {
         int     op_ret;
         int     op_errno;
         opaque  friends<>;
+} ;
+
+struct gf1_cli_get_vol_req {
+        int     flags;
+        opaque  dict<>;
+}  ;
+
+struct gf1_cli_get_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        opaque  volumes<>;
 } ;
 
  struct gf1_cli_create_vol_req {

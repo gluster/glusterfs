@@ -28,7 +28,6 @@
 #include "compat.h"
 #include "dict.h"
 #include "protocol-common.h"
-//#include "transport.h"
 #include "xlator.h"
 #include "logging.h"
 #include "timer.h"
@@ -49,6 +48,7 @@
 
 #include <sys/resource.h>
 #include <inttypes.h>
+#include <dirent.h>
 
 int32_t
 glusterd_ha_create_volume (glusterd_volinfo_t *volinfo)
@@ -111,31 +111,58 @@ glusterd_ha_delete_volume (glusterd_volinfo_t *volinfo)
 {
         char    pathname[PATH_MAX] = {0,};
         int32_t ret = -1;
-        char    filepath[PATH_MAX] = {0,};
+        glusterd_conf_t *priv = NULL;
+        DIR     *dir = NULL;
+        struct dirent *entry = NULL;
+        char path[PATH_MAX] = {0,};
 
         GF_ASSERT (volinfo);
-        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR,
+        priv = THIS->private;
+
+        GF_ASSERT (priv);
+        snprintf (pathname, 1024, "%s/vols/%s", priv->workdir,
                   volinfo->volname);
 
-        snprintf (filepath, 1024, "%s/info", pathname);
-        ret = unlink (filepath);
-
-        if (-1 == ret) {
-                gf_log ("", GF_LOG_ERROR, "unlink() failed on path %s,"
-                        "errno: %d", filepath, errno);
+        dir = opendir (pathname);
+        if (!dir)
                 goto out;
+
+        entry = readdir (dir);
+        while (entry != NULL) {
+                if (!strcmp (entry->d_name, ".") ||
+                    !strcmp (entry->d_name, "..")) {
+                        entry = readdir (dir);
+                        continue;
+                }
+                snprintf (path, PATH_MAX, "%s/%s", pathname, entry->d_name);
+                if (DT_DIR  == entry->d_type)
+                        ret = rmdir (path);
+                else
+                        ret = unlink (path);
+
+                gf_log ("", GF_LOG_NORMAL, "%s %s",
+                                ret?"Failed to remove":"Removed",
+                                entry->d_name);
+                if (ret)
+                        gf_log ("", GF_LOG_NORMAL, "errno:%d", errno);
+                entry = readdir (dir);
+                memset (path, 0, sizeof(path));
+        }
+
+        ret = closedir (dir);
+        if (ret) {
+                gf_log ("", GF_LOG_NORMAL, "Failed to close dir, errno:%d",
+                        errno);
         }
 
         ret = rmdir (pathname);
-
-        if (-1 == ret) {
-                gf_log ("", GF_LOG_ERROR, "rmdir() failed on path %s,"
-                        "errno: %d", pathname, errno);
-                goto out;
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Failed to rmdir: %s, errno: %d",
+                        pathname, errno);
         }
 
-out:
 
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;

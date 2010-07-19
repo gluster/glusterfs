@@ -460,13 +460,14 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
+        global_rpc = cli_rpc_init (&state);
+        if (!global_rpc)
+                goto out;
+
         ret = cli_input_init (&state);
         if (ret)
                 goto out;
 
-        global_rpc = cli_rpc_init (&state);
-        if (!global_rpc)
-                goto out;
 
         ret = event_dispatch (ctx->event_pool);
 

@@ -51,12 +51,12 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, "localhost");
+                ret = proc->fn (frame, THIS, NULL);
         }
 
 out:
         if (ret)
-                cli_out ("Probe failed!");
+                cli_out ("Getting Volume information failed!");
         return ret;
 
 }

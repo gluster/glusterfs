@@ -116,11 +116,13 @@ struct glusterd_op_info_ {
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
 
-struct glusterd_op_create_volume_ctx_ {
+struct glusterd_op_start_volume_ctx_ {
         char                    volume_name[GD_VOLUME_NAME_MAX];
 };
 
-typedef struct glusterd_op_create_volume_ctx_ glusterd_op_create_volume_ctx_t;
+typedef struct glusterd_op_start_volume_ctx_ glusterd_op_start_volume_ctx_t;
+typedef struct glusterd_op_start_volume_ctx_ glusterd_op_stop_volume_ctx_t;
+typedef struct glusterd_op_start_volume_ctx_ glusterd_op_delete_volume_ctx_t;
 
 
 struct glusterd_op_lock_ctx_ {

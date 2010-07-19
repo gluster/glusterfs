@@ -3,8 +3,8 @@
  * It was generated using rpcgen.
  */
 
-#ifndef _GLUSTER1_H_RPCGEN
-#define _GLUSTER1_H_RPCGEN
+#ifndef _CLI1_H_RPCGEN
+#define _CLI1_H_RPCGEN
 
 #include <rpc/rpc.h>
 
@@ -31,10 +31,15 @@ enum gf1_cli_replace_op {
 };
 typedef enum gf1_cli_replace_op gf1_cli_replace_op;
 
-enum gf1_cli_enum_friends_list {
+enum gf1_cli_friends_list {
 	GF_CLI_LIST_ALL = 1,
 };
-typedef enum gf1_cli_enum_friends_list gf1_cli_enum_friends_list;
+typedef enum gf1_cli_friends_list gf1_cli_friends_list;
+
+enum gf1_cli_get_volume {
+	GF_CLI_GET_VOLUME_ALL = 1,
+};
+typedef enum gf1_cli_get_volume gf1_cli_get_volume;
 
 struct gf1_cli_probe_req {
 	char *hostname;
@@ -78,6 +83,25 @@ struct gf1_cli_peer_list_rsp {
 	} friends;
 };
 typedef struct gf1_cli_peer_list_rsp gf1_cli_peer_list_rsp;
+
+struct gf1_cli_get_vol_req {
+	int flags;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf1_cli_get_vol_req gf1_cli_get_vol_req;
+
+struct gf1_cli_get_vol_rsp {
+	int op_ret;
+	int op_errno;
+	struct {
+		u_int volumes_len;
+		char *volumes_val;
+	} volumes;
+};
+typedef struct gf1_cli_get_vol_rsp gf1_cli_get_vol_rsp;
 
 struct gf1_cli_create_vol_req {
 	char *volname;
@@ -236,13 +260,16 @@ typedef struct gf1_cli_set_vol_rsp gf1_cli_set_vol_rsp;
 #if defined(__STDC__) || defined(__cplusplus)
 extern  bool_t xdr_gf1_cluster_type (XDR *, gf1_cluster_type*);
 extern  bool_t xdr_gf1_cli_replace_op (XDR *, gf1_cli_replace_op*);
-extern  bool_t xdr_gf1_cli_enum_friends_list (XDR *, gf1_cli_enum_friends_list*);
+extern  bool_t xdr_gf1_cli_friends_list (XDR *, gf1_cli_friends_list*);
+extern  bool_t xdr_gf1_cli_get_volume (XDR *, gf1_cli_get_volume*);
 extern  bool_t xdr_gf1_cli_probe_req (XDR *, gf1_cli_probe_req*);
 extern  bool_t xdr_gf1_cli_probe_rsp (XDR *, gf1_cli_probe_rsp*);
 extern  bool_t xdr_gf1_cli_deprobe_req (XDR *, gf1_cli_deprobe_req*);
 extern  bool_t xdr_gf1_cli_deprobe_rsp (XDR *, gf1_cli_deprobe_rsp*);
 extern  bool_t xdr_gf1_cli_peer_list_req (XDR *, gf1_cli_peer_list_req*);
 extern  bool_t xdr_gf1_cli_peer_list_rsp (XDR *, gf1_cli_peer_list_rsp*);
+extern  bool_t xdr_gf1_cli_get_vol_req (XDR *, gf1_cli_get_vol_req*);
+extern  bool_t xdr_gf1_cli_get_vol_rsp (XDR *, gf1_cli_get_vol_rsp*);
 extern  bool_t xdr_gf1_cli_create_vol_req (XDR *, gf1_cli_create_vol_req*);
 extern  bool_t xdr_gf1_cli_create_vol_rsp (XDR *, gf1_cli_create_vol_rsp*);
 extern  bool_t xdr_gf1_cli_delete_vol_req (XDR *, gf1_cli_delete_vol_req*);
@@ -267,13 +294,16 @@ extern  bool_t xdr_gf1_cli_set_vol_rsp (XDR *, gf1_cli_set_vol_rsp*);
 #else /* K&R C */
 extern bool_t xdr_gf1_cluster_type ();
 extern bool_t xdr_gf1_cli_replace_op ();
-extern bool_t xdr_gf1_cli_enum_friends_list ();
+extern bool_t xdr_gf1_cli_friends_list ();
+extern bool_t xdr_gf1_cli_get_volume ();
 extern bool_t xdr_gf1_cli_probe_req ();
 extern bool_t xdr_gf1_cli_probe_rsp ();
 extern bool_t xdr_gf1_cli_deprobe_req ();
 extern bool_t xdr_gf1_cli_deprobe_rsp ();
 extern bool_t xdr_gf1_cli_peer_list_req ();
 extern bool_t xdr_gf1_cli_peer_list_rsp ();
+extern bool_t xdr_gf1_cli_get_vol_req ();
+extern bool_t xdr_gf1_cli_get_vol_rsp ();
 extern bool_t xdr_gf1_cli_create_vol_req ();
 extern bool_t xdr_gf1_cli_create_vol_rsp ();
 extern bool_t xdr_gf1_cli_delete_vol_req ();
@@ -301,4 +331,4 @@ extern bool_t xdr_gf1_cli_set_vol_rsp ();
 }
 #endif
 
-#endif /* !_GLUSTER1_H_RPCGEN */
+#endif /* !_CLI1_H_RPCGEN */

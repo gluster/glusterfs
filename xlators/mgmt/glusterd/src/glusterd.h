@@ -54,12 +54,14 @@ typedef struct {
         rpcsvc_t          *rpc;
         rpc_clnt_prog_t   *mgmt;
         struct list_head  volumes;
+        struct list_head  hostnames;
 } glusterd_conf_t;
 
 struct glusterd_brickinfo {
         char    hostname[1024];
         char    path[PATH_MAX];
         struct list_head  brick_list;
+        uuid_t  uuid;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
@@ -70,19 +72,23 @@ struct glusterd_volinfo_ {
         int     brick_count;
         struct list_head        vol_list;
         struct list_head        bricks;
+        glusterd_volume_status  status;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 
 
 #define GLUSTERD_DEFAULT_WORKDIR "/etc/glusterd"
-#define GLUSTERD_DEFAULT_PORT   4284
+#define GLUSTERD_DEFAULT_PORT   6969
 
 typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
 #define GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv) \
         snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,\
                   volinfo->volname);
+
+#define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname)\
+        snprintf (pidfile, PATH_MAX, "%s/run/%s.pid", volpath, hostname);
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr);
 
@@ -170,4 +176,31 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags);
 
 int
 glusterd_handle_cli_list_friends (rpcsvc_request_t *req);
+
+int
+glusterd_handle_cli_start_volume (rpcsvc_request_t *req);
+
+int32_t
+glusterd_start_volume (rpcsvc_request_t *req, char *volname, int flags);
+
+int
+glusterd_handle_friend_update (rpcsvc_request_t *req);
+
+int
+glusterd_handle_cli_stop_volume (rpcsvc_request_t *req);
+
+int
+glusterd_stop_volume (rpcsvc_request_t *req, char *volname, int flags);
+
+int32_t
+glusterd_delete_volume (rpcsvc_request_t *req, char *volname, int flags);
+
+int
+glusterd_handle_cli_delete_volume (rpcsvc_request_t *req);
+
+int
+glusterd_handle_cli_get_volume (rpcsvc_request_t *req);
+
+int32_t
+glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags);
 #endif

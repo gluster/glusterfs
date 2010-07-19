@@ -1,3 +1,8 @@
+ enum glusterd_volume_status {
+        GLUSTERD_STATUS_NONE = 0,
+        GLUSTERD_STATUS_STARTED,
+        GLUSTERD_STATUS_STOPPED
+} ;
 
  struct gd1_mgmt_probe_req {
         unsigned char  uuid[16];
@@ -81,7 +86,8 @@ struct gd1_mgmt_commit_op_rsp {
         int     op_errno;
 }  ;
 
- 
-
-
-
+struct gd1_mgmt_friend_update {
+        unsigned char uuid[16];
+        unsigned char friend_uuid[16];
+        string        hostname<>;
+} ;
