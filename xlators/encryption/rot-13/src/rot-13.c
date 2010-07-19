@@ -75,7 +75,7 @@ rot13_readv_cbk (call_frame_t *frame,
 	if (priv->decrypt_read)
 		rot13_iovec (vector, count);
 
-	STACK_UNWIND (frame, op_ret, op_errno, vector, count, stbuf, iobref);
+	STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count, stbuf, iobref);
 	return 0;
 }
 
@@ -103,7 +103,7 @@ rot13_writev_cbk (call_frame_t *frame,
                   struct iatt *prebuf,
 		  struct iatt *postbuf)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+	STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
 	return 0;
 }
 

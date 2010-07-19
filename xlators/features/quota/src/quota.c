@@ -988,7 +988,9 @@ quota_lookup_cbk (call_frame_t *frame,
                     dict_t *dict,
                     struct iatt *postparent)
 {
-	STACK_UNWIND (frame,
+	STACK_UNWIND_STRICT (
+                     lookup, 
+                     frame,
 		      op_ret,
 		      op_errno,
 		      inode,
