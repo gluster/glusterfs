@@ -591,7 +591,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 
 	void *        transport = NULL;
 	pid_t         pid       = -1;
-        uint64_t      owner     = -1;
 
 	pl_inode_t *     pinode   = NULL;
 	int              ret      = -1;
@@ -619,7 +618,6 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
         entrylk_trace_in (this, frame, volume, fd, loc, basename, cmd, type);
 
 	pid       = frame->root->pid;
-        owner     = (uint64_t)(long) frame->root;
 	transport = frame->root->trans;
 
 	if (pid == 0) {
