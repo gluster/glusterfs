@@ -280,12 +280,10 @@ get_call_frame_for_req (fuse_state_t *state)
         fuse_in_header_t      *finh = NULL;
         call_frame_t          *frame = NULL;
         xlator_t              *this = NULL;
-        fuse_private_t        *priv = NULL;
 
         pool = state->pool;
         finh = state->finh;
         this = state->this;
-        priv = this->private;
 
         frame = create_frame (this, pool);
         if (!frame)
@@ -418,8 +416,6 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
 
         /* resistance against multiple invocation of loc_fill not to get
            reference leaks via inode_search() */
-
-        inode = loc->inode;
 
         if (name) {
                 parent = loc->parent;
@@ -2564,12 +2560,10 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fuse_state_t   *state = NULL;
         fuse_in_header_t *finh = NULL;
         data_t         *value_data = NULL;
-        fuse_private_t *priv = NULL;
         int             ret = -1;
         int32_t         len = 0;
         data_pair_t    *trav = NULL;
 
-        priv  = this->private;
         state = frame->root->state;
         finh  = state->finh;
 
@@ -3032,10 +3026,8 @@ fuse_first_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        inode_t *inode, struct iatt *buf, dict_t *xattr,
                        struct iatt *postparent)
 {
-        fuse_private_t *priv = NULL;
         struct fuse_first_lookup *stub = NULL;
 
-        priv = this->private;
         stub = frame->local;
 
         if (op_ret == 0) {
@@ -3599,7 +3591,7 @@ init (xlator_t *this_xl)
 
         /* get options from option dictionary */
         ret = dict_get_str (options, ZR_MOUNTPOINT_OPT, &value_string);
-        if (value_string == NULL) {
+        if (ret == -1 || value_string == NULL) {
                 gf_log ("fuse", GF_LOG_ERROR,
                         "Mandatory option 'mountpoint' is not specified.");
                 goto cleanup_exit;
@@ -3653,6 +3645,7 @@ init (xlator_t *this_xl)
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
         if (ret == 0) {
                 ret = gf_string2boolean (value_string, &priv->direct_io_mode);
+                assert (ret == 0);
         }
 
         priv->strict_volfile_check = 0;
@@ -3660,6 +3653,7 @@ init (xlator_t *this_xl)
         if (ret == 0) {
                 ret = gf_string2boolean (value_string,
                                          &priv->strict_volfile_check);
+                assert (ret == 0);
         }
 
         priv->fuse_dump_fd = -1;
