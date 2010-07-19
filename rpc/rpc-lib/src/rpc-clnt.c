@@ -300,6 +300,8 @@ saved_frames_unwind (struct saved_frames *saved_frames)
 {
 	struct saved_frame   *trav = NULL;
 	struct saved_frame   *tmp = NULL;
+        struct tm            *frame_sent_tm = NULL;
+        char                 timestr[256] = {0,};
 
         struct rpc_req        req;
         struct iovec          iov = {0,};
@@ -309,11 +311,17 @@ saved_frames_unwind (struct saved_frames *saved_frames)
         req.rpc_status = -1;
 
 	list_for_each_entry_safe (trav, tmp, &saved_frames->sf.list, list) {
+                frame_sent_tm = localtime (&trav->saved_at.tv_sec);
+                strftime (timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S",
+                          frame_sent_tm);
+                snprintf (timestr + strlen (timestr), sizeof(timestr) - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
+
 		gf_log ("rpc-clnt", GF_LOG_ERROR,
-			"forced unwinding frame type(%s) op(%s(%d))",
+			"forced unwinding frame type(%s) op(%s(%d)) called at %s",
 			trav->prog->progname, (trav->prog->procnames) ?
                         trav->prog->procnames[trav->procnum] : "--",
-                        trav->procnum);
+                        trav->procnum, timestr);
 
 		saved_frames->count--;
 
