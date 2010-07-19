@@ -170,7 +170,7 @@ init (xlator_t *this)
         struct stat     buf = {0,};
         char            *port_str = NULL;
         int             port_num = 0;
-        char            voldir [PATH_MAX];
+        char            voldir [PATH_MAX] = {0,};
 
 
         dir_data = dict_get (this->options, "working-directory");
@@ -199,7 +199,7 @@ init (xlator_t *this)
 
 
         if ((-1 == ret) && (ENOENT == errno)) {
-                ret = mkdir (dirname, 0644);
+                ret = mkdir (dirname, 0777);
 
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_CRITICAL,
@@ -213,9 +213,9 @@ init (xlator_t *this)
 
         snprintf (voldir, PATH_MAX, "%s/vols", dirname);
 
-        ret = mkdir (voldir, 0644);
+        ret = mkdir (voldir, 0777);
 
-        if (-1 == ret) {
+        if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create volume directory %s"
                         " ,errno = %d", voldir, errno);
@@ -260,6 +260,7 @@ init (xlator_t *this)
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
         INIT_LIST_HEAD (&conf->peers);
         INIT_LIST_HEAD (&conf->volumes);
+        INIT_LIST_HEAD (&conf->hostnames);
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
         conf->mgmt = &glusterd3_1_mgmt_prog;

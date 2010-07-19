@@ -55,6 +55,10 @@ typedef struct glusterd_peer_state_info_ {
         struct timeval          transition_time;
 }glusterd_peer_state_info_t;
 
+typedef struct glusterd_peer_hostname_ {
+        char                    *hostname;
+        struct list_head        hostname_list;
+}glusterd_peer_hostname_t;
 
 struct glusterd_peerinfo_ {
         uuid_t                          uuid;
@@ -64,6 +68,7 @@ struct glusterd_peerinfo_ {
         int                             port;
         struct list_head                uuid_list;
         struct list_head                op_peers_list;
+        struct list_head                hostnames;
         struct rpc_clnt                 *rpc;
 };
 
@@ -107,6 +112,8 @@ typedef struct glusterd_friend_req_ctx_ {
         char                    *hostname;
         rpcsvc_request_t        *req;
 } glusterd_friend_req_ctx_t;
+
+typedef glusterd_friend_req_ctx_t glusterd_friend_update_ctx_t;
 
 typedef struct glusterd_probe_ctx_ {
         char                    *hostname;

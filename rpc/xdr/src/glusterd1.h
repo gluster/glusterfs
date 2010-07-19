@@ -98,4 +98,9 @@ gd_xdr_serialize_mgmt_commit_op_rsp (struct iovec outmsg, void *rsp);
 ssize_t
 gd_xdr_from_mgmt_commit_op_req (struct iovec outmsg, void *req);
 
+ssize_t
+gd_xdr_to_mgmt_friend_update (struct iovec outmsg, void *req);
+
+ssize_t
+gd_xdr_from_mgmt_friend_update (struct iovec outmsg, void *req);
 #endif /* !_MSG_GD_XDR_H */

@@ -35,6 +35,7 @@
 #ifndef _UUID_UUID_H
 #define _UUID_UUID_H
 
+#include "config.h"
 #include <sys/types.h>
 #ifndef _WIN32
 #include <sys/time.h>

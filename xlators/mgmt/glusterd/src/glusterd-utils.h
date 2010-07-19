@@ -79,4 +79,30 @@ glusterd_brickinfo_from_brick (char *brick, glusterd_brickinfo_t **brickinfo);
 
 int32_t
 glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo);
+
+int32_t
+glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo);
+
+int32_t
+glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name);
+
+int32_t
+glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);
+
+int32_t
+glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
+
+int32_t
+glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
+                                 glusterd_brickinfo_t   *brickinfo);
+
+int32_t
+glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
+                                glusterd_brickinfo_t   *brickinfo);
+
+int32_t
+glusterd_volinfo_delete (glusterd_volinfo_t *volinfo);
+
+int32_t
+glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo);
 #endif

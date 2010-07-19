@@ -59,6 +59,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_peerinfo_t           *peerinfo = NULL;
         glusterd_peerinfo_t           *dup_peerinfo = NULL;
         glusterd_friend_sm_event_t    *event = NULL;
+        glusterd_peer_hostname_t      *name = NULL;
 
         conf  = THIS->private;
 
@@ -85,17 +86,18 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 GF_ASSERT (0);
         }
 
-        if (!peerinfo->hostname) {
+        if (list_empty (&peerinfo->hostnames)) {
                 glusterd_friend_find (NULL, rsp.hostname, &dup_peerinfo);
                 GF_ASSERT (dup_peerinfo);
-                GF_ASSERT (dup_peerinfo->hostname);
                 peerinfo->hostname = gf_strdup (rsp.hostname);
+                glusterd_peer_hostname_new (rsp.hostname, &name);
+                list_add_tail (&name->hostname_list, &peerinfo->hostnames);
                 peerinfo->rpc = dup_peerinfo->rpc;
                 list_del_init (&dup_peerinfo->uuid_list);
-                GF_FREE (dup_peerinfo->hostname);
                 GF_FREE (dup_peerinfo);
         }
-        GF_ASSERT (peerinfo->hostname);
+        if (!peerinfo->hostname)
+                peerinfo->hostname = gf_strdup (rsp.hostname);
         uuid_copy (peerinfo->uuid, rsp.uuid);
 
         ret = glusterd_friend_sm_new_event
@@ -139,6 +141,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         int32_t                       op_ret = -1;
         int32_t                       op_errno = -1;
         glusterd_probe_ctx_t          *ctx = NULL;
+        glusterd_friend_update_ctx_t  *ev_ctx = NULL;
 
         conf  = THIS->private;
 
@@ -182,7 +185,17 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                 goto out;
         }
         event->peerinfo = peerinfo;
+        ev_ctx = GF_CALLOC (1, sizeof (*ev_ctx),
+                                gf_gld_mt_friend_update_ctx_t);
+        if (!ev_ctx) {
+                ret = -1;
+                goto out;
+        }
 
+        uuid_copy (ev_ctx->uuid, rsp.uuid);
+        ev_ctx->hostname = gf_strdup (rsp.hostname);
+
+        event->ctx = ev_ctx;
         ret = glusterd_friend_sm_inject_event (event);
 
         if (ret)
@@ -683,6 +696,45 @@ out:
 
 
 int32_t
+glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
+                           void *data)
+{
+        gd1_mgmt_friend_update          req = {{0},};
+        int                             ret = 0;
+        glusterd_peerinfo_t             *peerinfo = NULL;
+        glusterd_conf_t                 *priv = NULL;
+        glusterd_friend_sm_event_t      *event = NULL;
+        glusterd_friend_update_ctx_t     *ctx = NULL;
+
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        event = data;
+        priv = this->private;
+
+        GF_ASSERT (priv);
+
+        ctx = event->ctx;
+
+        peerinfo = event->peerinfo;
+        uuid_copy (req.uuid, priv->uuid);
+        uuid_copy (req.friend_uuid, ctx->uuid);
+        req.hostname = ctx->hostname;
+
+        ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
+                                       GD_MGMT_FRIEND_UPDATE,
+                                       NULL, gd_xdr_from_mgmt_friend_update,
+                                       this, NULL);
+
+out:
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd3_1_cluster_lock (call_frame_t *frame, xlator_t *this,
                            void *data)
 {
@@ -1016,6 +1068,26 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         ret = glusterd_handle_cli_list_friends (req);
                         break;
 
+                case GD_MGMT_CLI_START_VOLUME:
+                        ret = glusterd_handle_cli_start_volume (req);
+                        break;
+
+                case GD_MGMT_CLI_STOP_VOLUME:
+                        ret = glusterd_handle_cli_stop_volume (req);
+                        break;
+
+                case GD_MGMT_CLI_DELETE_VOLUME:
+                        ret = glusterd_handle_cli_delete_volume (req);
+                        break;
+
+                case GD_MGMT_FRIEND_UPDATE:
+                        ret = glusterd_handle_friend_update (req);
+                        break;
+
+                case GD_MGMT_CLI_GET_VOLUME:
+                        ret = glusterd_handle_cli_get_volume (req);
+                        break;
+
                 default:
                         GF_ASSERT (0);
         }
@@ -1034,6 +1106,7 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_PROBE_QUERY] = { "PROBE_QUERY", GD_MGMT_PROBE_QUERY, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_FRIEND_ADD] = { "FRIEND_ADD", GD_MGMT_FRIEND_ADD, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_FRIEND_REMOVE] = { "FRIEND_REMOVE", GD_MGMT_FRIEND_REMOVE, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_FRIEND_UPDATE] = { "FRIEND_UPDATE", GD_MGMT_FRIEND_UPDATE, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLUSTER_LOCK] = { "CLUSTER_LOCK", GD_MGMT_CLUSTER_LOCK, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLUSTER_UNLOCK] = { "CLUSTER_UNLOCK", GD_MGMT_CLUSTER_UNLOCK, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_STAGE_OP] = { "STAGE_OP", GD_MGMT_STAGE_OP, glusterd_handle_rpc_msg, NULL, NULL},
@@ -1042,6 +1115,10 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_CREATE_VOLUME] = { "CLI_CREATE_VOLUME", GD_MGMT_CLI_CREATE_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_DEPROBE] = { "FRIEND_REMOVE", GD_MGMT_CLI_DEPROBE, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_LIST_FRIENDS] = { "LIST_FRIENDS", GD_MGMT_CLI_LIST_FRIENDS, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_START_VOLUME] = { "START_VOLUME", GD_MGMT_CLI_START_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_STOP_VOLUME] = { "STOP_VOLUME", GD_MGMT_CLI_STOP_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GD_MGMT_CLI_DELETE_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_GET_VOLUME] = { "GET_VOLUME", GD_MGMT_CLI_GET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
 };
 
 /*rpcsvc_actor_t glusterd1_mgmt_actors[] = {
@@ -1075,7 +1152,7 @@ struct rpc_clnt_procedure glusterd3_1_clnt_mgmt_actors[GD_MGMT_MAXVALUE] = {
         [GD_MGMT_STAGE_OP] = {"STAGE_OP", glusterd3_1_stage_op},
         [GD_MGMT_COMMIT_OP] = {"COMMIT_OP", glusterd3_1_commit_op},
         [GD_MGMT_FRIEND_REMOVE]  = { "FRIEND_REMOVE",  glusterd3_1_friend_remove},
-//        [GF_FOP_GETSPEC]     = { "GETSPEC",   client_getspec, client_getspec_cbk },
+        [GD_MGMT_FRIEND_UPDATE]  = { "FRIEND_UPDATE",  glusterd3_1_friend_update},
 };
 
 

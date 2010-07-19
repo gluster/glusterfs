@@ -32,6 +32,7 @@
  * %End-Header%
  */
 
+#include "uuid.h"
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
 #else
@@ -39,7 +40,6 @@
 #endif
 #include <sys/types.h>
 
-#include "uuid.h"
 
 /*
  * Offset between 15-Oct-1582 and 1-Jan-70

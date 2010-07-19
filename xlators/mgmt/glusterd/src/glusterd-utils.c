@@ -28,8 +28,6 @@
 #include "glusterfs.h"
 #include "compat.h"
 #include "dict.h"
-//#include "protocol.h"
-//#include "transport.h"
 #include "xlator.h"
 #include "logging.h"
 #include "timer.h"
@@ -44,6 +42,8 @@
 
 #include <sys/resource.h>
 #include <inttypes.h>
+#include <signal.h>
+#include <sys/types.h>
 
 static glusterd_lock_t lock;
 
@@ -336,15 +336,19 @@ glusterd_check_volume_exists (char *volname)
         char pathname[1024] = {0,};
         struct stat stbuf = {0,};
         int32_t ret = -1;
+        glusterd_conf_t *priv = NULL;
 
-        snprintf (pathname, 1024, "%s/vols/%s", GLUSTERD_DEFAULT_WORKDIR,
+        priv = THIS->private;
+
+        snprintf (pathname, 1024, "%s/vols/%s", priv->workdir,
                   volname);
 
         ret = stat (pathname, &stbuf);
 
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Volume %s does not exist."
-                        "stat failed with errno: %d", volname, errno);
+                        "stat failed with errno : %d on path: %s",
+                        volname, errno, pathname);
                 return _gf_false;
         }
 
@@ -378,6 +382,49 @@ out:
 }
 
 int32_t
+glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo)
+{
+        int32_t         ret = -1;
+
+        GF_ASSERT (brickinfo);
+
+        list_del_init (&brickinfo->brick_list);
+
+        GF_FREE (brickinfo);
+
+        ret = 0;
+
+        return ret;
+}
+
+int32_t
+glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
+{
+        int32_t                 ret = -1;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_brickinfo_t    *tmp = NULL;
+
+        GF_ASSERT (volinfo);
+
+        list_del_init (&volinfo->vol_list);
+
+        list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
+                                   brick_list) {
+                ret = glusterd_brickinfo_delete (brickinfo);
+                if (ret)
+                        goto out;
+        }
+
+        GF_FREE (volinfo);
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+
+int32_t
 glusterd_brickinfo_new (glusterd_brickinfo_t **brickinfo)
 {
         glusterd_brickinfo_t      *new_brickinfo = NULL;
@@ -403,7 +450,48 @@ out:
 }
 
 int32_t
-glusterd_brickinfo_from_brick (char *brick, glusterd_brickinfo_t **brickinfo)
+glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
+{
+        int32_t                 ret = -1;
+        glusterd_peerinfo_t     *peerinfo = NULL;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_peer_hostname_t        *host = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        GF_ASSERT (brickinfo);
+
+        ret = glusterd_friend_find (NULL, brickinfo->hostname, &peerinfo);
+
+        if (!ret) {
+                uuid_copy (brickinfo->uuid, peerinfo->uuid);
+        } else {
+                list_for_each_entry (host, &priv->hostnames, hostname_list) {
+                        if (!strcmp (host->hostname, brickinfo->hostname)) {
+                                uuid_copy (brickinfo->uuid, priv->uuid);
+                                ret = 0;
+                                break;
+                        }
+
+                }
+        }
+
+        if (ret) {
+                if ((!strcmp (brickinfo->hostname, "localhost")) ||
+                     (!strcmp (brickinfo->hostname, "127.0.0.1"))) {
+                        uuid_copy (brickinfo->uuid, priv->uuid);
+                        ret = 0;
+                }
+        }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_brickinfo_from_brick (char *brick,
+                               glusterd_brickinfo_t **brickinfo)
 {
         int32_t                 ret = -1;
         glusterd_brickinfo_t    *new_brickinfo = NULL;
@@ -444,7 +532,197 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
                 rpc_clnt_destroy (peerinfo->rpc);
                 peerinfo->rpc = NULL;
         }
-        GF_FREE (peerinfo->hostname);
+        glusterd_peer_destroy (peerinfo);
 
         return 0;
+}
+
+int32_t
+glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
+{
+        glusterd_volinfo_t      *tmp_volinfo = NULL;
+        int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+
+        GF_ASSERT (volname);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+
+        list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
+                if (!strcmp (tmp_volinfo->volname, volname)) {
+                        gf_log ("", GF_LOG_DEBUG, "Volume %s found", volname);
+                        ret = 0;
+                        *volinfo = tmp_volinfo;
+                        break;
+                }
+        }
+
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+
+
+int32_t
+glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
+                                 glusterd_brickinfo_t   *brickinfo)
+{
+        int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        char                    pidfile[PATH_MAX] = {0,};
+        char                    volfile[PATH_MAX] = {0,};
+        char                    path[PATH_MAX] = {0,};
+        char                    cmd_str[8192] = {0,};
+        char                    rundir[PATH_MAX] = {0,};
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+        snprintf (rundir, PATH_MAX, "%s/run", path);
+        ret = mkdir (rundir, 0777);
+
+        if ((ret == -1) && (EEXIST != errno)) {
+                gf_log ("", GF_LOG_ERROR, "Unable to create rundir %s",
+                        rundir);
+                goto out;
+        }
+
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname);
+        snprintf (volfile, PATH_MAX, "%s/%s-%s-export.vol", path,
+                  brickinfo->hostname, volinfo->volname);
+        snprintf (cmd_str, 8192, "glusterfs -f %s -p %s", volfile, pidfile);
+        ret = system (cmd_str);
+
+out:
+        return ret;
+}
+
+int32_t
+glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
+                                glusterd_brickinfo_t   *brickinfo)
+{
+        int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        char                    pidfile[PATH_MAX] = {0,};
+        char                    path[PATH_MAX] = {0,};
+        pid_t                   pid = -1;
+        FILE                    *file = NULL;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname);
+
+        file = fopen (pidfile, "r+");
+
+        if (!file) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                                pidfile);
+                ret = -1;
+                goto out;
+        }
+
+        ret = fscanf (file, "%d", &pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                                pidfile);
+                ret = -1;
+                goto out;
+        }
+        fclose (file);
+        file = NULL;
+
+        gf_log ("", GF_LOG_NORMAL, "Stopping glusterfs running in pid: %d",
+                pid);
+
+        ret = kill (pid, SIGQUIT);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
+                goto out;
+        }
+
+        ret = unlink (pidfile);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unlink pidfile: %s",
+                                pidfile);
+                goto out;
+        }
+
+out:
+        if (file)
+                fclose (file);
+        return ret;
+}
+
+int32_t
+glusterd_peer_hostname_new (char *hostname, glusterd_peer_hostname_t **name)
+{
+        glusterd_peer_hostname_t        *peer_hostname = NULL;
+        int32_t                         ret = -1;
+
+        GF_ASSERT (hostname);
+        GF_ASSERT (name);
+
+        peer_hostname = GF_CALLOC (1, sizeof (*peer_hostname),
+                                   gf_gld_mt_peer_hostname_t);
+
+        if (!peer_hostname)
+                goto out;
+
+        peer_hostname->hostname = gf_strdup (hostname);
+        INIT_LIST_HEAD (&peer_hostname->hostname_list);
+
+        *name = peer_hostname;
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
+{
+        int32_t                         ret = -1;
+        glusterd_peer_hostname_t        *name = NULL;
+        glusterd_peer_hostname_t        *tmp = NULL;
+
+        if (!peerinfo)
+                goto out;
+
+        list_del_init (&peerinfo->uuid_list);
+        list_for_each_entry_safe (name, tmp, &peerinfo->hostnames,
+                                  hostname_list) {
+                list_del_init (&name->hostname_list);
+                GF_FREE (name->hostname);
+        }
+
+        list_del_init (&peerinfo->hostnames);
+        GF_FREE (peerinfo);
+
+        ret = 0;
+
+out:
+        return ret;
 }

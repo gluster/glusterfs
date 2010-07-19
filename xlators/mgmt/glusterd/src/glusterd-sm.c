@@ -29,7 +29,6 @@
 #include <libgen.h>
 #include "uuid.h"
 
-//#include "transport.h"
 #include "fnmatch.h"
 #include "xlator.h"
 #include "protocol-common.h"
@@ -96,13 +95,6 @@ glusterd_ac_friend_add (glusterd_friend_sm_event_t *event, void *ctx)
                 ret = proc->fn (frame, this, event);
         }
 
-/*        ret = glusterd_xfer_friend_req_msg (peerinfo, THIS);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to probe: %s", hostname);
-        }
-*/
-
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
@@ -147,13 +139,6 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
         }
 
 
-/*        ret = glusterd_friend_probe (hostname);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to probe: %s", hostname);
-        }
-*/
-
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
@@ -190,18 +175,48 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event, void *ctx
                 ret = proc->fn (frame, this, event);
         }
 
-/*        ret = glusterd_xfer_friend_req_msg (peerinfo, THIS);
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to probe: %s", hostname);
+        return ret;
+}
+
+static int
+glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
+{
+        int                     ret = 0;
+        glusterd_peerinfo_t     *peerinfo = NULL;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        glusterd_conf_t         *conf = NULL;
+        xlator_t                *this = NULL;
+
+
+        GF_ASSERT (event);
+        peerinfo = event->peerinfo;
+
+        this = THIS;
+        conf = this->private;
+
+        GF_ASSERT (conf);
+        GF_ASSERT (conf->mgmt);
+
+        proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
+        if (proc->fn) {
+                frame = create_frame (this, this->ctx->pool);
+                if (!frame) {
+                        goto out;
+                }
+                frame->local = ctx;
+                ret = proc->fn (frame, this, event);
         }
-*/
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
 }
+
 
 static int
 glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
@@ -260,6 +275,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         uuid_t                          uuid;
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_friend_req_ctx_t       *ev_ctx = NULL;
+        glusterd_friend_update_ctx_t    *new_ev_ctx = NULL;
         glusterd_friend_sm_event_t      *new_event = NULL;
         glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
         int                             status = 0;
@@ -285,10 +301,24 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         }
 
         new_event->peerinfo = peerinfo;
+
+        new_ev_ctx = GF_CALLOC (1, sizeof (*new_ev_ctx),
+                                gf_gld_mt_friend_update_ctx_t);
+        if (!new_ev_ctx) {
+                ret = -1;
+                goto out;
+        }
+
+        uuid_copy (new_ev_ctx->uuid, ev_ctx->uuid);
+        new_ev_ctx->hostname = gf_strdup (ev_ctx->hostname);
+
+        new_event->ctx = new_ev_ctx;
+
         glusterd_friend_sm_inject_event (new_event);
 
         ret = glusterd_xfer_friend_add_resp (ev_ctx->req, ev_ctx->hostname);
 
+out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -373,7 +403,7 @@ glusterd_sm_t  glusterd_state_req_sent_rcvd [] = {
         {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none}, //EVENT_NONE,
         {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none}, //EVENT_PROBE,
         {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_ACC
         {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
@@ -401,8 +431,8 @@ glusterd_sm_t  glusterd_state_req_accepted [] = {
         {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_none}, //EVENT_NONE,
         {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_none}, //EVENT_PROBE,
         {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_ACC
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_handle_friend_add_req}, //EVENT_RCV_FRIEND_REQ

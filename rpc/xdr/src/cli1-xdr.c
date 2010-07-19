@@ -3,7 +3,7 @@
  * It was generated using rpcgen.
  */
 
-#include "cli1-xdr.h"
+#include "cli1.h"
 
 bool_t
 xdr_gf1_cluster_type (XDR *xdrs, gf1_cluster_type *objp)
@@ -24,7 +24,16 @@ xdr_gf1_cli_replace_op (XDR *xdrs, gf1_cli_replace_op *objp)
 }
 
 bool_t
-xdr_gf1_cli_enum_friends_list (XDR *xdrs, gf1_cli_enum_friends_list *objp)
+xdr_gf1_cli_friends_list (XDR *xdrs, gf1_cli_friends_list *objp)
+{
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_get_volume (XDR *xdrs, gf1_cli_get_volume *objp)
 {
 
 	 if (!xdr_enum (xdrs, (enum_t *) objp))
@@ -96,6 +105,30 @@ xdr_gf1_cli_peer_list_rsp (XDR *xdrs, gf1_cli_peer_list_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->friends.friends_val, (u_int *) &objp->friends.friends_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_get_vol_req (XDR *xdrs, gf1_cli_get_vol_req *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->flags))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_get_vol_rsp (XDR *xdrs, gf1_cli_get_vol_rsp *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->volumes.volumes_val, (u_int *) &objp->volumes.volumes_len, ~0))
 		 return FALSE;
 	return TRUE;
 }

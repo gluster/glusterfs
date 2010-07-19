@@ -37,6 +37,7 @@ enum gf_gld_mem_types_ {
         gf_gld_mt_peerinfo_t,
         gf_gld_mt_friend_sm_event_t,
         gf_gld_mt_friend_req_ctx_t,
+        gf_gld_mt_friend_update_ctx_t,
         gf_gld_mt_op_sm_event_t,
         gf_gld_mt_op_lock_ctx_t,
         gf_gld_mt_op_stage_ctx_t,
@@ -44,8 +45,12 @@ enum gf_gld_mem_types_ {
         gf_gld_mt_mop_stage_req_t,
         gf_gld_mt_probe_ctx_t,
         gf_gld_mt_create_volume_ctx_t,
+        gf_gld_mt_start_volume_ctx_t,
+        gf_gld_mt_stop_volume_ctx_t,
+        gf_gld_mt_delete_volume_ctx_t,
         gf_gld_mt_glusterd_volinfo_t,
         gf_gld_mt_glusterd_brickinfo_t,
+        gf_gld_mt_peer_hostname_t,
         gf_gld_mt_end
 };
 #endif
