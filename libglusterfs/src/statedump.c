@@ -96,6 +96,8 @@ gf_proc_dump_add_section (char *key, ...)
         snprintf (buf + strlen(buf),
                   GF_DUMP_MAX_BUF_LEN - strlen (buf),  "]\n");
         ret = write (gf_dump_fd, buf, strlen (buf));
+        if (ret < 0)
+                gf_log("", GF_LOG_ERROR, "write error: %s", strerror(errno));
 }
 
 
@@ -121,6 +123,8 @@ gf_proc_dump_write (char *key, char *value,...)
         offset = strlen (buf);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "\n");
         ret = write (gf_dump_fd, buf, strlen (buf));
+        if (ret < 0)
+                gf_log("", GF_LOG_ERROR, "write error: %s", strerror(errno));
 }
 
 static void
