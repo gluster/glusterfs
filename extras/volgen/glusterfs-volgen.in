@@ -31,10 +31,8 @@ from Common import *
 
 def generate_volume_files ():
 
-    num_stripe = 4
-    num_replica = 2
-
-    usage_str = "%prog: -n <VOLUMENAME> -t <TRANSPORT> -p <NUMBER> -a <AUTH> -r <TYPE>"
+    usage_str = "%s%s" % ("%prog: -n <VOLUMENAME> -t <TRANSPORT> -p <NUMBER> -a <AUTH> ",
+                          "-r <TYPE> [--num-replica N] [--num-stripe N]")
     version_str = "%prog 3.0"
     desc_str = "A tool to generate volume files for GlusterFS."
 
@@ -71,6 +69,10 @@ def generate_volume_files ():
     group.add_option("--safe-mode", action="store_true",
                      dest="enable_safe_mode", default=False,
                      help="generate volume files in safe mode")
+    group.add_option("--num-replica", type="int", dest="num_replica",
+                     help="number of file replica needed")
+    group.add_option("--num-stripe", type="int", dest="num_stripe",
+                     help="number of stripe count needed")
 
     parse.add_option_group(group)
 
@@ -139,14 +141,26 @@ def generate_volume_files ():
         print "Error: no servers provided, please provide atleast one server"
         raise ValueError
 
+    if options.num_replica is None:
+        options.num_replica = 2
+
+    if options.num_stripe is None:
+        options.num_stripe = 4
+
+    if options.num_replica < 2:
+        print "--num-replica option (%d) is not valid" % options.num_replica
+
+    if options.num_stripe < 2:
+        print "--num-stripe option (%d) is not valid" % options.num_stripe
+
     if options.raid_type == 1:
-        if (len(server_array) % num_replica) != 0:
+        if (len(server_array) % options.num_replica) != 0:
             print "raid type (%d) and number of volumes (%d) invalid" % (options.raid_type,
                                                                          len(server_array))
             raise ValueError
 
     if options.raid_type == 0:
-        if (len(server_array) % num_stripe) != 0:
+        if (len(server_array) % options.num_stripe) != 0:
             print "raid type (%d) and number of volumes (%d) invalid" % (options.raid_type,
                                                                          len(server_array))
             raise ValueError
