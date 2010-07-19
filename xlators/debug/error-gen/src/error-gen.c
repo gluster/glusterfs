@@ -395,7 +395,7 @@ error_gen_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL, NULL, NULL,
+		STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL, NULL,
                               NULL);
 		return 0;
 	}
@@ -439,7 +439,7 @@ error_gen_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
+		STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
 		return 0;
 	}
 
@@ -1724,7 +1724,7 @@ int
 error_gen_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		       int32_t op_ret, int32_t op_errno, char *spec_data)
 {
-	STACK_UNWIND (frame, op_ret, op_errno, spec_data);
+	STACK_UNWIND_STRICT (getspec, frame, op_ret, op_errno, spec_data);
 
 	return 0;
 }
@@ -1746,7 +1746,7 @@ error_gen_getspec (call_frame_t *frame, xlator_t *this, const char *key,
 
 	if (op_errno) {
 		GF_ERROR(this, "unwind(-1, %s)", strerror (op_errno));
-		STACK_UNWIND (frame, -1, op_errno, NULL);
+		STACK_UNWIND_STRICT (getspec, frame, -1, op_errno, NULL);
 		return 0;
 	}
 
