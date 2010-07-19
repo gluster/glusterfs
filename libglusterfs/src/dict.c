@@ -2409,7 +2409,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 
 	if ((buf + DICT_HDR_LEN) > (orig_buf + size)) {
 		gf_log ("dict", GF_LOG_ERROR,
-			"undersized buffer passsed");
+			"undersized buffer passed");
 		goto out;
 	}
 
@@ -2432,7 +2432,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 				"No room for keylen (size %d).",
 				DICT_DATA_HDR_KEY_LEN);
 			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passsed");
+				"undersized buffer passed");
 			goto out;
 		}
 		memcpy (&hostord, buf, sizeof(hostord));
@@ -2444,7 +2444,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 				"No room for vallen (size %d).",
 				DICT_DATA_HDR_VAL_LEN);
 			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passsed");
+				"undersized buffer passed");
 			goto out;
 		}
 		memcpy (&hostord, buf, sizeof(hostord));
@@ -2455,7 +2455,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 			gf_log ("dict", GF_LOG_DEBUG,
 				"No room for key (size %d).", keylen);
 			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passsed");
+				"undersized buffer passed");
 			goto out;
 		}
 		key = buf;
@@ -2465,7 +2465,7 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 			gf_log ("dict", GF_LOG_DEBUG,
 				"No room for value (size %d).", vallen);
 			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passsed");
+				"undersized buffer passed");
 			goto out;
 		}
 		value = get_new_data ();
