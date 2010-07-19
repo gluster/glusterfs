@@ -415,11 +415,9 @@ io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     struct iovec *vector, int32_t count,
                     struct iatt *buf, struct iobref *iobref)
 {
-        struct ios_conf *conf = NULL;
         int              len = 0;
         fd_t            *fd = NULL;
 
-        conf = this->private;
 
         fd = frame->local;
         frame->local = NULL;
@@ -1055,10 +1053,8 @@ io_stats_writev (call_frame_t *frame, xlator_t *this,
                  int32_t count, off_t offset,
                  struct iobref *iobref)
 {
-        struct ios_conf    *conf = NULL;
         int                 len = 0;
 
-        conf = this->private;
 
         len = iov_length (vector, count);
 
