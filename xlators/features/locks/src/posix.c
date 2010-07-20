@@ -1124,7 +1124,9 @@ pl_lookup_cbk (call_frame_t *frame,
                 GF_FREE (local);
 
 out:
-	STACK_UNWIND (frame,
+	STACK_UNWIND_STRICT (
+                     lookup,
+                     frame,
 		      op_ret,
 		      op_errno,
 		      inode,
