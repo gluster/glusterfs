@@ -250,7 +250,7 @@ sc_readlink_cbk (call_frame_t *frame, void *cookie,
 	inode_unref (frame->local);
 	frame->local = NULL;
 
-        STACK_UNWIND (frame, op_ret, op_errno, link, sbuf);
+        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, link, sbuf);
         return 0;
 }
 
@@ -275,7 +275,7 @@ sc_readlink (call_frame_t *frame, xlator_t *this,
                   using buf in readlink_cbk should be aware that @buf
                   is 0 filled
                 */
-		STACK_UNWIND (frame, strlen (link), 0, link, &buf);
+		STACK_UNWIND_STRICT (readlink, frame, strlen (link), 0, link, &buf);
 		FREE (link);
 		return 0;
 	}
@@ -303,7 +303,7 @@ sc_symlink_cbk (call_frame_t *frame, void *cookie,
 		}
 	}
 
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, preparent,
+        STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf, preparent,
                       postparent);
         return 0;
 }
@@ -335,7 +335,7 @@ sc_lookup_cbk (call_frame_t *frame, void *cookie,
 	else
 		sc_cache_flush (this, inode);
 
-        STACK_UNWIND (frame, op_ret, op_errno, inode, buf, xattr, postparent);
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xattr, postparent);
         return 0;
 }
 
