@@ -22,9 +22,12 @@ $(top_builddir)/libglusterfs/src/libglusterfs.la:
 
 uninstall-local:
 	rm -f $(DESTDIR)$(sbindir)/glusterfs
+	rm -f $(DESTDIR)$(sbindir)/glusterd
 
 install-data-local:
 	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/run
 	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/log/glusterfs
 	rm -f $(DESTDIR)$(sbindir)/glusterfs
+	rm -f $(DESTDIR)$(sbindir)/glusterd
 	ln -s glusterfsd $(DESTDIR)$(sbindir)/glusterfs
+	ln -s glusterfsd $(DESTDIR)$(sbindir)/glusterd
