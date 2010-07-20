@@ -1088,6 +1088,10 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         ret = glusterd_handle_cli_get_volume (req);
                         break;
 
+                case GD_MGMT_CLI_DEFRAG_VOLUME:
+                        ret = glusterd_handle_defrag_volume (req);
+                        break;
+
                 default:
                         GF_ASSERT (0);
         }
@@ -1112,7 +1116,8 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_STAGE_OP] = { "STAGE_OP", GD_MGMT_STAGE_OP, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_COMMIT_OP] = { "COMMIT_OP", GD_MGMT_COMMIT_OP, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_PROBE] = { "CLI_PROBE", GD_MGMT_CLI_PROBE, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_CREATE_VOLUME] = { "CLI_CREATE_VOLUME", GD_MGMT_CLI_CREATE_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_CREATE_VOLUME] = { "CLI_CREATE_VOLUME", GD_MGMT_CLI_CREATE_VOLUME, glusterd_handle_rpc_msg, NULL,NULL},
+        [GD_MGMT_CLI_DEFRAG_VOLUME] = { "CLI_DEFRAG_VOLUME", GD_MGMT_CLI_DEFRAG_VOLUME, glusterd_handle_rpc_msg, NULL,NULL},
         [GD_MGMT_CLI_DEPROBE] = { "FRIEND_REMOVE", GD_MGMT_CLI_DEPROBE, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_LIST_FRIENDS] = { "LIST_FRIENDS", GD_MGMT_CLI_LIST_FRIENDS, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_START_VOLUME] = { "START_VOLUME", GD_MGMT_CLI_START_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
@@ -1139,7 +1144,6 @@ struct rpcsvc_program glusterd1_mop_prog = {
         .progver   = GLUSTERD1_MGMT_VERSION,
         .numactors = GLUSTERD1_MGMT_PROCCNT,
         .actors    = glusterd1_mgmt_actors,
-        .progport  = 4284,
 };
 
 

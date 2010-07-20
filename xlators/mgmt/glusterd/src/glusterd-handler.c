@@ -593,6 +593,55 @@ out:
         return ret;
 }
 
+
+
+int
+glusterd_handle_defrag_volume (rpcsvc_request_t *req)
+{
+        int32_t                ret           = -1;
+        gf1_cli_defrag_vol_req cli_req       = {0,};
+        glusterd_conf_t         *priv = NULL;
+        char                   cmd_str[4096] = {0,};
+
+        GF_ASSERT (req);
+
+        priv    = THIS->private;
+        if (!gf_xdr_to_cli_defrag_vol_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag volume on %s",
+                cli_req.volname);
+
+        glusterd_op_set_op (GD_OP_DEFRAG_VOLUME);
+
+        glusterd_op_set_ctx (GD_OP_DEFRAG_VOLUME, cli_req.volname);
+
+        /* TODO: make it more generic.. */
+        /* Create a directory, mount glusterfs over it, start glusterfs-defrag */
+        snprintf (cmd_str, 4096, "mkdir -p %s/mount/%s",
+                  priv->workdir, cli_req.volname);
+        system (cmd_str);
+
+        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s-tcp.vol "
+                  "--xlator-option distribute.unhashed-sticky-bit=yes "
+                  "--xlator-option distribute.lookup-unhashed=on %s/mount/%s",
+                  priv->workdir, cli_req.volname, cli_req.volname,
+                  priv->workdir, cli_req.volname);
+        system (cmd_str);
+
+        snprintf (cmd_str, 4096,
+                  "$(glusterfs-defrag %s/mount/%s; umount %s/mount/%s) &",
+                  priv->workdir, cli_req.volname, priv->workdir, cli_req.volname);
+        system (cmd_str);
+
+        ret = 0;
+out:
+        return ret;
+}
+
 int
 glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
 {

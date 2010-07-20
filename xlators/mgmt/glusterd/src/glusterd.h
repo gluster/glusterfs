@@ -152,6 +152,9 @@ int
 glusterd_handle_create_volume (rpcsvc_request_t *req);
 
 int
+glusterd_handle_defrag_volume (rpcsvc_request_t *req);
+
+int
 glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
                               int32_t op_errno, char *hostname);
 
