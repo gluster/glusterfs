@@ -59,8 +59,8 @@ struct trash_struct {
         char     origpath[PATH_MAX];
         char     newpath[PATH_MAX];
         int32_t  loop_count;
-        struct stat preparent;
-        struct stat postparent;
+        struct iatt preparent;
+        struct iatt postparent;
 };
 typedef struct trash_struct trash_local_t;
 
@@ -77,11 +77,11 @@ struct trash_priv {
 };
 typedef struct trash_priv trash_private_t;
 
-#define TRASH_STACK_UNWIND(frame, params ...) do {     \
+#define TRASH_STACK_UNWIND(op, frame, params ...) do {     \
 		trash_local_t *__local = NULL;         \
 		__local = frame->local;                \
 		frame->local = NULL;		       \
-		STACK_UNWIND (frame, params);          \
+		STACK_UNWIND_STRICT (op, frame, params);          \
 		trash_local_wipe (__local);	       \
 	} while (0)
 
