@@ -97,7 +97,9 @@ start_glusterfs ()
 
     if [ -z "$volfile_loc" ]; then
         if  [ -n "$server_ip" ]; then
-            cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
+            if [ -n "$server_port" ]; then
+                cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
+            fi
 	    if [ -n "$transport" ]; then 
                 cmd_line=$(echo "$cmd_line --volfile-server-transport=$transport");
             fi
@@ -188,10 +190,6 @@ main ()
             }
         } 
 	volfile_loc="";
-    }
-
-    [ -n "$server_port" ] || {
-        server_port="6996";
     }
 
     new_fs_options=$(echo "$options" | sed -e 's/[,]*log-file=[^,]*//' \
