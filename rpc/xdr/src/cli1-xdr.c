@@ -268,8 +268,6 @@ xdr_gf1_cli_defrag_vol_rsp (XDR *xdrs, gf1_cli_defrag_vol_rsp *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->volname, ~0))
-		 return FALSE;
 	return TRUE;
 }
 

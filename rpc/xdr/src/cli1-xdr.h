@@ -178,7 +178,6 @@ typedef struct gf1_cli_defrag_vol_req gf1_cli_defrag_vol_req;
 struct gf1_cli_defrag_vol_rsp {
 	int op_ret;
 	int op_errno;
-	char *volname;
 };
 typedef struct gf1_cli_defrag_vol_rsp gf1_cli_defrag_vol_rsp;
 

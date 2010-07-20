@@ -46,23 +46,32 @@ rsync_filename()
 relocate_file()
 {
     path=$1;
+
+    # Make sure we don't 'defrag' valid file.
     stat_info=$(stat -c '%a' "$path");
     if [ $stat_info -lt 1000 ] ; then
         return;
     fi
 
-    flag=0;
-    linknode=$(getfattr --only-values -n trusted.distribute.linkinfo $path 2>/dev/null);
-    if [ -z $linknode ] ; then
-        return;
-    fi
+    # If there are some entries in added_bricks, then check
+    # if the link file is present on those nodes, if not,
+    # set flag=1, so full defrag happens
 
+    flag=0;
     for bricks in ${added_bricks}; do
+        linknode=$(getfattr --only-values -n trusted.distribute.linkinfo $path 2>/dev/null);
+        if [ -z $linknode ] ; then
+            return;
+        fi
         current_brick=${linknode:0:${#bricks}};
         if [ "${bricks}" == "${current_brick}" ]; then
             flag=1;
         fi
     done
+
+    if [ -z ${added_bricks} ] ; then
+        flag=1;
+    fi
 
     if [ $flag -ne 1 ]; then
         return;
