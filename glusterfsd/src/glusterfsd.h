@@ -27,6 +27,7 @@
 
 #include "glusterfsd-common.h"
 
+#define DEFAULT_GLUSTERD_VOLFILE              CONFDIR "/glusterd.vol"
 #define DEFAULT_CLIENT_VOLFILE                CONFDIR "/glusterfs.vol"
 #define DEFAULT_SERVER_VOLFILE                CONFDIR "/glusterfsd.vol"
 #define DEFAULT_LOG_FILE_DIRECTORY            DATADIR "/log/glusterfs"

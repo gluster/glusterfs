@@ -657,9 +657,9 @@ generate_uuid ()
         return gf_strdup (tmp_str);
 }
 
-#define GF_SERVER_PROCESS 0
-#define GF_CLIENT_PROCESS 1
-
+#define GF_SERVER_PROCESS   0
+#define GF_CLIENT_PROCESS   1
+#define GF_GLUSTERD_PROCESS 2
 
 static uint8_t
 gf_get_process_mode (char *exec_name)
@@ -672,6 +672,8 @@ gf_get_process_mode (char *exec_name)
 
         if (!strncmp (base, "glusterfsd", 10)) {
                 ret = GF_SERVER_PROCESS;
+        } else if (!strncmp (base, "glusterd", 8)) {
+                ret = GF_GLUSTERD_PROCESS;
         } else {
                 ret = GF_CLIENT_PROCESS;
         }
@@ -872,6 +874,8 @@ parse_cmdline (int argc, char *argv[], cmd_args_t *cmd_args)
             && (cmd_args->volfile == NULL)) {
                 if (process_mode == GF_SERVER_PROCESS)
                         cmd_args->volfile = gf_strdup (DEFAULT_SERVER_VOLFILE);
+                else if (process_mode == GF_GLUSTERD_PROCESS)
+                        cmd_args->volfile = gf_strdup (DEFAULT_GLUSTERD_VOLFILE);
                 else
                         cmd_args->volfile = gf_strdup (DEFAULT_CLIENT_VOLFILE);
         }
