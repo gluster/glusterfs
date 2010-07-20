@@ -443,7 +443,7 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 	INIT_LIST_HEAD (&pl_inode->ext_list);
 	INIT_LIST_HEAD (&pl_inode->rw_list);
 
-	ret = inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
+	inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
 
 out:
 	return pl_inode;
