@@ -111,6 +111,7 @@ typedef struct glusterd_friend_req_ctx_ {
         uuid_t                  uuid;
         char                    *hostname;
         rpcsvc_request_t        *req;
+        int                      port;
 } glusterd_friend_req_ctx_t;
 
 typedef glusterd_friend_req_ctx_t glusterd_friend_update_ctx_t;
@@ -118,6 +119,7 @@ typedef glusterd_friend_req_ctx_t glusterd_friend_update_ctx_t;
 typedef struct glusterd_probe_ctx_ {
         char                    *hostname;
         rpcsvc_request_t        *req;
+        int                      port;
 } glusterd_probe_ctx_t;
 int
 glusterd_friend_sm_new_event (glusterd_friend_sm_event_type_t event_type,

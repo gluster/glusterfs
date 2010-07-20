@@ -90,17 +90,17 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname)\
         snprintf (pidfile, PATH_MAX, "%s/run/%s.pid", volpath, hostname);
 int
-glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr);
+glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
 
 int
-glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname);
+glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port);
 
 int
 glusterd_friend_find (uuid_t uuid, char *hostname,
                       glusterd_peerinfo_t **peerinfo);
 
 int
-glusterd_friend_add (const char *hoststr,
+glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid, struct rpc_clnt    *rpc,
                      glusterd_peerinfo_t **friend);
@@ -156,17 +156,17 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req);
 
 int
 glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
-                              int32_t op_errno, char *hostname);
+                              int32_t op_errno, char *hostname, int port);
 
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
                                int32_t op, int32_t status);
 
 int
-glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname);
+glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int port);
 
 int
-glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr);
+glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
 
 int
 glusterd_handle_cli_deprobe (rpcsvc_request_t *req);
