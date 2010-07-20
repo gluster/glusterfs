@@ -90,10 +90,9 @@ ioc_inode_need_revalidate (ioc_inode_t *ioc_inode)
 {
 	int8_t         need_revalidate = 0;
 	struct timeval tv = {0,};
-	int32_t        ret = -1;
 	ioc_table_t    *table = ioc_inode->table;
 
-	ret = gettimeofday (&tv, NULL);
+	gettimeofday (&tv, NULL);
 
 	if (time_elapsed (&tv, &ioc_inode->cache.tv) >= table->cache_timeout)
 		need_revalidate = 1;
@@ -522,14 +521,10 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 	ioc_local_t *local = NULL;
 	ioc_table_t *table = NULL;
 	ioc_inode_t *ioc_inode = NULL;
-	inode_t     *inode = NULL;
 	uint32_t    weight = 0xffffffff;
-	const char  *path = NULL;
 
         local = frame->local;
         table = this->private;
-        inode = local->file_loc.inode;
-        path = local->file_loc.path;
 
 	if (op_ret != -1) {
                 inode_ctx_get (fd->inode, this, &tmp_ioc_inode);
