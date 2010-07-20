@@ -47,6 +47,8 @@ xdr_gf1_cli_probe_req (XDR *xdrs, gf1_cli_probe_req *objp)
 
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
 		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->port))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -60,6 +62,8 @@ xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
 		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->port))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -68,6 +72,8 @@ xdr_gf1_cli_deprobe_req (XDR *xdrs, gf1_cli_deprobe_req *objp)
 {
 
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->port))
 		 return FALSE;
 	return TRUE;
 }

@@ -24,24 +24,28 @@ typedef enum glusterd_volume_status glusterd_volume_status;
 struct gd1_mgmt_probe_req {
 	u_char uuid[16];
 	char *hostname;
+        int port;
 };
 typedef struct gd1_mgmt_probe_req gd1_mgmt_probe_req;
 
 struct gd1_mgmt_probe_rsp {
 	u_char uuid[16];
 	char *hostname;
+        int port;
 };
 typedef struct gd1_mgmt_probe_rsp gd1_mgmt_probe_rsp;
 
 struct gd1_mgmt_friend_req {
 	u_char uuid[16];
 	char *hostname;
+        int port;
 };
 typedef struct gd1_mgmt_friend_req gd1_mgmt_friend_req;
 
 struct gd1_mgmt_friend_rsp {
 	u_char uuid[16];
 	char *hostname;
+        int port;
 	int op_ret;
 	int op_errno;
 };
@@ -50,12 +54,14 @@ typedef struct gd1_mgmt_friend_rsp gd1_mgmt_friend_rsp;
 struct gd1_mgmt_unfriend_req {
 	u_char uuid[16];
 	char *hostname;
+        int port;
 };
 typedef struct gd1_mgmt_unfriend_req gd1_mgmt_unfriend_req;
 
 struct gd1_mgmt_unfriend_rsp {
 	u_char uuid[16];
 	char *hostname;
+        int port;
 	int op_ret;
 	int op_errno;
 };
@@ -125,6 +131,7 @@ struct gd1_mgmt_friend_update {
 	u_char uuid[16];
 	u_char friend_uuid[16];
 	char *hostname;
+        int port;
 };
 typedef struct gd1_mgmt_friend_update gd1_mgmt_friend_update;
 

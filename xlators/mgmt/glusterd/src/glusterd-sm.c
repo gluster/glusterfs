@@ -75,7 +75,6 @@ glusterd_ac_friend_add (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_conf_t         *conf = NULL;
         xlator_t                *this = NULL;
 
-
         GF_ASSERT (event);
         peerinfo = event->peerinfo;
 
@@ -105,17 +104,16 @@ static int
 glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
 {
         int                     ret = -1;
-        char                    *hostname = NULL;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         glusterd_conf_t         *conf = NULL;
         xlator_t                *this = NULL;
         glusterd_probe_ctx_t    *probe_ctx = NULL;
+        dict_t                  *dict = NULL;
 
         GF_ASSERT (ctx);
 
         probe_ctx = ctx;
-        hostname = probe_ctx->hostname;
 
         this = THIS;
 
@@ -135,11 +133,26 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
                         goto out;
                 }
                 frame->local = ctx;
-                ret = proc->fn (frame, this, hostname);
+                dict = dict_new ();
+                if (!dict)
+                        goto out;
+                ret = dict_set_str (dict, "hostname", probe_ctx->hostname);
+                if (ret)
+                        goto out;
+
+                ret = dict_set_int32 (dict, "port", probe_ctx->port);
+                if (ret)
+                        goto out;
+                ret = proc->fn (frame, this, dict);
+                if (ret)
+                        goto out;
+
         }
 
 
 out:
+        if (dict)
+                dict_destroy (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -233,7 +246,8 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
 
         uuid_clear (peerinfo->uuid);
 
-        ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname);
+        ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname,
+                                                ev_ctx->port);
 
         rpc_clnt_destroy (peerinfo->rpc);
         peerinfo->rpc = NULL;
@@ -316,7 +330,8 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
 
         glusterd_friend_sm_inject_event (new_event);
 
-        ret = glusterd_xfer_friend_add_resp (ev_ctx->req, ev_ctx->hostname);
+        ret = glusterd_xfer_friend_add_resp (ev_ctx->req, ev_ctx->hostname,
+                                             ev_ctx->port);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -503,13 +518,14 @@ glusterd_friend_sm_inject_event (glusterd_friend_sm_event_t *event)
 int
 glusterd_friend_sm ()
 {
-        glusterd_friend_sm_event_t      *event = NULL;
-        glusterd_friend_sm_event_t      *tmp = NULL;
-        int                             ret = -1;
-        glusterd_friend_sm_ac_fn        handler = NULL;
-        glusterd_sm_t      *state = NULL;
-        glusterd_peerinfo_t             *peerinfo = NULL;
-        glusterd_friend_sm_event_type_t event_type = 0;
+        glusterd_friend_sm_event_t      *event      = NULL;
+        glusterd_friend_sm_event_t      *tmp        = NULL;
+        int                              ret        = -1;
+        glusterd_friend_sm_ac_fn         handler    = NULL;
+        glusterd_sm_t                   *state      = NULL;
+        glusterd_peerinfo_t             *peerinfo   = NULL;
+        glusterd_friend_sm_event_type_t  event_type = 0;
+        int                              port       = 6969; //TODO, use standard
 
         while (!list_empty (&gd_friend_sm_queue)) {
                 list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
@@ -521,7 +537,7 @@ glusterd_friend_sm ()
                         if (!peerinfo &&
                            (GD_FRIEND_EVENT_PROBE == event_type ||
                             GD_FRIEND_EVENT_RCVD_FRIEND_REQ == event_type)) {
-                                ret = glusterd_friend_add (NULL,
+                                ret = glusterd_friend_add (NULL, port,
                                                           GD_FRIEND_STATE_DEFAULT,
                                                           NULL, NULL, &peerinfo);
 

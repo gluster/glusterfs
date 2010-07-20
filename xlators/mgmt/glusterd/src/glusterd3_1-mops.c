@@ -163,8 +163,8 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         op_errno = rsp.op_errno;
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received %s from uuid: %s, host: %s",
-                (op_ret)?"RJT":"ACC", str, rsp.hostname);
+                "Received %s from uuid: %s, host: %s, port: %d",
+                (op_ret)?"RJT":"ACC", str, rsp.hostname, rsp.port);
 
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
 
@@ -206,7 +206,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         GF_ASSERT (ctx);
 
         ret = glusterd_xfer_cli_probe_resp (ctx->req, op_ret, op_errno,
-                                            ctx->hostname);
+                                            ctx->hostname, ctx->port);
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
@@ -256,8 +256,8 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         op_errno = rsp.op_errno;
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received %s from uuid: %s, host: %s",
-                (op_ret)?"RJT":"ACC", str, rsp.hostname);
+                "Received %s from uuid: %s, host: %s, port: %d",
+                (op_ret)?"RJT":"ACC", str, rsp.hostname, rsp.port);
 
         if (op_ret)
                 goto respond;
@@ -292,7 +292,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
 
 respond:
         ret = glusterd_xfer_cli_probe_resp (ctx->req, op_ret, op_errno,
-                                            ctx->hostname);
+                                            ctx->hostname, ctx->port);
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
@@ -580,19 +580,27 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
 {
         gd1_mgmt_probe_req      req = {{0},};
         int                     ret = 0;
+        int                     port = 0;
         char                    *hostname = NULL;
         glusterd_peerinfo_t     *peerinfo = NULL;
         glusterd_conf_t         *priv = NULL;
+        dict_t                  *dict = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
         }
 
-        hostname = data;
+        dict = data;
         priv = this->private;
 
         GF_ASSERT (priv);
+        ret = dict_get_str (dict, "hostname", &hostname);
+        if (ret)
+                goto out;
+        ret = dict_get_int32 (dict, "port", &port);
+        if (ret)
+                port = 6969;
 
         ret = glusterd_friend_find (NULL, hostname, &peerinfo);
 
@@ -604,6 +612,7 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
 
         uuid_copy (req.uuid, priv->uuid);
         req.hostname = gf_strdup (hostname);
+        req.port = port;
 
         ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
                                        GD_MGMT_PROBE_QUERY,
@@ -644,7 +653,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
 
         uuid_copy (req.uuid, priv->uuid);
         req.hostname = gf_strdup (peerinfo->hostname);
-
+        req.port = peerinfo->port;
         ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
                                        GD_MGMT_FRIEND_ADD,
                                        NULL, gd_xdr_from_mgmt_friend_req,
@@ -683,7 +692,7 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
 
         uuid_copy (req.uuid, priv->uuid);
         req.hostname = peerinfo->hostname;
-
+        req.port = peerinfo->port;
         ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
                                        GD_MGMT_FRIEND_REMOVE,
                                        NULL, gd_xdr_from_mgmt_friend_req,

@@ -91,6 +91,9 @@ out:
                 char *volname = (char *) words[2];
                 cli_out ("Creating Volume %s failed",volname );
         }
+        if (options)
+                dict_destroy (options);
+
         return ret;
 }
 

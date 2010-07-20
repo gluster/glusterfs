@@ -106,6 +106,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    i = 1;
         char                       key[256] = {0,};
         int32_t                    state = 0;
+        int32_t                    port = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -167,13 +168,18 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
+                        snprintf (key, 256, "friend%d.port", i);
+                        ret = dict_get_int32 (dict, key, &port);
+                        if (ret)
+                                goto out;
+
                         snprintf (key, 256, "friend%d.state", i);
                         ret = dict_get_int32 (dict, key, &state);
                         if (ret)
                                 goto out;
 
-                        cli_out ("hostname:%s, uuid:%s, state:%d\n",
-                                  hostname_buf, uuid_buf, state);
+                        cli_out ("hostname:%s, port:%d, uuid:%s, state:%d\n",
+                                 hostname_buf, port, uuid_buf, state);
                         i++;
                 }
         } else {
@@ -586,18 +592,28 @@ int32_t
 gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
-        gf1_cli_probe_req      req = {0,};
-        int                     ret = 0;
-        char                    *hostname = NULL;
+        gf1_cli_probe_req  req      = {0,};
+        int                ret      = 0;
+        dict_t            *dict     = NULL;
+        char              *hostname = NULL;
+        int                port     = 0;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
         }
 
-        hostname = data;
+        dict = data;
+        ret = dict_get_str (dict, "hostname", &hostname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "port", &port);
+        if (ret)
+                port = CLI_GLUSTERD_PORT;
 
         req.hostname = hostname;
+        req.port     = port;
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
                                    GD_MGMT_CLI_PROBE, NULL, gf_xdr_from_cli_probe_req,
@@ -615,18 +631,28 @@ int32_t
 gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
                    void *data)
 {
-        gf1_cli_deprobe_req      req = {0,};
-        int                      ret = 0;
-        char                     *hostname = NULL;
+        gf1_cli_deprobe_req  req      = {0,};
+        int                  ret      = 0;
+        dict_t              *dict     = NULL;
+        char                *hostname = NULL;
+        int                  port     = 0;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
         }
 
-        hostname = data;
+        dict = data;
+        ret = dict_get_str (dict, "hostname", &hostname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "port", &port);
+        if (ret)
+                port = CLI_GLUSTERD_PORT;
 
         req.hostname = hostname;
+        req.port     = port;
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
                                    GD_MGMT_CLI_DEPROBE, NULL,

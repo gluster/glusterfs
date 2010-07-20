@@ -40,19 +40,19 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 void
 cli_cmd_probe_usage ()
 {
-        cli_out ("Usage: probe <hostname>\n");
+        cli_out ("Usage: probe <hostname> [port]\n");
 }
 
 void
 cli_cmd_deprobe_usage ()
 {
-        cli_out ("Usage: detach <hostname>\n");
+        cli_out ("Usage: detach <hostname> [port]\n");
 }
 
 void
 cli_cmd_peer_status_usage ()
 {
-        cli_out ("Usage: peer status <hostname>\n");
+        cli_out ("Usage: peer status <hostname> [port]\n");
 }
 
 int
@@ -62,8 +62,9 @@ cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
+        dict_t                  *dict = NULL;
 
-        if (wordcount != 2) {
+        if (!((wordcount == 3) || (wordcount == 2))) {
                 cli_cmd_probe_usage ();
                 goto out;
         }
@@ -74,8 +75,22 @@ cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_str (dict, "hostname", (char *)words[1]);
+        if (ret)
+                goto out;
+
+        if (words[2]) {
+                ret = dict_set_str (dict, "port", (char *)words[2]);
+                if (ret)
+                        goto out;
+        }
+
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, (char *)words[1] );
+                ret = proc->fn (frame, THIS, dict);
         }
 
 out:
@@ -89,11 +104,12 @@ int
 cli_cmd_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
                      const char **words, int wordcount)
 {
-        int             ret = -1;
-        rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
+        int                   ret   = -1;
+        rpc_clnt_procedure_t *proc  = NULL;
+        call_frame_t         *frame = NULL;
+        dict_t               *dict  = NULL;
 
-        if (wordcount != 2) {
+        if (!((wordcount == 2) || (wordcount == 3))) {
                 cli_cmd_deprobe_usage ();
                 goto out;
         }
@@ -104,13 +120,26 @@ cli_cmd_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
+        dict = dict_new ();
+
+        ret = dict_set_str (dict, "hostname", (char *)words[1]);
+        if (ret)
+                goto out;
+
+        if (words[2]) {
+                ret = dict_set_str (dict, "port", (char *)words[2]);
+                if (ret)
+                        goto out;
+        }
+
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, (char *)words[1] );
+                ret = proc->fn (frame, THIS, dict);
         }
 
 out:
         if (ret)
                 cli_out ("Detach failed\n");
+
         return ret;
 }
 
@@ -144,7 +173,7 @@ out:
 }
 
 struct cli_cmd cli_probe_cmds[] = {
-        { "probe <HOSTNAME>",
+        { "probe <HOSTNAME> [PORT]",
           cli_cmd_probe_cbk },
 
         { "detach <HOSTNAME>",
