@@ -73,7 +73,7 @@ trash_common_unwind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno,
                          struct iatt *preparent, struct iatt *postparent)
 {
-        TRASH_STACK_UNWIND (frame, op_ret, op_errno, preparent, postparent);
+        TRASH_STACK_UNWIND (unlink, frame, op_ret, op_errno, preparent, postparent);
         return 0;
 }
 
@@ -247,7 +247,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         /* All other cases, unlink should return success */
-        TRASH_STACK_UNWIND (frame, 0, op_errno, &local->preparent,
+        TRASH_STACK_UNWIND (unlink, frame, 0, op_errno, &local->preparent,
                             &local->postparent);
 
         return 0;
@@ -260,7 +260,7 @@ trash_common_unwind_buf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno,
                              struct iatt *prebuf, struct iatt *postbuf)
 {
-        TRASH_STACK_UNWIND (frame, op_ret, op_errno, prebuf, postbuf);
+        TRASH_STACK_UNWIND (truncate, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
 
@@ -270,7 +270,7 @@ trash_common_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *preoldparent, struct iatt *postoldparent,
                          struct iatt *prenewparent, struct iatt *postnewparent)
 {
-        TRASH_STACK_UNWIND (frame, op_ret, op_errno, stbuf, preoldparent,
+        TRASH_STACK_UNWIND (rename, frame, op_ret, op_errno, stbuf, preoldparent,
                             postoldparent, prenewparent, postnewparent);
         return 0;
 }
@@ -320,8 +320,8 @@ trash_unlink_stat_cbk (call_frame_t *frame,  void *cookie, xlator_t *this,
         return 0;
 
 fail:
-        TRASH_STACK_UNWIND (frame, op_ret, op_errno, buf,
-                            NULL, NULL, NULL, NULL);
+        TRASH_STACK_UNWIND (unlink, frame, op_ret, op_errno, buf,
+                            NULL);
 
         return 0;
 
@@ -539,7 +539,7 @@ trash_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                            gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                TRASH_STACK_UNWIND (frame, -1, ENOMEM,
+                TRASH_STACK_UNWIND (rename, frame, -1, ENOMEM,
                                     NULL, NULL, NULL, NULL, NULL);
                 return 0;
         }
@@ -616,7 +616,7 @@ trash_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                            gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
-                TRASH_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+                TRASH_STACK_UNWIND (unlink, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
         frame->local = local;
@@ -961,7 +961,7 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "fstat on the file failed: %s",
                         strerror (op_errno));
 
-                TRASH_STACK_UNWIND (frame, op_ret, op_errno, buf);
+                TRASH_STACK_UNWIND (truncate, frame, op_ret, op_errno, buf, NULL);
                 return 0;
         }
 
@@ -1051,7 +1051,7 @@ trash_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc,
                            gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
-                TRASH_STACK_UNWIND (frame, -1, ENOMEM, NULL);
+                TRASH_STACK_UNWIND (truncate, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
 
@@ -1323,7 +1323,7 @@ trash_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "%s: %s",local->newloc.path, strerror(op_errno));
 
-                TRASH_STACK_UNWIND (frame, -1, op_errno, buf, NULL);
+                TRASH_STACK_UNWIND (ftruncate, frame, -1, op_errno, buf, NULL);
                 return 0;
         }
         if ((buf->ia_size == 0) || (buf->ia_size > priv->max_trash_file_size))
@@ -1392,7 +1392,7 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                            gf_trash_mt_trash_local_t);
         if (!local) {
                 gf_log (this->name, GF_LOG_DEBUG, "out of memory");
-                TRASH_STACK_UNWIND (frame, -1, ENOMEM, NULL, NULL);
+                TRASH_STACK_UNWIND (ftruncate, frame, -1, ENOMEM, NULL, NULL);
                 return 0;
         }
 
