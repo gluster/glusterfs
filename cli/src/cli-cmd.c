@@ -48,6 +48,9 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
 
         word = &state->tree.root;
 
+        if (!argc)
+                return 0;
+
         for (i = 0; i < argc; i++) {
                 next = cli_cmd_nextword (word, argv[i]);
 
