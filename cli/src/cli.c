@@ -368,6 +368,7 @@ cli_out (const char *fmt, ...)
 {
         struct cli_state *state = NULL;
         va_list           ap;
+        int               ret = 0;
 
         state = global_state;
 
@@ -378,7 +379,10 @@ cli_out (const char *fmt, ...)
                 return cli_rl_out(state, fmt, ap);
 #endif
 
-        return vprintf (fmt, ap);
+        ret = vprintf (fmt, ap);
+        printf ("\n");
+
+        return ret;
 }
 
 struct rpc_clnt *

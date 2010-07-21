@@ -33,8 +33,6 @@
 
 #define CMDBUFSIZ 1024
 
-#define cli_out(fmt...) fprintf (stdout, ##fmt)
-
 void *
 cli_batch (void *d)
 {

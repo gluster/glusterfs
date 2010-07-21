@@ -40,19 +40,19 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 void
 cli_cmd_probe_usage ()
 {
-        cli_out ("Usage: probe <hostname> [port]\n");
+        cli_out ("Usage: probe <hostname> [port]");
 }
 
 void
 cli_cmd_deprobe_usage ()
 {
-        cli_out ("Usage: detach <hostname> [port]\n");
+        cli_out ("Usage: detach <hostname> [port]");
 }
 
 void
 cli_cmd_peer_status_usage ()
 {
-        cli_out ("Usage: peer status <hostname> [port]\n");
+        cli_out ("Usage: peer status <hostname> [port]");
 }
 
 int
@@ -95,7 +95,7 @@ cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (ret)
-                cli_out ("Probe failed\n");
+                cli_out ("Probe failed");
         return ret;
 }
 
@@ -138,7 +138,7 @@ cli_cmd_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (ret)
-                cli_out ("Detach failed\n");
+                cli_out ("Detach failed");
 
         return ret;
 }
@@ -168,7 +168,7 @@ cli_cmd_peer_status_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (ret)
-                cli_out ("Command Execution failed\n");
+                cli_out ("Command Execution failed");
         return ret;
 }
 
