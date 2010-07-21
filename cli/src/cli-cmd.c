@@ -63,13 +63,13 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
         }
 
         if (!word) {
-                cli_out ("unrecognized word: %s (position %d)\n",
+                cli_out ("unrecognized word: %s (position %d)",
                          argv[i], i);
                 return -1;
         }
 
         if (!word->cbkfn) {
-                cli_out ("unrecognized command\n");
+                cli_out ("unrecognized command");
                 return -1;
         }
 

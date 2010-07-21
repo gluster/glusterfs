@@ -426,7 +426,7 @@ cli_cmd_volume_set_transport_cbk (struct cli_state *state,
                                   struct cli_cmd_word *word,
                                   const char **words, int wordcount)
 {
-        cli_out ("volume set-transport not implemented\n");
+        cli_out ("volume set-transport not implemented");
         return 0;
 }
 

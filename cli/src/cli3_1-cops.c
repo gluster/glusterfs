@@ -178,7 +178,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
-                        cli_out ("hostname:%s, port:%d, uuid:%s, state:%d\n",
+                        cli_out ("hostname:%s, port:%d, uuid:%s, state:%d",
                                  hostname_buf, port, uuid_buf, state);
                         i++;
                 }
@@ -192,7 +192,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         if (ret)
-                cli_out ("Command Execution Failed\n");
+                cli_out ("Command Execution Failed");
 
         if (dict)
                 dict_destroy (dict);
@@ -285,7 +285,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 goto out;
 
                         cli_out ("Volume Name:%s, type:%d, status:%d,"
-                                  "brick_count: %d\n",
+                                  "brick_count: %d",
                                   volname, type, status, brick_count);
                         i++;
                 }
@@ -300,7 +300,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         cli_cmd_broadcast_response ();
         if (ret)
-                cli_out ("Command Execution Failed\n");
+                cli_out ("Command Execution Failed");
 
         if (dict)
                 dict_destroy (dict);
