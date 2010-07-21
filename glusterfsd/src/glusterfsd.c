@@ -594,13 +594,16 @@ reincarnate (int signum)
 {
         int                 ret = 0;
         glusterfs_ctx_t    *ctx = NULL;
+        cmd_args_t         *cmd_args = NULL;
 
         ctx = glusterfs_ctx_get ();
+        cmd_args = &ctx->cmd_args;
 
         gf_log ("glusterfsd", GF_LOG_NORMAL,
                 "Reloading volfile ...");
 
-        ret = glusterfs_volumes_init (ctx);
+        if (!cmd_args->volfile_server)
+                ret = glusterfs_volumes_init (ctx);
 
         return;
 }
@@ -861,12 +864,6 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                         cmd_args->volfile = gf_strdup (DEFAULT_CLIENT_VOLFILE);
         }
 
-        if (cmd_args->volfile_server) {
-                ret = glusterfs_mgmt_init (ctx);
-                if (ret)
-                        goto out;
-        }
-
         if (cmd_args->run_id) {
                 ret = sys_lstat (cmd_args->log_file, &stbuf);
                 /* If its /dev/null, or /dev/stdout, /dev/stderr,
@@ -899,7 +896,6 @@ parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
                 }
         }
 
-out:
         return ret;
 }
 
@@ -1194,8 +1190,11 @@ glusterfs_volumes_init (glusterfs_ctx_t *ctx)
 
         cmd_args = &ctx->cmd_args;
 
-        if (cmd_args->volfile_server)
-                return 0;
+        if (cmd_args->volfile_server) {
+                ret = glusterfs_mgmt_init (ctx);
+                if (ret)
+                        goto out;
+        }
 
         fp = get_volfp (ctx);
 
