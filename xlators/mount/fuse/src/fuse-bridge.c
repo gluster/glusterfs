@@ -3297,7 +3297,7 @@ fuse_thread_proc (void *data)
                 dict_del (this->options, ZR_MOUNTPOINT_OPT);
         }
 
-        raise (SIGTERM);
+        kill (getpid(), SIGTERM);
 
         return NULL;
 }
