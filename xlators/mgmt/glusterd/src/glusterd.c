@@ -46,6 +46,7 @@
 
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
+extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpc_clnt_program glusterd3_1_mgmt_prog;
 
 static int
@@ -249,12 +250,11 @@ init (xlator_t *this)
                 goto out;
         }
 
-//TODO: Waiting on handshake code
-/*        gluster_handshake_prog.options = this->options;
-        ret = rpcsvc_program_register (conf->rpc, gluster_handshake_prog);
+        gluster_handshake_prog.options = this->options;
+        ret = rpcsvc_program_register (rpc, gluster_handshake_prog);
         if (ret)
                 goto out;
-*/
+
         conf = GF_CALLOC (1, sizeof (glusterd_conf_t),
                           gf_gld_mt_glusterd_conf_t);
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
