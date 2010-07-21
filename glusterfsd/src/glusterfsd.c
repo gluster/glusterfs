@@ -181,6 +181,7 @@ static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
 
 int glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx);
 int glusterfs_volumes_init (glusterfs_ctx_t *ctx);
+int glusterfs_mgmt_init (glusterfs_ctx_t *ctx);
 
 int
 create_fuse_mount (glusterfs_ctx_t *ctx)
@@ -190,59 +191,51 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         xlator_t        *master = NULL;
 
         cmd_args = &ctx->cmd_args;
-        master = ctx->master;
-        if (!master && !cmd_args->mount_point)
+
+        if (!cmd_args->mount_point)
                 return 0;
 
-        if (!master) {
-                master = GF_CALLOC (1, sizeof (*master),
-                                    gfd_mt_xlator_t);
-                if (!master)
-                        goto err;
+        master = GF_CALLOC (1, sizeof (*master),
+                            gfd_mt_xlator_t);
+        if (!master)
+                goto err;
 
-                master->name = gf_strdup ("fuse");
-                if (!master->name)
-                        goto err;
+        master->name = gf_strdup ("fuse");
+        if (!master->name)
+                goto err;
 
-                if (xlator_set_type (master, "mount/fuse") == -1) {
-                        gf_log ("glusterfsd", GF_LOG_ERROR,
-                                "MOUNT-POINT %s initialization failed",
-                                cmd_args->mount_point);
-                        goto err;
-                }
-
-                master->options  = get_new_dict ();
-
-                ctx->master = master;
+        if (xlator_set_type (master, "mount/fuse") == -1) {
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "MOUNT-POINT %s initialization failed",
+                        cmd_args->mount_point);
+                goto err;
         }
-        master->ctx = ctx;
 
-        if (cmd_args->mount_point)
-                ret = dict_set_static_ptr (master->options, ZR_MOUNTPOINT_OPT,
+        master->ctx      = ctx;
+        master->options  = get_new_dict ();
+
+        ret = dict_set_static_ptr (master->options, ZR_MOUNTPOINT_OPT,
                                    cmd_args->mount_point);
+        if (ret < 0) {
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "failed to set mount-point to options dictionary");
+                goto err;
+        }
 
-        if (ret == 0 && cmd_args->fuse_attribute_timeout >= 0)
+        if (cmd_args->fuse_attribute_timeout >= 0)
                 ret = dict_set_double (master->options, ZR_ATTR_TIMEOUT_OPT,
                                        cmd_args->fuse_attribute_timeout);
-
-        if (ret == 0 && cmd_args->fuse_entry_timeout >= 0)
+        if (cmd_args->fuse_entry_timeout >= 0)
                 ret = dict_set_double (master->options, ZR_ENTRY_TIMEOUT_OPT,
                                        cmd_args->fuse_entry_timeout);
 
-        if (ret == 0 && cmd_args->volfile_check)
+        if (cmd_args->volfile_check)
                 ret = dict_set_int32 (master->options, ZR_STRICT_VOLFILE_CHECK,
                                       cmd_args->volfile_check);
 
-        if (ret == 0 && cmd_args->dump_fuse)
+        if (cmd_args->dump_fuse)
                 ret = dict_set_static_ptr (master->options, ZR_DUMP_FUSE,
                                            cmd_args->dump_fuse);
-
-        if (ret) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "failed to set mount-point to options "
-                        "dictionary");
-                goto err;
-        }
 
         switch (cmd_args->fuse_direct_io_mode) {
         case GF_OPTION_DISABLE: /* disable */
@@ -261,6 +254,8 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         ret = xlator_init (master);
         if (ret)
                 goto err;
+
+        ctx->master = master;
 
         return 0;
 
@@ -282,23 +277,6 @@ get_volfp (glusterfs_ctx_t *ctx)
         struct stat  statbuf;
 
         cmd_args = &ctx->cmd_args;
-
-        if (cmd_args->volfile_server) {
-//                specfp = fetch_spec (ctx);
-
-                if (specfp == NULL) {
-                        gf_log ("glusterfsd", GF_LOG_ERROR,
-                                "error while getting volume file from "
-                                "server %s", cmd_args->volfile_server);
-                }
-                else {
-                        gf_log ("glusterfsd", GF_LOG_DEBUG,
-                                "loading volume file from server %s",
-                                cmd_args->volfile_server);
-                }
-
-                return specfp;
-        }
 
         ret = sys_lstat (cmd_args->volfile, &statbuf);
         if (ret == -1) {
@@ -848,7 +826,7 @@ logging_init (glusterfs_ctx_t *ctx)
 
 
 int
-parse_cmdline (int argc, char *argv[], cmd_args_t *cmd_args)
+parse_cmdline (int argc, char *argv[], glusterfs_ctx_t *ctx)
 {
         int               process_mode = 0;
         int               ret = 0;
@@ -859,6 +837,9 @@ parse_cmdline (int argc, char *argv[], cmd_args_t *cmd_args)
         char              tmp_logfile[1024] = { 0 };
         char              *tmp_logfile_dyn = NULL;
         char              *tmp_logfilebase = NULL;
+        cmd_args_t        *cmd_args = NULL;
+
+        cmd_args = &ctx->cmd_args;
 
         argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, cmd_args);
 
@@ -878,6 +859,12 @@ parse_cmdline (int argc, char *argv[], cmd_args_t *cmd_args)
                         cmd_args->volfile = gf_strdup (DEFAULT_GLUSTERD_VOLFILE);
                 else
                         cmd_args->volfile = gf_strdup (DEFAULT_CLIENT_VOLFILE);
+        }
+
+        if (cmd_args->volfile_server) {
+                ret = glusterfs_mgmt_init (ctx);
+                if (ret)
+                        goto out;
         }
 
         if (cmd_args->run_id) {
@@ -912,7 +899,8 @@ parse_cmdline (int argc, char *argv[], cmd_args_t *cmd_args)
                 }
         }
 
-        return 0;
+out:
+        return ret;
 }
 
 
@@ -1162,20 +1150,10 @@ postfork:
 
 
 int
-glusterfs_volumes_init (glusterfs_ctx_t *ctx)
+glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
 {
-        FILE               *fp = NULL;
         glusterfs_graph_t  *graph = NULL;
         int                 ret = 0;
-
-        fp = get_volfp (ctx);
-
-        if (!fp) {
-                gf_log ("glusterfsd", GF_LOG_ERROR,
-                        "Cannot reach volume specification file");
-                ret = -1;
-                goto out;
-        }
 
         graph = glusterfs_graph_construct (fp);
 
@@ -1185,10 +1163,14 @@ glusterfs_volumes_init (glusterfs_ctx_t *ctx)
         }
 
         ret = glusterfs_graph_prepare (graph, ctx);
-        if (!ret)
-                ret = create_fuse_mount (ctx);
-        if (!ret)
-                ret = glusterfs_graph_activate (graph, ctx);
+
+        if (ret) {
+                glusterfs_graph_destroy (graph);
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterfs_graph_activate (graph, ctx);
 
         if (ret) {
                 glusterfs_graph_destroy (graph);
@@ -1199,7 +1181,36 @@ glusterfs_volumes_init (glusterfs_ctx_t *ctx)
 out:
         if (fp)
                 fclose (fp);
+        return ret;
+}
 
+
+int
+glusterfs_volumes_init (glusterfs_ctx_t *ctx)
+{
+        FILE               *fp = NULL;
+        cmd_args_t         *cmd_args = NULL;
+        int                 ret = 0;
+
+        cmd_args = &ctx->cmd_args;
+
+        if (cmd_args->volfile_server)
+                return 0;
+
+        fp = get_volfp (ctx);
+
+        if (!fp) {
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "Cannot reach volume specification file");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterfs_process_volfp (ctx, fp);
+        if (ret)
+                goto out;
+
+out:
         return ret;
 }
 
@@ -1222,7 +1233,7 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-        ret = parse_cmdline (argc, argv, &ctx->cmd_args);
+        ret = parse_cmdline (argc, argv, ctx);
         if (ret)
                 goto out;
 
@@ -1231,6 +1242,10 @@ main (int argc, char *argv[])
                 goto out;
 
         gf_proc_dump_init();
+
+        ret = create_fuse_mount (ctx);
+        if (ret)
+                goto out;
 
         ret = daemonize (ctx);
         if (ret)

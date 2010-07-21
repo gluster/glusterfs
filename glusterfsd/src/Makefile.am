@@ -4,13 +4,17 @@ glusterfsd_SOURCES = glusterfsd.c fetch-spec.c
 if GF_DARWIN_HOST_OS
 glusterfsd_SOURCES += $(CONTRIBDIR)/apple/daemon.c
 endif
-glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)
+glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
+	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
+	$(GF_LDADD)
 glusterfsd_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS)
 noinst_HEADERS = glusterfsd.h glusterfsd-common.h glusterfsd-mem-types.h
 
 AM_CFLAGS = -fPIC -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -DDATADIR=\"$(localstatedir)\" \
-	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS)
+	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS) \
+	-I$(top_srcdir)/rpc/rpc-lib/src -I$(top_srcdir)/rpc/xdr/src
 if GF_DARWIN_HOST_OS
 AM_CFLAGS += -I$(CONTRIBDIR)/apple
 endif
