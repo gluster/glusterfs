@@ -1150,12 +1150,23 @@ glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
 {
         glusterfs_graph_t  *graph = NULL;
         int                 ret = 0;
+        xlator_t           *trav = NULL;
 
         graph = glusterfs_graph_construct (fp);
 
         if (!graph) {
                 ret = -1;
                 goto out;
+        }
+
+        for (trav = graph->first; trav; trav = trav->next) {
+                if (strcmp (trav->type, "mount/fuse") == 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "fuse xlator cannot be specified "
+                                "in volume file");
+                        ret = -1;
+                        goto out;
+                }
         }
 
         ret = glusterfs_graph_prepare (graph, ctx);
