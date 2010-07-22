@@ -52,8 +52,8 @@
 #include "afr-dir-read.h"
 #include "afr-dir-write.h"
 #include "afr-transaction.h"
-
 #include "afr-self-heal.h"
+#include "afr-self-heal-common.h"
 
 
 int
@@ -350,9 +350,10 @@ out:
 int
 afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t *local  = NULL;
+        afr_private_t   *priv = NULL;
+        afr_local_t     *local  = NULL;
         afr_self_heal_t *sh = NULL;
+        char            sh_type_str[256] = {0,};
 
         priv  = this->private;
         local = frame->local;
@@ -373,6 +374,13 @@ afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
         sh->type                = local->fd->inode->ia_type;
         sh->background          = _gf_false;
         sh->unwind              = afr_up_down_flush_sh_unwind;
+
+        afr_self_heal_type_str_get(&local->self_heal,
+                                   sh_type_str,
+                                   sizeof(sh_type_str));
+        gf_log (this->name, GF_LOG_NORMAL, "%s self-heal triggered. "
+                "path: %s, reason: Replicate up down flush, data lock is held",
+                sh_type_str, local->loc.path);
 
         afr_self_heal (frame, this);
 
