@@ -427,6 +427,8 @@ sh_diff_private_cleanup (call_frame_t *frame, xlator_t *this)
 
                         if (sh_priv->loops[i]->checksum)
                                 GF_FREE (sh_priv->loops[i]->checksum);
+
+                        GF_FREE (sh_priv->loops[i]);
                 }
         }
 
