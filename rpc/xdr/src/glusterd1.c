@@ -68,6 +68,14 @@ gd_xdr_serialize_mgmt_commit_op_rsp (struct iovec outmsg, void *rsp)
                                 (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
 
 }
+
+ssize_t
+gd_xdr_serialize_mgmt_friend_update_rsp (struct iovec outmsg, void *rsp)
+{
+        return xdr_serialize_generic (outmsg, (void *)rsp,
+                                (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
+
+}
 /* Decode */
 
 
@@ -161,6 +169,13 @@ gd_xdr_to_mgmt_commit_op_rsp (struct iovec inmsg, void *args)
 {
         return xdr_to_generic (inmsg, (void *)args,
                                (xdrproc_t)xdr_gd1_mgmt_commit_op_rsp);
+}
+
+ssize_t
+gd_xdr_to_mgmt_friend_update_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
 }
 
 ssize_t

@@ -70,6 +70,51 @@ glusterd_unset_lock_owner (uuid_t owner)
         return 0;
 }
 
+static int32_t
+glusterd_is_local_addr (char *hostname)
+{
+        int32_t         ret = -1;
+        struct          addrinfo *result = NULL;
+        struct          addrinfo *res = NULL;
+        int32_t         found = 0;
+
+        if ((!strcmp (hostname, "localhost")) ||
+             (!strcmp (hostname, "127.0.0.1"))) {
+                found = 0;
+                goto out;
+        }
+
+        ret = getaddrinfo (hostname, NULL, NULL, &result);
+
+        if (ret != 0) {
+                gf_log ("", GF_LOG_ERROR, "error in getaddrinfo: %s\n",
+                        gai_strerror(ret));
+                goto out;
+        }
+
+        for (res = result; res != NULL; res = res->ai_next) {
+                char hname[1024] = "";
+
+                ret = getnameinfo (res->ai_addr, res->ai_addrlen, hname,
+                                   NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+                if (ret)
+                        goto out;
+
+                if (!strncasecmp (hname, "127", 3)) {
+                        ret = 0;
+                        gf_log ("", GF_LOG_NORMAL, "local addr found");
+                        found = 1;
+                        break;
+                }
+        }
+
+out:
+        //if (result)
+          //      freeaddrinfo (result);
+
+        return !found;
+}
+
 int32_t
 glusterd_lock (uuid_t   uuid)
 {
@@ -478,11 +523,9 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
         }
 
         if (ret) {
-                if ((!strcmp (brickinfo->hostname, "localhost")) ||
-                     (!strcmp (brickinfo->hostname, "127.0.0.1"))) {
+                ret = glusterd_is_local_addr (brickinfo->hostname);
+                if (!ret)
                         uuid_copy (brickinfo->uuid, priv->uuid);
-                        ret = 0;
-                }
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);

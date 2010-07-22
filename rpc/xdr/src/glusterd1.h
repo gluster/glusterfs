@@ -103,4 +103,10 @@ gd_xdr_to_mgmt_friend_update (struct iovec outmsg, void *req);
 
 ssize_t
 gd_xdr_from_mgmt_friend_update (struct iovec outmsg, void *req);
+
+ssize_t
+gd_xdr_serialize_mgmt_friend_update_rsp (struct iovec outmsg, void *rsp);
+
+ssize_t
+gd_xdr_to_mgmt_friend_update_rsp (struct iovec inmsg, void *args);
 #endif /* !_MSG_GD_XDR_H */

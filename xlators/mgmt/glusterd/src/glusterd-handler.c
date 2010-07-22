@@ -637,19 +637,18 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         /* Create a directory, mount glusterfs over it, start glusterfs-defrag */
         snprintf (cmd_str, 4096, "mkdir -p %s/mount/%s",
                   priv->workdir, cli_req.volname);
-        system (cmd_str);
+        ret = system (cmd_str);
 
         snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s-tcp.vol "
-                  "--xlator-option distribute.unhashed-sticky-bit=yes "
-                  "--xlator-option distribute.lookup-unhashed=on %s/mount/%s",
+                  "--xlator-option dht0.unhashed-sticky-bit=yes "
+                  "--xlator-option dht0.lookup-unhashed=on %s/mount/%s",
                   priv->workdir, cli_req.volname, cli_req.volname,
                   priv->workdir, cli_req.volname);
-        system (cmd_str);
+        ret = system (cmd_str);
 
-        snprintf (cmd_str, 4096,
-                  "$(glusterfs-defrag %s/mount/%s; umount %s/mount/%s) &",
-                  priv->workdir, cli_req.volname, priv->workdir, cli_req.volname);
-        system (cmd_str);
+        snprintf (cmd_str, 4096, "glusterfs-defrag %s/mount/%s",
+                  priv->workdir, cli_req.volname);
+        ret = system (cmd_str);
 
         ret = 0;
 out:
@@ -804,6 +803,45 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
 out:
         return ret;
 }
+
+int
+glusterd_handle_add_brick (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_add_brick_req          cli_req = {0,};
+        dict_t                          *dict = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_add_brick_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received add brick req");
+
+        if (cli_req.bricks.bricks_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.bricks.bricks_val,
+                                        cli_req.bricks.bricks_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = glusterd_add_brick (req, dict);
+
+out:
+        return ret;
+}
+
 int
 glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status)
 {
@@ -994,6 +1032,14 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
         glusterd_peerinfo_t     *tmp = NULL;
+        gd1_mgmt_friend_update_rsp rsp = {{0},};
+        dict_t                  *dict = NULL;
+        char                    key[100] = {0,};
+        char                    *uuid_buf = NULL;
+        char                    *hostname = NULL;
+        int                     i = 1;
+        int                     count = 0;
+        uuid_t                  uuid = {0,};
 
         GF_ASSERT (req);
 
@@ -1012,16 +1058,63 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received friend update from uuid: %s", str);
 
-        ret = glusterd_friend_find (friend_req.uuid, friend_req.hostname, &tmp);
+        if (friend_req.friends.friends_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
 
-        if (!ret)
+                ret = dict_unserialize (friend_req.friends.friends_val,
+                                        friend_req.friends.friends_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret)
                 goto out;
 
-        ret = glusterd_friend_add (friend_req.hostname, friend_req.port,
-                                   GD_FRIEND_STATE_BEFRIENDED,
-                                   &friend_req.uuid, NULL, &peerinfo);
+        while ( i <= count) {
+                snprintf (key, sizeof (key), "friend%d.uuid", i);
+                ret = dict_get_str (dict, key, &uuid_buf);
+                if (ret)
+                        goto out;
+                uuid_parse (uuid_buf, uuid);
+                snprintf (key, sizeof (key), "friend%d.hostname", i);
+                ret = dict_get_str (dict, key, &hostname);
+                if (ret)
+                        goto out;
+
+                gf_log ("", GF_LOG_NORMAL, "Received uuid: %s, hostname:%s",
+                                uuid_buf, hostname);
+
+                if (!uuid_compare (uuid, priv->uuid)) {
+                        gf_log ("", GF_LOG_NORMAL, "Received my uuid as Friend");
+                        i++;
+                        continue;
+                }
+
+                ret = glusterd_friend_find (uuid, hostname, &tmp);
+
+                if (!ret) {
+                        i++;
+                        continue;
+                }
+
+                ret = glusterd_friend_add (hostname, friend_req.port,
+                                           GD_FRIEND_STATE_BEFRIENDED,
+                                           &uuid, NULL, &peerinfo);
+
+                i++;
+        }
 
 out:
+        uuid_copy (rsp.uuid, priv->uuid);
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     gd_xdr_serialize_mgmt_friend_update_rsp);
         return ret;
 }
 
@@ -1436,6 +1529,7 @@ glusterd_friend_add (const char *hoststr, int port,
                         goto out;
                 list_add_tail (&peerinfo->hostnames, &name->hostname_list);
                 rpc_cfg.remote_host = gf_strdup (hoststr);
+		peerinfo->hostname = gf_strdup (hoststr);
         }
         INIT_LIST_HEAD (&peerinfo->uuid_list);
 
@@ -1725,11 +1819,8 @@ out:
 int32_t
 glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
 {
-        int32_t      ret       = -1;
-        char        *volname   = NULL;
-        char        *bricks    = NULL;
-        int          type      = 0;
-        int          count     = 0;
+        int32_t  ret       = -1;
+        data_t  *data = NULL;
 
         GF_ASSERT (req);
         GF_ASSERT (dict);
@@ -1738,20 +1829,20 @@ glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
 
         glusterd_op_set_ctx (GD_OP_CREATE_VOLUME, dict);
 
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret)
+        data = dict_get (dict, "volname");
+        if (!data)
                 goto out;
 
-        ret = dict_get_int32 (dict, "type", &type);
-        if (ret)
+        data = dict_get (dict, "type");
+        if (!data)
                 goto out;
 
-        ret = dict_get_int32 (dict, "count", &count);
-        if (ret)
+        data = dict_get (dict, "count");
+        if (!data)
                 goto out;
 
-        ret = dict_get_str (dict, "bricks", &bricks);
-        if (ret)
+        data = dict_get (dict, "bricks");
+        if (!data)
                 goto out;
 
         ret = glusterd_op_txn_begin ();
@@ -1838,6 +1929,22 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict)
+{
+        int32_t      ret       = -1;
+
+        GF_ASSERT (req);
+        GF_ASSERT (dict);
+
+        glusterd_op_set_op (GD_OP_ADD_BRICK);
+
+        glusterd_op_set_ctx (GD_OP_ADD_BRICK, dict);
+
+        ret = glusterd_op_txn_begin ();
+
+        return ret;
+}
 
 int32_t
 glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)

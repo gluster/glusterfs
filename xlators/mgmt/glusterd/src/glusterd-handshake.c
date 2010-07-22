@@ -43,9 +43,9 @@ build_volfile_path (const char *volname, char *path,
                     size_t path_len)
 {
         int32_t ret = -1;
-        glusterd_conf_t *priv = NULL;
+        glusterd_conf_t         *priv = NULL;
 
-        priv = THIS->private;
+        priv    = THIS->private;
 
         ret = snprintf (path, path_len, "%s/vols/%s/%s-tcp.vol",
                         priv->workdir, volname, volname);
@@ -85,8 +85,6 @@ server_getspec (rpcsvc_request_t *req)
         gf_getspec_req    args = {0,};
         gf_getspec_rsp    rsp  = {0,};
 
-
-        rsp.spec = "";
 
         if (xdr_to_glusterfs_req (req, &args, xdr_to_getspec_req)) {
                 //failed to decode msg;

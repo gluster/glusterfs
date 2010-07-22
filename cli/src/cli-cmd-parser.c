@@ -78,7 +78,10 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 ret = dict_set_int32 (dict, "replica-count", count);
                 if (ret)
                         goto out;
-
+                if (count < 2) {
+                        ret = -1;
+                        goto out;
+                }
                 brick_index = 5;
         } else if ((strcasecmp (words[3], "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
@@ -91,6 +94,10 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 ret = dict_set_int32 (dict, "stripe-count", count);
                 if (ret)
                         goto out;
+                if (count < 2) {
+                        ret = -1;
+                        goto out;
+                }
                 brick_index = 5;
         } else {
                 type = GF_CLUSTER_TYPE_NONE;
@@ -214,7 +221,7 @@ out:
 }
 
 int32_t
-cli_cmd_volume_add_brick_parse (const char **words, int wordcount, 
+cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                                 dict_t **options)
 {
         dict_t  *dict = NULL;
@@ -222,9 +229,10 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 0;
-        char    key[50];
+        //char    key[50] = {0,};
         int     brick_count = 0, brick_index = 0;
-        
+        char    brick_list[8192] = {0,};
+
         GF_ASSERT (words);
         GF_ASSERT (options);
 
@@ -257,20 +265,32 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 brick_index = 3;
         }
 
-        ret = dict_set_int32 (dict, "type", type);
-
-        if (ret)
-                goto out;
-
+        strcpy (brick_list, " ");
         while (brick_index < wordcount) {
                 GF_ASSERT (words[brick_index]);
+                if (!strchr (words[brick_index], ':')) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "wrong brick type, use <HOSTNAME>:<export-dir>");
+                        ret = -1;
+                        goto out;
+                }
 
+                strcat (brick_list, words[brick_index]);
+                strcat (brick_list, " ");
+                ++brick_count;
+                ++brick_index;
+                /*
+                  char    key[50];
                 snprintf (key, 50, "brick%d", ++brick_count);
                 ret = dict_set_str (dict, key, (char *)words[brick_index++]);
 
                 if (ret)
                         goto out;
+                */
         }
+        ret = dict_set_str (dict, "bricks", brick_list);
+        if (ret)
+                goto out;
 
         ret = dict_set_int32 (dict, "count", brick_count);
 
@@ -291,7 +311,7 @@ out:
 
 
 int32_t
-cli_cmd_volume_remove_brick_parse (const char **words, int wordcount, 
+cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                                    dict_t **options)
 {
         dict_t  *dict = NULL;
@@ -301,7 +321,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         int     count = 0;
         char    key[50];
         int     brick_count = 0, brick_index = 0;
-        
+
         GF_ASSERT (words);
         GF_ASSERT (options);
 

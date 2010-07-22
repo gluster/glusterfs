@@ -36,6 +36,12 @@ extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
+void
+cli_cmd_volume_start_usage ()
+{
+        cli_out ("Usage: volume start <volname>");
+}
+
 int
 cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                          const char **words, int wordcount)
@@ -145,6 +151,11 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         //TODO: Build validation here
+        if (wordcount < 3) {
+               cli_cmd_volume_start_usage ();
+               goto out;
+        }
+
         volname = (char *)words[2];
         GF_ASSERT (volname);
 
@@ -153,7 +164,7 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
+        if (ret && volname)
                 cli_out ("Starting Volume %s failed", volname);
 
         return ret;

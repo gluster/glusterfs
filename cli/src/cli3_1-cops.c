@@ -747,7 +747,6 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         ret = dict_get_int32 (dict, "count", &req.count);
-
         if (ret)
                 goto out;
 
@@ -977,15 +976,10 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = dict_get_int32 (dict, "type", (int32_t *)&req.type);
-
-        if (ret)
-                goto out;
-
         ret = dict_get_int32 (dict, "count", &req.count);
-
         if (ret)
                 goto out;
+
 
         ret = dict_allocate_and_serialize (dict,
                                            &req.bricks.bricks_val,
