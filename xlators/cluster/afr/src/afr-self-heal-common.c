@@ -1619,3 +1619,24 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
 
 	return 0;
 }
+
+void
+afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
+                            size_t size)
+{
+        assert(str && (size > 0));
+
+        if (self_heal_p->need_metadata_self_heal) {
+                snprintf(str, size, " meta-data");
+        }
+
+        if (self_heal_p->need_data_self_heal) {
+                snprintf(str + strlen(str), size - strlen(str),
+                         " data");
+        }
+
+        if (self_heal_p->need_entry_self_heal) {
+                snprintf(str + strlen(str), size - strlen(str),
+                         " entry");
+        }
+}

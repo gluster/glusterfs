@@ -66,5 +66,8 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
 int
 afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count);
 
+void
+afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
+                            size_t size);
 
 #endif /* __AFR_SELF_HEAL_COMMON_H__ */

@@ -52,8 +52,8 @@
 #include "afr-dir-read.h"
 #include "afr-dir-write.h"
 #include "afr-transaction.h"
-
 #include "afr-self-heal.h"
+#include "afr-self-heal-common.h"
 
 #define AFR_ICTX_OPENDIR_DONE_MASK     0x0000000200000000ULL
 #define AFR_ICTX_SPLIT_BRAIN_MASK      0x0000000100000000ULL
@@ -520,14 +520,24 @@ afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
 
         int ret = 0;
 
-        if (afr_sh_has_metadata_pending (xattr, child_index, this))
+        if (afr_sh_has_metadata_pending (xattr, child_index, this)) {
                 local->self_heal.need_metadata_self_heal = _gf_true;
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "metadata self-heal is pending for %s.",
+                       local->loc.path);
+        }
 
-        if (afr_sh_has_entry_pending (xattr, child_index, this))
+        if (afr_sh_has_entry_pending (xattr, child_index, this)) {
                 local->self_heal.need_entry_self_heal = _gf_true;
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "entry self-heal is pending for %s.", local->loc.path);
+        }
 
-        if (afr_sh_has_data_pending (xattr, child_index, this))
+        if (afr_sh_has_data_pending (xattr, child_index, this)) {
                 local->self_heal.need_data_self_heal = _gf_true;
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "data self-heal is pending for %s.", local->loc.path);
+        }
 
         ret = dict_get_uint32 (xattr, GLUSTERFS_OPEN_FD_COUNT,
                                &open_fd_count);
@@ -552,27 +562,32 @@ afr_lookup_self_heal_check (afr_local_t *local, struct iatt *buf,
 {
         if (FILETYPE_DIFFERS (buf, lookup_buf)) {
                 /* mismatching filetypes with same name
-                   -- Govinda !! GOvinda !!!
                 */
 
-                gf_log ("afr", GF_LOG_TRACE,
-                        "file %s is govinda!", local->loc.path);
+                gf_log ("Replicate", GF_LOG_NORMAL,
+                        "filetype differs for %s ", local->loc.path);
 
                 local->govinda_gOvinda = 1;
         }
 
         if (PERMISSION_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
+                gf_log ("Replicate", GF_LOG_NORMAL,
+                        "permissions differ for %s ", local->loc.path);
                 local->self_heal.need_metadata_self_heal = _gf_true;
         }
 
         if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
                 local->self_heal.need_metadata_self_heal = _gf_true;
+                gf_log ("Replicate", GF_LOG_NORMAL,
+                        "ownership differs for %s ", local->loc.path);
         }
 
         if (SIZE_DIFFERS (buf, lookup_buf)
             && IA_ISREG (buf->ia_type)) {
+                gf_log ("Replicate", GF_LOG_NORMAL,
+                        "size differs for %s ", local->loc.path);
                 local->self_heal.need_data_self_heal = _gf_true;
         }
 
@@ -582,8 +597,9 @@ afr_lookup_self_heal_check (afr_local_t *local, struct iatt *buf,
 static void
 afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
 {
-        int unwind = 1;
-        int source = -1;
+        int  unwind = 1;
+        int  source = -1;
+        char sh_type_str[256] = {0,};
 
         afr_local_t *local = NULL;
 
@@ -597,10 +613,10 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
         }
 
         if (local->op_ret == 0) {
-                /* KLUDGE: assuming DHT will not itransform in 
+                /* KLUDGE: assuming DHT will not itransform in
                    revalidate */
                 if (local->cont.lookup.inode->ino) {
-                        local->cont.lookup.buf.ia_ino = 
+                        local->cont.lookup.buf.ia_ino =
                                 local->cont.lookup.inode->ino;
                         local->cont.lookup.buf.ia_gen =
                                 local->cont.lookup.inode->generation;
@@ -611,13 +627,20 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                 local->self_heal.need_metadata_self_heal = _gf_true;
                 local->self_heal.need_data_self_heal     = _gf_true;
                 local->self_heal.need_entry_self_heal    = _gf_true;
+                gf_log(this->name, GF_LOG_NORMAL,
+                       "entries are missing in lookup of %s.",
+                       local->loc.path);
         }
 
         if (local->success_count) {
                 /* check for split-brain case in previous lookup */
                 if (afr_is_split_brain (this,
-                                        local->cont.lookup.inode))
+                                        local->cont.lookup.inode)) {
                         local->self_heal.need_data_self_heal = _gf_true;
+                        gf_log(this->name, GF_LOG_NORMAL,
+                               "split brain detected during lookup of "
+                               "%s.", local->loc.path);
+                }
         }
 
         if ((local->self_heal.need_metadata_self_heal
@@ -656,6 +679,14 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
 
                         unwind = 0;
 
+                        afr_self_heal_type_str_get(&local->self_heal,
+                                                   sh_type_str,
+                                                   sizeof(sh_type_str));
+
+                        gf_log (this->name, GF_LOG_NORMAL, "background %s "
+                                "self-heal triggered. path: %s",
+                                sh_type_str, local->loc.path);
+
                         afr_self_heal (frame, this);
                 }
         }
@@ -663,7 +694,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
         if (unwind) {
                 AFR_STACK_UNWIND (lookup, frame, local->op_ret,
                                   local->op_errno,
-                                  local->cont.lookup.inode, 
+                                  local->cont.lookup.inode,
                                   &local->cont.lookup.buf,
                                   local->cont.lookup.xattr,
                                   &local->cont.lookup.postparent);
@@ -739,7 +770,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                 first_up_child = afr_first_up_child (priv);
 
                 if (child_index == first_up_child) {
-                        local->cont.lookup.ino = 
+                        local->cont.lookup.ino =
                                 afr_itransform (buf->ia_ino,
                                                 priv->child_count,
                                                 first_up_child);

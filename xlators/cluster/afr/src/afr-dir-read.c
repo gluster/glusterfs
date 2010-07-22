@@ -47,6 +47,7 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
+#include "afr-self-heal-common.h"
 
 
 int
@@ -107,8 +108,9 @@ afr_examine_dir_readdir_cbk (call_frame_t *frame, void *cookie,
 
         uint32_t entry_cksum;
 
-        int call_count    = 0;
+        int   call_count    = 0;
         off_t last_offset = 0;
+        char  sh_type_str[256] = {0,};
 
         priv  = this->private;
         local = frame->local;
@@ -157,10 +159,16 @@ out:
                                 sh->background            = _gf_false;
                                 sh->unwind                = afr_examine_dir_sh_unwind;
 
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "checksums of directory %s differ,"
-                                        " triggering forced merge",
-                                        local->loc.path);
+                                afr_self_heal_type_str_get(&local->self_heal,
+                                                           sh_type_str,
+                                                           sizeof(sh_type_str));
+                                gf_log (this->name, GF_LOG_NORMAL,
+                                        "%s self-heal triggered. "
+                                         "path: %s, "
+                                         "reason: checksums of "
+                                         "directory differ,"
+                                        " forced merge option set",
+                                        sh_type_str, local->loc.path);
 
                                 afr_self_heal (frame, this);
                         } else {
