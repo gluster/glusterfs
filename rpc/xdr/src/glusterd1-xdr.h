@@ -129,11 +129,21 @@ typedef struct gd1_mgmt_commit_op_rsp gd1_mgmt_commit_op_rsp;
 
 struct gd1_mgmt_friend_update {
 	u_char uuid[16];
-	u_char friend_uuid[16];
-	char *hostname;
+	struct {
+		u_int friends_len;
+		char *friends_val;
+	} friends;
         int port;
 };
 typedef struct gd1_mgmt_friend_update gd1_mgmt_friend_update;
+
+struct gd1_mgmt_friend_update_rsp {
+	u_char uuid[16];
+	int op;
+	int op_ret;
+	int op_errno;
+};
+typedef struct gd1_mgmt_friend_update_rsp gd1_mgmt_friend_update_rsp;
 
 /* the xdr functions */
 
@@ -154,6 +164,7 @@ extern  bool_t xdr_gd1_mgmt_stage_op_rsp (XDR *, gd1_mgmt_stage_op_rsp*);
 extern  bool_t xdr_gd1_mgmt_commit_op_req (XDR *, gd1_mgmt_commit_op_req*);
 extern  bool_t xdr_gd1_mgmt_commit_op_rsp (XDR *, gd1_mgmt_commit_op_rsp*);
 extern  bool_t xdr_gd1_mgmt_friend_update (XDR *, gd1_mgmt_friend_update*);
+extern  bool_t xdr_gd1_mgmt_friend_update_rsp (XDR *, gd1_mgmt_friend_update_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_glusterd_volume_status ();
@@ -172,6 +183,7 @@ extern bool_t xdr_gd1_mgmt_stage_op_rsp ();
 extern bool_t xdr_gd1_mgmt_commit_op_req ();
 extern bool_t xdr_gd1_mgmt_commit_op_rsp ();
 extern bool_t xdr_gd1_mgmt_friend_update ();
+extern bool_t xdr_gd1_mgmt_friend_update_rsp ();
 
 #endif /* K&R C */
 

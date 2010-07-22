@@ -302,6 +302,40 @@ respond:
 }
 
 int32_t
+glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
+                              int count, void *myframe)
+{
+        gd1_mgmt_cluster_lock_rsp     rsp   = {{0},};
+        int                           ret   = -1;
+        int32_t                       op_ret = -1;
+        char                          str[50] = {0,};
+
+        GF_ASSERT (req);
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+        }
+
+/*        ret = gd_xdr_to_mgmt_friend_update_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+        uuid_unparse (rsp.uuid, str);
+
+        op_ret = rsp.op_ret;
+*/
+        gf_log ("glusterd", GF_LOG_NORMAL,
+                "Received %s from uuid: %s",
+                (op_ret)?"RJT":"ACC", str);
+
+//out:
+        return ret;
+}
+int32_t
 glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                               int count, void *myframe)
 {
@@ -714,29 +748,71 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         glusterd_conf_t                 *priv = NULL;
         glusterd_friend_sm_event_t      *event = NULL;
         glusterd_friend_update_ctx_t     *ctx = NULL;
+        dict_t                          *friends = NULL;
+        char                            key[100] = {0,};
+        char                            uuid_buf[50] = {0,};
+        char                            *dup_buf = NULL;
+        int32_t                         count = 0;
+        char                            *dict_buf = NULL;
+        size_t                         len = -1;
+        call_frame_t                    *dummy_frame = NULL;
 
 
-        if (!frame || !this || !data) {
+        if ( !this || !data) {
                 ret = -1;
                 goto out;
         }
+
+        friends = dict_new ();
+        if (!friends)
+                goto out;
 
         event = data;
         priv = this->private;
 
         GF_ASSERT (priv);
 
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                count++;
+                uuid_unparse (peerinfo->uuid, uuid_buf);
+                snprintf (key, sizeof (key), "friend%d.uuid", count);
+                dup_buf = gf_strdup (uuid_buf);
+                ret = dict_set_str (friends, key, dup_buf);
+                if (ret)
+                        goto out;
+                snprintf (key, sizeof (key), "friend%d.hostname", count);
+                ret = dict_set_str (friends, key, peerinfo->hostname);
+                if (ret)
+                        goto out;
+                gf_log ("", GF_LOG_NORMAL, "Added uuid: %s, host: %s",
+                        dup_buf, peerinfo->hostname);
+        }
+
+        ret = dict_set_int32 (friends, "count", count);
+        if (ret)
+                goto out;
+
         ctx = event->ctx;
+
+        ret = dict_allocate_and_serialize (friends, &dict_buf, (size_t *)&len);
+
+        if (ret)
+                goto out;
+
+        req.friends.friends_val = dict_buf;
+        req.friends.friends_len = len;
 
         peerinfo = event->peerinfo;
         uuid_copy (req.uuid, priv->uuid);
-        uuid_copy (req.friend_uuid, ctx->uuid);
-        req.hostname = ctx->hostname;
 
-        ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
-                                       GD_MGMT_FRIEND_UPDATE,
-                                       NULL, gd_xdr_from_mgmt_friend_update,
-                                       this, NULL);
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                dummy_frame = create_frame (this, this->ctx->pool);
+                ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
+                                               priv->mgmt,
+                                               GD_MGMT_FRIEND_UPDATE,
+                                               NULL, gd_xdr_from_mgmt_friend_update,
+                                               this, glusterd3_1_friend_update_cbk);
+        }
 
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1101,6 +1177,10 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         ret = glusterd_handle_defrag_volume (req);
                         break;
 
+                case GD_MGMT_CLI_ADD_BRICK:
+                        ret = glusterd_handle_add_brick (req);
+                        break;
+
                 default:
                         GF_ASSERT (0);
         }
@@ -1133,6 +1213,7 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_STOP_VOLUME] = { "STOP_VOLUME", GD_MGMT_CLI_STOP_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GD_MGMT_CLI_DELETE_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_GET_VOLUME] = { "GET_VOLUME", GD_MGMT_CLI_GET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_ADD_BRICK] = { "GET_VOLUME", GD_MGMT_CLI_ADD_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
 };
 
 /*rpcsvc_actor_t glusterd1_mgmt_actors[] = {

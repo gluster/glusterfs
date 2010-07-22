@@ -73,6 +73,8 @@ struct glusterd_volinfo_ {
         struct list_head        vol_list;
         struct list_head        bricks;
         glusterd_volume_status  status;
+        int     sub_count;
+        int     port;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
@@ -206,4 +208,10 @@ glusterd_handle_cli_get_volume (rpcsvc_request_t *req);
 
 int32_t
 glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags);
+
+int32_t
+glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict);
+
+int
+glusterd_handle_add_brick (rpcsvc_request_t *req);
 #endif

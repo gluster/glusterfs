@@ -88,6 +88,12 @@ struct gd1_mgmt_commit_op_rsp {
 
 struct gd1_mgmt_friend_update {
         unsigned char uuid[16];
-        unsigned char friend_uuid[16];
-        string        hostname<>;
+        opaque  friends<>;
 } ;
+
+struct gd1_mgmt_friend_update_rsp {
+        unsigned char  uuid[16];
+        int     op;
+        int     op_ret;
+        int     op_errno;
+}  ;
