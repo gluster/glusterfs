@@ -42,6 +42,7 @@ typedef struct clnt_conf {
 	struct list_head       saved_fds;
         pthread_mutex_t        lock;
         int                    connecting;
+        int                    connected;
 	struct timeval         last_sent;
 	struct timeval         last_received;
 
