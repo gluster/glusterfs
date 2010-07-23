@@ -45,8 +45,7 @@ def generate_volume_files ():
     group.add_option("-t", "--transport", dest="transport_type",
                 default="tcp", help="tcp,ib-verbs default: tcp")
     group.add_option("-p", "--port", type="int",
-                dest="port", default=6969,
-                help="<port> number")
+                dest="port", help="<port> number")
     group.add_option("--auth", dest="auth_param", default="*",
                 help="comma seperated ip range")
     group.add_option("-r", "--raid", type="int", dest="raid_type",
