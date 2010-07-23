@@ -188,6 +188,8 @@ client_start_ping (void *data)
 
         ret = client_submit_request (this, NULL, frame, conf->handshake,
                                      GF_HNDSK_PING, client_ping_cbk, NULL, NULL);
+        if (ret)
+                goto fail;
 
         return;
 fail:
@@ -292,6 +294,7 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
         clnt_args_t    *args     = NULL;
         gf_getspec_req  req      = {0,};
         int             op_errno = ESTALE;
+        int             ret      = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -301,8 +304,11 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
         req.flags = args->flags;
         req.key   = (char *)args->name;
 
-        client_submit_request (this, &req, frame, conf->handshake, GF_HNDSK_GETSPEC,
+        ret = client_submit_request (this, &req, frame, conf->handshake, GF_HNDSK_GETSPEC,
                                client3_getspec_cbk, NULL, xdr_from_getspec_req);
+
+        if (ret)
+                goto unwind;
 
         return 0;
 unwind:
@@ -475,6 +481,7 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
 
         op_ret = 0;
         conf->connecting = 0;
+        conf->connected = 1;
 
         /* TODO: more to test */
         client_post_handshake (frame, frame->this);

@@ -53,7 +53,18 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         int           count      = 0;
         char          new_iobref = 0, start_ping = 0;
 
+        if (!this || !prog || !frame)
+                goto out;
+
         conf = this->private;
+
+        /* If 'setvolume' is not successful, we should not send frames to
+           server, mean time we should be able to send 'DUMP' and 'SETVOLUME'
+           call itself even if its not connected */
+        if (!(conf->connected ||
+              ((prog->prognum == GLUSTER_DUMP_PROGRAM) ||
+               ((prog->prognum == GLUSTER_HNDSK_PROGRAM) && (procnum == GF_HNDSK_SETVOLUME)))))
+                goto out;
 
         iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (!iobuf) {
@@ -102,11 +113,11 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
 
         ret = 0;
 out:
-        if (new_iobref) {
+        if (new_iobref)
                 iobref_unref (iobref);
-        }
 
-        iobuf_unref (iobuf);
+        if (iobuf)
+                iobuf_unref (iobuf);
 
         return ret;
 }
