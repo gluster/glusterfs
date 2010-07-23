@@ -1203,8 +1203,7 @@ glusterfs_volumes_init (glusterfs_ctx_t *ctx)
 
         if (cmd_args->volfile_server) {
                 ret = glusterfs_mgmt_init (ctx);
-                if (ret)
-                        goto out;
+                goto out;
         }
 
         fp = get_volfp (ctx);
