@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# If this is a local deinstall, stop glusterfs
+if [ -z "$PKG_INSTALL_ROOT" ]
+then
+	DAEMON=`ps -e -o pid,comm | grep glusterfsd | awk '{print $1}'`
+	[ ! -z "$DAEMON" ] && kill -TERM $SMBD
+	sleep 2
+fi
+

@@ -1,0 +1,12 @@
+PKG=glusterfs
+NAME=GlusterFS Server
+ARCH=i386
+VERSION=3.0.5rc6
+CATEGORY=system
+VENDOR=Gluster Inc.
+DESC=GlusterFS Software Package
+HOTLINE=service@gluster.com
+EMAIL=gluster-users@gluster.org
+CLASSES=none
+BASEDIR=/opt/glusterfs
+INTONLY=1

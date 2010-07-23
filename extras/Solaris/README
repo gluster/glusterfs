@@ -1,0 +1,13 @@
+
+INSTRUCTIONS: Preparing Gluster packages for Solaris
+
+To produce a package:
+
+* Type sh make-gluster-pkg.sh
+
+The package will be created in the /tmp directory.
+
+By default, the package will be built to install glusterfs in /opt/glusterfs
+To change the default, modify the INSTALL_BASE variable in make-gluster-pkg.sh
+
+Change the version for each build example: VERSION=3.0.6 in make-gluster-pkg.sh

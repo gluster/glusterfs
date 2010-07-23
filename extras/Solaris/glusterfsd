@@ -1,0 +1,47 @@
+#!/sbin/sh
+#ident  "@(#)gluster.server 1.0  2010-06-23 "    /* GlusterFS */
+#
+# This file should have uid root, gid sys and chmod 755
+#
+if [ ! -d /usr/bin ]
+then                    # /usr not mounted
+        exit
+fi
+
+BASE=/opt/glusterfs
+DAEMON=glusterfsd
+OPTIONS=`cat ${BASE}/etc/glusterfs/options`
+CONFIG=${BASE}/etc/glusterfs/glusterfsd.vol
+PIDFILE=${BASE}/var/run/glusterfsd.pid
+CMD="${BASE}/sbin/${DAEMON} ${OPTIONS} -f ${CONFIG} -p ${PIDFILE}"
+
+killproc() {            # kill the named process(es)
+        pid=`cat ${BASE}/var/run/glusterfsd.pid`
+        [ "$pid" != "$!" ] && kill $pid
+}
+
+# Start/stop processes required for Gluster server
+
+case "$1" in
+
+'start')
+   LD_LIBRARY_PATH=/opt/csw/gcc4/lib;
+   export LD_LIBRARY_PATH;
+   $CMD
+   ;;
+
+'stop')
+   killproc ${DAEMON}
+   ;;
+
+'restart')
+   killproc ${DAEMON}
+   $0 start
+   ;;
+
+*)
+   echo "Usage: $0 { start | stop | restart }"
+   ;;
+esac
+
+exit 0

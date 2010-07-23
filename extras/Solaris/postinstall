@@ -1,0 +1,14 @@
+cat <<EOF
+___________________________________________________________________________
+
+INSTALLATION COMPLETE.
+
+All files comprising the GlusterFS Server have been installed.
+
+You can configure GlusterFS by creating a configuration file at 
+${BASEDIR}/etc/glusterfs/glusterfsd.vol. For details on configuration, 
+refer to the Gluster documentation at http://www.gluster.org/docs
+___________________________________________________________________________
+
+EOF
+
