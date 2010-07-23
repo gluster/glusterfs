@@ -1176,6 +1176,9 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
 	priv = this->private;
 
 	for (i = 0; i < priv->child_count; i++) {
+                if (!local->child_up[i])
+                        continue;
+
 		if (sh->child_errno[i]) {
 			if (sh->child_errno[i] == ENOENT)
 				enoent_count++;
