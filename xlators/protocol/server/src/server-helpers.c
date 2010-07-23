@@ -742,10 +742,15 @@ server_alloc_frame (rpcsvc_request_t *req)
         server_connection_t  *conn  = NULL;
 
         GF_VALIDATE_OR_GOTO("server", req, out);
+        GF_VALIDATE_OR_GOTO("server", req->conn, out);
+        GF_VALIDATE_OR_GOTO("server", req->conn->trans, out);
+        GF_VALIDATE_OR_GOTO("server", req->conn->svc, out);
+        GF_VALIDATE_OR_GOTO("server", req->conn->svc->ctx, out);
 
         conn = (server_connection_t *)req->conn->trans->xl_private;
         if (!conn)
                 goto out;
+
         frame = create_frame (conn->this, req->conn->svc->ctx->pool);
         GF_VALIDATE_OR_GOTO("server", frame, out);
 
@@ -753,7 +758,7 @@ server_alloc_frame (rpcsvc_request_t *req)
         GF_VALIDATE_OR_GOTO("server", state, out);
 
         if (conn->bound_xl)
-                        state->itable = conn->bound_xl->itable;
+                state->itable = conn->bound_xl->itable;
 
         state->xprt  = req->conn->trans;
         state->conn  = conn;
