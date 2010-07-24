@@ -640,7 +640,7 @@ glusterfs_graph_parent_up (xlator_t *graph)
 }
 
 int
-glusterfs_graph_init (xlator_t *graph, int fuse)
+glusterfs_graph_init_fuse (xlator_t *graph, int fuse)
 {
         volume_opt_list_t *vol_opt = NULL;
 
@@ -661,6 +661,13 @@ glusterfs_graph_init (xlator_t *graph, int fuse)
 
                 graph->ready = 1;
         }
+
+        return 0;
+}
+
+int
+glusterfs_graph_init (xlator_t *graph)
+{
         if (_xlator_graph_init (graph) == -1)
                 return -1;
 
@@ -1305,6 +1312,18 @@ main (int argc, char *argv[])
                         gf_log ("glusterfs", GF_LOG_ERROR, "exiting");
                         return -1;
                 }
+                fuse_volume_found = 1;
+        }
+
+        /* override xlator options with command line options
+         * where applicable
+         */
+        gf_add_cmdline_options (graph, cmd_args);
+
+        if (glusterfs_graph_init_fuse (graph, fuse_volume_found) != 0) {
+                gf_log ("glusterfs", GF_LOG_ERROR,
+                        "fuse translator initialization failed.  exiting");
+                return -1;
         }
 
         /* daemonize now */
@@ -1384,13 +1403,8 @@ main (int argc, char *argv[])
 
         gf_timer_registry_init (ctx);
 
-        /* override xlator options with command line options
-         * where applicable
-         */
-        gf_add_cmdline_options (graph, cmd_args);
-
         ctx->graph = graph;
-        if (glusterfs_graph_init (graph, fuse_volume_found) != 0) {
+        if (glusterfs_graph_init (graph) != 0) {
                 gf_log ("glusterfs", GF_LOG_ERROR,
                         "translator initialization failed.  exiting");
                 if (!cmd_args->no_daemon_mode &&
