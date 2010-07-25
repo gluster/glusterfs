@@ -267,6 +267,45 @@ glusterfs_central_log_flag_unset ()
 }
 
 
+
+/* SYNCTASK */
+
+static pthread_key_t synctask_key;
+
+
+int
+synctask_init ()
+{
+        int  ret = 0;
+
+        ret = pthread_key_create (&synctask_key, NULL);
+
+        return ret;
+}
+
+
+void *
+synctask_get ()
+{
+        void   *synctask = NULL;
+
+        synctask = pthread_getspecific (synctask_key);
+
+        return synctask;
+}
+
+
+int
+synctask_set (void *synctask)
+{
+        int     ret = 0;
+
+        pthread_setspecific (synctask_key, synctask);
+
+        return ret;
+}
+
+
 int
 glusterfs_globals_init ()
 {
@@ -287,6 +326,10 @@ glusterfs_globals_init ()
                 goto out;
 
         gf_mem_acct_enable_set ();
+
+        ret = synctask_init ();
+        if (ret)
+                goto out;
 
 out:
         return ret;
