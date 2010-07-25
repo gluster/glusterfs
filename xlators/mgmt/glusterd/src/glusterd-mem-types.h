@@ -51,6 +51,7 @@ enum gf_gld_mem_types_ {
         gf_gld_mt_glusterd_volinfo_t,
         gf_gld_mt_glusterd_brickinfo_t,
         gf_gld_mt_peer_hostname_t,
+        gf_gld_mt_ifreq,
         gf_gld_mt_end
 };
 #endif

@@ -79,6 +79,9 @@ struct glusterd_volinfo_ {
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 
+enum glusterd_op_ret {
+        GLUSTERD_CONNECTION_AWAITED = 100,
+};
 
 #define GLUSTERD_DEFAULT_WORKDIR "/etc/glusterd"
 #define GLUSTERD_DEFAULT_PORT   6969
@@ -91,6 +94,7 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
 #define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname)\
         snprintf (pidfile, PATH_MAX, "%s/run/%s.pid", volpath, hostname);
+
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
 

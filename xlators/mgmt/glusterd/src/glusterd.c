@@ -48,6 +48,7 @@ static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
 extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpc_clnt_program glusterd3_1_mgmt_prog;
+extern glusterd_op_info_t opinfo;
 
 static int
 glusterd_retrieve_uuid ()
@@ -59,6 +60,16 @@ static int
 glusterd_store_uuid ()
 {
         return 0;
+}
+
+static int
+glusterd_opinfo_init ()
+{
+        int32_t ret = -1;
+
+        ret = pthread_mutex_init (&opinfo.lock, NULL);
+
+        return ret;
 }
 
 static int
@@ -276,6 +287,7 @@ init (xlator_t *this)
 
         glusterd_friend_sm_init ();
         glusterd_op_sm_init ();
+        glusterd_opinfo_init ();
 
         memcpy(conf->uuid, glusterd_uuid, sizeof (uuid_t));
 

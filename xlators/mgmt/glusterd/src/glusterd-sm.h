@@ -70,6 +70,7 @@ struct glusterd_peerinfo_ {
         struct list_head                op_peers_list;
         struct list_head                hostnames;
         struct rpc_clnt                 *rpc;
+        int                             connected;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;

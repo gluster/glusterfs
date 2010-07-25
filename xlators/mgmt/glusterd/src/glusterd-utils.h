@@ -36,6 +36,7 @@
 #include "byte-order.h"
 #include "glusterd.h"
 #include "rpc-clnt.h"
+#include "protocol-common.h"
 
 struct glusterd_lock_ {
         uuid_t  owner;
@@ -94,7 +95,8 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t   *brickinfo);
+                                 glusterd_brickinfo_t   *brickinfo,
+                                 int32_t count);
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
@@ -105,4 +107,7 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo);
+
+gf_boolean_t
+glusterd_is_cli_op_req (int32_t op);
 #endif

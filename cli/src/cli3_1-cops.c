@@ -54,13 +54,13 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
-        cli_out ("Probe %s", (rsp.op_ret) ? "Unsuccessful": "Successful");
+        cli_out ("Probe %s", (rsp.op_ret) ? "unsuccessful": "successful");
 
-        cli_cmd_broadcast_response ();
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
         return ret;
 }
 
@@ -84,13 +84,13 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to deprobe");
-        cli_out ("Detach %s", (rsp.op_ret) ? "Unsuccessful": "Successful");
+        cli_out ("Detach %s", (rsp.op_ret) ? "unsuccessful": "successful");
 
-        cli_cmd_broadcast_response ();
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
         return ret;
 }
 
@@ -191,6 +191,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         ret = 0;
 
 out:
+        cli_cmd_broadcast_response ();
         if (ret)
                 cli_out ("Command Execution Failed");
 
@@ -313,6 +314,9 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf1_cli_create_vol_rsp  rsp   = {0,};
         int                     ret   = 0;
+        cli_local_t             *local = NULL;
+        char                    *volname = NULL;
+        dict_t                  *dict = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -324,14 +328,20 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        local = ((call_frame_t *) (myframe))->local;
+
+        dict = local->u.create_vol.dict;
+
+        ret = dict_get_str (dict, "volname", &volname);
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to create volume");
-        cli_out ("Create Volume %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Creation of volume %s has been %s", volname,
+                        (rsp.op_ret) ? "unsuccessful": "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
         return ret;
 }
 
@@ -341,6 +351,9 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf1_cli_delete_vol_rsp  rsp   = {0,};
         int                     ret   = 0;
+        cli_local_t             *local = NULL;
+        char                    *volname = NULL;
+        call_frame_t            *frame = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -352,14 +365,22 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+        local = frame->local;
+
+        if (local)
+                volname = local->u.delete_vol.volname;
+
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to delete volume");
-        cli_out ("Delete Volume %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Deleting volume %s has been %s", volname,
+                 (rsp.op_ret) ? "unsuccessful": "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
+        gf_log ("", GF_LOG_NORMAL, "Returning with %d", ret);
         return ret;
 }
 
@@ -367,8 +388,11 @@ int
 gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
-        gf1_cli_start_vol_rsp  rsp   = {0,};
+        gf1_cli_start_vol_rsp   rsp   = {0,};
         int                     ret   = 0;
+        cli_local_t             *local = NULL;
+        char                    *volname = NULL;
+        call_frame_t            *frame = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -380,14 +404,22 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
+        if (frame)
+                local = frame->local;
+
+        if (local)
+                volname = local->u.start_vol.volname;
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to start volume");
-        cli_out ("Start Volume %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Starting volume %s has been %s", volname,
+                (rsp.op_ret) ? "unsuccessful": "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
         return ret;
 }
 
@@ -397,6 +429,9 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf1_cli_stop_vol_rsp  rsp   = {0,};
         int                   ret   = 0;
+        cli_local_t           *local = NULL;
+        char                  *volname = NULL;
+        call_frame_t          *frame = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -408,14 +443,22 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
+        if (frame)
+                local = frame->local;
+
+        if (local)
+                volname = local->u.start_vol.volname;
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to stop volume");
-        cli_out ("Delete Volume %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Stopping volume %s has been %s", volname,
+                (rsp.op_ret) ? "unsuccessful": "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
         return ret;
 }
 
@@ -425,6 +468,9 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gf1_cli_defrag_vol_rsp  rsp   = {0,};
         int                     ret   = 0;
+        cli_local_t             *local = NULL;
+        char                    *volname = NULL;
+        call_frame_t            *frame = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -436,14 +482,22 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        frame = myframe;
+
+        if (frame)
+                local = frame->local;
+
+        if (local)
+                volname = local->u.start_vol.volname;
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
-        cli_out ("Defrag Volume %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Defrag of volume %s has been %s", volname,
+                (rsp.op_ret) ? "unsuccessful": "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
         return ret;
 }
 
@@ -466,10 +520,10 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
-        cli_out ("Rename Volume %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Rename volume %s", (rsp.op_ret) ? "unsuccessful":
+                                        "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
         return ret;
@@ -494,10 +548,10 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to set");
-        cli_out ("Set Volume %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Set volume %s", (rsp.op_ret) ? "unsuccessful":
+                                        "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
         return ret;
@@ -522,12 +576,13 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to add brick");
-        cli_out ("Add Brick %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Add Brick %s", (rsp.op_ret) ? "unsuccessful":
+                                        "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response ();
         return ret;
 }
 
@@ -550,10 +605,10 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to remove brick");
-        cli_out ("Remove Brick %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Remove Brick %s", (rsp.op_ret) ? "unsuccessful":
+                                        "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
         return ret;
@@ -579,10 +634,10 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to replace brick");
-        cli_out ("Replace Brick %s", (rsp.op_ret) ? "Unsuccessful":
-                                        "Successful");
+        cli_out ("Replace Brick %s", (rsp.op_ret) ? "unsuccessful":
+                                        "successful");
 
-        ret = 0;
+        ret = rsp.op_ret;
 
 out:
         return ret;
@@ -620,7 +675,7 @@ gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
                                    this, gf_cli3_1_probe_cbk);
 
         if (!ret) {
-                //ret = cli_cmd_await_response ();
+                ret = cli_cmd_await_response ();
         }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -660,7 +715,7 @@ gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
                                    this, gf_cli3_1_deprobe_cbk);
 
         if (!ret) {
-                //ret = cli_cmd_await_response ();
+                ret = cli_cmd_await_response ();
         }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -687,7 +742,7 @@ gf_cli3_1_list_friends (call_frame_t *frame, xlator_t *this,
                                    this, gf_cli3_1_list_friends_cbk);
 
         if (!ret) {
-                //ret = cli_cmd_await_response ();
+                ret = cli_cmd_await_response ();
         }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -728,13 +783,14 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
         gf1_cli_create_vol_req  req = {0,};
         int                     ret = 0;
         dict_t                  *dict = NULL;
+        cli_local_t             *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
         }
 
-        dict = data;
+        dict = dict_ref ((dict_t *)data);
 
         ret = dict_get_str (dict, "volname", &req.volname);
 
@@ -759,13 +815,20 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        local = cli_local_get ();
+
+        if (local) {
+                local->u.create_vol.dict = dict;
+                frame->local = local;
+        }
+
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
                                    GD_MGMT_CLI_CREATE_VOLUME, NULL,
                                    gf_xdr_from_cli_create_vol_req,
                                    this, gf_cli3_1_create_volume_cbk);
 
         if (!ret) {
-                //ret = cli_cmd_await_response ();
+                ret = cli_cmd_await_response ();
         }
 
 
@@ -785,10 +848,18 @@ gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
 {
         gf1_cli_delete_vol_req  req = {0,};
         int                     ret = 0;
+        cli_local_t             *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
+        }
+
+        local = cli_local_get ();
+
+        if (local) {
+                local->u.delete_vol.volname = data;
+                frame->local = local;
         }
 
         req.volname = data;
@@ -797,6 +868,9 @@ gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
                                    GD_MGMT_CLI_DELETE_VOLUME, NULL,
                                    gf_xdr_from_cli_delete_vol_req,
                                    this, gf_cli3_1_delete_volume_cbk);
+        if (!ret) {
+                ret = cli_cmd_await_response ();
+        }
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -810,10 +884,18 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
 {
         gf1_cli_start_vol_req   req = {0,};
         int                     ret = 0;
+        cli_local_t             *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
+        }
+
+        local = cli_local_get ();
+
+        if (local) {
+                local->u.start_vol.volname = data;
+                frame->local = local;
         }
 
         req.volname = data;
@@ -823,6 +905,9 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
                                    gf_xdr_from_cli_start_vol_req,
                                    this, gf_cli3_1_start_volume_cbk);
 
+        if (!ret) {
+                ret = cli_cmd_await_response ();
+        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -835,6 +920,7 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
 {
         gf1_cli_stop_vol_req   req = {0,};
         int                    ret = 0;
+        cli_local_t            *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -843,11 +929,21 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
 
         req.volname = data;
 
+        local = cli_local_get ();
+
+        if (local) {
+                local->u.stop_vol.volname = data;
+                frame->local = local;
+        }
+
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
                                    GD_MGMT_CLI_STOP_VOLUME, NULL,
                                    gf_xdr_from_cli_stop_vol_req,
                                    this, gf_cli3_1_stop_volume_cbk);
 
+        if (!ret) {
+                ret = cli_cmd_await_response ();
+        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -860,10 +956,18 @@ gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
 {
         gf1_cli_defrag_vol_req   req = {0,};
         int                    ret = 0;
+        cli_local_t            *local = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
+        }
+
+        local = cli_local_get ();
+
+        if (local) {
+                local->u.defrag_vol.volname = data;
+                frame->local = local;
         }
 
         req.volname = data;
@@ -873,6 +977,9 @@ gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
                                    gf_xdr_from_cli_defrag_vol_req,
                                    this, gf_cli3_1_defrag_volume_cbk);
 
+        if (!ret) {
+                ret = cli_cmd_await_response ();
+        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -995,6 +1102,9 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
                                    gf_xdr_from_cli_add_brick_req,
                                    this, gf_cli3_1_add_brick_cbk);
 
+        if (!ret) {
+                ret = cli_cmd_await_response ();
+        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 

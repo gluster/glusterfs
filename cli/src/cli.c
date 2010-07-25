@@ -424,6 +424,16 @@ out:
         return rpc;
 }
 
+cli_local_t *
+cli_local_get ()
+{
+        cli_local_t     *local = NULL;
+
+        local = GF_CALLOC (1, sizeof (*local), cli_mt_cli_local_t);
+
+        return local;
+}
+
 struct cli_state *global_state;
 
 int

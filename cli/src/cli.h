@@ -95,6 +95,31 @@ struct cli_state {
         int                   remote_port;
 };
 
+struct cli_local {
+        union {
+                struct {
+                        dict_t  *dict;
+                } create_vol;
+
+                struct {
+                        char    *volname;
+                } start_vol;
+
+                struct {
+                        char    *volname;
+                } stop_vol;
+
+                struct {
+                        char    *volname;
+                } delete_vol;
+
+                struct {
+                        char    *volname;
+                } defrag_vol;
+        } u;
+};
+
+typedef struct cli_local cli_local_t;
 
 typedef ssize_t (*cli_serialize_t) (struct iovec outmsg, void *args);
 
@@ -115,29 +140,31 @@ int cli_rl_out (struct cli_state *state, const char *fmt, va_list ap);
 int cli_out (const char *fmt, ...);
 
 int
-cli_submit_request (void *req, call_frame_t *frame, 
-                    rpc_clnt_prog_t *prog, 
-                    int procnum, struct iobref *iobref, 
+cli_submit_request (void *req, call_frame_t *frame,
+                    rpc_clnt_prog_t *prog,
+                    int procnum, struct iobref *iobref,
                     cli_serialize_t sfunc, xlator_t *this,
                     fop_cbk_fn_t cbkfn);
 
 int32_t
-cli_cmd_volume_create_parse (const char **words, int wordcount, 
+cli_cmd_volume_create_parse (const char **words, int wordcount,
                              dict_t **options);
 
 int32_t
-cli_cmd_volume_set_parse (const char **words, int wordcount, 
+cli_cmd_volume_set_parse (const char **words, int wordcount,
                           dict_t **options);
 
 int32_t
-cli_cmd_volume_add_brick_parse (const char **words, int wordcount, 
+cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                                 dict_t **options);
 
 int32_t
-cli_cmd_volume_remove_brick_parse (const char **words, int wordcount, 
+cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                                    dict_t **options);
 
 int32_t
-cli_cmd_volume_replace_brick_parse (const char **words, int wordcount, 
+cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                                    dict_t **options);
+
+cli_local_t * cli_local_get ();
 #endif /* __CLI_H__ */

@@ -35,6 +35,7 @@
 #include "fd.h"
 #include "byte-order.h"
 #include "glusterd.h"
+#include "protocol-common.h"
 
 #define GD_VOLUME_NAME_MAX 256
 
@@ -112,6 +113,11 @@ struct glusterd_op_info_ {
         glusterd_op_t                   commit_op[GD_OP_MAX];
         struct list_head                op_peers;
         void                            *op_ctx[GD_OP_MAX];
+        rpcsvc_request_t                *req;
+        int32_t                         op_ret;
+        int32_t                         op_errno;
+        pthread_mutex_t                 lock;
+        int32_t                         cli_op;
 };
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
@@ -148,9 +154,10 @@ typedef struct glusterd_op_commit_ctx_ glusterd_op_commit_ctx_t;
 
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
-                              glusterd_op_sm_event_t **new_event);
+                          glusterd_op_sm_event_t **new_event);
 int
-glusterd_op_sm_inject_event (glusterd_op_sm_event_t *event);
+glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
+                             void *ctx);
 
 int
 glusterd_op_sm_init ();
@@ -181,4 +188,14 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req);
 
 void *
 glusterd_op_get_ctx (glusterd_op_t op);
+
+int32_t
+glusterd_op_set_req (rpcsvc_request_t *req);
+
+int32_t
+glusterd_op_set_cli_op (gf_mgmt_procnum op);
+
+int32_t
+glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
+                               int32_t op_errno, rpcsvc_request_t *req);
 #endif

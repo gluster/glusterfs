@@ -103,16 +103,9 @@ glusterd_op_get_len (glusterd_op_t op)
 static int
 glusterd_op_sm_inject_all_acc ()
 {
-        glusterd_op_sm_event_t *event = NULL;
         int32_t                 ret = -1;
-
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_ALL_ACC, &event);
-
-        if (ret)
-                goto out;
-
-        ret = glusterd_op_sm_inject_event (event);
-out:
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACC, NULL);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -660,6 +653,7 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
         char                                    *brick_list = NULL;
         char                                    *saveptr = NULL;
         gf_boolean_t                            glfs_started = _gf_false;
+        int32_t                                 mybrick = 0;
 
         GF_ASSERT (req);
 
@@ -733,13 +727,14 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                                 " for brick %s:%s", brickinfo->hostname,
                                 brickinfo->path);
                         ret = glusterd_volume_start_glusterfs
-                                                (volinfo, brickinfo);
+                                                (volinfo, brickinfo, mybrick);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to start "
                                         "glusterfs, ret: %d", ret);
                                 goto out;
                         }
                         glfs_started = _gf_true;
+                        mybrick++;
                 }
 
                 brick = strtok_r (NULL, " \n", &saveptr);
@@ -809,6 +804,7 @@ glusterd_op_start_volume (gd1_mgmt_stage_op_req *req)
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         xlator_t                                *this = NULL;
+        int32_t                                 mybrick = 0;
 
         GF_ASSERT (req);
 
@@ -830,12 +826,13 @@ glusterd_op_start_volume (gd1_mgmt_stage_op_req *req)
                                 " for brick %s:%s", brickinfo->hostname,
                                 brickinfo->path);
                         ret = glusterd_volume_start_glusterfs
-                                                (volinfo, brickinfo);
+                                                (volinfo, brickinfo, mybrick);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to start "
                                         "glusterfs, ret: %d", ret);
                                 goto out;
                         }
+                        mybrick++;
                 }
         }
 
@@ -938,10 +935,11 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         this = THIS;
         priv = this->private;
 
-        ret = glusterd_unlock (priv->uuid);
+        /*ret = glusterd_unlock (priv->uuid);
 
         if (ret)
                 goto out;
+        */
 
         proc = &priv->mgmt->proctable[GD_MGMT_CLUSTER_UNLOCK];
         if (proc->fn) {
@@ -1010,7 +1008,6 @@ static int
 glusterd_op_ac_rcvd_lock_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
-        glusterd_op_sm_event_t  *new_event = NULL;
 
         GF_ASSERT (event);
 
@@ -1019,12 +1016,7 @@ glusterd_op_ac_rcvd_lock_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count)
                 goto out;
 
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_ALL_ACC, &new_event);
-
-        if (ret)
-                goto out;
-
-        ret = glusterd_op_sm_inject_event (new_event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACC, NULL);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -1100,7 +1092,6 @@ static int
 glusterd_op_ac_rcvd_stage_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
-        glusterd_op_sm_event_t  *new_event = NULL;
 
         GF_ASSERT (event);
 
@@ -1109,12 +1100,7 @@ glusterd_op_ac_rcvd_stage_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count)
                 goto out;
 
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_STAGE_ACC, &new_event);
-
-        if (ret)
-                goto out;
-
-        ret = glusterd_op_sm_inject_event (new_event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_STAGE_ACC, NULL);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1126,7 +1112,6 @@ static int
 glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
-        glusterd_op_sm_event_t  *new_event = NULL;
 
         GF_ASSERT (event);
 
@@ -1135,12 +1120,7 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count)
                 goto out;
 
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_COMMIT_ACC, &new_event);
-
-        if (ret)
-                goto out;
-
-        ret = glusterd_op_sm_inject_event (new_event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -1152,7 +1132,6 @@ static int
 glusterd_op_ac_rcvd_unlock_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = 0;
-        glusterd_op_sm_event_t  *new_event = NULL;
 
         GF_ASSERT (event);
 
@@ -1161,18 +1140,149 @@ glusterd_op_ac_rcvd_unlock_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count)
                 goto out;
 
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_ALL_ACC, &new_event);
-
-        if (ret)
-                goto out;
-
-        ret = glusterd_op_sm_inject_event (new_event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_ALL_ACC, NULL);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
 out:
         return ret;
 }
+
+
+int32_t
+glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
+                               int32_t op_errno, rpcsvc_request_t *req)
+{
+        int32_t         ret = -1;
+        gd_serialize_t  sfunc = NULL;
+        void            *cli_rsp = NULL;
+
+        switch (op) {
+                case GD_MGMT_CLI_CREATE_VOLUME:
+                        {
+                                gf1_cli_create_vol_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_create_vol_rsp;
+                                break;
+                        }
+
+                case GD_MGMT_CLI_START_VOLUME:
+                        {
+                                gf1_cli_start_vol_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_start_vol_rsp;
+                                break;
+                        }
+
+                case GD_MGMT_CLI_STOP_VOLUME:
+                        {
+                                gf1_cli_stop_vol_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_stop_vol_rsp;
+                                break;
+                        }
+
+                case GD_MGMT_CLI_DELETE_VOLUME:
+                        {
+                                gf1_cli_delete_vol_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_delete_vol_rsp;
+                                break;
+                        }
+
+                case GD_MGMT_CLI_DEFRAG_VOLUME:
+                        {
+                                gf1_cli_defrag_vol_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                //rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_defrag_vol_rsp;
+                                break;
+                        }
+
+                case GD_MGMT_CLI_ADD_BRICK:
+                        {
+                                gf1_cli_add_brick_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_add_brick_rsp;
+                                break;
+                        }
+        }
+
+
+        ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
+                                     sfunc);
+
+        if (ret)
+                goto out;
+
+out:
+        pthread_mutex_unlock (&opinfo.lock);
+        gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
+        return ret;
+}
+
+
+int32_t
+glusterd_op_txn_complete ()
+{
+        int32_t                 ret = -1;
+        glusterd_conf_t         *priv = NULL;
+
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
+        ret = glusterd_unlock (priv->uuid);
+
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                        "Unable to clear local lock, ret: %d", ret);
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Cleared local lock");
+
+        ret = glusterd_op_send_cli_response (opinfo.cli_op, opinfo.op_ret,
+                                             opinfo.op_errno, opinfo.req);
+
+        opinfo.op_ret = 0;
+        opinfo.op_errno = 0;
+out:
+        pthread_mutex_unlock (&opinfo.lock);
+        gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
+        return ret;
+}
+
+static int
+glusterd_op_ac_unlocked_all (glusterd_op_sm_event_t *event, void *ctx)
+{
+        int                     ret = 0;
+
+        GF_ASSERT (event);
+
+        ret = glusterd_op_txn_complete ();
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
 
 static int
 glusterd_op_ac_commit_error (glusterd_op_sm_event_t *event, void *ctx)
@@ -1441,7 +1551,7 @@ glusterd_op_sm_t glusterd_op_state_unlock_sent [] = {
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none},//EVENT_START_LOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_LOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_rcvd_unlock_acc}, //EVENT_RCVD_ACC
-        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_ALL_ACC
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlocked_all}, //EVENT_ALL_ACC
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_ACC
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_ACC
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_RCVD_RJT
@@ -1486,14 +1596,28 @@ glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
 }
 
 int
-glusterd_op_sm_inject_event (glusterd_op_sm_event_t *event)
+glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
+                             void *ctx)
 {
-        GF_ASSERT (event);
+        int32_t                 ret = -1;
+        glusterd_op_sm_event_t  *event = NULL;
+
+        GF_ASSERT (event_type < GD_OP_EVENT_MAX &&
+                        event_type >= GD_OP_EVENT_NONE);
+
+        ret = glusterd_op_sm_new_event (event_type, &event);
+
+        if (ret)
+                goto out;
+
+        event->ctx = ctx;
+
         gf_log ("glusterd", GF_LOG_NORMAL, "Enqueuing event: %d",
                         event->event);
         list_add_tail (&event->list, &gd_op_sm_queue);
 
-        return 0;
+out:
+        return ret;
 }
 
 
@@ -1505,7 +1629,7 @@ glusterd_op_sm ()
         int                             ret = -1;
         glusterd_op_sm_ac_fn            handler = NULL;
         glusterd_op_sm_t                *state = NULL;
-        glusterd_op_sm_event_type_t     event_type = 0;
+        glusterd_op_sm_event_type_t     event_type = GD_OP_EVENT_NONE;
 
 
         while (!list_empty (&gd_op_sm_queue)) {
@@ -1527,7 +1651,8 @@ glusterd_op_sm ()
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR,
                                         "handler returned: %d", ret);
-                                return ret;
+                                GF_FREE (event);
+                                continue;
                         }
 
                         ret = glusterd_op_sm_transition_state (&opinfo, state,
@@ -1565,6 +1690,33 @@ glusterd_op_set_op (glusterd_op_t op)
 
         return 0;
 
+}
+
+int32_t
+glusterd_op_set_cli_op (gf_mgmt_procnum op)
+{
+
+        int32_t         ret;
+
+        ret = pthread_mutex_trylock (&opinfo.lock);
+
+        if (ret)
+                goto out;
+
+        opinfo.cli_op = op;
+
+out:
+        gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_op_set_req (rpcsvc_request_t *req)
+{
+
+        GF_ASSERT (req);
+        opinfo.req = req;
+        return 0;
 }
 
 int32_t

@@ -75,7 +75,7 @@ enum gf_handshake_procnum {
         GF_HNDSK_MAXVALUE,
 };
 
-enum gf_mgmt_procnum {
+enum gf_mgmt_procnum_ {
         GD_MGMT_NULL,    /* 0 */
         GD_MGMT_PROBE_QUERY,
         GD_MGMT_FRIEND_ADD,
@@ -101,6 +101,8 @@ enum gf_mgmt_procnum {
         GD_MGMT_CLI_REPLACE_BRICK,
         GD_MGMT_MAXVALUE,
 };
+
+typedef enum gf_mgmt_procnum_ gf_mgmt_procnum;
 
 enum gf_cli_procnum {
         GF1_CLI_NULL = GD_MGMT_MAXVALUE+1,    /* 0 */
