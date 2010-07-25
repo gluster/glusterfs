@@ -44,6 +44,9 @@
 #include <inttypes.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 
 static glusterd_lock_t lock;
 
@@ -77,10 +80,11 @@ glusterd_is_local_addr (char *hostname)
         struct          addrinfo *result = NULL;
         struct          addrinfo *res = NULL;
         int32_t         found = 0;
+        struct          ifconf buf = {0,};
 
         if ((!strcmp (hostname, "localhost")) ||
              (!strcmp (hostname, "127.0.0.1"))) {
-                found = 0;
+                found = 1;
                 goto out;
         }
 
@@ -108,9 +112,63 @@ glusterd_is_local_addr (char *hostname)
                 }
         }
 
+        if (!found) {
+                int sd = -1;
+                struct ifreq  *ifr = NULL;
+                int32_t       size = 0;
+                int32_t       num_req = 0;
+                struct sockaddr_in sa = {0,};
+
+                sd = socket (AF_LOCAL, SOCK_DGRAM, 0);
+                if (sd == -1)
+                        goto out;
+
+                buf.ifc_len = sizeof (struct ifreq);
+                buf.ifc_req = GF_CALLOC (1, sizeof (struct ifreq),
+                                         gf_gld_mt_ifreq);
+                size = buf.ifc_len;
+
+                ret = ioctl (sd, SIOCGIFCONF, &buf);
+                if (ret) {
+                        close (sd);
+                        goto out;
+                }
+
+                while (size <= buf.ifc_len) {
+                        size += sizeof (struct ifreq);
+                        buf.ifc_len = size;
+                        buf.ifc_req = GF_REALLOC (buf.ifc_req, size);
+                        ret = ioctl (sd, SIOCGIFCONF, &buf);
+                        if (ret) {
+                                close (sd);
+                                goto out;
+                        }
+                }
+
+                ifr = buf.ifc_req;
+                num_req = size / sizeof (struct ifreq) - 1;
+
+                while (num_req--) {
+                        char *addr = inet_ntoa ( *(struct in_addr *)
+                                &ifr->ifr_addr.sa_data[sizeof(sa.sin_port)]);
+                        if (!strcmp (addr, hostname)) {
+                                gf_log ("", GF_LOG_DEBUG, "%s found as local",
+                                        addr);
+                                found = 1;
+                        }
+                        ifr++;
+                }
+        }
+
+
+
+
 out:
         //if (result)
           //      freeaddrinfo (result);
+
+        if (buf.ifc_req)
+                GF_FREE (buf.ifc_req);
 
         return !found;
 }
@@ -613,7 +671,8 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t   *brickinfo)
+                                 glusterd_brickinfo_t   *brickinfo,
+                                 int32_t count)
 {
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
@@ -643,8 +702,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         }
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname);
-        snprintf (volfile, PATH_MAX, "%s/%s-%s-export.vol", path,
-                  brickinfo->hostname, volinfo->volname);
+        snprintf (volfile, PATH_MAX, "%s/%s-%s-%d.vol", path,
+                  brickinfo->hostname, volinfo->volname, count);
         snprintf (cmd_str, 8192, "glusterfs -f %s -p %s", volfile, pidfile);
         ret = system (cmd_str);
 
@@ -768,4 +827,22 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
 
 out:
         return ret;
+}
+
+
+gf_boolean_t
+glusterd_is_cli_op_req (int32_t op)
+{
+        switch (op) {
+                case GD_MGMT_CLI_CREATE_VOLUME:
+                case GD_MGMT_CLI_START_VOLUME:
+                case GD_MGMT_CLI_STOP_VOLUME:
+                case GD_MGMT_CLI_DELETE_VOLUME:
+                case GD_MGMT_CLI_DEFRAG_VOLUME:
+                case GD_MGMT_CLI_ADD_BRICK:
+                        return _gf_true;
+                        break;
+        }
+
+        return _gf_false;
 }

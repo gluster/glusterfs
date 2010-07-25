@@ -367,7 +367,6 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         gd1_mgmt_cluster_lock_req       lock_req = {{0},};
         int32_t                         ret = -1;
         char                            str[50] = {0,};
-        glusterd_op_sm_event_t          *event = NULL;
         glusterd_op_lock_ctx_t          *ctx = NULL;
 
         GF_ASSERT (req);
@@ -382,12 +381,6 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received LOCK from uuid: %s", str);
 
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_LOCK, &event);
-
-        if (ret) {
-                //respond back here
-                return ret;
-        }
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_stage_ctx_t);
 
@@ -398,9 +391,8 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
 
         uuid_copy (ctx->uuid, lock_req.uuid);
         ctx->req = req;
-        event->ctx = ctx;
 
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_LOCK, ctx);
 
 out:
         gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
@@ -412,9 +404,8 @@ int
 glusterd_handle_stage_op (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        char                            str[50];
+        char                            str[50] = {0,};
         gd1_mgmt_stage_op_req           stage_req = {{0,}};
-        glusterd_op_sm_event_t          *event = NULL;
         glusterd_op_stage_ctx_t         *ctx = NULL;
 
         GF_ASSERT (req);
@@ -428,13 +419,6 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         uuid_unparse (stage_req.uuid, str);
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received stage op from uuid: %s", str);
-
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_STAGE_OP, &event);
-
-        if (ret) {
-                //respond back here
-                return ret;
-        }
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_stage_ctx_t);
 
@@ -455,11 +439,9 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         memcpy (ctx->stage_req.buf.buf_val, stage_req.buf.buf_val,
                 stage_req.buf.buf_len);
 
-
         ctx->req   = req;
-        event->ctx = ctx;
 
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_STAGE_OP, ctx);
 
 out:
         return ret;
@@ -469,8 +451,7 @@ int
 glusterd_handle_commit_op (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        char                            str[50];
-        glusterd_op_sm_event_t          *event = NULL;
+        char                            str[50] = {0,};
         gd1_mgmt_commit_op_req          commit_req = {{0},};
         glusterd_op_commit_ctx_t        *ctx = NULL;
 
@@ -486,13 +467,6 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received commit op from uuid: %s", str);
-
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_COMMIT_OP, &event);
-
-        if (ret) {
-                //respond back here
-                return ret;
-        }
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_commit_ctx_t);
 
@@ -513,9 +487,8 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
 
         memcpy (ctx->stage_req.buf.buf_val, commit_req.buf.buf_val,
                 commit_req.buf.buf_len);
-        event->ctx = ctx;
 
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_OP, ctx);
 
 out:
         return ret;
@@ -889,7 +862,6 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         char                            str[50] = {0, };
         glusterd_op_lock_ctx_t          *ctx = NULL;
-        glusterd_op_sm_event_t          *event = NULL;
 
         GF_ASSERT (req);
 
@@ -904,24 +876,16 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received UNLOCK from uuid: %s", str);
 
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_UNLOCK, &event);
-
-        if (ret) {
-                //respond back here
-                return ret;
-        }
-
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
 
         if (!ctx) {
                 //respond here
                 return -1;
         }
-        event->ctx = ctx;
         uuid_copy (ctx->uuid, unlock_req.uuid);
         ctx->req = req;
 
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_UNLOCK, ctx);
 
 out:
         return ret;
@@ -1171,332 +1135,6 @@ out:
         return ret;
 }
 
-/*int
-glusterd_handle_friend_req_resp (call_frame_t *frame,
-                                 gf_hdr_common_t *rsp_hdr, size_t hdrlen)
-{
-        gf_mop_probe_rsp_t      *rsp = NULL;
-        int32_t                 ret = -1;
-        char                    str[50];
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        int32_t                 op_ret = -1;
-        glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
-        glusterd_friend_sm_event_t      *event = NULL;
-
-        GF_ASSERT (rsp_hdr);
-
-        rsp   = gf_param (rsp_hdr);
-        uuid_unparse (rsp->uuid, str);
-
-        op_ret = rsp_hdr->rsp.op_ret;
-
-        gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received %s from uuid: %s, host: %s",
-                (op_ret)?"RJT":"ACC", str, rsp->hostname);
-
-        ret = glusterd_friend_find (rsp->uuid, rsp->hostname, &peerinfo);
-
-        if (ret) {
-                GF_ASSERT (0);
-        }
-
-        if (op_ret)
-                event_type = GD_FRIEND_EVENT_RCVD_ACC;
-        else
-                event_type = GD_FRIEND_EVENT_RCVD_RJT;
-
-        ret = glusterd_friend_sm_new_event (event_type, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                         "Unable to get event");
-                return ret;
-        }
-
-        event->peerinfo = peerinfo;
-        ret = glusterd_friend_sm_inject_event (event);
-
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received resp to friend req");
-
-        return 0;
-}*/
-
-/*int
-glusterd_handle_probe_resp (call_frame_t *frame, gf_hdr_common_t *rsp_hdr,
-                            size_t hdrlen)
-{
-        gf_mop_probe_rsp_t      *rsp = NULL;
-        int32_t                 ret = -1;
-        char                    str[50];
-        glusterd_peerinfo_t        *peerinfo = NULL;
-        glusterd_friend_sm_event_t *event = NULL;
-        glusterd_peerinfo_t        *dup_peerinfo = NULL;
-
-        GF_ASSERT (rsp_hdr);
-
-        rsp   = gf_param (rsp_hdr);
-        uuid_unparse (rsp->uuid, str);
-
-        gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received probe resp from uuid: %s, host: %s",
-                str, rsp->hostname);
-
-        ret = glusterd_friend_find (rsp->uuid, rsp->hostname, &peerinfo);
-
-        if (ret) {
-                GF_ASSERT (0);
-        }
-
-        if (!peerinfo->hostname) {
-                glusterd_friend_find_by_hostname (rsp->hostname, &dup_peerinfo);
-                GF_ASSERT (dup_peerinfo);
-                GF_ASSERT (dup_peerinfo->hostname);
-                peerinfo->hostname = gf_strdup (rsp->hostname);
-                peerinfo->trans = dup_peerinfo->trans;
-                list_del_init (&dup_peerinfo->uuid_list);
-                GF_FREE (dup_peerinfo->hostname);
-                GF_FREE (dup_peerinfo);
-        }
-        GF_ASSERT (peerinfo->hostname);
-        uuid_copy (peerinfo->uuid, rsp->uuid);
-
-        ret = glusterd_friend_sm_new_event
-                        (GD_FRIEND_EVENT_INIT_FRIEND_REQ, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                         "Unable to get event");
-                return ret;
-        }
-
-        event->peerinfo = peerinfo;
-        ret = glusterd_friend_sm_inject_event (event);
-
-        return 0;
-}*/
-
-/*
-static glusterd_mop_t glusterd_ops[GF_MOP_MAXVALUE] = {
-        [GF_MOP_PROBE_QUERY]     = glusterd_handle_probe_query,
-        [GF_MOP_FRIEND_REQ]      = glusterd_handle_incoming_friend_req,
-        [GF_MOP_STAGE_OP]        = glusterd_handle_stage_op,
-        [GF_MOP_COMMIT_OP]       = glusterd_handle_commit_op,
-        [GF_MOP_CLUSTER_LOCK]    = glusterd_handle_cluster_lock,
-        [GF_MOP_CLUSTER_UNLOCK]  = glusterd_handle_cluster_unlock,
-};
-
-static glusterd_mop_t glusterd_resp_ops [GF_MOP_MAXVALUE] = {
-        [GF_MOP_PROBE_QUERY]    = glusterd_handle_probe_resp,
-        [GF_MOP_FRIEND_REQ]     = glusterd_handle_friend_req_resp,
-};
-*/
-
-/*int
-glusterd_xfer_probe_msg (glusterd_peerinfo_t *peerinfo, xlator_t *this)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_mop_probe_req_t    *req = NULL;
-        size_t                hdrlen = -1;
-        int                   ret = -1;
-        glusterd_conf_t       *priv = NULL;
-        call_frame_t          *dummy_frame = NULL;
-        int                   len = 0;
-
-        GF_ASSERT (peerinfo);
-        GF_ASSERT (this);
-
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        len = STRLEN_0 (peerinfo->hostname);
-        hdrlen = gf_hdr_len (req, len);
-        hdr    = gf_hdr_new (req, len);
-
-        GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-        req         = gf_param (hdr);
-        memcpy (&req->uuid, &priv->uuid, sizeof(uuid_t));
-        strncpy (req->hostname, peerinfo->hostname, len);
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-
-        if (!dummy_frame)
-                goto unwind;
-
-        dummy_frame->local = peerinfo->trans;
-
-        ret = glusterd_xfer (dummy_frame, this,
-                             peerinfo->trans,
-                             GF_OP_TYPE_MOP_REQUEST, GF_MOP_PROBE_QUERY,
-                             hdr, hdrlen, NULL, 0, NULL);
-
-        return ret;
-
-unwind:
-        if (hdr)
-                GF_FREE (hdr);
-
-        return 0;
-}*/
-
-/*int
-glusterd_xfer_friend_req_msg (glusterd_peerinfo_t *peerinfo, xlator_t *this)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_mop_probe_req_t    *req = NULL;
-        size_t                hdrlen = -1;
-        int                   ret = -1;
-        glusterd_conf_t       *priv = NULL;
-        call_frame_t          *dummy_frame = NULL;
-        int                   len = 0;
-
-        GF_ASSERT (peerinfo);
-        GF_ASSERT (this);
-
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        len = STRLEN_0 (peerinfo->hostname);
-        hdrlen = gf_hdr_len (req, len);
-        hdr    = gf_hdr_new (req, len);
-
-        GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-        req         = gf_param (hdr);
-        memcpy (&req->uuid, &priv->uuid, sizeof(uuid_t));
-        strncpy (req->hostname, peerinfo->hostname, len);
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-
-        if (!dummy_frame)
-                goto unwind;
-
-        dummy_frame->local = peerinfo->trans;
-
-        ret = glusterd_xfer (dummy_frame, this,
-                             peerinfo->trans,
-                             GF_OP_TYPE_MOP_REQUEST, GF_MOP_FRIEND_REQ,
-                             hdr, hdrlen, NULL, 0, NULL);
-
-        return ret;
-
-unwind:
-        if (hdr)
-                GF_FREE (hdr);
-
-        //STACK_UNWIND (frame, -1, EINVAL, NULL);
-        return 0;
-}*/
-
-/*int
-glusterd_xfer_cluster_lock_req (xlator_t *this, int32_t *lock_count)
-{
-        gd1_mgmt_cluster_lock_req       req = {{0},};
-        int                             ret = -1;
-        glusterd_conf_t                 *priv = NULL;
-        call_frame_t                    *dummy_frame = NULL;
-        glusterd_peerinfo_t             *peerinfo = NULL;
-        int                             pending_lock = 0;
-        rpc_clnt_procedure_t            *proc = NULL;
-
-        GF_ASSERT (this);
-        GF_ASSERT (lock_count);
-
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        uuid_copy (req.uuid, priv->uuid);
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-
-        if (!dummy_frame)
-                goto unwind;
-
-
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                GF_ASSERT (peerinfo);
-
-                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
-                        continue;
-
-
-                ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
-                                               prog, GD_MGMT_PROBE_QUERY,
-                                               NULL, gd_xdr_from_mgmt_probe_req,
-                                               this);
-                if (!ret)
-                        pending_lock++;
-        }
-
-        gf_log ("glusterd", GF_LOG_NORMAL, "Sent lock req to %d peers",
-                                            pending_lock);
-        *lock_count = pending_lock;
-
-unwind:
-
-        return ret;
-}*/
-
-/*int
-glusterd_xfer_cluster_unlock_req (xlator_t *this, int32_t *pending_count)
-{
-        gf_hdr_common_t       *hdr = NULL;
-        gf_mop_cluster_unlock_req_t    *req = NULL;
-        size_t                hdrlen = -1;
-        int                   ret = -1;
-        glusterd_conf_t       *priv = NULL;
-        call_frame_t          *dummy_frame = NULL;
-        glusterd_peerinfo_t   *peerinfo = NULL;
-        int                   pending_unlock = 0;
-
-        GF_ASSERT (this);
-        GF_ASSERT (pending_count);
-
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        hdrlen = gf_hdr_len (req, 0);
-        hdr    = gf_hdr_new (req, 0);
-
-        GF_VALIDATE_OR_GOTO (this->name, hdr, unwind);
-
-        req         = gf_param (hdr);
-        uuid_copy (req->uuid, priv->uuid);
-
-        dummy_frame = create_frame (this, this->ctx->pool);
-
-        if (!dummy_frame)
-                goto unwind;
-
-
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                GF_ASSERT (peerinfo);
-
-                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
-                        continue;
-
-
-                ret = glusterd_xfer (dummy_frame, this,
-                                     peerinfo->trans,
-                                     GF_OP_TYPE_MOP_REQUEST,
-                                     GF_MOP_CLUSTER_UNLOCK,
-                                     hdr, hdrlen, NULL, 0, NULL);
-                if (!ret)
-                        pending_unlock++;
-        }
-
-        gf_log ("glusterd", GF_LOG_NORMAL, "Sent unlock req to %d peers",
-                                            pending_unlock);
-        *pending_count = pending_unlock;
-
-unwind:
-        if (hdr)
-                GF_FREE (hdr);
-
-        return ret;
-}*/
-
-
 int
 glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
@@ -1637,6 +1275,11 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
                         "ret = %d", event->event, ret);
                 return ret;
         }
+
+        if (!peerinfo->connected) {
+                return  GLUSTERD_CONNECTION_AWAITED;
+        }
+
 
         return ret;
 }
@@ -1781,7 +1424,6 @@ glusterd_op_txn_begin ()
 {
         int32_t                 ret = -1;
         glusterd_conf_t         *priv = NULL;
-        glusterd_op_sm_event_t     *event = NULL;
         int32_t                 locked = 0;
 
         priv = THIS->private;
@@ -1798,15 +1440,7 @@ glusterd_op_txn_begin ()
         locked = 1;
         gf_log ("glusterd", GF_LOG_NORMAL, "Acquired local lock");
 
-        ret = glusterd_op_sm_new_event (GD_OP_EVENT_START_LOCK, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "Unable to get event, ret: %d", ret);
-                goto out;
-        }
-
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_START_LOCK, NULL);
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
 
@@ -1828,6 +1462,8 @@ glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_op (GD_OP_CREATE_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_CREATE_VOLUME, dict);
+
+        glusterd_op_set_req (req);
 
         data = dict_get (dict, "volname");
         if (!data)
@@ -1870,6 +1506,7 @@ glusterd_start_volume (rpcsvc_request_t *req, char *volname, int flags)
         glusterd_op_set_op (GD_OP_START_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_START_VOLUME, ctx);
+        glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
 
@@ -1896,6 +1533,7 @@ glusterd_stop_volume (rpcsvc_request_t *req, char *volname, int flags)
         glusterd_op_set_op (GD_OP_STOP_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_STOP_VOLUME, ctx);
+        glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
 
@@ -1922,6 +1560,7 @@ glusterd_delete_volume (rpcsvc_request_t *req, char *volname, int flags)
         glusterd_op_set_op (GD_OP_DELETE_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_DELETE_VOLUME, ctx);
+        glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
 
@@ -1940,6 +1579,7 @@ glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_op (GD_OP_ADD_BRICK);
 
         glusterd_op_set_ctx (GD_OP_ADD_BRICK, dict);
+        glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
 
@@ -2074,26 +1714,28 @@ int
 glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                      void *data)
 {
-        xlator_t        *this = NULL;
-        char            *handshake = NULL;
-        glusterd_conf_t     *conf = NULL;
-        int             ret = 0;
+        xlator_t                *this = NULL;
+        char                    *handshake = "on";
+        glusterd_conf_t         *conf = NULL;
+        int                     ret = 0;
+        glusterd_peerinfo_t     *peerinfo = NULL;
 
-        this = mydata;
+        peerinfo = mydata;
+        this = THIS;
         conf = this->private;
 
 
         switch (event) {
         case RPC_CLNT_CONNECT:
         {
-                // connect happened, send 'get_supported_versions' mop
-                ret = dict_get_str (this->options, "disable-handshake",
-                                    &handshake);
 
                 gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_CONNECT");
+                peerinfo->connected = 1;
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
 
                 if ((ret < 0) || (strcasecmp (handshake, "on"))) {
-                        //ret = client_handshake (this, conf->rpc);
+                        //ret = glusterd_handshake (this, peerinfo->rpc);
 
                 } else {
                         //conf->rpc->connected = 1;
@@ -2107,6 +1749,7 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 //Inject friend disconnected here
 
                 gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
+                peerinfo->connected = 0;
 
                 //default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
                 break;

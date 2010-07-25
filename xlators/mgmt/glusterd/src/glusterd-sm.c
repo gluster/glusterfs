@@ -563,7 +563,8 @@ glusterd_friend_sm ()
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR, "handler returned: "
                                                 "%d", ret);
-                                return ret;
+                                GF_FREE (event);
+                                continue;
                         }
 
                         ret = glusterd_friend_sm_transition_state (peerinfo, state, event_type);

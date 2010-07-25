@@ -30,6 +30,7 @@ enum cli_mem_types_ {
         cli_mt_xlator_cmdline_option_t,
         cli_mt_char,
         cli_mt_call_pool_t,
+        cli_mt_cli_local_t,
         cli_mt_end
 
 };

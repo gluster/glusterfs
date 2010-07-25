@@ -342,8 +342,7 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         gd1_mgmt_cluster_lock_rsp     rsp   = {{0},};
         int                           ret   = -1;
         int32_t                       op_ret = -1;
-        glusterd_op_sm_event_t        *event = NULL;
-        glusterd_op_sm_event_type_t    event_type = GD_OP_EVENT_NONE;
+        glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         char                          str[50] = {0,};
 
@@ -375,20 +374,14 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 GF_ASSERT (0);
         }
 
-        if (op_ret)
+        if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
-        else
+                opinfo.op_ret = op_ret;
+        } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
-
-        ret = glusterd_op_sm_new_event (event_type, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                         "Unable to get event");
-                goto out;
         }
 
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (event_type, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -409,8 +402,7 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         gd1_mgmt_cluster_lock_rsp     rsp   = {{0},};
         int                           ret   = -1;
         int32_t                       op_ret = -1;
-        glusterd_op_sm_event_t        *event = NULL;
-        glusterd_op_sm_event_type_t    event_type = GD_OP_EVENT_NONE;
+        glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         char                          str[50] = {0,};
 
@@ -443,20 +435,15 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 GF_ASSERT (0);
         }
 
-        if (op_ret)
+        if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
-        else
+                opinfo.op_ret = op_ret;
+        } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
-
-        ret = glusterd_op_sm_new_event (event_type, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                         "Unable to get event");
-                goto out;
         }
 
-        ret = glusterd_op_sm_inject_event (event);
+
+        ret = glusterd_op_sm_inject_event (event_type, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -477,8 +464,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         gd1_mgmt_stage_op_rsp         rsp   = {{0},};
         int                           ret   = -1;
         int32_t                       op_ret = -1;
-        glusterd_op_sm_event_t        *event = NULL;
-        glusterd_op_sm_event_type_t    event_type = GD_OP_EVENT_NONE;
+        glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         char                          str[50] = {0,};
 
@@ -511,20 +497,14 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 GF_ASSERT (0);
         }
 
-        if (op_ret)
+        if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
-        else
+                opinfo.op_ret = op_ret;
+        } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
-
-        ret = glusterd_op_sm_new_event (event_type, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                         "Unable to get event");
-                goto out;
         }
 
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (event_type, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -545,8 +525,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         gd1_mgmt_commit_op_rsp         rsp   = {{0},};
         int                           ret   = -1;
         int32_t                       op_ret = -1;
-        glusterd_op_sm_event_t        *event = NULL;
-        glusterd_op_sm_event_type_t    event_type = GD_OP_EVENT_NONE;
+        glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         char                          str[50] = {0,};
 
@@ -579,20 +558,14 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 GF_ASSERT (0);
         }
 
-        if (op_ret)
+        if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
-        else
+                opinfo.op_ret = op_ret;
+        } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
-
-        ret = glusterd_op_sm_new_event (event_type, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                         "Unable to get event");
-                goto out;
         }
 
-        ret = glusterd_op_sm_inject_event (event);
+        ret = glusterd_op_sm_inject_event (event_type, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
@@ -951,15 +924,8 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
 
                 //No pending ops, inject stage_acc
 
-                glusterd_op_sm_event_t  *event = NULL;
-
-                ret = glusterd_op_sm_new_event (GD_OP_EVENT_STAGE_ACC,
-                                                &event);
-
-                if (ret)
-                        goto out;
-
-                ret = glusterd_op_sm_inject_event (event);
+                ret = glusterd_op_sm_inject_event
+                        (GD_OP_EVENT_STAGE_ACC, NULL);
 
                 return ret;
         }
@@ -1006,6 +972,14 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         opinfo.pending_count = pending_peer;
 
 out:
+        if (ret) {
+                glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
+                opinfo.op_ret = ret;
+        }
+        if (req) {
+                GF_FREE (req->buf.buf_val);
+                GF_FREE (req);
+        }
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1040,15 +1014,8 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
 
                 //No pending ops, inject stage_acc
 
-                glusterd_op_sm_event_t  *event = NULL;
-
-                ret = glusterd_op_sm_new_event (GD_OP_EVENT_COMMIT_ACC,
-                                                &event);
-
-                if (ret)
-                        goto out;
-
-                ret = glusterd_op_sm_inject_event (event);
+                ret = glusterd_op_sm_inject_event
+                        (GD_OP_EVENT_COMMIT_ACC, NULL);
 
                 return ret;
         }
@@ -1094,6 +1061,14 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         opinfo.pending_count = pending_peer;
 
 out:
+        if (ret) {
+                glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
+                opinfo.op_ret = ret;
+        }
+        if (req) {
+                GF_FREE (req->buf.buf_val);
+                GF_FREE (req);
+        }
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1102,11 +1077,22 @@ out:
 int
 glusterd_handle_rpc_msg (rpcsvc_request_t *req)
 {
-        int     ret = -1;
+        int             ret = -1;
+        gf_boolean_t    is_cli_req = _gf_false;
+
         GF_ASSERT (req);
 
-        //ret = glusterd1_mgmt_actors[req->procnum].actor (req);
-        //
+        is_cli_req = glusterd_is_cli_op_req (req->procnum);
+
+        if (is_cli_req) {
+                ret = glusterd_op_set_cli_op (req->procnum);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
+                                ret);
+                        goto out;
+                }
+        }
 
         switch (req->procnum) {
                 case GD_MGMT_PROBE_QUERY:
@@ -1135,6 +1121,8 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
 
                 case GD_MGMT_CLI_PROBE:
                         ret = glusterd_handle_cli_probe (req);
+                        if (ret == GLUSTERD_CONNECTION_AWAITED)
+                                return 0;
                         break;
 
                 case GD_MGMT_CLI_CREATE_VOLUME:
@@ -1185,11 +1173,14 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         GF_ASSERT (0);
         }
 
-        if (!ret) {
-                glusterd_friend_sm ();
-                glusterd_op_sm ();
-        }
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
 
+out:
+        if (ret) {
+                glusterd_op_send_cli_response (req->procnum, ret, 0, req);
+        }
+        gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
         return ret;
 }
 
