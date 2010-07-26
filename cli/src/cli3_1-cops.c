@@ -1176,8 +1176,6 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         gf1_cli_replace_brick_req  req = {0,};
         int                        ret = 0;
         dict_t                     *dict = NULL;
-        char                       *src_brick = NULL;
-        char                       *dst_brick = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -1197,21 +1195,6 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         if (GF_REPLACE_OP_START == req.op) {
-                ret = dict_get_str (dict, "src-brick", &src_brick);
-
-                if (ret)
-                        goto out;
-
-                req.src_brick.src_brick_len = strlen (src_brick);
-                req.src_brick.src_brick_val = src_brick;
-
-                ret = dict_get_str (dict, "src-brick", &dst_brick);
-
-                if (ret)
-                        goto out;
-
-                req.dst_brick.dst_brick_len = strlen (dst_brick);
-                req.dst_brick.dst_brick_val = dst_brick;
         }
 
         ret = cli_submit_request (&req, frame, cli_rpc_prog,
@@ -1222,12 +1205,12 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
-        if (req.src_brick.src_brick_val) {
-                GF_FREE (req.src_brick.src_brick_val);
+        if (req.bricks.bricks_val) {
+                GF_FREE (req.bricks.bricks_val);
         }
 
-        if (req.dst_brick.dst_brick_val) {
-                GF_FREE (req.dst_brick.dst_brick_val);
+        if (req.bricks.bricks_val) {
+                GF_FREE (req.bricks.bricks_val);
         }
 
         return ret;
