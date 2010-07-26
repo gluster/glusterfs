@@ -701,7 +701,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 goto out;
         }
 
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname, count);
         snprintf (volfile, PATH_MAX, "%s/%s-%s-%d.vol", path,
                   brickinfo->hostname, volinfo->volname, count);
         snprintf (cmd_str, 8192, "glusterfs -f %s -p %s", volfile, pidfile);
@@ -713,7 +713,8 @@ out:
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo)
+                                glusterd_brickinfo_t   *brickinfo,
+                                int32_t count)
 {
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
@@ -732,7 +733,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         priv = this->private;
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname, count);
 
         file = fopen (pidfile, "r+");
 

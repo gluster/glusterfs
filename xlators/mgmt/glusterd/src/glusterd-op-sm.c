@@ -851,6 +851,7 @@ glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         xlator_t                                *this = NULL;
+        int32_t                                 mybrick = 0;
 
         GF_ASSERT (req);
 
@@ -872,12 +873,13 @@ glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
                                 " for brick %s:%s", brickinfo->hostname,
                                 brickinfo->path);
                         ret = glusterd_volume_stop_glusterfs
-                                                (volinfo, brickinfo);
+                                (volinfo, brickinfo, mybrick);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to stop "
                                         "glusterfs, ret: %d", ret);
                                 goto out;
                         }
+                        mybrick++;
                 }
         }
 
