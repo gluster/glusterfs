@@ -144,7 +144,6 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         char                    *volname = NULL;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_START_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -159,12 +158,14 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         volname = (char *)words[2];
         GF_ASSERT (volname);
 
+        proc = &cli_rpc_prog->proctable[GF1_CLI_START_VOLUME];
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
         }
 
 out:
-        if (ret && volname)
+        if (!proc && ret && volname)
                 cli_out ("Starting Volume %s failed", volname);
 
         return ret;
@@ -180,7 +181,6 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         char                    *volname = NULL;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_STOP_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -190,12 +190,14 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         volname = (char *)words[2];
         GF_ASSERT (volname);
 
+        proc = &cli_rpc_prog->proctable[GF1_CLI_STOP_VOLUME];
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
         }
 
 out:
-        if (ret)
+        if (!proc && ret)
                 cli_out ("Stopping Volume %s failed", volname);
 
         return ret;
@@ -211,7 +213,6 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         dict_t                  *dict = NULL;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_RENAME_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -236,12 +237,14 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret)
                 goto out;
 
+        proc = &cli_rpc_prog->proctable[GF1_CLI_RENAME_VOLUME];
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
 
 out:
-        if (ret) {
+        if (!proc && ret) {
                 char *volname = (char *) words[2];
                 if (dict)
                         dict_destroy (dict);
@@ -261,7 +264,6 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         char                    *volname = NULL;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_DEFRAG_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -271,12 +273,14 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         volname = (char *)words[2];
         GF_ASSERT (volname);
 
+        proc = &cli_rpc_prog->proctable[GF1_CLI_DEFRAG_VOLUME];
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
         }
 
 out:
-        if (ret)
+        if (!proc && ret)
                 cli_out ("Defrag of Volume %s failed", volname);
 
         return 0;
@@ -293,7 +297,6 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         char                    *volname = NULL;
         dict_t                  *dict = NULL;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_SET_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -310,12 +313,14 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         //TODO: Build validation here
+        proc = &cli_rpc_prog->proctable[GF1_CLI_SET_VOLUME];
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
 
 out:
-        if (ret) {
+        if (!proc && ret) {
                 if (dict)
                         dict_destroy (dict);
                 cli_out ("Changing option on Volume %s failed", volname);
@@ -335,8 +340,6 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_ADD_BRICK];
-
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
@@ -346,12 +349,14 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         if (ret)
                 goto out;
 
+        proc = &cli_rpc_prog->proctable[GF1_CLI_ADD_BRICK];
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
         }
 
 out:
-        if (ret) {
+        if (!proc && ret) {
                 char *volname = (char *) words[2];
                 cli_out ("Adding brick to Volume %s failed",volname );
         }
@@ -369,8 +374,6 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_REMOVE_BRICK];
-
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
@@ -380,12 +383,14 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         if (ret)
                 goto out;
 
+        proc = &cli_rpc_prog->proctable[GF1_CLI_REMOVE_BRICK];
+
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
         }
 
 out:
-        if (ret) {
+        if (!proc && ret) {
                 char *volname = (char *) words[2];
                 cli_out ("Removing brick from Volume %s failed",volname );
         }

@@ -33,6 +33,7 @@
 #include "protocol-common.h"
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
+extern int      cli_op_ret;
 
 int
 gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
@@ -60,7 +61,7 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -90,7 +91,7 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -191,7 +192,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         ret = 0;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         if (ret)
                 cli_out ("Command Execution Failed");
 
@@ -299,7 +300,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = 0;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         if (ret)
                 cli_out ("Command Execution Failed");
 
@@ -341,7 +342,7 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -379,7 +380,7 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         gf_log ("", GF_LOG_NORMAL, "Returning with %d", ret);
         return ret;
 }
@@ -419,7 +420,7 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -458,7 +459,7 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -497,7 +498,7 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -582,7 +583,7 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
-        cli_cmd_broadcast_response ();
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 

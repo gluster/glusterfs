@@ -167,4 +167,14 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                                    dict_t **options);
 
 cli_local_t * cli_local_get ();
+
+int32_t
+cli_cmd_await_connected ();
+
+int32_t
+cli_cmd_broadcast_connected ();
+
+int
+cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
+                void *data);
 #endif /* __CLI_H__ */
