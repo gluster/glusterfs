@@ -168,9 +168,9 @@ unlock:
 					local->loc.path);
 				goto selfheal;
 			}
-			
+
 			dht_layout_set (this, local->inode, layout);
-			
+
 			if (local->ia_ino) {
 				local->stbuf.ia_ino = local->ia_ino;
                                 local->stbuf.ia_gen = local->ia_gen;
@@ -810,23 +810,26 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 			"Out of memory");
 		goto err;
 	}
-
-        ret = loc_dup (loc, &local->loc);
-        if (ret == -1) {
-                op_errno = errno;
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "copying location failed for path=%s",
-                        loc->path);
-                goto err;
+        if (!dht_filter_loc_subvol_key (this, loc, &local->loc,
+                                        &hashed_subvol)) {
+                ret = loc_dup (loc, &local->loc);
+                if (ret == -1) {
+                        op_errno = errno;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "copying location failed for path=%s",
+                                loc->path);
+                        goto err;
+                }
         }
-	
+
 	if (xattr_req) {
 		local->xattr_req = dict_ref (xattr_req);
 	} else {
 		local->xattr_req = dict_new ();
 	}
 
-	hashed_subvol = dht_subvol_get_hashed (this, loc);
+        if (!hashed_subvol)
+                hashed_subvol = dht_subvol_get_hashed (this, loc);
 	cached_subvol = dht_subvol_get_cached (this, loc->inode);
 
 	local->cached_subvol = cached_subvol;
@@ -870,7 +873,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 			
 			STACK_WIND (frame, dht_revalidate_cbk,
 				    subvol, subvol->fops->lookup,
-				    loc, local->xattr_req);
+				    &local->loc, local->xattr_req);
 
 			if (!--call_cnt)
 				break;
@@ -2953,6 +2956,17 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	VALIDATE_OR_GOTO (this, err);
 	VALIDATE_OR_GOTO (loc, err);
 
+        if (dht_filter_loc_subvol_key (this, loc, &local->loc,
+                                       &cached_subvol)) {
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "unlinking %s on %s (given path %s)",
+                        local->loc.path, cached_subvol->name, loc->path);
+                STACK_WIND (frame, dht_unlink_cbk,
+                            cached_subvol, cached_subvol->fops->unlink,
+                            &local->loc);
+                goto done;
+        }
+
 	cached_subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!cached_subvol) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -2993,7 +3007,7 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 STACK_WIND (frame, dht_unlink_cbk,
                             cached_subvol, cached_subvol->fops->unlink, loc);
         }
-
+done:
 	return 0;
 err:
 	op_errno = (op_errno == -1) ? errno : op_errno;
@@ -3252,20 +3266,30 @@ dht_create (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	subvol = dht_subvol_get_hashed (this, loc);
-	if (!subvol) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no subvolume in layout for path=%s",
-			loc->path);
-		op_errno = ENOENT;
-		goto err;
-	}
+        if (dht_filter_loc_subvol_key (this, loc, &local->loc,
+                                       &subvol)) {
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "creating %s on %s (got create on %s)",
+                        local->loc.path, subvol->name, loc->path);
+                STACK_WIND (frame, dht_create_cbk,
+                            subvol, subvol->fops->create,
+                            &local->loc, flags, mode, fd);
+                goto done;
+        }
 
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
+                goto err;
+        }
+        subvol = dht_subvol_get_hashed (this, loc);
+        if (!subvol) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "no subvolume in layout for path=%s",
+                        loc->path);
+                op_errno = ENOENT;
                 goto err;
         }
 
@@ -3275,34 +3299,33 @@ dht_create (call_frame_t *frame, xlator_t *this,
                 STACK_WIND (frame, dht_create_cbk,
                             subvol, subvol->fops->create,
                             loc, flags, mode, fd);
-        } else {
-                /* Choose the minimum filled volume, and create the 
-                   files there */
-                /* TODO */
-                avail_subvol = dht_free_disk_available_subvol (this, subvol);
-                if (avail_subvol != subvol) {
-                        local->fd = fd_ref (fd);
-                        local->flags = flags;
-                        local->mode = mode;
-
-                        local->cached_subvol = avail_subvol;
-                        local->hashed_subvol = subvol;
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "creating %s on %s (link at %s)", loc->path, 
-                                avail_subvol->name, subvol->name);
-                        dht_linkfile_create (frame, 
-                                             dht_create_linkfile_create_cbk,
-                                             avail_subvol, subvol, loc);
-                } else {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "creating %s on %s", loc->path, subvol->name);
-                        STACK_WIND (frame, dht_create_cbk,
-                                    subvol, subvol->fops->create,
-                                    loc, flags, mode, fd);
-                        
-                }
+                goto done;
         }
+        /* Choose the minimum filled volume, and create the 
+           files there */
+        /* TODO */
+        avail_subvol = dht_free_disk_available_subvol (this, subvol);
+        if (avail_subvol != subvol) {
+                local->fd = fd_ref (fd);
+                local->flags = flags;
+                local->mode = mode;
 
+                local->cached_subvol = avail_subvol;
+                local->hashed_subvol = subvol;
+                gf_log (this->name, GF_LOG_TRACE,
+                        "creating %s on %s (link at %s)", loc->path,
+                        avail_subvol->name, subvol->name);
+                dht_linkfile_create (frame,
+                                     dht_create_linkfile_create_cbk,
+                                     avail_subvol, subvol, loc);
+                goto done;
+        }
+        gf_log (this->name, GF_LOG_TRACE,
+                "creating %s on %s", loc->path, subvol->name);
+        STACK_WIND (frame, dht_create_cbk,
+                    subvol, subvol->fops->create,
+                    loc, flags, mode, fd);
+done:
 	return 0;
 
 err:
