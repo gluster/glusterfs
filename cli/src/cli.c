@@ -74,6 +74,7 @@
 
 #include <fnmatch.h>
 
+extern int connected;
 /* using argp for command line parsing */
 static char gf_doc[] = "";
 
@@ -319,6 +320,41 @@ out:
 }
 
 int
+cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
+                void *data)
+{
+        xlator_t                *this = NULL;
+        int                     ret = 0;
+
+        this = data;
+
+        switch (event) {
+        case RPC_CLNT_CONNECT:
+        {
+
+                cli_cmd_broadcast_connected ();
+                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_CONNECT");
+               break;
+        }
+
+        case RPC_CLNT_DISCONNECT:
+        {
+                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
+                connected = 0;
+                break;
+        }
+
+        default:
+                gf_log (this->name, GF_LOG_TRACE,
+                        "got some other RPC event %d", event);
+                ret = 0;
+                break;
+        }
+
+        return ret;
+}
+
+int
 parse_cmdline (int argc, char *argv[], struct cli_state *state)
 {
         int         ret = 0;
@@ -393,8 +429,10 @@ cli_rpc_init (struct cli_state *state)
         dict_t                  *options = NULL;
         int                     ret = -1;
         int                     port = CLI_GLUSTERD_PORT;
+        xlator_t                *this = NULL;
 
 
+        this = THIS;
         cli_rpc_prog = &cli3_1_prog;
         options = dict_new ();
         if (!options)
@@ -418,8 +456,11 @@ cli_rpc_init (struct cli_state *state)
         if (ret)
                 goto out;
 
-        rpc = rpc_clnt_init (&rpc_cfg, options, THIS->ctx, THIS->name);
+        rpc = rpc_clnt_init (&rpc_cfg, options, this->ctx, this->name);
 
+        if (rpc) {
+                ret = rpc_clnt_register_notify (rpc, cli_rpc_notify, this);
+        }
 out:
         return rpc;
 }
@@ -459,6 +500,10 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
+        global_rpc = cli_rpc_init (&state);
+        if (!global_rpc)
+                goto out;
+
         state.ctx = ctx;
         global_state = &state;
 
@@ -474,9 +519,6 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-        global_rpc = cli_rpc_init (&state);
-        if (!global_rpc)
-                goto out;
 
         ret = cli_input_init (&state);
         if (ret)

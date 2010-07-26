@@ -643,6 +643,7 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
         rpc_request_info_t    *request_info = NULL;
         int                    ret          = -1;
         struct rpc_req         req          = {0, };
+        int                    cbk_ret      = -1;
 
         conn = &clnt->conn;
 
@@ -666,7 +667,8 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
                         "failed");
         }
 
-        saved_frame->cbkfn (&req, req.rsp, req.rspcnt, saved_frame->frame);
+        cbk_ret = saved_frame->cbkfn (&req, req.rsp, req.rspcnt,
+                                      saved_frame->frame);
 
         if (ret == 0) {
                 rpc_clnt_reply_deinit (&req);
@@ -679,7 +681,7 @@ out:
                 GF_FREE (saved_frame);
         }
 
-        return ret;
+        return cbk_ret;
 }
 
 

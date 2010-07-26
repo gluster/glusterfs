@@ -37,6 +37,11 @@
 static int cmd_done;
 static pthread_cond_t      cond  = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t     cond_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t      conn  = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t     conn_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int    cli_op_ret = 0;
+int    connected = 1;
 
 int
 cli_cmd_process (struct cli_state *state, int argc, char **argv)
@@ -178,6 +183,7 @@ cli_cmd_await_response ()
 
        pthread_mutex_lock (&cond_mutex);
         {
+                cli_op_ret = 0;
                 while (!cmd_done) {
                         pthread_cond_wait (&cond, &cond_mutex);
                 }
@@ -187,15 +193,16 @@ cli_cmd_await_response ()
         pthread_mutex_destroy (&cond_mutex);
         pthread_cond_destroy (&cond);
 
-        return 0;
+        return cli_op_ret;
 }
 
 int
-cli_cmd_broadcast_response ()
+cli_cmd_broadcast_response (int32_t status)
 {
         pthread_mutex_lock (&cond_mutex);
         {
                 cmd_done = 1;
+                cli_op_ret = status;
                 pthread_cond_broadcast (&cond);
         }
 
@@ -204,3 +211,37 @@ cli_cmd_broadcast_response ()
         return 0;
 }
 
+int32_t
+cli_cmd_await_connected ()
+{
+       pthread_mutex_init (&conn_mutex, NULL);
+       pthread_cond_init (&conn, NULL);
+
+       pthread_mutex_lock (&conn_mutex);
+        {
+                while (!connected) {
+                        pthread_cond_wait (&conn, &conn_mutex);
+                }
+        }
+        pthread_mutex_unlock (&conn_mutex);
+
+        pthread_mutex_destroy (&conn_mutex);
+        pthread_cond_destroy (&conn);
+
+        return 0;
+}
+
+int32_t
+cli_cmd_broadcast_connected ()
+{
+        connected = 1;
+        gf_log ("", GF_LOG_NORMAL, "Connected");
+        pthread_mutex_lock (&conn_mutex);
+        {
+                pthread_cond_broadcast (&conn);
+        }
+
+        pthread_mutex_unlock (&conn_mutex);
+
+        return 0;
+}
