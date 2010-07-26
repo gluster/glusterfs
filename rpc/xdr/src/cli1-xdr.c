@@ -56,13 +56,53 @@ bool_t
 xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 {
 
+	register int32_t *buf;
+
+	if (xdrs->x_op == XDR_ENCODE) {
+		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
+		if (buf == NULL) {
+			 if (!xdr_int (xdrs, &objp->op_ret))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->op_errno))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->port))
+				 return FALSE;
+
+		} else {
+		IXDR_PUT_LONG(buf, objp->op_ret);
+		IXDR_PUT_LONG(buf, objp->op_errno);
+		IXDR_PUT_LONG(buf, objp->port);
+		}
+		 if (!xdr_string (xdrs, &objp->hostname, ~0))
+			 return FALSE;
+		return TRUE;
+	} else if (xdrs->x_op == XDR_DECODE) {
+		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
+		if (buf == NULL) {
+			 if (!xdr_int (xdrs, &objp->op_ret))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->op_errno))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->port))
+				 return FALSE;
+
+		} else {
+		objp->op_ret = IXDR_GET_LONG(buf);
+		objp->op_errno = IXDR_GET_LONG(buf);
+		objp->port = IXDR_GET_LONG(buf);
+		}
+		 if (!xdr_string (xdrs, &objp->hostname, ~0))
+			 return FALSE;
+	 return TRUE;
+	}
+
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->hostname, ~0))
-		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->port))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->hostname, ~0))
 		 return FALSE;
 	return TRUE;
 }
@@ -274,6 +314,8 @@ xdr_gf1_cli_defrag_vol_rsp (XDR *xdrs, gf1_cli_defrag_vol_rsp *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -341,9 +383,7 @@ xdr_gf1_cli_replace_brick_req (XDR *xdrs, gf1_cli_replace_brick_req *objp)
 		 return FALSE;
 	 if (!xdr_gf1_cli_replace_op (xdrs, &objp->op))
 		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->src_brick.src_brick_val, (u_int *) &objp->src_brick.src_brick_len, ~0))
-		 return FALSE;
-	 if (!xdr_bytes (xdrs, (char **)&objp->dst_brick.dst_brick_val, (u_int *) &objp->dst_brick.dst_brick_len, ~0))
+	 if (!xdr_bytes (xdrs, (char **)&objp->bricks.bricks_val, (u_int *) &objp->bricks.bricks_len, ~0))
 		 return FALSE;
 	return TRUE;
 }

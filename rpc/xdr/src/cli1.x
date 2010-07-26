@@ -23,16 +23,19 @@ enum gf1_cli_get_volume {
 
  struct gf1_cli_probe_req {
         string  hostname<>;
+	int	port;
 }  ;
 
  struct gf1_cli_probe_rsp {
         int     op_ret;
         int     op_errno;
+	int	port;
         string  hostname<>;
 }  ;
 
  struct gf1_cli_deprobe_req {
         string  hostname<>;
+	int	port;
 }  ;
 
  struct gf1_cli_deprobe_rsp {
@@ -160,8 +163,7 @@ struct gf1_cli_get_vol_rsp {
  struct gf1_cli_replace_brick_req {
         string volname<>;
         gf1_cli_replace_op op;
-        opaque src_brick<>;
-        opaque dst_brick<>;
+        opaque bricks<>;
 }  ;
 
  struct gf1_cli_replace_brick_rsp {
