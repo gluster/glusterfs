@@ -2098,11 +2098,9 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t  *frame = NULL;
 
         frame = myframe;
-
         local = frame->local;
         conf  = frame->this->private;
-        fdctx = local->fdctx;
-
+       
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
@@ -2122,6 +2120,8 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 local->loc.path, rsp.op_ret, rsp.fd);
 
         if (-1 != rsp.op_ret) {
+	  fdctx = local->fdctx;
+	  if(fdctx) { 
                 pthread_mutex_lock (&conf->lock);
                 {
                         fdctx->remote_fd = rsp.fd;
@@ -2132,6 +2132,8 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         }
                 }
                 pthread_mutex_unlock (&conf->lock);
+	      
+          }
         }
 
 out:
@@ -2164,8 +2166,7 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         local        = frame->local;
         frame->local = NULL;
         conf         = frame->this->private;
-        fdctx        = local->fdctx;
-
+       
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
@@ -2184,7 +2185,9 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 "reopendir on %s returned %d (%"PRId64")",
                 local->loc.path, rsp.op_ret, rsp.fd);
 
-        if (fdctx) {
+	if (-1 != rsp.op_ret) {
+	  fdctx = local->fdctx;
+	  if (fdctx) {
                 pthread_mutex_lock (&conf->lock);
                 {
                         fdctx->remote_fd = rsp.fd;
@@ -2195,6 +2198,8 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         }
                 }
                 pthread_mutex_unlock (&conf->lock);
+		
+	  }
         }
 
 out:
