@@ -77,6 +77,65 @@ out:
 	return 0;
 }
 
+int
+dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
+                           xlator_t **subvol)
+{
+        char          *new_name  = NULL;
+        char          *new_path  = NULL;
+        xlator_list_t *trav      = NULL;
+        char           key[1024] = {0,};
+        int            ret       = 0; /* not found */
+
+        /* Why do other tasks if first required 'char' itself is not there */
+        if (loc->name && !strchr (loc->name, '@'))
+                goto out;
+
+        trav = this->children;
+        while (trav) {
+                snprintf (key, 1024, "*@%s:%s", this->name, trav->xlator->name);
+                if (fnmatch (key, loc->name, FNM_NOESCAPE) == 0) {
+                        new_name = GF_CALLOC(strlen (loc->name),
+                                             sizeof (char),
+                                             gf_common_mt_char);
+                        if (!new_name)
+                                goto out;
+                        if (fnmatch (key, loc->path, FNM_NOESCAPE) == 0) {
+                                new_path = GF_CALLOC(strlen (loc->path),
+                                                     sizeof (char),
+                                                     gf_common_mt_char);
+                                if (!new_path)
+                                        goto out;
+                                strncpy (new_path, loc->path, (strlen (loc->path) -
+                                                               strlen (key) + 1));
+                        }
+                        strncpy (new_name, loc->name, (strlen (loc->name) -
+                                                       strlen (key) + 1));
+
+                        if (new_loc) {
+                                new_loc->path   = ((new_path) ? new_path:
+                                                   gf_strdup (loc->path));
+                                new_loc->name   = new_name;
+                                new_loc->ino    = loc->ino;
+                                new_loc->inode  = inode_ref (loc->inode);
+                                new_loc->parent = inode_ref (loc->parent);
+                        }
+                        *subvol         = trav->xlator;
+                        ret = 1;  /* success */
+                        goto out;
+                }
+                trav = trav->next;
+        }
+out:
+        if (!ret) {
+                /* !success */
+                if (new_path)
+                        GF_FREE (new_path);
+                if (new_name)
+                        GF_FREE (new_name);
+        }
+        return ret;
+}
 
 int
 dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol_p,
@@ -146,6 +205,10 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
         if (local->selfheal.layout) {
                 dht_layout_unref (this, local->selfheal.layout);
                 local->selfheal.layout = NULL;
+        }
+
+        if (local->newpath) {
+                GF_FREE (local->newpath);
         }
 
 	GF_FREE (local);

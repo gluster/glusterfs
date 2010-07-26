@@ -31,6 +31,8 @@
 #define GF_DHT_LOOKUP_UNHASHED_ON   1
 #define GF_DHT_LOOKUP_UNHASHED_AUTO 2
 
+#include <fnmatch.h>
+
 typedef int (*dht_selfheal_dir_cbk_t) (call_frame_t *frame, void *cookie,
 				       xlator_t *this,
 				       int32_t op_ret, int32_t op_errno);
@@ -121,6 +123,8 @@ struct dht_local {
         /* need for file-info */
         char   *pathinfo;
         char   *key;
+
+        char   *newpath;
 };
 typedef struct dht_local dht_local_t;
 
@@ -288,5 +292,9 @@ int dht_frame_su_do (call_frame_t *frame);
 int dht_frame_su_undo (call_frame_t *frame);
 
 int dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name);
+
+int dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
+                               xlator_t **subvol);
+
 
 #endif /* _DHT_H */
