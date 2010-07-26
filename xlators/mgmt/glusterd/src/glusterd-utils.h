@@ -100,7 +100,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo);
+                                glusterd_brickinfo_t   *brickinfo,
+                                int32_t count);
 
 int32_t
 glusterd_volinfo_delete (glusterd_volinfo_t *volinfo);

@@ -92,8 +92,8 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
         snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,\
                   volinfo->volname);
 
-#define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname)\
-        snprintf (pidfile, PATH_MAX, "%s/run/%s.pid", volpath, hostname);
+#define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname, count)         \
+        snprintf (pidfile, PATH_MAX, "%s/run/%s-%d.pid", volpath, hostname, count);
 
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
