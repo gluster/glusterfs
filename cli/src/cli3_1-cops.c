@@ -35,6 +35,17 @@
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int      cli_op_ret;
 
+char *cli_volume_type[] = {"None",
+                           "Stripe",
+                           "Replicate"
+};
+
+
+char *cli_volume_status[] = {"Created",
+                             "Started",
+                             "Stopped"
+};
+
 int
 gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
@@ -215,6 +226,8 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    status = 0;
         int32_t                    type = 0;
         int32_t                    brick_count = 0;
+        char                       *brick = NULL;
+        int32_t                    j = 1;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -266,6 +279,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 cli_out ("Number of Volumes: %d", count);
 
                 while ( i <= count) {
+                        cli_out ("");
                         snprintf (key, 256, "volume%d.name", i);
                         ret = dict_get_str (dict, key, &volname);
                         if (ret)
@@ -286,9 +300,24 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
-                        cli_out ("Volume Name:%s, type:%d, status:%d,"
-                                  "brick_count: %d",
-                                  volname, type, status, brick_count);
+                        cli_out ("Volume Name: %s", volname);
+                        cli_out ("Type: %s", cli_volume_type[type]);
+                        cli_out ("Status: %s", cli_volume_status[status], brick_count);
+                        cli_out ("Number of Bricks: %d", brick_count);
+                        j = 1;
+
+                        if (brick_count)
+                                cli_out ("Bricks:");
+
+                        while ( j <= brick_count) {
+                                snprintf (key, 1024, "volume%d.brick%d",
+                                          i, j);
+                                ret = dict_get_str (dict, key, &brick);
+                                if (ret)
+                                        goto out;
+                                cli_out ("Brick%d: %s", j, brick);
+                                j++;
+                        }
                         i++;
                 }
         } else {
@@ -307,8 +336,10 @@ out:
         if (dict)
                 dict_destroy (dict);
 
+        gf_log ("", GF_LOG_NORMAL, "Returning: %d", ret);
         return ret;
 }
+
 int
 gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
@@ -527,6 +558,7 @@ gf_cli3_1_rename_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -555,6 +587,7 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -612,6 +645,7 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -641,6 +675,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        cli_cmd_broadcast_response (ret);
         return ret;
 }
 
@@ -671,13 +706,10 @@ gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
         req.hostname = hostname;
         req.port     = port;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_PROBE, NULL, gf_xdr_from_cli_probe_req,
-                                   this, gf_cli3_1_probe_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_PROBE, NULL, gf_xdr_from_cli_probe_req,
+                              this, gf_cli3_1_probe_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -710,14 +742,11 @@ gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
         req.hostname = hostname;
         req.port     = port;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_DEPROBE, NULL,
-                                   gf_xdr_from_cli_deprobe_req,
-                                   this, gf_cli3_1_deprobe_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_DEPROBE, NULL,
+                              gf_xdr_from_cli_deprobe_req,
+                              this, gf_cli3_1_deprobe_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -737,14 +766,11 @@ gf_cli3_1_list_friends (call_frame_t *frame, xlator_t *this,
 
         req.flags = GF_CLI_LIST_ALL;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_LIST_FRIENDS, NULL,
-                                   gf_xdr_from_cli_peer_list_req,
-                                   this, gf_cli3_1_list_friends_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_LIST_FRIENDS, NULL,
+                              gf_xdr_from_cli_peer_list_req,
+                              this, gf_cli3_1_list_friends_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -764,14 +790,11 @@ gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
 
         req.flags = GF_CLI_GET_VOLUME_ALL;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_GET_VOLUME, NULL,
-                                   gf_xdr_from_cli_get_vol_req,
-                                   this, gf_cli3_1_get_volume_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_GET_VOLUME, NULL,
+                              gf_xdr_from_cli_get_vol_req,
+                              this, gf_cli3_1_get_volume_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -823,14 +846,11 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
                 frame->local = local;
         }
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_CREATE_VOLUME, NULL,
-                                   gf_xdr_from_cli_create_vol_req,
-                                   this, gf_cli3_1_create_volume_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_CREATE_VOLUME, NULL,
+                              gf_xdr_from_cli_create_vol_req,
+                              this, gf_cli3_1_create_volume_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 
 
 out:
@@ -865,13 +885,10 @@ gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
 
         req.volname = data;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_DELETE_VOLUME, NULL,
-                                   gf_xdr_from_cli_delete_vol_req,
-                                   this, gf_cli3_1_delete_volume_cbk);
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_DELETE_VOLUME, NULL,
+                              gf_xdr_from_cli_delete_vol_req,
+                              this, gf_cli3_1_delete_volume_cbk);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -901,14 +918,11 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
 
         req.volname = data;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_START_VOLUME, NULL,
-                                   gf_xdr_from_cli_start_vol_req,
-                                   this, gf_cli3_1_start_volume_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_START_VOLUME, NULL,
+                              gf_xdr_from_cli_start_vol_req,
+                              this, gf_cli3_1_start_volume_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -937,14 +951,11 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
                 frame->local = local;
         }
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_STOP_VOLUME, NULL,
-                                   gf_xdr_from_cli_stop_vol_req,
-                                   this, gf_cli3_1_stop_volume_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_STOP_VOLUME, NULL,
+                              gf_xdr_from_cli_stop_vol_req,
+                              this, gf_cli3_1_stop_volume_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -973,14 +984,11 @@ gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
 
         req.volname = data;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_DEFRAG_VOLUME, NULL,
-                                   gf_xdr_from_cli_defrag_vol_req,
-                                   this, gf_cli3_1_defrag_volume_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_DEFRAG_VOLUME, NULL,
+                              gf_xdr_from_cli_defrag_vol_req,
+                              this, gf_cli3_1_defrag_volume_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -1012,10 +1020,10 @@ gf_cli3_1_rename_volume (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_RENAME_VOLUME, NULL,
-                                   gf_xdr_from_cli_rename_vol_req,
-                                   this, gf_cli3_1_rename_volume_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_RENAME_VOLUME, NULL,
+                              gf_xdr_from_cli_rename_vol_req,
+                              this, gf_cli3_1_rename_volume_cbk);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1053,10 +1061,10 @@ gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
         }
 
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_SET_VOLUME, NULL,
-                                   gf_xdr_from_cli_set_vol_req,
-                                   this, gf_cli3_1_set_volume_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_SET_VOLUME, NULL,
+                              gf_xdr_from_cli_set_vol_req,
+                              this, gf_cli3_1_set_volume_cbk);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1098,14 +1106,11 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_ADD_BRICK, NULL,
-                                   gf_xdr_from_cli_add_brick_req,
-                                   this, gf_cli3_1_add_brick_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_ADD_BRICK, NULL,
+                              gf_xdr_from_cli_add_brick_req,
+                              this, gf_cli3_1_add_brick_cbk);
 
-        if (!ret) {
-                ret = cli_cmd_await_response ();
-        }
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -1155,10 +1160,11 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_REMOVE_BRICK, NULL,
-                                   gf_xdr_from_cli_remove_brick_req,
-                                   this, gf_cli3_1_remove_brick_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_REMOVE_BRICK, NULL,
+                              gf_xdr_from_cli_remove_brick_req,
+                              this, gf_cli3_1_remove_brick_cbk);
+
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1198,10 +1204,10 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         if (GF_REPLACE_OP_START == req.op) {
         }
 
-        ret = cli_submit_request (&req, frame, cli_rpc_prog,
-                                   GD_MGMT_CLI_REPLACE_BRICK, NULL,
-                                   gf_xdr_from_cli_replace_brick_req,
-                                   this, gf_cli3_1_replace_brick_cbk);
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_REPLACE_BRICK, NULL,
+                              gf_xdr_from_cli_replace_brick_req,
+                              this, gf_cli3_1_replace_brick_cbk);
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);

@@ -175,23 +175,41 @@ out:
 }
 
 int
-cli_cmd_await_response ()
+cli_cmd_cond_init ()
 {
+
        pthread_mutex_init (&cond_mutex, NULL);
        pthread_cond_init (&cond, NULL);
-       cmd_done = 0;
 
+       pthread_mutex_init (&conn_mutex, NULL);
+       pthread_cond_init (&conn, NULL);
+
+       return 0;
+}
+
+int
+cli_cmd_lock ()
+{
        pthread_mutex_lock (&cond_mutex);
-        {
-                cli_op_ret = 0;
-                while (!cmd_done) {
-                        pthread_cond_wait (&cond, &cond_mutex);
-                }
-        }
-        pthread_mutex_unlock (&cond_mutex);
+       return 0;
+}
 
-        pthread_mutex_destroy (&cond_mutex);
-        pthread_cond_destroy (&cond);
+int
+cli_cmd_unlock ()
+{
+        pthread_mutex_unlock (&cond_mutex);
+        return 0;
+}
+
+int
+cli_cmd_await_response ()
+{
+
+        cmd_done = 0;
+        while (!cmd_done)
+                pthread_cond_wait (&cond, &cond_mutex);
+
+        cli_cmd_unlock ();
 
         return cli_op_ret;
 }
@@ -214,8 +232,6 @@ cli_cmd_broadcast_response (int32_t status)
 int32_t
 cli_cmd_await_connected ()
 {
-       pthread_mutex_init (&conn_mutex, NULL);
-       pthread_cond_init (&conn, NULL);
 
        pthread_mutex_lock (&conn_mutex);
         {
@@ -225,8 +241,6 @@ cli_cmd_await_connected ()
         }
         pthread_mutex_unlock (&conn_mutex);
 
-        pthread_mutex_destroy (&conn_mutex);
-        pthread_cond_destroy (&conn);
 
         return 0;
 }
@@ -244,4 +258,27 @@ cli_cmd_broadcast_connected ()
         pthread_mutex_unlock (&conn_mutex);
 
         return 0;
+}
+
+int
+cli_cmd_submit (void *req, call_frame_t *frame,
+                rpc_clnt_prog_t *prog,
+                int procnum, struct iobref *iobref,
+                cli_serialize_t sfunc, xlator_t *this,
+                fop_cbk_fn_t cbkfn)
+{
+        int     ret = -1;
+
+        cli_cmd_lock ();
+        ret = cli_submit_request (req, frame, prog,
+                                  procnum, NULL, sfunc,
+                                  this, cbkfn);
+
+        if (!ret)
+                ret = cli_cmd_await_response ();
+        else
+                cli_cmd_unlock ();
+
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
 }
