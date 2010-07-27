@@ -392,11 +392,8 @@ __socket_reset (rpc_transport_t *this)
 struct ioq *
 __socket_ioq_new (rpc_transport_t *this, rpc_transport_msg_t *msg)
 {
-        socket_private_t *priv  = NULL;
         struct ioq       *entry = NULL;
         int               count = 0;
-
-        priv = this->private;
 
         /* TODO: use mem-pool */
         entry = GF_CALLOC (1, sizeof (*entry), gf_common_mt_ioq);
@@ -1553,7 +1550,11 @@ socket_server_event_handler (int fd, int idx, void *data,
                                         ret = -1;
                         }
                         pthread_mutex_unlock (&new_priv->lock);
-                        ret = rpc_transport_notify (this, RPC_TRANSPORT_ACCEPT, new_trans);
+                        if (ret == -1)
+                                goto unlock;
+
+                        ret = rpc_transport_notify (this, RPC_TRANSPORT_ACCEPT,
+                                                    new_trans);
                 }
         }
 unlock:
@@ -2112,7 +2113,7 @@ int32_t
 socket_getmyaddr (rpc_transport_t *this, char *myaddr, int addrlen,
                   struct sockaddr *sa, socklen_t salen)
 {
-        int32_t ret = -1;
+        int32_t ret = 0;
 
         if ((this == NULL) || (sa == NULL)) {
                 goto out;

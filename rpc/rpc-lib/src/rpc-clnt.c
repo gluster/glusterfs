@@ -129,7 +129,6 @@ call_bail (void *data)
         struct tm              frame_sent_tm;
         char                   frame_sent[32] = {0,};
         struct timeval         timeout = {0,};
-        gf_timer_cbk_t         timer_cbk = NULL;
         struct rpc_req         req;
         struct iovec           iov = {0,};
 
@@ -147,8 +146,6 @@ call_bail (void *data)
                 /* Chaining to get call-always functionality from
                    call-once timer */
                 if (conn->timer) {
-                        timer_cbk = conn->timer->callbk;
-
                         timeout.tv_sec = 10;
                         timeout.tv_usec = 0;
 
@@ -673,8 +670,6 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
         if (ret == 0) {
                 rpc_clnt_reply_deinit (&req);
         }
-
-        ret = 0;
 out:
 
         if (saved_frame) {

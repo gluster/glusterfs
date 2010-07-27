@@ -371,8 +371,13 @@ rpcsvc_conn_check_volume_specific (dict_t *options, char *volname,
         if ((dict_get (options, "rpc-auth.addr.namelookup"))) {
                 ret = dict_get_str (options, "rpc-auth.addr.namelookup"
                                     , &namestr);
-                if (ret == 0)
+                if (ret == 0) {
                         ret = gf_string2boolean (namestr, &namelookup);
+                        if (ret)
+                                gf_log ("rpcsvc", GF_LOG_DEBUG,
+                                        "wrong option %s given for "
+                                        "'namelookup'", namestr);
+                }
         }
 
         /* We need two separate checks because the rules with addresses in them
@@ -408,8 +413,13 @@ rpcsvc_conn_check_volume_general (dict_t *options, rpcsvc_conn_t *conn)
         if ((dict_get (options, "rpc-auth.addr.namelookup"))) {
                 ret = dict_get_str (options, "rpc-auth.addr.namelookup"
                                     , &namestr);
-                if (ret == 0)
+                if (!ret) {
                         ret = gf_string2boolean (namestr, &namelookup);
+                        if (ret)
+                                gf_log ("rpcsvc", GF_LOG_DEBUG,
+                                        "wrong option %s given for "
+                                        "'namelookup'", namestr);
+                }
         }
 
         /* We need two separate checks because the rules with addresses in them
@@ -466,9 +476,15 @@ rpcsvc_volume_allowed (dict_t *options, char *volname)
                 GF_FREE (srchstr);
                 srchstr = globalrule;
                 ret = dict_get_str (options, srchstr, &addrstr);
-        } else
+                if (ret)
+                        gf_log ("rpcsvc", GF_LOG_DEBUG,
+                                "failed to get the string %s", srchstr);
+        } else {
                 ret = dict_get_str (options, srchstr, &addrstr);
-
+                if (ret)
+                        gf_log ("rpcsvc", GF_LOG_DEBUG,
+                                "failed to get the string %s", srchstr);
+        }
 out:
         return addrstr;
 }
@@ -657,7 +673,6 @@ rpcsvc_conn_init (rpcsvc_t *svc, rpc_transport_t *trans)
 
         conn = rpcsvc_conn_alloc (svc, trans);
         if (!conn) {
-                ret = -1;
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "cannot init a connection");
                 goto out;
         }
@@ -1143,6 +1158,9 @@ rpcsvc_request_create (rpcsvc_conn_t *conn, rpc_transport_pollin_t *msg)
 err:
         if (ret == -1) {
                 ret = rpcsvc_error_reply (req);
+                if (ret)
+                        gf_log ("rpcsvc", GF_LOG_DEBUG,
+                                "failed to queue error reply");
                 req = NULL;
         }
 
@@ -1195,6 +1213,9 @@ err_reply:
         if ((ret == RPCSVC_ACTOR_ERROR) || (req->rpc_err != SUCCESS))
                 ret = rpcsvc_error_reply (req);
 
+        if (ret)
+                gf_log ("rpcsvc", GF_LOG_DEBUG, "failed to queue error reply");
+
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */
         ret = 0;
@@ -1208,7 +1229,6 @@ rpcsvc_notify (rpc_transport_t *trans, void *mydata,
                rpc_transport_event_t event, void *data, ...)
 {
         rpcsvc_conn_t          *conn      = NULL;
-        rpcsvc_t               *svc       = NULL;
         int                     ret       = -1;
         rpc_transport_pollin_t *msg       = NULL;
         rpc_transport_t        *new_trans = NULL;
@@ -1217,8 +1237,6 @@ rpcsvc_notify (rpc_transport_t *trans, void *mydata,
         if (conn == NULL) {
                 goto out;
         }
-
-        svc = conn->svc;
 
         switch (event) {
         case RPC_TRANSPORT_ACCEPT:
@@ -1765,23 +1783,11 @@ rpcsvc_listener_t *
 rpcsvc_listener_alloc (rpcsvc_t *svc, rpcsvc_conn_t *conn)
 {
         rpcsvc_listener_t *listener = NULL;
-        int                ret      = -1;
 
         listener = GF_CALLOC (1, sizeof (*listener),
                               gf_common_mt_rpcsvc_listener_t);
         if (!listener) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "memory allocation failed");
-                goto out;
-        }
-
-        /* TODO: unresolved symbol */
-        ret = rpc_transport_get_myaddr (conn->trans, NULL, 0,
-                                        &listener->sa,
-                                        sizeof (listener->sa));
-        ret = 0;
-        if (ret == -1) {
-                GF_FREE (listener);
-                listener = NULL;
                 goto out;
         }
 
@@ -2005,7 +2011,8 @@ fail:
 
         ret = xdr_serialize_dump_rsp (iov, &rsp);
         if (ret < 0) {
-                req->rpc_err = GARBAGE_ARGS;
+                if (req)
+                        req->rpc_err = GARBAGE_ARGS;
                 op_errno = EINVAL;
                 goto fail;
         }
@@ -2015,7 +2022,7 @@ fail:
 
         free_prog_details (&rsp);
 
-        return 0;
+        return ret;
 }
 
 int
