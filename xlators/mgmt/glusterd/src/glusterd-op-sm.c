@@ -250,7 +250,7 @@ glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
                 case GF_CLUSTER_TYPE_REPLICATE:
                 {
                         snprintf (cmd_str, 8192,
-                                  "glusterfs-volgen -n %s -c %s -r 1 %s -p %d"
+                                  "glusterfs-volgen -n %s -c %s -r 1 %s -p %d "
                                   "--num-replica %d",
                                    volinfo->volname, path, bricks,
                                    volinfo->port, volinfo->sub_count);
@@ -261,7 +261,7 @@ glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
                 case GF_CLUSTER_TYPE_STRIPE:
                 {
                         snprintf (cmd_str, 8192,
-                                  "glusterfs-volgen -n %s -c %s -r 0 %s -p %d"
+                                  "glusterfs-volgen -n %s -c %s -r 0 %s -p %d "
                                   "--num-stripe %d",
                                   volinfo->volname, path, bricks,
                                   volinfo->port, volinfo->sub_count);
