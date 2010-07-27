@@ -219,8 +219,16 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         conn = &conf->rpc->conn;
 
         if (req->rpc_status == -1) {
-                /* timer expired and transport bailed out */
-                gf_log (this->name, GF_LOG_DEBUG, "timer must have expired");
+		 if (conn->ping_timer != NULL) {
+			 gf_log (this->name, GF_LOG_DEBUG, "socket or ib"
+				 " related error");
+			 gf_timer_call_cancel (this->ctx, conn->ping_timer);
+			 conn->ping_timer = NULL;
+		 } else {
+			 /* timer expired and transport bailed out */
+			 gf_log (this->name, GF_LOG_DEBUG, "timer must have "
+			 "expired");
+		 }
                 goto out;
         }
 
