@@ -79,7 +79,7 @@ valid_ipv4_address (char *address, int length)
         char *tmp = NULL, *ptr = NULL, *prev = NULL, *endptr = NULL;
         char ret = 1;
 
-        prev = tmp = gf_strdup (address);
+        tmp = gf_strdup (address);
         prev = strtok_r (tmp, ".", &ptr);
 
         while (prev != NULL)

@@ -605,21 +605,23 @@ int32_t
 fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *addr,
                              int32_t addr_len, char *identifier)
 {
-        int32_t ret = 0, tmpaddr_len = 0;
-        char service[NI_MAXSERV], host[NI_MAXHOST];
         struct sockaddr_storage tmpaddr;
+
+        char    service[NI_MAXSERV] = {0,};
+        char    host[NI_MAXHOST]    = {0,};
+        int32_t ret                 = 0;
+        int32_t tmpaddr_len         = 0;
+        int32_t one_to_four         = 0;
+        int32_t four_to_eight       = 0;
+        int32_t twelve_to_sixteen   = 0;
+        int16_t eight_to_ten        = 0;
+        int16_t ten_to_twelve       = 0;
 
         memset (&tmpaddr, 0, sizeof (tmpaddr));
         tmpaddr = *addr;
         tmpaddr_len = addr_len;
 
         if (((struct sockaddr *) &tmpaddr)->sa_family == AF_INET6) {
-                int32_t one_to_four, four_to_eight, twelve_to_sixteen;
-                int16_t eight_to_ten, ten_to_twelve;
-
-                one_to_four = four_to_eight = twelve_to_sixteen = 0;
-                eight_to_ten = ten_to_twelve = 0;
-
                 one_to_four = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[0];
                 four_to_eight = ((struct sockaddr_in6 *) &tmpaddr)->sin6_addr.s6_addr32[1];
 #ifdef GF_SOLARIS_HOST_OS

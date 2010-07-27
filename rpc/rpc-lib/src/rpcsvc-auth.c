@@ -85,7 +85,7 @@ rpcsvc_auth_add_initers (rpcsvc_t *svc)
 
         ret = 0;
 err:
-        return 0;
+        return ret;
 }
 
 
@@ -142,14 +142,26 @@ rpcsvc_auth_init_auths (rpcsvc_t *svc, dict_t *options)
          * it by default. This is a globally default rule, the user is still
          * allowed to disable the two for particular subvolumes.
          */
-        if (!dict_get (options, "rpc-auth.auth-null"))
+        if (!dict_get (options, "rpc-auth.auth-null")) {
                 ret = dict_set_str (options, "rpc-auth.auth-null", "on");
+                if (ret)
+                        gf_log ("rpc-auth", GF_LOG_DEBUG,
+                                "dict_set failed for 'auth-nill'");
+        }
 
-        if (!dict_get (options, "rpc-auth.auth-unix"))
+        if (!dict_get (options, "rpc-auth.auth-unix")) {
                 ret = dict_set_str (options, "rpc-auth.auth-unix", "on");
+                if (ret)
+                        gf_log ("rpc-auth", GF_LOG_DEBUG,
+                                "dict_set failed for 'auth-unix'");
+        }
 
-        if (!dict_get (options, "rpc-auth.auth-glusterfs"))
+        if (!dict_get (options, "rpc-auth.auth-glusterfs")) {
                 ret = dict_set_str (options, "rpc-auth.auth-glusterfs", "on");
+                if (ret)
+                        gf_log ("rpc-auth", GF_LOG_DEBUG,
+                                "dict_set failed for 'auth-unix'");
+        }
 
         list_for_each_entry_safe (auth, tmp, &svc->authschemes, authlist) {
                 ret = rpcsvc_auth_init_auth (svc, options, auth);
@@ -191,7 +203,6 @@ out:
 rpcsvc_auth_t *
 __rpcsvc_auth_get_handler (rpcsvc_request_t *req)
 {
-        int                     ret = -1;
         struct rpcsvc_auth_list *auth = NULL;
         struct rpcsvc_auth_list *tmp = NULL;
         rpcsvc_t                *svc = NULL;
@@ -207,7 +218,6 @@ __rpcsvc_auth_get_handler (rpcsvc_request_t *req)
 
         if (list_empty (&svc->authschemes)) {
                 gf_log (GF_RPCSVC, GF_LOG_WARNING, "No authentication!");
-                ret = 0;
                 goto err;
         }
 
