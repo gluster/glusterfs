@@ -1296,7 +1296,7 @@ afr_setxattr_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			}
 			local->success_count++;
 
-			if (local->success_count == priv->wait_count) {
+			if (local->success_count == priv->child_count) {
 				need_unwind = 1;
 			}
 		}
