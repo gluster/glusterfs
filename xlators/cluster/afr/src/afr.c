@@ -557,14 +557,14 @@ afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
 
 
 static void
-afr_lookup_self_heal_check (afr_local_t *local, struct iatt *buf,
-                            struct iatt *lookup_buf)
+afr_lookup_self_heal_check (xlator_t *this, afr_local_t *local,
+                            struct iatt *buf, struct iatt *lookup_buf)
 {
         if (FILETYPE_DIFFERS (buf, lookup_buf)) {
                 /* mismatching filetypes with same name
                 */
 
-                gf_log ("Replicate", GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_NORMAL,
                         "filetype differs for %s ", local->loc.path);
 
                 local->govinda_gOvinda = 1;
@@ -572,7 +572,7 @@ afr_lookup_self_heal_check (afr_local_t *local, struct iatt *buf,
 
         if (PERMISSION_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
-                gf_log ("Replicate", GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_NORMAL,
                         "permissions differ for %s ", local->loc.path);
                 local->self_heal.need_metadata_self_heal = _gf_true;
         }
@@ -580,13 +580,13 @@ afr_lookup_self_heal_check (afr_local_t *local, struct iatt *buf,
         if (OWNERSHIP_DIFFERS (buf, lookup_buf)) {
                 /* mismatching permissions */
                 local->self_heal.need_metadata_self_heal = _gf_true;
-                gf_log ("Replicate", GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_NORMAL,
                         "ownership differs for %s ", local->loc.path);
         }
 
         if (SIZE_DIFFERS (buf, lookup_buf)
             && IA_ISREG (buf->ia_type)) {
-                gf_log ("Replicate", GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_NORMAL,
                         "size differs for %s ", local->loc.path);
                 local->self_heal.need_data_self_heal = _gf_true;
         }
@@ -802,7 +802,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                         }
 
 		} else {
-                        afr_lookup_self_heal_check (local, buf, lookup_buf);
+                        afr_lookup_self_heal_check (this, local, buf, lookup_buf);
 
                         if (child_index == local->read_child_index) {
                                 /*
@@ -929,7 +929,7 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                         }
 
 		} else {
-                        afr_lookup_self_heal_check (local, buf, lookup_buf);
+                        afr_lookup_self_heal_check (this, local, buf, lookup_buf);
 
                         if (child_index == local->read_child_index) {
 
