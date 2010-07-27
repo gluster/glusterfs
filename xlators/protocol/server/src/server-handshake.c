@@ -91,7 +91,8 @@ _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
         if (!temp_volfile) {
                 temp_volfile = GF_CALLOC (1, sizeof (struct _volfile_ctx),
                                           gf_server_mt_volfile_ctx_t);
-
+                if (!temp_volfile)
+                        goto out;
                 temp_volfile->next  = conf->volfile;
                 temp_volfile->key   = (key)? gf_strdup (key): NULL;
                 temp_volfile->checksum = checksum;

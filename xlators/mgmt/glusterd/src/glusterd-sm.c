@@ -550,6 +550,8 @@ glusterd_friend_sm ()
                                 event->peerinfo = peerinfo;
                         }
 
+                        if (!peerinfo)
+                                goto out;
 
                         state = glusterd_friend_state_table[peerinfo->state.state];
 
@@ -573,7 +575,7 @@ glusterd_friend_sm ()
                                 gf_log ("glusterd", GF_LOG_ERROR, "Unable to transition"
                                         "state from %d to %d", peerinfo->state.state,
                                          state[event_type].next_state);
-                                return ret;
+                                goto out;
                         }
 
                         GF_FREE (event);
@@ -582,7 +584,7 @@ glusterd_friend_sm ()
 
 
         ret = 0;
-
+out:
         return ret;
 }
 

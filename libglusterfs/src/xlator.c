@@ -749,6 +749,9 @@ xlator_set_type (xlator_t *xl,
 	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                          gf_common_mt_volume_opt_list_t);
 
+        if (!vol_opt)
+                return -1;
+
 	if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
 		dlerror ();
 		gf_log (xl->name, GF_LOG_DEBUG,
