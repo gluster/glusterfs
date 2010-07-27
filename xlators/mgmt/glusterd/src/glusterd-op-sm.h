@@ -198,4 +198,18 @@ glusterd_op_set_cli_op (gf_mgmt_procnum op);
 int32_t
 glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                int32_t op_errno, rpcsvc_request_t *req);
+int32_t
+glusterd_op_get_op ();
+
+int32_t
+glusterd_op_clear_pending_op (glusterd_op_t op);
+
+int32_t
+glusterd_op_clear_commit_op (glusterd_op_t op);
+
+int32_t
+glusterd_op_clear_op (glusterd_op_t op);
+
+int32_t
+glusterd_op_clear_ctx (glusterd_op_t op);
 #endif

@@ -41,7 +41,7 @@ static pthread_cond_t      conn  = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t     conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int    cli_op_ret = 0;
-int    connected = 1;
+int    connected = 0;
 
 int
 cli_cmd_process (struct cli_state *state, int argc, char **argv)
