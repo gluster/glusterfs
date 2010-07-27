@@ -45,4 +45,17 @@ void cli_cmd_tokens_destroy (char **tokens);
 int cli_cmd_await_response ();
 
 int cli_cmd_broadcast_response (int32_t status);
+
+int cli_cmd_cond_init ();
+
+int cli_cmd_lock ();
+
+int cli_cmd_unlock ();
+
+int
+cli_cmd_submit (void *req, call_frame_t *frame,
+                rpc_clnt_prog_t *prog,
+                int procnum, struct iobref *iobref,
+                cli_serialize_t sfunc, xlator_t *this,
+                fop_cbk_fn_t cbkfn);
 #endif /* __CLI_CMD_H__ */

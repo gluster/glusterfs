@@ -2025,9 +2025,9 @@ glusterd_op_clear_ctx (glusterd_op_t op)
 
         ctx = opinfo.op_ctx[op];
 
-        if (ctx)
-                GF_FREE (ctx);
+        opinfo.op_ctx[op] = NULL;
 
+        //Cleanup to be done here
         return 0;
 
 }

@@ -298,8 +298,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count)
 {
 
-        int             ret = -1;
-        char            key[256] = {0, };
+        int                     ret = -1;
+        char                    key[256] = {0, };
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        char                    *buf = NULL;
+        int                     i = 1;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volumes);
@@ -324,6 +327,17 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                char    brick[1024] = {0,};
+                snprintf (key, 256, "volume%d.brick%d", count, i);
+                snprintf (brick, 1024, "%s:%s", brickinfo->hostname,
+                          brickinfo->path);
+                buf = gf_strdup (brick);
+                ret = dict_set_dynstr (volumes, key, buf);
+                if (ret)
+                        goto out;
+                i++;
+        }
 out:
         return ret;
 }
@@ -1753,16 +1767,17 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         ret = 0;
 out:
 
-        if (ret) {
-                if (volumes)
-                        dict_destroy (volumes);
-        }
 
         rsp.op_ret = ret;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gf_xdr_serialize_cli_peer_list_rsp);
 
+        if (volumes)
+                dict_destroy (volumes);
+
+        if (rsp.volumes.volumes_val)
+                GF_FREE (rsp.volumes.volumes_val);
         return ret;
 }
 
