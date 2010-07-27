@@ -108,7 +108,7 @@
 
 #define nfs3_check_fh_resolve_status(cst, nfstat, erlabl)               \
         do {                                                            \
-                if ((cst)->resolve_ret == -1) {                         \
+                if ((cst)->resolve_ret < 0) {                           \
                         nfstat = nfs3_errno_to_nfsstat3 (cst->resolve_errno);\
                         goto erlabl;                                    \
                 }                                                       \
@@ -116,7 +116,7 @@
 
 #define nfs3_check_new_fh_resolve_status(cst, nfstat, erlabl)           \
         do {                                                            \
-                if (((cst)->resolve_ret == -1) &&                       \
+                if (((cst)->resolve_ret < 0) &&                         \
                     ((cst)->resolve_errno != ENOENT)) {                 \
                         nfstat = nfs3_errno_to_nfsstat3 (cs->resolve_errno);\
                         goto erlabl;                                    \
