@@ -1501,6 +1501,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         afr_private_t *   priv  = NULL;
 	afr_local_t *     local = NULL;
         afr_self_heal_t * sh    = NULL;
+        char              sh_type_str[256] = {0,};
 
         priv  = this->private;
 	local = bgsh_frame->local;
@@ -1512,8 +1513,11 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
                 afr_set_split_brain (this, local->cont.lookup.inode, _gf_false);
 	}
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "background self-heal completed");
+        afr_self_heal_type_str_get(sh, sh_type_str,
+                                   sizeof(sh_type_str));
+        gf_log (this->name, GF_LOG_NORMAL,
+                "background %s self-heal completed on %s", sh_type_str,
+                local->loc.path);
 
         if (!sh->unwound) {
                 sh->unwind (sh->orig_frame, this);

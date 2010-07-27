@@ -163,10 +163,8 @@ out:
                                                            sh_type_str,
                                                            sizeof(sh_type_str));
                                 gf_log (this->name, GF_LOG_NORMAL,
-                                        "%s self-heal triggered. "
-                                         "path: %s, "
-                                         "reason: checksums of "
-                                         "directory differ,"
+                                        "%s self-heal triggered. path: %s, "
+                                         "reason: checksums of directory differ,"
                                         " forced merge option set",
                                         sh_type_str, local->loc.path);
 

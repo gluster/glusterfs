@@ -947,17 +947,20 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
         int   recurse = 0;
 
         off_t offset = 0;
+        char  sh_type_str[256] = {0,};
  
 	priv    = this->private;
 	local   = frame->local;
 	sh      = &local->self_heal;
         sh_priv = sh->private;
 
+        afr_self_heal_type_str_get(sh, sh_type_str, sizeof(sh_type_str));
+
 	if (sh->op_failed) {
                 if (sh_priv->loops_running == 0) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "diff self-heal aborting on %s",
-                                local->loc.path);
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "diff %s self-heal aborting on %s",
+                                sh_type_str, local->loc.path);
 
                         sh_diff_private_cleanup (frame, this);
                         local->self_heal.algo_abort_cbk (frame, this);
@@ -969,14 +972,14 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
 	if (sh_priv->offset >= sh->file_size) {
                 if (sh_priv->loops_running == 0) {
                         gf_log (this->name, GF_LOG_TRACE,
-                                "diff self-heal completed on %s",
-                                local->loc.path);
+                                "diff %s self-heal completed on %s",
+                                sh_type_str, local->loc.path);
 
 
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "diff self-heal on %s: %d blocks of %d were different (%.2f%%)",
-                                local->loc.path, sh_priv->diff_blocks,
-                                sh_priv->total_blocks,
+                        gf_log (this->name, GF_LOG_NORMAL,
+                                "diff %s self-heal on %s: %d blocks of %d were different (%.2f%%)",
+                                sh_type_str, local->loc.path,
+                                sh_priv->diff_blocks, sh_priv->total_blocks,
                                 ((sh_priv->diff_blocks * 1.0)/sh_priv->total_blocks) * 100);
 
                         sh_diff_private_cleanup (frame, this);
