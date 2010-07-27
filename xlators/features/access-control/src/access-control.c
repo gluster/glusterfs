@@ -1372,7 +1372,7 @@ ac_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         frame->local = stub;
         /* If we are not supposed to create the file then there is no need to
          * check the parent dir permissions. */
-        if (!(flags & O_CREAT))
+        if (flags & O_CREAT)
                 ret = ac_open_create (stub);
         else
                 ret = ac_open_only (stub);
