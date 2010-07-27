@@ -2864,7 +2864,7 @@ nfs3_fh_resolve_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Directory read done: %s: %s",
                         cs->resolvedloc.path, strerror (op_ret));
                 cs->resolve_ret = -1;
-                cs->resolve_errno = ENOENT;
+                cs->resolve_errno = ESTALE;
                 nfs3_call_resume (cs);
                 goto err;
         }
