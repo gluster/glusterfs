@@ -218,6 +218,7 @@ nfs3_errno_to_nfsstat3 (int errnum)
 
         case ESTALE:
                 stat = NFS3ERR_STALE;
+                break;
 
         default:
                 stat = NFS3ERR_SERVERFAULT;
