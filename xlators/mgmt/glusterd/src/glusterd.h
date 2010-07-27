@@ -218,4 +218,10 @@ glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict);
 
 int
 glusterd_handle_add_brick (rpcsvc_request_t *req);
+
+int
+glusterd_handle_remove_brick (rpcsvc_request_t *req);
+
+int32_t
+glusterd_remove_brick (rpcsvc_request_t *req, dict_t *dict);
 #endif

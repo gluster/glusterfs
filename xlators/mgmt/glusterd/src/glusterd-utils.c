@@ -626,6 +626,43 @@ out:
 
 
 int32_t
+glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
+                        glusterd_brickinfo_t **brickinfo)
+{
+        int32_t                 ret = -1;
+        char                    *hostname = NULL;
+        char                    *path = NULL;
+        glusterd_brickinfo_t    *tmp = NULL;
+
+        GF_ASSERT (brick);
+        GF_ASSERT (brickinfo);
+        GF_ASSERT (volinfo);
+
+        gf_log ("", GF_LOG_NORMAL, "brick: %s", brick);
+
+        hostname = strtok (brick, ":");
+        path = strtok (NULL, ":");
+
+        GF_ASSERT (hostname);
+        GF_ASSERT (path);
+
+        list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
+
+                if ((!strcmp (tmp->hostname, hostname)) &&
+                        !strcmp (tmp->path, path)) {
+                        gf_log ("", GF_LOG_NORMAL, "Found brick");
+                        ret = 0;
+                        break;
+                }
+        }
+
+        *brickinfo = tmp;
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
 glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
