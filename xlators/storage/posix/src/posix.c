@@ -179,6 +179,8 @@ _posix_xattr_get_set (dict_t *xattr_req,
 		if (xattr_size > 0) {
 			value = GF_CALLOC (1, xattr_size + 1,
                                            gf_posix_mt_char);
+                        if (!value)
+                                return;
 
 			sys_lgetxattr (filler->real_path, key, value,
                                        xattr_size);

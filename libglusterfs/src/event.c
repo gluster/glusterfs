@@ -195,6 +195,8 @@ event_register_poll (struct event_pool *event_pool, int fd,
 			event_pool->reg = GF_REALLOC (event_pool->reg,
 					        event_pool->count *
 						sizeof (*event_pool->reg));
+                        if (!event_pool->reg)
+                                goto unlock;
 		}
 
 		idx = event_pool->used++;
@@ -239,6 +241,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
 		event_pool->changed = 1;
 
 	}
+unlock:
 	pthread_mutex_unlock (&event_pool->mutex);
 
 	return idx;
@@ -402,6 +405,8 @@ event_dispatch_poll_resize (struct event_pool *event_pool,
 			ufds = GF_CALLOC (sizeof (struct pollfd),
 					  event_pool->evcache_size,
                                           gf_common_mt_pollfd);
+                        if (!ufds)
+                                goto unlock;
 			event_pool->evcache = ufds;
 		}
 

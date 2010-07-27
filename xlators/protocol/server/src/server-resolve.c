@@ -75,6 +75,8 @@ prepare_components (call_frame_t *frame)
         count = component_count (resolve->path);
         components = GF_CALLOC (sizeof (*components), count,
                                 gf_server_mt_resolv_comp_t);
+        if (!components)
+                goto out;
         resolve->components = components;
 
         components[0].basename = "";
@@ -90,7 +92,7 @@ prepare_components (call_frame_t *frame)
                         i++;
                 }
         }
-
+out:
         return 0;
 }
 

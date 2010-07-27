@@ -2080,7 +2080,7 @@ out:
                 GF_FREE (fdctx);
         }
 
-        if (ret)
+        if (ret && fr)
                 STACK_DESTROY (fr->root);
 
         return ret;

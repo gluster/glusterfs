@@ -90,6 +90,8 @@ gf_resolve_ip6 (const char *hostname,
 	if (!*dnscache) {
 		*dnscache = GF_CALLOC (1, sizeof (struct dnscache6),
                                         gf_common_mt_dnscache6);
+                if (!*dnscache)
+                        return -1;
 	}
 
 	cache = *dnscache;

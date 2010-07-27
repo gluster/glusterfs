@@ -315,6 +315,9 @@ gf_remember_xlator_option (struct list_head *options, char *arg)
 
         option = GF_CALLOC (1, sizeof (xlator_cmdline_option_t),
                             gfd_mt_xlator_cmdline_option_t);
+        if (!option)
+                goto out;
+
         INIT_LIST_HEAD (&option->cmd_args);
 
         dot = strchr (arg, '.');
@@ -331,6 +334,9 @@ gf_remember_xlator_option (struct list_head *options, char *arg)
 
         option->key = GF_CALLOC ((equals - dot) + 1, sizeof (char),
                                  gfd_mt_char);
+        if (!option->key)
+                goto out;
+
         strncpy (option->key, dot + 1, (equals - dot - 1));
 
         if (!*(equals + 1))

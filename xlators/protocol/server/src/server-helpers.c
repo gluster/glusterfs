@@ -684,6 +684,8 @@ server_connection_get (xlator_t *this, const char *id)
                 if (!conn) {
                         conn = (void *) GF_CALLOC (1, sizeof (*conn),
                                                    gf_server_mt_conn_t);
+                        if (!conn)
+                                goto unlock;
 
                         conn->id = gf_strdup (id);
                         conn->fdtable = gf_fd_fdtable_alloc ();
@@ -697,6 +699,7 @@ server_connection_get (xlator_t *this, const char *id)
                 conn->ref++;
                 conn->active_transports++;
 	}
+unlock:
 	pthread_mutex_unlock (&conf->mutex);
 
         return conn;

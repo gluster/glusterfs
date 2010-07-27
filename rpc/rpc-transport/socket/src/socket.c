@@ -1503,6 +1503,9 @@ socket_server_event_handler (int fd, int idx, void *data,
 
                         new_trans = GF_CALLOC (1, sizeof (*new_trans),
                                                gf_common_mt_rpc_trans_t);
+                        if (!new_trans)
+                                goto unlock;
+
                         new_trans->fini = this->fini;
                         new_trans->name = gf_strdup (this->name);
 

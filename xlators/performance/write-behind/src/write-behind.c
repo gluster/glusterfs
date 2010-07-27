@@ -564,6 +564,7 @@ out:
                 }
 
                 GF_FREE (local);
+                local = NULL;
         }
 
         if (iobref != NULL) {
@@ -579,10 +580,11 @@ out:
                  * had we winded these requests, we would have unrefed
                  * in wb_sync_cbk.
                  */
-
-                list_for_each_entry_safe (request, dummy, &local->winds,
-                                          winds) {
-                        wb_request_unref (request);
+                if (local) {
+                        list_for_each_entry_safe (request, dummy, &local->winds,
+                                                  winds) {
+                                wb_request_unref (request);
+                        }
                 }
 
                 if (file != NULL) {

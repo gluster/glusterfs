@@ -311,6 +311,9 @@ __logfile_for_client (char *identifier)
         if (!client_logs) {
                 client = GF_CALLOC (1, sizeof (*client),
                                         gf_common_mt_client_log);
+                if (!client)
+                        return NULL;
+
                 client_log_init (client, identifier);
 
                 client_logs = client;
@@ -324,6 +327,8 @@ __logfile_for_client (char *identifier)
         if (!client) {
                 client = GF_CALLOC (1, sizeof (*client),
                                         gf_common_mt_client_log);
+                if (!client)
+                        return NULL;
 
                 client_log_init (client, identifier);
 
