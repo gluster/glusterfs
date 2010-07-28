@@ -1738,7 +1738,8 @@ fop_readdirp_cbk_stub (call_frame_t *frame,
 	if (op_ret > 0) {
 		list_for_each_entry (entry, &entries->list, list) {
 			stub_entry = gf_dirent_for_name (entry->d_name);
-			ERR_ABORT (stub_entry);
+                        if (!stub_entry)
+                                goto out;
 			stub_entry->d_off = entry->d_off;
 			stub_entry->d_ino = entry->d_ino;
 			stub_entry->d_stat = entry->d_stat;
@@ -1780,11 +1781,12 @@ fop_readdir_cbk_stub (call_frame_t *frame,
 	if (op_ret > 0) {
 		list_for_each_entry (entry, &entries->list, list) {
 			stub_entry = gf_dirent_for_name (entry->d_name);
-			ERR_ABORT (stub_entry);
+                        if (!stub_entry)
+                                goto out;
 			stub_entry->d_off = entry->d_off;
 			stub_entry->d_ino = entry->d_ino;
 
-			list_add_tail (&stub_entry->list, 
+			list_add_tail (&stub_entry->list,
 				       &stub->args.readdir_cbk.entries.list);
 		}
 	}

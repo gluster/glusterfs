@@ -2594,7 +2594,8 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 trav = trav->next;
                         } /* while(trav) */
                         value = alloca (len + 1);
-                        ERR_ABORT (value);
+                        if (!value)
+                                goto out;
                         len = 0;
                         trav = dict->members_list;
                         while (trav) {
@@ -2633,6 +2634,7 @@ fuse_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 send_fuse_err (this, finh, op_errno);
         } /* if(op_ret>=0)...else */
 
+out:
         if (need_to_free_dict)
                 dict_unref (dict);
 

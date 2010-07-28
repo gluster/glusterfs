@@ -731,7 +731,8 @@ ib_verbs_register_peer (ib_verbs_device_t *device,
                 return;
         }
         ent = (struct _qpent *) GF_CALLOC (1, sizeof (*ent), gf_ibv_mt_qpent);
-        ERR_ABORT (ent);
+        if (!ent)
+                return;
         /* TODO: ref reg->peer */
         ent->peer = peer;
         ent->next = &qpreg->ents[hash];
@@ -1522,7 +1523,8 @@ ib_verbs_get_device (transport_t *this,
 
                 trav = GF_CALLOC (1, sizeof (*trav), 
                                   gf_ibv_mt_ib_verbs_device_t);
-                ERR_ABORT (trav);
+                if (!trav)
+                        return NULL;
                 priv->device = trav;
 
                 trav->context = ibctx;
@@ -2357,10 +2359,16 @@ ib_verbs_server_event_handler (int fd, int idx, void *data,
 
         this = GF_CALLOC (1, sizeof (transport_t),
                           gf_ibv_mt_transport_t);
-        ERR_ABORT (this);
+        if (!this)
+                return 0;
+
         priv = GF_CALLOC (1, sizeof (ib_verbs_private_t),
                           gf_ibv_mt_ib_verbs_private_t);
-        ERR_ABORT (priv);
+        if (!priv) {
+                GF_FREE (this);
+                return 0;
+        }
+
         this->private = priv;
         /* Copy all the ib_verbs related values in priv, from trans_priv 
            as other than QP, all the values remain same */
