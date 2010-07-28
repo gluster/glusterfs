@@ -30,6 +30,10 @@
 #include <rpc/auth.h>
 #include <rpc/rpc_msg.h>
 
+#ifndef MAX_IOVEC
+#define MAX_IOVEC 16
+#endif
+
 /* Given the 4-byte fragment header, returns non-zero if this fragment
  * is the last fragment for the RPC record being assemebled.
  * RPC Record marking standard defines a 32 bit value as the fragment
@@ -108,12 +112,11 @@ struct rpc_transport_msg {
 typedef struct rpc_transport_msg rpc_transport_msg_t;
 
 struct rpc_transport_rsp {
-        /* as of now, the entire rsp payload is read into rspbuf and hence
-         * rspcount is always set to one.
-         */
-        struct iovec    *rspvec;
-        int              rspcount;
-        struct iobuf    *rspbuf;
+        struct iovec   *rsphdr;
+        int             rsphdr_count;
+        struct iovec   *rsp_payload;
+        int             rsp_payload_count;
+        struct iobref  *rsp_iobref;
 };
 typedef struct rpc_transport_rsp rpc_transport_rsp_t;
 
@@ -129,6 +132,15 @@ struct rpc_transport_reply {
 };
 typedef struct rpc_transport_reply rpc_transport_reply_t;
 
+struct rpc_transport_data {
+        char is_request;
+        union {
+                rpc_transport_req_t   req;
+                rpc_transport_reply_t reply;
+        } data;
+};
+typedef struct rpc_transport_data rpc_transport_data_t;
+
 struct rpc_request_info {
         uint32_t            xid;
         int                 prognum;
@@ -140,20 +152,11 @@ typedef struct rpc_request_info rpc_request_info_t;
 
 
 struct rpc_transport_pollin {
-        union {
-                struct vectored {
-                        struct iobuf *iobuf1;
-                        size_t        size1;
-                        struct iobuf *iobuf2;
-                        size_t        size2;
-                } vector;
-                struct simple {
-                        struct iobuf *iobuf;
-                        size_t        size;
-                } simple;
-        } data;
+        struct iovec vector[2];
+        int count;
         char vectored;
         void *private;
+        struct iobref *iobref;
 };
 typedef struct rpc_transport_pollin rpc_transport_pollin_t;
 
@@ -279,9 +282,8 @@ rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
                           struct sockaddr *sa, size_t salen);
 
 rpc_transport_pollin_t *
-rpc_transport_pollin_alloc (rpc_transport_t *this, struct iobuf *iobuf,
-                            size_t iobuf_size, struct iobuf *vectoriob,
-                            size_t vectoriob_size, void *private);
+rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
+                            int count, struct iobref *iobref, void *private);
 void
 rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin);
 

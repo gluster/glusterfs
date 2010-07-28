@@ -80,7 +80,8 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         }
         /* Send the msg */
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count,
-                               payload, payloadcnt, iobref, frame);
+                               payload, payloadcnt, iobref, frame, NULL, 0,
+                               NULL, 0, NULL);
 
         if (ret == 0) {
                 pthread_mutex_lock (&conf->rpc->conn.lock);
@@ -2001,23 +2002,18 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         if (rsp.op_ret != -1) {
-                iobref = iobref_new ();
+                iobref = req->rsp_iobref;
                 gf_stat_to_iatt (&rsp.stat, &stat);
                 vector.iov_len  = rsp.op_ret;
 
                 if (rsp.op_ret > 0) {
-                        vector.iov_base = req->rsp_procpayload->ptr;
-                        iobref_add (iobref, req->rsp_procpayload);
+                        vector.iov_base = req->rsp[1].iov_base;
                 }
         }
 out:
         STACK_UNWIND_STRICT (readv, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &vector, 1,
                              &stat, iobref);
-
-        if (iobref) {
-                iobref_unref (iobref);
-        }
 
         return 0;
 }

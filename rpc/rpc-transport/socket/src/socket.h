@@ -170,8 +170,8 @@ typedef struct {
                 size_t               iobuf_size;
                 struct iovec         vector[2];
                 int                  count;
-                struct iobuf        *vectoriob;
-                size_t               vectoriob_size;
+                struct iovec         payload_vector;
+                struct iobref       *iobref;
                 rpc_request_info_t  *request_info;
                 struct iovec        *pending_vector;
                 int                  pending_count;

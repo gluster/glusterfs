@@ -1021,12 +1021,8 @@ rpcsvc_request_destroy (rpcsvc_conn_t *conn, rpcsvc_request_t *req)
                 goto out;
         }
 
-        if (req->recordiob) {
-                iobuf_unref (req->recordiob);
-        }
-
-        if (req->vectorediob) {
-                iobuf_unref (req->vectorediob);
+        if (req->iobref) {
+                iobref_unref (req->iobref);
         }
 
         mem_put (conn->rxpool, req);
@@ -1050,15 +1046,11 @@ rpcsvc_request_init (rpcsvc_conn_t *conn, struct rpc_msg *callmsg,
         req->progver = rpc_call_progver (callmsg);
         req->procnum = rpc_call_progproc (callmsg);
         req->conn = conn;
+        req->count = msg->count;
         req->msg[0] = progmsg;
+        req->iobref = iobref_ref (msg->iobref);
         if (msg->vectored) {
-                req->msg[1].iov_base = iobuf_ptr (msg->data.vector.iobuf2);
-                req->msg[1].iov_len = msg->data.vector.size2;
-
-                req->recordiob = iobuf_ref (msg->data.vector.iobuf1);
-                req->vectorediob = iobuf_ref (msg->data.vector.iobuf2);
-        } else {
-                req->recordiob = iobuf_ref (msg->data.simple.iobuf);
+                req->msg[1] = msg->vector[1];
         }
 
         req->trans_private = msg->private;
@@ -1106,13 +1098,8 @@ rpcsvc_request_create (rpcsvc_conn_t *conn, rpc_transport_pollin_t *msg)
                 goto err;
         }
 
-        if (msg->vectored) {
-                msgbuf = iobuf_ptr (msg->data.vector.iobuf1);
-                msglen = msg->data.vector.size1;
-        } else {
-                msgbuf = iobuf_ptr (msg->data.simple.iobuf);
-                msglen = msg->data.simple.size;
-        }
+        msgbuf = msg->vector[0].iov_base;
+        msglen = msg->vector[0].iov_len;
 
         ret = xdr_to_rpc_call (msgbuf, msglen, &rpcmsg, &progmsg,
                                req->cred.authdata,req->verf.authdata);
@@ -1190,11 +1177,11 @@ rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn, rpc_transport_pollin_t *msg)
                 goto err_reply;
 
         if (actor && (req->rpc_err == SUCCESS)) {
-                if (req->vectorediob) {
+                if (req->count == 2) {
                         if (actor->vector_actor) {
                                 rpcsvc_conn_ref (conn);
-                                ret = actor->vector_actor (req,
-                                                           req->vectorediob);
+                                ret = actor->vector_actor (req, &req->msg[1], 1,
+                                                           req->iobref);
                         } else {
                                 rpcsvc_request_seterr (req, PROC_UNAVAIL);
                                 gf_log (GF_RPCSVC, GF_LOG_ERROR,

@@ -237,21 +237,9 @@ struct rpcsvc_request {
          * be de-xdred by the actor.
          */
         struct iovec            msg[2];
+        int                     count;
 
-        /* The full message buffer allocated to store the RPC headers.
-         * This buffer is ref'd when allocated why RPC svc and unref'd after
-         * the buffer is handed to the actor. That means if the actor or any
-         * higher layer wants to keep this buffer around, they too must ref it
-         * right after entering the program actor.
-         */
-        struct iobuf            *recordiob;
-
-        /* iobuf to hold payload of calls like write. By storing large payloads
-         * starting from page-aligned addresses, performance increases while
-         * accessing the payload
-         */
-        struct iobuf            *vectorediob;
-
+        struct iobref          *iobref;
 
         /* Status of the RPC call, whether it was accepted or denied. */
         int                     rpc_status;
@@ -317,7 +305,6 @@ struct rpcsvc_request {
 #define rpcsvc_request_private(req)     ((req)->private)
 #define rpcsvc_request_xid(req)         ((req)->xid)
 #define rpcsvc_request_set_private(req,prv)  (req)->private = (void *)(prv)
-#define rpcsvc_request_record_iob(rq)   ((rq)->recordiob)
 #define rpcsvc_request_record_ref(req)  (iobuf_ref ((req)->recordiob))
 #define rpcsvc_request_record_unref(req) (iobuf_unref ((req)->recordiob))
 
@@ -338,7 +325,8 @@ struct rpcsvc_request {
  *
  */
 typedef int (*rpcsvc_actor) (rpcsvc_request_t *req);
-typedef int (*rpcsvc_vector_actor) (rpcsvc_request_t *req, struct iobuf *iob);
+typedef int (*rpcsvc_vector_actor) (rpcsvc_request_t *req, struct iovec *vec,
+                                    int count, struct iobref *iobref);
 typedef int (*rpcsvc_vector_sizer) (rpcsvc_request_t *req, ssize_t *readsize,
                                     int *newiob);
 
