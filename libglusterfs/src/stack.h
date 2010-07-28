@@ -184,7 +184,10 @@ STACK_DESTROY (call_stack_t *stack)
 		                                                        \
                 _new = GF_CALLOC (1, sizeof (call_frame_t),             \
                                 gf_common_mt_call_frame_t);	        \
-		ERR_ABORT (_new);					\
+                if (!_new) {                                            \
+                        gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
+                        break;                                          \
+                }                                                       \
 		typeof(fn##_cbk) tmp_cbk = rfn;				\
 		_new->root = frame->root;				\
 		_new->next = frame->root->frames.next;			\
@@ -219,7 +222,10 @@ STACK_DESTROY (call_stack_t *stack)
                                                                         \
                 _new = GF_CALLOC (1, sizeof (call_frame_t),             \
                                 gf_common_mt_call_frame_t);	        \
-		ERR_ABORT (_new);					\
+                if (!_new) {                                            \
+                        gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
+                        break;                                          \
+                }                                                       \
 		typeof(fn##_cbk) tmp_cbk = rfn;				\
 		_new->root = frame->root;				\
 		_new->next = frame->root->frames.next;			\

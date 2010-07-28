@@ -40,11 +40,12 @@ data_pair_t *
 get_new_data_pair ()
 {
 	data_pair_t *data_pair_ptr = NULL;
-  
+
 	data_pair_ptr = (data_pair_t *) GF_CALLOC (1, sizeof (data_pair_t),
                                                    gf_common_mt_data_pair_t);
-	ERR_ABORT (data_pair_ptr);
-  
+        if (!data_pair_ptr)
+                gf_log ("dict", GF_LOG_ERROR, "memory alloc failed");
+
 	return data_pair_ptr;
 }
 
@@ -1064,7 +1065,9 @@ data_to_int64 (data_t *data)
 		return -1;
 
 	char *str = alloca (data->len + 1);
-	ERR_ABORT (str);
+        if (!str)
+                return -1;
+
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 	return (int64_t) strtoull (str, NULL, 0);
@@ -1077,7 +1080,9 @@ data_to_int32 (data_t *data)
 		return -1;
 
 	char *str = alloca (data->len + 1);
-	ERR_ABORT (str);
+        if (!str)
+                return -1;
+
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 
@@ -1091,7 +1096,9 @@ data_to_int16 (data_t *data)
 		return -1;
 
 	char *str = alloca (data->len + 1);
-	ERR_ABORT (str);
+        if (!str)
+                return -1;
+
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 
@@ -1106,7 +1113,9 @@ data_to_int8 (data_t *data)
 		return -1;
 
 	char *str = alloca (data->len + 1);
-	ERR_ABORT (str);
+        if (!str)
+                return -1;
+
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 
@@ -1120,7 +1129,9 @@ data_to_uint64 (data_t *data)
 	if (!data)
 		return -1;
 	char *str = alloca (data->len + 1);
-	ERR_ABORT (str);
+        if (!str)
+                return -1;
+
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 
@@ -1134,7 +1145,9 @@ data_to_uint32 (data_t *data)
 		return -1;
 
 	char *str = alloca (data->len + 1);
-	ERR_ABORT (str);
+        if (!str)
+                return -1;
+
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 
@@ -1148,7 +1161,9 @@ data_to_uint16 (data_t *data)
 		return -1;
 
 	char *str = alloca (data->len + 1);
-	ERR_ABORT (str);
+        if (!str)
+                return -1;
+
 	memcpy (str, data->data, data->len);
 	str[data->len] = '\0';
 

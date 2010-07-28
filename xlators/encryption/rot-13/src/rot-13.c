@@ -145,9 +145,11 @@ init (xlator_t *this)
 		gf_log (this->name, GF_LOG_WARNING,
 			"dangling volume. check volfile ");
 	}
-  
-	priv = CALLOC (sizeof (rot_13_private_t), 1);
-	ERR_ABORT (priv);
+
+	priv = GF_CALLOC (sizeof (rot_13_private_t), 1, 0);
+        if (!priv)
+                return -1;
+
 	priv->decrypt_read = 1;
 	priv->encrypt_write = 1;
 
@@ -174,13 +176,13 @@ init (xlator_t *this)
 	return 0;
 }
 
-void 
+void
 fini (xlator_t *this)
 {
 	rot_13_private_t *priv = this->private;
-	
-	FREE (priv);
-	
+
+	GF_FREE (priv);
+
 	return;
 }
 

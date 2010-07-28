@@ -68,11 +68,6 @@ void trap (void);
 #define GF_UNIT_PB_STRING    "PB"
 
 
-#define ERR_ABORT(ptr)				\
-	if (ptr == NULL)  {			\
-		abort ();			\
-	}                     
-
 enum _gf_boolean 
 {
 	_gf_false = 0, 

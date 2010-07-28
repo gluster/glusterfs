@@ -591,70 +591,106 @@ struct _values {
 static struct _values
 subtract_locks (posix_lock_t *big, posix_lock_t *small)
 {
+
 	struct _values v = { .locks = {0, 0, 0} };
-  
-	if ((big->fl_start == small->fl_start) && 
-	    (big->fl_end   == small->fl_end)) {  
+
+	if ((big->fl_start == small->fl_start) &&
+	    (big->fl_end   == small->fl_end)) {
 		/* both edges coincide with big */
 		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[0]);
+                if (!v.locks[0])
+                        goto out;
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
 		v.locks[0]->fl_type = small->fl_type;
+                goto done;
 	}
-	else if ((small->fl_start > big->fl_start) &&
-		 (small->fl_end   < big->fl_end)) {
+
+	if ((small->fl_start > big->fl_start) &&
+            (small->fl_end   < big->fl_end)) {
 		/* both edges lie inside big */
 		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[0]);
+                if (!v.locks[0])
+                        goto out;
+
 		v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[1]);
+                if (!v.locks[1])
+                        goto out;
+
 		v.locks[2] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[2]);
+                if (!v.locks[1])
+                        goto out;
 
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
 		v.locks[0]->fl_end = small->fl_start - 1;
 
 		memcpy (v.locks[1], small, sizeof (posix_lock_t));
+
 		memcpy (v.locks[2], big, sizeof (posix_lock_t));
 		v.locks[2]->fl_start = small->fl_end + 1;
+                goto done;
+
 	}
+
 	/* one edge coincides with big */
-	else if (small->fl_start == big->fl_start) {
+        if (small->fl_start == big->fl_start) {
 		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[0]);
+                if (!v.locks[0])
+                        goto out;
+
 		v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[1]);
-    
+                if (!v.locks[1])
+                        goto out;
+
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
 		v.locks[0]->fl_start = small->fl_end + 1;
-    
+
 		memcpy (v.locks[1], small, sizeof (posix_lock_t));
+                goto done;
 	}
-	else if (small->fl_end   == big->fl_end) {
+
+	if (small->fl_end  == big->fl_end) {
 		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[0]);
+                if (!v.locks[0])
+                        goto out;
+
 		v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
-		ERR_ABORT (v.locks[1]);
+                if (!v.locks[1])
+                        goto out;
 
 		memcpy (v.locks[0], big, sizeof (posix_lock_t));
 		v.locks[0]->fl_end = small->fl_start - 1;
-    
+
 		memcpy (v.locks[1], small, sizeof (posix_lock_t));
+                goto done;
 	}
-        else {
-                gf_log ("posix-locks", GF_LOG_ERROR,
-                        "Unexpected case in subtract_locks. Please send "
-                        "a bug report to gluster-devel@nongnu.org");
+
+        gf_log ("posix-locks", GF_LOG_ERROR,
+                "Unexpected case in subtract_locks. Please send "
+                "a bug report to gluster-devel@nongnu.org");
+
+out:
+        if (v.locks[0]) {
+                GF_FREE (v.locks[0]);
+                v.locks[0] = NULL;
+        }
+        if (v.locks[1]) {
+                GF_FREE (v.locks[1]);
+                v.locks[1] = NULL;
+        }
+        if (v.locks[2]) {
+                GF_FREE (v.locks[2]);
+                v.locks[2] = NULL;
         }
 
+done:
         return v;
 }
 

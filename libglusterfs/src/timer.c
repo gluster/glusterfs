@@ -201,18 +201,19 @@ gf_timer_proc (void *ctx)
 gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
-        if (ctx == NULL)
-        {
+        if (ctx == NULL) {
                 gf_log ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
-  
+
         if (!ctx->timer) {
                 gf_timer_registry_t *reg = NULL;
 
-                ctx->timer = reg = GF_CALLOC (1, sizeof (*reg),
-                                           gf_common_mt_gf_timer_registry_t);
-                ERR_ABORT (reg);
+                reg = GF_CALLOC (1, sizeof (*reg),
+                                 gf_common_mt_gf_timer_registry_t);
+                if (!reg)
+                        goto out;
+
                 pthread_mutex_init (&reg->lock, NULL);
                 reg->active.next = &reg->active;
                 reg->active.prev = &reg->active;
@@ -220,6 +221,8 @@ gf_timer_registry_init (glusterfs_ctx_t *ctx)
                 reg->stale.prev = &reg->stale;
 
                 pthread_create (&reg->th, NULL, gf_timer_proc, ctx);
+                ctx->timer = reg;
         }
+out:
         return ctx->timer;
 }

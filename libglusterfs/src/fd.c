@@ -87,10 +87,12 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 {
 	fdentry_t   *oldfds = NULL;
 	uint32_t     oldmax_fds = -1;
+        int          ret = -1;
 
 	if (fdtable == NULL || nr < 0) {
 		gf_log ("fd", GF_LOG_ERROR, "invalid argument");
-		return EINVAL;
+                ret = EINVAL;
+                goto out;
 	}
 
 	nr /= (1024 / sizeof (fdentry_t));
@@ -102,7 +104,10 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
 
 	fdtable->fdentries = GF_CALLOC (nr, sizeof (fdentry_t),
                                         gf_common_mt_fdentry_t);
-	ERR_ABORT (fdtable->fdentries);
+	if (!fdtable->fdentries) {
+                ret = ENOMEM;
+                goto out;
+        }
 	fdtable->max_fds = nr;
 
 	if (oldfds) {
@@ -119,7 +124,9 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
          */
         fdtable->first_free = oldmax_fds;
 	GF_FREE (oldfds);
-	return 0;
+        ret = 0;
+out:
+	return ret;
 }
 
 
@@ -499,11 +506,17 @@ fd_create (inode_t *inode, pid_t pid)
         }
 
         fd = GF_CALLOC (1, sizeof (fd_t), gf_common_mt_fd_t);
-        ERR_ABORT (fd);
+        if (!fd)
+                goto out;
 
-	fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) *
+        fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) *
                                   inode->table->xl->graph->xl_count),
                               gf_common_mt_fd_ctx);
+        if (!fd->_ctx) {
+                GF_FREE (fd);
+                fd = NULL;
+                goto out;
+        }
 
         fd->inode = inode_ref (inode);
         fd->pid = pid;
@@ -512,9 +525,11 @@ fd_create (inode_t *inode, pid_t pid)
         LOCK_INIT (&fd->lock);
 
         LOCK (&inode->lock);
-        fd = _fd_ref (fd);
+        {
+                fd = _fd_ref (fd);
+        }
         UNLOCK (&inode->lock);
-
+out:
         return fd;
 }
 
