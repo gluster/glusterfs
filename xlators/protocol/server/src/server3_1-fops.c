@@ -1742,7 +1742,7 @@ server_rchecksum_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t *state    = NULL;
         int             op_ret   = 0;
-        int             op_errno = 0;
+        int             op_errno = EINVAL;
 
         state = CALL_STATE (frame);
 
@@ -1758,7 +1758,7 @@ server_rchecksum_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         return 0;
 err:
-        server_rchecksum_cbk (frame, NULL, frame->this, -1, EINVAL, 0, NULL);
+        server_rchecksum_cbk (frame, NULL, frame->this, op_ret, op_errno, 0, NULL);
 
         return 0;
 
@@ -2842,7 +2842,6 @@ int
 server_create (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
-        server_connection_t *conn                   = NULL;
         call_frame_t        *frame                  = NULL;
         gfs3_create_req      args                   = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
@@ -2850,8 +2849,6 @@ server_create (rpcsvc_request_t *req)
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.path  = path;
         args.bname = bname;
@@ -3675,7 +3672,6 @@ int
 server_getxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
-        server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_getxattr_req    args                  = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
@@ -3683,8 +3679,6 @@ server_getxattr (rpcsvc_request_t *req)
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.path = path;
         args.name = name;
@@ -3728,15 +3722,12 @@ int
 server_fgetxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state      = NULL;
-        server_connection_t *conn       = NULL;
         call_frame_t        *frame      = NULL;
         gfs3_fgetxattr_req   args       = {0,};
         char                 name[4096] = {0,};
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.name = name;
         if (!xdr_to_fgetxattr_req (req->msg[0], &args)) {
@@ -3777,7 +3768,6 @@ int
 server_removexattr (rpcsvc_request_t *req)
 {
         server_state_t       *state                 = NULL;
-        server_connection_t  *conn                  = NULL;
         call_frame_t         *frame                 = NULL;
         gfs3_removexattr_req  args                  = {0,};
         char                  path[SERVER_PATH_MAX] = {0,};
@@ -3785,8 +3775,6 @@ server_removexattr (rpcsvc_request_t *req)
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.path = path;
         args.name = name;
@@ -3874,14 +3862,11 @@ int
 server_readdirp (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
         gfs3_readdirp_req    args  = {0,};
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         if (!xdr_to_readdirp_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3918,14 +3903,11 @@ int
 server_readdir (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
         gfs3_readdir_req     args  = {0,};
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         if (!xdr_to_readdir_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3962,14 +3944,11 @@ int
 server_fsyncdir (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
         gfs3_fsyncdir_req    args  = {0,};
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         if (!xdr_to_fsyncdir_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4007,7 +3986,6 @@ int
 server_mknod (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
-        server_connection_t *conn                   = NULL;
         call_frame_t        *frame                  = NULL;
         gfs3_mknod_req       args                   = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
@@ -4016,7 +3994,6 @@ server_mknod (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
         args.path  = path;
         args.bname = bname;
 
@@ -4060,7 +4037,6 @@ int
 server_mkdir (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
-        server_connection_t *conn                   = NULL;
         call_frame_t        *frame                  = NULL;
         gfs3_mkdir_req       args                   = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
@@ -4069,7 +4045,6 @@ server_mkdir (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
         args.path  = path;
         args.bname = bname;
 
@@ -4112,7 +4087,6 @@ int
 server_rmdir (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
-        server_connection_t *conn                   = NULL;
         call_frame_t        *frame                  = NULL;
         gfs3_rmdir_req       args                   = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
@@ -4121,7 +4095,6 @@ server_rmdir (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
         args.path = path;
         args.bname = bname;
 
@@ -4163,7 +4136,6 @@ int
 server_inodelk (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
-        server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_inodelk_req     args                  = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
@@ -4173,7 +4145,6 @@ server_inodelk (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
         args.path = path;
         args.volume = volume;
 
@@ -4242,15 +4213,12 @@ int
 server_finodelk (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
-        server_connection_t *conn         = NULL;
         call_frame_t        *frame        = NULL;
         gfs3_finodelk_req    args         = {0,};
         char                 volume[4096] = {0,};
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.volume = volume;
         if (!xdr_to_finodelk_req (req->msg[0], &args)) {
@@ -4317,7 +4285,6 @@ int
 server_entrylk (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
-        server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_entrylk_req     args                  = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
@@ -4330,8 +4297,6 @@ server_entrylk (rpcsvc_request_t *req)
         args.path = path;
         args.volume = volume;
         args.name = name;
-
-        conn = req->conn->trans->xl_private;
 
         if (!xdr_to_entrylk_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4375,7 +4340,6 @@ int
 server_fentrylk (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
-        server_connection_t *conn         = NULL;
         call_frame_t        *frame        = NULL;
         gfs3_fentrylk_req    args         = {0,};
         char                 name[4096]   = {0,};
@@ -4383,8 +4347,6 @@ server_fentrylk (rpcsvc_request_t *req)
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.name = name;
         args.volume = volume;
@@ -4427,15 +4389,12 @@ int
 server_access (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
-        server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_access_req      args                  = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.path = path;
         if (!xdr_to_access_req (req->msg[0], &args)) {
@@ -4476,7 +4435,6 @@ int
 server_symlink (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
-        server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_symlink_req     args                  = {0,};
         char                 linkname[4096]        = {0,};
@@ -4486,7 +4444,6 @@ server_symlink (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
         args.path = path;
         args.bname = bname;
         args.linkname = linkname;
@@ -4530,7 +4487,6 @@ int
 server_link (rpcsvc_request_t *req)
 {
         server_state_t      *state                     = NULL;
-        server_connection_t *conn                      = NULL;
         call_frame_t        *frame                     = NULL;
         gfs3_link_req        args                      = {0,};
         char                 oldpath[SERVER_PATH_MAX]  = {0,};
@@ -4539,8 +4495,6 @@ server_link (rpcsvc_request_t *req)
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.oldpath  = oldpath;
         args.newpath  = newpath;
@@ -4588,7 +4542,6 @@ int
 server_rename (rpcsvc_request_t *req)
 {
         server_state_t      *state                     = NULL;
-        server_connection_t *conn                      = NULL;
         call_frame_t        *frame                     = NULL;
         gfs3_rename_req      args                      = {0,};
         char                 oldpath[SERVER_PATH_MAX]  = {0,};
@@ -4598,8 +4551,6 @@ server_rename (rpcsvc_request_t *req)
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         args.oldpath  = oldpath;
         args.oldbname = oldbname;
@@ -4723,14 +4674,11 @@ int
 server_rchecksum (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
         gfs3_rchecksum_req   args  = {0,};
 
         if (!req)
                 return 0;
-
-        conn = req->conn->trans->xl_private;
 
         if (!xdr_to_rchecksum_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4888,7 +4836,6 @@ int
 server_statfs (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
-        server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
         gfs3_statfs_req      args  = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
@@ -4896,7 +4843,6 @@ server_statfs (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
         args.path = path;
         if (!xdr_to_statfs_req (req->msg[0], &args)) {
                 //failed to decode msg;

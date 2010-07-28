@@ -942,15 +942,14 @@ destroy_server_conn_state (server_connection_t *conn)
 void
 print_caller (char *str, int size, call_frame_t *frame)
 {
-        int              filled = 0;
         server_state_t  *state = NULL;
 
         state = CALL_STATE (frame);
 
-        filled += snprintf (str + filled, size - filled,
-                            " Callid=%"PRId64", Client=%s",
-                            frame->root->unique,
-                            state->xprt->peerinfo.identifier);
+        snprintf (str, size,
+                  " Callid=%"PRId64", Client=%s",
+                  frame->root->unique,
+                  state->xprt->peerinfo.identifier);
 
         return;
 }
@@ -987,7 +986,7 @@ server_print_resolve (char *str, int size, server_resolve_t *resolve)
                 filled += snprintf (str + filled, size - filled,
                                     "path=%s", resolve->path);
 
-        filled += snprintf (str + filled, size - filled, "}");
+        snprintf (str + filled, size - filled, "}");
 }
 
 
@@ -1014,7 +1013,7 @@ server_print_loc (char *str, int size, loc_t *loc)
                 filled += snprintf (str + filled, size - filled,
                                     "parent=%p", loc->parent);
 
-        filled += snprintf (str + filled, size - filled, "}");
+        snprintf (str + filled, size - filled, "}");
 }
 
 
@@ -1060,8 +1059,8 @@ server_print_params (char *str, int size, server_state_t *state)
                 filled += snprintf (str + filled, size - filled,
                                     "volume=%s,", state->volume);
 
-        filled += snprintf (str + filled, size - filled,
-                            "bound_xl=%s}", state->conn->bound_xl->name);
+        snprintf (str + filled, size - filled,
+                  "bound_xl=%s}", state->conn->bound_xl->name);
 }
 
 int

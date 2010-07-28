@@ -154,6 +154,9 @@ client_releasedir (xlator_t *this, fd_t *fd)
                 ret = proc->fn (frame, this, &args);
         }
 out:
+        if (ret)
+                gf_log (this->name, GF_LOG_TRACE,
+                        "releasedir fop failed");
 	return 0;
 }
 
@@ -180,6 +183,9 @@ client_release (xlator_t *this, fd_t *fd)
                 ret = proc->fn (frame, this, &args);
         }
 out:
+        if (ret)
+                gf_log (this->name, GF_LOG_TRACE,
+                        "release fop failed");
 	return 0;
 }
 
@@ -1394,10 +1400,15 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 if ((ret < 0) || (strcasecmp (handshake, "on"))) {
                         ret = client_handshake (this, conf->rpc);
-
+                        if (ret)
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "handshake msg returned %d", ret);
                 } else {
                         //conf->rpc->connected = 1;
                         ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "default notify failed");
                 }
                 break;
         }

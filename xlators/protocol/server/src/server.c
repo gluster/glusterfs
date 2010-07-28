@@ -332,6 +332,8 @@ validate_auth_options (xlator_t *this, dict_t *dict)
                         if (ret == 0) {
                                 /* for module type */
                                 tmp = strtok_r (NULL, ".", &saveptr);
+                                if (!tmp)
+                                        break;
                                 /* for volume name */
                                 tmp = strtok_r (NULL, ".", &saveptr);
                         }

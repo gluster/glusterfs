@@ -41,8 +41,6 @@ component_count (const char *path)
         int         count = 0;
         const char *trav = NULL;
 
-        trav = path;
-
         for (trav = path; *trav; trav++) {
                 if (*trav == '/')
                         count++;
@@ -56,7 +54,6 @@ int
 prepare_components (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
-        xlator_t             *this = NULL;
         server_resolve_t     *resolve = NULL;
         char                 *resolved = NULL;
         int                   count = 0;
@@ -66,7 +63,6 @@ prepare_components (call_frame_t *frame)
 
 
         state = CALL_STATE (frame);
-        this  = frame->this;
         resolve = state->resolve_now;
 
         resolved = gf_strdup (resolve->path);
@@ -117,6 +113,9 @@ resolve_loc_touchup (call_frame_t *frame)
                 } else if (loc->inode) {
                         ret = inode_path (loc->inode, NULL, &path);
                 }
+                if (ret)
+                        gf_log ("", GF_LOG_DEBUG,
+                                "return value inode_path %d", ret);
 
                 if (!path)
                         path = gf_strdup (resolve->path);
@@ -157,6 +156,9 @@ resolve_deep_continue (call_frame_t *frame)
                 ret = resolve_inode_simple (frame);
         else if (resolve->path)
                 ret = resolve_path_simple (frame);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "return value of resolve_*_simple %d", ret);
 
         resolve_loc_touchup (frame);
 
@@ -228,12 +230,10 @@ int
 resolve_path_deep (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
-        xlator_t           *this = NULL;
         server_resolve_t   *resolve = NULL;
         int                 i = 0;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
         resolve = state->resolve_now;
 
         gf_log (BOUND_XL (frame)->name, GF_LOG_TRACE,
@@ -258,7 +258,6 @@ int
 resolve_path_simple (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
-        xlator_t             *this = NULL;
         server_resolve_t     *resolve = NULL;
         struct resolve_comp  *components = NULL;
         int                   ret = -1;
@@ -267,7 +266,6 @@ resolve_path_simple (call_frame_t *frame)
         int                   i = 0;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
         resolve = state->resolve_now;
         components = resolve->components;
 
@@ -412,14 +410,10 @@ int
 server_resolve_entry (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
-        xlator_t           *this = NULL;
-        server_resolve_t   *resolve = NULL;
         int                 ret = 0;
         loc_t              *loc = NULL;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
-        resolve = state->resolve_now;
         loc  = state->loc_now;
 
         ret = resolve_entry_simple (frame);
@@ -443,13 +437,11 @@ int
 resolve_inode_simple (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
-        xlator_t           *this = NULL;
         server_resolve_t   *resolve = NULL;
         inode_t            *inode = NULL;
         int                 ret = 0;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
         resolve = state->resolve_now;
 
         if (resolve->type == RESOLVE_EXACT) {
@@ -488,14 +480,10 @@ int
 server_resolve_inode (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
-        xlator_t           *this = NULL;
-        server_resolve_t   *resolve = NULL;
         int                 ret = 0;
         loc_t              *loc = NULL;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
-        resolve = state->resolve_now;
         loc  = state->loc_now;
 
         ret = resolve_inode_simple (frame);
@@ -519,13 +507,11 @@ int
 server_resolve_fd (call_frame_t *frame)
 {
         server_state_t       *state = NULL;
-        xlator_t             *this = NULL;
         server_resolve_t     *resolve = NULL;
         server_connection_t  *conn = NULL;
         uint64_t              fd_no = -1;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
         resolve = state->resolve_now;
         conn  = SERVER_CONNECTION (frame);
 
@@ -548,11 +534,9 @@ int
 server_resolve (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
-        xlator_t           *this = NULL;
         server_resolve_t   *resolve = NULL;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
         resolve = state->resolve_now;
 
         if (resolve->fd_no != -1) {
@@ -644,12 +628,9 @@ int
 resolve_and_resume (call_frame_t *frame, server_resume_fn_t fn)
 {
         server_state_t    *state = NULL;
-        xlator_t          *this  = NULL;
 
         state = CALL_STATE (frame);
         state->resume_fn = fn;
-
-        this = frame->this;
 
         server_resolve_all (frame);
 
