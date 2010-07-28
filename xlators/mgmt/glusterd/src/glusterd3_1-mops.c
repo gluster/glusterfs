@@ -1180,7 +1180,7 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
         glusterd_op_sm ();
 
 out:
-        if (ret) {
+        if (ret && is_cli_req) {
                 glusterd_op_send_cli_response (req->procnum, ret, 0, req);
         }
         gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
