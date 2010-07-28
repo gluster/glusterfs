@@ -1908,6 +1908,9 @@ nfs3_fdcache_update (struct nfs3_state *nfs3, fd_t *fd)
 int
 __nfs3_fdcache_remove_entry (struct nfs3_state *nfs3, struct nfs3_fd_entry *fde)
 {
+        if ((!fde) || (!nfs3))
+                return 0;
+
         gf_log (GF_NFS3, GF_LOG_TRACE, "Removing fd: 0x%lx: %d",
                 (long int)fde->cachedfd, fde->cachedfd->refcount);
         list_del (&fde->list);
