@@ -266,6 +266,7 @@ server_getspec (rpcsvc_request_t *req)
         if (xdr_to_glusterfs_req (req, &args, xdr_to_getspec_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
+                op_errno = EINVAL;
                 goto fail;
         }
 
@@ -278,6 +279,7 @@ server_getspec (rpcsvc_request_t *req)
                         gf_log (conn->this->name, GF_LOG_ERROR,
                                 "Unable to stat %s (%s)",
                                 filename, strerror (errno));
+                        op_errno = errno;
                         goto fail;
                 }
 
@@ -286,6 +288,7 @@ server_getspec (rpcsvc_request_t *req)
                         gf_log (conn->this->name, GF_LOG_ERROR,
                                 "Unable to open %s (%s)",
                                 filename, strerror (errno));
+                        op_errno = errno;
                         goto fail;
                 }
                 ret = file_len = stbuf.st_size;
@@ -295,7 +298,7 @@ server_getspec (rpcsvc_request_t *req)
                         _volfile_update_checksum (conn->this, key, checksum);
                 }
         } else {
-                errno = ENOENT;
+                op_errno = ENOENT;
         }
 
         if (file_len) {
@@ -312,8 +315,8 @@ server_getspec (rpcsvc_request_t *req)
         }
 
         /* convert to XDR */
-fail:
         op_errno = errno;
+fail:
         rsp.op_errno = gf_errno_to_error (op_errno);
         rsp.op_ret   = ret;
 
@@ -471,6 +474,9 @@ server_setvolume (rpcsvc_request_t *req)
                 if (ret == 0) {
                         ret = dict_get_str (params, "volfile-key",
                                             &volfile_key);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "failed to set 'volfile-key'");
 
                         ret = _validate_volfile_checksum (this, volfile_key,
                                                           checksum);
@@ -561,10 +567,15 @@ server_setvolume (rpcsvc_request_t *req)
 
         ret = dict_set_str (reply, "process-uuid",
                             this->ctx->process_uuid);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to set 'process-uuid'");
 
         ret = dict_set_uint64 (reply, "transport-ptr",
                                ((uint64_t) (long) req->conn->trans));
-
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to set 'transport-ptr'");
 
 fail:
         rsp.dict.dict_len = dict_serialized_length (reply);

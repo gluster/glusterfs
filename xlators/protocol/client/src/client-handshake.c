@@ -126,13 +126,11 @@ client_start_ping (void *data)
         struct timeval           timeout     = {0, };
         call_frame_t            *frame       = NULL;
         int                      frame_count = 0;
-        rpc_transport_t         *trans       = NULL;
 
         this = data;
         conf  = this->private;
 
         conn = &conf->rpc->conn;
-        trans = conn->trans;
 
         if (conf->opt.ping_timeout == 0)
                 return;
@@ -256,15 +254,14 @@ out:
 
 
 int
-client3_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myframe)
+client3_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                     void *myframe)
 {
         gf_getspec_rsp           rsp   = {0,};
         call_frame_t            *frame = NULL;
-        clnt_conf_t             *conf = NULL;
         int                      ret   = 0;
 
         frame = myframe;
-        conf  = frame->this->private;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -385,12 +382,10 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         char                 *process_uuid  = NULL;
         char                 *remote_error  = NULL;
         char                 *remote_subvol = NULL;
-        rpc_transport_t      *peer_trans    = NULL;
         gf_setvolume_rsp      rsp           = {0,};
-        uint64_t              peertrans_int = 0;
         int                   ret           = 0;
-        int                   op_ret        = 0;
-        int                   op_errno      = 0;
+        int32_t               op_ret        = 0;
+        int32_t               op_errno        = 0;
 
         frame = myframe;
         this  = frame->this;
@@ -398,14 +393,12 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
 
         if (-1 == req->rpc_status) {
                 op_ret = -1;
-                op_errno = EINVAL;
                 goto out;
         }
 
         ret = xdr_to_setvolume_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
-                op_errno = EINVAL;
                 op_ret = -1;
                 goto out;
         }
@@ -460,25 +453,30 @@ client_setvolume_cbk (struct rpc_req *req, struct iovec *iov, int count, void *m
         }
         ret = dict_get_str (this->options, "remote-subvolume",
                             &remote_subvol);
-        if (!remote_subvol)
+        if (ret || !remote_subvol)
                 goto out;
 
-        if (process_uuid &&
+        /* TODO: currently setpeer path is broken */
+        /*
+        if (process_uuid && req->conn &&
             !strcmp (this->ctx->process_uuid, process_uuid)) {
+                rpc_transport_t      *peer_trans    = NULL;
+                uint64_t              peertrans_int = 0;
+
                 ret = dict_get_uint64 (reply, "transport-ptr",
                                        &peertrans_int);
-
-                peer_trans = (void *) (long) (peertrans_int);
+                if (ret)
+                        goto out;
 
                 gf_log (this->name, GF_LOG_WARNING,
                         "attaching to the local volume '%s'",
                         remote_subvol);
 
-                if (req->conn) {
-                        /* TODO: Some issues with this logic at present */
-                        //rpc_transport_setpeer (req->conn->trans, peer_trans);
-                }
+                peer_trans = (void *) (long) (peertrans_int);
+
+                rpc_transport_setpeer (req->conn->trans, peer_trans);
         }
+        */
 
         gf_log (this->name, GF_LOG_NORMAL,
                 "Connected to %s, attached to remote volume '%s'.",
@@ -572,11 +570,18 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
         }
 
         if (this->ctx->cmd_args.volfile_server) {
-                if (this->ctx->cmd_args.volfile_id)
+                if (this->ctx->cmd_args.volfile_id) {
                         ret = dict_set_str (options, "volfile-key",
                                             this->ctx->cmd_args.volfile_id);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "failed to set 'volfile-key'");
+                }
                 ret = dict_set_uint32 (options, "volfile-checksum",
                                        this->graph->volfile_checksum);
+                if (ret)
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "failed to set 'volfile-checksum'");
         }
 
         req.dict.dict_len = dict_serialized_length (options);

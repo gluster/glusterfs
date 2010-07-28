@@ -1194,7 +1194,8 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        op_ret = rsp.op_ret;
+        op_errno = rsp.op_errno;
+        op_ret   = rsp.op_ret;
         if (-1 != op_ret) {
                 op_ret = -1;
                 dict_len = rsp.dict.dict_len;
@@ -1221,7 +1222,7 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
 
         STACK_UNWIND_STRICT (xattrop, frame, op_ret,
-                             gf_error_to_errno (rsp.op_errno), dict);
+                             gf_error_to_errno (op_errno), dict);
 
         if (rsp.dict.dict_val) {
                 /* don't use GF_FREE, this memory was allocated by libc
@@ -1267,8 +1268,8 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
         }
-
-        op_ret = rsp.op_ret;
+        op_errno = rsp.op_errno;
+        op_ret   = rsp.op_ret;
         if (-1 != op_ret) {
                 op_ret = -1;
                 dict_len = rsp.dict.dict_len;
@@ -1295,7 +1296,7 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
 
         STACK_UNWIND_STRICT (fxattrop, frame, op_ret,
-                             gf_error_to_errno (rsp.op_errno), dict);
+                             gf_error_to_errno (op_errno), dict);
 
         if (rsp.dict.dict_val) {
                 /* don't use GF_FREE, this memory was allocated by libc
@@ -1895,33 +1896,32 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 gf_stat_to_iatt (&rsp.stat, &stbuf);
 
                 ret = inode_ctx_get2 (inode, frame->this, &oldino, &oldgen);
-                if (oldino != stbuf.ia_ino || oldgen != stbuf.ia_gen) {
-                        if (oldino) {
-                                gf_log (frame->this->name, GF_LOG_DEBUG,
-                                        "LOOKUP %"PRId64"/%s (%s): "
-                                        "inode number changed from "
-                                        "{%"PRId64",%"PRId64"} to {%"PRId64",%"PRId64"}",
-                                        local->loc.parent ?
-                                        local->loc.parent->ino : (uint64_t) 0,
-                                        local->loc.name,
-                                        local->loc.path,
-                                        oldgen, oldino, stbuf.ia_gen, stbuf.ia_ino);
-                                op_errno = ESTALE;
-                                goto out;
-                        }
+                if ((!ret) && ((oldino != stbuf.ia_ino) ||
+                               (oldgen != stbuf.ia_gen))) {
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                "LOOKUP %"PRId64"/%s (%s): "
+                                "inode number changed from "
+                                "{%"PRId64",%"PRId64"} to {%"PRId64",%"PRId64"}",
+                                local->loc.parent ?
+                                local->loc.parent->ino : (uint64_t) 0,
+                                local->loc.name,
+                                local->loc.path,
+                                oldgen, oldino, stbuf.ia_gen, stbuf.ia_ino);
+                        op_errno = ESTALE;
+                        goto out;
+                }
 
-                        ret = inode_ctx_put2 (inode, frame->this,
-                                              stbuf.ia_ino, stbuf.ia_gen);
-                        if (ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_DEBUG,
-                                        "LOOKUP %"PRId64"/%s (%s) : "
-                                        "failed to set remote inode "
-                                        "number to inode ctx",
-                                        local->loc.parent ?
-                                        local->loc.parent->ino : (uint64_t) 0,
-                                        local->loc.name,
-                                        local->loc.path);
-                        }
+                ret = inode_ctx_put2 (inode, frame->this,
+                                      stbuf.ia_ino, stbuf.ia_gen);
+                if (ret < 0) {
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                "LOOKUP %"PRId64"/%s (%s) : "
+                                "failed to set remote inode "
+                                "number to inode ctx",
+                                local->loc.parent ?
+                                local->loc.parent->ino : (uint64_t) 0,
+                                local->loc.name,
+                                local->loc.path);
                 }
 
                 if (rsp.dict.dict_len > 0) {
