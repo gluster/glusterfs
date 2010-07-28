@@ -519,12 +519,11 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-
-        ret = cli_input_init (&state);
+        ret = cli_cmd_cond_init ();
         if (ret)
                 goto out;
 
-        ret = cli_cmd_cond_init ();
+        ret = cli_input_init (&state);
         if (ret)
                 goto out;
 

@@ -248,10 +248,9 @@ cli_cmd_await_connected ()
 int32_t
 cli_cmd_broadcast_connected ()
 {
-        connected = 1;
-        gf_log ("", GF_LOG_NORMAL, "Connected");
         pthread_mutex_lock (&conn_mutex);
         {
+                connected = 1;
                 pthread_cond_broadcast (&conn);
         }
 
