@@ -310,7 +310,7 @@ glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
         /* Send the msg */
         ret = rpc_clnt_submit (peerinfo->rpc, prog, procnum, cbkfn,
                                &iov, count,
-                               NULL, 0, iobref, frame);
+                               NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
 
         if (ret == 0) {
                 pthread_mutex_lock (&peerinfo->rpc->conn.lock);

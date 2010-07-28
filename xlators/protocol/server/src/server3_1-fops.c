@@ -2445,10 +2445,8 @@ server_writev_resume (call_frame_t *frame, xlator_t *bound_xl)
         if (state->resolve.op_ret != 0)
                 goto err;
 
-        iov.iov_len  = state->size;
-
-        if (state->iobuf) {
-                iov.iov_base = state->iobuf->ptr;
+        if (state->payload_count) {
+                iov = state->payload_vector;
         }
 
         STACK_WIND (frame, server_writev_cbk,
@@ -2987,10 +2985,10 @@ server_writev (rpcsvc_request_t *req)
 
 
 int
-server_writev_vec (rpcsvc_request_t *req, struct iobuf *iobuf)
+server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
+                   int payload_count, struct iobref *iobref)
 {
         server_state_t      *state  = NULL;
-        struct iobref       *iobref = NULL;
         call_frame_t        *frame  = NULL;
         gfs3_write_req       args   = {0,};
 
@@ -3022,14 +3020,11 @@ server_writev_vec (rpcsvc_request_t *req, struct iobuf *iobuf)
         state->resolve.fd_no = args.fd;
         state->offset        = args.offset;
 
-        if (iobuf) {
-                iobref = iobref_new ();
-                iobref_add (iobref, iobuf);
-
-                state->iobref = iobref;
-                state->iobuf  = iobuf_ref (iobuf);
-
+        if (payload_count != 0) {
+                state->iobref = iobref_ref (iobref);
                 state->size = req->msg[1].iov_len;
+                state->payload_count = payload_count;
+                state->payload_vector = *payload;
         }
 
         resolve_and_resume (frame, server_writev_resume);

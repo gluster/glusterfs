@@ -50,12 +50,12 @@ struct auth_glusterfs_parms {
 	u_int gid;
 	u_int ngrps;
 	u_int groups[16];
-};
+} __attribute__((packed));
 typedef struct auth_glusterfs_parms auth_glusterfs_parms;
 
 struct gf_dump_req {
 	u_quad_t gfs_id;
-};
+} __attribute__((packed));
 typedef struct gf_dump_req gf_dump_req;
 
 struct gf_prog_detail {
@@ -63,7 +63,7 @@ struct gf_prog_detail {
 	u_quad_t prognum;
 	u_quad_t progver;
 	struct gf_prog_detail *next;
-};
+} __attribute__((packed));
 typedef struct gf_prog_detail gf_prog_detail;
 
 struct gf_dump_rsp {
@@ -71,7 +71,7 @@ struct gf_dump_rsp {
 	int op_ret;
 	int op_errno;
 	struct gf_prog_detail *prog;
-};
+}__attribute__((packed));
 typedef struct gf_dump_rsp gf_dump_rsp;
 
 extern bool_t

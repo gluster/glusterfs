@@ -58,10 +58,7 @@ struct saved_frame {
         void                    *capital_this;
 	void                    *frame;
 	struct timeval           saved_at;
-	int32_t                  procnum;
-        struct rpc_clnt_program *prog;
-        fop_cbk_fn_t             cbkfn;
-	uint64_t                 callid;
+        struct rpc_req          *rpcreq;
         rpc_transport_rsp_t      rsp;
 };
 
@@ -116,14 +113,16 @@ struct rpc_req {
         uint32_t               xid;
         struct iovec           req[2];
         int                    reqcnt;
+        struct iobref         *req_iobref;
         struct iovec           rsp[2];
         int                    rspcnt;
-        struct iobuf          *rsp_prochdr;
-        struct iobuf          *rsp_procpayload;
+        struct iobref         *rsp_iobref;
         int                    rpc_status;
         rpc_auth_data_t        verf;
         rpc_clnt_prog_t       *prog;
         int                    procnum;
+        fop_cbk_fn_t           cbkfn;
+        void                  *conn_private;
 };
 
 struct rpc_clnt {
@@ -132,6 +131,12 @@ struct rpc_clnt {
         rpc_clnt_connection_t  conn;
         void                  *mydata;
         uint64_t               xid;
+
+        /* Memory pool for rpc_req_t */
+        struct mem_pool       *reqpool;
+
+        struct mem_pool       *saved_frames_pool;
+
         glusterfs_ctx_t       *ctx;
 };
 
@@ -149,11 +154,28 @@ struct rpc_clnt * rpc_clnt_init (struct rpc_clnt_config *config,
 int rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
                               void *mydata);
 
+/* Some preconditions related to vectors holding responses.
+ * @rsphdr: should contain pointer to buffer which can hold response header
+ *          and length of the program header. In case of procedures whose
+ *          respnose size is not bounded (eg., glusterfs lookup), the length
+ *          should be equal to size of buffer.
+ * @rsp_payload: should contain pointer and length of the bu
+ *
+ * 1. Both @rsp_hdr and @rsp_payload are optional.
+ * 2. The user of rpc_clnt_submit, if wants response hdr and payload in its own
+ *    buffers, then it has to populate @rsphdr and @rsp_payload.
+ * 3. when @rsp_payload is not NULL, @rsphdr should
+ *    also be filled with pointer to buffer to hold header and length
+ *    of the header.
+ */
+ 
 int rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                      int procnum, fop_cbk_fn_t cbkfn,
                      struct iovec *proghdr, int proghdrcount,
                      struct iovec *progpayload, int progpayloadcount,
-                     struct iobref *iobref, void *frame);
+                     struct iobref *iobref, void *frame, struct iovec *rsphdr,
+                     int rsphdr_count, struct iovec *rsp_payload,
+                     int rsp_payload_count, struct iobref *rsp_iobref);
 
 void rpc_clnt_destroy (struct rpc_clnt *rpc);
 
