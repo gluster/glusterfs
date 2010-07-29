@@ -69,7 +69,8 @@ afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this)
 
 
 gf_boolean_t
-__checksums_differ (uint32_t *checksum, int child_count)
+__checksums_differ (uint32_t *checksum, int child_count,
+                    unsigned char *child_up)
 {
         int ret = _gf_false;
         int i = 0;
@@ -78,14 +79,16 @@ __checksums_differ (uint32_t *checksum, int child_count)
 
         cksum = checksum[0];
 
-        while (i < child_count) {
+        for (i = 0; i < child_count; i++) {
+                if (!child_up[i])
+                        continue;
+
                 if (cksum != checksum[i]) {
                         ret = _gf_true;
                         break;
                 }
 
                 cksum = checksum[i];
-                i++;
         }
 
         return ret;
@@ -151,7 +154,8 @@ out:
 
                 if (call_count == 0) {
                         if (__checksums_differ (local->cont.opendir.checksum,
-                                                priv->child_count)) {
+                                                priv->child_count,
+                                                local->child_up)) {
 
                                 sh->need_entry_self_heal  = _gf_true;
                                 sh->forced_merge          = _gf_true;
