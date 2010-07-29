@@ -3948,6 +3948,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         int                   entry_path_len = -1;
         struct posix_private *priv           = NULL;
         struct iatt           stbuf          = {0, };
+        char                  base_path[PATH_MAX] = {0,};
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3978,6 +3979,9 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
 
         entry_path_len = real_path_len + NAME_MAX;
         entry_path     = alloca (entry_path_len);
+
+        strncpy(base_path, POSIX_BASE_PATH(this), sizeof(base_path));
+        base_path[strlen(base_path)] = '/';
 
         if (!entry_path) {
                 op_errno = errno;
@@ -4029,6 +4033,10 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                         }
                         break;
                 }
+
+                if ((!strcmp(real_path, base_path))
+                    && (!strcmp(entry->d_name, GF_REPLICATE_TRASH_DIR)))
+                        continue;
 
                 this_size = dirent_size (entry);
 
