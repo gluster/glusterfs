@@ -360,11 +360,9 @@ int
 pl_flush (call_frame_t *frame, xlator_t *this,
           fd_t *fd)
 {
-        posix_locks_private_t *priv     = NULL;
         pl_inode_t            *pl_inode = NULL;
         uint64_t              owner     = -1;
 
-        priv = this->private;
         owner = frame->root->lk_owner;
 
         pl_inode = pl_inode_get (this, fd->inode);
@@ -751,7 +749,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         void                  *transport = NULL;
         pid_t                  client_pid = 0;
         uint64_t               owner      = 0;
-        posix_locks_private_t *priv = NULL;
         pl_inode_t            *pl_inode = NULL;
         int                    op_ret = 0;
         int                    op_errno = 0;
@@ -763,7 +760,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         transport  = frame->root->trans;
         client_pid = frame->root->pid;
         owner      = frame->root->lk_owner;
-        priv       = this->private;
 
         pl_inode = pl_inode_get (this, fd->inode);
         if (!pl_inode) {
