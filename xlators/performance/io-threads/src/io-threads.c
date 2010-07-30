@@ -140,7 +140,7 @@ iot_schedule (iot_conf_t *conf, call_stub_t *stub)
         }
         pthread_mutex_unlock (&conf->mutex);
 
-        return 0;
+        return ret;
 }
 
 
