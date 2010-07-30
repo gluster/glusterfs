@@ -739,7 +739,6 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
-        int                  ret         = 0;
         struct list_head     waiting_ops = {0, };
         call_stub_t         *stub        = NULL, *tmp = NULL;
         sp_local_t          *local       = NULL;
@@ -774,7 +773,7 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         lookup_in_progress = 0;
         looked_up = 1;
-        ret = sp_update_inode_ctx (this, local->loc.inode, &op_ret, &op_errno,
+        sp_update_inode_ctx (this, local->loc.inode, &op_ret, &op_errno,
                                    &lookup_in_progress, &looked_up, buf,
                                    &waiting_ops, &op_errno);
 
