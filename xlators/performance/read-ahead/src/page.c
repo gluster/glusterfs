@@ -139,22 +139,17 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	off_t        pending_offset = 0;
 	ra_file_t    *file = NULL;
 	ra_page_t    *page = NULL;
-	off_t        trav_offset = 0;
-	size_t       payload_size = 0;
 	ra_waitq_t   *waitq = NULL;
 	fd_t         *fd = NULL;
-	int          ret = 0;
 	uint64_t     tmp_file = 0;
 
 	local = frame->local;
 	fd  = local->fd;
 
-	ret = fd_ctx_get (fd, this, &tmp_file);
+	fd_ctx_get (fd, this, &tmp_file);
 
 	file = (ra_file_t *)(long)tmp_file;
 	pending_offset = local->pending_offset;
-	trav_offset    = pending_offset;  
-	payload_size   = op_ret;
 
 	ra_file_lock (file);
 	{
@@ -214,12 +209,11 @@ void
 ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
 {
 	call_frame_t *fault_frame = NULL;
-	ra_local_t   *fault_local = NULL, *local = NULL;
+	ra_local_t   *fault_local = NULL;
         ra_page_t    *page = NULL;
         ra_waitq_t   *waitq = NULL;
         int32_t      op_ret = -1, op_errno = -1; 
-    
-        local = frame->local;
+
 	fault_frame = copy_frame (frame);
         if (fault_frame == NULL) {
                 op_ret = -1;
@@ -352,7 +346,6 @@ ra_frame_unwind (call_frame_t *frame)
 	ra_fill_t     *next = NULL;
 	fd_t          *fd = NULL;
 	ra_file_t     *file = NULL;
-	int           ret = 0;
 	uint64_t      tmp_file = 0;
 
 	local = frame->local;
@@ -404,7 +397,7 @@ ra_frame_unwind (call_frame_t *frame)
 	}
 
 	fd = local->fd;
-	ret = fd_ctx_get (fd, frame->this, &tmp_file);
+	fd_ctx_get (fd, frame->this, &tmp_file);
 	file = (ra_file_t *)(long)tmp_file;
 
 	STACK_UNWIND_STRICT (readv, frame, local->op_ret, local->op_errno,
@@ -458,7 +451,6 @@ ra_page_wakeup (ra_page_t *page)
 	waitq = page->waitq;
 	page->waitq = NULL;
 
-	trav = waitq;
 	for (trav = waitq; trav; trav = trav->next) {
 		frame = trav->data;
 		ra_frame_fill (page, frame);
@@ -504,7 +496,6 @@ ra_page_error (ra_page_t *page, int32_t op_ret, int32_t op_errno)
 	waitq = page->waitq;
 	page->waitq = NULL;
 
-	trav = waitq;
 	for (trav = waitq; trav; trav = trav->next) {
 		frame = trav->data;
 
