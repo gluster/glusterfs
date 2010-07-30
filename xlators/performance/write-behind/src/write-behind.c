@@ -2199,9 +2199,7 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 {
         wb_local_t *local = NULL;
         wb_file_t  *file  = NULL;
-        wb_conf_t  *conf  = NULL;
 
-        conf = this->private;
         local = frame->local;
         file = local->file;
 
