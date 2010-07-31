@@ -38,14 +38,12 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, struct statvfs *statvfs)
 {
 	dht_conf_t    *conf         = NULL;
-	dht_local_t   *local = NULL;
         call_frame_t  *prev          = NULL;
 	int            this_call_cnt = 0;
         int            i = 0;
         double         percent = 0;
         uint64_t       bytes = 0;
 
-	local = frame->local;
         conf = this->private;
         prev = cookie;
 
