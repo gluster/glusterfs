@@ -152,7 +152,6 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	dht_local_t *local = NULL;
 	int          missing_xattr = 0;
 	int          i = 0;
-	int          ret = 0;
 	xlator_t    *this = NULL;
 
 	local = frame->local;
@@ -184,7 +183,7 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 		if (layout->list[i].err != -1 || !layout->list[i].stop)
 			continue;
 
-		ret = dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
+		dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
 
 		if (--missing_xattr == 0)
 			break;
@@ -286,11 +285,8 @@ dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
                                  dht_layout_t *layout)
 {
         int           start = 0;
-        dht_conf_t   *conf = NULL;
         uint32_t      hashval = 0;
         int           ret = 0;
-
-        conf = this->private;
 
         ret = dht_hash_compute (layout->type, loc->path, &hashval);
         if (ret == 0) {
@@ -305,7 +301,6 @@ void
 dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
 				   dht_layout_t *layout)
 {
-	dht_conf_t  *conf = NULL;
 	xlator_t    *this = NULL;
 	uint32_t     chunk = 0;
 	int          i = 0;
@@ -315,7 +310,6 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
         int          start_subvol = 0;
 
 	this = frame->this;
-	conf = this->private;
 
 	for (i = 0; i < layout->cnt; i++) {
 		err = layout->list[i].err;
@@ -456,8 +450,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 {
 	dht_local_t *local    = NULL;
 	uint32_t     holes    = 0;
-	uint32_t     overlaps = 0;
-	uint32_t     missing  = 0;
 	uint32_t     down     = 0;
 	uint32_t     misc     = 0;
 	int          ret      = 0;
@@ -466,16 +458,14 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	local = frame->local;
 	this = frame->this;
 
-	ret = dht_layout_anomalies (this, loc, layout,
-				    &local->selfheal.hole_cnt,
-				    &local->selfheal.overlaps_cnt,
-				    &local->selfheal.missing,
-				    &local->selfheal.down,
-				    &local->selfheal.misc);
+	dht_layout_anomalies (this, loc, layout,
+                              &local->selfheal.hole_cnt,
+                              &local->selfheal.overlaps_cnt,
+                              &local->selfheal.missing,
+                              &local->selfheal.down,
+                              &local->selfheal.misc);
 
 	holes    = local->selfheal.hole_cnt;
-	overlaps = local->selfheal.overlaps_cnt;
-	missing  = local->selfheal.missing;
 	down     = local->selfheal.down;
 	misc     = local->selfheal.misc;
 
@@ -532,5 +522,5 @@ dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
 	ret = dht_selfheal_dir_mkdir (frame, loc, layout, 1);
 
-	return 0;
+	return ret;
 }
