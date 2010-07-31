@@ -87,7 +87,6 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (ret < 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"failed to initialize linkfile data");
-		op_errno = EINVAL;
 	}
 	str_data = NULL;
 
