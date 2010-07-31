@@ -464,8 +464,6 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 		      uint32_t *holes_p, uint32_t *overlaps_p,
 		      uint32_t *missing_p, uint32_t *down_p, uint32_t *misc_p)
 {
-	dht_conf_t *conf = NULL;
-	uint32_t    holes    = 0;
 	uint32_t    overlaps = 0;
 	uint32_t    missing  = 0;
 	uint32_t    down     = 0;
@@ -477,9 +475,6 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 	uint32_t    prev_stop = 0;
 	uint32_t    last_stop = 0;
 	char        is_virgin = 1;
-
-
-	conf = this->private;
 
 	/* TODO: explain WTF is happening */
 
@@ -509,7 +504,6 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
 		if ((prev_stop + 1) < layout->list[i].start) {
 			hole_cnt++;
-			holes += (layout->list[i].start - (prev_stop + 1));
 		}
 
 		if ((prev_stop + 1) > layout->list[i].start) {
@@ -521,7 +515,6 @@ dht_layout_anomalies (xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
 	if ((last_stop - prev_stop) || is_virgin)
 	    hole_cnt++;
-	holes += (last_stop - prev_stop);
 
 	if (holes_p)
 		*holes_p = hole_cnt;
