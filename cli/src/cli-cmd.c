@@ -170,6 +170,10 @@ cli_cmds_register (struct cli_state *state)
         if (ret)
                 goto out;
 
+        ret = cli_cmd_log_register (state);
+        if (ret)
+                goto out;
+
 out:
         return ret;
 }

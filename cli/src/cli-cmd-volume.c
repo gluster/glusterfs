@@ -291,41 +291,7 @@ int
 cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         const char **words, int wordcount)
 {
-        int                     ret = -1;
-        rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
-        char                    *volname = NULL;
-        dict_t                  *dict = NULL;
-
-
-        frame = create_frame (THIS, THIS->ctx->pool);
-        if (!frame)
-                goto out;
-
-        volname = (char *)words[2];
-        GF_ASSERT (volname);
-
-        GF_ASSERT (words[3]);
-
-        ret = cli_cmd_volume_set_parse (words, wordcount, &dict);
-
-        if (ret)
-                goto out;
-
-        //TODO: Build validation here
-        proc = &cli_rpc_prog->proctable[GF1_CLI_SET_VOLUME];
-
-        if (proc->fn) {
-                ret = proc->fn (frame, THIS, dict);
-        }
-
-out:
-        if (!proc && ret) {
-                if (dict)
-                        dict_destroy (dict);
-                cli_out ("Changing option on Volume %s failed", volname);
-        }
-
+        cli_cmd_broadcast_response (0);
         return 0;
 }
 
@@ -442,7 +408,7 @@ cli_cmd_volume_set_transport_cbk (struct cli_state *state,
                                   struct cli_cmd_word *word,
                                   const char **words, int wordcount)
 {
-        cli_out ("volume set-transport not implemented");
+        cli_cmd_broadcast_response (0);
         return 0;
 }
 
