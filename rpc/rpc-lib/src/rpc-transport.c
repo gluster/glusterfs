@@ -804,43 +804,6 @@ err:
         return NULL;
 }
 
-
-rpc_transport_handover_t *
-rpc_transport_handover_alloc (rpc_transport_pollin_t *pollin)
-{
-        rpc_transport_handover_t *msg = NULL;
-
-        msg = GF_CALLOC (1, sizeof (*msg), gf_common_mt_rpc_trans_handover_t);
-        if (!msg) {
-                gf_log ("rpc_transport", GF_LOG_ERROR, "out of memory");
-                goto out;
-        }
-
-        msg->pollin = pollin;
-        INIT_LIST_HEAD (&msg->list);
-out:
-        return msg;
-}
-
-
-void
-rpc_transport_handover_destroy (rpc_transport_handover_t *msg)
-{
-        if (!msg) {
-                goto out;
-        }
-
-        if (msg->pollin) {
-                rpc_transport_pollin_destroy (msg->pollin);
-        }
-
-        GF_FREE (msg);
-
-out:
-        return;
-}
-
-
 rpc_transport_t *
 rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 {
@@ -1021,52 +984,6 @@ int32_t
 rpc_transport_submit_request (rpc_transport_t *this, rpc_transport_req_t *req)
 {
 	int32_t                       ret          = -1;
-        rpc_transport_t              *peer_trans   = NULL;
-        rpc_transport_pollin_t       *pollin       = NULL;
-        rpc_transport_handover_t     *handover_msg = NULL;
-        rpc_transport_rsp_t          *rsp          = NULL;
-
-        if (this->peer_trans) {
-                peer_trans = this->peer_trans;
-
-                rsp = GF_CALLOC (1, sizeof (*rsp), gf_common_mt_rpc_trans_rsp_t);
-                if (!rsp) {
-                        ret = -ENOMEM;
-                        goto fail;
-                }
-
-                *rsp = req->rsp;
-
-                pollin = rpc_transport_same_process_pollin_alloc (this, req->msg.rpchdr,
-                                                                  req->msg.rpchdrcount,
-                                                                  req->msg.proghdr,
-                                                                  req->msg.proghdrcount,
-                                                                  req->msg.progpayload,
-                                                                  req->msg.progpayloadcount,
-                                                                  rsp, 1);
-                if (!pollin) {
-                        GF_FREE (rsp);
-                        ret = -ENOMEM;
-                        goto fail;
-                }
-
-                handover_msg = rpc_transport_handover_alloc (pollin);
-                if (!handover_msg) {
-                        rpc_transport_pollin_destroy (pollin);
-                        ret = -ENOMEM;
-                        goto fail;
-                }
-
-                pthread_mutex_lock (&peer_trans->handover.mutex);
-                {
-                        list_add_tail (&handover_msg->list,
-                                       &peer_trans->handover.msgs);
-                        pthread_cond_broadcast (&peer_trans->handover.cond);
-                }
-                pthread_mutex_unlock (&peer_trans->handover.mutex);
-
-                return 0;
-        }
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 	GF_VALIDATE_OR_GOTO("rpc_transport", this->ops, fail);
@@ -1081,40 +998,6 @@ int32_t
 rpc_transport_submit_reply (rpc_transport_t *this, rpc_transport_reply_t *reply)
 {
 	int32_t                   ret          = -1;
-        rpc_transport_t              *peer_trans   = NULL;
-        rpc_transport_pollin_t       *pollin       = NULL;
-        rpc_transport_handover_t     *handover_msg = NULL;
-
-        if (this->peer_trans) {
-                peer_trans = this->peer_trans;
-
-                pollin = rpc_transport_same_process_pollin_alloc (this, reply->msg.rpchdr,
-                                                                  reply->msg.rpchdrcount,
-                                                                  reply->msg.proghdr,
-                                                                  reply->msg.proghdrcount,
-                                                                  reply->msg.progpayload,
-                                                                  reply->msg.progpayloadcount,
-                                                                  reply->private, 0);
-                if (!pollin) {
-                        return -ENOMEM;
-                }
-
-                handover_msg = rpc_transport_handover_alloc (pollin);
-                if (!handover_msg) {
-                        rpc_transport_pollin_destroy (pollin);
-                        return -ENOMEM;
-                }
-
-                pthread_mutex_lock (&peer_trans->handover.mutex);
-                {
-                        list_add_tail (&handover_msg->list,
-                                       &peer_trans->handover.msgs);
-                        pthread_cond_broadcast (&peer_trans->handover.cond);
-                }
-                pthread_mutex_unlock (&peer_trans->handover.mutex);
-
-                return 0;
-        }
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 	GF_VALIDATE_OR_GOTO("rpc_transport", this->ops, fail);
@@ -1243,57 +1126,6 @@ out:
         return ret;
 }
 
-
-void *
-rpc_transport_peerproc (void *trans_data)
-{
-        rpc_transport_t                     *trans = NULL;
-        rpc_transport_handover_t            *msg   = NULL;
-
-        trans = trans_data;
-
-        while (1) {
-                pthread_mutex_lock (&trans->handover.mutex);
-                {
-                        while (list_empty (&trans->handover.msgs))
-                                pthread_cond_wait (&trans->handover.cond,
-                                                   &trans->handover.mutex);
-
-                        msg = list_entry (trans->handover.msgs.next,
-                                          rpc_transport_handover_t, list);
-
-                        list_del_init (&msg->list);
-                }
-                pthread_mutex_unlock (&trans->handover.mutex);
-
-                rpc_transport_notify (trans, RPC_TRANSPORT_MSG_RECEIVED,
-                                      msg->pollin);
-                rpc_transport_handover_destroy (msg);
-        }
-}
-
-
-int
-rpc_transport_setpeer (rpc_transport_t *trans, rpc_transport_t *peer_trans)
-{
-        trans->peer_trans = rpc_transport_ref (peer_trans);
-
-        INIT_LIST_HEAD (&trans->handover.msgs);
-        pthread_cond_init (&trans->handover.cond, NULL);
-        pthread_mutex_init (&trans->handover.mutex, NULL);
-        pthread_create (&trans->handover.thread, NULL,
-                        rpc_transport_peerproc, trans);
-
-        peer_trans->peer_trans = rpc_transport_ref (trans);
-
-        INIT_LIST_HEAD (&peer_trans->handover.msgs);
-        pthread_cond_init (&peer_trans->handover.cond, NULL);
-        pthread_mutex_init (&peer_trans->handover.mutex, NULL);
-        pthread_create (&peer_trans->handover.thread, NULL,
-                        rpc_transport_peerproc, peer_trans);
-
-        return 0;
-}
 
 
 inline int

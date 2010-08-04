@@ -181,28 +181,7 @@ struct rpc_transport {
         void                      *notify_data;
 	peer_info_t                peerinfo;
 	peer_info_t                myinfo;
-
-        rpc_transport_t           *peer_trans;
-        struct {
-                pthread_mutex_t       mutex;
-                pthread_cond_t        cond;
-                pthread_t             thread;
-                struct list_head      msgs;
-                /* any request/reply will be transformed as pollin data on the
-                 * peer, hence we are building up a pollin data even before
-                 * handing it over to peer rpc_transport. In order to decide whether
-                 * the pollin data is vectored or simple, we follow a simple
-                 * algo i.e., if there is a progpayload in request/reply, its
-                 * considered vectored, otherwise its a simple pollin data.
-                 */
-                rpc_transport_pollin_t   *msg;
-        } handover;
 };
-
-typedef struct {
-        rpc_transport_pollin_t *pollin;
-        struct list_head    list;
-} rpc_transport_handover_t;
 
 struct rpc_transport_ops {
         /* no need of receive op, msg will be delivered through an event
@@ -259,9 +238,6 @@ rpc_transport_ref   (rpc_transport_t *trans);
 
 int32_t
 rpc_transport_unref (rpc_transport_t *trans);
-
-int
-rpc_transport_setpeer (rpc_transport_t *trans, rpc_transport_t *trans_peer);
 
 int
 rpc_transport_register_notify (rpc_transport_t *trans, rpc_transport_notify_t,
