@@ -1057,6 +1057,10 @@ __socket_read_vectored_reply (rpc_transport_t *this)
                         && (RPC_LASTFRAG (priv->incoming.fraghdr)))) {
                         priv->incoming.frag.call_body.reply.status_state
                                 = SP_STATE_ACCEPTED_REPLY_INIT;
+                        priv->incoming.payload_vector.iov_len
+                                = (unsigned long)priv->incoming.frag.fragcurrent
+                                - (unsigned long)
+                                priv->incoming.payload_vector.iov_base;
                 }
                 break;
         }
@@ -1230,6 +1234,7 @@ __socket_proto_state_machine (rpc_transport_t *this,
 
                         priv->incoming.iobuf = iobuf;
                         priv->incoming.iobuf_size = 0;
+                        priv->incoming.total_bytes_read = 0;
                         priv->incoming.payload_vector.iov_len = 0;
 
                         priv->incoming.pending_vector = priv->incoming.vector;

@@ -2438,20 +2438,16 @@ int
 server_writev_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t   *state = NULL;
-        struct iovec      iov = {0, };
 
         state = CALL_STATE (frame);
 
         if (state->resolve.op_ret != 0)
                 goto err;
 
-        if (state->payload_count) {
-                iov = state->payload_vector;
-        }
-
         STACK_WIND (frame, server_writev_cbk,
                     bound_xl, bound_xl->fops->writev,
-                    state->fd, &iov, 1, state->offset, state->iobref);
+                    state->fd, state->payload_vector, state->payload_count,
+                    state->offset, state->iobref);
 
         return 0;
 err:
@@ -2978,24 +2974,17 @@ out:
 int
 server_writev (rpcsvc_request_t *req)
 {
-        /* TODO : */
-        assert (0);
-        return 0;
-}
-
-
-int
-server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
-                   int payload_count, struct iobref *iobref)
-{
         server_state_t      *state  = NULL;
         call_frame_t        *frame  = NULL;
         gfs3_write_req       args   = {0,};
+        ssize_t              len    = 0;
+        int                  i      = 0;
 
         if (!req)
                 return 0;
 
-        if (!xdr_to_writev_req (req->msg[0], &args)) {
+        len = xdr_to_writev_req (req->msg[0], &args);
+        if (len == 0) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
@@ -3019,17 +3008,36 @@ server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
         state->offset        = args.offset;
+        state->iobref        = iobref_ref (req->iobref);
 
-        if (payload_count != 0) {
-                state->iobref = iobref_ref (iobref);
-                state->size = req->msg[1].iov_len;
-                state->payload_count = payload_count;
-                state->payload_vector = *payload;
+        if (len < req->msg[0].iov_len) {
+                state->payload_vector[0].iov_base
+                        = (req->msg[0].iov_base + len);
+                state->payload_vector[0].iov_len
+                        = req->msg[0].iov_len - len;
+                state->payload_count = 1;
+        }
+
+        for (i = 1; i < req->count; i++) {
+                state->payload_vector[state->payload_count++]
+                        = req->msg[i];
+        }
+
+        for (i = 0; i < state->payload_count; i++) {
+                state->size += state->payload_vector[i].iov_len;
         }
 
         resolve_and_resume (frame, server_writev_resume);
 out:
         return 0;
+}
+
+
+int
+server_writev_vec (rpcsvc_request_t *req, struct iovec *payload,
+                   int payload_count, struct iobref *iobref)
+{
+        return server_writev (req);
 }
 
 
