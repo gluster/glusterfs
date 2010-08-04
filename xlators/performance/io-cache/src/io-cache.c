@@ -555,6 +555,11 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 			fd_ctx_set (fd, this, 1);
 		}
 
+                if ((local->wbflags & GF_OPEN_NOWB) != 0) {
+                        /* disable caching as asked by NFS */
+                        fd_ctx_set (fd, this, 1);
+                }
+
 		/* weight = 0, we disable caching on it */
 		if (weight == 0) {
 			/* we allow a pattern-matched cache disable this way 
