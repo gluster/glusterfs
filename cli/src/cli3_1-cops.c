@@ -222,7 +222,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t                     *dict = NULL;
         char                       *volname = NULL;
         int32_t                    i = 1;
-        char                       key[256] = {0,};
+        char                       key[1024] = {0,};
         int32_t                    status = 0;
         int32_t                    type = 0;
         int32_t                    brick_count = 0;
