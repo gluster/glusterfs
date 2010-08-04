@@ -84,6 +84,7 @@ struct ioc_fill {
 struct ioc_local {
 	mode_t           mode;
 	int32_t          flags;
+        int32_t          wbflags;
 	loc_t            file_loc;
 	off_t            offset;
 	size_t           size;
