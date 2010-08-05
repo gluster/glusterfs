@@ -737,7 +737,10 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 unwind:
         if (hdr)
                 free (hdr);
+        frame->local = NULL;
         STACK_UNWIND (frame, -1, EINVAL, fd, NULL, NULL);
+        if (local)
+                client_local_wipe (local);
         return 0;
 
 }
@@ -808,7 +811,10 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 unwind:
         if (hdr)
                 free (hdr);
+        frame->local = NULL;
         STACK_UNWIND (frame, -1, EINVAL, fd);
+        if (local)
+                client_local_wipe (local);
         return 0;
 
 }
@@ -994,7 +1000,10 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 unwind:
         if (hdr)
                 free (hdr);
+        frame->local = NULL;
         STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
+        if (local)
+                client_local_wipe (local);
         return 0;
 
 }
@@ -1068,7 +1077,10 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 unwind:
         if (hdr)
                 free (hdr);
+        frame->local = NULL;
         STACK_UNWIND_STRICT (mkdir, frame, -1, EINVAL, loc->inode, NULL, NULL, NULL);
+        if (local)
+                client_local_wipe (local);
         return 0;
 
 }
@@ -1252,7 +1264,10 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
 unwind:
         if (hdr)
                 free (hdr);
+        frame->local = NULL;
         STACK_UNWIND (frame, -1, EINVAL, loc->inode, NULL);
+        if (local)
+                client_local_wipe (local);
         return 0;
 
 }
@@ -1421,7 +1436,10 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 unwind:
         if (hdr)
                 free (hdr);
+        frame->local = NULL;
         STACK_UNWIND (frame, -1, op_errno, oldloc->inode, NULL);
+        if (local)
+                client_local_wipe (local);
         return 0;
 }
 
@@ -2404,7 +2422,10 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc,
 unwind:
         if (hdr)
                 free (hdr);
+        frame->local = NULL;
         STACK_UNWIND (frame, -1, EINVAL, fd);
+        if (local)
+                client_local_wipe (local);
         return 0;
 
 }
@@ -3399,7 +3420,10 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         return ret;
 
 unwind:
+        frame->local = NULL;
         STACK_UNWIND (frame, op_ret, op_errno, loc->inode, NULL, NULL);
+        if (local)
+                client_local_wipe (local);
         return ret;
 }
 
@@ -4213,6 +4237,7 @@ client_mknod_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.path);
                         STACK_UNWIND (frame, -1, EINVAL, inode, NULL,
                                       NULL, NULL);
+                        client_local_wipe (local);
                         return 0;
                 }
 
@@ -4272,6 +4297,7 @@ client_symlink_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.path);
                         STACK_UNWIND (frame, -1, EINVAL, inode, NULL,
                                       NULL, NULL);
+                        client_local_wipe (local);
                         return 0;
                 }
                 gf_stat_to_stat (&rsp->preparent, &preparent);
@@ -4748,6 +4774,7 @@ client_mkdir_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                                 local->loc.path);
                         STACK_UNWIND (frame, -1, EINVAL, inode, NULL,
                                       NULL, NULL);
+                        client_local_wipe (local);
                         return 0;
                 }
 
