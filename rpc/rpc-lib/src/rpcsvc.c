@@ -603,57 +603,17 @@ out:
 void
 rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
 {
-        rpcsvc_notify_wrapper_t *wrapper  = NULL;
-        rpcsvc_event_t           event    = 0;
         rpcsvc_listener_t       *listener = NULL;
-        rpcsvc_t                *svc      = NULL;
-        rpcsvc_notify_wrapper_t *wrappers = NULL;
-        int                      i        = 0, wrapper_count = 0;
 
-        if (!conn)
+        if (!conn || !conn->rxpool || !conn->listener)
                 goto out;
+
+        if (conn->trans)
+                rpc_transport_destroy (conn->trans);
 
         mem_pool_destroy (conn->rxpool);
 
         listener = conn->listener;
-        if (!listener)
-                goto out;
-
-        event = (listener->conn == conn) ? RPCSVC_EVENT_LISTENER_DEAD
-                : RPCSVC_EVENT_DISCONNECT;
-
-        svc = conn->svc;
-        if (!svc)
-                goto out;
-
-        pthread_mutex_lock (&svc->rpclock);
-        {
-                wrappers = GF_CALLOC (svc->notify_count, sizeof (*wrapper),
-                                      gf_common_mt_rpcsvc_wrapper_t);
-                if (!wrappers) {
-                        goto unlock;
-                }
-
-                list_for_each_entry (wrapper, &conn->listener->list,
-                                     list) {
-                        if (wrapper->notify) {
-                                wrappers[i++] = *wrapper;
-                        }
-                }
-                wrapper_count = i;
-        }
-unlock:
-        pthread_mutex_unlock (&svc->rpclock);
-
-        if (wrappers) {
-                for (i = 0; i < wrapper_count; i++) {
-                        wrappers[i].notify (conn->svc, wrappers[i].data,
-                                            event, conn);
-                }
-
-                GF_FREE (wrappers);
-        }
-
         if (listener->conn == conn) {
                 rpcsvc_listener_destroy (listener);
         }
@@ -1232,7 +1192,7 @@ rpcsvc_notify (rpc_transport_t *trans, void *mydata,
                 break;
 
         case RPC_TRANSPORT_DISCONNECT:
-                //rpcsvc_conn_deinit (conn);
+                rpcsvc_conn_deinit (conn);
                 ret = 0;
                 break;
 

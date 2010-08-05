@@ -1171,6 +1171,8 @@ rpc_transport_destroy (rpc_transport_t *this)
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
+        rpc_transport_disconnect (this);
+
 	if (this->fini)
 		this->fini (this);
 	pthread_mutex_destroy (&this->lock);
