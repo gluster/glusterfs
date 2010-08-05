@@ -34,6 +34,7 @@ typedef struct {
 	char wind;
 	call_frame_t *frame;
 	glusterfs_fop_t fop;
+       struct mem_pool *stub_mem_pool;    /* pointer to stub mempool in glusterfs ctx */
 
 	union {
 		/* lookup */

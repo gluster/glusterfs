@@ -38,13 +38,14 @@ stub_new (call_frame_t *frame,
 
 	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
-	new = GF_CALLOC (1, sizeof (*new), gf_common_mt_call_stub_t);
+       new = mem_get (frame->this->ctx->stub_mem_pool);
+       memset (new, 0, sizeof (call_stub_t));
 	GF_VALIDATE_OR_GOTO ("call-stub", new, out);
 
 	new->frame = frame;
 	new->wind = wind;
 	new->fop = fop;
-
+       new->stub_mem_pool = frame->this->ctx->stub_mem_pool;
 	INIT_LIST_HEAD (&new->list);
 out:
 	return new;
@@ -3824,7 +3825,11 @@ call_stub_destroy_unwind (call_stub_t *stub)
 void
 call_stub_destroy (call_stub_t *stub)
 {
+       struct mem_pool *tmp_pool = NULL;
+
 	GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
+       tmp_pool = stub->stub_mem_pool;
 	
 	if (stub->wind) {
 		call_stub_destroy_wind (stub);
@@ -3832,8 +3837,11 @@ call_stub_destroy (call_stub_t *stub)
 		call_stub_destroy_unwind (stub);
 	}
 
-	GF_FREE (stub);
+       stub->stub_mem_pool = NULL;
+       mem_put (tmp_pool, stub);
 out:
+       tmp_pool = NULL;
+
 	return;
 }
 

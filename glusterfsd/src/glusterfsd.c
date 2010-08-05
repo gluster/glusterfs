@@ -71,7 +71,7 @@
 #include "latency.h"
 #include "glusterfsd-mem-types.h"
 #include "syscall.h"
-
+#include "call-stub.h"
 #include <fnmatch.h>
 
 #ifdef GF_DARWIN_HOST_OS
@@ -594,6 +594,7 @@ cleanup_and_exit (int signum)
         mem_pool_destroy (tmp_pool->frame_mem_pool);
         mem_pool_destroy (tmp_pool->stack_mem_pool);
         tmp_pool = NULL;
+	 mem_pool_destroy (ctx->stub_mem_pool);
 
         glusterfs_pidfile_cleanup (ctx);
 
@@ -789,6 +790,10 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         pool->stack_mem_pool = mem_pool_new (call_stack_t, 8192);
 
         if (!pool->stack_mem_pool)
+                return -1;
+
+        ctx->stub_mem_pool = mem_pool_new (call_stub_t, 1024);
+        if (!ctx->stub_mem_pool)
                 return -1;
 
         INIT_LIST_HEAD (&pool->all_frames);
