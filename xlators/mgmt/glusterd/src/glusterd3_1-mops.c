@@ -148,6 +148,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                goto out;
         }
 
         ret = gd_xdr_to_mgmt_friend_rsp (*iov, &rsp);
@@ -315,6 +316,7 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                goto out;
         }
 
 /*        ret = gd_xdr_to_mgmt_friend_update_rsp (*iov, &rsp);
@@ -332,7 +334,7 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                 "Received %s from uuid: %s",
                 (op_ret)?"RJT":"ACC", str);
 
-//out:
+out:
         return ret;
 }
 int32_t
@@ -351,6 +353,7 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                goto out;
         }
 
         ret = gd_xdr_to_mgmt_cluster_lock_rsp (*iov, &rsp);
@@ -388,9 +391,6 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-        return ret;
-
-
 out:
         return ret;
 }
@@ -412,6 +412,7 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                goto out;
         }
 
         ret = gd_xdr_to_mgmt_cluster_unlock_rsp (*iov, &rsp);
@@ -442,16 +443,12 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
-
         ret = glusterd_op_sm_inject_event (event_type, NULL);
 
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
         }
-
-        return ret;
-
 
 out:
         return ret;
@@ -468,12 +465,12 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_peerinfo_t           *peerinfo = NULL;
         char                          str[50] = {0,};
 
-
         GF_ASSERT (req);
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                goto out;
         }
 
         ret = gd_xdr_to_mgmt_stage_op_rsp (*iov, &rsp);
@@ -511,9 +508,6 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-        return ret;
-
-
 out:
         return ret;
 }
@@ -535,6 +529,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                goto out;
         }
 
         ret = gd_xdr_to_mgmt_commit_op_rsp (*iov, &rsp);
