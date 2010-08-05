@@ -275,6 +275,8 @@ struct _glusterfs_ctx {
         void               *mgmt;   /* xlator implementing MOPs for centralized logging, volfile server */
         unsigned char       measure_latency; /* toggle switch for latency measurement */
         pthread_t           sigwaiter;
+        struct mem_pool    *stub_mem_pool;
+
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
