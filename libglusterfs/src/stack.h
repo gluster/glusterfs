@@ -62,6 +62,8 @@ struct _call_pool_t {
 	};
 	int64_t                     cnt;
 	gf_lock_t                   lock;
+       struct mem_pool             *frame_mem_pool;
+       struct mem_pool             *stack_mem_pool;
 };
 
 struct _call_frame_t {
@@ -129,14 +131,22 @@ gf_update_latency (call_frame_t *frame);
 static inline void
 FRAME_DESTROY (call_frame_t *frame)
 {
+       void *local = NULL;
 	if (frame->next)
 		frame->next->prev = frame->prev;
 	if (frame->prev)
 		frame->prev->next = frame->next;
-	if (frame->local)
-		GF_FREE (frame->local);
+	if (frame->local) {
+               local = frame->local;
+               frame->local = NULL;
+                
+       } 
+
 	LOCK_DESTROY (&frame->lock);
-	GF_FREE (frame);
+	mem_put (frame->root->pool->frame_mem_pool, frame);
+
+       if (local)
+               GF_FREE (local);
 }
 
 
@@ -144,6 +154,7 @@ static inline void
 STACK_DESTROY (call_stack_t *stack)
 {
         glusterfs_ctx_t *ctx = glusterfs_ctx_get ();
+        void *local = NULL;
 
         if (ctx && ctx->measure_latency) {
                 gettimeofday (&stack->frames.end, NULL);
@@ -157,8 +168,10 @@ STACK_DESTROY (call_stack_t *stack)
 	}
 	UNLOCK (&stack->pool->lock);
 
-	if (stack->frames.local)
-		GF_FREE (stack->frames.local);
+	if (stack->frames.local) {
+               local = stack->frames.local;
+		stack->frames.local = NULL;
+	}
 
 	LOCK_DESTROY (&stack->frames.lock);
 
@@ -169,7 +182,10 @@ STACK_DESTROY (call_stack_t *stack)
 
 		FRAME_DESTROY (stack->frames.next);
 	}
-	GF_FREE (stack);
+	mem_put (stack->pool->stack_mem_pool, stack);
+
+       if (local)
+               GF_FREE (local);
 }
 
 
@@ -181,9 +197,8 @@ STACK_DESTROY (call_stack_t *stack)
 	do {								\
 		call_frame_t *_new = NULL;				\
                 xlator_t     *old_THIS = NULL;                          \
-		                                                        \
-                _new = GF_CALLOC (1, sizeof (call_frame_t),             \
-                                gf_common_mt_call_frame_t);	        \
+                                                                        \
+		 _new = mem_get (frame->root->pool->frame_mem_pool);     \
                 if (!_new) {                                            \
                         gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
@@ -220,8 +235,7 @@ STACK_DESTROY (call_stack_t *stack)
                 call_frame_t *_new = NULL;                              \
                 xlator_t     *old_THIS = NULL;                          \
                                                                         \
-                _new = GF_CALLOC (1, sizeof (call_frame_t),             \
-                                gf_common_mt_call_frame_t);	        \
+                _new = mem_get(frame->root->pool->frame_mem_pool);      \
                 if (!_new) {                                            \
                         gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
@@ -316,8 +330,7 @@ copy_frame (call_frame_t *frame)
 		return NULL;
 	}
 
-	newstack = (void *) GF_CALLOC (1, sizeof (*newstack),
-                                       gf_common_mt_call_stack_t);
+	newstack = mem_get (frame->root->pool->stack_mem_pool);
         if (newstack == NULL) {
                 return NULL;
         }
@@ -360,7 +373,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 		return NULL;
 	}
 
-	stack = GF_CALLOC (1, sizeof (*stack),gf_common_mt_call_stack_t);
+	stack = mem_get (pool->stack_mem_pool);
 	if (!stack)
 		return NULL;
 

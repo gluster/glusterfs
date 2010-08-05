@@ -584,10 +584,16 @@ static void
 cleanup_and_exit (int signum)
 {
         glusterfs_ctx_t *ctx = NULL;
+        call_pool_t     *tmp_pool = NULL;
 
         ctx = glusterfs_ctx_get ();
 
         gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
+
+        tmp_pool = ctx->pool;
+        mem_pool_destroy (tmp_pool->frame_mem_pool);
+        mem_pool_destroy (tmp_pool->stack_mem_pool);
+        tmp_pool = NULL;
 
         glusterfs_pidfile_cleanup (ctx);
 
@@ -772,6 +778,19 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
                           gfd_mt_call_pool_t);
         if (!pool)
                 return -1;
+
+        /* frame_mem_pool size 112 * 16k */
+        pool->frame_mem_pool = mem_pool_new (call_frame_t, 16384);
+
+        if (!pool->frame_mem_pool)
+                return -1;
+
+        /* stack_mem_pool size 256 * 8k */
+        pool->stack_mem_pool = mem_pool_new (call_stack_t, 8192);
+
+        if (!pool->stack_mem_pool)
+                return -1;
+
         INIT_LIST_HEAD (&pool->all_frames);
         LOCK_INIT (&pool->lock);
         ctx->pool = pool;
