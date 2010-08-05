@@ -1098,6 +1098,13 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
                 return NULL;
         }
 
+	 new->fd_mem_pool = mem_pool_new (fd_t, 16384);
+
+	 if (!new->fd_mem_pool) {
+		  GF_FREE (new->inode_hash);
+		  GF_FREE (new);
+	 }
+
         for (i=0; i<new->hashsize; i++) {
                 INIT_LIST_HEAD (&new->inode_hash[i]);
         }

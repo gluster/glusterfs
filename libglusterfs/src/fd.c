@@ -402,6 +402,7 @@ fd_destroy (fd_t *fd)
         xlator_t    *xl = NULL;
 	int          i = 0;
         xlator_t    *old_THIS = NULL;
+	 struct mem_pool *tmp_pool = NULL;
 
         if (fd == NULL){
                 gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
@@ -414,6 +415,8 @@ fd_destroy (fd_t *fd)
         }
 	if (!fd->_ctx)
 		goto out;
+
+	 tmp_pool = fd->inode->table->fd_mem_pool;
 
         if (IA_ISDIR (fd->inode->ia_type)) {
 		for (i = 0; i < fd->inode->table->xl->graph->xl_count; i++) {
@@ -444,7 +447,8 @@ fd_destroy (fd_t *fd)
 	GF_FREE (fd->_ctx);
         inode_unref (fd->inode);
         fd->inode = (inode_t *)0xaaaaaaaa;
-        GF_FREE (fd);
+        mem_put (tmp_pool,fd);
+	 tmp_pool = NULL;
 out:
         return;
 }
@@ -505,7 +509,7 @@ fd_create (inode_t *inode, pid_t pid)
                 return NULL;
         }
 
-        fd = GF_CALLOC (1, sizeof (fd_t), gf_common_mt_fd_t);
+        fd = mem_get (inode->table->fd_mem_pool);
         if (!fd)
                 goto out;
 

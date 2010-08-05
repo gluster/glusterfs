@@ -2060,6 +2060,7 @@ glusterfs_fini (glusterfs_handle_t handle)
         FREE (ctx->gf_ctx.event_pool);
         mem_pool_destroy (ctx->itable->inode_pool);
 	 mem_pool_destroy (ctx->itable->dentry_pool);
+	 mem_pool_destroy (ctx->itable->fd_mem_pool);
         /* iobuf_pool_destroy (ctx->gf_ctx.iobuf_pool); */
         ((gf_timer_registry_t *)ctx->gf_ctx.timer)->fin = 1;
 
