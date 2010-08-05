@@ -603,6 +603,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         gf1_cli_defrag_vol_req cli_req       = {0,};
         glusterd_conf_t         *priv = NULL;
         char                   cmd_str[4096] = {0,};
+	 glusterd_volinfo_t      *tmp_volinfo = NULL;
 
         GF_ASSERT (req);
 
@@ -616,6 +617,12 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag volume on %s",
                 cli_req.volname);
 
+	 if (glusterd_volinfo_find(cli_req.volname, &tmp_volinfo)) {
+		 gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag on invalid"
+			 " volname %s", cli_req.volname);
+		 goto out;
+	 }
+ 
         glusterd_op_set_op (GD_OP_DEFRAG_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_DEFRAG_VOLUME, cli_req.volname);
@@ -626,6 +633,11 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                   priv->workdir, cli_req.volname);
         ret = system (cmd_str);
 
+	 if (ret) {
+		   gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+		   goto out;
+	 }
+
         snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s-tcp.vol "
                   "--xlator-option dht0.unhashed-sticky-bit=yes "
                   "--xlator-option dht0.lookup-unhashed=on %s/mount/%s",
@@ -633,11 +645,17 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                   priv->workdir, cli_req.volname);
         ret = system (cmd_str);
 
+        if (ret) {
+                  gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                  goto out;
+        }
+
         snprintf (cmd_str, 4096, "glusterfs-defrag %s/mount/%s",
                   priv->workdir, cli_req.volname);
         ret = system (cmd_str);
 
-        ret = 0;
+	 if (ret)
+		   gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed",cmd_str);
 out:
         return ret;
 }
