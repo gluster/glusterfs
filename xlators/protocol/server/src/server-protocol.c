@@ -6206,6 +6206,7 @@ static call_frame_t *
 get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
 {
         call_frame_t *frame = NULL;
+        int32_t      ret = -1;
 
         frame = get_frame_for_transport (trans);
 
@@ -6217,7 +6218,12 @@ get_frame_for_call (transport_t *trans, gf_hdr_common_t *hdr)
         frame->root->gid         = ntoh32 (hdr->req.gid);
         frame->root->pid         = ntoh32 (hdr->req.pid);
         frame->root->lk_owner    = ntoh64 (hdr->req.lk_owner);
-        server_decode_groups (frame, hdr);
+        ret = server_decode_groups (frame, hdr);
+
+        if (ret) {
+                //FRAME_DESTROY (frame);
+                return NULL;
+        }
 
         return frame;
 }
@@ -6337,6 +6343,10 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
                         break;
                 }
                 frame = get_frame_for_call (trans, hdr);
+                if (!frame) {
+                        ret = -1;
+                        goto out;
+                }
                 ret = gf_fops[op] (frame, bound_xl, hdr, hdrlen, iobuf);
                 break;
 
@@ -6348,6 +6358,10 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
                         break;
                 }
                 frame = get_frame_for_call (trans, hdr);
+                if (!frame) {
+                        ret = -1;
+                        goto out;
+                }
                 ret = gf_mops[op] (frame, bound_xl, hdr, hdrlen, iobuf);
                 break;
 
@@ -6365,13 +6379,17 @@ protocol_server_interpret (xlator_t *this, transport_t *trans,
                 }
 
                 frame = get_frame_for_call (trans, hdr);
+                if (!frame) {
+                        ret = -1;
+                        goto out;
+                }
                 ret = gf_cbks[op] (frame, bound_xl, hdr, hdrlen, iobuf);
                 break;
 
         default:
                 break;
         }
-
+out:
         return ret;
 }
 
