@@ -63,6 +63,8 @@ struct _inode_table {
                                            number. inode_t's @hash is linked with @attic. It is
                                            otherwise linked with @inode_hash */
         uint32_t           attic_size;
+        struct mem_pool   *inode_pool;  /* memory pool for inodes */
+        struct mem_pool   *dentry_pool; /* memory pool for dentrys */
 };
 
 
