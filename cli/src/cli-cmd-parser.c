@@ -442,8 +442,8 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
 
         if (!strcasecmp ("start", op)) {
                 replace_op = GF_REPLACE_OP_START;
-        } else if (!strcasecmp ("stop", op)) {
-                replace_op = GF_REPLACE_OP_STOP;
+        } else if (!strcasecmp ("commit", op)) {
+                replace_op = GF_REPLACE_OP_COMMIT;
         } else if (!strcasecmp ("pause", op)) {
                 replace_op = GF_REPLACE_OP_PAUSE;
         } else if (!strcasecmp ("abort", op)) {

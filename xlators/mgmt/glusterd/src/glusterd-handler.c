@@ -848,6 +848,44 @@ out:
 }
 
 int
+glusterd_handle_replace_brick (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_replace_brick_req          cli_req = {0,};
+        dict_t                          *dict = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_replace_brick_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received replace brick req");
+
+        if (cli_req.bricks.bricks_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.bricks.bricks_val,
+                                        cli_req.bricks.bricks_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = glusterd_replace_brick (req, dict);
+
+out:
+        return ret;
+}
+
+int
 glusterd_handle_remove_brick (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
@@ -1650,6 +1688,23 @@ glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict)
 
         glusterd_op_set_ctx (GD_OP_ADD_BRICK, dict);
         glusterd_op_set_req (req);
+
+        ret = glusterd_op_txn_begin ();
+
+        return ret;
+}
+
+int32_t
+glusterd_replace_brick (rpcsvc_request_t *req, dict_t *dict)
+{
+        int32_t      ret       = -1;
+
+        GF_ASSERT (req);
+        GF_ASSERT (dict);
+
+        glusterd_op_set_op (GD_OP_REPLACE_BRICK);
+
+        glusterd_op_set_ctx (GD_OP_REPLACE_BRICK, dict);
 
         ret = glusterd_op_txn_begin ();
 

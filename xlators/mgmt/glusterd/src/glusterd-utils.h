@@ -115,4 +115,6 @@ glusterd_is_cli_op_req (int32_t op);
 int32_t
 glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t **brickinfo);
+int32_t
+glusterd_is_local_addr (char *hostname);
 #endif

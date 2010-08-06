@@ -25,7 +25,7 @@
 #include "afr-transaction.h"
 #include "afr-self-heal-common.h"
 #include "afr-self-heal.h"
-
+#include "pump.h"
 
 /**
  * select_source - select a source and return it
@@ -1536,7 +1536,6 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 	return 0;
 }
 
-
 int
 afr_self_heal (call_frame_t *frame, xlator_t *this)
 {
@@ -1548,8 +1547,11 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
         call_frame_t *sh_frame = NULL;
         afr_local_t  *sh_local = NULL;
 
+
 	local = frame->local;
 	priv  = this->private;
+
+        afr_set_lk_owner (frame, this);
 
         if (local->self_heal.background) {
                 LOCK (&priv->lock);

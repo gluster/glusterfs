@@ -47,7 +47,6 @@
 #include "afr.h"
 #include "afr-transaction.h"
 
-
 /* {{{ writev */
 
 int
@@ -1366,10 +1365,9 @@ afr_setxattr_done (call_frame_t *frame, xlator_t *this)
 	local->transaction.unwind (frame, this);
 
 	AFR_STACK_DESTROY (frame);
-	
+
 	return 0;
 }
-
 
 int
 afr_setxattr (call_frame_t *frame, xlator_t *this,
@@ -1390,18 +1388,18 @@ afr_setxattr (call_frame_t *frame, xlator_t *this,
 
 	priv = this->private;
 
-	transaction_frame = copy_frame (frame);
-	if (!transaction_frame) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory.");
-		goto out;
-	}
-
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 
 	ret = AFR_LOCAL_INIT (local, priv);
 	if (ret < 0) {
 		op_errno = -ret;
+		goto out;
+	}
+
+	transaction_frame = copy_frame (frame);
+	if (!transaction_frame) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory.");
 		goto out;
 	}
 

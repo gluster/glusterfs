@@ -656,7 +656,6 @@ out:
 	return 0;
 }
 
-
 int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, const char *name)
@@ -670,6 +669,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
+
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
@@ -690,6 +690,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                         op_errno = ENODATA;
                         goto out;
                 }
+
         }
 
         read_child = afr_read_child (this, loc->inode);

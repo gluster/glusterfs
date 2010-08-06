@@ -24,7 +24,7 @@ typedef enum gf1_cluster_type gf1_cluster_type;
 enum gf1_cli_replace_op {
 	GF_REPLACE_OP_NONE = 0,
 	GF_REPLACE_OP_START = 0 + 1,
-	GF_REPLACE_OP_STOP = 0 + 2,
+	GF_REPLACE_OP_COMMIT = 0 + 2,
 	GF_REPLACE_OP_PAUSE = 0 + 3,
 	GF_REPLACE_OP_ABORT = 0 + 4,
 	GF_REPLACE_OP_STATUS = 0 + 5,

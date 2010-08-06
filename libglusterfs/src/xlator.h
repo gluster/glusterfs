@@ -76,6 +76,7 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this, int32_t event, void *data,
 #include "iatt.h"
 
 
+
 struct _loc {
 	const char *path;
 	const char *name;

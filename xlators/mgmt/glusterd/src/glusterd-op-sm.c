@@ -84,6 +84,7 @@ glusterd_op_get_len (glusterd_op_t op)
                 case GD_OP_START_BRICK:
                         break;
 
+                case GD_OP_REPLACE_BRICK:
                 case GD_OP_ADD_BRICK:
                         {
                                 dict_t *dict = glusterd_op_get_ctx (op);
@@ -197,6 +198,20 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                         break;
 
                 case GD_OP_ADD_BRICK:
+                        {
+                                dict_t  *dict = NULL;
+                                dict = glusterd_op_get_ctx (op);
+                                GF_ASSERT (dict);
+                                ret = dict_allocate_and_serialize (dict,
+                                                &stage_req->buf.buf_val,
+                                        (size_t *)&stage_req->buf.buf_len);
+                                if (ret) {
+                                        goto out;
+                                }
+                        }
+                        break;
+
+                case GD_OP_REPLACE_BRICK:
                         {
                                 dict_t  *dict = NULL;
                                 dict = glusterd_op_get_ctx (op);
@@ -533,6 +548,55 @@ out:
 }
 
 static int
+glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
+{
+        int                                     ret = 0;
+        dict_t                                  *dict = NULL;
+        char                                    *src_brick = NULL;
+        char                                    *dst_brick = NULL;
+
+        GF_ASSERT (req);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+        /* Need to do a little more error checking and validation */
+        ret = dict_get_str (dict, "src-brick", &src_brick);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get src brick");
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG,
+                "src brick=%s", src_brick);
+
+        ret = dict_get_str (dict, "dst-brick", &dst_brick);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get dest brick");
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG,
+                "dest brick=%s", dst_brick);
+
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
 glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
 {
         int                                     ret = 0;
@@ -822,6 +886,310 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
 
 
+
+out:
+        return ret;
+}
+
+static int
+replace_brick_start_dst_brick (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *dst_brickinfo)
+{        glusterd_conf_t    *priv = NULL;
+        char  cmd_str[8192] = {0,};
+        char filename[PATH_MAX];
+        FILE *file = NULL;
+        int ret;
+
+        priv = THIS->private;
+
+        snprintf (filename, PATH_MAX, "%s/vols/%s/replace_dst_brick.vol",
+                  priv->workdir, volinfo->volname);
+
+
+        file = fopen (filename, "a+");
+        if (!file) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Open of volfile failed");
+                return -1;
+        }
+
+        truncate (filename, 0);
+
+        fprintf (file, "volume src-posix\n");
+        fprintf (file, "type storage/posix\n");
+        fprintf (file, "option directory %s\n",
+                 dst_brickinfo->path);
+        fprintf (file, "end-volume\n");
+        fprintf (file, "volume %s\n",
+                 dst_brickinfo->path);
+        fprintf (file, "type features/locks\n");
+        fprintf (file, "subvolumes src-posix\n");
+        fprintf (file, "end-volume\n");
+        fprintf (file, "volume src-server\n");
+        fprintf (file, "type protocol/server\n");
+        fprintf (file, "option auth.addr.%s.allow *\n",
+                 dst_brickinfo->path);
+        fprintf (file, "option listen-port 34034\n");
+        fprintf (file, "subvolumes %s\n",
+                 dst_brickinfo->path);
+        fprintf (file, "end-volume\n");
+
+        gf_log ("", GF_LOG_DEBUG,
+                "starting dst brick");
+
+        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/replace_dst_brick.vol",
+                  priv->workdir, volinfo->volname);
+
+        ret = system (cmd_str);
+
+
+        fclose (file);
+
+        return 0;
+}
+
+static int
+replace_brick_spawn_brick (glusterd_volinfo_t *volinfo, dict_t *dict,
+                           glusterd_brickinfo_t *dst_brickinfo)
+
+{
+
+        replace_brick_start_dst_brick (volinfo, dst_brickinfo);
+
+        return 0;
+}
+
+static int
+replace_brick_generate_volfile (glusterd_volinfo_t *volinfo,
+                                glusterd_brickinfo_t *src_brickinfo)
+{
+        glusterd_conf_t    *priv = NULL;
+        FILE *file = NULL;
+        char filename[PATH_MAX];
+        int ret;
+
+        priv = THIS->private;
+
+        gf_log ("", GF_LOG_DEBUG,
+                "Creating volfile");
+
+        snprintf (filename, PATH_MAX, "%s/vols/%s/replace_brick.vol",
+                  priv->workdir, volinfo->volname);
+
+        file = fopen (filename, "a+");
+        if (!file) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Open of volfile failed");
+                return -1;
+        }
+
+        ret = truncate (filename, 0);
+        ret = unlink ("/tmp/replace_brick.vol");
+
+        fprintf (file, "volume client/protocol\n");
+        fprintf (file, "type protocol/client\n");
+        fprintf (file, "option remote-host %s\n",
+                 src_brickinfo->hostname);
+        fprintf (file, "option remote-subvolume %s\n",
+                 src_brickinfo->path);
+        fprintf (file, "option remote-port 34034\n");
+        fprintf (file, "echo end-volume\n");
+
+        ret = symlink(filename, "/tmp/replace_brick.vol");
+        if (!ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "symlink call failed");
+                return -1;
+        }
+
+        fclose (file);
+
+        return 0;
+}
+
+static int
+replace_brick_start_source_brick (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *src_brickinfo,
+                                  glusterd_brickinfo_t *dst_brickinfo)
+{        glusterd_conf_t    *priv = NULL;
+        char filename[PATH_MAX];
+        FILE *file = NULL;
+        char  cmd_str[8192] = {0,};
+        int ret;
+
+        priv = THIS->private;
+
+        gf_log ("", GF_LOG_DEBUG,
+                "Creating volfile");
+
+        snprintf (filename, PATH_MAX, "%s/vols/%s/replace_source_brick.vol",
+                  priv->workdir, volinfo->volname);
+
+        file = fopen (filename, "a+");
+        if (!file) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Open of volfile failed");
+                return -1;
+        }
+
+        ret = truncate (filename, 0);
+
+        fprintf (file, "volume src-posix\n");
+        fprintf (file, "type storage/posix\n");
+        fprintf (file, "option directory %s\n",
+                 src_brickinfo->path);
+        fprintf (file, "end-volume\n");
+        fprintf (file, "volume locks\n");
+        fprintf (file, "type features/locks\n");
+        fprintf (file, "subvolumes src-posix\n");
+        fprintf (file, "end-volume\n");
+        fprintf (file, "volume remote-client\n");
+        fprintf (file, "type protocol/client\n");
+        fprintf (file, "option remote-host %s\n",
+                 dst_brickinfo->hostname);
+        fprintf (file, "option remote-port 34034\n");
+        fprintf (file, "option remote-subvolume %s\n",
+                 dst_brickinfo->path);
+        fprintf (file, "end-volume\n");
+        fprintf (file, "volume %s\n",
+                 src_brickinfo->path);
+        fprintf (file, "type cluster/pump\n");
+        fprintf (file, "subvolumes locks remote-client\n");
+        fprintf (file, "end-volume\n");
+        fprintf (file, "volume src-server\n");
+        fprintf (file, "type protocol/server\n");
+        fprintf (file, "option auth.addr.%s.allow *\n",
+                 src_brickinfo->path);
+        fprintf (file, "option listen-port 34034\n");
+        fprintf (file, "subvolumes %s\n",
+                 src_brickinfo->path);
+        fprintf (file, "end-volume\n");
+
+
+        gf_log ("", GF_LOG_DEBUG,
+                "starting source brick");
+
+        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/replace_source_brick.vol -l /tmp/b_log -LTRACE",
+                  priv->workdir, volinfo->volname);
+
+        ret = system (cmd_str);
+
+        fclose (file);
+
+        return 0;
+}
+
+static int
+replace_brick_mount (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *src_brickinfo,
+                     glusterd_brickinfo_t *dst_brickinfo, gf1_cli_replace_op op)
+{
+
+        gf_log ("", GF_LOG_DEBUG,
+                "starting source brick");
+
+        replace_brick_start_source_brick (volinfo, src_brickinfo,
+                                          dst_brickinfo);
+
+        return 0;
+}
+
+static int
+glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
+{
+        int                                     ret = 0;
+        dict_t                                  *dict = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        char                                    *volname = NULL;
+        xlator_t                                *this = NULL;
+        glusterd_conf_t                         *priv = NULL;
+        char                                    *src_brick = NULL;
+        char                                    *dst_brick = NULL;
+        char                                    *str = NULL;
+
+        glusterd_brickinfo_t                    *src_brickinfo = NULL;
+        glusterd_brickinfo_t                    *dst_brickinfo = NULL;
+
+        GF_ASSERT (req);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        /* Need to do a little more error checking and validation */
+        ret = dict_get_str (dict, "src-brick", &src_brick);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get src brick");
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "src brick=%s", src_brick);
+
+        ret = dict_get_str (dict, "dst-brick", &dst_brick);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get dest brick");
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "dst brick=%s", dst_brick);
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+
+        str = strdup (src_brick);
+
+        ret = glusterd_brickinfo_get (str, volinfo,
+                                      &src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
+                goto out;
+        }
+
+        ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to get dst-brickinfo");
+                goto out;
+        }
+
+        replace_brick_generate_volfile (volinfo, src_brickinfo);
+
+        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE SOURCE HOST");
+                replace_brick_mount (volinfo, src_brickinfo, dst_brickinfo,
+                                     req->op);
+        } else if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE DESTINATION HOST");
+                replace_brick_spawn_brick (volinfo, dict, dst_brickinfo);
+        }
+
+        ret = 0;
 
 out:
         return ret;
@@ -1609,6 +1977,11 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req)
                         ret = glusterd_op_stage_add_brick (req);
                         break;
 
+                case GD_OP_REPLACE_BRICK:
+                        ret = glusterd_op_stage_replace_brick (req);
+                        break;
+
+
                 case GD_OP_REMOVE_BRICK:
                         ret = glusterd_op_stage_remove_brick (req);
                         break;
@@ -1650,6 +2023,10 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req)
 
                 case GD_OP_ADD_BRICK:
                         ret = glusterd_op_add_brick (req);
+                        break;
+
+                case GD_OP_REPLACE_BRICK:
+                        ret = glusterd_op_replace_brick (req);
                         break;
 
                 case GD_OP_REMOVE_BRICK:

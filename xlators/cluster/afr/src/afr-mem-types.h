@@ -40,6 +40,7 @@ enum gf_afr_mem_types_ {
         gf_afr_mt_uint8_t,
         gf_afr_mt_loc_t,
         gf_afr_mt_entry_name,
+        gf_afr_mt_pump_priv,
         gf_afr_mt_end
 };
 #endif

@@ -228,10 +228,13 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
 		 fd_t *fd)
 {
+        afr_private_t *priv = NULL;
 	afr_local_t * local  = NULL;
 
 	int call_count = -1;
         int ret        = 0;
+
+        priv = this->private;
 
 	LOCK (&frame->lock);
 	{
