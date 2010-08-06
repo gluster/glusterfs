@@ -5,7 +5,7 @@ gluster_SOURCES = cli.c registry.c input.c cli-cmd.c cli-rl.c \
 	 cli-cmd-misc.c cli-cmd-log.c
 
 gluster_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
-		$(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la
+		$(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
 
 gluster_LDFLAGS = $(GF_LDFLAGS) $(GF_GLUSTERFS_LDFLAGS)
