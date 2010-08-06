@@ -43,7 +43,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
-#include "glusterd-ha.h"
+#include "glusterd-store.h"
 #include "cli1.h"
 
 static struct list_head gd_op_sm_queue;
@@ -690,7 +690,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         }
         list_add_tail (&volinfo->vol_list, &priv->volumes);
 
-        ret = glusterd_ha_create_volume (volinfo);
+        ret = glusterd_store_create_volume (volinfo);
 
         if (ret)
                 goto out;
@@ -816,11 +816,11 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                         goto out;
         }
 
-/*        ret = glusterd_ha_update_volume (volinfo);
+        ret = glusterd_store_update_volume (volinfo);
 
         if (ret)
                 goto out;
-*/
+
 
 
 out:
@@ -938,11 +938,11 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                         goto out;
         }
 
-/*        ret = glusterd_ha_update_volume (volinfo);
+        ret = glusterd_store_update_volume (volinfo);
 
         if (ret)
                 goto out;
-*/
+
 
 
 out:
@@ -973,7 +973,7 @@ glusterd_op_delete_volume (gd1_mgmt_stage_op_req *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_ha_delete_volume (volinfo);
+        ret = glusterd_store_delete_volume (volinfo);
 
         if (ret)
                 goto out;

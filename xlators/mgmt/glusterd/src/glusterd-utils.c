@@ -878,6 +878,7 @@ glusterd_is_cli_op_req (int32_t op)
                 case GD_MGMT_CLI_DELETE_VOLUME:
                 case GD_MGMT_CLI_DEFRAG_VOLUME:
                 case GD_MGMT_CLI_ADD_BRICK:
+                case GD_MGMT_CLI_REMOVE_BRICK:
                         return _gf_true;
                         break;
         }

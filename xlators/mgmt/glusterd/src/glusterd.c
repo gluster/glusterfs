@@ -42,6 +42,7 @@
 #include "statedump.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
+#include "glusterd-store.h"
 
 
 static uuid_t glusterd_uuid;
@@ -50,17 +51,6 @@ extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpc_clnt_program glusterd3_1_mgmt_prog;
 extern glusterd_op_info_t opinfo;
 
-static int
-glusterd_retrieve_uuid ()
-{
-        return -1;
-}
-
-static int
-glusterd_store_uuid ()
-{
-        return 0;
-}
 
 static int
 glusterd_opinfo_init ()
@@ -75,22 +65,28 @@ glusterd_opinfo_init ()
 static int
 glusterd_uuid_init ()
 {
-        int     ret = -1;
-        char    str[50];
+        int             ret = -1;
+        char            str[50] = {0,};
+        glusterd_conf_t *priv = NULL;
 
+        priv = THIS->private;
         ret = glusterd_retrieve_uuid ();
 
         if (!ret) {
+                uuid_unparse (priv->uuid, str);
+                uuid_copy (glusterd_uuid, priv->uuid);
                 gf_log ("glusterd", GF_LOG_NORMAL,
-                                "retrieved UUID: %s", glusterd_uuid);
+                                "retrieved UUID: %s", str);
                 return 0;
         }
+
 
         uuid_generate (glusterd_uuid);
         uuid_unparse (glusterd_uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                         "generated UUID: %s",str);
+        uuid_copy (priv->uuid, glusterd_uuid);
 
         ret = glusterd_store_uuid ();
 
@@ -285,11 +281,14 @@ init (xlator_t *this)
         if (ret < 0)
                 goto out;
 
+        ret = glusterd_restore ();
+        if (ret < 0)
+                goto out;
+
         glusterd_friend_sm_init ();
         glusterd_op_sm_init ();
         glusterd_opinfo_init ();
 
-        memcpy(conf->uuid, glusterd_uuid, sizeof (uuid_t));
 
         ret = 0;
 out:
