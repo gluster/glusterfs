@@ -76,6 +76,8 @@ struct syncargs {
         struct iatt         iatt1;
         struct iatt         iatt2;
         dict_t             *xattr;
+        gf_dirent_t        entries;
+        struct statvfs     statvfs_buf;
 
         /* do not touch */
         pthread_mutex_t     mutex;
@@ -134,10 +136,10 @@ struct syncargs {
 #define SYNCOP(subvol, stb, cbk, op, params ...) do {                   \
         call_frame_t    *frame = NULL;                                  \
                                                                         \
-        frame = create_frame (THIS, THIS->ctx->pool);                   \
+        frame = syncop_create_frame ();                                 \
                                                                         \
         __yawn (stb);                                                   \
-        STACK_WIND_COOKIE (frame, (void *)stb, cbk, subvol, op, params);\
+        STACK_WIND_COOKIE (frame, cbk, (void *)stb, subvol, op, params);\
         __yield (stb);                                                  \
 } while (0)
 
@@ -157,8 +159,23 @@ int syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
                    /* out */
                    struct iatt *iatt, dict_t **xattr_rsp, struct iatt *parent);
 
+int syncop_readdirp (xlator_t *subvol, fd_t *fd, size_t size, off_t off,
+                     /* out */
+                     gf_dirent_t *entries);
+
+int
+syncop_opendir (xlator_t *subvol,
+                loc_t *loc,
+                fd_t *fd);
+
 int syncop_setattr (xlator_t *subvol, loc_t *loc, struct iatt *iatt, int valid,
                     /* out */
                     struct iatt *preop, struct iatt *postop);
+
+int
+syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf);
+
+int
+syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags);
 
 #endif /* _SYNCOP_H */

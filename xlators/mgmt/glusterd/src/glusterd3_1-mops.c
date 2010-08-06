@@ -1164,6 +1164,10 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         ret = glusterd_handle_add_brick (req);
                         break;
 
+                case GD_MGMT_CLI_REPLACE_BRICK:
+                        ret = glusterd_handle_replace_brick (req);
+                        break;
+
                 case GD_MGMT_CLI_REMOVE_BRICK:
                         ret = glusterd_handle_remove_brick (req);
                         break;
@@ -1203,6 +1207,7 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GD_MGMT_CLI_DELETE_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_GET_VOLUME] = { "GET_VOLUME", GD_MGMT_CLI_GET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_ADD_BRICK] = { "ADD_BRICK", GD_MGMT_CLI_ADD_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_REPLACE_BRICK] = { "REPLACE_BRICK", GD_MGMT_CLI_REPLACE_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_REMOVE_BRICK] = { "REMOVE_BRICK", GD_MGMT_CLI_REMOVE_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
 };
 

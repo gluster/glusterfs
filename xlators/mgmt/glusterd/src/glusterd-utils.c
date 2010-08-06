@@ -73,7 +73,7 @@ glusterd_unset_lock_owner (uuid_t owner)
         return 0;
 }
 
-static int32_t
+int32_t
 glusterd_is_local_addr (char *hostname)
 {
         int32_t         ret = -1;
@@ -598,11 +598,14 @@ glusterd_brickinfo_from_brick (char *brick,
         glusterd_brickinfo_t    *new_brickinfo = NULL;
         char                    *hostname = NULL;
         char                    *path = NULL;
+        char                    *tmp = NULL;
 
         GF_ASSERT (brick);
         GF_ASSERT (brickinfo);
 
-        hostname = strtok (brick, ":");
+        tmp = strdup (brick);
+
+        hostname = strtok (tmp, ":");
         path = strtok (NULL, ":");
 
         GF_ASSERT (hostname);

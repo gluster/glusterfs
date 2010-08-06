@@ -24,6 +24,20 @@
 
 #include "syncop.h"
 
+call_frame_t *
+syncop_create_frame ()
+{
+        struct synctask *task = NULL;
+        struct call_frame_t *frame = NULL;
+
+        task = synctask_get ();
+
+        if (task) {
+                frame = task->opaque;
+        }
+
+        return (call_frame_t *)frame;
+}
 
 void
 synctask_yield (struct synctask *task)
@@ -95,6 +109,8 @@ synctask_wrap (struct synctask *task)
         */
         task->complete = 1;
         synctask_wake (task);
+
+        synctask_yield (task);
 }
 
 
@@ -105,7 +121,7 @@ synctask_destroy (struct synctask *task)
                 return;
 
         if (task->stack)
-                FREE (task);
+                FREE (task->stack);
         FREE (task);
 }
 
@@ -305,7 +321,181 @@ syncop_lookup (xlator_t *subvol, loc_t *loc, dict_t *xattr_req,
         return args.op_ret;
 }
 
+static gf_dirent_t *
+entry_copy (gf_dirent_t *source)
+{
+        gf_dirent_t *sink = NULL;
 
+        sink = gf_dirent_for_name (source->d_name);
+
+        sink->d_off = source->d_off;
+        sink->d_ino = source->d_ino;
+        sink->d_type = source->d_type;
+
+        return sink;
+}
+
+int32_t
+syncop_readdirp_cbk (call_frame_t *frame,
+		      void *cookie,
+		      xlator_t *this,
+		      int32_t op_ret,
+		      int32_t op_errno,
+		      gf_dirent_t *entries)
+{
+        struct syncargs *args = NULL;
+        gf_dirent_t *entry = NULL;
+        gf_dirent_t  *tmp = NULL;
+
+        int count = 0;
+
+        args = cookie;
+
+        INIT_LIST_HEAD (&args->entries.list);
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        if (op_ret >= 0) {
+                list_for_each_entry (entry, &entries->list, list) {
+                        tmp = entry_copy (entry);
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "adding entry=%s, count=%d",
+                                tmp->d_name, count);
+                        list_add_tail (&tmp->list, &(args->entries.list));
+                        count++;
+                }
+        }
+
+        __wake (args);
+
+        return 0;
+
+}
+
+int
+syncop_readdirp (xlator_t *subvol,
+		 fd_t *fd,
+		 size_t size,
+		 off_t off,
+                 gf_dirent_t *entries)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_readdirp_cbk, subvol->fops->readdirp,
+                fd, size, off);
+
+        if (entries)
+                list_splice_init (&args.entries.list, &entries->list);
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}
+
+int32_t
+syncop_opendir_cbk (call_frame_t *frame,
+                    void *cookie,
+                    xlator_t *this,
+                    int32_t op_ret,
+                    int32_t op_errno,
+                    fd_t *fd)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+int
+syncop_opendir (xlator_t *subvol,
+                loc_t *loc,
+                fd_t *fd)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_opendir_cbk, subvol->fops->opendir,
+                loc, fd);
+
+        errno = args.op_errno;
+        return args.op_ret;
+
+}
+
+
+int
+syncop_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int op_ret, int op_errno)
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        __wake (args);
+
+        return 0;
+}
+
+
+int
+syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags)
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_setxattr_cbk, subvol->fops->setxattr,
+                loc, dict, flags);
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
+
+int
+syncop_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno,
+		    struct statvfs *buf)
+
+{
+        struct syncargs *args = NULL;
+
+        args = cookie;
+
+        args->op_ret   = op_ret;
+        args->op_errno = op_errno;
+
+        if (op_ret == 0) {
+                args->statvfs_buf  = *buf;
+        }
+
+        __wake (args);
+
+        return 0;
+}
+
+
+int
+syncop_statfs (xlator_t *subvol, loc_t *loc, struct statvfs *buf)
+
+{
+        struct syncargs args = {0, };
+
+        SYNCOP (subvol, (&args), syncop_statfs_cbk, subvol->fops->statfs,
+                loc);
+
+        if (buf)
+                *buf = args.statvfs_buf;
+
+        errno = args.op_errno;
+        return args.op_ret;
+}
 
 int
 syncop_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

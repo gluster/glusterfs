@@ -32,6 +32,8 @@
 
 #define AFR_XATTR_PREFIX "trusted.afr"
 
+struct _pump_private;
+
 typedef struct _afr_private {
 	gf_lock_t lock;               /* to guard access to child_count, etc */
 	unsigned int child_count;     /* total number of children   */
@@ -40,6 +42,10 @@ typedef struct _afr_private {
         gf_lock_t read_child_lock;    /* lock to protect above */
         
 	xlator_t **children;
+
+        gf_lock_t root_inode_lk;
+        int first_lookup;
+        inode_t *root_inode;
 
 	unsigned char *child_up;
 
@@ -73,6 +79,9 @@ typedef struct _afr_private {
 
         uint64_t up_count;      /* number of CHILD_UPs we have seen */
         uint64_t down_count;    /* number of CHILD_DOWNs we have seen */
+
+	struct _pump_private *pump_private; /* Set if we are loaded as pump */
+        gf_boolean_t pump_loaded;
 } afr_private_t;
 
 typedef struct {
@@ -204,6 +213,7 @@ typedef struct _afr_local {
 	unsigned int call_count;
 	unsigned int success_count;
 	unsigned int enoent_count;
+
 
 	unsigned int govinda_gOvinda;
 
@@ -574,6 +584,18 @@ typedef struct {
 
 /* have we tried all children? */
 #define all_tried(i, count)  ((i) == (count) - 1)
+
+int
+pump_command_reply (call_frame_t *frame, xlator_t *this);
+
+int32_t
+afr_notify (xlator_t *this, int32_t event,
+            void *data, ...);
+
+void
+afr_set_lk_owner (call_frame_t *frame, xlator_t *this);
+
+int pump_start (call_frame_t *frame, xlator_t *this);
 
 int
 afr_fd_ctx_set (xlator_t *this, fd_t *fd);
