@@ -40,7 +40,23 @@
 #include "glusterd-sm.h"
 #include "glusterd1-xdr.h"
 
+#define GLUSTERD_MAX_VOLUME_NAME        1000
 
+struct glusterd_store_handle_ {
+        char    *path;
+        int     fd;
+        FILE    *read;
+        FILE    *write;
+};
+
+typedef struct glusterd_store_handle_  glusterd_store_handle_t;
+
+struct glusterd_store_iter_ {
+        int     fd;
+        FILE    *file;
+};
+
+typedef struct glusterd_store_iter_     glusterd_store_iter_t;
 
 typedef struct {
         struct _volfile_ctx *volfile;
@@ -55,6 +71,7 @@ typedef struct {
         rpc_clnt_prog_t   *mgmt;
         struct list_head  volumes;
         struct list_head  hostnames;
+        glusterd_store_handle_t *handle;
 } glusterd_conf_t;
 
 struct glusterd_brickinfo {
@@ -62,19 +79,21 @@ struct glusterd_brickinfo {
         char    path[PATH_MAX];
         struct list_head  brick_list;
         uuid_t  uuid;
+        glusterd_store_handle_t *shandle;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
 
 struct glusterd_volinfo_ {
-        char    volname[1024];
-        int     type;
-        int     brick_count;
+        char                    volname[GLUSTERD_MAX_VOLUME_NAME];
+        int                     type;
+        int                     brick_count;
         struct list_head        vol_list;
         struct list_head        bricks;
         glusterd_volume_status  status;
-        int     sub_count;
-        int     port;
+        int                     sub_count;
+        int                     port;
+        glusterd_store_handle_t *shandle;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
@@ -85,12 +104,23 @@ enum glusterd_op_ret {
 
 #define GLUSTERD_DEFAULT_WORKDIR "/etc/glusterd"
 #define GLUSTERD_DEFAULT_PORT   6969
+#define GLUSTERD_INFO_FILE      "glusterd.info"
+#define GLUSTERD_VOLUME_DIR_PREFIX "vols"
+#define GLUSTERD_VOLUME_INFO_FILE "info"
+#define GLUSTERD_BRICK_INFO_DIR "bricks"
+
+#define GLUSTERD_UUID_LEN 50
 
 typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 
 #define GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv) \
         snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,\
                   volinfo->volname);
+
+#define GLUSTERD_GET_BRICK_DIR(path, volinfo, priv) \
+        snprintf (path, PATH_MAX, "%s/%s/%s/%s", priv->workdir,\
+                  GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname, \
+                  GLUSTERD_BRICK_INFO_DIR);
 
 #define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname, count)         \
         snprintf (pidfile, PATH_MAX, "%s/run/%s-%d.pid", volpath, hostname, count);
