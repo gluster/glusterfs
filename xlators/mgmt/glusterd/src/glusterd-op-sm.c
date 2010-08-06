@@ -477,6 +477,7 @@ glusterd_op_stage_delete_volume (gd1_mgmt_stage_op_req *req)
                 gf_log ("", GF_LOG_ERROR, "Volume with name %s does not exist",
                         volname);
                 ret = -1;
+                goto out;
         } else {
                 ret = 0;
         }
@@ -492,6 +493,7 @@ glusterd_op_stage_delete_volume (gd1_mgmt_stage_op_req *req)
                 gf_log ("", GF_LOG_ERROR, "Volume %s has been started."
                         "Volume needs to be stopped before deletion.",
                         volname);
+                ret = -1;
                 goto out;
         }
 
