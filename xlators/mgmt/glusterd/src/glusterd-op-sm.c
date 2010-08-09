@@ -914,7 +914,7 @@ replace_brick_start_dst_brick (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t
                 return -1;
         }
 
-        truncate (filename, 0);
+        ret = truncate (filename, 0);
 
         fprintf (file, "volume src-posix\n");
         fprintf (file, "type storage/posix\n");

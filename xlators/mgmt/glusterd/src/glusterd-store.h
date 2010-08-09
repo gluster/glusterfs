@@ -50,6 +50,10 @@
 #define GLUSTERD_STORE_KEY_BRICK_HOSTNAME "hostname"
 #define GLUSTERD_STORE_KEY_BRICK_PATH "path"
 
+#define GLUSTERD_STORE_KEY_PEER_UUID "uuid"
+#define GLUSTERD_STORE_KEY_PEER_HOSTNAME "hostname"
+#define GLUSTERD_STORE_KEY_PEER_STATE "state"
+
 #define glusterd_for_each_entry(entry, dir) \
         do {\
                 entry = readdir (dir);\
@@ -84,6 +88,9 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_retrieve_uuid ();
+
+int32_t
+glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo);
 
 int32_t
 glusterd_restore ();

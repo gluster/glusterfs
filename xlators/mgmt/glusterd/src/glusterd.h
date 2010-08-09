@@ -45,14 +45,6 @@
 
 #define GLUSTERD_MAX_VOLUME_NAME        1000
 
-struct glusterd_store_handle_ {
-        char    *path;
-        int     fd;
-        FILE    *read;
-        FILE    *write;
-};
-
-typedef struct glusterd_store_handle_  glusterd_store_handle_t;
 
 struct glusterd_store_iter_ {
         int     fd;
@@ -143,6 +135,7 @@ enum glusterd_op_ret {
 #define GLUSTERD_DEFAULT_PORT   6969
 #define GLUSTERD_INFO_FILE      "glusterd.info"
 #define GLUSTERD_VOLUME_DIR_PREFIX "vols"
+#define GLUSTERD_PEER_DIR_PREFIX "peers"
 #define GLUSTERD_VOLUME_INFO_FILE "info"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"
 
@@ -176,7 +169,8 @@ int
 glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid, struct rpc_clnt    *rpc,
-                     glusterd_peerinfo_t **friend);
+                     glusterd_peerinfo_t **friend,
+                     gf_boolean_t restore);
 
 
 int
