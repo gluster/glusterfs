@@ -219,8 +219,7 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         dict = dict_new ();
-
-        if (dict)
+        if (!dict)
                 goto out;
 
         GF_ASSERT (words[2]);
@@ -254,34 +253,57 @@ out:
         return ret;
 }
 
+void
+cli_cmd_volume_defrag_usage ()
+{
+        cli_out ("Usage: volume rebalance <volname> <start|stop|status>");
+}
 
 int
 cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
                            const char **words, int wordcount)
 {
-        int                     ret = -1;
-        rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
-        char                    *volname = NULL;
-
+        int                   ret     = -1;
+        rpc_clnt_procedure_t *proc    = NULL;
+        call_frame_t         *frame   = NULL;
+        dict_t               *dict = NULL;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        GF_ASSERT (words[2]);
+
+        if (!(words[3])) {
+                cli_cmd_volume_defrag_usage();
+                goto out;
+        }
         //TODO: Build validation here
-        volname = (char *)words[2];
-        GF_ASSERT (volname);
+        ret = dict_set_str (dict, "volname", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "command", (char *)words[3]);
+        if (ret)
+                goto out;
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_DEFRAG_VOLUME];
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, volname);
+                ret = proc->fn (frame, THIS, dict);
         }
 
 out:
-        if (!proc && ret)
-                cli_out ("Defrag of Volume %s failed", volname);
+        if (!proc && ret) {
+                if (dict)
+                        dict_destroy (dict);
+
+                cli_out ("Defrag of Volume %s failed", (char *)words[2]);
+        }
 
         return 0;
 }
@@ -438,7 +460,13 @@ struct cli_cmd volume_cmds[] = {
         { "volume remove-brick <VOLNAME> [(replica <COUNT>)|(stripe <COUNT>)] <BRICK> ...",
           cli_cmd_volume_remove_brick_cbk },
 
-        { "volume defrag <VOLNAME>",
+        { "volume rebalance <VOLNAME> start",
+          cli_cmd_volume_defrag_cbk },
+
+        { "volume rebalance <VOLNAME> stop",
+          cli_cmd_volume_defrag_cbk },
+
+        { "volume rebalance <VOLNAME> status",
           cli_cmd_volume_defrag_cbk },
 
         { "volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>)|pause|abort|start|status",

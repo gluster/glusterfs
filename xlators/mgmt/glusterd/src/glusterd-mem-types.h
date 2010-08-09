@@ -54,6 +54,7 @@ enum gf_gld_mem_types_ {
         gf_gld_mt_ifreq,
         gf_gld_mt_store_handle_t,
         gf_gld_mt_store_iter_t,
+        gf_gld_mt_defrag_info,
         gf_gld_mt_end
 };
 #endif

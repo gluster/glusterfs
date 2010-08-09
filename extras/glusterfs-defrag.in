@@ -12,7 +12,10 @@
 
 set -e;
 
-added_bricks="node1:/gfs/export1"
+#
+#added_bricks="node1:/gfs/export1"
+#
+added_bricks=""
 
 CP="cp"
 MV="mv"
@@ -52,6 +55,8 @@ relocate_file()
     if [ $stat_info -lt 1000 ] ; then
         return;
     fi
+
+    size=$(stat -c '%s' "$path");
 
     # If there are some entries in added_bricks, then check
     # if the link file is present on those nodes, if not,
