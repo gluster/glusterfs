@@ -436,7 +436,7 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         }
 
         if (total_count == 0) {
-                gf_log (file->this->name, GF_LOG_DEBUG, "no vectors are to be"
+                gf_log (file->this->name, GF_LOG_TRACE, "no vectors are to be"
                         "synced");
                 goto out;
         }

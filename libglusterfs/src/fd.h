@@ -35,8 +35,14 @@ struct _inode;
 struct _dict;
 
 struct _fd_ctx {
-	uint64_t  key;
-	uint64_t  value;
+        union {
+                uint64_t  key;
+                void     *xl_key;
+        };
+        union {
+                uint64_t  value1;
+                void     *ptr1;
+        };
 };
 
 /* If this structure changes, please have mercy on the booster maintainer
@@ -53,6 +59,7 @@ struct _fd {
         gf_lock_t         lock; /* used ONLY for manipulating
                                    'struct _fd_ctx' array (_ctx).*/
 	struct _fd_ctx   *_ctx;
+        int               xl_count; /* Number of xl referred in this fd */
 };
 typedef struct _fd fd_t;
 
