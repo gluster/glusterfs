@@ -25,6 +25,10 @@
 
 #include "cli1-xdr.h"
 
+#define GF_DEFRAG_CMD_START   1
+#define GF_DEFRAG_CMD_STOP    2
+#define GF_DEFRAG_CMD_STATUS  3
+
 ssize_t
 gf_xdr_serialize_cli_probe_rsp (struct iovec outmsg, void *rsp);
 

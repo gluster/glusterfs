@@ -25,8 +25,11 @@
 #include "config.h"
 #endif
 
+#include <sys/types.h>
+#include <dirent.h>
 #include <pthread.h>
-#include <uuid/uuid.h>
+
+#include "uuid.h"
 
 #include "rpc-clnt.h"
 #include "glusterfs.h"
@@ -84,6 +87,33 @@ struct glusterd_brickinfo {
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
 
+struct gf_defrag_brickinfo_ {
+        char *name;
+        int   files;
+        int   size;
+};
+
+typedef enum gf_defrag_status_ {
+        GF_DEFRAG_STATUS_NOT_STARTED,
+        GF_DEFRAG_STATUS_STARTED,
+        GF_DEFRAG_STATUS_STOPED,
+        GF_DEFRAG_STATUS_COMPLETE,
+} gf_defrag_status_t;
+
+struct glusterd_defrag_info_ {
+        uint64_t                     total_files;
+        uint64_t                     total_data;
+        uint64_t                     num_files_lookedup;
+        gf_lock_t                    lock;
+        pthread_t                    th;
+        char                         mount[1024];
+        char                         databuf[131072];
+        struct gf_defrag_brickinfo_ *bricks; /* volinfo->brick_count */
+};
+
+
+typedef struct glusterd_defrag_info_ glusterd_defrag_info_t;
+
 struct glusterd_volinfo_ {
         char                    volname[GLUSTERD_MAX_VOLUME_NAME];
         int                     type;
@@ -94,6 +124,13 @@ struct glusterd_volinfo_ {
         int                     sub_count;
         int                     port;
         glusterd_store_handle_t *shandle;
+
+        /* Defrag/rebalance related */
+        gf_defrag_status_t      defrag_status;
+        uint64_t                rebalance_files;
+        uint64_t                rebalance_data;
+        uint64_t                lookedup_files;
+        glusterd_defrag_info_t  *defrag;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;

@@ -500,11 +500,12 @@ int
 gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
-        gf1_cli_defrag_vol_rsp  rsp   = {0,};
-        int                     ret   = 0;
-        cli_local_t             *local = NULL;
-        char                    *volname = NULL;
-        call_frame_t            *frame = NULL;
+        gf1_cli_defrag_vol_rsp  rsp     = {0,};
+        cli_local_t            *local   = NULL;
+        char                   *volname = NULL;
+        call_frame_t           *frame   = NULL;
+        int                     cmd     = 0;
+        int                     ret     = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -521,12 +522,34 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (frame)
                 local = frame->local;
 
-        if (local)
-                volname = local->u.start_vol.volname;
+        if (local) {
+                volname = local->u.defrag_vol.volname;
+                cmd = local->u.defrag_vol.cmd;
+        }
+        if (cmd == GF_DEFRAG_CMD_START) {
+                cli_out ("starting defrag on volume %s has been %s", volname,
+                         (rsp.op_ret) ? "unsuccessful": "successful");
+        }
+        if (cmd == GF_DEFRAG_CMD_STOP) {
+                if (rsp.op_ret == -1)
+                        cli_out ("'defrag volume %s stop' failed", volname);
+                else
+                        cli_out ("stopped defrag process of volume %s \n"
+                                 "(after rebalancing %"PRId64" files totaling "
+                                 "%"PRId64" bytes)", volname, rsp.files, rsp.size);
+        }
+        if (cmd == GF_DEFRAG_CMD_STATUS) {
+                if (rsp.op_ret == -1)
+                        cli_out ("failed to get the status of defrag process");
+                else {
+                        cli_out ("rebalanced %"PRId64" files of size %"PRId64
+                                 " (total files scanned %"PRId64")",
+                                 rsp.files, rsp.size, rsp.lookedup_files);
+                }
+        }
 
-        gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
-        cli_out ("Defrag of volume %s has been %s", volname,
-                (rsp.op_ret) ? "unsuccessful": "successful");
+        if (volname)
+                GF_FREE (volname);
 
         ret = rsp.op_ret;
 
@@ -1074,23 +1097,48 @@ int32_t
 gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
-        gf1_cli_defrag_vol_req   req = {0,};
-        int                    ret = 0;
-        cli_local_t            *local = NULL;
+        gf1_cli_defrag_vol_req  req     = {0,};
+        int                     ret     = 0;
+        cli_local_t            *local   = NULL;
+        char                   *volname = NULL;
+        char                   *cmd_str = NULL;
+        dict_t                 *dict    = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
                 goto out;
         }
 
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret)
+                gf_log ("", GF_LOG_DEBUG, "error");
+
+        ret = dict_get_str (dict, "command", &cmd_str);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "error");
+                goto out;
+        }
+
+        if (strncasecmp (cmd_str, "start", 6) == 0) {
+                req.cmd = GF_DEFRAG_CMD_START;
+        } else if (strncasecmp (cmd_str, "stop", 5) == 0) {
+                req.cmd = GF_DEFRAG_CMD_STOP;
+        } else if (strncasecmp (cmd_str, "status", 7) == 0) {
+                req.cmd = GF_DEFRAG_CMD_STATUS;
+        }
+
+
         local = cli_local_get ();
 
         if (local) {
-                local->u.defrag_vol.volname = data;
+                local->u.defrag_vol.volname = gf_strdup (volname);
+                local->u.defrag_vol.cmd = req.cmd;
                 frame->local = local;
         }
 
-        req.volname = data;
+        req.volname = volname;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GD_MGMT_CLI_DEFRAG_VOLUME, NULL,

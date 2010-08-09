@@ -594,7 +594,203 @@ out:
         return ret;
 }
 
+int
+glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
+{
+        int                     ret                = -1;
+        int                     dst_fd             = -1;
+        int                     src_fd             = -1;
+        DIR                    *fd                 = NULL;
+        glusterd_defrag_info_t *defrag             = NULL;
+        struct dirent          *entry              = NULL;
+        struct stat             stbuf              = {0,};
+        struct stat             new_stbuf          = {0,};
+        char                    full_path[1024]    = {0,};
+        char                    tmp_filename[1024] = {0,};
+        char                    value[128]         = {0,};
 
+        defrag = volinfo->defrag;
+        if (!defrag)
+                goto out;
+
+        fd = opendir (dir);
+        if (!fd)
+                goto out;
+
+        do {
+                entry = readdir (fd);
+                if (!entry)
+                        break;
+
+                if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
+                        continue;
+
+                snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
+
+                ret = stat (full_path, &stbuf);
+                if (ret == -1)
+                        continue;
+
+                if (S_ISDIR (stbuf.st_mode)) {
+                        //getfattr -n trusted.distribute.fix.layout "$path" ;
+                        getxattr (full_path, "trusted.distribute.fix.layout",
+                                  &value, 128);
+
+                        ret = glusterd_check_and_rebalance (volinfo, full_path);
+                }
+                if (S_ISREG (stbuf.st_mode) && ((stbuf.st_mode & 01000) == 01000)) {
+                        /* TODO: run the defrag */
+                        snprintf (tmp_filename, 1024, "%s/.%s.gfs%zu", dir,
+                                  entry->d_name, stbuf.st_size);
+
+                        dst_fd = creat (tmp_filename, (stbuf.st_mode & ~01000));
+                        if (dst_fd == -1)
+                                continue;
+
+                        src_fd = open (full_path, O_RDONLY);
+                        if (src_fd == -1) {
+                                close (dst_fd);
+                                continue;
+                        }
+
+                        while (1) {
+                                ret = read (src_fd, defrag->databuf, 131072);
+                                if (!ret || (ret < 0)) {
+                                        close (dst_fd);
+                                        close (src_fd);
+                                        break;
+                                }
+                                ret = write (dst_fd, defrag->databuf, ret);
+                                if (ret < 0) {
+                                        close (dst_fd);
+                                        close (src_fd);
+                                        break;
+                                }
+                        }
+
+                        ret = stat (full_path, &new_stbuf);
+                        if (ret < 0)
+                                continue;
+                        if (new_stbuf.st_mtime != stbuf.st_mtime)
+                                continue;
+
+                        ret = rename (tmp_filename, full_path);
+                        if (ret != -1) {
+                                LOCK (&defrag->lock);
+                                {
+                                        defrag->total_files += 1;
+                                        defrag->total_data += stbuf.st_size;
+                                }
+                                UNLOCK (&defrag->lock);
+                        }
+                }
+                ret = 0;
+
+                LOCK (&defrag->lock);
+                {
+                        if (S_ISREG (stbuf.st_mode))
+                                defrag->num_files_lookedup += 1;
+                        if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED)
+                                ret = 1;
+                }
+                UNLOCK (&defrag->lock);
+                if (ret)
+                        break;
+
+                /* Write the full 'glusterfs-defrag' here */
+
+        } while (1);
+
+        closedir (fd);
+
+        if (!entry)
+                ret = 0;
+out:
+        return ret;
+}
+
+void *
+glusterd_defrag_start (void *data)
+{
+        glusterd_volinfo_t     *volinfo = data;
+        glusterd_defrag_info_t *defrag  = NULL;
+        char                    cmd_str[1024] = {0,};
+        int                     ret     = -1;
+
+        /* TODO: make it more generic.. */
+        defrag = volinfo->defrag;
+        if (!defrag)
+                goto out;
+
+        ret = glusterd_check_and_rebalance (volinfo, defrag->mount);
+
+        /* TODO: This should run in a thread, and finish the thread when
+           the task is complete. While defrag is running, keep updating
+           files */
+
+        volinfo->defrag_status   = GF_DEFRAG_STATUS_COMPLETE;
+        volinfo->rebalance_files = defrag->total_files;
+        volinfo->rebalance_data  = defrag->total_data;
+        volinfo->lookedup_files  = defrag->num_files_lookedup;
+out:
+        gf_log ("defrag", GF_LOG_NORMAL, "defrag on %s complete",
+                defrag->mount);
+
+        snprintf (cmd_str, 1024, "umount %s", defrag->mount);
+        system (cmd_str);
+        volinfo->defrag = NULL;
+        LOCK_DESTROY (&defrag->lock);
+        GF_FREE (defrag);
+
+        return NULL;
+}
+
+int
+glusterd_defrag_stop (glusterd_volinfo_t *volinfo,
+                      gf1_cli_defrag_vol_rsp *rsp)
+{
+        /* TODO: set a variaeble 'stop_defrag' here, it should be checked
+           in defrag loop */
+        if (!volinfo || !volinfo->defrag)
+                goto out;
+
+        LOCK (&volinfo->defrag->lock);
+        {
+                volinfo->defrag_status = GF_DEFRAG_STATUS_STOPED;
+                rsp->files = volinfo->defrag->total_files;
+                rsp->size = volinfo->defrag->total_data;
+        }
+        UNLOCK (&volinfo->defrag->lock);
+
+        rsp->op_ret = 0;
+out:
+        return 0;
+}
+
+int
+glusterd_defrag_status_get (glusterd_volinfo_t *volinfo,
+                            gf1_cli_defrag_vol_rsp *rsp)
+{
+        if (!volinfo)
+                goto out;
+
+        if (volinfo->defrag) {
+                LOCK (&volinfo->defrag->lock);
+                {
+                        rsp->files = volinfo->defrag->total_files;
+                        rsp->size = volinfo->defrag->total_data;
+                        rsp->lookedup_files = volinfo->defrag->num_files_lookedup;
+                }
+                UNLOCK (&volinfo->defrag->lock);
+        } else {
+                rsp->files = volinfo->rebalance_files;
+                rsp->size  = volinfo->rebalance_data;
+                rsp->lookedup_files = volinfo->lookedup_files;
+        }
+        rsp->op_ret = 0;
+out:
+        return 0;
+}
 
 int
 glusterd_handle_defrag_volume (rpcsvc_request_t *req)
@@ -603,7 +799,9 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         gf1_cli_defrag_vol_req cli_req       = {0,};
         glusterd_conf_t         *priv = NULL;
         char                   cmd_str[4096] = {0,};
-	 glusterd_volinfo_t      *tmp_volinfo = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_defrag_info_t *defrag =  NULL;
+        gf1_cli_defrag_vol_rsp rsp = {0,};
 
         GF_ASSERT (req);
 
@@ -617,46 +815,87 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag volume on %s",
                 cli_req.volname);
 
-	 if (glusterd_volinfo_find(cli_req.volname, &tmp_volinfo)) {
-		 gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag on invalid"
-			 " volname %s", cli_req.volname);
-		 goto out;
-	 }
- 
-        glusterd_op_set_op (GD_OP_DEFRAG_VOLUME);
-
-        glusterd_op_set_ctx (GD_OP_DEFRAG_VOLUME, cli_req.volname);
-
-        /* TODO: make it more generic.. */
-        /* Create a directory, mount glusterfs over it, start glusterfs-defrag */
-        snprintf (cmd_str, 4096, "mkdir -p %s/mount/%s",
-                  priv->workdir, cli_req.volname);
-        ret = system (cmd_str);
-
-	 if (ret) {
-		   gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
-		   goto out;
-	 }
-
-        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s-tcp.vol "
-                  "--xlator-option dht0.unhashed-sticky-bit=yes "
-                  "--xlator-option dht0.lookup-unhashed=on %s/mount/%s",
-                  priv->workdir, cli_req.volname, cli_req.volname,
-                  priv->workdir, cli_req.volname);
-        ret = system (cmd_str);
-
-        if (ret) {
-                  gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
-                  goto out;
+        rsp.volname = cli_req.volname;
+        rsp.op_ret = -1;
+        if (glusterd_volinfo_find(cli_req.volname, &volinfo)) {
+                gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag on invalid"
+                        " volname %s", cli_req.volname);
+                goto out;
         }
 
-        snprintf (cmd_str, 4096, "glusterfs-defrag %s/mount/%s",
-                  priv->workdir, cli_req.volname);
-        ret = system (cmd_str);
+        if (volinfo->status != GLUSTERD_STATUS_STARTED) {
+                gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag on stopped"
+                        " volname %s", cli_req.volname);
+                goto out;
+        }
 
-	 if (ret)
-		   gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed",cmd_str);
+        switch (cli_req.cmd) {
+        case GF_DEFRAG_CMD_START:
+        {
+                if (volinfo->defrag) {
+                        gf_log ("glusterd", GF_LOG_DEBUG,
+                                "defrag on volume %s already started",
+                                cli_req.volname);
+                        goto out;
+                }
+
+                volinfo->defrag = GF_CALLOC (1, sizeof (glusterd_defrag_info_t),
+                                             gf_gld_mt_defrag_info);
+                if (!volinfo->defrag)
+                        goto out;
+
+                defrag = volinfo->defrag;
+
+                LOCK_INIT (&defrag->lock);
+                snprintf (defrag->mount, 1024, "%s/mount/%s",
+                          priv->workdir, cli_req.volname);
+                /* Create a directory, mount glusterfs over it, start glusterfs-defrag */
+                snprintf (cmd_str, 4096, "mkdir -p %s", defrag->mount);
+                ret = system (cmd_str);
+
+                if (ret) {
+                        gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                        goto out;
+                }
+
+                snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s-tcp.vol "
+                          "--xlator-option dht0.unhashed-sticky-bit=yes "
+                          "--xlator-option dht0.lookup-unhashed=yes "
+                          "--volume-name quickread %s",
+                          priv->workdir, cli_req.volname, cli_req.volname,
+                          defrag->mount);
+                ret = system (cmd_str);
+
+                if (ret) {
+                        gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                        goto out;
+                }
+                rsp.op_ret = 0;
+                ret = pthread_create (&defrag->th, NULL, glusterd_defrag_start,
+                                      volinfo);
+                if (ret) {
+                        snprintf (cmd_str, 1024, "umount -l %s", defrag->mount);
+                        ret = system (cmd_str);
+                        rsp.op_ret = -1;
+                }
+                break;
+        }
+        case GF_DEFRAG_CMD_STOP:
+                ret = glusterd_defrag_stop (volinfo, &rsp);
+                break;
+        case GF_DEFRAG_CMD_STATUS:
+                ret = glusterd_defrag_status_get (volinfo, &rsp);
+                break;
+        default:
+                break;
+        }
+        if (ret)
+                gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed",cmd_str);
 out:
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     gf_xdr_serialize_cli_defrag_vol_rsp);
+
         return ret;
 }
 

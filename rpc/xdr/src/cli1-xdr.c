@@ -301,6 +301,8 @@ bool_t
 xdr_gf1_cli_defrag_vol_req (XDR *xdrs, gf1_cli_defrag_vol_req *objp)
 {
 
+	 if (!xdr_int (xdrs, &objp->cmd))
+		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
 	return TRUE;
@@ -315,6 +317,12 @@ xdr_gf1_cli_defrag_vol_rsp (XDR *xdrs, gf1_cli_defrag_vol_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->files))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->size))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->lookedup_files))
 		 return FALSE;
 	return TRUE;
 }

@@ -123,6 +123,7 @@ struct cli_local {
 
                 struct {
                         char    *volname;
+                        int      cmd;
                 } defrag_vol;
 
                 struct {
