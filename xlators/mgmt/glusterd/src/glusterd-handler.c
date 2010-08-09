@@ -41,6 +41,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-store.h"
 
 #include "glusterd1.h"
 #include "cli1.h"
@@ -50,16 +51,8 @@
 #include <sys/resource.h>
 #include <inttypes.h>
 
-/* for default_*_cbk functions */
 #include "defaults.c"
 #include "common-utils.h"
-
-
-/*typedef int32_t (*glusterd_mop_t) (call_frame_t *frame,
-                            gf_hdr_common_t *hdr, size_t hdrlen);*/
-
-//static glusterd_mop_t glusterd_ops[GF_MOP_MAXVALUE];
-
 
 
 static int
@@ -1417,7 +1410,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
 
                 ret = glusterd_friend_add (hostname, friend_req.port,
                                            GD_FRIEND_STATE_BEFRIENDED,
-                                           &uuid, NULL, &peerinfo);
+                                           &uuid, NULL, &peerinfo, 0);
 
                 i++;
         }
@@ -1487,7 +1480,8 @@ glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid,
                      struct rpc_clnt    *rpc,
-                     glusterd_peerinfo_t **friend)
+                     glusterd_peerinfo_t **friend,
+                     gf_boolean_t restore)
 {
         int                     ret = 0;
         glusterd_conf_t         *priv = NULL;
@@ -1564,9 +1558,12 @@ glusterd_friend_add (const char *hoststr, int port,
 
         }
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "connect returned %d", ret);
+        if (!restore)
+                ret = glusterd_store_update_peerinfo (peerinfo);
+
 
 out:
+        gf_log ("glusterd", GF_LOG_NORMAL, "connect returned %d", ret);
         return ret;
 
 }
@@ -1591,7 +1588,7 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
                         " for host: %s (%d)", hoststr, port);
                 ret = glusterd_friend_add ((char *)hoststr, port,
                                            GD_FRIEND_STATE_DEFAULT,
-                                           NULL, NULL, &peerinfo);
+                                           NULL, NULL, &peerinfo, 0);
         }
 
         ret = glusterd_friend_sm_new_event

@@ -42,6 +42,7 @@
 #include "statedump.h"
 #include "glusterd-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-store.h"
 
 static struct list_head gd_friend_sm_queue;
 
@@ -539,7 +540,7 @@ glusterd_friend_sm ()
                             GD_FRIEND_EVENT_RCVD_FRIEND_REQ == event_type)) {
                                 ret = glusterd_friend_add (NULL, port,
                                                           GD_FRIEND_STATE_DEFAULT,
-                                                          NULL, NULL, &peerinfo);
+                                                          NULL, NULL, &peerinfo, 0);
 
                                 if (ret) {
                                         gf_log ("glusterd", GF_LOG_ERROR, "Unable to add peer, "
@@ -577,6 +578,8 @@ glusterd_friend_sm ()
                                          state[event_type].next_state);
                                 goto out;
                         }
+
+                        ret = glusterd_store_update_peerinfo (peerinfo);
 
                         GF_FREE (event);
                 }

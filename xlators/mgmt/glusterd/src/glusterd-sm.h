@@ -38,6 +38,15 @@
 //#include "glusterd.h"
 #include "rpcsvc.h"
 
+struct glusterd_store_handle_ {
+        char    *path;
+        int     fd;
+        FILE    *read;
+        FILE    *write;
+};
+
+typedef struct glusterd_store_handle_  glusterd_store_handle_t;
+
 typedef enum glusterd_friend_sm_state_ {
         GD_FRIEND_STATE_DEFAULT = 0,
         GD_FRIEND_STATE_REQ_SENT,
@@ -71,6 +80,7 @@ struct glusterd_peerinfo_ {
         struct list_head                hostnames;
         struct rpc_clnt                 *rpc;
         int                             connected;
+        glusterd_store_handle_t         *shandle;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;

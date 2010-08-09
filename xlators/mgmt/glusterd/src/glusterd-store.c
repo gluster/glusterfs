@@ -406,7 +406,8 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
         char            *str = NULL;
 
         GF_ASSERT (handle);
-        GF_ASSERT (handle->fd > 0);
+
+        handle->fd = open (handle->path, O_RDWR);
 
         if (!handle->read)
                 handle->read = fdopen (handle->fd, "r");
@@ -430,7 +431,8 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
                         gf_log ("", GF_LOG_DEBUG, "key %s found", key);
                         iter_val = strtok (NULL, "=");
                         ret = 0;
-                        *value = gf_strdup (iter_val);
+                        if (iter_val)
+                                *value = gf_strdup (iter_val);
                         goto out;
                 }
 
@@ -440,6 +442,8 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
         if (EOF == ret)
                 ret = -1;
 out:
+        if (handle->fd >= 0)
+                close (handle->fd);
 
         return ret;
 }
@@ -516,6 +520,44 @@ out:
                         GF_FREE (shandle);
                 }
         }
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int32_t
+glusterd_store_handle_destroy (glusterd_store_handle_t *handle)
+{
+        int32_t                 ret = -1;
+
+        if (!handle) {
+                ret = 0;
+                goto out;
+        }
+
+        GF_FREE (handle->path);
+
+        GF_FREE (handle);
+
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
+int32_t
+glusterd_store_handle_truncate (glusterd_store_handle_t *handle)
+{
+        int32_t         ret = -1;
+
+        GF_ASSERT (handle);
+        GF_ASSERT (handle->path);
+
+        ret = truncate (handle->path, 0);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -686,7 +728,8 @@ glusterd_store_iter_get_next (glusterd_store_iter_t *iter,
         iter_val = strtok (NULL, "=");
         gf_log ("", GF_LOG_DEBUG, "value %s read", iter_val);
 
-        *value = gf_strdup (iter_val);
+        if (iter_val)
+                *value = gf_strdup (iter_val);
         *key   = gf_strdup (iter_key);
 
         ret = 0;
@@ -950,6 +993,185 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
+{
+        int32_t                         ret = -1;
+        struct  stat                    stbuf = {0,};
+        glusterd_conf_t                 *priv = NULL;
+        char                            peerdir[PATH_MAX] = {0,};
+        char                            filepath[PATH_MAX] = {0,};
+        char                            str[512] = {0,};
+        char                            buf[4096] = {0,};
+        glusterd_peer_hostname_t        *hname = NULL;
+        int                             i = 0;
+        char                            hostname_path[PATH_MAX] = {0,};
+
+        GF_ASSERT (peerinfo);
+
+        priv = THIS->private;
+
+        snprintf (peerdir, PATH_MAX, "%s/peers", priv->workdir);
+
+        ret = stat (peerdir, &stbuf);
+
+        if (-1 == ret) {
+                ret = mkdir (peerdir, 0777);
+                if (ret)
+                        goto out;
+        }
+
+        if (uuid_is_null (peerinfo->uuid)) {
+
+                if (peerinfo->hostname) {
+                        snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
+                                  peerinfo->hostname);
+                } else {
+                        GF_ASSERT (peerinfo->uuid || peerinfo->hostname);
+                }
+        } else {
+                uuid_unparse (peerinfo->uuid, str);
+
+                snprintf (filepath, PATH_MAX, "%s/%s", peerdir, str);
+                snprintf (hostname_path, PATH_MAX, "%s/%s",
+                          peerdir, peerinfo->hostname);
+
+                ret = stat (hostname_path, &stbuf);
+
+                if (!ret) {
+                        gf_log ("", GF_LOG_DEBUG, "Destroying store handle");
+                        glusterd_store_handle_destroy (peerinfo->shandle);
+                        peerinfo->shandle = NULL;
+                }
+        }
+
+
+        if (!peerinfo->shandle) {
+                ret = glusterd_store_handle_new (filepath, &peerinfo->shandle);
+                if (ret)
+                        goto out;
+        } else {
+                ret = glusterd_store_handle_truncate (peerinfo->shandle);
+                if (ret)
+                        goto out;
+        }
+
+        ret = glusterd_store_save_value (peerinfo->shandle,
+                                         GLUSTERD_STORE_KEY_PEER_UUID, str);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", peerinfo->state.state);
+        ret = glusterd_store_save_value (peerinfo->shandle,
+                                         GLUSTERD_STORE_KEY_PEER_STATE, buf);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (hname, &peerinfo->hostnames, hostname_list) {
+                i++;
+                snprintf (buf, sizeof (buf), "%s%d",
+                          GLUSTERD_STORE_KEY_PEER_HOSTNAME, i);
+                ret = glusterd_store_save_value (peerinfo->shandle,
+                                                 buf, hname->hostname);
+                if (ret)
+                        goto out;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_store_retrieve_peers (xlator_t *this)
+{
+        int32_t                 ret = -1;
+        glusterd_conf_t         *priv = NULL;
+        DIR                     *dir = NULL;
+        struct dirent           *entry = NULL;
+        char                    path[PATH_MAX] = {0,};
+        glusterd_peerinfo_t     *peerinfo = NULL;
+        uuid_t                  uuid = {0,};
+        char                    *hostname = NULL;
+        int32_t                 state = 0;
+        glusterd_store_handle_t *shandle = NULL;
+        char                    filepath[PATH_MAX] = {0,};
+        glusterd_store_iter_t   *iter = NULL;
+        char                    *key = NULL;
+        char                    *value = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+
+        GF_ASSERT (priv);
+
+        snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
+                  GLUSTERD_PEER_DIR_PREFIX);
+
+        dir = opendir (path);
+
+        if (!dir) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open dir %s", path);
+                ret = -1;
+                goto out;
+        }
+
+        glusterd_for_each_entry (entry, dir);
+
+        while (entry) {
+                snprintf (filepath, PATH_MAX, "%s/%s", path, entry->d_name);
+                ret = glusterd_store_handle_new (filepath, &shandle);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_store_iter_new (shandle, &iter);
+                if (ret)
+                        goto out;
+
+                ret = glusterd_store_iter_get_next (iter, &key, &value);
+
+                while (!ret) {
+
+                        if (!strncmp (GLUSTERD_STORE_KEY_PEER_UUID, key,
+                                      strlen (GLUSTERD_STORE_KEY_PEER_UUID))) {
+                                if (value)
+                                        uuid_parse (value, uuid);
+                        } else if (!strncmp (GLUSTERD_STORE_KEY_PEER_STATE,
+                                    key,
+                                    strlen (GLUSTERD_STORE_KEY_PEER_STATE))) {
+                                state = atoi (value);
+                        } else if (!strncmp (GLUSTERD_STORE_KEY_PEER_HOSTNAME,
+                                   key,
+                                   strlen (GLUSTERD_STORE_KEY_PEER_HOSTNAME))) {
+                                hostname = gf_strdup (value);
+                        } else {
+                                gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
+                                        key);
+                        }
+
+                        GF_FREE (key);
+                        GF_FREE (value);
+
+                        ret = glusterd_store_iter_get_next (iter, &key, &value);
+                }
+
+                (void) glusterd_store_iter_destroy (iter);
+
+                ret = glusterd_friend_add (hostname, 0, state, &uuid,
+                                           NULL, &peerinfo, 1);
+
+                if (ret)
+                        goto out;
+
+                peerinfo->shandle = shandle;
+                glusterd_for_each_entry (entry, dir);
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
 
 int32_t
 glusterd_restore ()
@@ -961,6 +1183,10 @@ glusterd_restore ()
 
         ret = glusterd_store_retrieve_volumes (this);
 
+        if (ret)
+                goto out;
+
+        ret = glusterd_store_retrieve_peers (this);
         if (ret)
                 goto out;
 
