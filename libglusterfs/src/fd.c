@@ -419,9 +419,9 @@ fd_destroy (fd_t *fd)
 	 tmp_pool = fd->inode->table->fd_mem_pool;
 
         if (IA_ISDIR (fd->inode->ia_type)) {
-		for (i = 0; i < fd->inode->table->xl->graph->xl_count; i++) {
+		for (i = 0; i < fd->xl_count; i++) {
 			if (fd->_ctx[i].key) {
-				xl = (xlator_t *)(long)fd->_ctx[i].key;
+				xl = fd->_ctx[i].xl_key;
                                 old_THIS = THIS;
                                 THIS = xl;
 				if (xl->cbks->releasedir)
@@ -430,9 +430,9 @@ fd_destroy (fd_t *fd)
 			}
 		}
         } else {
-		for (i = 0; i < fd->inode->table->xl->graph->xl_count; i++) {
+		for (i = 0; i < fd->xl_count; i++) {
 			if (fd->_ctx[i].key) {
-				xl = (xlator_t *)(long)fd->_ctx[i].key;
+				xl = fd->_ctx[i].xl_key;
                                 old_THIS = THIS;
                                 THIS = xl;
 				if (xl->cbks->release)
@@ -513,8 +513,9 @@ fd_create (inode_t *inode, pid_t pid)
         if (!fd)
                 goto out;
 
-        fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) *
-                                  inode->table->xl->graph->xl_count),
+        fd->xl_count = inode->table->xl->graph->xl_count + 1;
+
+        fd->_ctx = GF_CALLOC (1, (sizeof (struct _fd_ctx) * fd->xl_count),
                               gf_common_mt_fd_ctx);
         if (!fd->_ctx) {
                 GF_FREE (fd);
@@ -596,14 +597,14 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 	if (!fd || !xlator)
 		return -1;
 
-        for (index = 0; index < xlator->graph->xl_count; index++) {
+        for (index = 0; index < fd->xl_count; index++) {
                 if (!fd->_ctx[index].key) {
                         if (set_idx == -1)
                                 set_idx = index;
                         /* dont break, to check if key already exists
                            further on */
                 }
-                if (fd->_ctx[index].key == (uint64_t)(long) xlator) {
+                if (fd->_ctx[index].xl_key == xlator) {
                         set_idx = index;
                         break;
                 }
@@ -614,8 +615,8 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
                 goto out;
         }
 
-        fd->_ctx[set_idx].key   = (uint64_t)(long) xlator;
-        fd->_ctx[set_idx].value = value;
+        fd->_ctx[set_idx].xl_key = xlator;
+        fd->_ctx[set_idx].value1  = value;
 
 out:
 	return ret;
@@ -649,18 +650,18 @@ __fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value)
 	if (!fd || !xlator)
 		return -1;
 
-        for (index = 0; index < xlator->graph->xl_count; index++) {
-                if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+        for (index = 0; index < fd->xl_count; index++) {
+                if (fd->_ctx[index].xl_key == xlator)
                         break;
         }
 
-        if (index == xlator->graph->xl_count) {
+        if (index == fd->xl_count) {
                 ret = -1;
                 goto out;
         }
 
         if (value)
-                *value = fd->_ctx[index].value;
+                *value = fd->_ctx[index].value1;
 
 out:
 	return ret;
@@ -694,21 +695,21 @@ __fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value)
 	if (!fd || !xlator)
 		return -1;
 
-        for (index = 0; index < xlator->graph->xl_count; index++) {
-                if (fd->_ctx[index].key == (uint64_t)(long)xlator)
+        for (index = 0; index < fd->xl_count; index++) {
+                if (fd->_ctx[index].xl_key == xlator)
                         break;
         }
 
-        if (index == xlator->graph->xl_count) {
+        if (index == fd->xl_count) {
                 ret = -1;
                 goto out;
         }
 
         if (value)
-                *value = fd->_ctx[index].value;
+                *value = fd->_ctx[index].value1;
 
         fd->_ctx[index].key   = 0;
-        fd->_ctx[index].value = 0;
+        fd->_ctx[index].value1 = 0;
 
 out:
 	return ret;
