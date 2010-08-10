@@ -191,6 +191,7 @@ int32_t gf_darwin_compat_setxattr (dict_t *dict);
 #define lchmod chmod
 #endif 
 
+#define lgetxattr(path, key, value, size) solaris_getxattr(path,key,value,size)
 enum {
         ATTR_CREATE = 1,
 #define XATTR_CREATE ATTR_CREATE
