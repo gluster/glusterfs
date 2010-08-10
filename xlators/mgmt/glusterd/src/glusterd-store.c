@@ -141,6 +141,9 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
         ret = 0;
 
 out:
+        if (fd > 0) {
+                close (fd);
+        }
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
@@ -442,8 +445,10 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
         if (EOF == ret)
                 ret = -1;
 out:
-        if (handle->fd >= 0)
+        if (handle->fd > 0) {
                 close (handle->fd);
+                handle->read = NULL;
+        }
 
         return ret;
 }
@@ -456,12 +461,18 @@ glusterd_store_save_value (glusterd_store_handle_t *handle,
         char            buf[4096] = {0,};
 
         GF_ASSERT (handle);
-        GF_ASSERT (handle->fd > 0);
         GF_ASSERT (key);
         GF_ASSERT (value);
 
-        if (!handle->write)
-                handle->write = fdopen (handle->fd, "a+");
+        handle->fd = open (handle->path, O_RDWR | O_APPEND);
+
+        if (handle->fd < 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open %s, errno: %d",
+                        handle->path, errno);
+                goto out;
+        }
+
+        handle->write = fdopen (handle->fd, "a+");
 
         if (!handle->write) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %d",
@@ -484,6 +495,12 @@ glusterd_store_save_value (glusterd_store_handle_t *handle,
         ret = 0;
 
 out:
+
+        if (handle->fd > 0) {
+                close (handle->fd);
+                handle->write = NULL;
+                handle->fd = -1;
+        }
 
         gf_log ("", GF_LOG_DEBUG, "returning: %d", ret);
         return ret;
@@ -517,8 +534,12 @@ out:
                 if (shandle) {
                         if (shandle->path)
                                 GF_FREE (shandle->path);
+                        if (shandle->fd > 0)
+                                close (shandle->fd);
                         GF_FREE (shandle);
                 }
+        } else {
+                close (shandle->fd);
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -660,7 +681,6 @@ glusterd_store_iter_new (glusterd_store_handle_t  *shandle,
         int                     fd = -1;
 
         GF_ASSERT (shandle);
-        GF_ASSERT (shandle->fd > 0);
         GF_ASSERT (iter);
 
         tmp_iter = GF_CALLOC (1, sizeof (*tmp_iter),
