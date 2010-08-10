@@ -25,8 +25,8 @@
 #include "config.h"
 #endif
 
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
+//#include <rpc/rpc.h>
+//#include <rpc/pmap_clnt.h>
 #include <arpa/inet.h>
 #include <rpc/xdr.h>
 #include <sys/uio.h>

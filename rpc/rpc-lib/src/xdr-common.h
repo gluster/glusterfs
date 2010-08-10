@@ -25,7 +25,10 @@
 #include "config.h"
 #endif
 
-#include <rpc/rpc.h>
+#include <rpc/types.h>
+#include <sys/types.h>
+#include <rpc/xdr.h>
+#include <sys/uio.h>
 
 enum {
         GF_DUMP_NULL,
@@ -41,10 +44,19 @@ enum {
 #define xdr_u_quad_t xdr_u_int64_t
 #define xdr_quad_t   xdr_int64_t
 #define xdr_uint32_t xdr_u_int32_t
+#define uint64_t u_int64_t
+#endif
+
+#if GF_SOLARIS_HOST_OS
+#define u_quad_t uint64_t
+#define quad_t int64_t
+#define xdr_u_quad_t xdr_uint64_t
+#define xdr_quad_t   xdr_int64_t
+#define xdr_uint32_t xdr_uint32_t
 #endif
 
 struct auth_glusterfs_parms {
-	u_quad_t lk_owner;
+	uint64_t lk_owner;
 	u_int pid;
 	u_int uid;
 	u_int gid;
@@ -54,20 +66,20 @@ struct auth_glusterfs_parms {
 typedef struct auth_glusterfs_parms auth_glusterfs_parms;
 
 struct gf_dump_req {
-	u_quad_t gfs_id;
+	uint64_t gfs_id;
 } __attribute__((packed));
 typedef struct gf_dump_req gf_dump_req;
 
 struct gf_prog_detail {
 	char    *progname;
-	u_quad_t prognum;
-	u_quad_t progver;
+	uint64_t prognum;
+	uint64_t progver;
 	struct gf_prog_detail *next;
 } __attribute__((packed));
 typedef struct gf_prog_detail gf_prog_detail;
 
 struct gf_dump_rsp {
-	u_quad_t gfs_id;
+	uint64_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_prog_detail *prog;

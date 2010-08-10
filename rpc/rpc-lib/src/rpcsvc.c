@@ -84,7 +84,11 @@ rpcsvc_conn_peer_check_search (dict_t *options, char *pattern, char *clstr)
         addrtok = strtok_r (addrstr, ",", &svptr);
         while (addrtok) {
 
+#ifdef FNM_CASEFOLD
                 ret = fnmatch (addrtok, clstr, FNM_CASEFOLD);
+#else
+                ret = fnmatch (addrtok, clstr, 0);
+#endif
                 if (ret == 0)
                         goto err;
 
