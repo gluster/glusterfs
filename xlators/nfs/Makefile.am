@@ -1,3 +1,3 @@
-SUBDIRS = lib server
+SUBDIRS = server
 
 CLEANFILES =
