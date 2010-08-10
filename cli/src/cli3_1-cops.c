@@ -32,6 +32,7 @@
 #include "cli1.h"
 #include "protocol-common.h"
 #include "cli-mem-types.h"
+#include "compat.h"
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int      cli_op_ret;
@@ -736,7 +737,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_DEBUG,
                         "sending getxattr");
 
-                ret = getxattr ("/tmp/mnt/", "trusted.glusterfs.pump.status", status_msg, 8192);
+                ret = lgetxattr ("/tmp/mnt/", "trusted.glusterfs.pump.status", status_msg, 8192);
                 fprintf (stdout, "%s\n", status_msg);
 
                 gf_log ("", GF_LOG_DEBUG,
