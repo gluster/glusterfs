@@ -21,6 +21,7 @@
 #define _XDR_NFS3_H
 
 #include <rpc/rpc.h>
+#include <sys/types.h>
 
 #define NFS3_FHSIZE             64
 #define NFS3_COOKIEVERFSIZE     8
@@ -42,8 +43,8 @@
  */
 #define NFS3_ENTRYP3_FIXED_SIZE  (NFS3_ENTRY3_FIXED_SIZE + NFS3_POSTOPATTR_SIZE + NFS3_POSTOPFH3_FIXED_SIZE)
 
-typedef u_quad_t uint64;
-typedef quad_t int64;
+typedef uint64_t uint64;
+typedef int64_t int64;
 typedef uint32_t uint32;
 typedef int32_t int32;
 typedef char *filename3;
