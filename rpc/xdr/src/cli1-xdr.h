@@ -6,7 +6,8 @@
 #ifndef _CLI1_H_RPCGEN
 #define _CLI1_H_RPCGEN
 
-#include <rpc/rpc.h>
+//#include <rpc/rpc.h>
+#include <rpc/xdr.h>
 
 
 #ifdef __cplusplus

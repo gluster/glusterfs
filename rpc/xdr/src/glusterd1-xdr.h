@@ -6,7 +6,7 @@
 #ifndef _GLUSTERD1_H_RPCGEN
 #define _GLUSTERD1_H_RPCGEN
 
-#include <rpc/rpc.h>
+//#include <rpc/rpc.h>
 
 
 #ifdef __cplusplus

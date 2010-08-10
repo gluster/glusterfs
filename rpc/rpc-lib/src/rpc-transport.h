@@ -26,8 +26,12 @@
 #endif
 
 #include <inttypes.h>
-#include <rpc/rpc.h>
+#ifdef GF_SOLARIS_HOST_OS
 #include <rpc/auth.h>
+#else
+#include <rpc/rpc.h>
+#endif
+
 #include <rpc/rpc_msg.h>
 
 #ifndef MAX_IOVEC
