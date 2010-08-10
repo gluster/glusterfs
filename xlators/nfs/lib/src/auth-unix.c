@@ -31,7 +31,7 @@
 
 
 int
-auth_unix_request_init (rpcsvc_request_t *req, void *priv)
+nfs_auth_unix_request_init (rpcsvc_request_t *req, void *priv)
 {
         if (!req)
                 return -1;
@@ -42,7 +42,8 @@ auth_unix_request_init (rpcsvc_request_t *req, void *priv)
         return 0;
 }
 
-int auth_unix_authenticate (rpcsvc_request_t *req, void *priv)
+int
+nfs_auth_unix_authenticate (rpcsvc_request_t *req, void *priv)
 {
         int                     ret = RPCSVC_AUTH_REJECT;
         struct authunix_parms   aup;
@@ -51,8 +52,8 @@ int auth_unix_authenticate (rpcsvc_request_t *req, void *priv)
         if (!req)
                 return ret;
 
-        ret = xdr_to_auth_unix_cred (req->cred.authdata, req->cred.datalen,
-                                     &aup, machname, req->auxgids);
+        ret = nfs_xdr_to_auth_unix_cred (req->cred.authdata, req->cred.datalen,
+                                         &aup, machname, req->auxgids);
         if (ret == -1) {
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
@@ -69,23 +70,23 @@ err:
         return ret;
 }
 
-rpcsvc_auth_ops_t auth_unix_ops = {
+rpcsvc_auth_ops_t nfs_auth_unix_ops = {
         .conn_init              = NULL,
-        .request_init           = auth_unix_request_init,
-        .authenticate           = auth_unix_authenticate
+        .request_init           = nfs_auth_unix_request_init,
+        .authenticate           = nfs_auth_unix_authenticate
 };
 
-rpcsvc_auth_t rpcsvc_auth_unix = {
+rpcsvc_auth_t nfs_rpcsvc_auth_unix = {
         .authname       = "AUTH_UNIX",
         .authnum        = AUTH_UNIX,
-        .authops        = &auth_unix_ops,
+        .authops        = &nfs_auth_unix_ops,
         .authprivate    = NULL
 };
 
 
 rpcsvc_auth_t *
-rpcsvc_auth_unix_init (rpcsvc_t *svc, dict_t *options)
+nfs_rpcsvc_auth_unix_init (rpcsvc_t *svc, dict_t *options)
 {
-        return &rpcsvc_auth_unix;
+        return &nfs_rpcsvc_auth_unix;
 }
 

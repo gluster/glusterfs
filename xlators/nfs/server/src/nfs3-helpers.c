@@ -2020,7 +2020,7 @@ nfs3_file_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         fd->refcount);
         }
 
-        nfs3 = rpcsvc_request_program_private (cs->req);
+        nfs3 = nfs_rpcsvc_request_program_private (cs->req);
         nfs3_flush_open_wait_call_states (cs, fd);
         nfs3_fdcache_add (nfs3, fd);
         return 0;

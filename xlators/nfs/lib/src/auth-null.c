@@ -29,7 +29,7 @@
 
 
 int
-auth_null_request_init (rpcsvc_request_t *req, void *priv)
+nfs_auth_null_request_init (rpcsvc_request_t *req, void *priv)
 {
         if (!req)
                 return -1;
@@ -43,29 +43,30 @@ auth_null_request_init (rpcsvc_request_t *req, void *priv)
         return 0;
 }
 
-int auth_null_authenticate (rpcsvc_request_t *req, void *priv)
+int
+nfs_auth_null_authenticate (rpcsvc_request_t *req, void *priv)
 {
         /* Always succeed. */
         return RPCSVC_AUTH_ACCEPT;
 }
 
-rpcsvc_auth_ops_t auth_null_ops = {
+rpcsvc_auth_ops_t nfs_auth_null_ops = {
         .conn_init              = NULL,
-        .request_init           = auth_null_request_init,
-        .authenticate           = auth_null_authenticate
+        .request_init           = nfs_auth_null_request_init,
+        .authenticate           = nfs_auth_null_authenticate
 };
 
-rpcsvc_auth_t rpcsvc_auth_null = {
+rpcsvc_auth_t nfs_rpcsvc_auth_null = {
         .authname       = "AUTH_NULL",
         .authnum        = AUTH_NULL,
-        .authops        = &auth_null_ops,
+        .authops        = &nfs_auth_null_ops,
         .authprivate    = NULL
 };
 
 
 rpcsvc_auth_t *
-rpcsvc_auth_null_init (rpcsvc_t *svc, dict_t *options)
+nfs_rpcsvc_auth_null_init (rpcsvc_t *svc, dict_t *options)
 {
-        return &rpcsvc_auth_null;
+        return &nfs_rpcsvc_auth_null;
 }
 

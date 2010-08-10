@@ -17,8 +17,8 @@
   <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _RPCSVC_H
-#define _RPCSVC_H
+#ifndef _NFS_RPCSVC_H
+#define _NFS_RPCSVC_H
 
 
 #ifndef _CONFIG_H
@@ -43,7 +43,7 @@
 #define NGRPS RPCAUTH_UNIXGIDS
 #endif
 
-#define GF_RPCSVC       "rpc-service"
+#define GF_RPCSVC       "nfsrpc"
 #define RPCSVC_THREAD_STACK_SIZE ((size_t)(1024 * GF_UNIT_KB))
 
 #define RPCSVC_DEFAULT_MEMFACTOR        15
@@ -87,14 +87,14 @@
 #define RPCSVC_VECTOR_READVEC           1007
 #define RPCSVC_VECTOR_READPROCHDR       1008
 
-#define rpcsvc_record_vectored_baremsg(rs) (((rs)->state == RPCSVC_READ_FRAG) && (rs)->vecstate == 0)
-#define rpcsvc_record_vectored_cred(rs) ((rs)->vecstate == RPCSVC_VECTOR_READCRED)
-#define rpcsvc_record_vectored_verfsz(rs) ((rs)->vecstate == RPCSVC_VECTOR_READVERFSZ)
-#define rpcsvc_record_vectored_verfread(rs) ((rs)->vecstate == RPCSVC_VECTOR_READVERF)
-#define rpcsvc_record_vectored_ignore(rs) ((rs)->vecstate == RPCSVC_VECTOR_IGNORE)
-#define rpcsvc_record_vectored_readvec(rs) ((rs)->vecstate == RPCSVC_VECTOR_READVEC)
-#define rpcsvc_record_vectored_readprochdr(rs) ((rs)->vecstate == RPCSVC_VECTOR_READPROCHDR)
-#define rpcsvc_record_vectored(rs) ((rs)->fragsize > RPCSVC_VECTORED_FRAGSZ)
+#define nfs_rpcsvc_record_vectored_baremsg(rs) (((rs)->state == RPCSVC_READ_FRAG) && (rs)->vecstate == 0)
+#define nfs_rpcsvc_record_vectored_cred(rs) ((rs)->vecstate == RPCSVC_VECTOR_READCRED)
+#define nfs_rpcsvc_record_vectored_verfsz(rs) ((rs)->vecstate == RPCSVC_VECTOR_READVERFSZ)
+#define nfs_rpcsvc_record_vectored_verfread(rs) ((rs)->vecstate == RPCSVC_VECTOR_READVERF)
+#define nfs_rpcsvc_record_vectored_ignore(rs) ((rs)->vecstate == RPCSVC_VECTOR_IGNORE)
+#define nfs_rpcsvc_record_vectored_readvec(rs) ((rs)->vecstate == RPCSVC_VECTOR_READVEC)
+#define nfs_rpcsvc_record_vectored_readprochdr(rs) ((rs)->vecstate == RPCSVC_VECTOR_READPROCHDR)
+#define nfs_rpcsvc_record_vectored(rs) ((rs)->fragsize > RPCSVC_VECTORED_FRAGSZ)
 /* Includes bytes up to and including the credential length field. The credlen
  * will be followed by @credlen bytes of credential data which will have to be
  * read separately by the vectored reader. After the credentials comes the
@@ -102,10 +102,10 @@
  * verf flavour and verflen.
  */
 #define RPCSVC_BARERPC_MSGSZ    32
-#define rpcsvc_record_readfraghdr(rs)   ((rs)->state == RPCSVC_READ_FRAGHDR)
-#define rpcsvc_record_readfrag(rs)      ((rs)->state == RPCSVC_READ_FRAG)
+#define nfs_rpcsvc_record_readfraghdr(rs)   ((rs)->state == RPCSVC_READ_FRAGHDR)
+#define nfs_rpcsvc_record_readfrag(rs)      ((rs)->state == RPCSVC_READ_FRAG)
 
-#define rpcsvc_conn_rpcsvc(conn)        ((conn)->stage->svc)
+#define nfs_rpcsvc_conn_rpcsvc(conn)        ((conn)->stage->svc)
 #define RPCSVC_LOWVERS  2
 #define RPCSVC_HIGHVERS 2
 
@@ -197,7 +197,7 @@ typedef struct rpcsvc_record_state {
 #define RPCSVC_CONNSTATE_CONNECTED      1
 #define RPCSVC_CONNSTATE_DISCONNECTED   2
 
-#define rpcsvc_conn_check_active(conn) ((conn)->connstate==RPCSVC_CONNSTATE_CONNECTED)
+#define nfs_rpcsvc_conn_check_active(conn) ((conn)->connstate==RPCSVC_CONNSTATE_CONNECTED)
 
 typedef struct rpcsvc_request rpcsvc_request_t;
 /* Contains the state for each connection that is used for transmitting and
@@ -275,7 +275,7 @@ typedef struct rpcsvc_auth_data {
         char            authdata[RPCSVC_MAX_AUTH_BYTES];
 } rpcsvc_auth_data_t;
 
-#define rpcsvc_auth_flavour(au)    ((au).flavour)
+#define nfs_rpcsvc_auth_flavour(au)    ((au).flavour)
 
 /* The container for the RPC call handed up to an actor.
  * Dynamically allocated. Lives till the call reply is completely
@@ -366,28 +366,28 @@ struct rpcsvc_request {
 
 };
 
-#define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->conn->program))
-#define rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->conn->program))->private)
-#define rpcsvc_request_conn(req)        (req)->conn
-#define rpcsvc_request_accepted(req)    ((req)->rpc_stat == MSG_ACCEPTED)
-#define rpcsvc_request_accepted_success(req) ((req)->rpc_err == SUCCESS)
-#define rpcsvc_request_uid(req)         ((req)->uid)
-#define rpcsvc_request_gid(req)         ((req)->gid)
-#define rpcsvc_stage_service(stg)       ((rpcsvc_t *)((stg)->svc))
-#define rpcsvc_conn_stage(conn)         ((conn)->stage)
-#define rpcsvc_request_service(req)     (rpcsvc_stage_service(rpcsvc_conn_stage(rpcsvc_request_conn(req))))
-#define rpcsvc_request_prog_minauth(req) (rpcsvc_request_program(req)->min_auth)
-#define rpcsvc_request_cred_flavour(req) (rpcsvc_auth_flavour(req->cred))
-#define rpcsvc_request_verf_flavour(req) (rpcsvc_auth_flavour(req->verf))
+#define nfs_rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->conn->program))
+#define nfs_rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->conn->program))->private)
+#define nfs_rpcsvc_request_conn(req)        (req)->conn
+#define nfs_rpcsvc_request_accepted(req)    ((req)->rpc_stat == MSG_ACCEPTED)
+#define nfs_rpcsvc_request_accepted_success(req) ((req)->rpc_err == SUCCESS)
+#define nfs_rpcsvc_request_uid(req)         ((req)->uid)
+#define nfs_rpcsvc_request_gid(req)         ((req)->gid)
+#define nfs_rpcsvc_stage_service(stg)       ((rpcsvc_t *)((stg)->svc))
+#define nfs_rpcsvc_conn_stage(conn)         ((conn)->stage)
+#define nfs_rpcsvc_request_service(req)     (nfs_rpcsvc_stage_service(nfs_rpcsvc_conn_stage(nfs_rpcsvc_request_conn(req))))
+#define nfs_rpcsvc_request_prog_minauth(req) (nfs_rpcsvc_request_program(req)->min_auth)
+#define nfs_rpcsvc_request_cred_flavour(req) (nfs_rpcsvc_auth_flavour(req->cred))
+#define nfs_rpcsvc_request_verf_flavour(req) (nfs_rpcsvc_auth_flavour(req->verf))
 
-#define rpcsvc_request_uid(req)         ((req)->uid)
-#define rpcsvc_request_gid(req)         ((req)->gid)
-#define rpcsvc_request_private(req)     ((req)->private)
-#define rpcsvc_request_xid(req)         ((req)->xid)
-#define rpcsvc_request_set_private(req,prv)  (req)->private = (void *)(prv)
-#define rpcsvc_request_record_iob(rq)   ((rq)->recordiob)
-#define rpcsvc_request_record_ref(req)  (iobuf_ref ((req)->recordiob))
-#define rpcsvc_request_record_unref(req) (iobuf_unref ((req)->recordiob))
+#define nfs_rpcsvc_request_uid(req)         ((req)->uid)
+#define nfs_rpcsvc_request_gid(req)         ((req)->gid)
+#define nfs_rpcsvc_request_private(req)     ((req)->private)
+#define nfs_rpcsvc_request_xid(req)         ((req)->xid)
+#define nfs_rpcsvc_request_set_private(req,prv)  (req)->private = (void *)(prv)
+#define nfs_rpcsvc_request_record_iob(rq)   ((rq)->recordiob)
+#define nfs_rpcsvc_request_record_ref(req)  (iobuf_ref ((req)->recordiob))
+#define nfs_rpcsvc_request_record_unref(req) (iobuf_unref ((req)->recordiob))
 
 
 #define RPCSVC_ACTOR_SUCCESS    0
@@ -533,34 +533,34 @@ typedef struct rpc_svc_state {
  * procedure handlers.
  */
 extern int
-rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program);
+nfs_rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program);
 
 extern int
-rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t program);
+nfs_rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t program);
 
 /* Inits the global RPC service data structures.
  * Called in main.
  */
 extern rpcsvc_t *
-rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options);
+nfs_rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options);
 
 
 extern int
-rpcsvc_submit_message (rpcsvc_request_t * req, struct iovec msg,
-                       struct iobuf *iob);
+nfs_rpcsvc_submit_message (rpcsvc_request_t * req, struct iovec msg,
+                           struct iobuf *iob);
 
 int
-rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
-                       struct iobuf *msg);
-#define rpcsvc_record_currentfrag_addr(rs) ((rs)->fragcurrent)
-#define rpcsvc_record_currenthdr_addr(rs) ((rs)->hdrcurrent)
+nfs_rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
+                           struct iobuf *msg);
+#define nfs_rpcsvc_record_currentfrag_addr(rs) ((rs)->fragcurrent)
+#define nfs_rpcsvc_record_currenthdr_addr(rs) ((rs)->hdrcurrent)
 
-#define rpcsvc_record_update_currentfrag(rs, size)              \
+#define nfs_rpcsvc_record_update_currentfrag(rs, size)          \
                         do {                                    \
                                 (rs)->fragcurrent += size;      \
                         } while (0)                             \
 
-#define rpcsvc_record_update_currenthdr(rs, size)               \
+#define nfs_rpcsvc_record_update_currenthdr(rs, size)           \
                         do {                                    \
                                 (rs)->hdrcurrent += size;       \
                         } while (0)                             \
@@ -616,7 +616,7 @@ typedef struct rpcsvc_txbuf {
 } rpcsvc_txbuf_t;
 
 extern int
-rpcsvc_error_reply (rpcsvc_request_t *req);
+nfs_rpcsvc_error_reply (rpcsvc_request_t *req);
 
 #define RPCSVC_PEER_STRLEN      1024
 #define RPCSVC_AUTH_ACCEPT      1
@@ -624,33 +624,36 @@ rpcsvc_error_reply (rpcsvc_request_t *req);
 #define RPCSVC_AUTH_DONTCARE    3
 
 extern int
-rpcsvc_conn_peername (rpcsvc_conn_t *conn, char *hostname, int hostlen);
+nfs_rpcsvc_conn_peername (rpcsvc_conn_t *conn, char *hostname, int hostlen);
 
 extern int
-rpcsvc_conn_peeraddr (rpcsvc_conn_t *conn, char *addrstr, int addrlen,
-                      struct sockaddr *returnsa, socklen_t sasize);
+nfs_rpcsvc_conn_peeraddr (rpcsvc_conn_t *conn, char *addrstr, int addrlen,
+                          struct sockaddr *returnsa, socklen_t sasize);
 
 extern int
-rpcsvc_conn_peer_check (dict_t *options, char *volname, rpcsvc_conn_t *conn);
+nfs_rpcsvc_conn_peer_check (dict_t *options, char *volname,rpcsvc_conn_t *conn);
 
 extern int
-rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname, rpcsvc_conn_t *conn);
-#define rpcsvc_request_seterr(req, err)                 (req)->rpc_err = err
-#define rpcsvc_request_set_autherr(req, err)            (req)->auth_err = err
+nfs_rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname,
+                                rpcsvc_conn_t *conn);
+#define nfs_rpcsvc_request_seterr(req, err)                 (req)->rpc_err = err
+#define nfs_rpcsvc_request_set_autherr(req, err)            (req)->auth_err = err
 
 extern void
-rpcsvc_conn_deinit (rpcsvc_conn_t *conn);
-extern void rpcsvc_conn_ref (rpcsvc_conn_t *conn);
-extern void rpcsvc_conn_unref (rpcsvc_conn_t *conn);
+nfs_rpcsvc_conn_deinit (rpcsvc_conn_t *conn);
+extern void nfs_rpcsvc_conn_ref (rpcsvc_conn_t *conn);
+extern void nfs_rpcsvc_conn_unref (rpcsvc_conn_t *conn);
 
-extern int rpcsvc_submit_vectors (rpcsvc_request_t *req);
+extern int nfs_rpcsvc_submit_vectors (rpcsvc_request_t *req);
 
-extern int rpcsvc_request_attach_vector (rpcsvc_request_t *req,
-                                         struct iovec msgvec, struct iobuf *iob,
-                                         struct iobref *ioref, int finalvector);
+extern int nfs_rpcsvc_request_attach_vector (rpcsvc_request_t *req,
+                                             struct iovec msgvec,
+                                             struct iobuf *iob,
+                                             struct iobref *ioref,
+                                             int finalvector);
 extern int
-rpcsvc_request_attach_vectors (rpcsvc_request_t *req, struct iovec *payload,
-                               int vcount, struct iobref *piobref);
+nfs_rpcsvc_request_attach_vectors (rpcsvc_request_t *req, struct iovec *payload,
+                                   int vcount, struct iobref *piobref);
 
 typedef int (*auth_init_conn) (rpcsvc_conn_t *conn, void *priv);
 typedef int (*auth_init_request) (rpcsvc_request_t *req, void *priv);
@@ -691,19 +694,19 @@ struct rpcsvc_auth_list {
 };
 
 extern int
-rpcsvc_auth_request_init (rpcsvc_request_t *req);
+nfs_rpcsvc_auth_request_init (rpcsvc_request_t *req);
 
 extern int
-rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options);
+nfs_rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options);
 
 extern int
-rpcsvc_auth_conn_init (rpcsvc_conn_t *conn);
+nfs_rpcsvc_auth_conn_init (rpcsvc_conn_t *conn);
 
 extern int
-rpcsvc_authenticate (rpcsvc_request_t *req);
+nfs_rpcsvc_authenticate (rpcsvc_request_t *req);
 
 extern int
-rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
+nfs_rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
 
 /* If the request has been sent using AUTH_UNIX, this function returns the
  * auxiliary gids as an array, otherwise, it returns NULL.
@@ -711,11 +714,11 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen);
  * authentication code even further to support mode auth schemes.
  */
 extern gid_t *
-rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen);
+nfs_rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen);
 
 extern int
-rpcsvc_combine_gen_spec_volume_checks (int gen, int spec);
+nfs_rpcsvc_combine_gen_spec_volume_checks (int gen, int spec);
 
 extern char *
-rpcsvc_volume_allowed (dict_t *options, char *volname);
+nfs_rpcsvc_volume_allowed (dict_t *options, char *volname);
 #endif

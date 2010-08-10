@@ -38,10 +38,10 @@
 #include <netinet/tcp.h>
 
 static int
-rpcsvc_socket_server_get_local_socket (int addrfam, char *listenhost,
-                                       uint16_t listenport,
-                                       struct sockaddr *addr,
-                                       socklen_t *addr_len)
+nfs_rpcsvc_socket_server_get_local_socket (int addrfam, char *listenhost,
+                                           uint16_t listenport,
+                                           struct sockaddr *addr,
+                                           socklen_t *addr_len)
 {
         struct addrinfo         hints, *res = 0;
         char                    service[NI_MAXSERV];
@@ -76,7 +76,7 @@ err:
 
 
 int
-rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport)
+nfs_rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport)
 {
         int                     sock = -1;
         struct sockaddr_storage sockaddr;
@@ -85,9 +85,10 @@ rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport)
         int                     ret = -1;
         int                     opt = 1;
 
-        ret = rpcsvc_socket_server_get_local_socket (addrfam, listenhost,
-                                                     listenport,SA (&sockaddr),
-                                                     &sockaddr_len);
+        ret = nfs_rpcsvc_socket_server_get_local_socket (addrfam, listenhost,
+                                                         listenport,
+                                                         SA (&sockaddr),
+                                                         &sockaddr_len);
 
         if (ret == -1)
                 return ret;
@@ -149,7 +150,7 @@ err:
 
 
 int
-rpcsvc_socket_accept (int listenfd)
+nfs_rpcsvc_socket_accept (int listenfd)
 {
         int                     new_sock = -1;
         struct sockaddr_storage new_sockaddr = {0, };
@@ -197,7 +198,7 @@ err:
 }
 
 ssize_t
-rpcsvc_socket_read (int sockfd, char *readaddr, size_t readsize)
+nfs_rpcsvc_socket_read (int sockfd, char *readaddr, size_t readsize)
 {
         ssize_t         dataread = 0;
         ssize_t         readlen = -1;
@@ -226,7 +227,7 @@ rpcsvc_socket_read (int sockfd, char *readaddr, size_t readsize)
 
 
 ssize_t
-rpcsvc_socket_write (int sockfd, char *buffer, size_t size)
+nfs_rpcsvc_socket_write (int sockfd, char *buffer, size_t size)
 {
         size_t          writelen = -1;
         ssize_t         written = 0;
@@ -255,7 +256,7 @@ rpcsvc_socket_write (int sockfd, char *buffer, size_t size)
 
 
 int
-rpcsvc_socket_peername (int sockfd, char *hostname, int hostlen)
+nfs_rpcsvc_socket_peername (int sockfd, char *hostname, int hostlen)
 {
         struct sockaddr         sa;
         socklen_t               sl = sizeof (sa);
@@ -282,8 +283,8 @@ err:
 
 
 int
-rpcsvc_socket_peeraddr (int sockfd, char *addrstr, int addrlen,
-                        struct sockaddr *returnsa, socklen_t sasize)
+nfs_rpcsvc_socket_peeraddr (int sockfd, char *addrstr, int addrlen,
+                            struct sockaddr *returnsa, socklen_t sasize)
 {
         struct sockaddr         sa;
         int                     ret = EAI_FAIL;
@@ -323,8 +324,9 @@ err:
 
 
 int
-rpcsvc_socket_block_tx (int sockfd)
+nfs_rpcsvc_socket_block_tx (int sockfd)
 {
+
         int     ret = -1;
         int     on = 1;
 
@@ -341,7 +343,7 @@ rpcsvc_socket_block_tx (int sockfd)
 
 
 int
-rpcsvc_socket_unblock_tx (int sockfd)
+nfs_rpcsvc_socket_unblock_tx (int sockfd)
 {
         int     ret = -1;
         int     off = 0;

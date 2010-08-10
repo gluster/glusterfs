@@ -46,7 +46,7 @@
 #include <stdio.h>
 
 
-#define rpcsvc_alloc_request(con, request)                              \
+#define nfs_rpcsvc_alloc_request(con, request)                          \
         do {                                                            \
                 request = (rpcsvc_request_t *) mem_get ((con)->rxpool); \
                 memset (request, 0, sizeof (rpcsvc_request_t));         \
@@ -54,7 +54,7 @@
 
 /* The generic event handler for every stage */
 void *
-rpcsvc_stage_proc (void *arg)
+nfs_rpcsvc_stage_proc (void *arg)
 {
         rpcsvc_stage_t          *stg = (rpcsvc_stage_t *)arg;
 
@@ -67,7 +67,7 @@ rpcsvc_stage_proc (void *arg)
 
 
 rpcsvc_stage_t *
-rpcsvc_stage_init (rpcsvc_t *svc)
+nfs_rpcsvc_stage_init (rpcsvc_t *svc)
 {
         rpcsvc_stage_t          *stg = NULL;
         int                     ret = -1;
@@ -94,7 +94,7 @@ rpcsvc_stage_init (rpcsvc_t *svc)
                 gf_log (GF_RPCSVC, GF_LOG_WARNING,
                                 "Using default thread stack size");
 
-        ret = pthread_create (&stg->tid, &stgattr, rpcsvc_stage_proc,
+        ret = pthread_create (&stg->tid, &stgattr, nfs_rpcsvc_stage_proc,
                               (void *)stg);
         if (ret != 0) {
                 ret = -1;
@@ -115,7 +115,7 @@ free_stg:
 
 
 int
-rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
+nfs_rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
 {
         svc->memfactor = RPCSVC_DEFAULT_MEMFACTOR;
         return 0;
@@ -127,7 +127,7 @@ rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
  * to come in.
  */
 rpcsvc_t *
-rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
+nfs_rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
 {
         rpcsvc_t        *svc = NULL;
         int             ret = -1;
@@ -143,13 +143,13 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         INIT_LIST_HEAD (&svc->stages);
         INIT_LIST_HEAD (&svc->authschemes);
 
-        ret = rpcsvc_init_options (svc, options);
+        ret = nfs_rpcsvc_init_options (svc, options);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to init options");
                 goto free_svc;
         }
 
-        ret = rpcsvc_auth_init (svc, options);
+        ret = nfs_rpcsvc_auth_init (svc, options);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to init "
                         "authentication");
@@ -157,7 +157,7 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         }
 
         ret = -1;
-        svc->defaultstage = rpcsvc_stage_init (svc);
+        svc->defaultstage = nfs_rpcsvc_stage_init (svc);
         if (!svc->defaultstage) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,"RPC service init failed.");
                 goto free_svc;
@@ -182,7 +182,7 @@ free_svc:
  * function selects one from among all the stages.
  */
 rpcsvc_stage_t *
-rpcsvc_select_stage (rpcsvc_t *rpcservice)
+nfs_rpcsvc_select_stage (rpcsvc_t *rpcservice)
 {
         if (!rpcservice)
                 return NULL;
@@ -192,7 +192,7 @@ rpcsvc_select_stage (rpcsvc_t *rpcservice)
 
 
 int
-rpcsvc_conn_peer_check_search (dict_t *options, char *pattern, char *clstr)
+nfs_rpcsvc_conn_peer_check_search (dict_t *options, char *pattern, char *clstr)
 {
         int                     ret = -1;
         char                    *addrtok = NULL;
@@ -234,7 +234,7 @@ err:
 
 
 int
-rpcsvc_conn_peer_check_allow (dict_t *options, char *volname, char *clstr)
+nfs_rpcsvc_conn_peer_check_allow (dict_t *options, char *volname, char *clstr)
 {
         int     ret = RPCSVC_AUTH_DONTCARE;
         char    *srchstr = NULL;
@@ -257,7 +257,7 @@ rpcsvc_conn_peer_check_allow (dict_t *options, char *volname, char *clstr)
         } else
                 srchstr = globalrule;
 
-        ret = rpcsvc_conn_peer_check_search (options, srchstr, clstr);
+        ret = nfs_rpcsvc_conn_peer_check_search (options, srchstr, clstr);
         if (volname)
                 GF_FREE (srchstr);
 
@@ -270,7 +270,7 @@ out:
 }
 
 int
-rpcsvc_conn_peer_check_reject (dict_t *options, char *volname, char *clstr)
+nfs_rpcsvc_conn_peer_check_reject (dict_t *options, char *volname, char *clstr)
 {
         int     ret = RPCSVC_AUTH_DONTCARE;
         char    *srchstr = NULL;
@@ -280,7 +280,8 @@ rpcsvc_conn_peer_check_reject (dict_t *options, char *volname, char *clstr)
                 return ret;
 
         if (volname) {
-                ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.reject", volname);
+                ret = gf_asprintf (&srchstr, "rpc-auth.addr.%s.reject",
+                                   volname);
                 if (ret == -1) {
                         gf_log (GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
                         ret = RPCSVC_AUTH_REJECT;
@@ -289,7 +290,7 @@ rpcsvc_conn_peer_check_reject (dict_t *options, char *volname, char *clstr)
         } else
                 srchstr = generalrule;
 
-        ret = rpcsvc_conn_peer_check_search (options, srchstr, clstr);
+        ret = nfs_rpcsvc_conn_peer_check_search (options, srchstr, clstr);
         if (volname)
                 GF_FREE (srchstr);
 
@@ -318,7 +319,7 @@ out:
  * |    D   |   R     | R      |
  */
 int
-rpcsvc_combine_allow_reject_volume_check (int allow, int reject)
+nfs_rpcsvc_combine_allow_reject_volume_check (int allow, int reject)
 {
         int     final = RPCSVC_AUTH_REJECT;
 
@@ -360,7 +361,7 @@ rpcsvc_combine_allow_reject_volume_check (int allow, int reject)
  * |    R   |   R     | R      |
  */
 int
-rpcsvc_combine_gen_spec_addr_checks (int gen, int spec)
+nfs_rpcsvc_combine_gen_spec_addr_checks (int gen, int spec)
 {
         int     final = RPCSVC_AUTH_REJECT;
 
@@ -403,7 +404,7 @@ rpcsvc_combine_gen_spec_addr_checks (int gen, int spec)
  * |    R   |   R     | R      |
  */
 int
-rpcsvc_combine_gen_spec_volume_checks (int gen, int spec)
+nfs_rpcsvc_combine_gen_spec_volume_checks (int gen, int spec)
 {
         int     final = RPCSVC_AUTH_REJECT;
 
@@ -432,8 +433,8 @@ rpcsvc_combine_gen_spec_volume_checks (int gen, int spec)
 
 
 int
-rpcsvc_conn_peer_check_name (dict_t *options, char *volname,
-                             rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_peer_check_name (dict_t *options, char *volname,
+                                 rpcsvc_conn_t *conn)
 {
         int     ret = RPCSVC_AUTH_REJECT;
         int     aret = RPCSVC_AUTH_REJECT;
@@ -443,7 +444,7 @@ rpcsvc_conn_peer_check_name (dict_t *options, char *volname,
         if (!conn)
                 return ret;
 
-        ret = rpcsvc_conn_peername (conn, clstr, RPCSVC_PEER_STRLEN);
+        ret = nfs_rpcsvc_conn_peername (conn, clstr, RPCSVC_PEER_STRLEN);
         if (ret != 0) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get remote addr: "
                         "%s", gai_strerror (ret));
@@ -451,10 +452,10 @@ rpcsvc_conn_peer_check_name (dict_t *options, char *volname,
                 goto err;
         }
 
-        aret = rpcsvc_conn_peer_check_allow (options, volname, clstr);
-        rjret = rpcsvc_conn_peer_check_reject (options, volname, clstr);
+        aret = nfs_rpcsvc_conn_peer_check_allow (options, volname, clstr);
+        rjret = nfs_rpcsvc_conn_peer_check_reject (options, volname, clstr);
 
-        ret = rpcsvc_combine_allow_reject_volume_check (aret, rjret);
+        ret = nfs_rpcsvc_combine_allow_reject_volume_check (aret, rjret);
 
 err:
         return ret;
@@ -462,7 +463,8 @@ err:
 
 
 int
-rpcsvc_conn_peer_check_addr (dict_t *options, char *volname,rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_peer_check_addr (dict_t *options, char *volname,
+                                 rpcsvc_conn_t *conn)
 {
         int     ret = RPCSVC_AUTH_REJECT;
         int     aret = RPCSVC_AUTH_DONTCARE;
@@ -472,7 +474,8 @@ rpcsvc_conn_peer_check_addr (dict_t *options, char *volname,rpcsvc_conn_t *conn)
         if (!conn)
                 return ret;
 
-        ret = rpcsvc_conn_peeraddr (conn, clstr, RPCSVC_PEER_STRLEN, NULL, 0);
+        ret = nfs_rpcsvc_conn_peeraddr (conn, clstr, RPCSVC_PEER_STRLEN, NULL,
+                                        0);
         if (ret != 0) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get remote addr: "
                         "%s", gai_strerror (ret));
@@ -480,18 +483,18 @@ rpcsvc_conn_peer_check_addr (dict_t *options, char *volname,rpcsvc_conn_t *conn)
                 goto err;
         }
 
-        aret = rpcsvc_conn_peer_check_allow (options, volname, clstr);
-        rjret = rpcsvc_conn_peer_check_reject (options, volname, clstr);
+        aret = nfs_rpcsvc_conn_peer_check_allow (options, volname, clstr);
+        rjret = nfs_rpcsvc_conn_peer_check_reject (options, volname, clstr);
 
-        ret = rpcsvc_combine_allow_reject_volume_check (aret, rjret);
+        ret = nfs_rpcsvc_combine_allow_reject_volume_check (aret, rjret);
 err:
         return ret;
 }
 
 
 int
-rpcsvc_conn_check_volume_specific (dict_t *options, char *volname,
-                                   rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_check_volume_specific (dict_t *options, char *volname,
+                                       rpcsvc_conn_t *conn)
 {
         int             namechk = RPCSVC_AUTH_REJECT;
         int             addrchk = RPCSVC_AUTH_REJECT;
@@ -515,11 +518,13 @@ rpcsvc_conn_check_volume_specific (dict_t *options, char *volname,
          * specific which will over-ride the network address rules.
          */
         if (namelookup)
-                namechk = rpcsvc_conn_peer_check_name (options, volname, conn);
-        addrchk = rpcsvc_conn_peer_check_addr (options, volname, conn);
+                namechk = nfs_rpcsvc_conn_peer_check_name (options, volname,
+                                                           conn);
+        addrchk = nfs_rpcsvc_conn_peer_check_addr (options, volname, conn);
 
         if (namelookup)
-                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk, namechk);
+                ret = nfs_rpcsvc_combine_gen_spec_addr_checks (addrchk,
+                                                               namechk);
         else
                 ret = addrchk;
 
@@ -528,7 +533,7 @@ rpcsvc_conn_check_volume_specific (dict_t *options, char *volname,
 
 
 int
-rpcsvc_conn_check_volume_general (dict_t *options, rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_check_volume_general (dict_t *options, rpcsvc_conn_t *conn)
 {
         int             addrchk = RPCSVC_AUTH_REJECT;
         int             namechk = RPCSVC_AUTH_REJECT;
@@ -552,11 +557,12 @@ rpcsvc_conn_check_volume_general (dict_t *options, rpcsvc_conn_t *conn)
          * specific which will over-ride the network address rules.
          */
         if (namelookup)
-                namechk = rpcsvc_conn_peer_check_name (options, NULL, conn);
-        addrchk = rpcsvc_conn_peer_check_addr (options, NULL, conn);
+                namechk = nfs_rpcsvc_conn_peer_check_name (options, NULL, conn);
+        addrchk = nfs_rpcsvc_conn_peer_check_addr (options, NULL, conn);
 
         if (namelookup)
-                ret = rpcsvc_combine_gen_spec_addr_checks (addrchk, namechk);
+                ret = nfs_rpcsvc_combine_gen_spec_addr_checks (addrchk,
+                                                               namechk);
         else
                 ret = addrchk;
 
@@ -564,7 +570,7 @@ rpcsvc_conn_check_volume_general (dict_t *options, rpcsvc_conn_t *conn)
 }
 
 int
-rpcsvc_conn_peer_check (dict_t *options, char *volname, rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_peer_check (dict_t *options, char *volname, rpcsvc_conn_t *conn)
 {
         int     general_chk = RPCSVC_AUTH_REJECT;
         int     specific_chk = RPCSVC_AUTH_REJECT;
@@ -572,16 +578,17 @@ rpcsvc_conn_peer_check (dict_t *options, char *volname, rpcsvc_conn_t *conn)
         if ((!options) || (!volname) || (!conn))
                 return RPCSVC_AUTH_REJECT;
 
-        general_chk = rpcsvc_conn_check_volume_general (options, conn);
-        specific_chk = rpcsvc_conn_check_volume_specific (options, volname,
-                                                          conn);
+        general_chk = nfs_rpcsvc_conn_check_volume_general (options, conn);
+        specific_chk = nfs_rpcsvc_conn_check_volume_specific (options, volname,
+                                                              conn);
 
-        return rpcsvc_combine_gen_spec_volume_checks (general_chk,specific_chk);
+        return nfs_rpcsvc_combine_gen_spec_volume_checks (general_chk,
+                                                          specific_chk);
 }
 
 
 char *
-rpcsvc_volume_allowed (dict_t *options, char *volname)
+nfs_rpcsvc_volume_allowed (dict_t *options, char *volname)
 {
         char    globalrule[] = "rpc-auth.addr.allow";
         char    *srchstr = NULL;
@@ -611,7 +618,7 @@ out:
 
 /* Initialize the core of a connection */
 rpcsvc_conn_t *
-rpcsvc_conn_init (rpcsvc_t *svc, rpcsvc_program_t *prog, int sockfd)
+nfs_rpcsvc_conn_init (rpcsvc_t *svc, rpcsvc_program_t *prog, int sockfd)
 {
         rpcsvc_conn_t  *conn = NULL;
         int             ret = -1;
@@ -668,7 +675,7 @@ free_conn:
 
 
 void
-rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
 {
         mem_pool_destroy (conn->txpool);
         mem_pool_destroy (conn->rxpool);
@@ -683,7 +690,7 @@ rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
 
 
 int
-__rpcsvc_conn_unref (rpcsvc_conn_t *conn)
+__nfs_rpcsvc_conn_unref (rpcsvc_conn_t *conn)
 {
         --conn->connref;
         return conn->connref;
@@ -691,7 +698,7 @@ __rpcsvc_conn_unref (rpcsvc_conn_t *conn)
 
 
 void
-__rpcsvc_conn_deinit (rpcsvc_conn_t *conn)
+__nfs_rpcsvc_conn_deinit (rpcsvc_conn_t *conn)
 {
         if (!conn)
                 return;
@@ -701,7 +708,7 @@ __rpcsvc_conn_deinit (rpcsvc_conn_t *conn)
                                   conn->eventidx);
         }
 
-        if (rpcsvc_conn_check_active (conn)) {
+        if (nfs_rpcsvc_conn_check_active (conn)) {
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Connection de-activated:"
                         " sockfd: %d", conn->sockfd);
                 conn->connstate = RPCSVC_CONNSTATE_DISCONNECTED;
@@ -715,7 +722,7 @@ __rpcsvc_conn_deinit (rpcsvc_conn_t *conn)
 
 
 void
-rpcsvc_conn_deinit (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_deinit (rpcsvc_conn_t *conn)
 {
         int ref = 0;
 
@@ -724,20 +731,20 @@ rpcsvc_conn_deinit (rpcsvc_conn_t *conn)
 
         pthread_mutex_lock (&conn->connlock);
         {
-                __rpcsvc_conn_deinit (conn);
-                ref = __rpcsvc_conn_unref (conn);
+                __nfs_rpcsvc_conn_deinit (conn);
+                ref = __nfs_rpcsvc_conn_unref (conn);
         }
         pthread_mutex_unlock (&conn->connlock);
 
         if (ref == 0)
-                rpcsvc_conn_destroy (conn);
+                nfs_rpcsvc_conn_destroy (conn);
 
         return;
 }
 
 
 void
-rpcsvc_conn_unref (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_unref (rpcsvc_conn_t *conn)
 {
         int ref = 0;
         if (!conn)
@@ -745,17 +752,17 @@ rpcsvc_conn_unref (rpcsvc_conn_t *conn)
 
         pthread_mutex_lock (&conn->connlock);
         {
-                ref = __rpcsvc_conn_unref (conn);
+                ref = __nfs_rpcsvc_conn_unref (conn);
         }
         pthread_mutex_unlock (&conn->connlock);
 
         if (ref == 0)
-                rpcsvc_conn_destroy (conn);
+                nfs_rpcsvc_conn_destroy (conn);
 }
 
 
 int
-rpcsvc_conn_active (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_active (rpcsvc_conn_t *conn)
 {
         int     status = 0;
 
@@ -764,7 +771,7 @@ rpcsvc_conn_active (rpcsvc_conn_t *conn)
 
         pthread_mutex_lock (&conn->connlock);
         {
-                status = rpcsvc_conn_check_active (conn);
+                status = nfs_rpcsvc_conn_check_active (conn);
         }
         pthread_mutex_unlock (&conn->connlock);
 
@@ -774,7 +781,7 @@ rpcsvc_conn_active (rpcsvc_conn_t *conn)
 
 
 void
-rpcsvc_conn_ref (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_ref (rpcsvc_conn_t *conn)
 {
         if (!conn)
                 return;
@@ -790,7 +797,7 @@ rpcsvc_conn_ref (rpcsvc_conn_t *conn)
 
 
 void
-rpcsvc_conn_state_init (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_state_init (rpcsvc_conn_t *conn)
 {
         if (!conn)
                 return;
@@ -802,7 +809,7 @@ rpcsvc_conn_state_init (rpcsvc_conn_t *conn)
 /* Builds a rpcsvc_conn_t with the aim of listening on it.
  */
 rpcsvc_conn_t *
-rpcsvc_conn_listen_init (rpcsvc_t *svc, rpcsvc_program_t *newprog)
+nfs_rpcsvc_conn_listen_init (rpcsvc_t *svc, rpcsvc_program_t *newprog)
 {
         rpcsvc_conn_t  *conn = NULL;
         int             sock = -1;
@@ -810,16 +817,16 @@ rpcsvc_conn_listen_init (rpcsvc_t *svc, rpcsvc_program_t *newprog)
         if (!newprog)
                 return NULL;
 
-        sock = rpcsvc_socket_listen (newprog->progaddrfamily, newprog->proghost,
-                                     newprog->progport);
+        sock = nfs_rpcsvc_socket_listen (newprog->progaddrfamily,
+                                         newprog->proghost, newprog->progport);
         if (sock == -1)
                 goto err;
 
-        conn = rpcsvc_conn_init (svc, newprog, sock);
+        conn = nfs_rpcsvc_conn_init (svc, newprog, sock);
         if (!conn)
                 goto sock_close_err;
 
-        rpcsvc_conn_state_init (conn);
+        nfs_rpcsvc_conn_state_init (conn);
 sock_close_err:
         if (!conn)
                 close (sock);
@@ -829,7 +836,7 @@ err:
 }
 
 void
-rpcsvc_record_init (rpcsvc_record_state_t *rs, struct iobuf_pool *pool)
+nfs_rpcsvc_record_init (rpcsvc_record_state_t *rs, struct iobuf_pool *pool)
 {
         if (!rs)
                 return;
@@ -865,7 +872,8 @@ rpcsvc_record_init (rpcsvc_record_state_t *rs, struct iobuf_pool *pool)
 
 
 int
-rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname, rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname,
+                                rpcsvc_conn_t *conn)
 {
         struct sockaddr_in      sa;
         int                     ret = RPCSVC_AUTH_REJECT;
@@ -880,8 +888,8 @@ rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname, rpcsvc_conn_t *conn)
         if ((!svc) || (!volname) || (!conn))
                 return ret;
 
-        ret = rpcsvc_conn_peeraddr (conn, NULL, 0, (struct sockaddr *)&sa,
-                                    sasize);
+        ret = nfs_rpcsvc_conn_peeraddr (conn, NULL, 0, (struct sockaddr *)&sa,
+                                        sasize);
         if (ret != 0) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to get peer addr: %s",
                         gai_strerror (ret));
@@ -941,8 +949,8 @@ rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname, rpcsvc_conn_t *conn)
                                 " read rpc-auth.ports.insecure value");
         }
 
-        ret = rpcsvc_combine_gen_spec_volume_checks (globalinsecure,
-                                                     exportinsecure);
+        ret = nfs_rpcsvc_combine_gen_spec_volume_checks (globalinsecure,
+                                                         exportinsecure);
         if (ret == RPCSVC_AUTH_ACCEPT)
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Unprivileged port allowed");
         else
@@ -956,26 +964,26 @@ err:
 /* Inits a rpcsvc_conn_t after accepting the connection.
  */
 rpcsvc_conn_t *
-rpcsvc_conn_accept_init (rpcsvc_t *svc, int listenfd,
-                         rpcsvc_program_t *destprog)
+nfs_rpcsvc_conn_accept_init (rpcsvc_t *svc, int listenfd,
+                             rpcsvc_program_t *destprog)
 {
         rpcsvc_conn_t   *newconn = NULL;
         int             sock = -1;
         int             ret = -1;
 
-        sock = rpcsvc_socket_accept (listenfd);
+        sock = nfs_rpcsvc_socket_accept (listenfd);
         if (sock == -1)
                 goto err;
 
-        newconn = rpcsvc_conn_init (svc, destprog, sock);
+        newconn = nfs_rpcsvc_conn_init (svc, destprog, sock);
         if (!newconn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to init conn object");
                 ret = -1;
                 goto err;
         }
 
-        rpcsvc_record_init (&newconn->rstate, svc->ctx->iobuf_pool);
-        rpcsvc_conn_state_init (newconn);
+        nfs_rpcsvc_record_init (&newconn->rstate, svc->ctx->iobuf_pool);
+        nfs_rpcsvc_conn_state_init (newconn);
         if (destprog->conn_init)
                 destprog->conn_init (destprog->private, newconn);
         ret = 0;
@@ -995,8 +1003,8 @@ err:
  * should be handed to the handler when running in this particular stage.
  */
 int
-rpcsvc_stage_conn_associate (rpcsvc_stage_t *stg, rpcsvc_conn_t *conn,
-                             event_handler_t handler, void *data)
+nfs_rpcsvc_stage_conn_associate (rpcsvc_stage_t *stg, rpcsvc_conn_t *conn,
+                                 event_handler_t handler, void *data)
 {
         int     ret = -1;
 
@@ -1017,16 +1025,16 @@ err:
 
 /* Depending on the state we're in, return the size of the next read request. */
 size_t
-rpcsvc_record_read_size (rpcsvc_record_state_t *rs)
+nfs_rpcsvc_record_read_size (rpcsvc_record_state_t *rs)
 {
         size_t  toread = -1;
 
         if (!rs)
                 return -1;
 
-        if (rpcsvc_record_readfraghdr (rs))
+        if (nfs_rpcsvc_record_readfraghdr (rs))
                 toread = rs->remainingfraghdr;
-        else if (rpcsvc_record_readfrag (rs))
+        else if (nfs_rpcsvc_record_readfrag (rs))
                 toread = rs->remainingfrag;
         else
                 toread = RPCSVC_CONN_READ;
@@ -1036,7 +1044,7 @@ rpcsvc_record_read_size (rpcsvc_record_state_t *rs)
 
 
 uint32_t
-rpcsvc_record_extract_fraghdr (char *fraghdr)
+nfs_rpcsvc_record_extract_fraghdr (char *fraghdr)
 {
         uint32_t        hdr = 0;
         if (!fraghdr)
@@ -1050,7 +1058,8 @@ rpcsvc_record_extract_fraghdr (char *fraghdr)
 
 
 ssize_t
-rpcsvc_record_read_complete_fraghdr (rpcsvc_record_state_t *rs,ssize_t dataread)
+nfs_rpcsvc_record_read_complete_fraghdr (rpcsvc_record_state_t *rs,
+                                         ssize_t dataread)
 {
         uint32_t        remhdr = 0;
         char            *fraghdrstart = NULL;
@@ -1058,11 +1067,11 @@ rpcsvc_record_read_complete_fraghdr (rpcsvc_record_state_t *rs,ssize_t dataread)
 
         fraghdrstart = &rs->fragheader[0];
         remhdr = rs->remainingfraghdr;
-        fraghdr = rpcsvc_record_extract_fraghdr (fraghdrstart);
+        fraghdr = nfs_rpcsvc_record_extract_fraghdr (fraghdrstart);
         rs->fragsize = RPCSVC_FRAGSIZE (fraghdr);
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Received fragment size: %d",
                 rs->fragsize);
-        if (rpcsvc_record_vectored (rs)) {
+        if (nfs_rpcsvc_record_vectored (rs)) {
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "Vectored RPC header,"
                         " remaining: %d", RPCSVC_BARERPC_MSGSZ);
                 rs->remainingfrag = RPCSVC_BARERPC_MSGSZ;
@@ -1082,7 +1091,8 @@ rpcsvc_record_read_complete_fraghdr (rpcsvc_record_state_t *rs,ssize_t dataread)
 
 
 ssize_t
-rpcsvc_record_read_partial_fraghdr (rpcsvc_record_state_t *rs, ssize_t dataread)
+nfs_rpcsvc_record_read_partial_fraghdr (rpcsvc_record_state_t *rs,
+                                        ssize_t dataread)
 {
 
         /* In case we got less than even the remaining header size,
@@ -1090,7 +1100,7 @@ rpcsvc_record_read_partial_fraghdr (rpcsvc_record_state_t *rs, ssize_t dataread)
          * bytes to come in.
          */
          rs->remainingfraghdr -= dataread;
-         rpcsvc_record_update_currenthdr (rs, dataread);
+         nfs_rpcsvc_record_update_currenthdr (rs, dataread);
          dataread = 0;
          gf_log (GF_RPCSVC, GF_LOG_TRACE, "Fragment header remaining: %d",
                  rs->remainingfraghdr);
@@ -1100,7 +1110,7 @@ rpcsvc_record_read_partial_fraghdr (rpcsvc_record_state_t *rs, ssize_t dataread)
 
 
 ssize_t
-rpcsvc_record_update_fraghdr (rpcsvc_record_state_t *rs, ssize_t dataread)
+nfs_rpcsvc_record_update_fraghdr (rpcsvc_record_state_t *rs, ssize_t dataread)
 {
         if ((!rs) || (dataread <= 0))
                 return -1;
@@ -1108,7 +1118,7 @@ rpcsvc_record_update_fraghdr (rpcsvc_record_state_t *rs, ssize_t dataread)
         /* Why are we even here, we're not supposed to be in the fragment
          * header processing state.
          */
-        if (!rpcsvc_record_readfraghdr(rs)) {
+        if (!nfs_rpcsvc_record_readfraghdr(rs)) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "record state inconsistent"
                         ": request to update frag header when state is not"
                         "RPCSVC_READ_FRAGHDR");
@@ -1127,15 +1137,18 @@ rpcsvc_record_update_fraghdr (rpcsvc_record_state_t *rs, ssize_t dataread)
 
         /* We've definitely got the full header now and may be even more. */
         if (dataread >= rs->remainingfraghdr)
-                dataread = rpcsvc_record_read_complete_fraghdr (rs, dataread);
+                dataread = nfs_rpcsvc_record_read_complete_fraghdr (rs,
+                                                                    dataread);
         else
-                dataread = rpcsvc_record_read_partial_fraghdr (rs, dataread);
+                dataread = nfs_rpcsvc_record_read_partial_fraghdr (rs,
+                                                                   dataread);
 
         return dataread;
 }
 
 ssize_t
-rpcsvc_record_read_complete_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
+nfs_rpcsvc_record_read_complete_frag (rpcsvc_record_state_t *rs,
+                                      ssize_t dataread)
 {
         uint32_t        remfrag;
 
@@ -1162,12 +1175,13 @@ rpcsvc_record_read_complete_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
 
 
 ssize_t
-rpcsvc_record_read_partial_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
+nfs_rpcsvc_record_read_partial_frag (rpcsvc_record_state_t *rs,
+                                     ssize_t dataread)
 {
         /* Just take whatever has come through the current network buffer. */
         rs->remainingfrag -= dataread;
 
-        rpcsvc_record_update_currentfrag (rs, dataread);
+        nfs_rpcsvc_record_update_currentfrag (rs, dataread);
         /* Since we know we're consuming the whole buffer from dataread
          * simply setting to 0 zero is fine.
          */
@@ -1179,12 +1193,12 @@ rpcsvc_record_read_partial_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
 
 
 ssize_t
-rpcsvc_record_update_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
+nfs_rpcsvc_record_update_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
 {
         if ((!rs) || (dataread <= 0))
                 return -1;
 
-        if (!rpcsvc_record_readfrag (rs)) {
+        if (!nfs_rpcsvc_record_readfrag (rs)) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "record state inconsistent"
                         ": request to update fragment when record state is not"
                         "RPCSVC_READ_FRAG.");
@@ -1200,9 +1214,9 @@ rpcsvc_record_update_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
 
         /* We've read in more data than the current fragment requires. */
         if (dataread >= rs->remainingfrag)
-                dataread = rpcsvc_record_read_complete_frag (rs, dataread);
+                dataread = nfs_rpcsvc_record_read_complete_frag (rs, dataread);
         else
-                dataread = rpcsvc_record_read_partial_frag (rs, dataread);
+                dataread = nfs_rpcsvc_record_read_partial_frag (rs, dataread);
 
         return dataread;
 }
@@ -1213,7 +1227,7 @@ rpcsvc_record_update_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
  * of the pointers below are NULL.
  */
 rpcsvc_actor_t *
-rpcsvc_program_actor (rpcsvc_conn_t *conn, rpcsvc_request_t *req)
+nfs_rpcsvc_program_actor (rpcsvc_conn_t *conn, rpcsvc_request_t *req)
 {
         rpcsvc_program_t        *program = NULL;
         int                     err = SYSTEM_ERR;
@@ -1273,8 +1287,8 @@ err:
 
 
 rpcsvc_txbuf_t *
-rpcsvc_init_txbuf (rpcsvc_conn_t *conn, struct iovec msg, struct iobuf *iob,
-                   struct iobref *iobref, int txflags)
+nfs_rpcsvc_init_txbuf (rpcsvc_conn_t *conn, struct iovec msg, struct iobuf *iob,
+                       struct iobref *iobref, int txflags)
 {
         rpcsvc_txbuf_t  *txbuf = NULL;
 
@@ -1301,15 +1315,15 @@ rpcsvc_init_txbuf (rpcsvc_conn_t *conn, struct iovec msg, struct iobuf *iob,
 
 
 int
-rpcsvc_conn_append_txlist (rpcsvc_conn_t *conn, struct iovec msg,
-                           struct iobuf *iob, int txflags)
+nfs_rpcsvc_conn_append_txlist (rpcsvc_conn_t *conn, struct iovec msg,
+                               struct iobuf *iob, int txflags)
 {
         rpcsvc_txbuf_t          *txbuf = NULL;
 
         if ((!conn) || (!msg.iov_base) || (!iob))
                 return -1;
 
-        txbuf = rpcsvc_init_txbuf (conn, msg, iob, NULL, txflags);
+        txbuf = nfs_rpcsvc_init_txbuf (conn, msg, iob, NULL, txflags);
         if (!txbuf)
                 return -1;
 
@@ -1319,22 +1333,22 @@ rpcsvc_conn_append_txlist (rpcsvc_conn_t *conn, struct iovec msg,
 
 
 void
-rpcsvc_set_lastfrag (uint32_t *fragsize) {
+nfs_rpcsvc_set_lastfrag (uint32_t *fragsize) {
         (*fragsize) |= 0x80000000U;
 }
 
 void
-rpcsvc_set_frag_header_size (uint32_t size, char *haddr)
+nfs_rpcsvc_set_frag_header_size (uint32_t size, char *haddr)
 {
         size = htonl (size);
         memcpy (haddr, &size, sizeof (size));
 }
 
 void
-rpcsvc_set_last_frag_header_size (uint32_t size, char *haddr)
+nfs_rpcsvc_set_last_frag_header_size (uint32_t size, char *haddr)
 {
-        rpcsvc_set_lastfrag (&size);
-        rpcsvc_set_frag_header_size (size, haddr);
+        nfs_rpcsvc_set_lastfrag (&size);
+        nfs_rpcsvc_set_frag_header_size (size, haddr);
 }
 
 
@@ -1342,8 +1356,8 @@ rpcsvc_set_last_frag_header_size (uint32_t size, char *haddr)
  * encode the RPC record header into the buffer pointed by recordstart.
  */
 struct iovec
-rpcsvc_record_build_header (char *recordstart, size_t rlen,
-                            struct rpc_msg reply, size_t payload)
+nfs_rpcsvc_record_build_header (char *recordstart, size_t rlen,
+                                struct rpc_msg reply, size_t payload)
 {
         struct iovec    replyhdr;
         struct iovec    txrecord = {0, 0};
@@ -1353,8 +1367,8 @@ rpcsvc_record_build_header (char *recordstart, size_t rlen,
         /* After leaving aside the 4 bytes for the fragment header, lets
          * encode the RPC reply structure into the buffer given to us.
          */
-        ret = rpc_reply_to_xdr (&reply,(recordstart + RPCSVC_FRAGHDR_SIZE),
-                                rlen, &replyhdr);
+        ret = nfs_rpc_reply_to_xdr (&reply,(recordstart + RPCSVC_FRAGHDR_SIZE),
+                                    rlen, &replyhdr);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to create RPC reply");
                 goto err;
@@ -1368,7 +1382,7 @@ rpcsvc_record_build_header (char *recordstart, size_t rlen,
          * we just set this fragment as the first and last fragment for this
          * record.
          */
-        rpcsvc_set_last_frag_header_size (fraglen, recordstart);
+        nfs_rpcsvc_set_last_frag_header_size (fraglen, recordstart);
 
         /* Even though the RPC record starts at recordstart+RPCSVC_FRAGHDR_SIZE
          * we need to transmit the record with the fragment header, which starts
@@ -1389,9 +1403,9 @@ err:
 
 
 int
-rpcsvc_conn_submit (rpcsvc_conn_t *conn, struct iovec hdr,
-                    struct iobuf *hdriob, struct iovec msgvec,
-                    struct iobuf *msgiob)
+nfs_rpcsvc_conn_submit (rpcsvc_conn_t *conn, struct iovec hdr,
+                        struct iobuf *hdriob, struct iovec msgvec,
+                        struct iobuf *msgiob)
 {
         int     ret = -1;
 
@@ -1405,13 +1419,13 @@ rpcsvc_conn_submit (rpcsvc_conn_t *conn, struct iovec hdr,
          */
         pthread_mutex_lock (&conn->connlock);
         {
-                if (!rpcsvc_conn_check_active (conn)) {
+                if (!nfs_rpcsvc_conn_check_active (conn)) {
                         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Connection inactive");
                         goto unlock_err;
                 }
 
-                ret = rpcsvc_conn_append_txlist (conn, hdr, hdriob,
-                                                 RPCSVC_TXB_FIRST);
+                ret = nfs_rpcsvc_conn_append_txlist (conn, hdr, hdriob,
+                                                     RPCSVC_TXB_FIRST);
                 if (ret == -1) {
                         gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to append "
                                 "header to transmission list");
@@ -1423,8 +1437,9 @@ rpcsvc_conn_submit (rpcsvc_conn_t *conn, struct iovec hdr,
                  */
                 ret = 0;
                 if (msgiob)
-                        ret = rpcsvc_conn_append_txlist (conn, msgvec, msgiob,
-                                                         RPCSVC_TXB_LAST);
+                        ret = nfs_rpcsvc_conn_append_txlist (conn, msgvec,
+                                                             msgiob,
+                                                             RPCSVC_TXB_LAST);
                 if (ret == -1) {
                         gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to append"
                                 " payload to transmission list");
@@ -1450,22 +1465,24 @@ err:
 
 
 int
-rpcsvc_fill_reply (rpcsvc_request_t *req, struct rpc_msg *reply)
+nfs_rpcsvc_fill_reply (rpcsvc_request_t *req, struct rpc_msg *reply)
 {
         rpcsvc_program_t        *prog = NULL;
         if ((!req) || (!reply))
                 return -1;
 
-        prog = rpcsvc_request_program (req);
-        rpc_fill_empty_reply (reply, req->xid);
+        prog = nfs_rpcsvc_request_program (req);
+        nfs_rpc_fill_empty_reply (reply, req->xid);
 
         if (req->rpc_stat == MSG_DENIED)
-                rpc_fill_denied_reply (reply, req->rpc_err, req->auth_err);
+                nfs_rpc_fill_denied_reply (reply, req->rpc_err, req->auth_err);
         else if (req->rpc_stat == MSG_ACCEPTED)
-                rpc_fill_accepted_reply (reply, req->rpc_err, prog->proglowvers,
-                                         prog->proghighvers, req->verf.flavour,
-                                         req->verf.datalen,
-                                         req->verf.authdata);
+                nfs_rpc_fill_accepted_reply (reply, req->rpc_err,
+                                             prog->proglowvers,
+                                             prog->proghighvers,
+                                             req->verf.flavour,
+                                             req->verf.datalen,
+                                             req->verf.authdata);
         else
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Invalid rpc_stat value");
 
@@ -1482,8 +1499,8 @@ rpcsvc_fill_reply (rpcsvc_request_t *req, struct rpc_msg *reply)
  * we should account for the length of that buffer in the RPC fragment header.
  */
 struct iobuf *
-rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
-                            struct iovec *recbuf)
+nfs_rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
+                                struct iovec *recbuf)
 {
         struct rpc_msg          reply;
         struct iobuf            *replyiob = NULL;
@@ -1500,7 +1517,7 @@ rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
          * layer can use.
          */
         conn = req->conn;
-        svc = rpcsvc_conn_rpcsvc (conn);
+        svc = nfs_rpcsvc_conn_rpcsvc (conn);
         replyiob = iobuf_get (svc->ctx->iobuf_pool);
         pagesize = iobpool_pagesize ((struct iobuf_pool *)svc->ctx->iobuf_pool);
         if (!replyiob) {
@@ -1511,9 +1528,9 @@ rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
         record = iobuf_ptr (replyiob);  /* Now we have it. */
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
-        rpcsvc_fill_reply (req, &reply);
-        recordhdr = rpcsvc_record_build_header (record, pagesize, reply,
-                                                payload);
+        nfs_rpcsvc_fill_reply (req, &reply);
+        recordhdr = nfs_rpcsvc_record_build_header (record, pagesize, reply,
+                                                    payload);
         if (!recordhdr.iov_base) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to build record "
                         " header");
@@ -1557,8 +1574,8 @@ err_exit:
  */
 
 int
-rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
-                       struct iobuf *msg)
+nfs_rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
+                           struct iobuf *msg)
 {
         int                     ret = -1;
         struct iobuf            *replyiob = NULL;
@@ -1571,7 +1588,8 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
         conn = req->conn;
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Tx message: %zu", msgvec.iov_len);
         /* Build the buffer containing the encoded RPC reply. */
-        replyiob = rpcsvc_record_build_record (req, msgvec.iov_len, &recordhdr);
+        replyiob = nfs_rpcsvc_record_build_record (req, msgvec.iov_len,
+                                                   &recordhdr);
         if (!replyiob) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,"Reply record creation failed");
                 goto disconnect_exit;
@@ -1584,7 +1602,7 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
          */
         if (msg)
                 iobuf_ref (msg);
-        ret = rpcsvc_conn_submit (conn, recordhdr, replyiob, msgvec, msg);
+        ret = nfs_rpcsvc_conn_submit (conn, recordhdr, replyiob, msgvec, msg);
         mem_put (conn->rxpool, req);
 
         if (ret == -1) {
@@ -1604,18 +1622,18 @@ disconnect_exit:
          * no actor was called, we will be losing the ref held for the RPC
          * layer.
          */
-        if ((rpcsvc_request_accepted (req)) &&
-            (rpcsvc_request_accepted_success (req)))
-                rpcsvc_conn_unref (conn);
+        if ((nfs_rpcsvc_request_accepted (req)) &&
+            (nfs_rpcsvc_request_accepted_success (req)))
+                nfs_rpcsvc_conn_unref (conn);
 
         return ret;
 }
 
 
 int
-rpcsvc_request_attach_vector (rpcsvc_request_t *req, struct iovec msgvec,
-                              struct iobuf *iob, struct iobref *iobref,
-                              int finalvector)
+nfs_rpcsvc_request_attach_vector (rpcsvc_request_t *req, struct iovec msgvec,
+                                  struct iobuf *iob, struct iobref *iobref,
+                                  int finalvector)
 {
         rpcsvc_txbuf_t          *txb = NULL;
         int                     txflags = 0;
@@ -1629,7 +1647,7 @@ rpcsvc_request_attach_vector (rpcsvc_request_t *req, struct iovec msgvec,
         /* We only let the user decide whether this is the last vector for the
          * record, since the first vector is always the RPC header.
          */
-        txb = rpcsvc_init_txbuf (req->conn, msgvec, iob, iobref, txflags);
+        txb = nfs_rpcsvc_init_txbuf (req->conn, msgvec, iob, iobref, txflags);
         if (!txb) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Could not init tx buf");
                 return -1;
@@ -1647,15 +1665,15 @@ rpcsvc_request_attach_vector (rpcsvc_request_t *req, struct iovec msgvec,
 
 
 int
-rpcsvc_request_attach_vectors (rpcsvc_request_t *req, struct iovec *payload,
-                               int vcount, struct iobref *piobref)
+nfs_rpcsvc_request_attach_vectors (rpcsvc_request_t *req, struct iovec *payload,
+                                   int vcount, struct iobref *piobref)
 {
         int     c = 0;
         int     ret = -1;
 
         for (;c < (vcount-1); c++) {
-                ret = rpcsvc_request_attach_vector (req, payload[c], NULL,
-                                                    piobref, 0);
+                ret = nfs_rpcsvc_request_attach_vector (req, payload[c], NULL,
+                                                        piobref, 0);
                 if (ret < 0) {
                         gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to attach "
                                 "vector");
@@ -1663,8 +1681,8 @@ rpcsvc_request_attach_vectors (rpcsvc_request_t *req, struct iovec *payload,
                 }
         }
 
-        ret = rpcsvc_request_attach_vector (req, payload[vcount-1], NULL,
-                                            piobref, 1);
+        ret = nfs_rpcsvc_request_attach_vector (req, payload[vcount-1], NULL,
+                                                piobref, 1);
         if (ret < 0)
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to attach final vec");
 
@@ -1674,7 +1692,7 @@ out:
 
 
 int
-rpcsvc_submit_vectors (rpcsvc_request_t *req)
+nfs_rpcsvc_submit_vectors (rpcsvc_request_t *req)
 {
         int                     ret = -1;
         struct iobuf            *replyiob = NULL;
@@ -1685,15 +1703,15 @@ rpcsvc_submit_vectors (rpcsvc_request_t *req)
                 return -1;
 
         /* Build the buffer containing the encoded RPC reply. */
-        replyiob = rpcsvc_record_build_record (req, req->payloadsize,
-                                               &recordhdr);
+        replyiob = nfs_rpcsvc_record_build_record (req, req->payloadsize,
+                                                   &recordhdr);
         if (!replyiob) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,"Reply record creation failed");
                 goto disconnect_exit;
         }
 
-        rpctxb = rpcsvc_init_txbuf (req->conn, recordhdr, replyiob, NULL,
-                                    RPCSVC_TXB_FIRST);
+        rpctxb = nfs_rpcsvc_init_txbuf (req->conn, recordhdr, replyiob, NULL,
+                                        RPCSVC_TXB_FIRST);
         if (!rpctxb) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to create tx buf");
                 goto disconnect_exit;
@@ -1715,7 +1733,7 @@ disconnect_exit:
          * response to the ref that is performed on the conn when a request is
          * handed to the RPC program.
          */
-        rpcsvc_conn_unref (req->conn);
+        nfs_rpcsvc_conn_unref (req->conn);
         if (ret == -1)
                 iobuf_unref (replyiob);
 
@@ -1725,7 +1743,7 @@ disconnect_exit:
 
 
 int
-rpcsvc_error_reply (rpcsvc_request_t *req)
+nfs_rpcsvc_error_reply (rpcsvc_request_t *req)
 {
         struct iovec    dummyvec = {0, };
 
@@ -1735,13 +1753,13 @@ rpcsvc_error_reply (rpcsvc_request_t *req)
         /* At this point the req should already have been filled with the
          * appropriate RPC error numbers.
          */
-        return rpcsvc_submit_generic (req, dummyvec, NULL);
+        return nfs_rpcsvc_submit_generic (req, dummyvec, NULL);
 }
 
 
 rpcsvc_request_t *
-rpcsvc_request_init (rpcsvc_conn_t *conn, struct rpc_msg *callmsg,
-                     struct iovec progmsg, rpcsvc_request_t *req)
+nfs_rpcsvc_request_init (rpcsvc_conn_t *conn, struct rpc_msg *callmsg,
+                         struct iovec progmsg, rpcsvc_request_t *req)
 {
         if ((!conn) || (!callmsg)|| (!req))
                 return NULL;
@@ -1749,10 +1767,10 @@ rpcsvc_request_init (rpcsvc_conn_t *conn, struct rpc_msg *callmsg,
 
         /* We start a RPC request as always denied. */
         req->rpc_stat = MSG_DENIED;
-        req->xid = rpc_call_xid (callmsg);
-        req->prognum = rpc_call_program (callmsg);
-        req->progver = rpc_call_progver (callmsg);
-        req->procnum = rpc_call_progproc (callmsg);
+        req->xid = nfs_rpc_call_xid (callmsg);
+        req->prognum = nfs_rpc_call_program (callmsg);
+        req->progver = nfs_rpc_call_progver (callmsg);
+        req->procnum = nfs_rpc_call_progproc (callmsg);
         req->conn = conn;
         req->msg = progmsg;
         req->recordiob = conn->rstate.activeiob;
@@ -1763,19 +1781,19 @@ rpcsvc_request_init (rpcsvc_conn_t *conn, struct rpc_msg *callmsg,
          * been copied into the required sections of the req structure,
          * we just need to fill in the meta-data about it now.
          */
-        req->cred.flavour = rpc_call_cred_flavour (callmsg);
-        req->cred.datalen = rpc_call_cred_len (callmsg);
-        req->verf.flavour = rpc_call_verf_flavour (callmsg);
-        req->verf.datalen = rpc_call_verf_len (callmsg);
+        req->cred.flavour = nfs_rpc_call_cred_flavour (callmsg);
+        req->cred.datalen = nfs_rpc_call_cred_len (callmsg);
+        req->verf.flavour = nfs_rpc_call_verf_flavour (callmsg);
+        req->verf.datalen = nfs_rpc_call_verf_len (callmsg);
 
         /* AUTH */
-        rpcsvc_auth_request_init (req);
+        nfs_rpcsvc_auth_request_init (req);
         return req;
 }
 
 
 rpcsvc_request_t *
-rpcsvc_request_create (rpcsvc_conn_t *conn)
+nfs_rpcsvc_request_create (rpcsvc_conn_t *conn)
 {
         char                    *msgbuf = NULL;
         struct rpc_msg          rpcmsg;
@@ -1792,43 +1810,45 @@ rpcsvc_request_create (rpcsvc_conn_t *conn)
          * This avoids a need to keep a temp buffer into which the auth data
          * would've been copied otherwise.
          */
-        rpcsvc_alloc_request (conn, req);
+        nfs_rpcsvc_alloc_request (conn, req);
         if (!req) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to alloc request");
                 goto err;
         }
 
         msgbuf = iobuf_ptr (conn->rstate.activeiob);
-        ret = xdr_to_rpc_call (msgbuf, conn->rstate.recordsize, &rpcmsg,
-                               &progmsg, req->cred.authdata,req->verf.authdata);
+        ret = nfs_xdr_to_rpc_call (msgbuf, conn->rstate.recordsize, &rpcmsg,
+                                   &progmsg, req->cred.authdata,
+                                   req->verf.authdata);
 
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC call decoding failed");
-                rpcsvc_request_seterr (req, GARBAGE_ARGS);
+                nfs_rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto err;
         }
 
         ret = -1;
-        rpcsvc_request_init (conn, &rpcmsg, progmsg, req);
+        nfs_rpcsvc_request_init (conn, &rpcmsg, progmsg, req);
 
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC XID: %lx, Ver: %ld, Program: %ld,"
-                " ProgVers: %ld, Proc: %ld", rpc_call_xid (&rpcmsg),
-                rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
-                rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg));
+                " ProgVers: %ld, Proc: %ld", nfs_rpc_call_xid (&rpcmsg),
+                nfs_rpc_call_rpcvers (&rpcmsg), nfs_rpc_call_program (&rpcmsg),
+                nfs_rpc_call_progver (&rpcmsg),
+                nfs_rpc_call_progproc (&rpcmsg));
 
-        if (rpc_call_rpcvers (&rpcmsg) != 2) {
+        if (nfs_rpc_call_rpcvers (&rpcmsg) != 2) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC version not supported");
-                rpcsvc_request_seterr (req, RPC_MISMATCH);
+                nfs_rpcsvc_request_seterr (req, RPC_MISMATCH);
                 goto err;
         }
 
-        ret = rpcsvc_authenticate (req);
+        ret = nfs_rpcsvc_authenticate (req);
         if (ret == RPCSVC_AUTH_REJECT) {
                 /* No need to set auth_err, that is the responsibility of
                  * the authentication handler since only that know what exact
                  * error happened.
                  */
-                rpcsvc_request_seterr (req, AUTH_ERROR);
+                nfs_rpcsvc_request_seterr (req, AUTH_ERROR);
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed authentication");
                 ret = -1;
                 goto err;
@@ -1842,7 +1862,7 @@ rpcsvc_request_create (rpcsvc_conn_t *conn)
         ret = 0;
 err:
         if (ret == -1) {
-                ret = rpcsvc_error_reply (req);
+                ret = nfs_rpcsvc_error_reply (req);
                 req = NULL;
         }
 
@@ -1851,7 +1871,7 @@ err:
 
 
 int
-rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn)
+nfs_rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn)
 {
         rpcsvc_actor_t          *actor = NULL;
         rpcsvc_request_t        *req = NULL;
@@ -1860,25 +1880,25 @@ rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn)
         if (!conn)
                 return -1;
 
-        req = rpcsvc_request_create (conn);
+        req = nfs_rpcsvc_request_create (conn);
         if (!req)
                 goto err;
 
-        if (!rpcsvc_request_accepted (req))
+        if (!nfs_rpcsvc_request_accepted (req))
                 goto err_reply;
 
-        actor = rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (conn, req);
         if (!actor)
                 goto err_reply;
 
         if ((actor) && (actor->actor)) {
-                rpcsvc_conn_ref (conn);
+                nfs_rpcsvc_conn_ref (conn);
                 ret = actor->actor (req);
         }
 
 err_reply:
         if (ret == RPCSVC_ACTOR_ERROR)
-                ret = rpcsvc_error_reply (req);
+                ret = nfs_rpcsvc_error_reply (req);
 
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */
@@ -1887,17 +1907,17 @@ err:
         return ret;
 }
 
-#define rpc_call_cred_addr(rs) (iobuf_ptr ((rs)->activeiob) + RPCSVC_BARERPC_MSGSZ - 4)
+#define nfs_rpc_call_cred_addr(rs) (iobuf_ptr ((rs)->activeiob) + RPCSVC_BARERPC_MSGSZ - 4)
 
 uint32_t
-rpcsvc_call_credlen (rpcsvc_record_state_t *rs)
+nfs_rpcsvc_call_credlen (rpcsvc_record_state_t *rs)
 {
         char                    *credaddr = NULL;
         uint32_t                credlen_nw = 0;
         uint32_t                credlen_host = 0;
 
         /* Position to the start of the credential length field. */
-        credaddr = rpc_call_cred_addr (rs);
+        credaddr = nfs_rpc_call_cred_addr (rs);
         credlen_nw = *(uint32_t *)credaddr;
         credlen_host = ntohl (credlen_nw);
 
@@ -1905,7 +1925,7 @@ rpcsvc_call_credlen (rpcsvc_record_state_t *rs)
 }
 
 uint32_t
-rpcsvc_call_verflen (rpcsvc_record_state_t *rs)
+nfs_rpcsvc_call_verflen (rpcsvc_record_state_t *rs)
 {
         char            *verfaddr = NULL;
         uint32_t        verflen_nw = 0;
@@ -1913,8 +1933,8 @@ rpcsvc_call_verflen (rpcsvc_record_state_t *rs)
         uint32_t        credlen = 0;
 
         /* Position to the start of the verifier length field. */
-        credlen = rpcsvc_call_credlen (rs);
-        verfaddr = (rpc_call_cred_addr (rs) + 4 + credlen);
+        credlen = nfs_rpcsvc_call_credlen (rs);
+        verfaddr = (nfs_rpc_call_cred_addr (rs) + 4 + credlen);
         verflen_nw = *(uint32_t *)verfaddr;
         verflen_host = ntohl (verflen_nw);
 
@@ -1923,18 +1943,18 @@ rpcsvc_call_verflen (rpcsvc_record_state_t *rs)
 
 
 void
-rpcsvc_update_vectored_verf (rpcsvc_record_state_t *rs)
+nfs_rpcsvc_update_vectored_verf (rpcsvc_record_state_t *rs)
 {
         if (!rs)
                 return;
 
-        rs->recordsize += rpcsvc_call_verflen (rs);
+        rs->recordsize += nfs_rpcsvc_call_verflen (rs);
         return;
 }
 
 
 void
-rpcsvc_handle_vectored_prep_rpc_call (rpcsvc_conn_t *conn)
+nfs_rpcsvc_handle_vectored_prep_rpc_call (rpcsvc_conn_t *conn)
 {
         rpcsvc_actor_t          *actor = NULL;
         rpcsvc_request_t        *req = NULL;
@@ -1955,31 +1975,31 @@ rpcsvc_handle_vectored_prep_rpc_call (rpcsvc_conn_t *conn)
          */
         rs->remainingfrag = rs->fragsize - rs->recordsize;
         rs->vecstate = RPCSVC_VECTOR_IGNORE;
-        req = rpcsvc_request_create (conn);
-        svc = rpcsvc_conn_rpcsvc (conn);
+        req = nfs_rpcsvc_request_create (conn);
+        svc = nfs_rpcsvc_conn_rpcsvc (conn);
         if (!req)
                 goto err;
 
-        if (!rpcsvc_request_accepted (req))
+        if (!nfs_rpcsvc_request_accepted (req))
                 goto err_reply;
 
-        actor = rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (conn, req);
         if (!actor)
                 goto err_reply;
 
         if (!actor->vector_sizer) {
                 ret = -1;
-                rpcsvc_request_seterr (req, PROC_UNAVAIL);
+                nfs_rpcsvc_request_seterr (req, PROC_UNAVAIL);
                 goto err_reply;
         }
 
-        rpcsvc_conn_ref (conn);
+        nfs_rpcsvc_conn_ref (conn);
         ret = actor->vector_sizer (req, &remfrag, &newbuf);
-        rpcsvc_conn_unref (conn);
+        nfs_rpcsvc_conn_unref (conn);
 
         if (ret == RPCSVC_ACTOR_ERROR) {
                 ret = -1;
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err_reply;
         }
 
@@ -1998,7 +2018,7 @@ rpcsvc_handle_vectored_prep_rpc_call (rpcsvc_conn_t *conn)
 
 err_reply:
         if (ret == -1)
-                ret = rpcsvc_error_reply (req);
+                ret = nfs_rpcsvc_error_reply (req);
 
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */
@@ -2009,7 +2029,7 @@ err:
 
 
 void
-rpcsvc_update_vectored_verfsz (rpcsvc_conn_t *conn)
+nfs_rpcsvc_update_vectored_verfsz (rpcsvc_conn_t *conn)
 {
         rpcsvc_record_state_t   *rs = NULL;
         uint32_t                verflen = 0;
@@ -2019,7 +2039,7 @@ rpcsvc_update_vectored_verfsz (rpcsvc_conn_t *conn)
 
         rs = &conn->rstate;
 
-        verflen = rpcsvc_call_verflen (rs);
+        verflen = nfs_rpcsvc_call_verflen (rs);
         rs->recordsize += 8;
         if (verflen > 0) {
                 rs->remainingfrag = verflen;
@@ -2028,7 +2048,7 @@ rpcsvc_update_vectored_verfsz (rpcsvc_conn_t *conn)
                 rs->vecstate = RPCSVC_VECTOR_READVERF;
         } else {
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "Vectored RPC preparing call");
-                rpcsvc_handle_vectored_prep_rpc_call (conn);
+                nfs_rpcsvc_handle_vectored_prep_rpc_call (conn);
         }
 
         return;
@@ -2036,14 +2056,14 @@ rpcsvc_update_vectored_verfsz (rpcsvc_conn_t *conn)
 
 
 void
-rpcsvc_update_vectored_cred (rpcsvc_record_state_t *rs)
+nfs_rpcsvc_update_vectored_cred (rpcsvc_record_state_t *rs)
 {
         uint32_t                credlen = 0;
 
         if (!rs)
                 return;
 
-        credlen = rpcsvc_call_credlen (rs);
+        credlen = nfs_rpcsvc_call_credlen (rs);
         /* Update remainingfrag to read the 8 bytes needed for
          * reading verf flavour and verf len.
          */
@@ -2057,14 +2077,14 @@ rpcsvc_update_vectored_cred (rpcsvc_record_state_t *rs)
 }
 
 void
-rpcsvc_update_vectored_barerpc (rpcsvc_record_state_t *rs)
+nfs_rpcsvc_update_vectored_barerpc (rpcsvc_record_state_t *rs)
 {
         uint32_t                credlen = 0;
 
         if (!rs)
                 return;
 
-        credlen = rpcsvc_call_credlen (rs);
+        credlen = nfs_rpcsvc_call_credlen (rs);
         rs->recordsize = RPCSVC_BARERPC_MSGSZ;
         if (credlen == 0) {
                 rs->remainingfrag = 8;
@@ -2083,7 +2103,7 @@ rpcsvc_update_vectored_barerpc (rpcsvc_record_state_t *rs)
 
 
 void
-rpcsvc_handle_vectored_rpc_call (rpcsvc_conn_t *conn)
+nfs_rpcsvc_handle_vectored_rpc_call (rpcsvc_conn_t *conn)
 {
         rpcsvc_actor_t          *actor = NULL;
         rpcsvc_request_t        *req = NULL;
@@ -2099,28 +2119,28 @@ rpcsvc_handle_vectored_rpc_call (rpcsvc_conn_t *conn)
         rs = &conn->rstate;
 
         req = conn->vectoredreq;
-        svc = rpcsvc_conn_rpcsvc (conn);
+        svc = nfs_rpcsvc_conn_rpcsvc (conn);
 
         if (!req)
                 goto err;
 
-        actor = rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (conn, req);
         if (!actor)
                 goto err_reply;
 
         if (!actor->vector_sizer) {
                 ret = -1;
-                rpcsvc_request_seterr (req, PROC_UNAVAIL);
+                nfs_rpcsvc_request_seterr (req, PROC_UNAVAIL);
                 goto err_reply;
         }
 
         req->msg.iov_len = (unsigned long)((long)rs->fragcurrent - (long)req->msg.iov_base);
-        rpcsvc_conn_ref (conn);
+        nfs_rpcsvc_conn_ref (conn);
         ret = actor->vector_sizer (req, &remfrag, &newbuf);
-        rpcsvc_conn_unref (conn);
+        nfs_rpcsvc_conn_unref (conn);
         if (ret == RPCSVC_ACTOR_ERROR) {
                 ret = -1;
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err_reply;
         }
 
@@ -2140,7 +2160,7 @@ rpcsvc_handle_vectored_rpc_call (rpcsvc_conn_t *conn)
         ret = 0;
 err_reply:
         if (ret == -1)
-                ret = rpcsvc_error_reply (req);
+                ret = nfs_rpcsvc_error_reply (req);
 
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */
@@ -2152,7 +2172,7 @@ err:
 
 
 void
-rpcsvc_record_vectored_call_actor (rpcsvc_conn_t *conn)
+nfs_rpcsvc_record_vectored_call_actor (rpcsvc_conn_t *conn)
 {
         rpcsvc_actor_t          *actor = NULL;
         rpcsvc_request_t        *req = NULL;
@@ -2165,27 +2185,27 @@ rpcsvc_record_vectored_call_actor (rpcsvc_conn_t *conn)
 
         rs = &conn->rstate;
         req = conn->vectoredreq;
-        svc = rpcsvc_conn_rpcsvc (conn);
+        svc = nfs_rpcsvc_conn_rpcsvc (conn);
 
         if (!req)
                 goto err;
 
-        actor = rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (conn, req);
         if (!actor)
                 goto err_reply;
 
         if (actor->vector_actor) {
-                rpcsvc_conn_ref (conn);
+                nfs_rpcsvc_conn_ref (conn);
                 ret = actor->vector_actor (req, rs->vectoriob);
         } else {
-                rpcsvc_request_seterr (req, PROC_UNAVAIL);
+                nfs_rpcsvc_request_seterr (req, PROC_UNAVAIL);
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "No vectored handler present");
                 ret = RPCSVC_ACTOR_ERROR;
         }
 
 err_reply:
         if (ret == RPCSVC_ACTOR_ERROR)
-                ret = rpcsvc_error_reply (req);
+                ret = nfs_rpcsvc_error_reply (req);
 
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */
@@ -2197,7 +2217,7 @@ err:
 
 
 ssize_t
-rpcsvc_update_vectored_state (rpcsvc_conn_t *conn)
+nfs_rpcsvc_update_vectored_state (rpcsvc_conn_t *conn)
 {
         rpcsvc_record_state_t   *rs = NULL;
         rpcsvc_t                *svc = NULL;
@@ -2215,26 +2235,26 @@ rpcsvc_update_vectored_state (rpcsvc_conn_t *conn)
          */
 
         rs = &conn->rstate;
-        if (rpcsvc_record_vectored_baremsg (rs))
-                rpcsvc_update_vectored_barerpc (rs);
-        else if (rpcsvc_record_vectored_cred (rs))
-                rpcsvc_update_vectored_cred (rs);
-        else if (rpcsvc_record_vectored_verfsz (rs))
-                rpcsvc_update_vectored_verfsz (conn);
-        else if (rpcsvc_record_vectored_verfread (rs)) {
-                rpcsvc_update_vectored_verf (rs);
+        if (nfs_rpcsvc_record_vectored_baremsg (rs))
+                nfs_rpcsvc_update_vectored_barerpc (rs);
+        else if (nfs_rpcsvc_record_vectored_cred (rs))
+                nfs_rpcsvc_update_vectored_cred (rs);
+        else if (nfs_rpcsvc_record_vectored_verfsz (rs))
+                nfs_rpcsvc_update_vectored_verfsz (conn);
+        else if (nfs_rpcsvc_record_vectored_verfread (rs)) {
+                nfs_rpcsvc_update_vectored_verf (rs);
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "Vectored RPC preparing call");
-                rpcsvc_handle_vectored_prep_rpc_call (conn);
-        } else if (rpcsvc_record_vectored_readprochdr (rs))
-                rpcsvc_handle_vectored_rpc_call (conn);
-        else if (rpcsvc_record_vectored_ignore (rs)) {
-                svc = rpcsvc_conn_rpcsvc (conn);
-                rpcsvc_record_init (rs, svc->ctx->iobuf_pool);
-        } else if (rpcsvc_record_vectored_readvec (rs)) {
-                svc = rpcsvc_conn_rpcsvc (conn);
+                nfs_rpcsvc_handle_vectored_prep_rpc_call (conn);
+        } else if (nfs_rpcsvc_record_vectored_readprochdr (rs))
+                nfs_rpcsvc_handle_vectored_rpc_call (conn);
+        else if (nfs_rpcsvc_record_vectored_ignore (rs)) {
+                svc = nfs_rpcsvc_conn_rpcsvc (conn);
+                nfs_rpcsvc_record_init (rs, svc->ctx->iobuf_pool);
+        } else if (nfs_rpcsvc_record_vectored_readvec (rs)) {
+                svc = nfs_rpcsvc_conn_rpcsvc (conn);
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "Vectored RPC vector read");
-                rpcsvc_record_vectored_call_actor (conn);
-                rpcsvc_record_init (rs, svc->ctx->iobuf_pool);
+                nfs_rpcsvc_record_vectored_call_actor (conn);
+                nfs_rpcsvc_record_init (rs, svc->ctx->iobuf_pool);
         }
 
         return 0;
@@ -2242,10 +2262,11 @@ rpcsvc_update_vectored_state (rpcsvc_conn_t *conn)
 
 
 ssize_t
-rpcsvc_record_read_partial_frag (rpcsvc_record_state_t *rs, ssize_t dataread);
+nfs_rpcsvc_record_read_partial_frag (rpcsvc_record_state_t *rs,
+                                     ssize_t dataread);
 
 ssize_t
-rpcsvc_update_vectored_msg (rpcsvc_conn_t *conn, ssize_t dataread)
+nfs_rpcsvc_update_vectored_msg (rpcsvc_conn_t *conn, ssize_t dataread)
 {
 
         if (!conn)
@@ -2262,7 +2283,7 @@ rpcsvc_update_vectored_msg (rpcsvc_conn_t *conn, ssize_t dataread)
          * rstate to be RPCSVC_BARERPC_MSGSZ for the purpose of a vectored
          * fragment.
          */
-        return rpcsvc_record_read_partial_frag (&conn->rstate, dataread);
+        return nfs_rpcsvc_record_read_partial_frag (&conn->rstate, dataread);
 }
 
 /* FIX: As a first version of vectored reading, I am assuming dataread will
@@ -2271,7 +2292,7 @@ rpcsvc_update_vectored_msg (rpcsvc_conn_t *conn, ssize_t dataread)
  * poll_in.
  */
 ssize_t
-rpcsvc_handle_vectored_frag (rpcsvc_conn_t *conn, ssize_t dataread)
+nfs_rpcsvc_handle_vectored_frag (rpcsvc_conn_t *conn, ssize_t dataread)
 {
         if (!conn)
                 return dataread;
@@ -2287,11 +2308,11 @@ rpcsvc_handle_vectored_frag (rpcsvc_conn_t *conn, ssize_t dataread)
          * to, as a first step, identify which (program, actor) we need to call.
          */
 
-        dataread = rpcsvc_update_vectored_msg (conn, dataread);
+        dataread = nfs_rpcsvc_update_vectored_msg (conn, dataread);
 
         if (conn->rstate.remainingfrag == 0) {
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "Vectored frag complete");
-                dataread = rpcsvc_update_vectored_state (conn);
+                dataread = nfs_rpcsvc_update_vectored_state (conn);
         }
 
         return dataread;
@@ -2299,7 +2320,7 @@ rpcsvc_handle_vectored_frag (rpcsvc_conn_t *conn, ssize_t dataread)
 
 
 int
-rpcsvc_record_update_state (rpcsvc_conn_t *conn, ssize_t dataread)
+nfs_rpcsvc_record_update_state (rpcsvc_conn_t *conn, ssize_t dataread)
 {
         rpcsvc_record_state_t   *rs = NULL;
         rpcsvc_t                *svc = NULL;
@@ -2312,10 +2333,10 @@ rpcsvc_record_update_state (rpcsvc_conn_t *conn, ssize_t dataread)
          * start of the area into which dataread number of bytes were read.
          */
 
-        if (rpcsvc_record_readfraghdr(rs))
-                dataread = rpcsvc_record_update_fraghdr (rs, dataread);
+        if (nfs_rpcsvc_record_readfraghdr(rs))
+                dataread = nfs_rpcsvc_record_update_fraghdr (rs, dataread);
 
-        if (rpcsvc_record_readfrag(rs)) {
+        if (nfs_rpcsvc_record_readfrag(rs)) {
                 /* The minimum needed for triggering the vectored handler is
                  * the frag size field. The fragsize member remains set to this
                  * size till this request is completely extracted from the
@@ -2326,12 +2347,13 @@ rpcsvc_record_update_state (rpcsvc_conn_t *conn, ssize_t dataread)
                  * condition as the flag to tell us that this is a vectored
                  * fragment.
                  */
-                if ((dataread > 0) && (rpcsvc_record_vectored (rs))) {
+                if ((dataread > 0) && (nfs_rpcsvc_record_vectored (rs))) {
                         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Vectored frag");
-                        dataread = rpcsvc_handle_vectored_frag (conn, dataread);
+                        dataread = nfs_rpcsvc_handle_vectored_frag (conn,
+                                                                    dataread);
                 } else if (dataread > 0) {
                         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Regular frag");
-                        dataread = rpcsvc_record_update_frag (rs, dataread);
+                        dataread = nfs_rpcsvc_record_update_frag (rs, dataread);
                 }
         }
 
@@ -2351,11 +2373,11 @@ rpcsvc_record_update_state (rpcsvc_conn_t *conn, ssize_t dataread)
          * XDR formatted buffer in activeiob followed by the upcall to the
          * protocol actor.
          */
-        if ((rpcsvc_record_readfraghdr(rs)) && (rs->islastfrag)) {
+        if ((nfs_rpcsvc_record_readfraghdr(rs)) && (rs->islastfrag)) {
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "Full Record Received.");
-                rpcsvc_handle_rpc_call (conn);
-                svc = rpcsvc_conn_rpcsvc (conn);
-                rpcsvc_record_init (rs, svc->ctx->iobuf_pool);
+                nfs_rpcsvc_handle_rpc_call (conn);
+                svc = nfs_rpcsvc_conn_rpcsvc (conn);
+                nfs_rpcsvc_record_init (rs, svc->ctx->iobuf_pool);
         }
 
         return 0;
@@ -2363,40 +2385,40 @@ rpcsvc_record_update_state (rpcsvc_conn_t *conn, ssize_t dataread)
 
 
 char *
-rpcsvc_record_read_addr (rpcsvc_record_state_t *rs)
+nfs_rpcsvc_record_read_addr (rpcsvc_record_state_t *rs)
 {
 
-        if (rpcsvc_record_readfraghdr (rs))
-                return rpcsvc_record_currenthdr_addr (rs);
-        else if (rpcsvc_record_readfrag (rs))
-                return rpcsvc_record_currentfrag_addr (rs);
+        if (nfs_rpcsvc_record_readfraghdr (rs))
+                return nfs_rpcsvc_record_currenthdr_addr (rs);
+        else if (nfs_rpcsvc_record_readfrag (rs))
+                return nfs_rpcsvc_record_currentfrag_addr (rs);
 
         return NULL;
 }
 
 
 int
-rpcsvc_conn_data_poll_in (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_data_poll_in (rpcsvc_conn_t *conn)
 {
         ssize_t         dataread = -1;
         size_t          readsize = 0;
         char            *readaddr = NULL;
         int             ret = -1;
 
-        readaddr = rpcsvc_record_read_addr (&conn->rstate);
+        readaddr = nfs_rpcsvc_record_read_addr (&conn->rstate);
         if (!readaddr)
                 goto err;
 
-        readsize = rpcsvc_record_read_size (&conn->rstate);
+        readsize = nfs_rpcsvc_record_read_size (&conn->rstate);
         if (readsize == -1)
                 goto err;
 
-        dataread = rpcsvc_socket_read (conn->sockfd, readaddr, readsize);
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, readsize: %zu, dataread: %zd",
-                (long)conn, readsize, dataread);
+        dataread = nfs_rpcsvc_socket_read (conn->sockfd, readaddr, readsize);
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, readsize: %zu, dataread:"
+                "%zd", (long)conn, readsize, dataread);
 
         if (dataread > 0)
-                ret = rpcsvc_record_update_state (conn, dataread);
+                ret = nfs_rpcsvc_record_update_state (conn, dataread);
 
 err:
         return ret;
@@ -2404,16 +2426,16 @@ err:
 
 
 int
-rpcsvc_conn_data_poll_err (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_data_poll_err (rpcsvc_conn_t *conn)
 {
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Received error event");
-        rpcsvc_conn_deinit (conn);
+        nfs_rpcsvc_conn_deinit (conn);
         return 0;
 }
 
 
 int
-__rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
+__nfs_rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
 {
         rpcsvc_txbuf_t          *txbuf = NULL;
         rpcsvc_txbuf_t          *tmp = NULL;
@@ -2432,14 +2454,14 @@ tx_remaining:
 
                 if (txbuf->txbehave & RPCSVC_TXB_FIRST) {
                         gf_log (GF_RPCSVC, GF_LOG_TRACE, "First Tx Buf");
-                        rpcsvc_socket_block_tx (conn->sockfd);
+                        nfs_rpcsvc_socket_block_tx (conn->sockfd);
                 }
 
-                written = rpcsvc_socket_write (conn->sockfd, writeaddr,
-                                               writesize);
+                written = nfs_rpcsvc_socket_write (conn->sockfd, writeaddr,
+                                                   writesize);
                 if (txbuf->txbehave & RPCSVC_TXB_LAST) {
                         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Last Tx Buf");
-                        rpcsvc_socket_unblock_tx (conn->sockfd);
+                        nfs_rpcsvc_socket_unblock_tx (conn->sockfd);
                 }
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, Tx request: %zu,"
                         " Tx sent: %zd", (long)conn, writesize, written);
@@ -2476,7 +2498,7 @@ tx_remaining:
         /* If we've broken out of the loop above then we must unblock
          * the transmission now.
          */
-        rpcsvc_socket_unblock_tx (conn->sockfd);
+        nfs_rpcsvc_socket_unblock_tx (conn->sockfd);
         if (list_empty (&conn->txbufs))
                 conn->eventidx = event_select_on (conn->stage->eventpool,
                                                   conn->sockfd, conn->eventidx,
@@ -2487,7 +2509,7 @@ tx_remaining:
 
 
 int
-rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
+nfs_rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
 {
         if (!conn)
                 return -1;
@@ -2495,7 +2517,7 @@ rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
 
         pthread_mutex_lock (&conn->connlock);
         {
-                __rpcsvc_conn_data_poll_out (conn);
+                __nfs_rpcsvc_conn_data_poll_out (conn);
         }
         pthread_mutex_unlock (&conn->connlock);
 
@@ -2504,8 +2526,8 @@ rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
 
 
 int
-rpcsvc_conn_data_handler (int fd, int idx, void *data, int poll_in, int poll_out
-                          , int poll_err)
+nfs_rpcsvc_conn_data_handler (int fd, int idx, void *data, int poll_in,
+                              int poll_out, int poll_err)
 {
         rpcsvc_conn_t   *conn = NULL;
         int             ret = 0;
@@ -2516,28 +2538,28 @@ rpcsvc_conn_data_handler (int fd, int idx, void *data, int poll_in, int poll_out
         conn = (rpcsvc_conn_t *)data;
 
         if (poll_out)
-                ret = rpcsvc_conn_data_poll_out (conn);
+                ret = nfs_rpcsvc_conn_data_poll_out (conn);
 
         if (poll_err) {
-                ret = rpcsvc_conn_data_poll_err (conn);
+                ret = nfs_rpcsvc_conn_data_poll_err (conn);
                 return 0;
         }
 
         if (poll_in) {
                 ret = 0;
-                ret = rpcsvc_conn_data_poll_in (conn);
+                ret = nfs_rpcsvc_conn_data_poll_in (conn);
         }
 
         if (ret == -1)
-                rpcsvc_conn_data_poll_err (conn);
+                nfs_rpcsvc_conn_data_poll_err (conn);
 
         return 0;
 }
 
 
 int
-rpcsvc_conn_listening_handler (int fd, int idx, void *data, int poll_in,
-                               int poll_out, int poll_err)
+nfs_rpcsvc_conn_listening_handler (int fd, int idx, void *data, int poll_in,
+                                   int poll_out, int poll_err)
 {
         rpcsvc_conn_t           *newconn = NULL;
         rpcsvc_stage_t          *selectedstage = NULL;
@@ -2551,22 +2573,23 @@ rpcsvc_conn_listening_handler (int fd, int idx, void *data, int poll_in,
 
         conn = (rpcsvc_conn_t *)data;
         prog = (rpcsvc_program_t *)conn->program;
-        svc = rpcsvc_conn_rpcsvc (conn);
-        newconn = rpcsvc_conn_accept_init (svc, fd, prog);
+        svc = nfs_rpcsvc_conn_rpcsvc (conn);
+        newconn = nfs_rpcsvc_conn_accept_init (svc, fd, prog);
         if (!newconn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "failed to accept connection");
                 goto err;
         }
 
-        selectedstage = rpcsvc_select_stage (svc);
+        selectedstage = nfs_rpcsvc_select_stage (svc);
         if (!selectedstage)
                 goto close_err;
 
         /* Now that we've accepted the connection, we need to associate
          * its events to a stage.
          */
-        ret = rpcsvc_stage_conn_associate (selectedstage, newconn,
-                                           rpcsvc_conn_data_handler, newconn);
+        ret = nfs_rpcsvc_stage_conn_associate (selectedstage, newconn,
+                                               nfs_rpcsvc_conn_data_handler,
+                                               newconn);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "could not associated stage "
                         " with new connection");
@@ -2578,7 +2601,7 @@ rpcsvc_conn_listening_handler (int fd, int idx, void *data, int poll_in,
         ret = 0;
 close_err:
         if (ret == -1)
-                rpcsvc_conn_unref (newconn);
+                nfs_rpcsvc_conn_unref (newconn);
 
 err:
         return ret;
@@ -2587,7 +2610,7 @@ err:
 
 /* Register the program with the local portmapper service. */
 int
-rpcsvc_program_register_portmap (rpcsvc_program_t *newprog)
+nfs_rpcsvc_program_register_portmap (rpcsvc_program_t *newprog)
 {
         if (!newprog)
                 return -1;
@@ -2604,7 +2627,7 @@ rpcsvc_program_register_portmap (rpcsvc_program_t *newprog)
 
 
 int
-rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
+nfs_rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
 {
         if (!prog)
                 return -1;
@@ -2620,7 +2643,8 @@ rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
 
 
 int
-rpcsvc_stage_program_register (rpcsvc_stage_t *stg, rpcsvc_program_t *newprog)
+nfs_rpcsvc_stage_program_register (rpcsvc_stage_t *stg,
+                                   rpcsvc_program_t *newprog)
 {
         rpcsvc_conn_t           *newconn = NULL;
         rpcsvc_t                *svc = NULL;
@@ -2628,18 +2652,18 @@ rpcsvc_stage_program_register (rpcsvc_stage_t *stg, rpcsvc_program_t *newprog)
         if ((!stg) || (!newprog))
                 return -1;
 
-        svc = rpcsvc_stage_service (stg);
+        svc = nfs_rpcsvc_stage_service (stg);
         /* Create a listening socket */
-        newconn = rpcsvc_conn_listen_init (svc, newprog);
+        newconn = nfs_rpcsvc_conn_listen_init (svc, newprog);
         if (!newconn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "could not create listening"
                         " connection");
                 return -1;
         }
 
-        if ((rpcsvc_stage_conn_associate (stg, newconn,
-                                          rpcsvc_conn_listening_handler,
-                                          newconn)) == -1) {
+        if ((nfs_rpcsvc_stage_conn_associate (stg, newconn,
+                                              nfs_rpcsvc_conn_listening_handler,
+                                              newconn)) == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,"could not associate stage with"
                         " listening connection");
                 return -1;
@@ -2650,7 +2674,7 @@ rpcsvc_stage_program_register (rpcsvc_stage_t *stg, rpcsvc_program_t *newprog)
 
 
 int
-rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
+nfs_rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
 {
         rpcsvc_program_t        *newprog = NULL;
         rpcsvc_stage_t          *selectedstage = NULL;
@@ -2659,7 +2683,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
         if (!svc)
                 return -1;
 
-        newprog = GF_CALLOC (1, sizeof(*newprog), gf_common_mt_rpcsvc_program_t);
+        newprog = GF_CALLOC (1, sizeof(*newprog),gf_common_mt_rpcsvc_program_t);
         if (!newprog)
                 return -1;
 
@@ -2667,16 +2691,16 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
                 goto free_prog;
 
         memcpy (newprog, &program, sizeof (program));
-        selectedstage = rpcsvc_select_stage (svc);
+        selectedstage = nfs_rpcsvc_select_stage (svc);
 
-        ret = rpcsvc_stage_program_register (selectedstage, newprog);
+        ret = nfs_rpcsvc_stage_program_register (selectedstage, newprog);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "stage registration of program"
                         " failed");
                 goto free_prog;
         }
 
-        ret = rpcsvc_program_register_portmap (newprog);
+        ret = nfs_rpcsvc_program_register_portmap (newprog);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap registration of"
                         " program failed");
@@ -2706,18 +2730,18 @@ free_prog:
  * we must perform NULL checks before calling the generic submit.
  */
 int
-rpcsvc_submit_message (rpcsvc_request_t *req, struct iovec msgvec,
-                       struct iobuf *msg)
+nfs_rpcsvc_submit_message (rpcsvc_request_t *req, struct iovec msgvec,
+                           struct iobuf *msg)
 {
         if ((!req) || (!req->conn) || (!msg) || (!msgvec.iov_base))
                 return -1;
 
-        return rpcsvc_submit_generic (req, msgvec, msg);
+        return nfs_rpcsvc_submit_generic (req, msgvec, msg);
 }
 
 
 int
-rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t prog)
+nfs_rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t prog)
 {
         int                     ret = -1;
 
@@ -2725,7 +2749,7 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t prog)
                 return -1;
 
         /* TODO: De-init the listening connection for this program. */
-        ret = rpcsvc_program_unregister_portmap (&prog);
+        ret = nfs_rpcsvc_program_unregister_portmap (&prog);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap unregistration of"
                         " program failed");
@@ -2748,23 +2772,23 @@ err:
 
 
 int
-rpcsvc_conn_peername (rpcsvc_conn_t *conn, char *hostname, int hostlen)
+nfs_rpcsvc_conn_peername (rpcsvc_conn_t *conn, char *hostname, int hostlen)
 {
         if (!conn)
                 return -1;
 
-        return rpcsvc_socket_peername (conn->sockfd, hostname, hostlen);
+        return nfs_rpcsvc_socket_peername (conn->sockfd, hostname, hostlen);
 }
 
 
 int
-rpcsvc_conn_peeraddr (rpcsvc_conn_t *conn, char *addrstr, int addrlen,
-                      struct sockaddr *sa, socklen_t sasize)
+nfs_rpcsvc_conn_peeraddr (rpcsvc_conn_t *conn, char *addrstr, int addrlen,
+                          struct sockaddr *sa, socklen_t sasize)
 {
         if (!conn)
                 return -1;
 
-        return rpcsvc_socket_peeraddr (conn->sockfd, addrstr, addrlen, sa,
-                                       sasize);
+        return nfs_rpcsvc_socket_peeraddr (conn->sockfd, addrstr, addrlen, sa,
+                                           sasize);
 }
 
