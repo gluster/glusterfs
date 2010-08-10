@@ -138,6 +138,8 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to list: %d",
                 rsp.op_ret);
 
+        ret = rsp.op_ret;
+
         if (!rsp.op_ret) {
 
                 if (!rsp.friends.friends_len) {

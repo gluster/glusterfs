@@ -31,6 +31,8 @@
 
 #define DEFAULT_EVENT_POOL_SIZE            16384
 #define CLI_GLUSTERD_PORT                   6969
+#define CLI_DEFAULT_CONN_TIMEOUT             120
+#define CLI_DEFAULT_CMD_TIMEOUT              120
 
 enum argp_option_keys {
 	ARGP_DEBUG_KEY = 133,
