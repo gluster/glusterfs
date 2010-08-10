@@ -58,7 +58,7 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
                 goto ret;
@@ -80,7 +80,7 @@ mnt3svc_submit_reply (rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
         outmsg.iov_len = sfunc (outmsg, arg);
 
         /* Then, submit the message for transmission. */
-        ret = rpcsvc_submit_message (req, outmsg, iob);
+        ret = nfs_rpcsvc_submit_message (req, outmsg, iob);
         iobuf_unref (iob);
         if (ret == -1) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Reply submission failed");
@@ -183,7 +183,8 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         if ((!ms) || (!req) || (!expname))
                 return -1;
 
-        me = (struct mountentry *)GF_CALLOC (1, sizeof (*me), gf_nfs_mt_mountentry);
+        me = (struct mountentry *)GF_CALLOC (1, sizeof (*me),
+                                             gf_nfs_mt_mountentry);
         if (!me)
                 return -1;
 
@@ -192,7 +193,7 @@ mnt3svc_update_mountlist (struct mount3_state *ms, rpcsvc_request_t *req,
         /* Must get the IP or hostname of the client so we
          * can map it into the mount entry.
          */
-        ret = rpcsvc_conn_peername (req->conn, me->hostname, MNTPATHLEN);
+        ret = nfs_rpcsvc_conn_peername (req->conn, me->hostname, MNTPATHLEN);
         if (ret == -1)
                 goto free_err;
 
@@ -230,7 +231,7 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
                 op_ret = -1;
@@ -248,8 +249,9 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
 xmit_res:
         gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d", status);
         if (op_ret == 0) {
-                svc = rpcsvc_request_service (req);
-                autharrlen = rpcsvc_auth_array (svc, this->name, autharr, 10);
+                svc = nfs_rpcsvc_request_service (req);
+                autharrlen = nfs_rpcsvc_auth_array (svc, this->name, autharr,
+                                                    10);
         }
 
         res = mnt3svc_set_mountres3 (status, &fh, autharr, autharrlen);
@@ -506,8 +508,9 @@ err:
         if (op_ret == -1) {
                 gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d",
                         mntstat);
-                svc = rpcsvc_request_service (mres->req);
-                autharrlen = rpcsvc_auth_array (svc, this->name, autharr, 10);
+                svc = nfs_rpcsvc_request_service (mres->req);
+                autharrlen = nfs_rpcsvc_auth_array (svc, this->name, autharr,
+                                                    10);
 
                 res = mnt3svc_set_mountres3 (mntstat, &fh, autharr, autharrlen);
                 mnt3svc_submit_reply (mres->req, (void *)&res,
@@ -661,16 +664,16 @@ mnt3_check_client_net (struct mount3_state *ms, rpcsvc_request_t *req,
         if ((!ms) || (!req) || (!targetxl))
                 return -1;
 
-        svc = rpcsvc_request_service (req);
-        ret = rpcsvc_conn_peer_check (svc->options, targetxl->name,
-                                      rpcsvc_request_conn (req));
+        svc = nfs_rpcsvc_request_service (req);
+        ret = nfs_rpcsvc_conn_peer_check (svc->options, targetxl->name,
+                                          nfs_rpcsvc_request_conn (req));
         if (ret == RPCSVC_AUTH_REJECT) {
                 gf_log (GF_MNT, GF_LOG_TRACE, "Peer not allowed");
                 goto err;
         }
 
-        ret = rpcsvc_conn_privport_check (svc, targetxl->name,
-                                          rpcsvc_request_conn (req));
+        ret = nfs_rpcsvc_conn_privport_check (svc, targetxl->name,
+                                              nfs_rpcsvc_request_conn (req));
         if (ret == RPCSVC_AUTH_REJECT) {
                 gf_log (GF_MNT, GF_LOG_TRACE, "Unprivileged port not allowed");
                 goto err;
@@ -700,14 +703,14 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         ret = xdr_to_mountpath (pvec, req->msg);
         if (ret == -1) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to decode args");
-                rpcsvc_request_seterr (req, GARBAGE_ARGS);
+                nfs_rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
-        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = -1;
                 goto rpcerr;
         }
@@ -753,7 +756,7 @@ mnt3svc_null (rpcsvc_request_t *req)
                 return 0;
         }
 
-        rpcsvc_submit_generic (req, dummyvec, NULL);
+        nfs_rpcsvc_submit_generic (req, dummyvec, NULL);
         return 0;
 }
 
@@ -859,9 +862,9 @@ mnt3svc_dump (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto rpcerr;
         }
 
@@ -871,7 +874,7 @@ mnt3svc_dump (rpcsvc_request_t *req)
         sfunc = (mnt3_serializer)xdr_serialize_mountlist;
         if (!mlist) {
                 if (ret != 0) {
-                        rpcsvc_request_seterr (req, SYSTEM_ERR);
+                        nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                         ret = -1;
                         goto rpcerr;
                 } else {
@@ -975,19 +978,19 @@ mnt3svc_umnt (rpcsvc_request_t *req)
         ret = xdr_to_mountpath (pvec, req->msg);;
         if (ret == -1) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed decode args");
-                rpcsvc_request_seterr (req, GARBAGE_ARGS);
+                nfs_rpcsvc_request_seterr (req, GARBAGE_ARGS);
                 goto rpcerr;
         }
 
-        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = -1;
                 goto rpcerr;
         }
 
-        ret = rpcsvc_conn_peername (req->conn, hostname, MNTPATHLEN);
+        ret = nfs_rpcsvc_conn_peername (req->conn, hostname, MNTPATHLEN);
         if (ret != 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get remote name: %s",
                         gai_strerror (ret));
@@ -1004,13 +1007,13 @@ mnt3svc_umnt (rpcsvc_request_t *req)
 
 try_umount_with_addr:
         if (ret != 0)
-                ret = rpcsvc_conn_peeraddr (req->conn, hostname, MNTPATHLEN,
-                                            NULL, 0);
+                ret = nfs_rpcsvc_conn_peeraddr (req->conn, hostname, MNTPATHLEN,
+                                                NULL, 0);
 
         if (ret != 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to get remote addr: %s",
                         gai_strerror (ret));
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto rpcerr;
         }
 
@@ -1074,10 +1077,10 @@ mnt3svc_umntall (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = -1;
                 goto rpcerr;
         }
@@ -1124,7 +1127,8 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
 
                 strcpy (elist->ex_dir, ent->expname);
 
-                addrstr = rpcsvc_volume_allowed (svc->options, ent->vol->name);
+                addrstr = nfs_rpcsvc_volume_allowed (svc->options,
+                                                     ent->vol->name);
                 if (addrstr)
                         addrstr = gf_strdup (addrstr);
                 else
@@ -1171,18 +1175,19 @@ mnt3svc_export (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        ms = (struct mount3_state *)rpcsvc_request_program_private (req);
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err;
         }
 
         /* Using the children translator names, build the export list */
-        elist = mnt3_xlchildren_to_exports (rpcsvc_request_service (req), ms);
+        elist = mnt3_xlchildren_to_exports (nfs_rpcsvc_request_service (req),
+                                            ms);
         if (!elist) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to build exports list");
-                rpcsvc_request_seterr (req, SYSTEM_ERR);
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err;
         }
 

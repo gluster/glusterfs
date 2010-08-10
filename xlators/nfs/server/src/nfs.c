@@ -81,7 +81,7 @@ nfs_deinit_versions (struct list_head *versions, xlator_t *this)
                    version->deinit (this);
                 */
                 if (version->program)
-                        rpcsvc_program_unregister (nfs->rpcsvc,
+                        nfs_rpcsvc_program_unregister (nfs->rpcsvc,
                                                   *(version->program));
 
                 list_del (&version->list);
@@ -121,7 +121,7 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
 
                 gf_log (GF_NFS, GF_LOG_DEBUG, "Starting program: %s",
                         prog->progname);
-                ret = rpcsvc_program_register (nfs->rpcsvc, *prog);
+                ret = nfs_rpcsvc_program_register (nfs->rpcsvc, *prog);
                 if (ret == -1) {
                         gf_log (GF_NFS, GF_LOG_ERROR, "Program init failed");
                         goto err;
@@ -430,9 +430,9 @@ nfs_request_user_init (nfs_user_t *nfu, rpcsvc_request_t *req)
         if ((!req) || (!nfu))
                 return;
 
-        gidarr = rpcsvc_auth_unix_auxgids (req, &gids);
-        nfs_user_create (nfu, rpcsvc_request_uid (req), rpcsvc_request_gid (req)
-                         , gidarr, gids);
+        gidarr = nfs_rpcsvc_auth_unix_auxgids (req, &gids);
+        nfs_user_create (nfu, nfs_rpcsvc_request_uid (req),
+                         nfs_rpcsvc_request_gid (req), gidarr, gids);
 
         return;
 }
@@ -479,7 +479,7 @@ init (xlator_t *this) {
         }
 
         /* RPC service needs to be started before NFS versions can be inited. */
-        nfs->rpcsvc = rpcsvc_init (this->ctx, this->options);
+        nfs->rpcsvc =  nfs_rpcsvc_init (this->ctx, this->options);
         if (!nfs->rpcsvc) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");
                 goto free_nfs;

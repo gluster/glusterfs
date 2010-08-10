@@ -39,8 +39,8 @@
  * The remaining payload is returned into payload.
  */
 int
-xdr_to_rpc_call (char *msgbuf, size_t len, struct rpc_msg *call,
-                 struct iovec *payload, char *credbytes, char *verfbytes)
+nfs_xdr_to_rpc_call (char *msgbuf, size_t len, struct rpc_msg *call,
+                     struct iovec *payload, char *credbytes, char *verfbytes)
 {
         XDR                     xdr;
         char                    opaquebytes[MAX_AUTH_BYTES];
@@ -68,8 +68,8 @@ xdr_to_rpc_call (char *msgbuf, size_t len, struct rpc_msg *call,
                 return -1;
 
         if (payload) {
-                payload->iov_base = xdr_decoded_remaining_addr (xdr);
-                payload->iov_len = xdr_decoded_remaining_len (xdr);
+                payload->iov_base = nfs_xdr_decoded_remaining_addr (xdr);
+                payload->iov_len = nfs_xdr_decoded_remaining_len (xdr);
         }
 
         return 0;
@@ -77,14 +77,14 @@ xdr_to_rpc_call (char *msgbuf, size_t len, struct rpc_msg *call,
 
 
 bool_t
-true_func (XDR *s, caddr_t *a)
+nfs_true_func (XDR *s, caddr_t *a)
 {
         return TRUE;
 }
 
 
 int
-rpc_fill_empty_reply (struct rpc_msg *reply, uint32_t xid)
+nfs_rpc_fill_empty_reply (struct rpc_msg *reply, uint32_t xid)
 {
         if (!reply)
                 return -1;
@@ -100,7 +100,7 @@ rpc_fill_empty_reply (struct rpc_msg *reply, uint32_t xid)
 }
 
 int
-rpc_fill_denied_reply (struct rpc_msg *reply, int rjstat, int auth_err)
+nfs_rpc_fill_denied_reply (struct rpc_msg *reply, int rjstat, int auth_err)
 {
         if (!reply)
                 return -1;
@@ -122,8 +122,8 @@ rpc_fill_denied_reply (struct rpc_msg *reply, int rjstat, int auth_err)
 
 
 int
-rpc_fill_accepted_reply (struct rpc_msg *reply, int arstat, int proglow,
-                         int proghigh, int verf, int len, char *vdata)
+nfs_rpc_fill_accepted_reply (struct rpc_msg *reply, int arstat, int proglow,
+                             int proghigh, int verf, int len, char *vdata)
 {
         if (!reply)
                 return -1;
@@ -142,7 +142,7 @@ rpc_fill_accepted_reply (struct rpc_msg *reply, int arstat, int proglow,
                 /* This is a hack. I'd really like to build a custom
                  * XDR library because Sun RPC interface is not very flexible.
                  */
-                reply->acpted_rply.ar_results.proc = (xdrproc_t)true_func;
+                reply->acpted_rply.ar_results.proc = (xdrproc_t)nfs_true_func;
                 reply->acpted_rply.ar_results.where = NULL;
         }
 
@@ -150,8 +150,8 @@ rpc_fill_accepted_reply (struct rpc_msg *reply, int arstat, int proglow,
 }
 
 int
-rpc_reply_to_xdr (struct rpc_msg *reply, char *dest, size_t len,
-                  struct iovec *dst)
+nfs_rpc_reply_to_xdr (struct rpc_msg *reply, char *dest, size_t len,
+                      struct iovec *dst)
 {
         XDR             xdr;
 
@@ -163,15 +163,15 @@ rpc_reply_to_xdr (struct rpc_msg *reply, char *dest, size_t len,
                 return -1;
 
         dst->iov_base = dest;
-        dst->iov_len = xdr_encoded_length (xdr);
+        dst->iov_len = nfs_xdr_encoded_length (xdr);
 
         return 0;
 }
 
 
 int
-xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
-                       char *machname, gid_t *gids)
+nfs_xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
+                           char *machname, gid_t *gids)
 {
         XDR             xdr;
 
@@ -194,13 +194,13 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
 }
 
 ssize_t
-xdr_length_round_up (size_t len, size_t bufsize)
+nfs_xdr_length_round_up (size_t len, size_t bufsize)
 {
         int     roundup = 0;
 
-        roundup = len % XDR_BYTES_PER_UNIT;
+        roundup = len % NFS_XDR_BYTES_PER_UNIT;
         if (roundup > 0)
-                roundup = XDR_BYTES_PER_UNIT - roundup;
+                roundup = NFS_XDR_BYTES_PER_UNIT - roundup;
 
         if ((roundup > 0) && ((roundup + len) <= bufsize))
                 len += roundup;
@@ -209,18 +209,18 @@ xdr_length_round_up (size_t len, size_t bufsize)
 }
 
 int
-xdr_bytes_round_up (struct iovec *vec, size_t bufsize)
+nfs_xdr_bytes_round_up (struct iovec *vec, size_t bufsize)
 {
-        vec->iov_len = xdr_length_round_up (vec->iov_len, bufsize);
+        vec->iov_len = nfs_xdr_length_round_up (vec->iov_len, bufsize);
         return 0;
 }
 
 void
-xdr_vector_round_up (struct iovec *vec, int vcount, uint32_t count)
+nfs_xdr_vector_round_up (struct iovec *vec, int vcount, uint32_t count)
 {
         uint32_t round_count = 0;
 
-        round_count = xdr_length_round_up (count, 1048576);
+        round_count = nfs_xdr_length_round_up (count, 1048576);
         round_count -= count;
         if (round_count == 0)
                 return;

@@ -22,14 +22,14 @@
 #include "dict.h"
 
 extern rpcsvc_auth_t *
-rpcsvc_auth_null_init (rpcsvc_t *svc, dict_t *options);
+nfs_rpcsvc_auth_null_init (rpcsvc_t *svc, dict_t *options);
 
 extern rpcsvc_auth_t *
-rpcsvc_auth_unix_init (rpcsvc_t *svc, dict_t *options);
+nfs_rpcsvc_auth_unix_init (rpcsvc_t *svc, dict_t *options);
 
 int
-rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
-                        rpcsvc_auth_initer_t init)
+nfs_rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
+                            rpcsvc_auth_initer_t init)
 {
         struct rpcsvc_auth_list         *new = NULL;
 
@@ -52,21 +52,21 @@ rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
 
 
 int
-rpcsvc_auth_add_initers (rpcsvc_t *svc)
+nfs_rpcsvc_auth_add_initers (rpcsvc_t *svc)
 {
         int     ret = -1;
 
-        ret = rpcsvc_auth_add_initer (&svc->authschemes, "auth-unix",
-                                      (rpcsvc_auth_initer_t)
-                                      rpcsvc_auth_unix_init);
+        ret = nfs_rpcsvc_auth_add_initer (&svc->authschemes, "auth-unix",
+                                          (rpcsvc_auth_initer_t)
+                                          nfs_rpcsvc_auth_unix_init);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add AUTH_UNIX");
                 goto err;
         }
 
-        ret = rpcsvc_auth_add_initer (&svc->authschemes, "auth-null",
-                                      (rpcsvc_auth_initer_t)
-                                      rpcsvc_auth_null_init);
+        ret = nfs_rpcsvc_auth_add_initer (&svc->authschemes, "auth-null",
+                                          (rpcsvc_auth_initer_t)
+                                          nfs_rpcsvc_auth_null_init);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add AUTH_NULL");
                 goto err;
@@ -79,8 +79,8 @@ err:
 
 
 int
-rpcsvc_auth_init_auth (rpcsvc_t *svc, dict_t *options,
-                       struct rpcsvc_auth_list *authitem)
+nfs_rpcsvc_auth_init_auth (rpcsvc_t *svc, dict_t *options,
+                           struct rpcsvc_auth_list *authitem)
 {
         int             ret = -1;
 
@@ -112,7 +112,7 @@ err:
 
 
 int
-rpcsvc_auth_init_auths (rpcsvc_t *svc, dict_t *options)
+nfs_rpcsvc_auth_init_auths (rpcsvc_t *svc, dict_t *options)
 {
         int                     ret = -1;
         struct rpcsvc_auth_list *auth = NULL;
@@ -138,7 +138,7 @@ rpcsvc_auth_init_auths (rpcsvc_t *svc, dict_t *options)
                 ret = dict_set_dynstr (options, "rpc-auth.auth-unix", "on");
 
         list_for_each_entry_safe (auth, tmp, &svc->authschemes, authlist) {
-                ret = rpcsvc_auth_init_auth (svc, options, auth);
+                ret = nfs_rpcsvc_auth_init_auth (svc, options, auth);
                 if (ret == -1)
                         goto err;
         }
@@ -150,20 +150,20 @@ err:
 }
 
 int
-rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options)
+nfs_rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options)
 {
         int             ret = -1;
 
         if ((!svc) || (!options))
                 return -1;
 
-        ret = rpcsvc_auth_add_initers (svc);
+        ret = nfs_rpcsvc_auth_add_initers (svc);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to add initers");
                 goto out;
         }
 
-        ret = rpcsvc_auth_init_auths (svc, options);
+        ret = nfs_rpcsvc_auth_init_auths (svc, options);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to init auth schemes");
                 goto out;
@@ -175,7 +175,7 @@ out:
 
 
 rpcsvc_auth_t *
-__rpcsvc_auth_get_handler (rpcsvc_request_t *req)
+__nfs_rpcsvc_auth_get_handler (rpcsvc_request_t *req)
 {
         int                     ret = -1;
         struct rpcsvc_auth_list *auth = NULL;
@@ -185,7 +185,7 @@ __rpcsvc_auth_get_handler (rpcsvc_request_t *req)
         if (!req)
                 return NULL;
 
-        svc = rpcsvc_request_service (req);
+        svc = nfs_rpcsvc_request_service (req);
         if (list_empty (&svc->authschemes)) {
                 gf_log (GF_RPCSVC, GF_LOG_WARNING, "No authentication!");
                 ret = 0;
@@ -209,11 +209,11 @@ err:
 }
 
 rpcsvc_auth_t *
-rpcsvc_auth_get_handler (rpcsvc_request_t *req)
+nfs_rpcsvc_auth_get_handler (rpcsvc_request_t *req)
 {
         rpcsvc_auth_t           *auth = NULL;
 
-        auth = __rpcsvc_auth_get_handler (req);
+        auth = __nfs_rpcsvc_auth_get_handler (req);
         if (auth)
                 goto ret;
 
@@ -225,14 +225,14 @@ rpcsvc_auth_get_handler (rpcsvc_request_t *req)
          */
         req->cred.flavour = AUTH_NULL;
         req->verf.flavour = AUTH_NULL;
-        auth = __rpcsvc_auth_get_handler (req);
+        auth = __nfs_rpcsvc_auth_get_handler (req);
 ret:
         return auth;
 }
 
 
 int
-rpcsvc_auth_request_init (rpcsvc_request_t *req)
+nfs_rpcsvc_auth_request_init (rpcsvc_request_t *req)
 {
         int                     ret = -1;
         rpcsvc_auth_t           *auth = NULL;
@@ -240,7 +240,7 @@ rpcsvc_auth_request_init (rpcsvc_request_t *req)
         if (!req)
                 return -1;
 
-        auth = rpcsvc_auth_get_handler (req);
+        auth = nfs_rpcsvc_auth_get_handler (req);
         if (!auth)
                 goto err;
         ret = 0;
@@ -254,7 +254,7 @@ err:
 
 
 int
-rpcsvc_authenticate (rpcsvc_request_t *req)
+nfs_rpcsvc_authenticate (rpcsvc_request_t *req)
 {
         int                     ret = RPCSVC_AUTH_REJECT;
         rpcsvc_auth_t           *auth = NULL;
@@ -263,14 +263,14 @@ rpcsvc_authenticate (rpcsvc_request_t *req)
         if (!req)
                 return ret;
 
-        minauth = rpcsvc_request_prog_minauth (req);
-        if (minauth > rpcsvc_request_cred_flavour (req)) {
+        minauth = nfs_rpcsvc_request_prog_minauth (req);
+        if (minauth > nfs_rpcsvc_request_cred_flavour (req)) {
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Auth too weak");
-                rpcsvc_request_set_autherr (req, AUTH_TOOWEAK);
+                nfs_rpcsvc_request_set_autherr (req, AUTH_TOOWEAK);
                 goto err;
         }
 
-        auth = rpcsvc_auth_get_handler (req);
+        auth = nfs_rpcsvc_auth_get_handler (req);
         if (!auth) {
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG, "No auth handler found");
                 goto err;
@@ -285,7 +285,7 @@ err:
 
 
 int
-rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
+nfs_rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
 {
         int             count = 0;
         int             gen = RPCSVC_AUTH_REJECT;
@@ -361,7 +361,7 @@ rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
                 }
 
                 GF_FREE (srchstr);
-                final = rpcsvc_combine_gen_spec_volume_checks (gen, spec);
+                final = nfs_rpcsvc_combine_gen_spec_volume_checks (gen, spec);
                 if (final == RPCSVC_AUTH_ACCEPT) {
                         autharr[count] = auth->auth->authnum;
                         ++count;
@@ -374,7 +374,7 @@ err:
 
 
 gid_t *
-rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen)
+nfs_rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen)
 {
         if ((!req) || (!arrlen))
                 return NULL;

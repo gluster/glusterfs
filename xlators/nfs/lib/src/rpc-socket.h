@@ -17,8 +17,8 @@
   <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _RPCSVC_SOCKET_H_
-#define _RPCSVC_SOCKET_H_
+#ifndef _NFS_RPCSVC_SOCKET_H_
+#define _NFS_RPCSVC_SOCKET_H_
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -40,26 +40,26 @@
 #define SA(ptr)                 ((struct sockaddr *)ptr)
 #define GF_RPCSVC_SOCK          "rpc-socket"
 extern int
-rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport);
+nfs_rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport);
 
 extern int
-rpcsvc_socket_accept (int listenfd);
+nfs_rpcsvc_socket_accept (int listenfd);
 
 extern ssize_t
-rpcsvc_socket_read (int sockfd, char *readaddr, size_t readsize);
+nfs_rpcsvc_socket_read (int sockfd, char *readaddr, size_t readsize);
 
 extern ssize_t
-rpcsvc_socket_write (int sockfd, char *buffer, size_t size);
+nfs_rpcsvc_socket_write (int sockfd, char *buffer, size_t size);
 
 extern int
-rpcsvc_socket_peername (int sockfd, char *hostname, int hostlen);
+nfs_rpcsvc_socket_peername (int sockfd, char *hostname, int hostlen);
 
 extern int
-rpcsvc_socket_peeraddr (int sockfd, char *addrstr, int addrlen,
-                        struct sockaddr *returnsa, socklen_t sasize);
+nfs_rpcsvc_socket_peeraddr (int sockfd, char *addrstr, int addrlen,
+                            struct sockaddr *returnsa, socklen_t sasize);
 extern int
-rpcsvc_socket_block_tx (int sockfd);
+nfs_rpcsvc_socket_block_tx (int sockfd);
 
 extern int
-rpcsvc_socket_unblock_tx (int sockfd);
+nfs_rpcsvc_socket_unblock_tx (int sockfd);
 #endif

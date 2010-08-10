@@ -17,8 +17,8 @@
   <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _XDR_COMMON_H_
-#define _XDR_COMMON_H_
+#ifndef _NFS_XDR_COMMON_H_
+#define _NFS_XDR_COMMON_H_
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -26,23 +26,23 @@
 #endif
 
 #include <rpc/rpc.h>
-#define XDR_BYTES_PER_UNIT      4
+#define NFS_XDR_BYTES_PER_UNIT      4
 
 /* Returns the address of the byte that follows the
  * last byte used for decoding the previous xdr component.
  * For eg, once the RPC call for NFS has been decoded, thie macro will return
  * the address from which the NFS header starts.
  */
-#define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
+#define nfs_xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
 
 /* Returns the length of the remaining record after the previous decode
  * operation completed.
  */
-#define xdr_decoded_remaining_len(xdr)         ((&xdr)->x_handy)
+#define nfs_xdr_decoded_remaining_len(xdr)         ((&xdr)->x_handy)
 
 /* Returns the number of bytes used by the last encode operation. */
-#define xdr_encoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
+#define nfs_xdr_encoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
 
-#define xdr_decoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
+#define nfs_xdr_decoded_length(xdr) (((size_t)(&xdr)->x_private) - ((size_t)(&xdr)->x_base))
 
 #endif
