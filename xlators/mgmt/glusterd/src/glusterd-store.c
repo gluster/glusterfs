@@ -1047,7 +1047,8 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
                         snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
                                   peerinfo->hostname);
                 } else {
-                        GF_ASSERT (peerinfo->uuid || peerinfo->hostname);
+                       ret = 0;
+                       goto out;
                 }
         } else {
                 uuid_unparse (peerinfo->uuid, str);
@@ -1105,7 +1106,7 @@ out:
 int32_t
 glusterd_store_retrieve_peers (xlator_t *this)
 {
-        int32_t                 ret = -1;
+        int32_t                 ret = 0;
         glusterd_conf_t         *priv = NULL;
         DIR                     *dir = NULL;
         struct dirent           *entry = NULL;

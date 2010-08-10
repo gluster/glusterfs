@@ -229,6 +229,16 @@ init (xlator_t *this)
                         " ,errno = %d", voldir, errno);
         }
 
+        snprintf (voldir, PATH_MAX, "%s/peers", dirname);
+
+        ret = mkdir (voldir, 0777);
+
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create peers directory %s"
+                        " ,errno = %d", voldir, errno);
+        }
+
         rpc = rpcsvc_init (this->ctx, this->options);
         if (rpc == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
