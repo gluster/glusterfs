@@ -35,6 +35,7 @@
 #include <fnmatch.h>
 
 static int cmd_done;
+static int cmd_sent;
 static pthread_cond_t      cond  = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t     cond_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t      conn  = PTHREAD_COND_INITIALIZER;
@@ -77,6 +78,15 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
                 cli_out ("unrecognized command");
                 return -1;
         }
+
+        ret = cli_cmd_await_connected ();
+        if (ret) {
+                cli_out ("Connection failed. Please check if gluster daemon"
+                         " is operational.");
+                gf_log ("", GF_LOG_NORMAL, "Exiting with: %d", ret);
+                exit (ret);
+        }
+
 
         ret = word->cbkfn (state, word, (const char **)argv, argc);
 
@@ -208,12 +218,22 @@ cli_cmd_unlock ()
 int
 cli_cmd_await_response ()
 {
+        struct  timespec        ts = {0,};
+        int                     ret = 0;
 
+        cli_op_ret = -1;
         cmd_done = 0;
-        while (!cmd_done)
-                pthread_cond_wait (&cond, &cond_mutex);
+        time (&ts.tv_sec);
+        ts.tv_sec += CLI_DEFAULT_CMD_TIMEOUT;
+        while (!cmd_done && !ret) {
+                ret = pthread_cond_timedwait (&cond, &cond_mutex,
+                                        &ts);
+        }
 
         cli_cmd_unlock ();
+
+        if (ret)
+                return ret;
 
         return cli_op_ret;
 }
@@ -221,6 +241,9 @@ cli_cmd_await_response ()
 int
 cli_cmd_broadcast_response (int32_t status)
 {
+        if (!cmd_sent)
+                goto out;
+
         pthread_mutex_lock (&cond_mutex);
         {
                 cmd_done = 1;
@@ -230,23 +253,29 @@ cli_cmd_broadcast_response (int32_t status)
 
         pthread_mutex_unlock (&cond_mutex);
 
+out:
         return 0;
 }
 
 int32_t
 cli_cmd_await_connected ()
 {
+        int32_t                 ret = 0;
+        struct  timespec        ts = {0,};
 
-       pthread_mutex_lock (&conn_mutex);
+        pthread_mutex_lock (&conn_mutex);
         {
-                while (!connected) {
-                        pthread_cond_wait (&conn, &conn_mutex);
+                time (&ts.tv_sec);
+                ts.tv_sec += CLI_DEFAULT_CONN_TIMEOUT;
+                while (!connected && !ret) {
+                        ret = pthread_cond_timedwait (&conn, &conn_mutex,
+                                                      &ts);
                 }
         }
         pthread_mutex_unlock (&conn_mutex);
 
 
-        return 0;
+        return ret;
 }
 
 int32_t
@@ -273,13 +302,15 @@ cli_cmd_submit (void *req, call_frame_t *frame,
         int     ret = -1;
 
         cli_cmd_lock ();
+        cmd_sent = 0;
         ret = cli_submit_request (req, frame, prog,
                                   procnum, NULL, sfunc,
                                   this, cbkfn);
 
-        if (!ret)
+        if (!ret) {
+                cmd_sent = 1;
                 ret = cli_cmd_await_response ();
-        else
+        } else
                 cli_cmd_unlock ();
 
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);

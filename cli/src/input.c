@@ -41,7 +41,6 @@ cli_batch (void *d)
 
         state = d;
 
-        cli_cmd_await_connected ();
         ret = cli_cmd_process (state, state->argc, state->argv);
         gf_log ("", GF_LOG_NORMAL, "Exiting with: %d", ret);
         exit (ret);
