@@ -330,6 +330,7 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         DIR     *dir = NULL;
         struct dirent *entry = NULL;
         char path[PATH_MAX] = {0,};
+        struct stat     st = {0, };
 
         GF_ASSERT (volinfo);
         priv = THIS->private;
@@ -351,7 +352,14 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
         while (entry) {
 
                 snprintf (path, PATH_MAX, "%s/%s", pathname, entry->d_name);
-                if (DT_DIR  == entry->d_type)
+                ret = stat (path, &st);
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR, "Failed to stat entry: %s:%s",
+                                path, strerror (errno));
+                        goto stat_failed;
+                }
+
+                if (S_ISDIR (st.st_mode))
                         ret = rmdir (path);
                 else
                         ret = unlink (path);
@@ -361,6 +369,7 @@ glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
                                 entry->d_name);
                 if (ret)
                         gf_log ("", GF_LOG_NORMAL, "errno:%d", errno);
+stat_failed:
                 memset (path, 0, sizeof(path));
                 glusterd_for_each_entry (entry, dir);
         }
