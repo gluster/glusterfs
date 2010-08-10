@@ -48,6 +48,10 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
+#ifdef GF_SOLARIS_HOST_OS
+#include <sys/sockio.h>
+#endif
+
 static glusterd_lock_t lock;
 
 static int32_t
@@ -119,7 +123,7 @@ glusterd_is_local_addr (char *hostname)
                 int32_t       num_req = 0;
                 struct sockaddr_in sa = {0,};
 
-                sd = socket (AF_LOCAL, SOCK_DGRAM, 0);
+                sd = socket (PF_UNIX, SOCK_DGRAM, 0);
                 if (sd == -1)
                         goto out;
 
