@@ -75,7 +75,6 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 	      fd_t *fd)
 {
 	afr_local_t *  local = NULL;
-	afr_private_t * priv = NULL;
 
         int child_index = (long) cookie;
 
@@ -86,7 +85,6 @@ afr_open_cbk (call_frame_t *frame, void *cookie,
 
 	int call_count = -1;
 
-	priv  = this->private;
 	local = frame->local;
 
 	LOCK (&frame->lock);
@@ -350,12 +348,10 @@ out:
 int
 afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t   *priv = NULL;
         afr_local_t     *local  = NULL;
         afr_self_heal_t *sh = NULL;
         char            sh_type_str[256] = {0,};
 
-        priv  = this->private;
         local = frame->local;
         sh    = &local->self_heal;
 
@@ -392,10 +388,8 @@ int
 afr_up_down_flush_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
-	afr_private_t *priv = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
         local->transaction.resume (frame, this);
 	return 0;
@@ -450,16 +444,11 @@ int
 afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
                    afr_flush_type type)
 {
-	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
-
-	int op_ret   = -1;
 
 	VALIDATE_OR_GOTO (frame, out);
 	VALIDATE_OR_GOTO (this, out);
 	VALIDATE_OR_GOTO (this->private, out);
-
-	priv = this->private;
 
         local = frame->local;
 
@@ -489,7 +478,6 @@ afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
 
-	op_ret = 0;
 out:
 	return 0;
 }
