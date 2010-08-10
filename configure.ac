@@ -127,8 +127,6 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/access-control/Makefile
                 xlators/features/access-control/src/Makefile
                 xlators/nfs/Makefile
-                xlators/nfs/lib/Makefile
-                xlators/nfs/lib/src/Makefile
                 xlators/nfs/server/Makefile
                 xlators/nfs/server/src/Makefile
                 xlators/mgmt/Makefile
