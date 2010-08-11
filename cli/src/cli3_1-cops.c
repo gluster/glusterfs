@@ -89,7 +89,7 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_deprobe_req (*iov, &rsp);
+        ret = gf_xdr_to_cli_deprobe_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 //rsp.op_ret   = -1;
