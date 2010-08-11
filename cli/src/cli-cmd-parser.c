@@ -162,7 +162,7 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         char    *value = NULL;
         int     i = 0;
         char    str[50] = {0,};
-        
+
         GF_ASSERT (words);
         GF_ASSERT (options);
 
@@ -388,7 +388,7 @@ out:
 
 
 int32_t
-cli_cmd_volume_replace_brick_parse (const char **words, int wordcount, 
+cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                                    dict_t **options)
 {
         dict_t  *dict = NULL;
@@ -397,7 +397,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         char    *op = NULL;
         int     op_index = 0;
         gf1_cli_replace_op replace_op = GF_REPLACE_OP_NONE;
-        
+
         GF_ASSERT (words);
         GF_ASSERT (options);
 
@@ -458,7 +458,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
 
         if (ret)
                 goto out;
-                
+
         *options = dict;
 
 out:
