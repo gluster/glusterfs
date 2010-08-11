@@ -44,6 +44,15 @@ static pthread_mutex_t     conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 int    cli_op_ret = 0;
 int    connected = 0;
 
+static gf_boolean_t
+cli_cmd_needs_connection (struct cli_cmd_word *word)
+{
+        if (!strcasecmp ("quit", word->word))
+                return _gf_false;
+
+        return _gf_true;
+}
+
 int
 cli_cmd_process (struct cli_state *state, int argc, char **argv)
 {
@@ -51,6 +60,7 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
         struct cli_cmd_word *word = NULL;
         struct cli_cmd_word *next = NULL;
         int                  i = 0;
+        gf_boolean_t         await_conn = _gf_false;
 
         word = &state->tree.root;
 
@@ -79,12 +89,16 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
                 return -1;
         }
 
-        ret = cli_cmd_await_connected ();
-        if (ret) {
-                cli_out ("Connection failed. Please check if gluster daemon"
-                         " is operational.");
-                gf_log ("", GF_LOG_NORMAL, "Exiting with: %d", ret);
-                exit (ret);
+        await_conn = cli_cmd_needs_connection (word);
+
+        if (await_conn) {
+                ret = cli_cmd_await_connected ();
+                if (ret) {
+                        cli_out ("Connection failed. Please check if gluster "
+                                  "daemon is operational.");
+                        gf_log ("", GF_LOG_NORMAL, "Exiting with: %d", ret);
+                        exit (ret);
+                }
         }
 
 
