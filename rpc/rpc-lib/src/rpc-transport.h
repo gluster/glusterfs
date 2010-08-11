@@ -170,6 +170,7 @@ struct rpc_transport {
 	struct rpc_transport_ops  *ops;
 	void                      *private;
         void                      *xl_private;
+        void                      *xl;       /* Used for THIS */
 	void                      *mydata;
 	pthread_mutex_t            lock;
 	int32_t                    refcount;

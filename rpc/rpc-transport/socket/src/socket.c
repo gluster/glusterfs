@@ -1497,7 +1497,11 @@ socket_event_handler (int fd, int idx, void *data,
         int               ret = 0;
 
         this = data;
+        THIS = this->xl;
         priv = this->private;
+
+        if (!priv)
+                return 0;
 
         pthread_mutex_lock (&priv->lock);
         {
@@ -1542,8 +1546,12 @@ socket_server_event_handler (int fd, int idx, void *data,
 	glusterfs_ctx_t         *ctx = NULL;
 
         this = data;
+        THIS = this->xl;
         priv = this->private;
 	ctx  = this->ctx;
+
+        if (!priv)
+                return 0;
 
         pthread_mutex_lock (&priv->lock);
         {
@@ -1584,7 +1592,6 @@ socket_server_event_handler (int fd, int idx, void *data,
                         if (!new_trans)
                                 goto unlock;
 
-                        new_trans->fini = this->fini;
                         new_trans->name = gf_strdup (this->name);
 
                         memcpy (&new_trans->peerinfo.sockaddr, &new_sockaddr,
@@ -1611,6 +1618,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                         new_trans->init = this->init;
                         new_trans->fini = this->fini;
                         new_trans->ctx  = ctx;
+                        new_trans->xl   = this->xl;
                         new_trans->mydata = this->mydata;
                         new_trans->notify = this->notify;
                         new_priv = new_trans->private;
@@ -2323,13 +2331,19 @@ fini (rpc_transport_t *this)
 {
         socket_private_t *priv = this->private;
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "transport %p destroyed", this);
+        this->private = NULL;
+        if (priv) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "transport %p destroyed", this);
 
-        pthread_mutex_destroy (&priv->lock);
+                pthread_mutex_destroy (&priv->lock);
+                GF_FREE (priv);
+        }
 
-        GF_FREE (this->name);
-        GF_FREE (priv);
+        if (this->name) {
+                GF_FREE (this->name);
+                this->name = NULL;
+        }
 }
 
 

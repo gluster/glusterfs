@@ -956,6 +956,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
         trans->options = options;
 
 	pthread_mutex_init (&trans->lock, NULL);
+        trans->xl = THIS;
 	return_trans = trans;
 	return return_trans;
 
@@ -1053,8 +1054,6 @@ rpc_transport_destroy (rpc_transport_t *this)
 	int32_t ret = -1;
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
-
-        rpc_transport_disconnect (this);
 
 	if (this->fini)
 		this->fini (this);
