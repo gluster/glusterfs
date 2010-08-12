@@ -801,7 +801,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         gf_log ("", GF_LOG_NORMAL, "Stopping glusterfs running in pid: %d",
                 pid);
 
-        ret = kill (pid, SIGQUIT);
+        ret = kill (pid, SIGTERM);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);

@@ -75,8 +75,6 @@ typedef int32_t (*event_notify_fn_t) (xlator_t *this, int32_t event, void *data,
 #include "globals.h"
 #include "iatt.h"
 
-
-
 struct _loc {
 	const char *path;
 	const char *name;
@@ -84,6 +82,7 @@ struct _loc {
 	inode_t    *inode;
 	inode_t    *parent;
 };
+
 
 typedef int32_t (*fop_getspec_cbk_t) (call_frame_t *frame,
 				      void *cookie,
@@ -815,6 +814,8 @@ struct _xlator {
 	int32_t           (*init) (xlator_t *this);
 	int32_t           (*mem_acct_init) (xlator_t *this);
 	event_notify_fn_t notify;
+
+        gf_loglevel_t    loglevel;   /* Log level for translator */
 
         /* for latency measurement */
         fop_latency_t latencies[GF_FOP_MAXVALUE];

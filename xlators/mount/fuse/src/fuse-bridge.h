@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <sys/mount.h>
 #include <sys/time.h>
+#include <fnmatch.h>
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -273,5 +274,6 @@ xlator_t *fuse_state_subvol (fuse_state_t *state);
 xlator_t *fuse_active_subvol (xlator_t *fuse);
 inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
+int is_gf_log_command (xlator_t *this, const char *name, char *value);
 
 #endif /* _GF_FUSE_BRIDGE_H_ */

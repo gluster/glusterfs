@@ -35,39 +35,73 @@
 #include "logging.h"
 #include "defaults.h"
 
+#ifdef GF_LINUX_HOST_OS
+#include <syslog.h>
+#endif
+
+
 static pthread_mutex_t  logfile_mutex;
 static char            *filename = NULL;
 static uint8_t          logrotate = 0;
 
 static FILE            *logfile = NULL;
 static gf_loglevel_t    loglevel = GF_LOG_MAX;
+static int              gf_log_syslog = 0;
 
 gf_loglevel_t           gf_log_loglevel; /* extern'd */
 FILE                   *gf_log_logfile;
 
 
-void 
+void
 gf_log_logrotate (int signum)
 {
 	logrotate = 1;
 }
 
+void
+gf_log_enable_syslog (void)
+{
+        gf_log_syslog = 1;
+}
 
-gf_loglevel_t 
+void
+gf_log_disable_syslog (void)
+{
+        gf_log_syslog = 0;
+}
+
+gf_loglevel_t
 gf_log_get_loglevel (void)
 {
 	return loglevel;
 }
 
-
 void
 gf_log_set_loglevel (gf_loglevel_t level)
 {
-	gf_log_loglevel = loglevel = level;
+        gf_log_loglevel = loglevel = level;
 }
 
 
-void 
+gf_loglevel_t
+gf_log_get_xl_loglevel (void *this)
+{
+        xlator_t *xl = this;
+        if (!xl)
+                return 0;
+        return xl->loglevel;
+}
+
+void
+gf_log_set_xl_loglevel (void *this, gf_loglevel_t level)
+{
+        xlator_t *xl = this;
+        if (!xl)
+                return;
+        xl->loglevel = level;
+}
+
+void
 gf_log_fini (void)
 {
 	pthread_mutex_destroy (&logfile_mutex);
@@ -98,6 +132,12 @@ gf_log_init (const char *file)
 			 strerror (errno));
 		return -1;
 	}
+
+#ifdef GF_LINUX_HOST_OS
+        /* For the 'syslog' output. one can grep 'GlusterFS' in syslog
+           for serious logs */
+        openlog ("GlusterFS", LOG_PID, LOG_DAEMON);
+#endif
 
 	gf_log_logfile = logfile;
 
@@ -162,23 +202,37 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         char        *msg  = NULL;
         size_t       len  = 0;
         int          ret  = 0;
+        xlator_t    *this = NULL;
+        gf_loglevel_t xlator_loglevel = 0;
+
+        this = THIS;
+
+        xlator_loglevel = this->loglevel;
+        if (xlator_loglevel == 0)
+                xlator_loglevel = loglevel;
+
+        if (level > xlator_loglevel)
+                goto out;
 
 	static char *level_strings[] = {"",  /* NONE */
+                                        "M", /* EMERGENCY */
+                                        "A", /* ALERT */
 					"C", /* CRITICAL */
 					"E", /* ERROR */
 					"W", /* WARNING */
-					"N", /* NORMAL */
+					"N", /* NOTICE */
+                                        "I", /* INFO/NORMAL */
 					"D", /* DEBUG */
                                         "T", /* TRACE */
 					""};
-  
+
 	if (!domain || !file || !function || !fmt) {
-		fprintf (stderr, 
-			 "logging: %s:%s():%d: invalid argument\n", 
+		fprintf (stderr,
+			 "logging: %s:%s():%d: invalid argument\n",
 			 __FILE__, __PRETTY_FUNCTION__, __LINE__);
 		return -1;
 	}
-  
+
 	if (!logfile) {
 		fprintf (stderr, "no logfile set\n");
 		return (-1);
@@ -206,7 +260,7 @@ log:
 
 	tm    = localtime (&tv.tv_sec);
 
-	if (level > loglevel) {
+	if (level > xlator_loglevel) {
 		goto out;
 	}
 
@@ -241,13 +295,21 @@ log:
 
                 len = strlen (str1);
                 msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
-                
+
                 strcpy (msg, str1);
                 strcpy (msg + len, str2);
 
 		fprintf (logfile, "%s\n", msg);
 		fflush (logfile);
+
+#ifdef GF_LINUX_HOST_OS
+                /* We want only serious log in 'syslog', not our debug
+                   and trace logs */
+                if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
+                        syslog ((level-1), "%s\n", msg);
+#endif
 	}
+
 unlock:
 	pthread_mutex_unlock (&logfile_mutex);
 

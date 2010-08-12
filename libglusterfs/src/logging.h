@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2006-2009 Gluster, Inc. <http://www.gluster.com>
+   Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
    This file is part of GlusterFS.
 
    GlusterFS is free software; you can redistribute it and/or modify
@@ -44,13 +44,28 @@
 #define GF_PRI_BLKSIZE     PRId32
 #define GF_PRI_SIZET       "zu"
 
+#if 0
+/* Syslog definitions :-) */
+#define LOG_EMERG   0           /* system is unusable */
+#define LOG_ALERT   1           /* action must be taken immediately */
+#define LOG_CRIT    2           /* critical conditions */
+#define LOG_ERR     3           /* error conditions */
+#define LOG_WARNING 4           /* warning conditions */
+#define LOG_NOTICE  5           /* normal but significant condition */
+#define LOG_INFO    6           /* informational */
+#define LOG_DEBUG   7           /* debug-level messages */
+#endif
+
 typedef enum {
 	GF_LOG_NONE,
+        GF_LOG_EMERG,
+        GF_LOG_ALERT,
 	GF_LOG_CRITICAL,   /* fatal errors */
 	GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
 	GF_LOG_WARNING,    /* info about normal operation */
+        GF_LOG_NOTICE,
 	GF_LOG_INFO,       /* Normal information */
-#define GF_LOG_NORMAL GF_LOG_INFO
+#define GF_LOG_NORMAL      GF_LOG_INFO
 	GF_LOG_DEBUG,      /* internal errors */
         GF_LOG_TRACE,      /* full trace of operation */
 } gf_loglevel_t;
@@ -60,9 +75,8 @@ typedef enum {
 extern gf_loglevel_t gf_log_loglevel;
 
 #define gf_log(dom, levl, fmt...) do {					\
-		if (levl <= gf_log_loglevel)				\
-			_gf_log (dom, __FILE__, __FUNCTION__, __LINE__, \
-				 levl, ##fmt);				\
+                _gf_log (dom, __FILE__, __FUNCTION__, __LINE__,         \
+                         levl, ##fmt);                                  \
 		if (0) {						\
 			printf (fmt);					\
 		}							\
@@ -73,8 +87,8 @@ extern gf_loglevel_t gf_log_loglevel;
                 gf_log (args);                                                \
         }
 
-			
-void 
+
+void
 gf_log_logrotate (int signum);
 
 int gf_log_init (const char *filename);
@@ -90,10 +104,12 @@ gf_log_from_client (const char *msg, char *identifier);
 void gf_log_lock (void);
 void gf_log_unlock (void);
 
-gf_loglevel_t 
-gf_log_get_loglevel (void);
-void 
-gf_log_set_loglevel (gf_loglevel_t level);
+void gf_log_disable_syslog (void);
+void gf_log_enable_syslog (void);
+gf_loglevel_t gf_log_get_loglevel (void);
+void gf_log_set_loglevel (gf_loglevel_t level);
+gf_loglevel_t gf_log_get_xl_loglevel (void *xl);
+void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
 
 #define GF_DEBUG(xl, format, args...) \
 	gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
