@@ -90,21 +90,30 @@ typedef struct rpc_auth_data {
         char            authdata[RPC_MAX_AUTH_BYTES];
 } rpc_auth_data_t;
 
+
+struct rpc_clnt_config {
+        int    rpc_timeout;
+        int    remote_port;
+        char * remote_host;
+};
+
+
 #define rpc_auth_flavour(au)    ((au).flavour)
 
 struct rpc_clnt_connection {
-        pthread_mutex_t        lock;
-        rpc_transport_t       *trans;
-        gf_timer_t            *reconnect;
-        gf_timer_t            *timer;
-        gf_timer_t            *ping_timer;
-        struct rpc_clnt       *rpc_clnt;
-        char                   connected;
-        struct saved_frames   *saved_frames;
-        int32_t                frame_timeout;
-	struct timeval         last_sent;
-	struct timeval         last_received;
-	int32_t                ping_started;
+        pthread_mutex_t          lock;
+        rpc_transport_t         *trans;
+        struct rpc_clnt_config   config;
+        gf_timer_t              *reconnect;
+        gf_timer_t              *timer;
+        gf_timer_t              *ping_timer;
+        struct rpc_clnt         *rpc_clnt;
+        char                     connected;
+        struct saved_frames     *saved_frames;
+        int32_t                  frame_timeout;
+	struct timeval           last_sent;
+	struct timeval           last_received;
+	int32_t                  ping_started;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
@@ -138,12 +147,6 @@ struct rpc_clnt {
         struct mem_pool       *saved_frames_pool;
 
         glusterfs_ctx_t       *ctx;
-};
-
-struct rpc_clnt_config {
-        int    rpc_timeout;
-        int    remote_port;
-        char * remote_host;
 };
 
 
@@ -184,5 +187,7 @@ void rpc_clnt_set_connected (rpc_clnt_connection_t *conn);
 void rpc_clnt_unset_connected (rpc_clnt_connection_t *conn);
 
 void rpc_clnt_reconnect (void *trans_ptr);
+
+void rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config);
 
 #endif /* !_RPC_CLNT_H */

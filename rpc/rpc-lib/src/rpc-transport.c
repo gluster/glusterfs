@@ -1010,13 +1010,13 @@ fail:
 
 
 int32_t
-rpc_transport_connect (rpc_transport_t *this)
+rpc_transport_connect (rpc_transport_t *this, int port)
 {
 	int ret = -1;
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
-	ret = this->ops->connect (this);
+	ret = this->ops->connect (this, port);
 fail:
 	return ret;
 }

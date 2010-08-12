@@ -196,7 +196,7 @@ struct rpc_transport_ops {
                                    rpc_transport_req_t *req);
         int32_t (*submit_reply)   (rpc_transport_t *this,
                                    rpc_transport_reply_t *reply);
-	int32_t (*connect)        (rpc_transport_t *this);
+	int32_t (*connect)        (rpc_transport_t *this, int port);
 	int32_t (*listen)         (rpc_transport_t *this);
 	int32_t (*disconnect)     (rpc_transport_t *this);
         int32_t (*get_peername)   (rpc_transport_t *this, char *hostname,
@@ -216,7 +216,7 @@ int32_t
 rpc_transport_listen (rpc_transport_t *this);
 
 int32_t
-rpc_transport_connect (rpc_transport_t *this);
+rpc_transport_connect (rpc_transport_t *this, int port);
 
 int32_t
 rpc_transport_disconnect (rpc_transport_t *this);
