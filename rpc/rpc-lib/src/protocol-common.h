@@ -123,6 +123,18 @@ enum gf_cli_procnum {
         GF1_CLI_MAXVALUE,
 };
 
+
+enum gf_pmap_procnum {
+        GF_PMAP_NULL = 0,
+        GF_PMAP_PORTBYBRICK,
+        GF_PMAP_BRICKBYPORT,
+        GF_PMAP_SIGNUP,
+        GF_PMAP_SIGNIN,
+        GF_PMAP_SIGNOUT,
+        GF_PMAP_MAXVALUE,
+};
+
+
 #define GLUSTER3_1_FOP_PROGRAM   1298437 /* Completely random */
 #define GLUSTER3_1_FOP_VERSION   310 /* 3.1.0 */
 #define GLUSTER3_1_FOP_PROCCNT   GFS3_OP_MAXVALUE
@@ -137,5 +149,8 @@ enum gf_cli_procnum {
 
 #define GLUSTER_HNDSK_PROGRAM   14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION   1   /* 0.0.1 */
+
+#define GLUSTER_PMAP_PROGRAM    34123456
+#define GLUSTER_PMAP_VERSION    1
 
 #endif /* !_PROTOCOL_COMMON_H */

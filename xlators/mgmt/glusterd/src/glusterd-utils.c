@@ -716,7 +716,7 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t   *brickinfo,
+                                 glusterd_brickinfo_t  *brickinfo,
                                  int32_t count)
 {
         int32_t                 ret = -1;
@@ -727,6 +727,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    path[PATH_MAX] = {0,};
         char                    cmd_str[8192] = {0,};
         char                    rundir[PATH_MAX] = {0,};
+        int                     port = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -746,12 +747,19 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 goto out;
         }
 
+        port = pmap_registry_alloc (THIS);
+
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname, count);
         snprintf (volfile, PATH_MAX, "%s/%s-%s-%d.vol", path,
                   brickinfo->hostname, volinfo->volname, count);
-        snprintf (cmd_str, 8192, "glusterfs -f %s -p %s", volfile, pidfile);
+
+        snprintf (cmd_str, 8192,
+                  "glusterfs --xlator-option server-tcp.listen-port=%d -f %s -p %s",
+                  port, volfile, pidfile);
         ret = system (cmd_str);
 
+        if (ret == 0)
+                pmap_registry_bind (THIS, port, brickinfo->path);
 out:
         return ret;
 }
