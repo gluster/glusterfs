@@ -429,6 +429,30 @@ out:
         return ret;
 }
 
+int
+rpc_clnt_reconnect_cleanup (rpc_clnt_connection_t *conn)
+{
+        struct rpc_clnt         *clnt  = NULL;
+
+        if (!conn) {
+                goto out;
+        }
+
+        clnt = conn->rpc_clnt;
+
+        pthread_mutex_lock (&conn->lock);
+        {
+
+                if (conn->reconnect) {
+                        gf_timer_call_cancel (clnt->ctx, conn->reconnect);
+                        conn->reconnect = NULL;
+                }
+
+        }
+
+out:
+        return 0;
+}
 
 /*
  * client_protocol_cleanup - cleanup function
@@ -459,10 +483,6 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
                 if (conn->timer) {
                         gf_timer_call_cancel (clnt->ctx, conn->timer);
                         conn->timer = NULL;
-                }
-
-                if (conn->reconnect == NULL) {
-                        /* :O This part is empty.. any thing missing? */
                 }
 
                 conn->connected = 0;
@@ -1322,6 +1342,7 @@ void
 rpc_clnt_destroy (struct rpc_clnt *rpc)
 {
         rpc_clnt_connection_cleanup (&rpc->conn);
+        rpc_clnt_reconnect_cleanup (&rpc->conn);
         pthread_mutex_destroy (&rpc->lock);
         pthread_mutex_destroy (&rpc->conn.lock);
         GF_FREE (rpc);
