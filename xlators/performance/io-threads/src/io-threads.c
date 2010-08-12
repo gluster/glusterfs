@@ -2113,11 +2113,18 @@ init (xlator_t *this)
 	if (dict_get (options, "thread-count")) {
                 thread_count = data_to_int32 (dict_get (options,
                                                         "thread-count"));
-                if (thread_count < IOT_MIN_THREADS)
+                if (thread_count < IOT_MIN_THREADS) {
+                        gf_log ("io-threads", GF_LOG_WARNING,
+                                "Number of threads opted is less then min"
+                                "threads allowed scaling it up to min");
                         thread_count = IOT_MIN_THREADS;
-
-                if (thread_count > IOT_MAX_THREADS)
+                }
+                if (thread_count > IOT_MAX_THREADS) {
+                        gf_log ("io-threads", GF_LOG_WARNING,
+                                "Number of threads opted is more then max"
+                                " threads allowed scaling it down to max");
                         thread_count = IOT_MAX_THREADS;
+                }
         }
         conf->max_count = thread_count;
 
