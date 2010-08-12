@@ -309,6 +309,21 @@ class CreateVolfile:
                 exp_fd.write ("    subvolumes posix\n")
             exp_fd.write ("end-volume\n\n")
 
+            exp_fd.write ("volume replace-brick\n")
+            exp_fd.write ("    type protocol/client\n")
+            if self.transport:
+                exp_fd.write ("    option transport-type %s\n" % self.transport)
+
+            if self.gfs_port:
+                exp_fd.write ("    option transport.remote-port %d\n" % self.gfs_port)
+            exp_fd.write ("    option ping-timeout 42\n")
+            exp_fd.write ("end-volume\n\n")
+
+            exp_fd.write ("volume pump\n")
+            exp_fd.write ("    type cluster/pump\n")
+            exp_fd.write ("    subvolumes locks replace-brick\n")
+            exp_fd.write ("end-volume\n\n")
+
             exp_fd.write ("volume %s\n" % export)
             exp_fd.write ("    type performance/io-threads\n")
             exp_fd.write ("    option thread-count 8\n")
@@ -316,7 +331,7 @@ class CreateVolfile:
             exp_fd.write ("#   option min-threads 2 # min count for thread pool\n")
             exp_fd.write ("#   option max-threads 64 # max count for thread pool\n")
 
-            exp_fd.write ("    subvolumes locks\n")
+            exp_fd.write ("    subvolumes pump\n")
             exp_fd.write ("end-volume\n\n")
 
             for transport in self.transports:

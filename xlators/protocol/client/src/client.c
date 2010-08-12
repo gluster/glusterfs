@@ -35,11 +35,10 @@
 extern rpc_clnt_prog_t clnt_handshake_prog;
 extern rpc_clnt_prog_t clnt_dump_prog;
 
-int
-client_handshake (xlator_t *this, struct rpc_clnt *rpc);
-
-void
-client_start_ping (void *data);
+int client_handshake (xlator_t *this, struct rpc_clnt *rpc);
+void client_start_ping (void *data);
+int client_init_rpc (xlator_t *this);
+int client_destroy_rpc (xlator_t *this);
 
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
@@ -836,16 +835,145 @@ out:
 	return 0;
 }
 
+static gf_boolean_t
+is_client_rpc_init_command (dict_t *dict, xlator_t *this,
+                            char **value)
+{
+        gf_boolean_t ret      = _gf_false;
+        int          dict_ret = -1;
+
+        if (strncmp (this->name, "replace-brick", 13))
+                goto out;
+
+        dict_ret = dict_get_str (dict, CLIENT_CMD_CONNECT, value);
+        if (dict_ret)
+                goto out;
+
+        ret = _gf_true;
+
+out:
+        return ret;
+
+}
+
+static gf_boolean_t
+is_client_rpc_destroy_command (dict_t *dict, xlator_t *this)
+{
+        gf_boolean_t ret      = _gf_false;
+        int          dict_ret = -1;
+        char        *dummy    = NULL;
+
+        if (strncmp (this->name, "replace-brick", 13))
+                goto out;
+
+        dict_ret = dict_get_str (dict, CLIENT_CMD_DISCONNECT, &dummy);
+        if (dict_ret)
+                goto out;
+
+        ret = _gf_true;
+
+out:
+        return ret;
+
+}
+
+static gf_boolean_t
+client_set_remote_options (char *value, xlator_t *this)
+{
+        clnt_conf_t  *conf          = NULL;
+        char         *dup_value     = NULL;
+        char         *host          = NULL;
+        char         *subvol        = NULL;
+        char         *host_dup      = NULL;
+        char         *subvol_dup    = NULL;
+        char         *tmp           = NULL;
+        gf_boolean_t  ret           = _gf_false;
+
+        conf = this->private;
+
+        dup_value = gf_strdup (value);
+        host = strtok_r (dup_value, ":", &tmp);
+        subvol = strtok_r (NULL, ":", &tmp);
+        if (!subvol) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "proper value not passed as subvolume");
+                goto out;
+        }
+
+        host_dup = gf_strdup (host);
+        if (!host_dup) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
+
+        ret = dict_set_dynstr (this->options, "remote-host", host_dup);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set remote-host with %s", host);
+                goto out;
+        }
+
+        subvol_dup = gf_strdup (subvol);
+        if (!subvol_dup) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
+
+        ret = dict_set_dynstr (this->options, "remote-subvolume", subvol_dup);
+        if (ret) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set remote-host with %s", host);
+                goto out;
+        }
+
+        ret = _gf_true;
+out:
+        if (dup_value)
+                GF_FREE (dup_value);
+
+        return ret;
+}
 
 
 int32_t
 client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                  int32_t flags)
 {
-        int          ret  = -1;
-        clnt_conf_t *conf = NULL;
-        rpc_clnt_procedure_t *proc = NULL;
-        clnt_args_t  args = {0,};
+        int                   ret         = -1;
+        int                   op_ret      = -1;
+        int                   op_errno    = ENOTCONN;
+        int                   need_unwind = 0;
+        clnt_conf_t          *conf        = NULL;
+        rpc_clnt_procedure_t *proc        = NULL;
+        clnt_args_t           args        = {0,};
+        char                 *value       = NULL;
+
+
+        if (is_client_rpc_init_command (dict, this, &value) == _gf_true) {
+                GF_ASSERT (value);
+                ret = client_set_remote_options (value, this);
+                if (ret)
+                        ret = client_init_rpc (this);
+
+                if (!ret) {
+                        op_ret      = 0;
+                        op_errno    = 0;
+                }
+                need_unwind = 1;
+                goto out;
+        }
+
+        if (is_client_rpc_destroy_command (dict, this) == _gf_true) {
+                ret = client_destroy_rpc (this);
+                if (ret) {
+                        op_ret      = 0;
+                        op_errno    = 0;
+                }
+                need_unwind = 1;
+                goto out;
+        }
 
         conf = this->private;
         if (!conf->fops)
@@ -856,11 +984,17 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         args.flags = flags;
 
         proc = &conf->fops->proctable[GF_FOP_SETXATTR];
-        if (proc->fn)
+        if (proc->fn) {
                 ret = proc->fn (frame, this, &args);
+                if (ret) {
+                        op_ret = -1;
+                        op_errno = ENOTCONN;
+                        need_unwind = 1;
+                }
+        }
 out:
-        if (ret)
-                STACK_UNWIND_STRICT (setxattr, frame, -1, ENOTCONN);
+        if (need_unwind)
+                STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
 
 	return 0;
 }
@@ -1476,14 +1610,6 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
         int ret = 0;
 
-        ret = dict_get_str (this->options, "remote-subvolume",
-                            &conf->opt.remote_subvolume);
-        if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "option 'remote-subvolume' not given");
-                goto out;
-        }
-
         ret = dict_get_int32 (this->options, "frame-timeout",
                               &conf->rpc_conf.rpc_timeout);
         if (ret >= 0) {
@@ -1517,6 +1643,16 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                 conf->opt.ping_timeout = GF_UNIVERSAL_ANSWER;
         }
 
+        ret = dict_get_str (this->options, "remote-subvolume",
+                            &conf->opt.remote_subvolume);
+        if (ret) {
+                /* This is valid only if 'cluster/pump' is the parent */
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "option 'remote-subvolume' not given");
+                ret = 1;
+                goto out;
+        }
+
         ret = 0;
 out:
         return ret;
@@ -1542,6 +1678,63 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+int
+client_destroy_rpc (xlator_t *this)
+{
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        if (conf->rpc) {
+                rpc_clnt_destroy (conf->rpc);
+                ret = 0;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Client rpc conn destroyed");
+                goto out;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "RPC destory called on already destroyed "
+                "connection");
+
+out:
+        return ret;
+}
+
+int
+client_init_rpc (xlator_t *this)
+{
+        int          ret  = -1;
+        clnt_conf_t *conf = NULL;
+
+        conf = this->private;
+
+        if (conf->rpc) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "client rpc already init'ed");
+                ret = -1;
+                goto out;
+        }
+
+        conf->rpc = rpc_clnt_init (&conf->rpc_conf, this->options, this->ctx,
+                                   this->name);
+        if (!conf->rpc)
+                goto out;
+
+        ret = rpc_clnt_register_notify (conf->rpc, client_rpc_notify, this);
+        if (ret)
+                goto out;
+
+        conf->handshake = &clnt_handshake_prog;
+        conf->dump      = &clnt_dump_prog;
+
+        ret = 0;
+
+        gf_log (this->name, GF_LOG_DEBUG, "client init successful");
+out:
+        return ret;
+}
 
 int
 init (xlator_t *this)
@@ -1569,24 +1762,24 @@ init (xlator_t *this)
         pthread_mutex_init (&conf->lock, NULL);
         INIT_LIST_HEAD (&conf->saved_fds);
 
-        ret = build_client_config (this, conf);
-        if (ret)
-                goto out;
-
-        conf->rpc = rpc_clnt_init (&conf->rpc_conf, this->options, this->ctx,
-                                   this->name);
-        if (!conf->rpc)
-                goto out;
-        conf->rpc->xid = 42; /* It should be enough random everytime :O */
-        ret = rpc_clnt_register_notify (conf->rpc, client_rpc_notify, this);
-        if (ret)
-                goto out;
-
-        conf->handshake = &clnt_handshake_prog;
-        conf->dump      = &clnt_dump_prog;
         this->private = conf;
 
-        ret = 0;
+        /* If it returns -1, then its a failure, if it returns +1 we need
+           have to understand that 'this' is subvolume of a xlator which,
+           will set the remote host and remote subvolume in a setxattr
+           call.
+        */
+
+        ret = build_client_config (this, conf);
+        if (ret == -1)
+                goto out;
+
+        if (ret) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = client_init_rpc (this);
 out:
         if (ret)
                 this->fini (this);
