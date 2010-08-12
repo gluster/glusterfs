@@ -30,6 +30,10 @@
 #include "protocol-common.h"
 #include "glusterfs3-xdr.h"
 
+/* FIXME: Needs to be defined in a common file */
+#define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
+#define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
+
 struct clnt_options {
         char *remote_subvolume;
         int   ping_timeout;
