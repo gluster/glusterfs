@@ -877,7 +877,7 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 	active_src = expunge_sh->active_source;
 	source = (long) cookie;
 
-	if (op_ret == -1 && op_errno == ENOENT) {
+	if (op_ret == -1 && op_errno == ENOENT && postparent) {
 
 		gf_log (this->name, GF_LOG_TRACE,
 			"missing entry %s on %s",
