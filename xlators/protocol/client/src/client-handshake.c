@@ -30,8 +30,10 @@
 #include "compat-errno.h"
 
 #include "glusterfs3.h"
+#include "portmap.h"
 
 extern rpc_clnt_prog_t clnt3_1_fop_prog;
+extern rpc_clnt_prog_t clnt_pmap_prog;
 
 int client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe);
@@ -651,6 +653,116 @@ out:
         return ret;
 }
 
+
+int
+server_has_portmap (xlator_t *this, gf_prog_detail *prog)
+{
+        gf_prog_detail *trav     = NULL;
+        int             ret      = -1;
+
+        if (!this || !prog)
+                goto out;
+
+        trav = prog;
+
+        while (trav) {
+                if ((trav->prognum == GLUSTER_PMAP_PROGRAM) &&
+                    (trav->progver == GLUSTER_PMAP_VERSION)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "detected portmapper on server");
+                        ret = 0;
+                        break;
+                }
+                trav = trav->next;
+        }
+
+out:
+        return ret;
+}
+
+
+int
+client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myframe)
+{
+        struct pmap_port_by_brick_rsp     rsp   = {0,};
+        call_frame_t                     *frame = NULL;
+        clnt_conf_t                      *conf  = NULL;
+        int                               ret   = -1;
+        struct rpc_clnt_config            config = {0, };
+
+
+        frame = myframe;
+        conf  = frame->this->private;
+
+        if (-1 == req->rpc_status) {
+                gf_log ("", 1, "some error, retry again later");
+                goto out;
+        }
+
+        ret = xdr_to_pmap_port_by_brick_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        if (-1 == rsp.op_ret) {
+                ret = -1;
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to get the port number for remote subvolume");
+                goto out;
+        }
+
+        config.remote_port = rsp.port;
+        rpc_clnt_reconfig (conf->rpc, &config);
+
+out:
+        STACK_DESTROY (frame->root);
+
+        rpc_transport_disconnect (conf->rpc->conn.trans);
+
+        rpc_clnt_reconnect (conf->rpc->conn.trans);
+
+        return ret;
+}
+
+
+int
+client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
+{
+        int                      ret             = -1;
+        pmap_port_by_brick_req   req             = {0,};
+        call_frame_t            *fr              = NULL;
+        clnt_conf_t             *conf            = NULL;
+        dict_t                  *options         = NULL;
+        char                    *remote_subvol   = NULL;
+
+        options = this->options;
+        conf    = this->private;
+
+        ret = dict_get_str (options, "remote-subvolume", &remote_subvol);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "remote-subvolume not set in volfile");
+                goto fail;
+        }
+
+        req.brick = remote_subvol;
+
+        fr  = create_frame (this, this->ctx->pool);
+        if (!fr) {
+                ret = -1;
+                goto fail;
+        }
+
+        ret = client_submit_request (this, &req, fr, &clnt_pmap_prog,
+                                     GF_PMAP_PORTBYBRICK, client_query_portmap_cbk,
+                                     NULL, xdr_from_pmap_port_by_brick_req);
+
+fail:
+        return ret;
+}
+
+
 int
 client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myframe)
 {
@@ -680,6 +792,11 @@ client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count, void
                 goto out;
         }
 
+        if (server_has_portmap (frame->this, rsp.prog) == 0) {
+                ret = client_query_portmap (frame->this, conf->rpc);
+                goto out;
+        }
+
         /* Check for the proper version string */
         /* Reply in "Name:Program-Number:Program-Version,..." format */
         ret = select_server_supported_programs (frame->this, rsp.prog);
@@ -704,6 +821,10 @@ out:
         }
 
         STACK_DESTROY (frame->root);
+
+        if (ret != 0)
+                rpc_transport_disconnect (conf->rpc->conn.trans);
+
         return ret;
 }
 
@@ -756,4 +877,15 @@ rpc_clnt_prog_t clnt_dump_prog = {
         .prognum   = GLUSTER_DUMP_PROGRAM,
         .progver   = GLUSTER_DUMP_VERSION,
         .procnames = clnt_dump_proc,
+};
+
+char *clnt_pmap_procs[GF_PMAP_MAXVALUE] = {
+        [GF_PMAP_PORTBYBRICK] = "PORTBYBRICK",
+};
+
+rpc_clnt_prog_t clnt_pmap_prog = {
+        .progname   = "PORTMAP",
+        .prognum    = GLUSTER_PMAP_PROGRAM,
+        .progver    = GLUSTER_PMAP_VERSION,
+        .procnames  = clnt_pmap_procs,
 };
