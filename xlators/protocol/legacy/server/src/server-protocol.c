@@ -342,7 +342,7 @@ protocol_server_reply (call_frame_t *frame, int type, int op,
         STACK_DESTROY (frame->root);
 
         if (state)
-                free_state (state);
+                free_old_server_state (state);
 
 }
 
@@ -6489,6 +6489,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         peer_info_t *peerinfo = NULL;
         peer_info_t *myinfo = NULL;
 
+        THIS = this;
         trans = data;
         if (!trans) {
                 gf_log (this->name, GF_LOG_ERROR, "!trans");
