@@ -205,6 +205,9 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         xlator_t    *this = NULL;
         gf_loglevel_t xlator_loglevel = 0;
 
+	if (!logfile)
+		return -1;
+
         this = THIS;
 
         xlator_loglevel = this->loglevel;
@@ -233,10 +236,6 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
 		return -1;
 	}
 
-	if (!logfile) {
-		fprintf (stderr, "no logfile set\n");
-		return (-1);
-	}
 
 	if (logrotate) {
 		logrotate = 0;
