@@ -107,6 +107,9 @@ __dentry_hash (dentry_t *dentry)
         inode_table_t   *table = NULL;
         int              hash = 0;
 
+        if (!dentry)
+                return;
+
         table = dentry->inode->table;
         hash = hash_dentry (dentry->parent, dentry->name,
                             table->hashsize);
@@ -119,6 +122,9 @@ __dentry_hash (dentry_t *dentry)
 static int
 __is_dentry_hashed (dentry_t *dentry)
 {
+        if (!dentry)
+                return 0;
+
         return !list_empty (&dentry->hash);
 }
 
@@ -126,6 +132,9 @@ __is_dentry_hashed (dentry_t *dentry)
 static void
 __dentry_unhash (dentry_t *dentry)
 {
+        if (!dentry)
+                return;
+
         list_del_init (&dentry->hash);
 }
 
@@ -133,8 +142,12 @@ __dentry_unhash (dentry_t *dentry)
 static void
 __dentry_unset (dentry_t *dentry)
 {
-        struct mem_pool *tmp_pool = dentry->inode->table->dentry_pool;
+        struct mem_pool *tmp_pool = NULL;
 
+        if (!dentry)
+                return;
+
+        tmp_pool = dentry->inode->table->dentry_pool;
         __dentry_unhash (dentry);
 
         list_del_init (&dentry->inode_list);
@@ -157,6 +170,9 @@ __dentry_unset (dentry_t *dentry)
 static void
 __inode_unhash (inode_t *inode)
 {
+        if (!inode)
+                return;
+
         if (!list_empty (&inode->hash)) {
                 if (inode->in_attic)
                         inode->table->attic_size--;
@@ -170,6 +186,9 @@ __inode_unhash (inode_t *inode)
 static int
 __is_inode_hashed (inode_t *inode)
 {
+        if (!inode)
+                return 0;
+
         return !list_empty (&inode->hash);
 }
 
@@ -179,6 +198,9 @@ __inode_hash (inode_t *inode)
 {
         inode_table_t *table = NULL;
         int            hash = 0;
+
+        if (!inode)
+                return;
 
         table = inode->table;
         hash = hash_inode (inode->ino, table->hashsize);
@@ -194,6 +216,9 @@ __inode_search (inode_table_t *table, ino_t ino)
         int       hash = 0;
         inode_t  *inode = NULL;
         inode_t  *tmp = NULL;
+
+        if (!table)
+                return NULL;
 
         hash = hash_inode (ino, table->hashsize);
 
@@ -214,6 +239,9 @@ __inode_search_attic (inode_table_t *table, ino_t ino, uint64_t gen)
         inode_t  *inode = NULL;
         inode_t  *tmp = NULL;
 
+        if (!table)
+                return NULL;
+
         list_for_each_entry (tmp, &table->attic, hash) {
                 if (tmp->ino == ino && tmp->generation == gen) {
                         inode = tmp;
@@ -231,6 +259,9 @@ __dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
         dentry_t *dentry = NULL;
         dentry_t *tmp = NULL;
 
+        if (!inode || !name)
+                return NULL;
+
         list_for_each_entry (tmp, &inode->dentry_list, inode_list) {
                 if (tmp->parent->ino == par && !strcmp (tmp->name, name)) {
                         dentry = tmp;
@@ -246,6 +277,10 @@ dentry_t *
 dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
 {
         dentry_t *dentry = NULL;
+
+        if (!inode || !name)
+                return NULL;
+
         pthread_mutex_lock (&inode->table->lock);
         {
                 dentry = __dentry_search_for_inode (inode, par, name);
@@ -262,6 +297,9 @@ __dentry_search (inode_table_t *table, ino_t par, const char *name)
         int       hash = 0;
         dentry_t *dentry = NULL;
         dentry_t *tmp = NULL;
+
+        if (!table || !name)
+                return NULL;
 
         hash = hash_name (par, name, table->hashsize);
 
@@ -282,12 +320,15 @@ __inode_destroy (inode_t *inode)
         int          index = 0;
         xlator_t    *xl = NULL;
         xlator_t    *old_THIS = NULL;
-	 struct mem_pool *tmp_pool = NULL;
+        struct mem_pool *tmp_pool = NULL;
+
+        if (!inode)
+                return;
 
         if (!inode->_ctx)
                 goto noctx;
 
-	 tmp_pool = inode->table->inode_pool;
+        tmp_pool = inode->table->inode_pool;
 
         for (index = 0; index < inode->table->xl->graph->xl_count; index++) {
                 if (inode->_ctx[index].xl_key) {
@@ -313,6 +354,9 @@ noctx:
 static void
 __inode_activate (inode_t *inode)
 {
+        if (!inode)
+                return;
+
         list_move (&inode->list, &inode->table->active);
         inode->table->active_size++;
 }
@@ -323,6 +367,9 @@ __inode_passivate (inode_t *inode)
 {
         dentry_t      *dentry = NULL;
         dentry_t      *t = NULL;
+
+        if (!inode)
+                return;
 
         list_move_tail (&inode->list, &inode->table->lru);
         inode->table->lru_size++;
@@ -340,6 +387,9 @@ __inode_retire (inode_t *inode)
         dentry_t      *dentry = NULL;
         dentry_t      *t = NULL;
 
+        if (!inode)
+                return;
+
         list_move_tail (&inode->list, &inode->table->purge);
         inode->table->purge_size++;
 
@@ -354,6 +404,9 @@ __inode_retire (inode_t *inode)
 static inode_t *
 __inode_unref (inode_t *inode)
 {
+        if (!inode)
+                return NULL;
+
         if (inode->ino == 1)
                 return inode;
 
@@ -377,6 +430,9 @@ __inode_unref (inode_t *inode)
 static inode_t *
 __inode_ref (inode_t *inode)
 {
+        if (!inode)
+                return NULL;
+
         if (!inode->ref) {
                 inode->table->lru_size--;
                 __inode_activate (inode);
@@ -391,6 +447,9 @@ inode_t *
 inode_unref (inode_t *inode)
 {
         inode_table_t *table = NULL;
+
+        if (!inode)
+                return NULL;
 
         table = inode->table;
 
@@ -411,6 +470,9 @@ inode_ref (inode_t *inode)
 {
         inode_table_t *table = NULL;
 
+        if (!inode)
+                return NULL;
+
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
@@ -427,6 +489,9 @@ static dentry_t *
 __dentry_create (inode_t *inode, inode_t *parent, const char *name)
 {
         dentry_t      *newd = NULL;
+
+        if (!inode || !parent || !name)
+                return NULL;
 
         newd = mem_get (parent->table->dentry_pool);
 
@@ -461,6 +526,9 @@ static inode_t *
 __inode_create (inode_table_t *table)
 {
         inode_t  *newi = NULL;
+
+        if (!table)
+                return NULL;
 
         newi = mem_get(table->inode_pool);
         if (!newi) {
@@ -503,6 +571,9 @@ inode_new (inode_table_t *table)
 {
         inode_t *inode = NULL;
 
+        if (!table)
+                return NULL;
+
         pthread_mutex_lock (&table->lock);
         {
                 inode = __inode_create (table);
@@ -519,6 +590,9 @@ inode_new (inode_table_t *table)
 static inode_t *
 __inode_lookup (inode_t *inode)
 {
+        if (!inode)
+                return NULL;
+
         inode->nlookup++;
 
         return inode;
@@ -528,6 +602,9 @@ __inode_lookup (inode_t *inode)
 static inode_t *
 __inode_forget (inode_t *inode, uint64_t nlookup)
 {
+        if (!inode)
+                return NULL;
+
         assert (inode->nlookup >= nlookup);
 
         inode->nlookup -= nlookup;
@@ -544,6 +621,9 @@ inode_search (inode_table_t *table, ino_t ino, const char *name)
 {
         inode_t  *inode = NULL;
         dentry_t *dentry = NULL;
+
+        if (!table)
+                return NULL;
 
         pthread_mutex_lock (&table->lock);
         {
@@ -572,6 +652,9 @@ __dentry_grep (inode_table_t *table, inode_t *parent, const char *name)
         dentry_t *dentry = NULL;
         dentry_t *tmp = NULL;
 
+        if (!table || !name || !parent)
+                return NULL;
+
         hash = hash_dentry (parent, name, table->hashsize);
 
         list_for_each_entry (tmp, &table->name_hash[hash], hash) {
@@ -590,6 +673,9 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
 {
         inode_t   *inode = NULL;
         dentry_t  *dentry = NULL;
+
+        if (!table || !parent || !name)
+                return NULL;
 
         pthread_mutex_lock (&table->lock);
         {
@@ -611,6 +697,9 @@ inode_t *
 __inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
 {
         inode_t   *inode = NULL;
+
+        if (!table)
+                return NULL;
 
         if (ino == 1) {
                 inode = table->root;
@@ -635,6 +724,9 @@ inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
 {
         inode_t   *inode = NULL;
 
+        if (!table)
+                return NULL;
+
         pthread_mutex_lock (&table->lock);
         {
                 inode = __inode_get (table, ino, gen);
@@ -652,6 +744,9 @@ __inode_atticize (inode_t *inode)
 {
         inode_table_t *table = NULL;
 
+        if (!inode)
+                return -1;
+
         table = inode->table;
 
         __inode_unhash (inode);
@@ -667,6 +762,9 @@ __inode_atticize (inode_t *inode)
 uint64_t
 inode_gen_from_stat (struct iatt *iatt)
 {
+        if (!iatt)
+                return 0;
+
         return (uint64_t) iatt->ia_gen;
 }
 
@@ -681,7 +779,12 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         inode_table_t *table = NULL;
         inode_t       *link_inode = NULL;
 
+        if (!inode || !iatt)
+                return NULL;
+
         table = inode->table;
+        if (!table)
+                return NULL;
 
         link_inode = inode;
 
@@ -739,6 +842,9 @@ inode_link (inode_t *inode, inode_t *parent, const char *name,
         inode_table_t *table = NULL;
         inode_t       *linked_inode = NULL;
 
+        if (!inode || !iatt)
+                return NULL;
+
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
@@ -761,6 +867,9 @@ inode_lookup (inode_t *inode)
 {
         inode_table_t *table = NULL;
 
+        if (!inode)
+                return -1;
+
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
@@ -777,6 +886,9 @@ int
 inode_forget (inode_t *inode, uint64_t nlookup)
 {
         inode_table_t *table = NULL;
+
+        if (!inode)
+                return -1;
 
         table = inode->table;
 
@@ -796,6 +908,9 @@ static void
 __inode_unlink (inode_t *inode, inode_t *parent, const char *name)
 {
         dentry_t *dentry = NULL;
+
+        if (!inode || !parent || !name)
+                return;
 
         dentry = __dentry_search_for_inode (inode, parent->ino, name);
 
@@ -830,6 +945,9 @@ inode_rename (inode_table_t *table, inode_t *srcdir, const char *srcname,
               inode_t *dstdir, const char *dstname, inode_t *inode,
               struct iatt *iatt)
 {
+        if (!inode)
+                return -1;
+
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
@@ -879,6 +997,9 @@ inode_parent (inode_t *inode, ino_t par, const char *name)
         inode_table_t *table = NULL;
         dentry_t      *dentry = NULL;
 
+        if (!inode)
+                return NULL;
+
         table = inode->table;
 
         pthread_mutex_lock (&table->lock);
@@ -910,6 +1031,9 @@ inode_path (inode_t *inode, const char *name, char **bufp)
         int64_t        ret = 0;
         int            len = 0;
         char          *buf = NULL;
+
+        if (!inode)
+                return -1;
 
         table = inode->table;
 
@@ -1001,6 +1125,8 @@ inode_table_prune (inode_table_t *table)
         inode_t          *tmp = NULL;
         inode_t          *entry = NULL;
 
+        if (!table)
+                return -1;
 
         INIT_LIST_HEAD (&purge);
 
@@ -1039,6 +1165,9 @@ __inode_table_init_root (inode_table_t *table)
 {
         inode_t *root = NULL;
         struct iatt iatt = {0, };
+
+        if (!table)
+                return;
 
         root = __inode_create (table);
 
@@ -1144,6 +1273,9 @@ inode_from_path (inode_table_t *itable, const char *path)
         char     *component = NULL, *next_component = NULL;
         char     *strtokptr = NULL;
 
+        if (!itable || !path)
+                return NULL;
+
         /* top-down approach */
         pathname = gf_strdup (path);
         if (pathname == NULL) {
@@ -1199,6 +1331,9 @@ __inode_ctx_put2 (inode_t *inode, xlator_t *xlator, uint64_t value1,
         int index = 0;
         int put_idx = -1;
 
+        if (!inode || !xlator)
+                return -1;
+
         for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (!inode->_ctx[index].xl_key) {
                         if (put_idx == -1)
@@ -1250,6 +1385,9 @@ __inode_ctx_get2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
 {
         int index = 0;
         int ret = 0;
+
+        if (!inode || !xlator)
+                return -1;
 
         for (index = 0; index < xlator->graph->xl_count; index++) {
                 if (inode->_ctx[index].xl_key == xlator)
