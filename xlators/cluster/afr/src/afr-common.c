@@ -802,14 +802,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                         "added root inode");
                                 priv->root_inode = inode_ref (inode);
                                 priv->first_lookup = 0;
-                                priv->child_up[1] = 0;
-
-                                LOCK (&priv->lock);
-                                {
-                                        priv->down_count++;
-                                }
-                                UNLOCK (&priv->lock);
-
                         }
 
                         *lookup_buf = *buf;
