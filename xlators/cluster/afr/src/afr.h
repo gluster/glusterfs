@@ -245,6 +245,8 @@ typedef struct _afr_local {
 	int32_t  inodelk_count;
 	int32_t  entrylk_count;
 
+        dict_t  *dict;
+
         int (*up_down_flush_cbk) (call_frame_t *, xlator_t *);
 
 	/* 

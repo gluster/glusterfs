@@ -22,6 +22,10 @@
 
 #include "syncop.h"
 
+/* FIXME: Needs to be defined in a common file */
+#define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
+#define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
+
 #define PUMP_PID 696969
 #define PUMP_LK_OWNER 696969
 
@@ -43,23 +47,23 @@
 #define PUMP_SINK_CHILD(xl) (xl->children->next->xlator)
 
 typedef enum {
-        PUMP_STATE_RUNNING,
-        PUMP_STATE_RESUME,
-        PUMP_STATE_PAUSE,
-        PUMP_STATE_ABORT,
+        PUMP_STATE_RUNNING,             /* Pump is running and migrating files */
+        PUMP_STATE_RESUME,              /* Pump is resuming from a previous pause */
+        PUMP_STATE_PAUSE,               /* Pump is paused */
+        PUMP_STATE_ABORT,               /* Pump is aborted */
 } pump_state_t;
 
 typedef struct _pump_private {
-	struct syncenv *env;
-        const char *resume_path;
-        gf_lock_t resume_path_lock;
-        gf_lock_t pump_state_lock;
-        pump_state_t pump_state;
-        long source_blocks;
-        long sink_blocks;
-        char current_file[PATH_MAX];
-        uint64_t number_files_pumped;
-        gf_boolean_t pump_finished;
+	struct syncenv *env;            /* The env pointer to the pump synctask */
+        const char *resume_path;        /* path to resume from the last pause */
+        gf_lock_t resume_path_lock;     /* Synchronize resume_path changes */
+        gf_lock_t pump_state_lock;      /* Synchronize pump_state changes */
+        pump_state_t pump_state;        /* State of pump */
+        char current_file[PATH_MAX];    /* Current file being pumped */
+        uint64_t number_files_pumped;   /* Number of files pumped */
+        gf_boolean_t pump_finished;     /* Boolean to indicate pump termination */
+        char pump_start_pending;        /* Boolean to mark start pending until
+                                           CHILD_UP */
 } pump_private_t;
 
 void
