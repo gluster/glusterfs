@@ -379,7 +379,7 @@ rpc_clnt_reconnect (void *trans_ptr)
 
                         gf_log (trans->name, GF_LOG_TRACE,
                                 "attempting reconnect");
-                        ret = rpc_transport_connect (trans);
+                        ret = rpc_transport_connect (trans, conn->config.remote_port);
 
                         conn->reconnect =
                                 gf_timer_call_after (clnt->ctx, tv,
@@ -1261,7 +1261,8 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         pthread_mutex_lock (&conn->lock);
         {
                 if (conn->connected == 0) {
-                        rpc_transport_connect (conn->trans);
+                        rpc_transport_connect (conn->trans,
+                                               conn->config.remote_port);
                 }
 
                 ret = -1;
@@ -1347,4 +1348,21 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
         pthread_mutex_destroy (&rpc->conn.lock);
         GF_FREE (rpc);
         return;
+}
+
+
+void
+rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
+{
+        if (config->rpc_timeout)
+                rpc->conn.config.rpc_timeout = config->rpc_timeout;
+
+        if (config->remote_port)
+                rpc->conn.config.remote_port = config->remote_port;
+
+        if (config->remote_host) {
+                if (rpc->conn.config.remote_host)
+                        FREE (rpc->conn.config.remote_host);
+                rpc->conn.config.remote_host = gf_strdup (config->remote_host);
+        }
 }

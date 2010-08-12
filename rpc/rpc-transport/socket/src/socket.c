@@ -1672,7 +1672,7 @@ socket_disconnect (rpc_transport_t *this)
 
 
 int
-socket_connect (rpc_transport_t *this)
+socket_connect (rpc_transport_t *this, int port)
 {
         int                      ret = -1;
 	int                      sock = -1;
@@ -1710,6 +1710,9 @@ socket_connect (rpc_transport_t *this)
                 /* logged inside client_get_remote_sockaddr */
                 goto err;
         }
+
+        if (port > 0)
+                ((struct sockaddr_in *) (&sockaddr))->sin_port = htons (port);
 
         pthread_mutex_lock (&priv->lock);
         {
@@ -2228,7 +2231,7 @@ struct rpc_transport_ops tops = {
         .get_peername       = socket_getpeername,
         .get_peeraddr       = socket_getpeeraddr,
         .get_myname         = socket_getmyname,
-        .get_myaddr         = socket_getmyaddr
+        .get_myaddr         = socket_getmyaddr,
 };
 
 
