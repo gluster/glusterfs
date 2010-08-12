@@ -62,6 +62,7 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
            call itself even if its not connected */
         if (!(conf->connected ||
               ((prog->prognum == GLUSTER_DUMP_PROGRAM) ||
+               (prog->prognum == GLUSTER_PMAP_PROGRAM) ||
                ((prog->prognum == GLUSTER_HNDSK_PROGRAM) && (procnum == GF_HNDSK_SETVOLUME)))))
                 goto out;
 
