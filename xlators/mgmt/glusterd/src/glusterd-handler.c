@@ -1653,10 +1653,11 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
         }
 
         ret = glusterd_friend_sm_new_event
-                        (GD_FRIEND_EVENT_INIT_REMOVE_FRIEND, &event);
+                (GD_FRIEND_EVENT_INIT_REMOVE_FRIEND, &event);
 
         if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get new event");
+                gf_log ("glusterd", GF_LOG_ERROR,
+                                "Unable to get new event");
                 return ret;
         }
 
@@ -1670,8 +1671,9 @@ glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
         ctx->port = port;
         ctx->req = req;
 
-        event->peerinfo = peerinfo;
         event->ctx = ctx;
+
+        event->peerinfo = peerinfo;
 
         ret = glusterd_friend_sm_inject_event (event);
 
@@ -1763,6 +1765,26 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
         return ret;
 }
 
+int
+glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
+                                int32_t op_errno, char *hostname)
+{
+        gf1_cli_deprobe_rsp    rsp = {0, };
+        int32_t                ret = -1;
+
+        GF_ASSERT (req);
+
+        rsp.op_ret = op_ret;
+        rsp.op_errno = op_errno;
+        rsp.hostname = hostname;
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     gf_xdr_serialize_cli_deprobe_rsp);
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Responded to CLI, ret: %d",ret);
+
+        return ret;
+}
 int32_t
 glusterd_op_txn_begin ()
 {

@@ -241,7 +241,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                goto respond;
+                goto inject;
         }
 
         ret = gd_xdr_to_mgmt_friend_rsp (*iov, &rsp);
@@ -263,6 +263,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         if (op_ret)
                 goto respond;
 
+inject:
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
 
         if (ret) {
@@ -289,11 +290,12 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         glusterd_friend_sm ();
         glusterd_op_sm ();
 
-        return ret;
+        op_ret = 0;
+
 
 respond:
-        ret = glusterd_xfer_cli_probe_resp (ctx->req, op_ret, op_errno,
-                                            ctx->hostname, ctx->port);
+        ret = glusterd_xfer_cli_deprobe_resp (ctx->req, op_ret, op_errno,
+                                              ctx->hostname);
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
@@ -699,6 +701,8 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
                                        GD_MGMT_FRIEND_REMOVE,
                                        NULL, gd_xdr_from_mgmt_friend_req,
                                        this, glusterd3_1_friend_remove_cbk);
+        //Override ret
+        ret = 0;
 
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
