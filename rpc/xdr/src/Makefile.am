@@ -12,9 +12,11 @@ libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 libgfxdr_la_SOURCES =  xdr-generic.c \
 			glusterfs3-xdr.c glusterfs3.c \
 			cli1-xdr.c cli1.c \
-			glusterd1-xdr.c glusterd1.c
+			glusterd1-xdr.c glusterd1.c \
+			portmap-xdr.c portmap.c
 
 noinst_HEADERS = xdr-generic.h \
 		glusterfs3-xdr.h glusterfs3.h \
 		cli1-xdr.h cli1.h \
-		glusterd1-xdr.h glusterd1.h
+		glusterd1-xdr.h glusterd1.h \
+		portmap-xdr.h portmap.h

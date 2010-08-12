@@ -42,6 +42,8 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd1-xdr.h"
+#include "glusterd-pmap.h"
+
 
 #define GLUSTERD_MAX_VOLUME_NAME        1000
 
@@ -64,6 +66,7 @@ typedef struct {
         char              workdir[PATH_MAX];
         rpcsvc_t          *rpc;
         rpc_clnt_prog_t   *mgmt;
+        struct pmap_registry *pmap;
         struct list_head  volumes;
         struct list_head  hostnames;
         glusterd_store_handle_t *handle;
