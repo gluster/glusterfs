@@ -343,7 +343,7 @@ cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         xlator_t                *this = NULL;
         int                     ret = 0;
 
-        this = data;
+        this = mydata;
 
         switch (event) {
         case RPC_CLNT_CONNECT:
