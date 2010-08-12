@@ -39,6 +39,7 @@
 #include "glusterd.h"
 #include "glusterd-sm.h"
 #include "glusterd-utils.h"
+#include "glusterd-store.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -858,6 +859,12 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
         if (!peerinfo)
                 goto out;
 
+        ret = glusterd_store_delete_peerinfo (peerinfo);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Deleting peer info failed");
+        }
+
         list_del_init (&peerinfo->uuid_list);
         list_for_each_entry_safe (name, tmp, &peerinfo->hostnames,
                                   hostname_list) {
@@ -867,6 +874,7 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
 
         list_del_init (&peerinfo->hostnames);
         GF_FREE (peerinfo);
+        peerinfo = NULL;
 
         ret = 0;
 

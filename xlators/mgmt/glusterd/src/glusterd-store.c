@@ -1014,6 +1014,58 @@ out:
 }
 
 int32_t
+glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
+{
+        int32_t                         ret = -1;
+        glusterd_conf_t                 *priv = NULL;
+        char                            peerdir[PATH_MAX] = {0,};
+        char                            filepath[PATH_MAX] = {0,};
+        char                            str[512] = {0,};
+        char                            hostname_path[PATH_MAX] = {0,};
+
+
+        if (!peerinfo) {
+                ret = 0;
+                goto out;
+        }
+
+        priv = THIS->private;
+
+        snprintf (peerdir, PATH_MAX, "%s/peers", priv->workdir);
+
+
+        if (uuid_is_null (peerinfo->uuid)) {
+
+                if (peerinfo->hostname) {
+                        snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
+                                  peerinfo->hostname);
+                } else {
+                       ret = 0;
+                       goto out;
+                }
+        } else {
+                uuid_unparse (peerinfo->uuid, str);
+
+                snprintf (filepath, PATH_MAX, "%s/%s", peerdir, str);
+                snprintf (hostname_path, PATH_MAX, "%s/%s",
+                          peerdir, peerinfo->hostname);
+
+                ret = unlink (hostname_path);
+
+                if (!ret)
+                        goto out;
+        }
+
+        ret = unlink (filepath);
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
+
+
+int32_t
 glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
 {
         int32_t                         ret = -1;
@@ -1027,7 +1079,11 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
         int                             i = 0;
         char                            hostname_path[PATH_MAX] = {0,};
 
-        GF_ASSERT (peerinfo);
+
+        if (!peerinfo) {
+                ret = 0;
+                goto out;
+        }
 
         priv = THIS->private;
 
@@ -1189,6 +1245,8 @@ glusterd_store_retrieve_peers (xlator_t *this)
         }
 
 out:
+        if (dir)
+                closedir (dir);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;

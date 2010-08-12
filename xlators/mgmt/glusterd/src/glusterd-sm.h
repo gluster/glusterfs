@@ -97,6 +97,7 @@ typedef enum glusterd_friend_sm_event_type_ {
         GD_FRIEND_EVENT_LOCAL_RJT,
         GD_FRIEND_EVENT_RCVD_FRIEND_REQ,
         GD_FRIEND_EVENT_INIT_REMOVE_FRIEND,
+        GD_FRIEND_EVENT_RCVD_REMOVE_FRIEND,
         GD_FRIEND_EVENT_REMOVE_FRIEND,
         GD_FRIEND_EVENT_MAX
 } glusterd_friend_sm_event_type_t;
