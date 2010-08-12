@@ -2290,6 +2290,15 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 #endif
 
+        /* Check if the command is for changing the log
+           level of process or specific xlator */
+        ret = is_gf_log_command (this, name, value);
+        if (ret >= 0) {
+                send_fuse_err (this, finh, ret);
+                GF_FREE (finh);
+                return;
+        }
+
         GET_STATE (this, finh, state);
         state->size = fsi->size;
         ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
@@ -2311,6 +2320,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "%"PRIu64": SETXATTR dict allocation failed",
                         finh->unique);
 
+                send_fuse_err (this, finh, ENOMEM);
                 free_fuse_state (state);
                 return;
         }
@@ -2749,7 +2759,6 @@ fuse_setlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         return;
 }
 
-
 static void
 fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
@@ -3001,6 +3010,9 @@ fuse_thread_proc (void *data)
         priv->msg0_len_p = &iov_in[0].iov_len;
 
         for (;;) {
+                /* THIS has to be reset here */
+                THIS = this;
+
                 if (priv->init_recvd)
                         fuse_graph_sync (this);
 
