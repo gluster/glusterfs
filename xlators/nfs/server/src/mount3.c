@@ -727,7 +727,6 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         ret = mnt3_check_client_net (ms, req, exp->vol);
         if (ret == -1) {
                 mntstat = MNT3ERR_ACCES;
-                ret = -1;
                 gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
                 goto rpcerr;
         }
@@ -871,7 +870,7 @@ mnt3svc_dump (rpcsvc_request_t *req)
         sfunc = (mnt3_serializer)xdr_serialize_mountlist;
         mlist = mnt3svc_build_mountlist (ms, &ret);
         arg = mlist;
-        sfunc = (mnt3_serializer)xdr_serialize_mountlist;
+        
         if (!mlist) {
                 if (ret != 0) {
                         nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
