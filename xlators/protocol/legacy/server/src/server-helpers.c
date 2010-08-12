@@ -28,7 +28,7 @@
 
 
 void
-server_loc_wipe (loc_t *loc)
+old_server_loc_wipe (loc_t *loc)
 {
         if (loc->parent) {
                 inode_unref (loc->parent);
@@ -45,8 +45,8 @@ server_loc_wipe (loc_t *loc)
 }
 
 
-void
-server_resolve_wipe (server_resolve_t *resolve)
+static void
+old_server_resolve_wipe (server_resolve_t *resolve)
 {
         struct resolve_comp *comp = NULL;
         int                  i = 0;
@@ -74,7 +74,7 @@ server_resolve_wipe (server_resolve_t *resolve)
 
 
 void
-free_server_state (server_state_t *state)
+free_old_server_state (server_state_t *state)
 {
         if (state->trans) {
                 transport_unref (state->trans);
@@ -107,11 +107,11 @@ free_server_state (server_state_t *state)
         if (state->name)
                 GF_FREE (state->name);
 
-        server_loc_wipe (&state->loc);
-        server_loc_wipe (&state->loc2);
+        old_server_loc_wipe (&state->loc);
+        old_server_loc_wipe (&state->loc2);
 
-        server_resolve_wipe (&state->resolve);
-        server_resolve_wipe (&state->resolve2);
+        old_server_resolve_wipe (&state->resolve);
+        old_server_resolve_wipe (&state->resolve2);
 
 	GF_FREE (state);
 }
@@ -145,7 +145,7 @@ gf_server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         state = CALL_STATE(frame);
 
         if (state)
-                free_state (state);
+                free_old_server_state (state);
         STACK_DESTROY (frame->root);
         return 0;
 }
@@ -317,7 +317,6 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
         int             ret = 0;
         int             saved_ret = 0;
         call_frame_t   *frame = NULL;
-        server_state_t *state = NULL;
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL) {
@@ -330,10 +329,6 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
         if (fdentries != NULL) {
                 ret = do_fd_cleanup (this, conn, frame, fdentries, fd_count);
         }
-
-        state = CALL_STATE (frame);
-        if (state)
-                GF_FREE (state);
 
         STACK_DESTROY (frame->root);
 
@@ -391,7 +386,6 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         call_frame_t       *frame = NULL, *tmp_frame = NULL;
         xlator_t           *bound_xl = NULL;
         int32_t             ret = -1;
-        server_state_t     *state = NULL;
         struct list_head    file_lockers;
         struct list_head    dir_lockers;
         struct _lock_table *ltable = NULL;
@@ -537,9 +531,6 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         }
 
         if (frame) {
-                state = CALL_STATE (frame);
-                if (state)
-                        GF_FREE (state);
                 STACK_DESTROY (frame->root);
         }
 

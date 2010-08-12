@@ -41,8 +41,8 @@
 
 #define IS_NOT_ROOT(pathlen) ((pathlen > 2)? 1 : 0)
 
-void free_state (server_state_t *state);
+void free_old_server_state (server_state_t *state);
 
-void server_loc_wipe (loc_t *loc);
+void old_server_loc_wipe (loc_t *loc);
 
 #endif /* __SERVER_HELPERS_H__ */
