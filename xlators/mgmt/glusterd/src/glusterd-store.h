@@ -56,10 +56,13 @@
 
 #define glusterd_for_each_entry(entry, dir) \
         do {\
-                entry = readdir (dir);\
-                while (entry && (!strcmp (entry->d_name, ".") ||\
-                    !strcmp (entry->d_name, ".."))) {\
+                entry = NULL;\
+                if (dir) {\
                         entry = readdir (dir);\
+                        while (entry && (!strcmp (entry->d_name, ".") ||\
+                            !strcmp (entry->d_name, ".."))) {\
+                                entry = readdir (dir);\
+                        }\
                 }\
         } while (0); \
 

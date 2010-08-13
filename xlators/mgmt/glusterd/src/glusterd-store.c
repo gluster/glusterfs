@@ -199,7 +199,7 @@ out:
 int32_t
 glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo)
 {
-        int32_t                 ret = -1;
+        int32_t                 ret = 0;
         glusterd_brickinfo_t    *tmp = NULL;
         glusterd_conf_t         *priv = NULL;
         char                    brickdir [PATH_MAX] = {0,};
@@ -786,7 +786,7 @@ int32_t
 glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 {
 
-        int32_t                 ret = -1;
+        int32_t                 ret = 0;
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_store_iter_t   *iter = NULL;
         char                    *key = NULL;
