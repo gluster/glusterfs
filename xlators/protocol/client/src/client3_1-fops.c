@@ -1983,7 +1983,7 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iovec   vector[MAX_IOVEC];
         struct iatt    stat   = {0,};
         gfs3_read_rsp  rsp    = {0,};
-        int            ret    = 0, rspcount = 0, i = 0;
+        int            ret    = 0, rspcount = 0;
 
         memset (vector, 0, sizeof (vector));
 
@@ -2007,15 +2007,10 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 iobref = req->rsp_iobref;
                 gf_stat_to_iatt (&rsp.stat, &stat);
 
-                if (ret < req->rsp[0].iov_len) {
-                        vector[0].iov_base = req->rsp[0].iov_base + ret;
-                        vector[0].iov_len = req->rsp[0].iov_len - ret;
-                        rspcount = 1;
-                }
-
-                for (i = 1; i < req->rspcnt; i++) {
-                        vector[rspcount++] = req->rsp[i];
-                }
+                vector[0].iov_len = rsp.op_ret;
+                if (rsp.op_ret > 0)
+                        vector[0].iov_base = req->rsp[1].iov_base;
+                rspcount = 1;
         }
 out:
         STACK_UNWIND_STRICT (readv, frame, rsp.op_ret,
