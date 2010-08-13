@@ -614,7 +614,7 @@ afr_sh_entry_expunge_mkdir_cbk (call_frame_t *expunge_frame, void *cookie, xlato
 	frame         = expunge_sh->sh_frame;
 
         if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_ERROR,
                         "mkdir of /" GF_REPLICATE_TRASH_DIR " failed on %s",
                         priv->children[active_src]->name);
 
