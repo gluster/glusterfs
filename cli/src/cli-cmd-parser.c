@@ -43,10 +43,11 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         char    *volname = NULL;
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
-        int     count = 0;
+        int     count = 1;
         int     brick_count = 0, brick_index = 0;
         int     brick_list_size = 1;
         char    brick_list[120000] = {0,};
+        int     i = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -63,8 +64,24 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
 
         GF_ASSERT (volname);
 
-        ret = dict_set_str (dict, "volname", volname);
+        /* Validate the volume name here itself */
+        {
+                if (volname[0] == '-')
+                        goto out;
 
+                if (strchr (volname, '/'))
+                        goto out;
+
+                if (strlen (volname) > 512)
+                        goto out;
+
+                for (i = 0; i < strlen (volname); i++)
+                        if (!isalnum (volname[i]))
+                                goto out;
+        }
+
+
+        ret = dict_set_str (dict, "volname", volname);
         if (ret)
                 goto out;
 
@@ -137,6 +154,13 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 if (ret)
                         goto out;
                 */
+        }
+
+        /* If brick-count is not valid when replica or stripe is
+           given, exit here */
+        if (brick_count % count) {
+                ret = -1;
+                goto out;
         }
 
         ret = dict_set_str (dict, "bricks", brick_list);
