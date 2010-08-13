@@ -345,6 +345,9 @@ saved_frames_unwind (struct saved_frames *saved_frames)
 void
 saved_frames_destroy (struct saved_frames *frames)
 {
+        if (!frames)
+                return;
+
 	saved_frames_unwind (frames);
 
 	GF_FREE (frames);
