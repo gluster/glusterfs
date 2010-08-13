@@ -45,7 +45,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 0;
         int     brick_count = 0, brick_index = 0;
-        char    brick_list[8192] = {0,};
+        int     brick_list_size = 1;
+        char    brick_list[120000] = {0,};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -116,9 +117,16 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         ret = -1;
                         goto out;
                 }
-
+                if ((brick_list_size + strlen (words[brick_index]) + 1) > 120000) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "total brick list is larger than a request "
+                                "can take (brick_count %d)", brick_count);
+                        ret = -1;
+                        goto out;
+                }
                 strcat (brick_list, words[brick_index]);
                 strcat (brick_list, " ");
+                brick_list_size += (strlen (words[brick_index]) + 1);
                 ++brick_count;
                 ++brick_index;
                 /*
@@ -130,6 +138,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         goto out;
                 */
         }
+
         ret = dict_set_str (dict, "bricks", brick_list);
         if (ret)
                 goto out;
@@ -231,7 +240,8 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         int     count = 0;
         //char    key[50] = {0,};
         int     brick_count = 0, brick_index = 0;
-        char    brick_list[8192] = {0,};
+        int     brick_list_size = 1;
+        char    brick_list[120000] = {0,};
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -274,9 +284,17 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                         ret = -1;
                         goto out;
                 }
+                if ((brick_list_size + strlen (words[brick_index]) + 1) > 120000) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "total brick list is larger than a request "
+                                "can take (brick_count %d)", brick_count);
+                        ret = -1;
+                        goto out;
+                }
 
                 strcat (brick_list, words[brick_index]);
                 strcat (brick_list, " ");
+                brick_list_size += (strlen (words[brick_index]) + 1);
                 ++brick_count;
                 ++brick_index;
                 /*
