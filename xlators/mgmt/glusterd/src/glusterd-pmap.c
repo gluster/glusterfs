@@ -106,14 +106,11 @@ pmap_registry_get (xlator_t *this)
 int
 pmap_registry_search (xlator_t *this, const char *brickname)
 {
-        glusterd_conf_t      *priv = NULL;
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
         int                   port = 0;
 
-        priv = this->private;
-
-        pmap = priv->pmap;
+        pmap = pmap_registry_get (this);
 
         for (p = pmap->base_port; p < 65535; p++) {
                 if (strcmp (pmap->ports[p].brickname, brickname) == 0) {
@@ -129,14 +126,11 @@ pmap_registry_search (xlator_t *this, const char *brickname)
 int
 pmap_registry_alloc (xlator_t *this)
 {
-        glusterd_conf_t      *priv = NULL;
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
         int                   port = 0;
 
-        priv = this->private;
-
-        pmap = priv->pmap;
+        pmap = pmap_registry_get (this);
 
         for (p = pmap->base_port; p < 65535; p++) {
                 if (pmap->ports[p].used)
@@ -157,14 +151,10 @@ pmap_registry_alloc (xlator_t *this)
 int
 pmap_registry_bind (xlator_t *this, int port, const char *brickname)
 {
-        glusterd_conf_t      *priv = NULL;
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
 
-
-        priv = this->private;
-
-        pmap = priv->pmap;
+        pmap = pmap_registry_get (this);
 
         pmap->ports[p].used = 1;
         if (pmap->ports[p].brickname)
