@@ -175,7 +175,7 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         call_frame_t     *frame      = NULL;
-        gfs3_mknod_rsp  rsp        = {0,};
+        gfs3_mknod_rsp    rsp        = {0,};
         struct iatt       stbuf      = {0,};
         struct iatt       preparent  = {0,};
         struct iatt       postparent = {0,};
@@ -236,7 +236,7 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         call_frame_t     *frame      = NULL;
-        gfs3_mkdir_rsp  rsp        = {0,};
+        gfs3_mkdir_rsp    rsp        = {0,};
         struct iatt       stbuf      = {0,};
         struct iatt       preparent  = {0,};
         struct iatt       postparent = {0,};
@@ -745,7 +745,7 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         char              *buf      = NULL;
         int                dict_len = 0;
         int                op_ret   = 0;
-        int                op_errno = 0;
+        int                op_errno = EINVAL;
         gfs3_getxattr_rsp  rsp      = {0,};
         int                ret      = 0;
 
@@ -821,7 +821,7 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int                 ret      = 0;
         int                 dict_len = 0;
         int                 op_ret   = 0;
-        int                 op_errno = 0;
+        int                 op_errno = EINVAL;
 
         frame = myframe;
 
@@ -1178,7 +1178,7 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int               ret      = 0;
         int               op_ret   = 0;
         int               dict_len = 0;
-        int               op_errno = 0;
+        int               op_errno = EINVAL;
 
         frame = myframe;
 
@@ -1863,7 +1863,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         gfs3_lookup_rsp  rsp        = {0,};
         struct iatt      stbuf      = {0,};
         struct iatt      postparent = {0,};
-        int              op_errno   = 0;
+        int              op_errno   = EINVAL;
         ino_t            oldino     = 0;
         uint64_t         oldgen     = 0;
         dict_t          *xattr      = NULL;
@@ -1877,7 +1877,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
-                rsp.op_errno = ENOTCONN;
+                op_errno = ENOTCONN;
                 goto out;
         }
 
@@ -1885,7 +1885,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                op_errno = EINVAL;
                 goto out;
         }
 
