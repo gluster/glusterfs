@@ -57,7 +57,7 @@ pmap_port_isfree (int port)
         ret = bind (sock, (struct sockaddr *)&sin, sizeof (sin));
         close (sock);
 
-        return ret == 0 ? 1 : 0;
+        return (ret == 0) ? 1 : 0;
 }
 
 
@@ -113,6 +113,8 @@ pmap_registry_search (xlator_t *this, const char *brickname)
         pmap = pmap_registry_get (this);
 
         for (p = pmap->base_port; p < 65535; p++) {
+                if (!pmap->ports[p].brickname)
+                        continue;
                 if (strcmp (pmap->ports[p].brickname, brickname) == 0) {
                         port = p;
                         break;
@@ -156,11 +158,16 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname)
 
         pmap = pmap_registry_get (this);
 
+        if (port > 65535)
+                goto out;
+
+        p = port;
         pmap->ports[p].used = 1;
         if (pmap->ports[p].brickname)
                 free (pmap->ports[p].brickname);
         pmap->ports[p].brickname = strdup (brickname);
 
+out:
         return 0;
 }
 
@@ -203,7 +210,9 @@ gluster_pmap_portbybrick (rpcsvc_request_t *req)
 
         port = pmap_registry_search (THIS, brick);
 
-        rsp.op_ret = 0;
+        if (!port)
+                rsp.op_ret = -1;
+
         rsp.port = port;
 
 fail:
