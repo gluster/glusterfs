@@ -72,6 +72,8 @@ def generate_volume_files ():
                      help="number of file replica needed")
     group.add_option("--num-stripe", type="int", dest="num_stripe",
                      help="number of stripe count needed")
+    group.add_option("--portmapper-mode", action="store_true", dest="portmapper",
+                     default=False, help="generate volume files for glusterfs portmapper friendly way")
 
     parse.add_option_group(group)
 
@@ -163,6 +165,27 @@ def generate_volume_files ():
             print "raid type (%d) and number of volumes (%d) invalid" % (options.raid_type,
                                                                          len(server_array))
             raise ValueError
+
+    if options.portmapper is True:
+        for server in server_dict.keys():
+            create_exp = CreateVolfile (server_dict, server,
+                                        None, transports,
+                                        options, None)
+            try:
+                create_exp.create_pmap_export_volfile ()
+            except IOError, (errno, strerror):
+                print "Got %s creating server volfiles for %s" % (strerror, server)
+
+        for transport in transports:
+            create_mnt = CreateVolfile (server_dict, None,
+                                        transport, transports,
+                                        options, server_array)
+            try:
+                create_mnt.create_pmap_mount_volfile ()
+            except IOError, (errno, strerror):
+                print "Got %s creating client volfiles for transport '%s'" % (strerror, transport)
+
+        return
 
     for server in server_dict.keys():
         create_exp = CreateVolfile (server_dict, server,
