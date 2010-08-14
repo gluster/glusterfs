@@ -45,10 +45,10 @@ class CreateVolfile:
             self.gfs_port    = options.port
             self.gfs_ib_port = options.port + 1
         else:
-            self.gfs_port    = None
-            self.gfs_ib_port = None
+            self.gfs_port    = 6969
+            self.gfs_ib_port = 6970
 
-    def create_mount_volfile (self):
+    def create_pmap_mount_volfile (self):
 
         raid_type = self.raid_type
 
@@ -72,7 +72,7 @@ class CreateVolfile:
         for host in self.host_dict.keys():
             i = 1
             for export in self.host_dict[host]:
-                mount_fd.write ("volume %s-%s\n" % (host,i))
+                mount_fd.write ("volume %s-%s\n" % (host,export))
                 mount_fd.write ("    type protocol/client\n")
                 mount_fd.write ("    option transport-type %s\n" %
                                 self.transport)
@@ -80,26 +80,13 @@ class CreateVolfile:
                 if self.transport == 'ib-verbs':
                     mount_fd.write ("    option transport.ib-verbs.port %d\n" %
                                     self.ib_devport)
-                    if self.gfs_ib_port:
-                        mount_fd.write ("    option remote-port %d\n" %
-                                        self.gfs_ib_port)
                 if self.transport == 'tcp':
                     mount_fd.write ("    option transport.socket.nodelay on\n")
-                    if self.gfs_port:
-                        mount_fd.write ("    option remote-port %d\n" % self.gfs_port)
 
                 mount_fd.write ("    option remote-subvolume %s\n" % export)
                 mount_fd.write ("end-volume\n\n")
                 i += 1
-
-        exportlist = {}
-        for entry in self.host_array:
-            node = entry.split(':')[0]
-            if not exportlist.has_key(node):
-                exportlist[node] = 1
-            else:
-                exportlist[node] += 1
-            subvolumes.append(str(node) + '-' + str(exportlist[node]))
+                subvolumes.append(str(host) + '-' + str(export))
 
         # Stripe section.. if given
         if raid_type is 0:
@@ -250,7 +237,7 @@ class CreateVolfile:
 
         return
 
-    def create_export_volfile (self):
+    def create_pmap_export_volfile (self):
 
         cmdline = string.join (sys.argv, ' ')
         i = 0
@@ -297,7 +284,6 @@ class CreateVolfile:
                     exp_fd.write ("    subvolumes posix\n")
                 exp_fd.write ("end-volume\n\n")
 
-
             exp_fd.write ("volume locks\n")
             exp_fd.write ("    type features/locks\n")
             exp_fd.write ("#   option mandatory on # Default off, used in specific applications\n")
@@ -313,9 +299,6 @@ class CreateVolfile:
             exp_fd.write ("    type protocol/client\n")
             if self.transport:
                 exp_fd.write ("    option transport-type %s\n" % self.transport)
-
-            if self.gfs_port:
-                exp_fd.write ("    option transport.remote-port %d\n" % self.gfs_port)
             exp_fd.write ("    option ping-timeout 42\n")
             exp_fd.write ("end-volume\n\n")
 
@@ -330,28 +313,263 @@ class CreateVolfile:
             exp_fd.write ("#   option autoscaling yes # Heuristic for autoscaling threads on demand\n")
             exp_fd.write ("#   option min-threads 2 # min count for thread pool\n")
             exp_fd.write ("#   option max-threads 64 # max count for thread pool\n")
-
             exp_fd.write ("    subvolumes pump\n")
             exp_fd.write ("end-volume\n\n")
 
             for transport in self.transports:
-                exp_fd.write ("volume server-%s\n" % transport)
+                exp_fd.write ("volume server-%s\n" % export)
                 exp_fd.write ("    type protocol/server\n")
                 exp_fd.write ("    option transport-type %s\n" % transport)
                 exp_fd.write ("    option auth.addr.%s.allow %s\n" %
                                   (export, self.auth_parameters))
-
                 if transport == 'ib-verbs':
-                    if self.gfs_ib_port:
-                        exp_fd.write ("    option listen-port %d\n" % self.gfs_ib_port)
                     exp_fd.write ("    option transport.ib-verbs.port %d\n" %
                                   self.ib_devport)
                 if transport == 'tcp':
-                    if self.gfs_port:
-                        exp_fd.write ("    option listen-port %d\n" % self.gfs_port)
                     exp_fd.write ("    option transport.socket.nodelay on\n")
-
                 exp_fd.write ("    subvolumes %s\n" % export)
                 exp_fd.write ("end-volume\n\n")
 
         return
+
+
+    def create_mount_volfile (self):
+
+        raid_type = self.raid_type
+
+        mount_volfile = "%s/%s-%s.vol" % (self.conf_dir, str(self.volume_name), str(self.transport))
+        mount_fd = file ("%s" % (mount_volfile), "w")
+
+        print "Generating client volfiles.. '%s'" % mount_volfile
+
+        cmdline = string.join (sys.argv, ' ')
+
+        mount_fd.write ("## file auto generated by %s\n" % sys.argv[0])
+        mount_fd.write ("# Cmd line:\n")
+        mount_fd.write ("# $ %s\n\n" % cmdline)
+
+        if raid_type is not None:
+            # Used for later usage
+            mount_fd.write ("# RAID %d\n" % raid_type)
+
+        mount_fd.write ("# TRANSPORT-TYPE %s\n" % self.transport)
+        subvolumes = []
+        for host in self.host_dict.keys():
+            i = 1
+            for exports in self.host_dict[host]:
+                mount_fd.write ("volume %s-%s\n" % (host,exports))
+                mount_fd.write ("    type protocol/client\n")
+                mount_fd.write ("    option transport-type %s\n" %
+                                self.transport)
+                mount_fd.write ("    option remote-host %s\n" % host)
+                if self.transport == 'ib-verbs':
+                    mount_fd.write ("    option transport.ib-verbs.port %d\n" %
+                                    self.ib_devport)
+                    mount_fd.write ("    option remote-port %d\n" %
+                                    self.gfs_ib_port)
+                if self.transport == 'tcp':
+                    mount_fd.write ("    option transport.socket.nodelay on\n")
+                    mount_fd.write ("    option remote-port %d\n" %
+                                    self.gfs_port)
+
+                mount_fd.write ("    option remote-subvolume %s\n" % exports)
+                mount_fd.write ("end-volume\n\n")
+                subvolumes.append(str(host) + '-' + str(exports))
+
+        # Stripe section.. if given
+        if raid_type is 0:
+            max_stripe_idx = len (subvolumes) / self.num_stripe
+            stripe_idx = 0
+            index = 0
+            while index < max_stripe_idx:
+                mount_fd.write ("volume stripe-%d\n" % index)
+                mount_fd.write ("    type cluster/stripe\n")
+                mount_fd.write ("#    option block-size 128k\n")
+                mount_fd.write ("#    option use-xattr no\n")
+                mount_fd.write ("    subvolumes %s" % subvolumes[stripe_idx])
+                sub_idx = 1
+                while sub_idx < self.num_stripe:
+                    mount_fd.write (" %s" % subvolumes[stripe_idx+sub_idx])
+                    sub_idx += 1
+                mount_fd.write ("\nend-volume\n\n")
+                stripe_idx += self.num_stripe
+                index +=1
+
+        # Replicate section
+        if raid_type is 1:
+            max_mirror_idx = len (subvolumes) / self.num_replica
+            mirror_idx = 0
+            index = 0
+            while index < max_mirror_idx:
+                mount_fd.write ("volume mirror-%d\n" % index)
+                mount_fd.write ("    type cluster/replicate\n")
+                mount_fd.write ("    subvolumes %s" % subvolumes[mirror_idx])
+                sub_idx = 1
+                while sub_idx < self.num_replica:
+                    mount_fd.write (" %s" % subvolumes[mirror_idx + sub_idx])
+                    sub_idx += 1
+                mount_fd.write ("\nend-volume\n\n")
+                mirror_idx += self.num_replica
+                index += 1
+
+        # Distribute section
+        if raid_type is 0:
+            subvolumes = []
+            flag = 0
+            while flag < index:
+                subvolumes.append ("stripe-%d" % flag)
+                flag += 1
+
+        if raid_type is 1:
+            subvolumes = []
+            flag = 0
+            while flag < index:
+                subvolumes.append ("mirror-%d" % flag)
+                flag += 1
+
+        if len (subvolumes) > 1:
+            mount_fd.write ("volume distribute\n")
+            mount_fd.write ("    type cluster/distribute\n")
+            mount_fd.write ("#   option unhashed-sticky-bit yes"
+                           "  # Used for migrating data while adding new nodes\n")
+            mount_fd.write ("#   option min-free-disk 5%"
+                           "  # Minimum free disk available on the volume\n")
+            mount_fd.write ("    subvolumes %s\n" %
+                                 string.join (subvolumes,' '))
+            mount_fd.write ("end-volume\n\n")
+            subvolumes[0] = "distribute"
+
+
+        if self.nfs:
+            mount_fd.write ("volume nfsxlator\n")
+            mount_fd.write ("    type nfs/server\n")
+            mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
+            mount_fd.write ("#   option rpc-auth.auth-unix         off  #Enabled by default\n")
+            mount_fd.write ("#   option rpc-auth.auth-null         off  #Enabled by default\n")
+            mount_fd.write ("#   By default all addresses are rejected until allowed.\n")
+            mount_fd.write ("#   option rpc-auth.addr.reject       127.*\n")
+            mount_fd.write ("#   option rpc-auth.addr.allow        localhost\n")
+            mount_fd.write ("    option rpc-auth.addr.%s.allow %s\n" % (subvolumes[0], self.auth_parameters))
+            mount_fd.write ("#   By default insecure ports are not allowed.\n")
+            mount_fd.write ("#   option rpc-auth.ports.insecure    on\n")
+            mount_fd.write ("#   option rpc-auth.ports.<volume>.insecure  on\n")
+            mount_fd.write ("#   By default all access is read-write.\n")
+            mount_fd.write ("#   option nfs3.<volume>.volume-access       read-only\n")
+            mount_fd.write ("#   option nfs3.<volume>.volume-access       read-only\n")
+            mount_fd.write ("#   option nfs3.read-size             128Kb\n")
+            mount_fd.write ("#   option nfs3.write-size            32Kb\n")
+            mount_fd.write ("#   option nfs3.readdir-size          64Kb\n")
+            mount_fd.write ("#   option nfs3.<volume>.read-size    64Kb\n")
+            mount_fd.write ("#   option nfs3.<volume>.write-size   64Kb\n")
+            mount_fd.write ("#   option nfs3.posix1.readdir-size   128Kb\n")
+            mount_fd.write ("end-volume\n\n")
+            return
+
+        if self.volume_size_client:
+            mount_fd.write ("volume quota\n")
+            mount_fd.write ("    type features/quota\n")
+            mount_fd.write ("    option disk-usage-limit %s\n" % self.volume_size_client)
+            mount_fd.write ("#   option minimum-free-disk-limit 10GB\n"
+                            "#   minimum free disk value (default) 0\n")
+            mount_fd.write ("#   option refresh-interval 10\n")
+            mount_fd.write ("    subvolumes %s\n" % subvolumes[0])
+            mount_fd.write ("end-volume\n\n")
+
+        if self.enable_safe_mode:
+            return
+
+        self.performance_mode (subvolumes[0], mount_fd)
+
+        return
+
+    def create_export_volfile (self):
+
+        cmdline = string.join (sys.argv, ' ')
+        export_volfile = "%s/%s-export.vol" % (self.conf_dir, str(self.host + '-' + self.volume_name))
+        exp_fd = file ("%s" % (export_volfile),"w")
+
+        print "Generating server volfiles.. for server %s as '%s'" % (self.host,
+                                                                      export_volfile)
+
+        exp_fd.write ("## file auto generated by %s\n" %
+                      sys.argv[0])
+        exp_fd.write ("# Cmd line:\n")
+        exp_fd.write ("# $ %s\n\n" % cmdline)
+        total_bricks = []
+        i=1
+        for export in self.host_dict[self.host]:
+            exp_fd.write ("volume posix%d\n" % i)
+            exp_fd.write ("    type storage/posix\n")
+            exp_fd.write ("#   option o-direct enable # (default: disable) boolean type only\n")
+            exp_fd.write ("#   option export-statfs-size no # (default: yes) boolean type only\n")
+            exp_fd.write ("#   option mandate-attribute off # (default: on) boolean type only\n")
+            exp_fd.write ("#   option span-devices 8 # (default: 0) integer value\n")
+            exp_fd.write ("#   option background-unlink yes # (default: no) boolean type\n")
+
+            exp_fd.write ("    option directory %s\n" % export)
+            exp_fd.write ("end-volume\n\n")
+
+            if self.nfs:
+                exp_fd.write ("volume posix-ac%d\n" % i)
+                exp_fd.write ("    type features/access-control\n")
+                exp_fd.write ("    subvolumes posix%d\n" % i)
+                exp_fd.write ("end-volume\n\n")
+
+            if self.volume_size_server:
+                exp_fd.write ("volume quota%d\n" % i)
+                exp_fd.write ("    type features/quota\n")
+                exp_fd.write ("    option disk-usage-limit %s\n" % self.volume_size_server)
+                exp_fd.write ("#   option minimum-free-disk-limit 10GB"
+                              "  # minimum free disk value (default) 0\n")
+                exp_fd.write ("#   option refresh-interval 10\n")
+                if self.nfs:
+                    exp_fd.write ("    subvolumes posix-ac%d\n" % i)
+                else:
+                    exp_fd.write ("    subvolumes posix%d\n" % i)
+                exp_fd.write ("end-volume\n\n")
+
+
+            exp_fd.write ("volume locks%d\n" % i)
+            exp_fd.write ("    type features/locks\n")
+            exp_fd.write ("#   option mandatory on # Default off, used in specific applications\n")
+            if self.volume_size_server:
+                exp_fd.write ("    subvolumes quota%d\n" % i)
+            else:
+                exp_fd.write ("    subvolumes posix%d\n" % i)
+            exp_fd.write ("end-volume\n\n")
+
+            exp_fd.write ("volume %s\n" % export)
+            exp_fd.write ("    type performance/io-threads\n")
+            exp_fd.write ("    option thread-count 8\n")
+            exp_fd.write ("#   option autoscaling yes # Heuristic for autoscaling threads on demand\n")
+            exp_fd.write ("#   option min-threads 2 # min count for thread pool\n")
+            exp_fd.write ("#   option max-threads 64 # max count for thread pool\n")
+
+            exp_fd.write ("    subvolumes locks%d\n" % i)
+            exp_fd.write ("end-volume\n\n")
+
+            total_bricks.append("%s" % export)
+            i += 1
+
+        for transport in self.transports:
+            exp_fd.write ("volume server-%s\n" % transport)
+            exp_fd.write ("    type protocol/server\n")
+            exp_fd.write ("    option transport-type %s\n" % transport)
+            for brick in total_bricks:
+                exp_fd.write ("    option auth.addr.%s.allow %s\n" %
+                              (brick, self.auth_parameters))
+
+            if transport == 'ib-verbs':
+                exp_fd.write ("    option transport.ib-verbs.listen-port %d\n" % self.gfs_ib_port)
+                exp_fd.write ("    option transport.ib-verbs.port %d\n" %
+                              self.ib_devport)
+            if transport == 'tcp':
+                exp_fd.write ("    option transport.socket.listen-port %d\n" % self.gfs_port)
+                exp_fd.write ("    option transport.socket.nodelay on\n")
+
+            exp_fd.write ("    subvolumes %s\n" %
+                          string.join(total_bricks, ' '))
+            exp_fd.write ("end-volume\n\n")
+
+        return
+
