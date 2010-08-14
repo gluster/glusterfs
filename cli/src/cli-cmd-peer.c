@@ -56,7 +56,7 @@ cli_cmd_peer_status_usage ()
 }
 
 int
-cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
+cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
                    const char **words, int wordcount)
 {
         int                     ret = -1;
@@ -64,7 +64,7 @@ cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         dict_t                  *dict = NULL;
 
-        if (!((wordcount == 3) || (wordcount == 2))) {
+        if (!((wordcount == 4) || (wordcount == 3))) {
                 cli_cmd_probe_usage ();
                 goto out;
         }
@@ -79,12 +79,12 @@ cli_cmd_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!dict)
                 goto out;
 
-        ret = dict_set_str (dict, "hostname", (char *)words[1]);
+        ret = dict_set_str (dict, "hostname", (char *)words[2]);
         if (ret)
                 goto out;
 
-        if (words[2]) {
-                ret = dict_set_str (dict, "port", (char *)words[2]);
+        if (words[3]) {
+                ret = dict_set_str (dict, "port", (char *)words[3]);
                 if (ret)
                         goto out;
         }
@@ -101,15 +101,15 @@ out:
 
 
 int
-cli_cmd_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
-                     const char **words, int wordcount)
+cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                          const char **words, int wordcount)
 {
         int                   ret   = -1;
         rpc_clnt_procedure_t *proc  = NULL;
         call_frame_t         *frame = NULL;
         dict_t               *dict  = NULL;
 
-        if (!((wordcount == 2) || (wordcount == 3))) {
+        if (!((wordcount == 3) || (wordcount == 4))) {
                 cli_cmd_deprobe_usage ();
                 goto out;
         }
@@ -122,12 +122,12 @@ cli_cmd_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         dict = dict_new ();
 
-        ret = dict_set_str (dict, "hostname", (char *)words[1]);
+        ret = dict_set_str (dict, "hostname", (char *)words[2]);
         if (ret)
                 goto out;
 
-        if (words[2]) {
-                ret = dict_set_str (dict, "port", (char *)words[2]);
+        if (words[3]) {
+                ret = dict_set_str (dict, "port", (char *)words[3]);
                 if (ret)
                         goto out;
         }
@@ -173,11 +173,11 @@ out:
 }
 
 struct cli_cmd cli_probe_cmds[] = {
-        { "probe <HOSTNAME> [PORT]",
-          cli_cmd_probe_cbk },
+        { "peer probe <HOSTNAME> [PORT]",
+          cli_cmd_peer_probe_cbk },
 
-        { "detach <HOSTNAME>",
-          cli_cmd_deprobe_cbk },
+        { "peer detach <HOSTNAME>",
+          cli_cmd_peer_deprobe_cbk },
 
         { "peer status",
           cli_cmd_peer_status_cbk},
