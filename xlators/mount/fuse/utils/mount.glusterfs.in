@@ -181,13 +181,7 @@ main ()
 	server_ip=$(echo "$volfile_loc" | sed -n 's/\([^\:]*\).*/\1/p');
         test_str=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
         [ -n "$test_str" ] && {
-            # Backward compatibility
-            test_str1=$(echo "$test_str" | sed -e 's/[0-9]//g');
-            [ -n "$test_str1" ] && {
-                volume_id="$test_str";
-            } || {
-                server_port=$test_str;
-            }
+            volume_id="$test_str";
         } 
 	volfile_loc="";
     }
