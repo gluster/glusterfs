@@ -81,7 +81,6 @@ typedef struct _afr_private {
         uint64_t down_count;    /* number of CHILD_DOWNs we have seen */
 
 	struct _pump_private *pump_private; /* Set if we are loaded as pump */
-        gf_boolean_t pump_loaded;
 } afr_private_t;
 
 typedef struct {

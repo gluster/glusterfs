@@ -94,7 +94,4 @@ pump_command_status (xlator_t *this, dict_t *dict);
 int
 pump_execute_status (call_frame_t *frame, xlator_t *this);
 
-gf_boolean_t
-is_pump_loaded (xlator_t *this);
-
 #endif /* __PUMP_H__ */
