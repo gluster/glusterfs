@@ -65,7 +65,7 @@ glusterd_store_create_volume_dir (char *volname)
         snprintf (path, 1024, "%s/vols/%s", priv->workdir,
                   volname);
 
-        ret = mkdir (path, 0x777);
+        ret = mkdir (path, 0777);
 
         if (-1 == ret) {
                 gf_log ("", GF_LOG_ERROR, "mkdir() failed on path %s,"
@@ -104,7 +104,7 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
         ret = stat (path, &stbuf);
 
         if (ret == -1 && ENOENT == errno) {
-                ret = mkdir (path, 0x777);
+                ret = mkdir (path, 0777);
                 if (ret)
                         goto out;
         }
