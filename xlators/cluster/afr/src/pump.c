@@ -213,6 +213,48 @@ build_file_path (loc_t *loc, gf_dirent_t *entry)
 }
 
 static int
+pump_save_path (xlator_t *this, const char *path)
+{
+        afr_private_t *priv = NULL;
+        pump_private_t *pump_priv = NULL;
+        pump_state_t state;
+        dict_t *dict = NULL;
+        loc_t  loc;
+        int dict_ret = 0;
+        int ret = -1;
+
+        state = pump_get_state ();
+        if (state == PUMP_STATE_RESUME)
+                return 0;
+
+        priv = this->private;
+        pump_priv = priv->pump_private;
+
+        assert (priv->root_inode);
+
+        build_root_loc (priv->root_inode, &loc);
+
+        dict = dict_new ();
+        dict_ret = dict_set_str (dict, PUMP_PATH, (char *)path);
+
+        ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
+
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "setxattr failed - could not save path=%s", path);
+        } else {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "setxattr succeeded - saved path=%s", path);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Saving path for status info");
+        }
+
+        dict_unref (dict);
+
+        return 0;
+}
+
+static int
 pump_check_and_update_status (xlator_t *this)
 {
         pump_state_t state;
@@ -229,8 +271,13 @@ pump_check_and_update_status (xlator_t *this)
                 break;
         }
         case PUMP_STATE_PAUSE:
+        {
+                ret = -1;
+                break;
+        }
         case PUMP_STATE_ABORT:
         {
+                pump_save_path (this, "/");
                 ret = -1;
                 break;
         }
@@ -347,47 +394,6 @@ pump_save_file_stats (xlator_t *this, const char *path)
                          PATH_MAX);
         }
         UNLOCK (&pump_priv->resume_path_lock);
-
-        return 0;
-}
-static int
-pump_save_path (xlator_t *this, const char *path)
-{
-        afr_private_t *priv = NULL;
-        pump_private_t *pump_priv = NULL;
-        pump_state_t state;
-        dict_t *dict = NULL;
-        loc_t  loc;
-        int dict_ret = 0;
-        int ret = -1;
-
-        state = pump_get_state ();
-        if (state != PUMP_STATE_RUNNING)
-                return 0;
-
-        priv = this->private;
-        pump_priv = priv->pump_private;
-
-        assert (priv->root_inode);
-
-        build_root_loc (priv->root_inode, &loc);
-
-        dict = dict_new ();
-        dict_ret = dict_set_str (dict, PUMP_PATH, (char *)path);
-
-//        ret = syncop_setxattr (PUMP_SOURCE_CHILD (this), &loc, dict, 0);
-        ret = 0;
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "setxattr failed - could not save path=%s", path);
-        } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "setxattr succeeded - saved path=%s", path);
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Saving path for status info");
-        }
-
-        dict_unref (dict);
 
         return 0;
 }
@@ -694,31 +700,6 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
 	return ret;
 }
 
-gf_boolean_t
-is_pump_loaded (xlator_t *this)
-{
-        afr_private_t *priv = NULL;
-        pump_private_t *pump_priv = NULL;
-
-        gf_boolean_t ret;
-
-        priv = this->private;
-        pump_priv = priv->pump_private;
-
-        if (priv->pump_loaded) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Pump is already started");
-                ret = _gf_true;
-        } else {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Pump is not started");
-                ret = _gf_false;
-        }
-
-        return ret;
-
-}
-
 static int
 pump_start_synctask (xlator_t *this)
 {
@@ -822,86 +803,6 @@ pump_initiate_sink_connect (call_frame_t *frame, xlator_t *this)
 
 	STACK_WIND (frame,
 		    pump_cmd_start_setxattr_cbk,
-		    PUMP_SINK_CHILD(this),
-		    PUMP_SINK_CHILD(this)->fops->setxattr,
-		    &loc,
-		    dict,
-		    0);
-
-        ret = 0;
-
-        dict_unref (dict);
-out:
-        return ret;
-}
-
-int32_t
-pump_cmd_abort_setxattr_cbk (call_frame_t *frame,
-                             void *cookie,
-                             xlator_t *this,
-                             int32_t op_ret,
-                             int32_t op_errno)
-
-{
-        afr_local_t *local = NULL;
-        int ret = 0;
-
-        local = frame->local;
-
-        if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not initiate destination "
-                        "brick disconnect");
-                ret = op_ret;
-                goto out;
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Successfully initiated destination "
-                "brick disconnect");
-        ret = 0;
-
-out:
-        local->op_ret = ret;
-        pump_command_reply (frame, this);
-        return 0;
-}
-
-static int
-pump_initiate_sink_disconnect (call_frame_t *frame, xlator_t *this)
-{
-        afr_local_t   *local     = NULL;
-        afr_private_t *priv      = NULL;
-        dict_t        *dict      = NULL;
-        loc_t loc;
-
-        int ret = 0;
-
-        priv  = this->private;
-        local = frame->local;
-
-        GF_ASSERT (priv->root_inode);
-
-        build_root_loc (priv->root_inode, &loc);
-
-        dict = dict_new ();
-        if (!dict) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_str (dict, CLIENT_CMD_DISCONNECT, "jargon");
-        if (ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Could not inititiate destination brick "
-                        "disconnect");
-                goto out;
-        }
-
-	STACK_WIND (frame,
-		    pump_cmd_abort_setxattr_cbk,
 		    PUMP_SINK_CHILD(this),
 		    PUMP_SINK_CHILD(this)->fops->setxattr,
 		    &loc,
@@ -1108,80 +1009,19 @@ out:
 	return 0;
 }
 
-int32_t
-pump_cmd_abort_removexattr_cbk (call_frame_t *frame,
-                                void *cookie,
-                                xlator_t *this,
-                                int32_t op_ret,
-                                int32_t op_errno)
-{
-        afr_local_t *local = NULL;
-        int ret = 0;
-
-        local = frame->local;
-
-        if (op_ret < 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Aborting pump failed. Please remove xattr"
-                        PUMP_PATH "of the source child's '/'");
-                ret = op_ret;
-                goto out;
-        }
-
-        gf_log (this->name, GF_LOG_DEBUG,
-                "remove xattr succeeded");
-
-
-        pump_change_state (this, PUMP_STATE_ABORT);
-        ret = pump_initiate_sink_disconnect (frame, this);
-
-out:
-        if (ret < 0) {
-                local->op_ret = ret;
-                pump_command_reply (frame, this);
-        }
-
-	return 0;
-}
-
 int
 pump_execute_abort (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t *priv = NULL;
         afr_local_t   *local = NULL;
-        pump_private_t *pump_priv = NULL;
-        loc_t root_loc;
-        int ret = 0;
 
         priv = this->private;
         local = frame->local;
-        pump_priv = priv->pump_private;
 
-        if (!priv->pump_loaded) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Trying to abort pump xlator which is not loaded");
-                ret = -1;
-                goto out;
-        }
+        pump_change_state (this, PUMP_STATE_ABORT);
 
-        GF_ASSERT (priv->root_inode);
-
-        build_root_loc (priv->root_inode, &root_loc);
-
-	STACK_WIND (frame,
-		    pump_cmd_abort_removexattr_cbk,
-		    PUMP_SOURCE_CHILD (this),
-		    PUMP_SOURCE_CHILD (this)->fops->removexattr,
-		    &root_loc,
-		    PUMP_PATH);
-
-        ret = 0;
-
-out:
-        if (ret < 0) {
-                local->op_ret = ret;
-                pump_command_reply (frame, this);
-        }
+        local->op_ret = 0;
+        pump_command_reply (frame, this);
 
         return 0;
 }
