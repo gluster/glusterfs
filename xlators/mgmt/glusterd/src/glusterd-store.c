@@ -844,6 +844,8 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
 
                         GF_FREE (key);
                         GF_FREE (value);
+                        key = NULL;
+                        value = NULL;
 
                         ret = glusterd_store_iter_get_next (iter, &key, &value);
                 }
@@ -921,6 +923,8 @@ glusterd_store_retrieve_volume (char    *volname)
 
                 GF_FREE (key);
                 GF_FREE (value);
+                key = NULL;
+                value = NULL;
 
                 ret = glusterd_store_iter_get_next (iter, &key, &value);
         }
@@ -1228,6 +1232,8 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                         GF_FREE (key);
                         GF_FREE (value);
+                        key = NULL;
+                        value = NULL;
 
                         ret = glusterd_store_iter_get_next (iter, &key, &value);
                 }
