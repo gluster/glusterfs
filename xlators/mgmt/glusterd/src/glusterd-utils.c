@@ -640,6 +640,7 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         int32_t                 ret = -1;
         char                    *hostname = NULL;
         char                    *path = NULL;
+        char                    *dup_brick = NULL;
         glusterd_brickinfo_t    *tmp = NULL;
 
         GF_ASSERT (brick);
@@ -648,7 +649,15 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
 
         gf_log ("", GF_LOG_NORMAL, "brick: %s", brick);
 
-        hostname = strtok (brick, ":");
+        dup_brick = gf_strdup (brick);
+        if (!dup_brick) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        hostname = strtok (dup_brick, ":");
         path = strtok (NULL, ":");
 
         GF_ASSERT (hostname);
@@ -665,6 +674,10 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         }
 
         *brickinfo = tmp;
+
+out:
+        if (dup_brick)
+                GF_FREE (dup_brick);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;

@@ -46,6 +46,9 @@
 #include "glusterd-store.h"
 #include "cli1.h"
 
+#include <sys/types.h>
+#include <signal.h>
+
 static struct list_head gd_op_sm_queue;
 glusterd_op_info_t    opinfo;
 static int glusterfs_port = GLUSTERD_DEFAULT_PORT;
@@ -554,10 +557,14 @@ out:
 static int
 glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
 {
-        int                                     ret = 0;
-        dict_t                                  *dict = NULL;
-        char                                    *src_brick = NULL;
-        char                                    *dst_brick = NULL;
+        int                                      ret           = 0;
+        dict_t                                  *dict          = NULL;
+        char                                    *src_brick     = NULL;
+        char                                    *dst_brick     = NULL;
+        char                                    *volname       = NULL;
+        glusterd_volinfo_t                      *volinfo       = NULL;
+        glusterd_brickinfo_t                    *src_brickinfo = NULL;
+        gf_boolean_t                             exists        = _gf_false;
 
         GF_ASSERT (req);
 
@@ -571,7 +578,7 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
                 gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
                 goto out;
         }
-        /* Need to do a little more error checking and validation */
+
         ret = dict_get_str (dict, "src-brick", &src_brick);
 
         if (ret) {
@@ -590,7 +597,35 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
         }
 
         gf_log ("", GF_LOG_DEBUG,
-                "dest brick=%s", dst_brick);
+                "dst brick=%s", dst_brick);
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_brickinfo_get (src_brick, volinfo,
+                                      &src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
+                goto out;
+        }
+
+        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "I AM THE SOURCE HOST");
+                exists = glusterd_check_volume_exists (volname);
+
+                if (!exists) {
+                        gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
+                                "does not exist",
+                                volname);
+                        ret = -1;
+                        goto out;
+                }
+        }
 
         ret = 0;
 
@@ -896,218 +931,653 @@ out:
 }
 
 static int
-replace_brick_start_dst_brick (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *dst_brickinfo)
-{        glusterd_conf_t    *priv = NULL;
-        char  cmd_str[8192] = {0,};
-        char filename[PATH_MAX];
-        FILE *file = NULL;
-        int ret;
+rb_send_xattr_command (glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *src_brickinfo,
+                       glusterd_brickinfo_t *dst_brickinfo,
+                       const char *xattr_key,
+                       const char *value)
+{
+        glusterd_conf_t  *priv                        = NULL;
+        char              mount_point_path[PATH_MAX]  = {0,};
+        struct stat       buf;
+        int               ret                         = -1;
 
         priv = THIS->private;
 
-        snprintf (filename, PATH_MAX, "%s/vols/%s/replace_dst_brick.vol",
-                  priv->workdir, volinfo->volname);
+        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
 
-
-        file = fopen (filename, "a+");
-        if (!file) {
+        ret = stat (mount_point_path, &buf);
+        if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Open of volfile failed");
-                return -1;
+                        "stat failed. Could not send "
+                        " %s command", xattr_key);
+                goto out;
         }
 
-        ret = truncate (filename, 0);
+        ret = lsetxattr (mount_point_path, xattr_key,
+                         value,
+                         strlen (value),
+                         0);
 
-        fprintf (file, "volume src-posix\n");
-        fprintf (file, "type storage/posix\n");
-        fprintf (file, "option directory %s\n",
-                 dst_brickinfo->path);
-        fprintf (file, "end-volume\n");
-        fprintf (file, "volume %s\n",
-                 dst_brickinfo->path);
-        fprintf (file, "type features/locks\n");
-        fprintf (file, "subvolumes src-posix\n");
-        fprintf (file, "end-volume\n");
-        fprintf (file, "volume src-server\n");
-        fprintf (file, "type protocol/server\n");
-        fprintf (file, "option auth.addr.%s.allow *\n",
-                 dst_brickinfo->path);
-        fprintf (file, "option listen-port 34034\n");
-        fprintf (file, "subvolumes %s\n",
-                 dst_brickinfo->path);
-        fprintf (file, "end-volume\n");
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "setxattr failed");
+                goto out;
+        }
 
-        gf_log ("", GF_LOG_DEBUG,
-                "starting dst brick");
+        ret = 0;
 
-        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/replace_dst_brick.vol",
-                  priv->workdir, volinfo->volname);
+out:
+        return ret;
+}
+
+static int
+rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
+                    glusterd_brickinfo_t *brickinfo)
+{
+        glusterd_conf_t    *priv           = NULL;
+        char                cmd_str[8192]  = {0,};
+        int                 ret            = -1;
+
+        priv = THIS->private;
+
+        snprintf (cmd_str, 8192, "glusterfs -f %s/vols/%s/%s -p %s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_DSTBRICKVOL_FILENAME,
+                  priv->workdir, volinfo->volname,
+                  RB_DSTBRICK_PIDFILE);
 
         ret = system (cmd_str);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not start glusterfs");
+                goto out;
+        }
 
+        gf_log ("", GF_LOG_DEBUG,
+                "Successfully started glusterfs: brick=%s:%s",
+                brickinfo->hostname, brickinfo->path);
 
-        fclose (file);
+        ret = 0;
 
-        return 0;
+out:
+        return ret;
 }
 
 static int
-replace_brick_spawn_brick (glusterd_volinfo_t *volinfo, dict_t *dict,
-                           glusterd_brickinfo_t *dst_brickinfo)
-
+rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
+                           glusterd_brickinfo_t *brickinfo)
 {
+        glusterd_conf_t    *priv           = NULL;
+        char                cmd_str[8192]  = {0,};
+        struct stat         buf;
+        int                 ret            = -1;
 
-        replace_brick_start_dst_brick (volinfo, dst_brickinfo);
+        priv = THIS->private;
 
-        return 0;
+        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s %s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENTVOL_FILENAME,
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
+
+        ret = system (cmd_str);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not start glusterfs");
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG,
+                "Successfully started glusterfs: brick=%s:%s",
+                brickinfo->hostname, brickinfo->path);
+
+        snprintf (cmd_str, 4096, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
+
+        ret = stat (cmd_str, &buf);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "stat on mountpoint failed");
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG,
+                "stat on mountpoint succeeded");
+
+        ret = 0;
+
+out:
+        return ret;
 }
 
+static const char *client_volfile_str =  "volume client/protocol\n"
+        "type protocol/client\n"
+        "option remote-host %s\n"
+        "option remote-subvolume %s\n"
+        "option remote-port 34034\n"
+        "echo end-volume\n";
+
 static int
-replace_brick_generate_volfile (glusterd_volinfo_t *volinfo,
-                                glusterd_brickinfo_t *src_brickinfo)
+rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
+                            glusterd_brickinfo_t *src_brickinfo)
 {
         glusterd_conf_t    *priv = NULL;
         FILE *file = NULL;
         char filename[PATH_MAX];
-        int ret;
+        int ret = -1;
 
         priv = THIS->private;
 
         gf_log ("", GF_LOG_DEBUG,
                 "Creating volfile");
 
-        snprintf (filename, PATH_MAX, "%s/vols/%s/replace_brick.vol",
-                  priv->workdir, volinfo->volname);
+        snprintf (filename, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENTVOL_FILENAME);
 
-        file = fopen (filename, "a+");
+        file = fopen (filename, "w+");
         if (!file) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Open of volfile failed");
-                return -1;
+                ret = -1;
+                goto out;
         }
 
-        ret = truncate (filename, 0);
-        ret = unlink ("/tmp/replace_brick.vol");
-
-        fprintf (file, "volume client/protocol\n");
-        fprintf (file, "type protocol/client\n");
-        fprintf (file, "option remote-host %s\n",
-                 src_brickinfo->hostname);
-        fprintf (file, "option remote-subvolume %s\n",
+        fprintf (file, client_volfile_str, src_brickinfo->hostname,
                  src_brickinfo->path);
-        fprintf (file, "option remote-port 34034\n");
-        fprintf (file, "echo end-volume\n");
-
-        ret = symlink(filename, "/tmp/replace_brick.vol");
-        if (!ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "symlink call failed");
-                return -1;
-        }
 
         fclose (file);
 
-        return 0;
+        ret = 0;
+
+out:
+        return ret;
 }
 
+static const char *dst_brick_volfile_str = "volume src-posix\n"
+        "type storage/posix\n"
+        "option directory %s\n"
+        "end-volume\n"
+        "volume %s\n"
+        "type features/locks\n"
+        "subvolumes src-posix\n"
+        "end-volume\n"
+        "volume src-server\n"
+        "type protocol/server\n"
+        "option auth.addr.%s.allow *\n"
+        "option listen-port 34034\n"
+        "subvolumes %s\n"
+        "end-volume\n";
+
 static int
-replace_brick_start_source_brick (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *src_brickinfo,
-                                  glusterd_brickinfo_t *dst_brickinfo)
-{        glusterd_conf_t    *priv = NULL;
-        char filename[PATH_MAX];
+rb_generate_dst_brick_volfile (glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t *dst_brickinfo)
+{
+        glusterd_conf_t    *priv = NULL;
         FILE *file = NULL;
-        char  cmd_str[8192] = {0,};
-        int ret;
+        char filename[PATH_MAX];
+        int ret = -1;
 
         priv = THIS->private;
 
         gf_log ("", GF_LOG_DEBUG,
                 "Creating volfile");
 
-        snprintf (filename, PATH_MAX, "%s/vols/%s/replace_source_brick.vol",
-                  priv->workdir, volinfo->volname);
+        snprintf (filename, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_DSTBRICKVOL_FILENAME);
 
-        file = fopen (filename, "a+");
+        file = fopen (filename, "w+");
         if (!file) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Open of volfile failed");
-                return -1;
+                ret = -1;
+                goto out;
         }
 
-        ret = truncate (filename, 0);
-
-        fprintf (file, "volume src-posix\n");
-        fprintf (file, "type storage/posix\n");
-        fprintf (file, "option directory %s\n",
-                 src_brickinfo->path);
-        fprintf (file, "end-volume\n");
-        fprintf (file, "volume locks\n");
-        fprintf (file, "type features/locks\n");
-        fprintf (file, "subvolumes src-posix\n");
-        fprintf (file, "end-volume\n");
-        fprintf (file, "volume remote-client\n");
-        fprintf (file, "type protocol/client\n");
-        fprintf (file, "option remote-host %s\n",
-                 dst_brickinfo->hostname);
-        fprintf (file, "option remote-port 34034\n");
-        fprintf (file, "option remote-subvolume %s\n",
+        fprintf (file, dst_brick_volfile_str, dst_brickinfo->path,
+                 dst_brickinfo->path, dst_brickinfo->path,
                  dst_brickinfo->path);
-        fprintf (file, "end-volume\n");
-        fprintf (file, "volume %s\n",
-                 src_brickinfo->path);
-        fprintf (file, "type cluster/pump\n");
-        fprintf (file, "subvolumes locks remote-client\n");
-        fprintf (file, "end-volume\n");
-        fprintf (file, "volume src-server\n");
-        fprintf (file, "type protocol/server\n");
-        fprintf (file, "option auth.addr.%s.allow *\n",
-                 src_brickinfo->path);
-        fprintf (file, "option listen-port 34034\n");
-        fprintf (file, "subvolumes %s\n",
-                 src_brickinfo->path);
-        fprintf (file, "end-volume\n");
 
+        fclose (file);
 
-        gf_log ("", GF_LOG_DEBUG,
-                "starting source brick");
+        ret = 0;
 
-        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/replace_source_brick.vol -l /tmp/b_log -LTRACE",
-                  priv->workdir, volinfo->volname);
+out:
+        return ret;
+}
+
+static int
+rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
+                                glusterd_brickinfo_t *src_brickinfo)
+{
+        glusterd_conf_t  *priv                        = NULL;
+        char              cmd_str[8192]               = {0,};
+        char              filename[PATH_MAX]          = {0,};
+        struct stat       buf;
+        char              mount_point_path[PATH_MAX]  = {0,};
+        int               ret                         = -1;
+
+        priv = THIS->private;
+
+        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
+
+        ret = stat (mount_point_path, &buf);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "stat failed. Cannot destroy maintainence "
+                        "client");
+                goto out;
+        }
+
+        snprintf (cmd_str, 8192, "umount %s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
 
         ret = system (cmd_str);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "umount failed on maintainence client");
+                goto out;
+        }
 
-        fclose (file);
+        snprintf (filename, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENTVOL_FILENAME);
+
+        ret = unlink (filename);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "unlink failed");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+rb_spawn_maintainence_client (glusterd_volinfo_t *volinfo,
+                              glusterd_brickinfo_t *src_brickinfo)
+{
+        int ret = -1;
+
+        ret = rb_generate_client_volfile (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to generate client "
+                        "volfile");
+                goto out;
+        }
+
+        ret = rb_spawn_glusterfs_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to start glusterfs");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+rb_spawn_destination_brick (glusterd_volinfo_t *volinfo,
+                            glusterd_brickinfo_t *dst_brickinfo)
+{
+        int ret = -1;
+
+        ret = rb_generate_dst_brick_volfile (volinfo, dst_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to generate client "
+                        "volfile");
+                goto out;
+        }
+
+        ret = rb_spawn_dst_brick (volinfo, dst_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to start glusterfs");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+static int
+rb_do_operation_start (glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *src_brickinfo,
+                       glusterd_brickinfo_t *dst_brickinfo)
+{
+        char start_value[8192] = {0,};
+        int ret = -1;
+
+        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE SOURCE HOST");
+                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not spawn maintainence "
+                                "client");
+                        goto out;
+                }
+
+                snprintf (start_value, 8192, "%s:%s:",
+                          dst_brickinfo->hostname,
+                          dst_brickinfo->path);
+
+                ret = rb_send_xattr_command (volinfo, src_brickinfo,
+                                             dst_brickinfo, RB_PUMP_START_CMD,
+                                             start_value);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to send command to pump");
+                        goto out;
+                }
+
+                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to destroy maintainence "
+                                "client");
+                        goto out;
+                }
+
+        } else if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE DESTINATION HOST");
+                ret = rb_spawn_destination_brick (volinfo, dst_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to spawn destination brick");
+                        goto out;
+                }
+
+        } else {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Not a source or destination brick");
+                ret = 0;
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+/* replace brick commit is handled by cli directly.
+ * return success all the time.
+ */
+static int
+rb_do_operation_commit (glusterd_volinfo_t *volinfo,
+                        glusterd_brickinfo_t *src_brickinfo,
+                        glusterd_brickinfo_t *dst_brickinfo)
+{
+        gf_log ("", GF_LOG_DEBUG,
+                "received commit on %s:%s to %s:%s "
+                "on volume %s",
+                src_brickinfo->hostname,
+                src_brickinfo->path,
+                dst_brickinfo->hostname,
+                dst_brickinfo->path,
+                volinfo->volname);
 
         return 0;
 }
 
 static int
-replace_brick_mount (glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *src_brickinfo,
-                     glusterd_brickinfo_t *dst_brickinfo, gf1_cli_replace_op op)
+rb_do_operation_pause (glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *src_brickinfo,
+                       glusterd_brickinfo_t *dst_brickinfo)
 {
+        int ret = -1;
 
-        gf_log ("", GF_LOG_DEBUG,
-                "starting source brick");
+        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE SOURCE HOST");
+                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not spawn maintainence "
+                                "client");
+                        goto out;
+                }
 
-        replace_brick_start_source_brick (volinfo, src_brickinfo,
-                                          dst_brickinfo);
+                ret = rb_send_xattr_command (volinfo, src_brickinfo,
+                                             dst_brickinfo, RB_PUMP_PAUSE_CMD,
+                                             "jargon");
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to send command to pump");
+                        goto out;
+                }
 
-        return 0;
+                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to destroy maintainence "
+                                "client");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
+                           glusterd_brickinfo_t *dst_brickinfo)
+{
+        glusterd_conf_t  *priv     = NULL;
+        int               ret      = -1;
+        char             *pidfile  = NULL;
+        pid_t             pid      = -1;
+        FILE             *file     = NULL;
+
+        priv = THIS->private;
+
+        snprintf (pidfile, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_DSTBRICKVOL_FILENAME);
+
+        file = fopen (pidfile, "r+");
+        if (!file) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                                pidfile);
+                ret = -1;
+                goto out;
+        }
+
+        ret = fscanf (file, "%d", &pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                                pidfile);
+                ret = -1;
+                goto out;
+        }
+
+        fclose (file);
+        file = NULL;
+
+        gf_log ("", GF_LOG_NORMAL, "Stopping glusterfs running in pid: %d",
+                pid);
+
+        ret = kill (pid, SIGQUIT);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+rb_do_operation_abort (glusterd_volinfo_t *volinfo,
+                       glusterd_brickinfo_t *src_brickinfo,
+                       glusterd_brickinfo_t *dst_brickinfo)
+{
+        int ret = -1;
+
+        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE SOURCE HOST");
+                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not spawn maintainence "
+                                "client");
+                        goto out;
+                }
+
+                ret = rb_send_xattr_command (volinfo, src_brickinfo,
+                                             dst_brickinfo, RB_PUMP_ABORT_CMD,
+                                             "jargon");
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to send command to pump");
+                        goto out;
+                }
+
+                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to destroy maintainence "
+                                "client");
+                        goto out;
+                }
+        }
+        else if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE DESTINATION HOST");
+                ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to kill destination brick");
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+rb_get_xattr_command (glusterd_volinfo_t *volinfo,
+                      glusterd_brickinfo_t *src_brickinfo,
+                      glusterd_brickinfo_t *dst_brickinfo,
+                      const char *xattr_key,
+                      const char **value)
+{
+        glusterd_conf_t  *priv                        = NULL;
+        char              mount_point_path[PATH_MAX]  = {0,};
+        struct stat       buf;
+        int               ret                         = -1;
+
+        priv = THIS->private;
+
+        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
+
+        ret = stat (mount_point_path, &buf);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "stat failed. Could not send "
+                        " %s command", xattr_key);
+                goto out;
+        }
+
+        ret = lgetxattr (mount_point_path, xattr_key,
+                         (char *)(*value),
+                         8192);
+
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "setxattr failed");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+rb_do_operation_status (glusterd_volinfo_t *volinfo,
+                        glusterd_brickinfo_t *src_brickinfo,
+                        glusterd_brickinfo_t *dst_brickinfo)
+{
+        const char *status = NULL;
+        int ret = -1;
+
+        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE SOURCE HOST");
+                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not spawn maintainence "
+                                "client");
+                        goto out;
+                }
+
+                ret = rb_get_xattr_command (volinfo, src_brickinfo,
+                                            dst_brickinfo, RB_PUMP_STATUS_CMD,
+                                            &status);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to get status from pump");
+                        goto out;
+                }
+
+                gf_log ("", GF_LOG_DEBUG,
+                        "pump status is %s", status);
+
+                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to destroy maintainence "
+                                "client");
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
 }
 
 static int
 glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
 {
-        int                                     ret = 0;
+        int                                      ret = 0;
         dict_t                                  *dict = NULL;
+        gf1_cli_replace_op                       replace_op;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    *volname = NULL;
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *priv = NULL;
         char                                    *src_brick = NULL;
         char                                    *dst_brick = NULL;
-        char                                    *str = NULL;
-
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
 
@@ -1124,15 +1594,12 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
 
         ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
                 goto out;
         }
 
-        /* Need to do a little more error checking and validation */
         ret = dict_get_str (dict, "src-brick", &src_brick);
-
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get src brick");
                 goto out;
@@ -1142,9 +1609,8 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
                 "src brick=%s", src_brick);
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
-
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get dest brick");
+                gf_log ("", GF_LOG_ERROR, "Unable to get dst brick");
                 goto out;
         }
 
@@ -1158,17 +1624,20 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        ret = glusterd_volinfo_find (volname, &volinfo);
+        ret = dict_get_int32 (dict, "operation", (int32_t *)&replace_op);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on operation failed");
+                goto out;
+        }
 
+        ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
         }
 
-        str = strdup (src_brick);
-
-        ret = glusterd_brickinfo_get (str, volinfo,
-                                      &src_brickinfo);
+        ret = glusterd_brickinfo_get (src_brick, volinfo, &src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
                 goto out;
@@ -1180,17 +1649,25 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        replace_brick_generate_volfile (volinfo, src_brickinfo);
-
-        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
-                        "I AM THE SOURCE HOST");
-                replace_brick_mount (volinfo, src_brickinfo, dst_brickinfo,
-                                     req->op);
-        } else if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
-                        "I AM THE DESTINATION HOST");
-                replace_brick_spawn_brick (volinfo, dict, dst_brickinfo);
+        switch (replace_op) {
+        case GF_REPLACE_OP_START:
+                rb_do_operation_start (volinfo, src_brickinfo, dst_brickinfo);
+                break;
+        case GF_REPLACE_OP_COMMIT:
+                rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
+                break;
+        case GF_REPLACE_OP_PAUSE:
+                rb_do_operation_pause (volinfo, src_brickinfo, dst_brickinfo);
+                break;
+        case GF_REPLACE_OP_ABORT:
+                rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
+                break;
+        case GF_REPLACE_OP_STATUS:
+                rb_do_operation_status (volinfo, src_brickinfo, dst_brickinfo);
+                break;
+        default:
+                ret = -1;
+                goto out;
         }
 
         ret = 0;
