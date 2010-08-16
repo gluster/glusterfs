@@ -750,6 +750,16 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
+                snprintf (cmd_str, 4096, "gluster volume replace-brick %s %s %s abort >/dev/null",
+                          local->u.replace_brick.volname, src_brick, dst_brick);
+
+                ret = system (cmd_str);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "add brick failed");
+                        goto out;
+                }
+
                 snprintf (cmd_str, 4096, "gluster volume add-brick %s %s >/dev/null",
                           local->u.replace_brick.volname, dst_brick);
 
@@ -1362,7 +1372,7 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local->u.replace_brick.volname = strdup (req.volname);
+        local->u.replace_brick.volname = gf_strdup (req.volname);
         if (!local->u.replace_brick.volname) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");

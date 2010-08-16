@@ -771,8 +771,10 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                   port, volfile, pidfile);
         ret = system (cmd_str);
 
-        if (ret == 0)
+        if (ret == 0) {
                 pmap_registry_bind (THIS, port, brickinfo->path);
+                brickinfo->port = port;
+        }
 out:
         return ret;
 }

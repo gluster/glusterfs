@@ -77,6 +77,7 @@ struct glusterd_brickinfo {
         char    path[PATH_MAX];
         struct list_head  brick_list;
         uuid_t  uuid;
+        int     port;
         glusterd_store_handle_t *shandle;
 };
 
