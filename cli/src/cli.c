@@ -492,6 +492,16 @@ cli_local_get ()
         return local;
 }
 
+void
+cli_local_wipe (cli_local_t *local)
+{
+        if (local) {
+                GF_FREE (local);
+        }
+
+        return;
+}
+
 struct cli_state *global_state;
 
 int
