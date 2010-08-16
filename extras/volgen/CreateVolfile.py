@@ -329,6 +329,7 @@ class CreateVolfile:
                                   self.ib_devport)
                 if transport == 'tcp':
                     exp_fd.write ("    option transport.socket.nodelay on\n")
+                    exp_fd.write ("    option transport.socket.listen-port %d\n" % self.gfs_port)
                 exp_fd.write ("    subvolumes %s\n" % export)
                 exp_fd.write ("end-volume\n\n")
 
