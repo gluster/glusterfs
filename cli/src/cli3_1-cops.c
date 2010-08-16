@@ -677,47 +677,27 @@ out:
 }
 
 
-static int
-replace_brick_mount (char *volname)
-{
-        char  cmd_str[8192] = {0,};
-
-        gf_log ("", GF_LOG_DEBUG,
-                "creating directory");
-
-        snprintf (cmd_str, 4096, "mkdir -p /tmp/mnt");
-        system (cmd_str);
-
-        gf_log ("", GF_LOG_DEBUG,
-                "creating maintenance mount");
-
-        snprintf (cmd_str, 4096, "glusterfs -f /tmp/replace_brick.vol /tmp/mnt -l /tmp/pav_log -LTRACE");
-
-        system (cmd_str);
-
-        return 0;
-}
 
 int
 gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
-        gf1_cli_replace_brick_rsp       rsp   = {0,};
-        int                             ret   = 0;
-        cli_local_t                     *local = NULL;
-        call_frame_t                    *frame = NULL;
-        char *src_brick = NULL;
-        char *dst_brick = NULL;
-        char *replace_brick_op = NULL;
-        char  status_msg[8192] = {0,};
-        char  cmd_str[8192] = {0,};
+        gf1_cli_replace_brick_rsp        rsp              = {0,};
+        int                              ret              = 0;
+        cli_local_t                     *local            = NULL;
+        call_frame_t                    *frame            = NULL;
+        dict_t                          *dict             = NULL;
+        char                            *src_brick        = NULL;
+        char                            *dst_brick        = NULL;
+        gf1_cli_replace_op               replace_op       = 0;
+        char                            *rb_operation_str = NULL;
+        char                             cmd_str[8192]    = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
         }
 
         frame = (call_frame_t *) myframe;
-        local = frame->local;
 
         ret = gf_xdr_to_cli_replace_brick_rsp (*iov, &rsp);
         if (ret < 0) {
@@ -725,89 +705,95 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        switch (local->u.replace_brick.op) {
-        case REPLACE_BRICK_START:
+        local = frame->local;
+        GF_ASSERT (local);
+        dict = local->u.replace_brick.dict;
 
-                replace_brick_op = "Replace brick start operation";
-
-                replace_brick_mount (local->u.replace_brick.volume);
-
+        ret = dict_get_int32 (dict, "operation", (int32_t *)&replace_op);
+        if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "sending setxattr");
+                        "dict_get on operation failed");
+                goto out;
+        }
 
-                snprintf (cmd_str, 4096, "sleep 2; stat /tmp/mnt/ >/dev/null;setfattr -n trusted.glusterfs.pump.start /tmp/mnt/");
-
-                system (cmd_str);
-
-                gf_log ("", GF_LOG_DEBUG,
-                        "umounting");
-
-                snprintf (cmd_str, 4096, "umount -f /tmp/mnt 2>/dev/null");
-
-                ret = system (cmd_str);
-
-                system ("rmdir /tmp/mnt");
+        switch (replace_op) {
+        case GF_REPLACE_OP_START:
+                rb_operation_str = "Replace brick start operation";
                 break;
 
-        case REPLACE_BRICK_STATUS:
-
-                replace_brick_op = "Replace brick status operation";
-
-                snprintf (cmd_str, 4096, "mkdir -p /tmp/mnt");
-                system (cmd_str);
-
-                snprintf (cmd_str, 4096, "glusterfs -f /tmp/replace_brick.vol /tmp/mnt -l /tmp/pav_log -LTRACE");
-                system (cmd_str);
-
-                gf_log ("", GF_LOG_DEBUG,
-                        "sending getxattr");
-
-                ret = lgetxattr ("/tmp/mnt/", "trusted.glusterfs.pump.status", status_msg, 8192);
-                fprintf (stdout, "%s\n", status_msg);
-
-                gf_log ("", GF_LOG_DEBUG,
-                        "umounting");
-
-                snprintf (cmd_str, 4096, "umount -f /tmp/mnt 2>/dev/null");
-
-                ret = system (cmd_str);
-
-                system ("rmdir /tmp/mnt");
+        case GF_REPLACE_OP_STATUS:
+                rb_operation_str = "Replace brick status operation";
                 break;
 
-        case REPLACE_BRICK_COMMIT:
+        case GF_REPLACE_OP_PAUSE:
+                rb_operation_str = "Replace brick pause operation";
+                break;
 
-                replace_brick_op = "Replace brick commit operation";
+        case GF_REPLACE_OP_ABORT:
+                rb_operation_str = "Replace brick abort operation";
+                break;
 
-                src_brick = local->u.replace_brick.src_brick;
-                dst_brick = local->u.replace_brick.dst_brick;
+        case GF_REPLACE_OP_COMMIT:
+                rb_operation_str = "Replace brick commit operation";
+
+                ret = dict_get_str (dict, "src-brick", &src_brick);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "dict_get on src-brick failed");
+                        goto out;
+                }
+
+                ret = dict_get_str (dict, "dst-brick", &dst_brick);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "dict_get on dst-brick failed");
+                        goto out;
+                }
 
                 snprintf (cmd_str, 4096, "gluster volume add-brick %s %s >/dev/null",
-                          local->u.replace_brick.volume, dst_brick);
+                          local->u.replace_brick.volname, dst_brick);
 
                 ret = system (cmd_str);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "add brick failed");
+                        goto out;
+                }
 
                 snprintf (cmd_str, 4096, "gluster volume remove-brick %s %s >/dev/null",
-                          local->u.replace_brick.volume, src_brick);
+                          local->u.replace_brick.volname, src_brick);
 
                 ret = system (cmd_str);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "remove brick failed");
+                        goto out;
+                }
 
                 break;
 
         default:
+                gf_log ("", GF_LOG_DEBUG,
+                        "Unknown operation");
                 break;
         }
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to replace brick");
         cli_out ("%s %s",
-                 replace_brick_op ? replace_brick_op : "Unknown operation",
+                 rb_operation_str ? rb_operation_str : "Unknown operation",
                  (rsp.op_ret) ? "unsuccessful":
                  "successful");
 
         ret = rsp.op_ret;
 
 out:
+        if (local) {
+                dict_unref (local->u.replace_brick.dict);
+                GF_FREE (local->u.replace_brick.volname);
+                cli_local_wipe (local);
+        }
+
         cli_cmd_broadcast_response (ret);
         return ret;
 }
@@ -1338,11 +1324,12 @@ int32_t
 gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
-        gf1_cli_replace_brick_req  req = {0,};
-        int                        ret = 0;
-        dict_t                     *dict = NULL;
-        char                       *src_brick = NULL;
-        char                       *dst_brick = NULL;
+        gf1_cli_replace_brick_req   req        = {0,};
+        int                         ret        = 0;
+        cli_local_t                *local      = NULL;
+        dict_t                     *dict       = NULL;
+        char                       *src_brick  = NULL;
+        char                       *dst_brick  = NULL;
 
         if (!frame || !this ||  !data) {
                 ret = -1;
@@ -1350,6 +1337,17 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         }
 
 	dict = data;
+
+        local = cli_local_get ();
+        if (!local) {
+                ret = -1;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
+
+        local->u.replace_brick.dict = dict_ref (dict);
+        frame->local                = local;
 
         ret = dict_get_int32 (dict, "operation", (int32_t *)&req.op);
         if (ret) {
@@ -1361,6 +1359,14 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         if (ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "dict_get on volname failed");
+                goto out;
+        }
+
+        local->u.replace_brick.volname = strdup (req.volname);
+        if (!local->u.replace_brick.volname) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
                 goto out;
         }
 

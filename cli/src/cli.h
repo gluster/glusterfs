@@ -39,14 +39,6 @@ enum argp_option_keys {
 	ARGP_PORT_KEY = 'p',
 };
 
-typedef enum replace_brick_cmd {
-        REPLACE_BRICK_START,
-        REPLACE_BRICK_PAUSE,
-        REPLACE_BRICK_ABORT,
-        REPLACE_BRICK_STATUS,
-        REPLACE_BRICK_COMMIT,
-} replace_brick_cmd_t;
-
 struct cli_state;
 struct cli_cmd_word;
 struct cli_cmd_tree;
@@ -129,10 +121,8 @@ struct cli_local {
                 } defrag_vol;
 
                 struct {
-                        char    *volume;
-                        replace_brick_cmd_t op;
-                        char *src_brick;
-                        char *dst_brick;
+                        char    *volname;
+                        dict_t  *dict;
                 } replace_brick;
         } u;
 };
@@ -185,6 +175,9 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                                    dict_t **options);
 
 cli_local_t * cli_local_get ();
+
+void
+cli_local_wipe (cli_local_t *local);
 
 int32_t
 cli_cmd_await_connected ();
