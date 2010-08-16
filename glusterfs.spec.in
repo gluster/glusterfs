@@ -3,15 +3,7 @@
 # e.g. release_version 2.MSW
 %define release 1%{?dist}
 
-# if you wish to compile an rpm without ibverbs support, compile like this...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without ibverbs
-%{?_without_ibverbs:%define _without_ibverbs --disable-ibverbs}
-
-# if you wish to compile an rpm without libglusterfsclient...
-# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without libglfsclient
-%{?_without_libglfsclient:%define _without_libglfsclient --disable-libglusterclient}
-
-# if you wish to compile an rpm without libglusterfsclient...
+# if you wish to compile an rpm without epoll...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
 %{?_without_epoll:%define _without_epoll --disable-epoll}
 
@@ -34,8 +26,6 @@ Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
 Requires(postun): /sbin/service
 
-%{!?_without_ibverbs:BuildRequires: libibverbs-devel}
-
 BuildRequires: bison flex 
 BuildRequires: gcc make
 
@@ -48,13 +38,13 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
-%package common
+%package main
 Summary: GlusterFS common files for both the client and the server 
 Group: System Environment/Libraries
 Obsoletes: glusterfs-libs <= 2.0.0
 Provides: glusterfs-libs = %{version}-%{release}
 
-%description common
+%description main
 GlusterFS is a clustered file-system capable of scaling to several
 peta-bytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
@@ -63,15 +53,16 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
-This package includes the glusterfs binary, libglusterfs and glusterfs
-translator modules common to both GlusterFS server and client framework.
+This package includes the glusterfs binary, the glusterd daemon and the gluster
+command line, libglusterfs and glusterfs translator modules common to both
+GlusterFS server and client framework.
 
-%package client
-Summary: GlusterFS Client
+%package ibverbs
+Summary: GlusterFS ibverbs
 Group: Applications/File
-Requires: %{name}-common = %{version}-%{release}
+Requires: libibverbs-devel
 
-%description client
+%description ibverbs
 GlusterFS is a clustered file-system capable of scaling to several
 peta-bytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
@@ -80,15 +71,13 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
-This package provides the FUSE based GlusterFS client.
+This package provides support to ib-verbs library.
 
+%package fuse
+Summary: GlusterFS Fuse
+Group: Applications/File
 
-%package server
-Summary: GlusterFS Server
-Group: System Environment/Daemons
-Requires: %{name}-common = %{version}-%{release}
-
-%description server
+%description fuse
 GlusterFS is a clustered file-system capable of scaling to several
 peta-bytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
@@ -97,23 +86,7 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
-This package provides the glusterfs server daemon.
-
-%package devel
-Summary: GlusterFS Development Libraries
-Group: Development/Libraries
-Requires: %{name}-common = %{version}-%{release}
-
-%description devel
-GlusterFS is a clustered file-system capable of scaling to several
-peta-bytes. It aggregates various storage bricks over Infiniband RDMA
-or TCP/IP interconnect into one large parallel network file
-system. GlusterFS is one of the most sophisticated file system in
-terms of features and extensibility.  It borrows a powerful concept
-called Translators from GNU Hurd kernel. Much of the code in GlusterFS
-is in userspace and easily manageable.
-
-This package provides the development libraries.
+This package provides support to FUSE based clients.
 
 
 %prep
@@ -121,7 +94,7 @@ This package provides the development libraries.
 
 %build
 
-%configure %{?_without_ibverbs} %{?_without_libglfsclient} %{?_without_client} %{?_without_epoll} %{?_with_fusermount}
+%configure %{?_without_epoll} %{?_with_fusermount}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -144,27 +117,22 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 %clean
 %{__rm} -rf %{buildroot}
 
-%post common
+%post main
 /sbin/ldconfig -n %{_libdir}
-
-%postun common
-/sbin/ldconfig -n %{_libdir}
-
-%post server 
 /sbin/chkconfig --add glusterfsd
 
-%preun server
+%postun main
+/sbin/ldconfig -n %{_libdir}
+
+%preun main
 if [ $1 -eq 0 ]; then 
     /sbin/chkconfig --del glusterfsd
 fi
 
-%files common
+%files main
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
 %doc /usr/share/doc/glusterfs
-%if 0%{!?_without_client:1}
-%exclude %{_libdir}/glusterfs/%{version}/xlator/mount
-%endif
 %if 0%{?_with_fusermount:1}
 %{_bindir}/fusermount-glusterfs 
 %endif
@@ -178,24 +146,22 @@ fi
 %{_sbindir}/glusterd
 %{_mandir}/man8/*glusterfs.8*
 %dir /var/log/glusterfs
-
-%if 0%{!?_without_client:1}
-%files client
-%defattr(-,root,root)
-/sbin/mount.glusterfs
-%{_libdir}/glusterfs/%{version}/xlator/mount
-%endif 
-
-%files server
-%defattr(-,root,root)
+%exclude %{_libdir}/glusterfs/%{version}/transport/ib-verbs*
+%exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
 %config %{_sysconfdir}/glusterfs
 %{_sysconfdir}/init.d/glusterfsd
-
-%files devel
-%defattr(-,root,root,-)
 %{_includedir}/glusterfs
 %exclude %{_includedir}/glusterfs/y.tab.h
 %{_libdir}/*.so
+/sbin/mount.glusterfs
+
+%files ibverbs
+%defattr(-,root,root)
+%{_libdir}/glusterfs/%{version}/transport/ib-verbs*
+
+%files fuse
+%defattr(-,root,root)
+%{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
 
 %changelog
 * Wed Jul 01 2009 Harshavardhana <harsha@gluster.com> - 2.1
