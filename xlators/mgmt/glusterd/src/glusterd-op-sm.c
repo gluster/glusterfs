@@ -606,6 +606,12 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+
         ret = glusterd_brickinfo_get (src_brick, volinfo,
                                       &src_brickinfo);
         if (ret) {
@@ -1058,8 +1064,8 @@ static const char *client_volfile_str =  "volume client/protocol\n"
         "type protocol/client\n"
         "option remote-host %s\n"
         "option remote-subvolume %s\n"
-        "option remote-port 34034\n"
-        "echo end-volume\n";
+        "option remote-port %d\n"
+        "end-volume\n";
 
 static int
 rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
@@ -1087,8 +1093,10 @@ rb_generate_client_volfile (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+        GF_ASSERT (src_brickinfo->port);
+
         fprintf (file, client_volfile_str, src_brickinfo->hostname,
-                 src_brickinfo->path);
+                 src_brickinfo->path, src_brickinfo->port);
 
         fclose (file);
 
@@ -1152,6 +1160,58 @@ out:
 }
 
 static int
+rb_mountpoint_mkdir (glusterd_volinfo_t *volinfo,
+                     glusterd_brickinfo_t *src_brickinfo)
+{
+        glusterd_conf_t *priv                       = NULL;
+        char             mount_point_path[PATH_MAX] = {0,};
+        int              ret                        = -1;
+
+        priv = THIS->private;
+
+        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
+
+        ret = mkdir (mount_point_path, 0777);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "mkdir failed");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+rb_mountpoint_rmdir (glusterd_volinfo_t *volinfo,
+                     glusterd_brickinfo_t *src_brickinfo)
+{
+        glusterd_conf_t *priv                       = NULL;
+        char             mount_point_path[PATH_MAX] = {0,};
+        int              ret                        = -1;
+
+        priv = THIS->private;
+
+        snprintf (mount_point_path, PATH_MAX, "%s/vols/%s/%s",
+                  priv->workdir, volinfo->volname,
+                  RB_CLIENT_MOUNTPOINT);
+
+        ret = rmdir (mount_point_path);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "rmdir failed");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
 rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
                                 glusterd_brickinfo_t *src_brickinfo)
 {
@@ -1176,7 +1236,7 @@ rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        snprintf (cmd_str, 8192, "umount %s/vols/%s/%s",
+        snprintf (cmd_str, 8192, "umount -f %s/vols/%s/%s",
                   priv->workdir, volinfo->volname,
                   RB_CLIENT_MOUNTPOINT);
 
@@ -1184,6 +1244,13 @@ rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "umount failed on maintainence client");
+                goto out;
+        }
+
+        ret = rb_mountpoint_rmdir (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "rmdir of mountpoint failed");
                 goto out;
         }
 
@@ -1217,6 +1284,13 @@ rb_spawn_maintainence_client (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+        ret = rb_mountpoint_mkdir (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to mkdir "
+                        "mountpoint");
+                goto out;
+        }
+
         ret = rb_spawn_glusterfs_client (volinfo, src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to start glusterfs");
@@ -1231,6 +1305,7 @@ out:
 static int
 rb_spawn_destination_brick (glusterd_volinfo_t *volinfo,
                             glusterd_brickinfo_t *dst_brickinfo)
+
 {
         int ret = -1;
 
@@ -1315,26 +1390,6 @@ out:
         return ret;
 }
 
-/* replace brick commit is handled by cli directly.
- * return success all the time.
- */
-static int
-rb_do_operation_commit (glusterd_volinfo_t *volinfo,
-                        glusterd_brickinfo_t *src_brickinfo,
-                        glusterd_brickinfo_t *dst_brickinfo)
-{
-        gf_log ("", GF_LOG_DEBUG,
-                "received commit on %s:%s to %s:%s "
-                "on volume %s",
-                src_brickinfo->hostname,
-                src_brickinfo->path,
-                dst_brickinfo->hostname,
-                dst_brickinfo->path,
-                volinfo->volname);
-
-        return 0;
-}
-
 static int
 rb_do_operation_pause (glusterd_volinfo_t *volinfo,
                        glusterd_brickinfo_t *src_brickinfo,
@@ -1381,17 +1436,17 @@ static int
 rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
                            glusterd_brickinfo_t *dst_brickinfo)
 {
-        glusterd_conf_t  *priv     = NULL;
-        int               ret      = -1;
-        char             *pidfile  = NULL;
-        pid_t             pid      = -1;
-        FILE             *file     = NULL;
+        glusterd_conf_t  *priv               = NULL;
+        int               ret                = -1;
+        char              pidfile[PATH_MAX]  = {0,};
+        pid_t             pid                = -1;
+        FILE             *file               = NULL;
 
         priv = THIS->private;
 
         snprintf (pidfile, PATH_MAX, "%s/vols/%s/%s",
                   priv->workdir, volinfo->volname,
-                  RB_DSTBRICKVOL_FILENAME);
+                  RB_DSTBRICK_PIDFILE);
 
         file = fopen (pidfile, "r+");
         if (!file) {
@@ -1478,6 +1533,24 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
 
 out:
         return ret;
+}
+
+static int
+rb_do_operation_commit (glusterd_volinfo_t *volinfo,
+                        glusterd_brickinfo_t *src_brickinfo,
+                        glusterd_brickinfo_t *dst_brickinfo)
+{
+
+        gf_log ("", GF_LOG_DEBUG,
+                "received commit on %s:%s to %s:%s "
+                "on volume %s",
+                src_brickinfo->hostname,
+                src_brickinfo->path,
+                dst_brickinfo->hostname,
+                dst_brickinfo->path,
+                volinfo->volname);
+
+        return 0;
 }
 
 static int

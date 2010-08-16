@@ -299,6 +299,8 @@ class CreateVolfile:
             exp_fd.write ("    type protocol/client\n")
             if self.transport:
                 exp_fd.write ("    option transport-type %s\n" % self.transport)
+            if self.gfs_port:
+                exp_fd.write ("    option transport.remote-port 34034\n")
             exp_fd.write ("    option ping-timeout 42\n")
             exp_fd.write ("end-volume\n\n")
 
