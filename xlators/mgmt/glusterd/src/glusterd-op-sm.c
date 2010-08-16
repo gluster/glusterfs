@@ -892,9 +892,25 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                         goto out;
 
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
+                brick = strtok_r (NULL, "\n", &saveptr);
+                i++;
+        }
+
+        brick_list = gf_strdup (bricks);
+        i = 1;
+
+        if (count)
+                brick = strtok_r (brick_list+1, " \n", &saveptr);
+
+        while (i <= count) {
+
+                ret = glusterd_brickinfo_get (brick, volinfo, &brickinfo);
+                if (ret)
+                        goto out;
+
                 ret = glusterd_resolve_brick (brickinfo);
 
-                if ((!uuid_compare (brickinfo->uuid, priv->uuid)) &&
+                if (!ret && (!uuid_compare (brickinfo->uuid, priv->uuid)) &&
                                 (GLUSTERD_STATUS_STARTED == volinfo->status)) {
                         ret =
                           glusterd_volume_create_generate_volfiles (volinfo);
@@ -914,9 +930,8 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                         glfs_started = _gf_true;
                         mybrick++;
                 }
-
-                brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
+                brick = strtok_r (NULL, "\n", &saveptr);
         }
 
         if (!glfs_started) {

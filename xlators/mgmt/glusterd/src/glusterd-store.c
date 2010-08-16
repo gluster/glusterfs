@@ -994,22 +994,57 @@ int32_t
 glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
 {
         int32_t         ret = -1;
+        char            buf[1024] = {0,};
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        glusterd_brickinfo_t    *tmp = NULL;
 
-        ret = glusterd_store_delete_volume (volinfo);
 
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to delete "
-                        "volume: %s", volinfo->volname);
-                goto out;
+        list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
+                ret = glusterd_store_delete_brick (volinfo, tmp);
+                //if (ret)
+                  //      goto out;
         }
 
-        ret = glusterd_store_create_volume (volinfo);
+        ret = glusterd_store_handle_truncate (volinfo->shandle);
 
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to create "
-                        "volume: %s", volinfo->volname);
+        snprintf (buf, sizeof (buf), "%d", volinfo->type);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_TYPE, buf);
+        if (ret)
                 goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->brick_count);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_COUNT, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->status);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_STATUS, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->port);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_PORT, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->sub_count);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_SUB_COUNT, buf);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                ret = glusterd_store_create_brick (volinfo, brickinfo);
+                if (ret)
+                        goto out;
         }
+
+        ret = 0;
+
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -1131,6 +1166,7 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
                 ret = glusterd_store_handle_new (filepath, &peerinfo->shandle);
                 if (ret)
                         goto out;
+                ret = glusterd_store_handle_truncate (peerinfo->shandle);
         } else {
                 ret = glusterd_store_handle_truncate (peerinfo->shandle);
                 if (ret)
