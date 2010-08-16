@@ -38,6 +38,8 @@
 
 #define GF_DEFAULT_SOCKET_LISTEN_PORT 6969
 
+#define RPC_MAX_FRAGMENT_SIZE 0x7fffffff
+
 /* This is the size set through setsockopt for
  * both the TCP receive window size and the
  * send buffer size.
@@ -97,6 +99,7 @@ struct ioq {
                 };
         };
 
+        uint32_t           fraghdr;
         struct iovec       vector[MAX_IOVEC];
         int                count;
         struct iovec      *pending_vector;

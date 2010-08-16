@@ -1032,42 +1032,16 @@ out:
 }
 
 
-void
-rpc_clnt_set_lastfrag (uint32_t *fragsize) {
-        (*fragsize) |= 0x80000000U;
-}
-
-
-void
-rpc_clnt_set_frag_header_size (uint32_t size, char *haddr)
-{
-        size = htonl (size);
-        memcpy (haddr, &size, sizeof (size));
-}
-
-
-void
-rpc_clnt_set_last_frag_header_size (uint32_t size, char *haddr)
-{
-        rpc_clnt_set_lastfrag (&size);
-        rpc_clnt_set_frag_header_size (size, haddr);
-}
-
-
 struct iovec
 rpc_clnt_record_build_header (char *recordstart, size_t rlen,
                               struct rpc_msg *request, size_t payload)
 {
         struct iovec    requesthdr = {0, };
         struct iovec    txrecord   = {0, 0};
-        size_t          fraglen    = 0;
         int             ret        = -1;
+        size_t          fraglen    = 0;
 
-        /* After leaving aside the 4 bytes for the fragment header, lets
-         * encode the RPC reply structure into the buffer given to us.
-         */
-        ret = rpc_request_to_xdr (request, (recordstart + RPC_FRAGHDR_SIZE),
-                                  rlen, &requesthdr);
+        ret = rpc_request_to_xdr (request, recordstart, rlen, &requesthdr);
         if (ret == -1) {
                 gf_log ("rpc-clnt", GF_LOG_DEBUG,
                         "Failed to create RPC request");
@@ -1078,16 +1052,7 @@ rpc_clnt_record_build_header (char *recordstart, size_t rlen,
         gf_log ("rpc-clnt", GF_LOG_TRACE, "Request fraglen %zu, payload: %zu, "
                 "rpc hdr: %zu", fraglen, payload, requesthdr.iov_len);
 
-        /* Since we're not spreading RPC records over mutiple fragments
-         * we just set this fragment as the first and last fragment for this
-         * record.
-         */
-        rpc_clnt_set_last_frag_header_size (fraglen, recordstart);
 
-        /* Even though the RPC record starts at recordstart+RPCSVC_FRAGHDR_SIZE
-         * we need to transmit the record with the fragment header, which starts
-         * at recordstart.
-         */
         txrecord.iov_base = recordstart;
 
         /* Remember, this is only the vec for the RPC header and does not
@@ -1095,7 +1060,7 @@ rpc_clnt_record_build_header (char *recordstart, size_t rlen,
          * the size of the full fragment. This size is sent in the fragment
          * header.
          */
-        txrecord.iov_len = RPC_FRAGHDR_SIZE + requesthdr.iov_len;
+        txrecord.iov_len = requesthdr.iov_len;
 
 out:
         return txrecord;

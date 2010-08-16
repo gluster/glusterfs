@@ -1236,26 +1236,6 @@ out:
 }
 
 
-void
-rpcsvc_set_lastfrag (uint32_t *fragsize) {
-        (*fragsize) |= 0x80000000U;
-}
-
-void
-rpcsvc_set_frag_header_size (uint32_t size, char *haddr)
-{
-        size = htonl (size);
-        memcpy (haddr, &size, sizeof (size));
-}
-
-void
-rpcsvc_set_last_frag_header_size (uint32_t size, char *haddr)
-{
-        rpcsvc_set_lastfrag (&size);
-        rpcsvc_set_frag_header_size (size, haddr);
-}
-
-
 /* Given the RPC reply structure and the payload handed by the RPC program,
  * encode the RPC record header into the buffer pointed by recordstart.
  */
@@ -1271,8 +1251,7 @@ rpcsvc_record_build_header (char *recordstart, size_t rlen,
         /* After leaving aside the 4 bytes for the fragment header, lets
          * encode the RPC reply structure into the buffer given to us.
          */
-        ret = rpc_reply_to_xdr (&reply,(recordstart + RPCSVC_FRAGHDR_SIZE),
-                                rlen, &replyhdr);
+        ret = rpc_reply_to_xdr (&reply, recordstart, rlen, &replyhdr);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to create RPC reply");
                 goto err;
@@ -1282,16 +1261,6 @@ rpcsvc_record_build_header (char *recordstart, size_t rlen,
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Reply fraglen %zu, payload: %zu, "
                 "rpc hdr: %zu", fraglen, payload, replyhdr.iov_len);
 
-        /* Since we're not spreading RPC records over mutiple fragments
-         * we just set this fragment as the first and last fragment for this
-         * record.
-         */
-        rpcsvc_set_last_frag_header_size (fraglen, recordstart);
-
-        /* Even though the RPC record starts at recordstart+RPCSVC_FRAGHDR_SIZE
-         * we need to transmit the record with the fragment header, which starts
-         * at recordstart.
-         */
         txrecord.iov_base = recordstart;
 
         /* Remember, this is only the vec for the RPC header and does not
@@ -1299,7 +1268,7 @@ rpcsvc_record_build_header (char *recordstart, size_t rlen,
          * the size of the full fragment. This size is sent in the fragment
          * header.
          */
-        txrecord.iov_len = RPCSVC_FRAGHDR_SIZE + replyhdr.iov_len;
+        txrecord.iov_len = replyhdr.iov_len;
 err:
         return txrecord;
 }
