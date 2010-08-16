@@ -1341,7 +1341,6 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         gf1_cli_replace_brick_req  req = {0,};
         int                        ret = 0;
         dict_t                     *dict = NULL;
-        cli_local_t                *local = NULL;
         char                       *src_brick = NULL;
         char                       *dst_brick = NULL;
 
@@ -1350,58 +1349,39 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        local = GF_CALLOC (1, sizeof (*local), cli_mt_cli_local_t);
-
 	dict = data;
 
-       ret = dict_get_int32 (dict, "operation", (int32_t *)&req.op);
-
-		if (ret)
-			                       goto out;
-
-        switch (req.op) {
-        case GF_REPLACE_OP_START:
-                local->u.replace_brick.op = REPLACE_BRICK_START;
-                break;
-        case GF_REPLACE_OP_PAUSE:
-                local->u.replace_brick.op = REPLACE_BRICK_PAUSE;
-                break;
-        case GF_REPLACE_OP_ABORT:
-                local->u.replace_brick.op = REPLACE_BRICK_ABORT;
-                break;
-        case GF_REPLACE_OP_STATUS:
-                local->u.replace_brick.op = REPLACE_BRICK_STATUS;
-                break;
-        case GF_REPLACE_OP_COMMIT:
-                local->u.replace_brick.op = REPLACE_BRICK_COMMIT;
-                break;
-
-        default:
-                break;
+        ret = dict_get_int32 (dict, "operation", (int32_t *)&req.op);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on operation failed");
+                goto out;
+        }
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on volname failed");
+                goto out;
         }
 
-
-        ret = dict_get_str (dict, "volname", &req.volname);
-
-        if (ret)
-                goto out;
-
         ret = dict_get_str (dict, "src-brick", &src_brick);
-
         if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on src-brick failed");
                 goto out;
         }
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
-
         if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict_get on dst-brick failed");
                 goto out;
         }
 
-        local->u.replace_brick.volume = strdup (req.volname);
-        local->u.replace_brick.src_brick = strdup (src_brick);
-        local->u.replace_brick.dst_brick = strdup (dst_brick);
-        frame->local = local;
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Recevied command replace-brick %s with "
+                "%s with operation=%d", src_brick,
+                dst_brick, req.op);
 
 
         ret = dict_allocate_and_serialize (dict,
