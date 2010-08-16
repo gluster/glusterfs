@@ -1,6 +1,6 @@
 xlator_LTLIBRARIES = server.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/nfs
-nfsrpclibdir = $(top_srcdir)/xlators/nfs/lib/src/
+nfsrpclibdir = $(top_srcdir)/xlators/nfs/lib/src
 server_la_LDFLAGS = -module -avoidversion
 server_la_SOURCES = nfs.c nfs-common.c nfs-fops.c nfs-inodes.c nfs-generics.c mount3.c nfs3-fh.c nfs3.c nfs3-helpers.c $(nfsrpclibdir)/auth-null.c  $(nfsrpclibdir)/auth-unix.c $(nfsrpclibdir)/msg-nfs3.c  $(nfsrpclibdir)/rpc-socket.c  $(nfsrpclibdir)/rpcsvc-auth.c  $(nfsrpclibdir)/rpcsvc.c  $(nfsrpclibdir)/xdr-nfs3.c  $(nfsrpclibdir)/xdr-rpc.c
 server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
