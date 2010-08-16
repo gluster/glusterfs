@@ -45,6 +45,7 @@
 #define GF_LOG_ERRNO(errno) ((errno == ENOTCONN) ? GF_LOG_DEBUG : GF_LOG_ERROR)
 #define SA(ptr) ((struct sockaddr *)ptr)
 
+
 #define __socket_proto_reset_pending(priv) do {                                \
                                 memset (&priv->incoming.frag.vector, 0,        \
                                         sizeof (priv->incoming.frag.vector));  \
@@ -390,23 +391,64 @@ __socket_reset (rpc_transport_t *this)
 }
 
 
+void
+socket_set_lastfrag (uint32_t *fragsize) {
+        (*fragsize) |= 0x80000000U;
+}
+
+
+void
+socket_set_frag_header_size (uint32_t size, char *haddr)
+{
+        size = htonl (size);
+        memcpy (haddr, &size, sizeof (size));
+}
+
+
+void
+socket_set_last_frag_header_size (uint32_t size, char *haddr)
+{
+        socket_set_lastfrag (&size);
+        socket_set_frag_header_size (size, haddr);
+}
+
 struct ioq *
 __socket_ioq_new (rpc_transport_t *this, rpc_transport_msg_t *msg)
 {
         struct ioq       *entry = NULL;
         int               count = 0;
+        uint32_t          size  = 0;
 
         /* TODO: use mem-pool */
         entry = GF_CALLOC (1, sizeof (*entry), gf_common_mt_ioq);
         if (!entry)
                 return NULL;
 
+        
         count = msg->rpchdrcount + msg->proghdrcount + msg->progpayloadcount;
 
-        assert (count <= MAX_IOVEC);
+        assert (count <= (MAX_IOVEC - 1));
+
+        size = iov_length (msg->rpchdr, msg->rpchdrcount)
+                + iov_length (msg->proghdr, msg->proghdrcount)
+                + iov_length (msg->progpayload, msg->progpayloadcount);
+
+        if (size > RPC_MAX_FRAGMENT_SIZE) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "msg size (%u) bigger than the maximum allowed size on "
+                        "sockets (%u)", size, RPC_MAX_FRAGMENT_SIZE);
+                GF_FREE (entry);
+                return NULL;
+        }
+
+        socket_set_last_frag_header_size (size, (char *)&entry->fraghdr);
+
+        entry->vector[0].iov_base = (char *)&entry->fraghdr;
+        entry->vector[0].iov_len = sizeof (entry->fraghdr);
+        entry->count = 1;
 
         if (msg->rpchdr != NULL) {
-                memcpy (&entry->vector[0], msg->rpchdr,
+                memcpy (&entry->vector[1], msg->rpchdr,
                         sizeof (struct iovec) * msg->rpchdrcount);
                 entry->count += msg->rpchdrcount;
         }
