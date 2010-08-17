@@ -532,6 +532,9 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
         clnt_conf_t      *conf            = NULL;
         dict_t           *options         = NULL;
 
+        struct rpc_clnt_config config = {0, };
+
+
         options = this->options;
         conf    = this->private;
 
@@ -611,6 +614,9 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                                      NULL, xdr_from_setvolume_req);
 
 fail:
+        config.remote_port = -1;
+        rpc_clnt_reconfig (conf->rpc, &config);
+
         if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);
 
