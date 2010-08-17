@@ -614,8 +614,10 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
                                      NULL, xdr_from_setvolume_req);
 
 fail:
-        config.remote_port = -1;
-        rpc_clnt_reconfig (conf->rpc, &config);
+        if (ret) {
+                config.remote_port = -1;
+                rpc_clnt_reconfig (conf->rpc, &config);
+        }
 
         if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);
