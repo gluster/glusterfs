@@ -582,12 +582,10 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         qr_fd_ctx_t      *qr_fd_ctx = NULL, *tmp_fd_ctx = NULL;
         int32_t           op_ret = -1, op_errno = -1;
         qr_local_t       *local = NULL;
-        qr_conf_t        *conf = NULL;
         qr_private_t     *priv = NULL;
         qr_inode_table_t *table = NULL;
 
         priv = this->private;
-        conf = &priv->conf;
         table = &priv->table;
 
         tmp_fd_ctx = qr_fd_ctx = GF_CALLOC (1, sizeof (*qr_fd_ctx),
@@ -927,7 +925,6 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         qr_conf_t         *conf = NULL;
         struct iovec      *vector = NULL;
         char              *path = NULL;
-        glusterfs_ctx_t   *ctx = NULL;
         off_t              start = 0, end = 0;
         size_t             len = 0;
         struct iobuf_pool *iobuf_pool = NULL; 
@@ -997,7 +994,6 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                                 }
                                         }
 
-                                        ctx = this->ctx;
                                         count = (op_ret / iobuf_pool->page_size);
                                         if ((op_ret % iobuf_pool->page_size)
                                             != 0) {
