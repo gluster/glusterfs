@@ -125,8 +125,9 @@ struct rpc_transport_rsp {
 typedef struct rpc_transport_rsp rpc_transport_rsp_t;
 
 struct rpc_transport_req {
-        rpc_transport_msg_t msg;
-        rpc_transport_rsp_t rsp;
+        rpc_transport_msg_t  msg;
+        rpc_transport_rsp_t  rsp;
+        struct rpc_req      *rpc_req;
 };
 typedef struct rpc_transport_req rpc_transport_req_t;
 
@@ -168,6 +169,11 @@ typedef int (*rpc_transport_notify_t) (rpc_transport_t *, void *mydata,
                                        rpc_transport_event_t, void *data, ...);
 struct rpc_transport {
 	struct rpc_transport_ops  *ops;
+        rpc_transport_t           *listener; /* listener transport to which
+                                              * request for creation of this
+                                              * transport came from. valid only
+                                              * on server process.
+                                              */
 	void                      *private;
         void                      *xl_private;
         void                      *xl;       /* Used for THIS */
@@ -202,12 +208,12 @@ struct rpc_transport_ops {
         int32_t (*get_peername)   (rpc_transport_t *this, char *hostname,
                                    int hostlen);
         int32_t (*get_peeraddr)   (rpc_transport_t *this, char *peeraddr,
-                                   int addrlen, struct sockaddr *sa,
+                                   int addrlen, struct sockaddr_storage *sa,
                                    socklen_t sasize);
         int32_t (*get_myname)     (rpc_transport_t *this, char *hostname,
                                    int hostlen);
         int32_t (*get_myaddr)     (rpc_transport_t *this, char *peeraddr,
-                                   int addrlen, struct sockaddr *sa,
+                                   int addrlen, struct sockaddr_storage *sa,
                                    socklen_t sasize);
 };
 
@@ -253,14 +259,14 @@ rpc_transport_get_peername (rpc_transport_t *this, char *hostname, int hostlen);
 
 int32_t
 rpc_transport_get_peeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
-                            struct sockaddr *sa, size_t salen);
+                            struct sockaddr_storage *sa, size_t salen);
 
 int32_t
 rpc_transport_get_myname (rpc_transport_t *this, char *hostname, int hostlen);
 
 int32_t
 rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
-                          struct sockaddr *sa, size_t salen);
+                          struct sockaddr_storage *sa, size_t salen);
 
 rpc_transport_pollin_t *
 rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,

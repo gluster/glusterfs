@@ -180,7 +180,7 @@ err:
 }
 
 rpcsvc_auth_ops_t auth_glusterfs_ops = {
-        .conn_init              = NULL,
+        .transport_init         = NULL,
         .request_init           = auth_glusterfs_request_init,
         .authenticate           = auth_glusterfs_authenticate
 };

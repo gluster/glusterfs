@@ -260,7 +260,7 @@ server_getspec (rpcsvc_request_t *req)
         gf_getspec_rsp    rsp  = {0,};
         server_connection_t  *conn = NULL;
 
-        conn = req->conn->trans->private;
+        conn = req->trans->private;
         conf = conn->this->private;
 
         if (xdr_to_glusterfs_req (req, &args, xdr_to_getspec_req)) {
@@ -359,7 +359,7 @@ server_setvolume (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        this = req->conn->svc->mydata;
+        this = req->svc->mydata;
 
         config_params = dict_copy_with_ref (this->options, NULL);
         conf          = this->private;
@@ -395,8 +395,8 @@ server_setvolume (rpcsvc_request_t *req)
 
 
         conn = server_connection_get (this, process_uuid);
-        if (req->conn->trans->xl_private != conn)
-                req->conn->trans->xl_private = conn;
+        if (req->trans->xl_private != conn)
+                req->trans->xl_private = conn;
 
         ret = dict_get_int32 (params, "fops-version", &fop_version);
         if (ret < 0) {
@@ -497,7 +497,7 @@ server_setvolume (rpcsvc_request_t *req)
         }
 
 
-        peerinfo = &req->conn->trans->peerinfo;
+        peerinfo = &req->trans->peerinfo;
         if (peerinfo) {
                 ret = dict_set_static_ptr (params, "peer-info", peerinfo);
                 if (ret < 0)
@@ -572,7 +572,7 @@ server_setvolume (rpcsvc_request_t *req)
                         "failed to set 'process-uuid'");
 
         ret = dict_set_uint64 (reply, "transport-ptr",
-                               ((uint64_t) (long) req->conn->trans));
+                               ((uint64_t) (long) req->trans));
         if (ret)
                 gf_log (this->name, GF_LOG_DEBUG,
                         "failed to set 'transport-ptr'");

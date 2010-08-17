@@ -3054,7 +3054,7 @@ server_release (rpcsvc_request_t *req)
                 goto out;
         }
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
@@ -3076,7 +3076,7 @@ server_releasedir (rpcsvc_request_t *req)
                 goto out;
         }
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
         gf_fd_put (conn->fdtable, args.fd);
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
@@ -3360,7 +3360,7 @@ server_setxattr (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
 
         args.path = path;
         args.dict.dict_val = dict_val;
@@ -3445,7 +3445,7 @@ server_fsetxattr (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
 
         args.dict.dict_val = dict_val;
         if (!xdr_to_fsetxattr_req (req->msg[0], &args)) {
@@ -3523,7 +3523,7 @@ server_fxattrop (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
 
         args.dict.dict_val = dict_val;
         if (!xdr_to_fxattrop_req (req->msg[0], &args)) {
@@ -3606,7 +3606,7 @@ server_xattrop (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
         args.dict.dict_val = dict_val;
         args.path = path;
 
@@ -4608,7 +4608,7 @@ server_lk (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
 
         if (!xdr_to_lk_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4746,7 +4746,7 @@ server_lookup (rpcsvc_request_t *req)
         if (!req)
                 return 0;
 
-        conn = req->conn->trans->xl_private;
+        conn = req->trans->xl_private;
 
         args.path = path;
         args.bname = bname;

@@ -1663,6 +1663,7 @@ socket_server_event_handler (int fd, int idx, void *data,
                         new_trans->xl   = this->xl;
                         new_trans->mydata = this->mydata;
                         new_trans->notify = this->notify;
+                        new_trans->listener = this;
                         new_priv = new_trans->private;
 
                         pthread_mutex_lock (&new_priv->lock);
@@ -2204,7 +2205,7 @@ out:
 
 int32_t
 socket_getpeeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
-                    struct sockaddr *sa, socklen_t salen)
+                    struct sockaddr_storage *sa, socklen_t salen)
 {
         int32_t ret = -1;
 
@@ -2212,7 +2213,7 @@ socket_getpeeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
                 goto out;
         }
 
-        *sa = *((struct sockaddr *)&this->peerinfo.sockaddr);
+        *sa = this->peerinfo.sockaddr;
 
         if (peeraddr != NULL) {
                 ret = socket_getpeername (this, peeraddr, addrlen);
@@ -2245,7 +2246,7 @@ out:
 
 int32_t
 socket_getmyaddr (rpc_transport_t *this, char *myaddr, int addrlen,
-                  struct sockaddr *sa, socklen_t salen)
+                  struct sockaddr_storage *sa, socklen_t salen)
 {
         int32_t ret = 0;
 
@@ -2253,7 +2254,7 @@ socket_getmyaddr (rpc_transport_t *this, char *myaddr, int addrlen,
                 goto out;
         }
 
-        *sa = *((struct sockaddr *)&this->myinfo.sockaddr);
+        *sa =  this->myinfo.sockaddr;
 
         if (myaddr != NULL) {
                 ret = socket_getmyname (this, myaddr, addrlen);

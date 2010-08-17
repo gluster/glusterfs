@@ -587,7 +587,7 @@ validate_volume_options (char *name, dict_t *options, volume_option_t *opt)
 
 int32_t
 rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
-                          struct sockaddr *sa, size_t salen)
+                          struct sockaddr_storage *sa, size_t salen)
 {
         if (!this)
                 return -1;
@@ -614,7 +614,7 @@ rpc_transport_get_peername (rpc_transport_t *this, char *hostname, int hostlen)
 
 int32_t
 rpc_transport_get_peeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
-                            struct sockaddr *sa, size_t salen)
+                            struct sockaddr_storage *sa, size_t salen)
 {
         if (!this)
                 return -1;
