@@ -239,13 +239,15 @@ cli_cmd_await_response ()
         int                     ret = 0;
 
         cli_op_ret = -1;
-        cmd_done = 0;
+
         time (&ts.tv_sec);
         ts.tv_sec += CLI_DEFAULT_CMD_TIMEOUT;
         while (!cmd_done && !ret) {
                 ret = pthread_cond_timedwait (&cond, &cond_mutex,
                                         &ts);
         }
+
+        cmd_done = 0;
 
         cli_cmd_unlock ();
 
@@ -258,19 +260,19 @@ cli_cmd_await_response ()
 int
 cli_cmd_broadcast_response (int32_t status)
 {
-        if (!cmd_sent)
-                goto out;
 
         pthread_mutex_lock (&cond_mutex);
         {
+                if (!cmd_sent)
+                        goto out;
                 cmd_done = 1;
                 cli_op_ret = status;
                 pthread_cond_broadcast (&cond);
         }
 
-        pthread_mutex_unlock (&cond_mutex);
 
 out:
+        pthread_mutex_unlock (&cond_mutex);
         return 0;
 }
 
