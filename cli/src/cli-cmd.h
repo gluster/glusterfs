@@ -30,6 +30,7 @@
 struct cli_cmd {
         const char     *pattern;
         cli_cmd_cbk_t  *cbk;
+        const char     *desc;
 };
 
 int cli_cmd_volume_register (struct cli_state *state);

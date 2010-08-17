@@ -46,10 +46,11 @@ cli_cmd_log_cbk (struct cli_state *state, struct cli_cmd_word *word,
 }
 
 struct cli_cmd cli_log_cmds[] = {
-        { "log [VOLNAME] ...",
-          cli_cmd_log_cbk },
+        { "log <VOLNAME> ...",
+          cli_cmd_log_cbk,
+          "set log level for <VOLNAME>"},
 
-        { NULL, NULL }
+        { NULL, NULL, NULL }
 };
 
 
@@ -60,7 +61,8 @@ cli_cmd_log_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = cli_log_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk);
+                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk,
+                                        cmd->desc);
                 if (ret)
                         goto out;
         }

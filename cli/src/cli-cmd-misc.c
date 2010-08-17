@@ -37,6 +37,11 @@ extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
+extern struct cli_cmd volume_cmds[];
+extern struct cli_cmd cli_probe_cmds[];
+extern struct cli_cmd cli_log_cmds[];
+struct cli_cmd cli_misc_cmds[];
+
 int
 cli_cmd_quit_cbk (struct cli_state *state, struct cli_cmd_word *word,
                    const char **words, int wordcount)
@@ -44,12 +49,40 @@ cli_cmd_quit_cbk (struct cli_state *state, struct cli_cmd_word *word,
         exit (0);
 }
 
+int
+cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount)
+{
+        struct cli_cmd        *cmd = NULL;
+
+        for (cmd = volume_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+
+        for (cmd = cli_probe_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+
+        for (cmd = cli_log_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+
+        for (cmd = cli_misc_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+
+        if (!state->rl_enabled)
+                exit (0);
+
+        return 0;
+}
+
 struct cli_cmd cli_misc_cmds[] = {
         { "quit",
-          cli_cmd_quit_cbk },
+          cli_cmd_quit_cbk,
+          "quit"},
 
+        { "help",
+           cli_cmd_display_help,
+           "display command options"},
 
-        { NULL, NULL }
+        { NULL, NULL, NULL }
 };
 
 
@@ -60,7 +93,8 @@ cli_cmd_misc_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = cli_misc_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk);
+                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk,
+                                        cmd->desc);
                 if (ret)
                         goto out;
         }

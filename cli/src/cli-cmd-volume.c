@@ -437,48 +437,62 @@ cli_cmd_volume_set_transport_cbk (struct cli_state *state,
 
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
-          cli_cmd_volume_info_cbk },
+          cli_cmd_volume_info_cbk,
+          "list information of all volumes"},
 
         { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replicate <COUNT>] <NEW-BRICK> ...",
-          cli_cmd_volume_create_cbk },
+          cli_cmd_volume_create_cbk,
+          "create a new volume of specified type with mentioned bricks"},
 
         { "volume delete <VOLNAME>",
-          cli_cmd_volume_delete_cbk },
+          cli_cmd_volume_delete_cbk,
+          "delete volume specified by <VOLNAME>"},
 
         { "volume start <VOLNAME>",
-          cli_cmd_volume_start_cbk },
+          cli_cmd_volume_start_cbk,
+          "start volume specified by <VOLNAME>"},
 
         { "volume stop <VOLNAME>",
-          cli_cmd_volume_stop_cbk },
+          cli_cmd_volume_stop_cbk,
+          "stop volume specified by <VOLNAME>"},
 
         { "volume rename <VOLNAME> <NEW-VOLNAME>",
-          cli_cmd_volume_rename_cbk },
+          cli_cmd_volume_rename_cbk,
+          "rename volume <VOLNAME> to <NEW-VOLNAME>"},
 
         { "volume add-brick <VOLNAME> [(replica <COUNT>)|(stripe <COUNT>)] <NEW-BRICK> ...",
-          cli_cmd_volume_add_brick_cbk },
+          cli_cmd_volume_add_brick_cbk,
+          "add brick to volume <VOLNAME>"},
 
         { "volume remove-brick <VOLNAME> [(replica <COUNT>)|(stripe <COUNT>)] <BRICK> ...",
-          cli_cmd_volume_remove_brick_cbk },
+          cli_cmd_volume_remove_brick_cbk,
+          "remove brick from volume <VOLNAME>"},
 
         { "volume rebalance <VOLNAME> start",
-          cli_cmd_volume_defrag_cbk },
+          cli_cmd_volume_defrag_cbk,
+          "start rebalance of volume <VOLNAME>"},
 
         { "volume rebalance <VOLNAME> stop",
-          cli_cmd_volume_defrag_cbk },
+          cli_cmd_volume_defrag_cbk,
+          "stop rebalance of volume <VOLNAME>"},
 
         { "volume rebalance <VOLNAME> status",
-          cli_cmd_volume_defrag_cbk },
+          cli_cmd_volume_defrag_cbk,
+          "rebalance status of volume <VOLNAME>"},
 
         { "volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>)|pause|abort|start|status",
-          cli_cmd_volume_replace_brick_cbk },
+          cli_cmd_volume_replace_brick_cbk,
+          "replace-brick operations"},
 
         { "volume set-transport <VOLNAME> <TRANSPORT-TYPE> [<TRANSPORT-TYPE>] ...",
-          cli_cmd_volume_set_transport_cbk },
+          cli_cmd_volume_set_transport_cbk,
+          "set transport type for volume <VOLNAME>"},
 
         { "volume set <VOLNAME> <KEY> <VALUE>",
-          cli_cmd_volume_set_cbk },
+          cli_cmd_volume_set_cbk,
+         "set options for volume <VOLNAME>"},
 
-        { NULL, NULL }
+        { NULL, NULL, NULL }
 };
 
 
@@ -489,7 +503,8 @@ cli_cmd_volume_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = volume_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk);
+                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk,
+                                        cmd->desc);
                 if (ret)
                         goto out;
         }

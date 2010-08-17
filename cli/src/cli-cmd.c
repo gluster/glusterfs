@@ -50,6 +50,9 @@ cli_cmd_needs_connection (struct cli_cmd_word *word)
         if (!strcasecmp ("quit", word->word))
                 return _gf_false;
 
+        if (!strcasecmp ("help", word->word))
+                return _gf_false;
+
         return _gf_true;
 }
 

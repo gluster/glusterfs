@@ -56,6 +56,7 @@ struct cli_cmd_word {
         cli_cmd_filler_t      *filler;
         cli_cmd_match_t       *match;
         cli_cmd_cbk_t         *cbkfn;
+        const char            *desc;
 
         int                    nextwords_cnt;
         struct cli_cmd_word  **nextwords;
@@ -134,7 +135,7 @@ typedef ssize_t (*cli_serialize_t) (struct iovec outmsg, void *args);
 extern struct cli_state *global_state; /* use only in readline callback */
 
 int cli_cmd_register (struct cli_cmd_tree *tree, const char *template,
-                      cli_cmd_cbk_t cbk);
+                      cli_cmd_cbk_t cbk, const char *desc);
 int cli_cmds_register (struct cli_state *state);
 
 int cli_input_init (struct cli_state *state);

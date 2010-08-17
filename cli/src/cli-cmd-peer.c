@@ -174,15 +174,18 @@ out:
 
 struct cli_cmd cli_probe_cmds[] = {
         { "peer probe <HOSTNAME> [PORT]",
-          cli_cmd_peer_probe_cbk },
+          cli_cmd_peer_probe_cbk,
+          "probe peer specified by <HOSTNAME>"},
 
         { "peer detach <HOSTNAME>",
-          cli_cmd_peer_deprobe_cbk },
+          cli_cmd_peer_deprobe_cbk,
+          "detach peer specified by <HOSTNAME>"},
 
         { "peer status",
-          cli_cmd_peer_status_cbk},
+          cli_cmd_peer_status_cbk,
+          "list status of peers"},
 
-        { NULL, NULL }
+        { NULL, NULL, NULL }
 };
 
 
@@ -193,7 +196,8 @@ cli_cmd_probe_register (struct cli_state *state)
         struct cli_cmd *cmd = NULL;
 
         for (cmd = cli_probe_cmds; cmd->pattern; cmd++) {
-                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk);
+                ret = cli_cmd_register (&state->tree, cmd->pattern, cmd->cbk,
+                                        cmd->desc);
                 if (ret)
                         goto out;
         }
