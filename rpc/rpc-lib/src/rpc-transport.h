@@ -146,11 +146,15 @@ struct rpc_transport_data {
 };
 typedef struct rpc_transport_data rpc_transport_data_t;
 
+/* FIXME: prognum, procnum and progver are already present in
+ * rpc_request, hence these should be removed from request_info
+ */
 struct rpc_request_info {
         uint32_t            xid;
         int                 prognum;
         int                 progver;
         int                 procnum;
+        void               *rpc_req; /* struct rpc_req */
         rpc_transport_rsp_t rsp;
 };
 typedef struct rpc_request_info rpc_request_info_t;

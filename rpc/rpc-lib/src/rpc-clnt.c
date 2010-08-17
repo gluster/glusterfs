@@ -26,6 +26,7 @@
 #define RPC_CLNT_DEFAULT_REQUEST_COUNT 4096
 
 #include "rpc-clnt.h"
+#include "byte-order.h"
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"
@@ -427,6 +428,7 @@ rpc_clnt_fill_request_info (struct rpc_clnt *clnt, rpc_request_info_t *info)
         info->prognum = saved_frame.rpcreq->prog->prognum;
         info->procnum = saved_frame.rpcreq->procnum;
         info->progver = saved_frame.rpcreq->prog->progver;
+        info->rpc_req = saved_frame.rpcreq;
         info->rsp     = saved_frame.rsp;
 
         ret = 0;
@@ -657,33 +659,24 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
 {
         rpc_clnt_connection_t *conn         = NULL;
         struct saved_frame    *saved_frame  = NULL;
-        rpc_request_info_t    *request_info = NULL;
         int                    ret          = -1;
         struct rpc_req        *req          = NULL;
+        uint32_t               xid          = 0;
 
         conn = &clnt->conn;
 
-        request_info = pollin->private;
-
-        saved_frame = lookup_frame (conn, (int64_t)request_info->xid);
+        xid = ntoh32 (*((uint32_t *)pollin->vector[0].iov_base));
+        saved_frame = lookup_frame (conn, xid);
         if (saved_frame == NULL) {
                 gf_log ("rpc-clnt", GF_LOG_CRITICAL, "cannot lookup the "
-                        "saved frame for reply with xid (%d), "
-                        "prog-version (%d), prog-num (%d),"
-                        "procnum (%d)", request_info->xid,
-                        request_info->progver, request_info->prognum,
-                        request_info->procnum);
+                        "saved frame for reply with xid (%d)", xid);
                 goto out;
         }
 
         req = saved_frame->rpcreq;
         if (req == NULL) {
                 gf_log ("rpc-clnt", GF_LOG_CRITICAL,
-                        "saved_frame for reply with xid (%d), "
-                        "prog-version (%d), prog-num (%d), procnum (%d)"
-                        "does not contain rpc-req", request_info->xid,
-                        request_info->progver, request_info->prognum,
-                        request_info->procnum);
+                        "saved_frame for reply with xid (%d)", xid);
                 goto out;
         }
  
