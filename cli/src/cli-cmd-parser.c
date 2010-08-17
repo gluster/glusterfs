@@ -69,6 +69,9 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 if (volname[0] == '-')
                         goto out;
 
+                if (!strcmp (volname, "all"))
+                        goto out;
+
                 if (strchr (volname, '/'))
                         goto out;
 
