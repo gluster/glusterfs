@@ -2811,15 +2811,15 @@ nfs3_fh_resolve_check_response (nfs3_call_state_t *cs, gf_dirent_t *candidate,
         dirgen = cs->resolvedloc.inode->generation;
 
         if (response == GF_NFS3_FHRESOLVE_DIRFOUND)
-                ret = nfs3_fh_resolve_dir_hard (cs, dirino, dirgen,
-                                                candidate->d_name);
+                nfs3_fh_resolve_dir_hard (cs, dirino, dirgen,
+                                          candidate->d_name);
         else if (response == GF_NFS3_FHRESOLVE_FOUND)
                 nfs3_fh_resolve_found (cs, candidate);
         else if (response == GF_NFS3_FHRESOLVE_NOTFOUND) {
                 nfs_user_root_create (&nfu);
-                ret = nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->resolve_dir_fd,
-                                    GF_NFS3_DTPREF, last_offt,
-                                    nfs3_fh_resolve_readdir_cbk, cs);
+                nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->resolve_dir_fd,
+                              GF_NFS3_DTPREF, last_offt,
+                              nfs3_fh_resolve_readdir_cbk, cs);
         }
 
         return 0;
@@ -2946,8 +2946,8 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
         if (ret == -2) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs lookup: %s",
                         cs->resolvedloc.path);
-                ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
-                                  nfs3_fh_resolve_entry_lookup_cbk, cs);
+                nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                            nfs3_fh_resolve_entry_lookup_cbk, cs);
                 ret = 0;
         } else if (ret == -1) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs parent lookup: %s",
