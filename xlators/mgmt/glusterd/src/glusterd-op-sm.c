@@ -892,7 +892,7 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                         goto out;
 
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
-                brick = strtok_r (NULL, "\n", &saveptr);
+                brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
         }
 
@@ -931,7 +931,7 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                         mybrick++;
                 }
                 i++;
-                brick = strtok_r (NULL, "\n", &saveptr);
+                brick = strtok_r (NULL, " \n", &saveptr);
         }
 
         if (!glfs_started) {
