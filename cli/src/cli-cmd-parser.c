@@ -79,7 +79,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         goto out;
 
                 for (i = 0; i < strlen (volname); i++)
-                        if (!isalnum (volname[i]))
+                        if (!isalnum (volname[i]) && (volname[i] != '_') && (volname[i] != '-'))
                                 goto out;
         }
 
