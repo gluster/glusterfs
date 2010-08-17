@@ -405,12 +405,10 @@ nfs3svc_getattr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             struct iatt *buf, dict_t *xattr,
                             struct iatt *postparent)
 {
-        rpcsvc_request_t        *req = NULL;
         nfsstat3                status = NFS3_OK;
         nfs3_call_state_t       *cs = NULL;
 
         cs = frame->local;
-        req = cs->req;
 
         if (op_ret == -1)
                 status = nfs3_errno_to_nfsstat3 (op_errno);
@@ -429,12 +427,10 @@ int32_t
 nfs3svc_getattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
-        rpcsvc_request_t        *req = NULL;
         nfsstat3                status = NFS3_OK;
         nfs3_call_state_t       *cs = NULL;
 
         cs = frame->local;
-        req = cs->req;
 
         if (op_ret == -1)
                 status = nfs3_errno_to_nfsstat3 (op_errno);
@@ -639,7 +635,6 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 cs->preparent = *preop;
         }
 
-        ret = 0;
         /* Only truncate if the size is not already same as the requested
          * truncation and also only if this is not a directory.
          */
@@ -1914,7 +1909,6 @@ nfs3svc_write_vecsizer (rpcsvc_request_t *req, ssize_t *readsize, int *newbuf)
                 *newbuf = 1;
                 ret = 0;
         }
-        ret = 0;
 
 rpcerr:
         return ret;
