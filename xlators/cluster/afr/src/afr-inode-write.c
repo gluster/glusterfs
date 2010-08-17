@@ -386,7 +386,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->read_child_returned = _gf_true;
                 }
 
-		if (afr_fop_failed (op_ret, op_errno))
+		if (afr_fop_failed (op_ret, op_errno) && op_errno != EFBIG)
 			afr_transaction_fop_failed (frame, this, child_index);
 
 		if (op_ret != -1) {
