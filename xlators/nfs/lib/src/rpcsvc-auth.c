@@ -72,9 +72,8 @@ nfs_rpcsvc_auth_add_initers (rpcsvc_t *svc)
                 goto err;
         }
 
-        ret = 0;
 err:
-        return 0;
+        return ret;
 }
 
 
@@ -131,11 +130,23 @@ nfs_rpcsvc_auth_init_auths (rpcsvc_t *svc, dict_t *options)
          * it by default. This is a globally default rule, the user is still
          * allowed to disable the two for particular subvolumes.
          */
-        if (!dict_get (options, "rpc-auth.auth-null"))
+        if (!dict_get (options, "rpc-auth.auth-null")) {
                 ret = dict_set_dynstr (options, "rpc-auth.auth-null", "on");
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                "Failed to set dict value.");
+                        goto err;
+                }
+        }
 
-        if (!dict_get (options, "rpc-auth.auth-unix"))
+        if (!dict_get (options, "rpc-auth.auth-unix")) {
                 ret = dict_set_dynstr (options, "rpc-auth.auth-unix", "on");
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR,
+                                "Failed to set dict value.");
+                        goto err;
+                }
+        }
 
         list_for_each_entry_safe (auth, tmp, &svc->authschemes, authlist) {
                 ret = nfs_rpcsvc_auth_init_auth (svc, options, auth);
@@ -177,7 +188,6 @@ out:
 rpcsvc_auth_t *
 __nfs_rpcsvc_auth_get_handler (rpcsvc_request_t *req)
 {
-        int                     ret = -1;
         struct rpcsvc_auth_list *auth = NULL;
         struct rpcsvc_auth_list *tmp = NULL;
         rpcsvc_t                *svc = NULL;
@@ -188,7 +198,6 @@ __nfs_rpcsvc_auth_get_handler (rpcsvc_request_t *req)
         svc = nfs_rpcsvc_request_service (req);
         if (list_empty (&svc->authschemes)) {
                 gf_log (GF_RPCSVC, GF_LOG_WARNING, "No authentication!");
-                ret = 0;
                 goto err;
         }
 
