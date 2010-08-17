@@ -38,13 +38,13 @@ terms of features and extensibility.  It borrows a powerful concept
 called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
-%package main
+%package core
 Summary: GlusterFS common files for both the client and the server 
 Group: System Environment/Libraries
 Obsoletes: glusterfs-libs <= 2.0.0
 Provides: glusterfs-libs = %{version}-%{release}
 
-%description main
+%description core
 GlusterFS is a clustered file-system capable of scaling to several
 peta-bytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
@@ -117,19 +117,19 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 %clean
 %{__rm} -rf %{buildroot}
 
-%post main
+%post core
 /sbin/ldconfig -n %{_libdir}
 /sbin/chkconfig --add glusterfsd
 
-%postun main
+%postun core
 /sbin/ldconfig -n %{_libdir}
 
-%preun main
+%preun core
 if [ $1 -eq 0 ]; then 
     /sbin/chkconfig --del glusterfsd
 fi
 
-%files main
+%files core
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README
 %doc /usr/share/doc/glusterfs
