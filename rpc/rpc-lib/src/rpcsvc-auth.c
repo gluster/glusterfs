@@ -210,7 +210,7 @@ __rpcsvc_auth_get_handler (rpcsvc_request_t *req)
         if (!req)
                 return NULL;
 
-        svc = rpcsvc_request_service (req);
+        svc = req->svc;
         if (!svc) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "!svc");
                 goto err;

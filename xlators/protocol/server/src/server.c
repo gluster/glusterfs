@@ -45,7 +45,7 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
-        iob = iobuf_get (req->conn->svc->ctx->iobuf_pool);
+        iob = iobuf_get (req->svc->ctx->iobuf_pool);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to get iobuf");
                 goto ret;
@@ -367,6 +367,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         rpc_transport_t     *xprt = NULL;
         server_connection_t *conn = NULL;
 
+
         if (!xl || !data) {
                 gf_log ("server", GF_LOG_WARNING,
                         "Calling rpc_notify without initializing");
@@ -387,13 +388,12 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 
                 xprt->protocol_private = conn;
                 */
-                xprt->mydata = this;
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
                 conn = get_server_conn_state (this, xprt);
                 if (conn)
-                        destroy_server_conn_state (conn);
+                        server_connection_put (this, conn);
 
                 break;
         default:

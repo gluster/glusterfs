@@ -50,7 +50,7 @@ int auth_null_authenticate (rpcsvc_request_t *req, void *priv)
 }
 
 rpcsvc_auth_ops_t auth_null_ops = {
-        .conn_init              = NULL,
+        .transport_init              = NULL,
         .request_init           = auth_null_request_init,
         .authenticate           = auth_null_authenticate
 };

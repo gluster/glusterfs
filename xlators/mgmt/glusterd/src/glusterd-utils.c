@@ -352,7 +352,7 @@ glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
-        iob = iobuf_get (req->conn->svc->ctx->iobuf_pool);
+        iob = iobuf_get (req->svc->ctx->iobuf_pool);
         if (!iob) {
                 gf_log ("", GF_LOG_ERROR, "Failed to get iobuf");
                 goto ret;

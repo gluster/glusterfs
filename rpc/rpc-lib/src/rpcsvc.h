@@ -49,7 +49,7 @@
 #define RPCSVC_THREAD_STACK_SIZE ((size_t)(1024 * GF_UNIT_KB))
 
 #define RPCSVC_FRAGHDR_SIZE  4       /* 4-byte RPC fragment header size */
-
+#define RPCSVC_DEFAULT_LISTEN_PORT      6996
 #define RPCSVC_DEFAULT_MEMFACTOR        15
 #define RPCSVC_EVENTPOOL_SIZE_MULT      1024
 #define RPCSVC_POOLCOUNT_MULT           35
@@ -120,68 +120,22 @@ struct rpcsvc_notify_wrapper {
 };
 typedef struct rpcsvc_notify_wrapper rpcsvc_notify_wrapper_t;
 
-#define RPCSVC_CONNSTATE_CONNECTED      1
-#define RPCSVC_CONNSTATE_DISCONNECTED   2
-
-#define rpcsvc_conn_check_active(conn) ((conn)->connstate==RPCSVC_CONNSTATE_CONNECTED)
 
 typedef struct rpcsvc_request rpcsvc_request_t;
 
-typedef struct rpc_conn_state rpcsvc_conn_t;
 typedef struct {
-        rpcsvc_conn_t   *conn;
-        struct sockaddr  sa;
-        struct list_head list;
+        rpc_transport_t         *trans;
+        rpcsvc_t                *svc;
+        /* FIXME: remove address from this structure. Instead use get_myaddr
+         * interface implemented by individual transports.
+         */
+        struct sockaddr_storage  sa;
+        struct list_head         list;
 } rpcsvc_listener_t;
 
 struct rpcsvc_config {
         int    max_block_size;
 };
-
-/* Contains the state for each connection that is used for transmitting and
- * receiving RPC messages.
- *
- * Anything that can be accessed by a RPC program must be synced through
- * connlock.
- */
-struct rpc_conn_state {
-
-        /* Transport or connection state */
-        rpc_transport_t             *trans;
-
-        rpcsvc_t                *svc;
-        /* RPC Records and Fragments assembly state.
-         * All incoming data is staged here before being
-         * called a full RPC message.
-         */
-        /* rpcsvc_record_state_t   rstate; */
-
-         /* It is possible that a client disconnects while
-         * the higher layer RPC service is busy in a call.
-         * In this case, we cannot just free the conn
-         * structure, since the higher layer service could
-         * still have a reference to it.
-         * The refcount avoids freeing until all references
-         * have been given up, although the connection is clos()ed at the first
-         * call to unref.
-         */
-        int                     connref;
-        pthread_mutex_t         connlock;
-        int                     connstate;
-
-        /* Memory pool for rpcsvc_request_t */
-        struct mem_pool         *rxpool;
-
-        /* The request which hasnt yet been handed to the RPC program because
-         * this request is being treated as a vector request and so needs some
-         * more data to be got from the network.
-         */
-        /* rpcsvc_request_t        *vectoredreq; */
-        rpcsvc_listener_t        *listener;
-};
-
-#define RPCSVC_CONNSTATE_CONNECTED      1
-#define RPCSVC_CONNSTATE_DISCONNECTED   2
 
 #define RPCSVC_MAX_AUTH_BYTES   400
 typedef struct rpcsvc_auth_data {
@@ -198,7 +152,9 @@ typedef struct rpcsvc_auth_data {
  * */
 struct rpcsvc_request {
         /* connection over which this request came. */
-        rpcsvc_conn_t         *conn;
+        rpc_transport_t       *trans;
+
+        rpcsvc_t              *svc;
 
         rpcsvc_program_t      *prog;
 
@@ -289,13 +245,10 @@ struct rpcsvc_request {
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))
 #define rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->program))->private)
-#define rpcsvc_request_conn(req)        (req)->conn
 #define rpcsvc_request_accepted(req)    ((req)->rpc_status == MSG_ACCEPTED)
 #define rpcsvc_request_accepted_success(req) ((req)->rpc_err == SUCCESS)
 #define rpcsvc_request_uid(req)         ((req)->uid)
 #define rpcsvc_request_gid(req)         ((req)->gid)
-#define rpcsvc_conn_rpcsvc(conn)        ((conn)->svc)
-#define rpcsvc_request_service(req)     (rpcsvc_conn_rpcsvc(rpcsvc_request_conn(req)))
 #define rpcsvc_request_prog_minauth(req) (rpcsvc_request_program(req)->min_auth)
 #define rpcsvc_request_cred_flavour(req) (rpcsvc_auth_flavour(req->cred))
 #define rpcsvc_request_verf_flavour(req) (rpcsvc_auth_flavour(req->verf))
@@ -443,8 +396,7 @@ extern rpcsvc_listener_t *
 rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name);
 
 extern int
-rpcsvc_program_register_portmap (rpcsvc_program_t *newprog,
-                                 rpcsvc_conn_t *conn);
+rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port);
 
 /* Inits the global RPC service data structures.
  * Called in main.
@@ -480,17 +432,19 @@ rpcsvc_error_reply (rpcsvc_request_t *req);
 #define RPCSVC_AUTH_DONTCARE    3
 
 extern int
-rpcsvc_conn_peername (rpcsvc_conn_t *conn, char *hostname, int hostlen);
+rpcsvc_transport_peername (rpc_transport_t *trans, char *hostname, int hostlen);
+
+extern inline int
+rpcsvc_transport_peeraddr (rpc_transport_t *trans, char *addrstr, int addrlen,
+                           struct sockaddr_storage *returnsa, socklen_t sasize);
 
 extern int
-rpcsvc_conn_peeraddr (rpcsvc_conn_t *conn, char *addrstr, int addrlen,
-                      struct sockaddr *returnsa, socklen_t sasize);
+rpcsvc_transport_peer_check (dict_t *options, char *volname,
+                             rpc_transport_t *trans);
 
 extern int
-rpcsvc_conn_peer_check (dict_t *options, char *volname, rpcsvc_conn_t *conn);
-
-extern int
-rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname, rpcsvc_conn_t *conn);
+rpcsvc_transport_privport_check (rpcsvc_t *svc, char *volname,
+                                 rpc_transport_t *trans);
 #define rpcsvc_request_seterr(req, err)                 (req)->rpc_err = err
 #define rpcsvc_request_set_autherr(req, err)            (req)->auth_err = err
 
@@ -501,7 +455,7 @@ extern int rpcsvc_request_attach_vector (rpcsvc_request_t *req,
                                          struct iobref *ioref, int finalvector);
 
 
-typedef int (*auth_init_conn) (rpcsvc_conn_t *conn, void *priv);
+typedef int (*auth_init_trans) (rpc_transport_t *trans, void *priv);
 typedef int (*auth_init_request) (rpcsvc_request_t *req, void *priv);
 typedef int (*auth_request_authenticate) (rpcsvc_request_t *req, void *priv);
 
@@ -510,7 +464,7 @@ typedef int (*auth_request_authenticate) (rpcsvc_request_t *req, void *priv);
  * each connection will end up using a different authentication scheme.
  */
 typedef struct rpcsvc_auth_ops {
-        auth_init_conn                conn_init;
+        auth_init_trans               transport_init;
         auth_init_request             request_init;
         auth_request_authenticate     authenticate;
 } rpcsvc_auth_ops_t;
@@ -546,7 +500,7 @@ extern int
 rpcsvc_auth_init (rpcsvc_t *svc, dict_t *options);
 
 extern int
-rpcsvc_auth_conn_init (rpcsvc_conn_t *xprt);
+rpcsvc_auth_transport_init (rpc_transport_t *xprt);
 
 extern int
 rpcsvc_authenticate (rpcsvc_request_t *req);

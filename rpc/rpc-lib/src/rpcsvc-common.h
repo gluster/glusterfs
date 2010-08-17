@@ -62,8 +62,6 @@ typedef struct rpcsvc_state {
 
         glusterfs_ctx_t         *ctx;
 
-        void                    *listener;
-
         /* list of connections which will listen for incoming connections */
         struct list_head         listeners;
 
@@ -76,7 +74,7 @@ typedef struct rpcsvc_state {
 
         void                    *mydata; /* This is xlator */
         rpcsvc_notify_t          notifyfn;
-
+        struct mem_pool         *rxpool;
 } rpcsvc_t;
 
 

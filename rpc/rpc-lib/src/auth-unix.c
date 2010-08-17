@@ -70,7 +70,7 @@ err:
 }
 
 rpcsvc_auth_ops_t auth_unix_ops = {
-        .conn_init              = NULL,
+        .transport_init              = NULL,
         .request_init           = auth_unix_request_init,
         .authenticate           = auth_unix_authenticate
 };
