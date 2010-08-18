@@ -198,7 +198,7 @@ STACK_DESTROY (call_stack_t *stack)
 		call_frame_t *_new = NULL;				\
                 xlator_t     *old_THIS = NULL;                          \
                                                                         \
-		 _new = mem_get (frame->root->pool->frame_mem_pool);     \
+		 _new = mem_get0 (frame->root->pool->frame_mem_pool);     \
                 if (!_new) {                                            \
                         gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
@@ -235,7 +235,7 @@ STACK_DESTROY (call_stack_t *stack)
                 call_frame_t *_new = NULL;                              \
                 xlator_t     *old_THIS = NULL;                          \
                                                                         \
-                _new = mem_get(frame->root->pool->frame_mem_pool);      \
+                _new = mem_get0 (frame->root->pool->frame_mem_pool);      \
                 if (!_new) {                                            \
                         gf_log ("stack", GF_LOG_ERROR, "alloc failed"); \
                         break;                                          \
@@ -330,7 +330,7 @@ copy_frame (call_frame_t *frame)
 		return NULL;
 	}
 
-	newstack = mem_get (frame->root->pool->stack_mem_pool);
+	newstack = mem_get0 (frame->root->pool->stack_mem_pool);
         if (newstack == NULL) {
                 return NULL;
         }
@@ -373,7 +373,7 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 		return NULL;
 	}
 
-	stack = mem_get (pool->stack_mem_pool);
+	stack = mem_get0 (pool->stack_mem_pool);
 	if (!stack)
 		return NULL;
 
