@@ -661,8 +661,6 @@ gf_resolve_done (fuse_state_t *state)
 static int
 gf_resolve_all (fuse_state_t *state)
 {
-        xlator_t     *this = NULL;
-
         if (state->resolve_now == NULL) {
 
                 state->resolve_now = &state->resolve;
@@ -682,7 +680,7 @@ gf_resolve_all (fuse_state_t *state)
                 gf_resolve_done (state);
 
         } else {
-                gf_log (this->name, GF_LOG_ERROR,
+                gf_log ("fuse-resolve", GF_LOG_ERROR,
                         "Invalid pointer for state->resolve_now");
         }
 
