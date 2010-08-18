@@ -1704,6 +1704,10 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
         }
 
         listener = rpcsvc_get_listener (svc, listen_port, NULL);
+        if ((listener == NULL) && (listen_port == RPCSVC_DEFAULT_LISTEN_PORT)) {
+                listener = rpcsvc_get_listener (svc, 6969, NULL);
+        }
+
         if ((listener == NULL) || (listener->trans == NULL)) {
                 if ((listener != NULL) && (listener->trans == NULL)) {
                         gf_log (GF_RPCSVC, GF_LOG_DEBUG,
@@ -1741,6 +1745,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
                 listener = rpcsvc_create_listener (svc, program.options,
                                                    program.progname);
                 if (listener == NULL) {
+                        ret = -1;
                         gf_log (GF_RPCSVC, GF_LOG_DEBUG,
                                 "creation of listener for program (%s) failed",
                                 program.progname);
