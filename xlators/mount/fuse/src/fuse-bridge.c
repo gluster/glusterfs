@@ -240,6 +240,13 @@ fuse_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 void
 fuse_lookup_resume (fuse_state_t *state)
 {
+        if (!state->loc.parent && !state->loc.inode) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to resolve path %s",
+                        state->loc.path);
+                send_fuse_err (state->this, state->finh, ENOENT);
+                free_fuse_state (state);
+                return;
+        }
         if (!state->loc.inode)
                 state->loc.inode = inode_new (state->loc.parent->table);
 
@@ -1004,6 +1011,14 @@ fuse_readlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
 void
 fuse_mknod_resume (fuse_state_t *state)
 {
+        if (!state->loc.parent) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to resolve path %s",
+                        state->loc.path);
+                send_fuse_err (state->this, state->finh, ENOENT);
+                free_fuse_state (state);
+                return;
+        }
+
         if (!state->loc.inode)
                 state->loc.inode = inode_new (state->loc.parent->table);
         else
@@ -1056,6 +1071,14 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
 void
 fuse_mkdir_resume (fuse_state_t *state)
 {
+        if (!state->loc.parent) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to resolve path %s",
+                        state->loc.path);
+                send_fuse_err (state->this, state->finh, ENOENT);
+                free_fuse_state (state);
+                return;
+        }
+
         if (!state->loc.inode)
                 state->loc.inode = inode_new (state->loc.parent->table);
         else
@@ -1182,6 +1205,14 @@ fuse_rmdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 void
 fuse_symlink_resume (fuse_state_t *state)
 {
+        if (!state->loc.parent) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to resolve path %s",
+                        state->loc.path);
+                send_fuse_err (state->this, state->finh, ENOENT);
+                free_fuse_state (state);
+                return;
+        }
+
         if (!state->loc.inode)
                 state->loc.inode = inode_new (state->loc.parent->table);
         else
@@ -1485,6 +1516,14 @@ void
 fuse_create_resume (fuse_state_t *state)
 {
         fd_t *fd = NULL;
+
+        if (!state->loc.parent) {
+                gf_log ("fuse", GF_LOG_ERROR, "failed to resolve path %s",
+                        state->loc.path);
+                send_fuse_err (state->this, state->finh, ENOENT);
+                free_fuse_state (state);
+                return;
+        }
 
         if (!state->loc.inode)
                 state->loc.inode = inode_new (state->loc.parent->table);
