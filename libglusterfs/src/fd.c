@@ -509,7 +509,7 @@ fd_create (inode_t *inode, pid_t pid)
                 return NULL;
         }
 
-        fd = mem_get (inode->table->fd_mem_pool);
+        fd = mem_get0 (inode->table->fd_mem_pool);
         if (!fd)
                 goto out;
 

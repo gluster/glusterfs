@@ -38,8 +38,7 @@ stub_new (call_frame_t *frame,
 
 	GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
-       new = mem_get (frame->this->ctx->stub_mem_pool);
-       memset (new, 0, sizeof (call_stub_t));
+       new = mem_get0 (frame->this->ctx->stub_mem_pool);
 	GF_VALIDATE_OR_GOTO ("call-stub", new, out);
 
 	new->frame = frame;

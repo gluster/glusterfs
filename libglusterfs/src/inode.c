@@ -493,7 +493,7 @@ __dentry_create (inode_t *inode, inode_t *parent, const char *name)
         if (!inode || !parent || !name)
                 return NULL;
 
-        newd = mem_get (parent->table->dentry_pool);
+        newd = mem_get0 (parent->table->dentry_pool);
 
         if (newd == NULL) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
@@ -530,7 +530,7 @@ __inode_create (inode_table_t *table)
         if (!table)
                 return NULL;
 
-        newi = mem_get(table->inode_pool);
+        newi = mem_get0 (table->inode_pool);
         if (!newi) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
                 goto out;
