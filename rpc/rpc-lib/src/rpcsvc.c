@@ -780,9 +780,10 @@ rpcsvc_request_destroy (rpcsvc_request_t *req)
                 iobref_unref (req->iobref);
         }
 
+        rpc_transport_unref (req->trans);
+
         mem_put (req->svc->rxpool, req);
 
-        rpc_transport_unref (req->trans);
 out:
         return;
 }
