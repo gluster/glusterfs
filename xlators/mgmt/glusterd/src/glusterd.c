@@ -148,7 +148,6 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
         {
-                xprt->mydata = this;
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
