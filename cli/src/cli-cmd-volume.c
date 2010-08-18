@@ -440,7 +440,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_info_cbk,
           "list information of all volumes"},
 
-        { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replicate <COUNT>] <NEW-BRICK> ...",
+        { "volume create <NEW-VOLNAME> [stripe <COUNT>] [replica <COUNT>] <NEW-BRICK> ...",
           cli_cmd_volume_create_cbk,
           "create a new volume of specified type with mentioned bricks"},
 
