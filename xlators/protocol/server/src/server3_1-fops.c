@@ -4934,5 +4934,4 @@ struct rpcsvc_program glusterfs3_1_fop_prog = {
         .progver   = GLUSTER3_1_FOP_VERSION,
         .numactors = GLUSTER3_1_FOP_PROCCNT,
         .actors    = glusterfs3_1_fop_actors,
-        .progport  = 7007,
 };
