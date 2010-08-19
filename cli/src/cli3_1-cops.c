@@ -68,9 +68,25 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to probe");
-        cli_out ("Probe %s", (rsp.op_ret) ? "unsuccessful": "successful");
-
-
+	 if (!rsp.op_ret) {
+	 	switch (rsp.op_errno) {
+		 	case GF_PROBE_SUCCESS:
+		      		cli_out ("Probe successful");
+		      		break;
+	 	 	case GF_PROBE_LOCALHOST:
+		      		cli_out ("Probe on localhost not needed");
+		      		break;
+		 	default:
+		      		cli_out ("Probe returned with unknown errno %d",
+					rsp.op_errno);
+		      		break;
+	 	}
+	 }
+	 if (rsp.op_ret) {
+		 cli_out ("Probe unsuccessfull"); 		
+		 gf_log ("glusterd",GF_LOG_ERROR,"Probe failed with op_ret %d"
+			 " and op_errno %d", rsp.op_ret, rsp.op_errno);
+	 }
         ret = rsp.op_ret;
 
 out:

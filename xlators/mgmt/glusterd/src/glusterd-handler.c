@@ -519,7 +519,11 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL, "Received CLI probe req %s %d",
                 cli_req.hostname, cli_req.port);
 
-
+	 if (!(ret = glusterd_is_local_addr(cli_req.hostname))) {
+		 glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST,
+					       cli_req.hostname, cli_req.port);
+		 goto out;
+	 }
         ret = glusterd_probe_begin (req, cli_req.hostname, cli_req.port);
 
 out:
