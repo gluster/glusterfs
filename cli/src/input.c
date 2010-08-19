@@ -56,17 +56,19 @@ cli_input (void *d)
         int               ret = 0;
         char              cmdbuf[CMDBUFSIZ];
         char             *cmd = NULL;
+        size_t            len = 0;
 
         state = d;
 
         for (;;) {
-                cli_out ("%s", state->prompt);
+                printf ("%s", state->prompt);
 
                 cmd = fgets (cmdbuf, CMDBUFSIZ, stdin);
                 if (!cmd)
                         break;
-
-                printf ("processing command: '%s'\n", cmd);
+                len = strlen(cmd);
+                if (len > 0 && cmd[len - 1] == '\n') //strip trailing \n
+                        cmd[len - 1] = '\0';
                 ret = cli_cmd_process_line (state, cmd);
         }
 
