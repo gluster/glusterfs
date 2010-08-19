@@ -1680,9 +1680,7 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
         memcpy (newprog, &program, sizeof (program));
 
         listen_port = RPCSVC_DEFAULT_LISTEN_PORT;
-        if (program.progport != 0) {
-                listen_port = program.progport;
-        } else if (program.options != NULL) {
+        if (program.options != NULL) {
                 /*
                  * FIXME: use a method which does not hard-code each transport's
                  * option keys.
@@ -1701,6 +1699,8 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
                            != NULL) {
                         listen_port = data_to_uint16 (listen_port_data);
                 }
+        } else if (program.progport != 0) {
+                listen_port = program.progport;
         }
 
         listener = rpcsvc_get_listener (svc, listen_port, NULL);
@@ -1716,7 +1716,8 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
                         rpcsvc_listener_destroy (listener);
                 }
 
-                if (program.progport != 0) {
+                if ((program.progport != 0)
+                    && (listen_port == program.progport)) {
                         ret = dict_set (program.options,
                                         "transport.socket.listen-port",
                                         data_from_uint16 (listen_port));
