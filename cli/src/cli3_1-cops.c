@@ -76,6 +76,10 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 	 	 	case GF_PROBE_LOCALHOST:
 		      		cli_out ("Probe on localhost not needed");
 		      		break;
+			case GF_PROBE_FRIEND:
+				cli_out ("Probe on host %s port %d already"
+					 " a friend",rsp.hostname, rsp.port);
+				break;
 		 	default:
 		      		cli_out ("Probe returned with unknown errno %d",
 					rsp.op_errno);
