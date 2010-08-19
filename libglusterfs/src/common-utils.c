@@ -206,98 +206,132 @@ gf_log_volume_file (FILE *specfp)
 	fseek (specfp, 0L, SEEK_SET);
 }
 
-static void 
+static void
 gf_dump_config_flags (int fd)
 {
         int ret = 0;
-        /* TODO: 'ret' is not checked properly, add this later */
 
 	ret = write (fd, "configuration details:\n", 23);
+        if (ret == -1)
+                goto out;
 
 /* have argp */
 #ifdef HAVE_ARGP
 	ret = write (fd, "argp 1\n", 7);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* ifdef if found backtrace */
-#ifdef HAVE_BACKTRACE 
+#ifdef HAVE_BACKTRACE
 	ret = write (fd, "backtrace 1\n", 12);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Berkeley-DB version has cursor->get() */
-#ifdef HAVE_BDB_CURSOR_GET 
+#ifdef HAVE_BDB_CURSOR_GET
 	ret = write (fd, "bdb->cursor->get 1\n", 19);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Define to 1 if you have the <db.h> header file. */
-#ifdef HAVE_DB_H 
+#ifdef HAVE_DB_H
 	ret = write (fd, "db.h 1\n", 7);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
-#ifdef HAVE_DLFCN_H 
+#ifdef HAVE_DLFCN_H
 	ret = write (fd, "dlfcn 1\n", 8);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* define if fdatasync exists */
-#ifdef HAVE_FDATASYNC 
+#ifdef HAVE_FDATASYNC
 	ret = write (fd, "fdatasync 1\n", 12);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Define to 1 if you have the `pthread' library (-lpthread). */
-#ifdef HAVE_LIBPTHREAD 
+#ifdef HAVE_LIBPTHREAD
 	ret = write (fd, "libpthread 1\n", 13);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* define if llistxattr exists */
-#ifdef HAVE_LLISTXATTR 
+#ifdef HAVE_LLISTXATTR
 	ret = write (fd, "llistxattr 1\n", 13);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* define if found setfsuid setfsgid */
-#ifdef HAVE_SET_FSID 
+#ifdef HAVE_SET_FSID
 	ret = write (fd, "setfsid 1\n", 10);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* define if found spinlock */
-#ifdef HAVE_SPINLOCK 
+#ifdef HAVE_SPINLOCK
 	ret = write (fd, "spinlock 1\n", 11);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Define to 1 if you have the <sys/epoll.h> header file. */
-#ifdef HAVE_SYS_EPOLL_H 
+#ifdef HAVE_SYS_EPOLL_H
 	ret = write (fd, "epoll.h 1\n", 10);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Define to 1 if you have the <sys/extattr.h> header file. */
-#ifdef HAVE_SYS_EXTATTR_H 
+#ifdef HAVE_SYS_EXTATTR_H
 	ret = write (fd, "extattr.h 1\n", 12);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Define to 1 if you have the <sys/xattr.h> header file. */
-#ifdef HAVE_SYS_XATTR_H 
+#ifdef HAVE_SYS_XATTR_H
 	ret = write (fd, "xattr.h 1\n", 10);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* define if found st_atim.tv_nsec */
 #ifdef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 	ret = write (fd, "st_atim.tv_nsec 1\n", 18);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* define if found st_atimespec.tv_nsec */
 #ifdef HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
 	ret = write (fd, "st_atimespec.tv_nsec 1\n",23);
+        if (ret == -1)
+                goto out;
 #endif
 
 /* Define to the full name and version of this package. */
-#ifdef PACKAGE_STRING 
+#ifdef PACKAGE_STRING
 	{
 		char msg[128];
-		sprintf (msg, "package-string: %s\n", PACKAGE_STRING); 
+		sprintf (msg, "package-string: %s\n", PACKAGE_STRING);
 		ret = write (fd, msg, strlen (msg));
+                if (ret == -1)
+                        goto out;
 	}
 #endif
 
+out:
 	return;
 }
 
@@ -368,7 +402,7 @@ gf_print_trace (int32_t signum)
 		ret = write (fd, msg, strlen (msg));
 	}
 #endif /* HAVE_BACKTRACE */
-  
+
 	/* Send a signal to terminate the process */
 	signal (signum, SIG_DFL);
 	raise (signum);
