@@ -134,6 +134,11 @@ enum gf_pmap_procnum {
         GF_PMAP_MAXVALUE,
 };
 
+enum gf_probe_resp {
+	GF_PROBE_SUCCESS,
+	GF_PROBE_LOCALHOST,
+	GF_PROBE_FRIEND,
+};
 
 #define GLUSTER3_1_FOP_PROGRAM   1298437 /* Completely random */
 #define GLUSTER3_1_FOP_VERSION   310 /* 3.1.0 */
