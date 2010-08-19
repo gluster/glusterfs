@@ -3705,15 +3705,20 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        if (args->loc->inode) {
-                ret = inode_ctx_get2 (args->loc->inode, this,
-                                      &req.ino, &req.gen);
-                if (args->loc->inode->ino && ret < 0) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "STATFS %"PRId64" (%s): "
-                                "failed to get remote inode number",
-                                args->loc->inode->ino, args->loc->path);
-                        goto unwind;
+        if (args->loc && args->loc->inode) {
+                if (args->loc->inode->ino == 1) {
+                        req.ino = 1;
+                        req.gen = 0;
+                } else {
+                        ret = inode_ctx_get2 (args->loc->inode, this,
+                                              &req.ino, &req.gen);
+                        if (args->loc->inode->ino && ret < 0) {
+                                gf_log (this->name, GF_LOG_TRACE,
+                                        "STATFS %"PRId64" (%s): "
+                                        "failed to get remote inode number",
+                                        args->loc->inode->ino, args->loc->path);
+                                goto unwind;
+                        }
                 }
         }
         req.path = (char *)args->loc->path;
