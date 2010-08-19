@@ -1360,7 +1360,7 @@ out:
 }
 
 
-int
+inline int
 rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
 {
         if (!prog)
@@ -1373,6 +1373,38 @@ rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
         }
 
         return 0;
+}
+
+
+int32_t
+rpcsvc_get_listener_port (rpcsvc_listener_t *listener)
+{
+        int32_t listener_port = -1;
+
+        if ((listener == NULL) || (listener->trans == NULL)) {
+                goto out;
+        }
+
+        switch (listener->trans->myinfo.sockaddr.ss_family) {
+        case AF_INET:
+                listener_port = ((struct sockaddr_in6 *)&listener->trans->myinfo.sockaddr)->sin6_port;
+                break;
+
+        case AF_INET6:
+                listener_port = ((struct sockaddr_in *)&listener->trans->myinfo.sockaddr)->sin_port; 
+                break;
+
+        default:
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
+                        "invalid address family (%d)",
+                        listener->trans->myinfo.sockaddr.ss_family);
+                goto out;
+        }
+
+        listener_port = ntohs (listener_port);
+
+out:
+        return listener_port;
 }
 
 
@@ -1398,26 +1430,14 @@ rpcsvc_get_listener (rpcsvc_t *svc, uint16_t port, rpc_transport_t *trans)
 
                                 continue;
                         }
-                                
-                        switch (listener->trans->myinfo.sockaddr.ss_family) {
-                        case AF_INET:
-                                listener_port
-                                        = ((struct sockaddr_in6 *)&listener->trans->myinfo.sockaddr)->sin6_port;
-                                break;
 
-                        case AF_INET6:
-                                listener_port
-                                        = ((struct sockaddr_in *)&listener->trans->myinfo.sockaddr)->sin_port; 
-                                break;
-
-                        default:
+                        listener_port = rpcsvc_get_listener_port (listener);
+                        if (listener_port == -1) {
                                 gf_log (GF_RPCSVC, GF_LOG_DEBUG,
-                                        "invalid address family (%d)",
-                                        listener->trans->myinfo.sockaddr.ss_family);
-                                goto unlock;
+                                        "invalid port for listener %s",
+                                        listener->trans->name);
+                                continue;
                         }
-
-                        listener_port = ntohs (listener_port);
 
                         if (listener_port == port) {
                                 found = 1;
@@ -1425,7 +1445,6 @@ rpcsvc_get_listener (rpcsvc_t *svc, uint16_t port, rpc_transport_t *trans)
                         }
                 }
         }
-unlock:
         pthread_mutex_unlock (&svc->rpclock);
 
         if (!found) {
@@ -1457,31 +1476,38 @@ rpcsvc_submit_message (rpcsvc_request_t *req, struct iovec *proghdr,
 
 
 int
-rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t prog)
+rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *prog)
 {
         int                     ret = -1;
 
-        if (!svc)
-                return -1;
+        if (!svc || !prog) {
+                goto out;
+        }
 
-        /* TODO: De-init the listening connection for this program. */
-        ret = rpcsvc_program_unregister_portmap (&prog);
+        ret = rpcsvc_program_unregister_portmap (prog);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap unregistration of"
                         " program failed");
-                goto err;
+                goto out;
         }
 
-        ret = 0;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Program unregistered: %s, Num: %d,"
-                " Ver: %d, Port: %d", prog.progname, prog.prognum,
-                prog.progver, prog.progport);
+                " Ver: %d, Port: %d", prog->progname, prog->prognum,
+                prog->progver, prog->progport);
 
-err:
-        if (ret == -1)
+        pthread_mutex_lock (&svc->rpclock);
+        {
+                list_del (&prog->program);
+        }
+        pthread_mutex_unlock (&svc->rpclock);
+
+        ret = 0;
+out:
+        if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program unregistration failed"
-                        ": %s, Num: %d, Ver: %d, Port: %d", prog.progname,
-                        prog.prognum, prog.progver, prog.progport);
+                        ": %s, Num: %d, Ver: %d, Port: %d", prog->progname,
+                        prog->prognum, prog->progver, prog->progport);
+        }
 
         return ret;
 }
@@ -1524,16 +1550,16 @@ rpcsvc_transport_create (rpcsvc_t *svc, dict_t *options, char *name)
                 goto out;
         }
 
-        ret = rpc_transport_register_notify (trans, rpcsvc_notify, svc);
-        if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "registering notify failed");
-                goto out;
-        }
-
         ret = rpc_transport_listen (trans);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG,
                         "listening on transport failed");
+                goto out;
+        }
+
+        ret = rpc_transport_register_notify (trans, rpcsvc_notify, svc);
+        if (ret == -1) {
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "registering notify failed");
                 goto out;
         }
 
@@ -1657,127 +1683,37 @@ out:
 }
 
 
-int
-rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
+inline int
+rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
 {
-        rpcsvc_program_t        *newprog          = NULL;
         int                      ret              = -1;
-        rpcsvc_listener_t       *listener         = NULL;
-        data_t                  *listen_port_data = NULL;
-        uint16_t                 listen_port      = 0;
 
-        if (!svc)
-                return -1;
-
-        newprog = GF_CALLOC (1, sizeof(*newprog),
-                             gf_common_mt_rpcsvc_program_t);
-        if (!newprog)
-                return -1;
-
-        if (!program.actors)
-                goto free_prog;
-
-        memcpy (newprog, &program, sizeof (program));
-
-        listen_port = RPCSVC_DEFAULT_LISTEN_PORT;
-        if (program.options != NULL) {
-                /*
-                 * FIXME: use a method which does not hard-code each transport's
-                 * option keys.
-                 */
-                listen_port_data = dict_get (program.options, "listen-port");
-                if (listen_port_data != NULL) {
-                        listen_port = data_to_uint16 (listen_port_data);
-                } else if ((listen_port_data
-                            = dict_get (program.options,
-                                        "transport.socket.listen-port"))
-                           != NULL) {
-                        listen_port = data_to_uint16 (listen_port_data);
-                } else if ((listen_port_data
-                            = dict_get (program.options,
-                                        "transport.rdma.listen-port"))
-                           != NULL) {
-                        listen_port = data_to_uint16 (listen_port_data);
-                }
-        } else if (program.progport != 0) {
-                listen_port = program.progport;
+        if (!svc) {
+                goto out;
         }
 
-        listener = rpcsvc_get_listener (svc, listen_port, NULL);
-        if ((listener == NULL) && (listen_port == RPCSVC_DEFAULT_LISTEN_PORT)) {
-                listener = rpcsvc_get_listener (svc, 6969, NULL);
+        if (program->actors == NULL) {
+                goto out;
         }
 
-        if ((listener == NULL) || (listener->trans == NULL)) {
-                if ((listener != NULL) && (listener->trans == NULL)) {
-                        gf_log (GF_RPCSVC, GF_LOG_DEBUG,
-                                "empty listener without transport found, "
-                                "destroying it");
-                        rpcsvc_listener_destroy (listener);
-                }
-
-                if ((program.progport != 0)
-                    && (listen_port == program.progport)) {
-                        ret = dict_set (program.options,
-                                        "transport.socket.listen-port",
-                                        data_from_uint16 (listen_port));
-                        if (ret == -1) {
-                                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
-                                        "setting listening port (%d) specified "
-                                        "by program (%s) in options dictionary "
-                                        "failed", listen_port,
-                                        program.progname);
-                                goto free_prog;
-                        }
-
-                        ret = dict_set (program.options,
-                                        "transport.rdma.listen-port",
-                                        data_from_uint16 (listen_port));
-                        if (ret == -1) {
-                                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
-                                        "setting listening port (%d) specified "
-                                        "by program (%s) in options dictionary "
-                                        "failed", listen_port,
-                                        program.progname);
-                                goto free_prog;
-                        }
-                }
-
-                listener = rpcsvc_create_listener (svc, program.options,
-                                                   program.progname);
-                if (listener == NULL) {
-                        ret = -1;
-                        gf_log (GF_RPCSVC, GF_LOG_DEBUG,
-                                "creation of listener for program (%s) failed",
-                                program.progname);
-                        goto free_prog;
-                }
-        }
-
-        ret = rpcsvc_program_register_portmap (newprog, program.progport);
-        if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap registration of"
-                        " program failed");
-                goto free_prog;
-        }
+        INIT_LIST_HEAD (&program->program);
 
         pthread_mutex_lock (&svc->rpclock);
         {
-                list_add_tail (&newprog->program, &svc->programs);
+                list_add_tail (&program->program, &svc->programs);
         }
         pthread_mutex_unlock (&svc->rpclock);
 
         ret = 0;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "New program registered: %s, Num: %d,"
-                " Ver: %d, Port: %d", newprog->progname, newprog->prognum,
-                newprog->progver, newprog->progport);
+                " Ver: %d, Port: %d", program->progname, program->prognum,
+                program->progver, program->progport);
 
-free_prog:
+out:
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program registration failed:"
-                        " %s, Num: %d, Ver: %d, Port: %d", newprog->progname,
-                        newprog->prognum, newprog->progver, newprog->progport);
-                GF_FREE (newprog);
+                        " %s, Num: %d, Ver: %d, Port: %d", program->progname,
+                        program->prognum, program->progver, program->progport);
         }
 
         return ret;
@@ -1884,9 +1820,6 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
 {
         rpcsvc_t          *svc              = NULL;
         int                ret              = -1, poolcount = 0;
-        rpcsvc_listener_t *listener         = NULL;
-        uint32_t           listen_port      = 0;
-        data_t            *listen_port_data = NULL;
 
         if ((!ctx) || (!options))
                 return NULL;
@@ -1929,50 +1862,9 @@ rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         svc->ctx = ctx;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC service inited.");
 
-        listen_port = RPCSVC_DEFAULT_LISTEN_PORT;
-
-        /*
-         * FIXME: use a method which does not hard-code each transport's
-         * option keys.
-         */
-        listen_port_data = dict_get (options, "listen-port");
-        if (listen_port_data != NULL) {
-                listen_port = data_to_uint16 (listen_port_data);
-        } else if ((listen_port_data
-                    = dict_get (options, "transport.socket.listen-port"))
-                   != NULL) {
-                listen_port = data_to_uint16 (listen_port_data);
-        } else if ((listen_port_data
-                    = dict_get (options, "transport.rdma.listen-port"))
-                   != NULL) {
-                listen_port = data_to_uint16 (listen_port_data);
-        }
-
-        /* One listen port per RPC */
-        listener = rpcsvc_get_listener (svc, 0, NULL);
-        if (!listener) {
-                /* FIXME: listener is given the name of first program that
-                 * creates it. This is not always correct. For eg., multiple
-                 * programs can be listening on the same listener
-                 * (glusterfs 3.1.0, 3.1.2, 3.1.3 etc).
-                 */
-                listener = rpcsvc_create_listener (svc, options, "RPC");
-                if (!listener) {
-                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "creation of listener"
-                                " for program failed");
-                        goto free_svc;
-                }
-        }
-
-        if (!listener->trans) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "listener with no transport "
-                        "found");
-                goto free_svc;
-        }
-
         gluster_dump_prog.options = options;
 
-        ret = rpcsvc_program_register (svc, gluster_dump_prog);
+        ret = rpcsvc_program_register (svc, &gluster_dump_prog);
         if (ret) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR,
                         "failed to register DUMP program");

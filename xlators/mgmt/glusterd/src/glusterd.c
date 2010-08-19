@@ -161,6 +161,26 @@ out:
         return 0;
 }
 
+
+inline int32_t
+glusterd_program_register (xlator_t *this, rpcsvc_t *svc,
+                           rpcsvc_program_t *prog)
+{
+        int32_t ret = -1;
+
+        ret = rpcsvc_program_register (svc, prog);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "cannot register program (name: %s, prognum:%d, "
+                        "progver:%d)", prog->progname, prog->prognum,
+                        prog->progver);
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
 /*
  * init - called during glusterd initialization
  *
@@ -170,15 +190,16 @@ out:
 int
 init (xlator_t *this)
 {
-        int32_t         ret = -1;
-        rpcsvc_t        *rpc = NULL;
-        glusterd_conf_t *conf = NULL;
-        data_t          *dir_data = NULL;
-        char            dirname [PATH_MAX];
-        struct stat     buf = {0,};
-        char            *port_str = NULL;
-        int             port_num = 0;
-        char            voldir [PATH_MAX] = {0,};
+        int32_t            ret               = -1;
+        rpcsvc_t          *rpc               = NULL;
+        glusterd_conf_t   *conf              = NULL;
+        data_t            *dir_data          = NULL;
+        struct stat        buf               = {0,};
+        char              *port_str          = NULL;
+        int                port_num          = 0;
+        char               voldir [PATH_MAX] = {0,};
+        rpcsvc_listener_t *listener          = NULL;
+        char               dirname [PATH_MAX];
 
 
         dir_data = dict_get (this->options, "working-directory");
@@ -260,24 +281,35 @@ init (xlator_t *this)
                 glusterd1_mop_prog.progport = port_num;
         }
 
-        ret = rpcsvc_program_register (rpc, glusterd1_mop_prog);
-        if (ret) {
+        /*
+         * only one listener for glusterd1_mop_prog, gluster_pmap_prog and
+         * gluster_handshake_prog.
+         */
+        listener = rpcsvc_create_listener (rpc, this->options, this->name);
+        if (listener == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "rpcsvc_program_register returned %d", ret);
+                        "creation of listener failed");
                 goto out;
         }
 
-        ret = rpcsvc_program_register (rpc, gluster_pmap_prog);
+        ret = glusterd_program_register (this, rpc, &glusterd1_mop_prog);
         if (ret) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "rpcsvc_program_register returned %d", ret);
+                goto out;
+        }
+
+        ret = glusterd_program_register (this, rpc, &gluster_pmap_prog);
+        if (ret) {
+                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
                 goto out;
         }
 
         gluster_handshake_prog.options = this->options;
-        ret = rpcsvc_program_register (rpc, gluster_handshake_prog);
-        if (ret)
+        ret = glusterd_program_register (this, rpc, &gluster_handshake_prog);
+        if (ret) {
+                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                rpcsvc_program_unregister (rpc, &gluster_handshake_prog);
                 goto out;
+        }
 
         conf = GF_CALLOC (1, sizeof (glusterd_conf_t),
                           gf_gld_mt_glusterd_conf_t);
@@ -309,6 +341,17 @@ init (xlator_t *this)
 
         ret = 0;
 out:
+        if (ret == -1) {
+                if (listener != NULL) {
+                        rpcsvc_listener_destroy (listener);
+                }
+
+                if (this->private != NULL) {
+                        GF_FREE (this->private);
+                        this->private = NULL;
+                }
+        }
+
         return ret;
 }
 

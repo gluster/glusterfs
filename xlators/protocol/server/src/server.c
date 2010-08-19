@@ -426,8 +426,9 @@ mem_acct_init (xlator_t *this)
 int
 init (xlator_t *this)
 {
-        int32_t        ret = -1;
-        server_conf_t *conf = NULL;
+        int32_t            ret      = -1;
+        server_conf_t     *conf     = NULL;
+        rpcsvc_listener_t *listener = NULL;
 
         if (!this)
                 goto out;
@@ -476,24 +477,49 @@ init (xlator_t *this)
         /* RPC related */
         //conf->rpc = rpc_svc_init (&conf->rpc_conf);
         conf->rpc = rpcsvc_init (this->ctx, this->options);
-        if (!conf->rpc) {
+        if (conf->rpc == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        listener = rpcsvc_create_listener (conf->rpc, this->options,
+                                           this->name);
+        if (listener == NULL) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "creation of listener failed");
                 ret = -1;
                 goto out;
         }
 
         ret = rpcsvc_register_notify (conf->rpc, server_rpc_notify, this);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "registration of notify with rpcsvc failed");
                 goto out;
+        }
 
         glusterfs3_1_fop_prog.options = this->options;
-        ret = rpcsvc_program_register (conf->rpc, glusterfs3_1_fop_prog);
-        if (ret)
+        ret = rpcsvc_program_register (conf->rpc, &glusterfs3_1_fop_prog);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "registration of program (name:%s, prognum:%d, "
+                        "progver:%d) failed", glusterfs3_1_fop_prog.progname,
+                        glusterfs3_1_fop_prog.prognum,
+                        glusterfs3_1_fop_prog.progver);
                 goto out;
+        }
 
         gluster_handshake_prog.options = this->options;
-        ret = rpcsvc_program_register (conf->rpc, gluster_handshake_prog);
-        if (ret)
+        ret = rpcsvc_program_register (conf->rpc, &gluster_handshake_prog);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "registration of program (name:%s, prognum:%d, "
+                        "progver:%d) failed", gluster_handshake_prog.progname,
+                        gluster_handshake_prog.prognum,
+                        gluster_handshake_prog.progver);
+                rpcsvc_program_unregister (conf->rpc, &glusterfs3_1_fop_prog);
                 goto out;
+        }
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -523,8 +549,15 @@ init (xlator_t *this)
 
         ret = 0;
 out:
-        if (ret && this)
-                this->fini (this);
+        if (ret) {
+                if (this != NULL) {
+                        this->fini (this);
+                }
+
+                if (listener != NULL) {
+                        rpcsvc_listener_destroy (listener);
+                }
+        }
 
         return ret;
 }
