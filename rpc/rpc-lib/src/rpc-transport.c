@@ -1119,8 +1119,11 @@ rpc_transport_notify (rpc_transport_t *this, rpc_transport_event_t event,
                 goto out;
         }
 
-        //ret = this->notify (this, this->notify_data, event, data);
-        ret = this->notify (this, this->mydata, event, data);
+        if (this->notify != NULL) {
+                ret = this->notify (this, this->mydata, event, data);
+        } else {
+                ret = 0;
+        }
 out:
         return ret;
 }

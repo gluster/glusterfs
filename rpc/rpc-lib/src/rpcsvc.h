@@ -379,10 +379,10 @@ struct rpcsvc_program {
  * procedure handlers.
  */
 extern int
-rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program);
+rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program);
 
 extern int
-rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t program);
+rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program);
 
 /* This will create and add a listener to listener pool. Programs can
  * use any of the listener in this pool. A single listener can be used by
@@ -394,6 +394,9 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t program);
 /* FIXME: can multiple programs registered on same port? */
 extern rpcsvc_listener_t *
 rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name);
+
+void
+rpcsvc_listener_destroy (rpcsvc_listener_t *listener);
 
 extern int
 rpcsvc_program_register_portmap (rpcsvc_program_t *newprog, uint32_t port);
