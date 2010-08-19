@@ -128,7 +128,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
 
 			databuf = GF_CALLOC (1, filler->stbuf->ia_size,
                                              gf_posix_mt_char);
-			
+
 			if (!databuf) {
 				gf_log (filler->this->name, GF_LOG_ERROR,
 					"Out of memory.");
@@ -170,8 +170,16 @@ _posix_xattr_get_set (dict_t *xattr_req,
 		loc = filler->loc;
 		if (!list_empty (&loc->inode->fd_list)) {
 			ret = dict_set_uint32 (filler->xattr, key, 1);
+                        if (ret < 0)
+                                gf_log (filler->this->name, GF_LOG_WARNING,
+                                        "Failed to set dictionary value for %s",
+                                        key);
 		} else {
 			ret = dict_set_uint32 (filler->xattr, key, 0);
+                        if (ret < 0)
+                                gf_log (filler->this->name, GF_LOG_WARNING,
+                                        "Failed to set dictionary value for %s",
+                                        key);
 		}
 	} else {
 		xattr_size = sys_lgetxattr (filler->real_path, key, NULL, 0);
@@ -476,7 +484,6 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
         char *      pathdup            = NULL;
         char *      parentpath         = NULL;
         struct iatt postparent         = {0,};
-        struct posix_private  *priv    = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -484,8 +491,6 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (loc->path, out);
 
         MAKE_REAL_PATH (real_path, this, loc->path);
-
-        priv = this->private;
 
         op_ret   = posix_lstat_with_gen (this, real_path, &buf);
         op_errno = errno;
@@ -963,8 +968,6 @@ int32_t
 posix_releasedir (xlator_t *this,
 		  fd_t *fd)
 {
-        int32_t           op_ret   = -1;
-        int32_t           op_errno = 0;
         struct posix_fd * pfd      = NULL;
 	uint64_t          tmp_pfd  = 0;
         int               ret      = 0;
@@ -976,7 +979,6 @@ posix_releasedir (xlator_t *this,
 
         ret = fd_ctx_del (fd, this, &tmp_pfd);
         if (ret < 0) {
-                op_errno = -ret;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "pfd from fd=%p is NULL", fd);
                 goto out;
@@ -984,7 +986,6 @@ posix_releasedir (xlator_t *this,
 
 	pfd = (struct posix_fd *)(long)tmp_pfd;
         if (!pfd->dir) {
-                op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "pfd->dir is NULL for fd=%p path=%s",
                         fd, pfd->path ? pfd->path : "<NULL>");
@@ -994,7 +995,6 @@ posix_releasedir (xlator_t *this,
         priv = this->private;
 
         if (!pfd->path) {
-                op_errno = EBADFD;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "pfd->path was NULL. fd=%p pfd=%p",
                         fd, pfd);
@@ -1007,8 +1007,6 @@ posix_releasedir (xlator_t *this,
                 pthread_cond_signal (&priv->janitor_cond);
         }
         pthread_mutex_unlock (&priv->janitor_lock);
-
-        op_ret = 0;
 
  out:
         return 0;
@@ -1095,11 +1093,6 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 
         gid = frame->root->gid;
 
-        op_ret = posix_lstat_with_gen (this, real_path, &stbuf);
-        if ((op_ret == -1) && (errno == ENOENT)){
-                was_present = 0;
-        }
-
         op_ret = setgid_override (this, real_path, &gid);
         if (op_ret < 0)
                 goto out;
@@ -1118,7 +1111,7 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
                         loc->path, strerror (op_errno));
                 goto out;
         }
- 
+
         op_ret = mknod (real_path, mode, dev);
 
         if (op_ret == -1) {
@@ -2255,7 +2248,6 @@ posix_open (call_frame_t *frame, xlator_t *this,
         if (op_ret == -1) {
                 if (_fd != -1) {
                         close (_fd);
-                        _fd = -1;
                 }
         }
 
@@ -2339,7 +2331,6 @@ posix_readv (call_frame_t *frame, xlator_t *this,
         vec.iov_base = iobuf->ptr;
         vec.iov_len  = op_ret;
 
-	op_ret = -1;
         iobref = iobref_new ();
 
         iobref_add (iobref, iobuf);
@@ -2605,7 +2596,6 @@ posix_flush (call_frame_t *frame, xlator_t *this,
 {
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
-        int               _fd      = -1;
         struct posix_fd * pfd      = NULL;
         int               ret      = -1;
 	uint64_t          tmp_pfd  = 0;
@@ -2623,10 +2613,6 @@ posix_flush (call_frame_t *frame, xlator_t *this,
         }
 	pfd = (struct posix_fd *)(long)tmp_pfd;
 
-        _fd = pfd->fd;
-
-        /* do nothing */
-
         op_ret = 0;
 
  out:
@@ -2640,9 +2626,6 @@ int32_t
 posix_release (xlator_t *this,
 	       fd_t *fd)
 {
-        int32_t                op_ret   = -1;
-        int32_t                op_errno = 0;
-        int                    _fd      = -1;
         struct posix_private * priv     = NULL;
         struct posix_fd *      pfd      = NULL;
         int                    ret      = -1;
@@ -2655,18 +2638,13 @@ posix_release (xlator_t *this,
 
         ret = fd_ctx_get (fd, this, &tmp_pfd);
         if (ret < 0) {
-                op_errno = -ret;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "pfd is NULL from fd=%p", fd);
                 goto out;
         }
 	pfd = (struct posix_fd *)(long)tmp_pfd;
 
-        _fd = pfd->fd;
-
         if (pfd->dir) {
-		op_ret = -1;
-                op_errno = EBADF;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "pfd->dir is %p (not NULL) for file fd=%p",
                         pfd->dir, fd);
@@ -2685,8 +2663,6 @@ posix_release (xlator_t *this,
                 priv->nr_files--;
         }
         UNLOCK (&priv->lock);
-
-        op_ret = 0;
 
  out:
         return 0;
@@ -2744,12 +2720,17 @@ posix_fsync (call_frame_t *frame, xlator_t *this,
                 ;
 #ifdef HAVE_FDATASYNC
                 op_ret = fdatasync (_fd);
+                if (op_ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "fdatasync on fd=%p failed: %s",
+                                fd, strerror (errno));
+                }
 #endif
         } else {
                 op_ret = fsync (_fd);
                 if (op_ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, 
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "fsync on fd=%p failed: %s",
                                 fd, strerror (op_errno));
                         goto out;
@@ -3115,14 +3096,14 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        ret = snprintf (gen_key, 1023, "trusted.%s.gen", this->name);
+        snprintf (gen_key, 1023, "trusted.%s.gen", this->name);
 
         size = sys_llistxattr (real_path, list, size);
 
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
-                if(*(list + list_offset) == '\0')
+                if (*(list + list_offset) == '\0')
                         break;
 
                 strcpy (key, list + list_offset);
@@ -3437,7 +3418,6 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
         int32_t           op_ret   = -1;
         int32_t           op_errno = 0;
         struct posix_fd * pfd      = NULL;
-        int               _fd      = -1;
         int               ret      = -1;
 	uint64_t          tmp_pfd  = 0;
 
@@ -3453,8 +3433,6 @@ posix_fsyncdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 	pfd = (struct posix_fd *)(long)tmp_pfd;
-
-        _fd = pfd->fd;
 
         op_ret = 0;
 
