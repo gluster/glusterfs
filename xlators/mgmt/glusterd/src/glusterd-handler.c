@@ -506,7 +506,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_probe_req               cli_req = {0,};
-
+	 glusterd_peerinfo_t		*peerinfo = NULL;
         GF_ASSERT (req);
 
         if (!gf_xdr_to_cli_probe_req (req->msg[0], &cli_req)) {
@@ -521,6 +521,14 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
 
 	 if (!(ret = glusterd_is_local_addr(cli_req.hostname))) {
 		 glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST,
+					       cli_req.hostname, cli_req.port);
+		 goto out;
+	 }
+	 if (!(ret = glusterd_friend_find_by_hostname(cli_req.hostname, 
+					  &peerinfo))) {
+		 gf_log ("glusterd", GF_LOG_NORMAL, "Probe host %s port %d"
+			 "already a friend", cli_req.hostname, cli_req.port);
+		 glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND,
 					       cli_req.hostname, cli_req.port);
 		 goto out;
 	 }
