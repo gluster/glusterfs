@@ -94,7 +94,7 @@ send_fuse_data (xlator_t *this, fuse_in_header_t *finh, void *data, size_t size)
 #define send_fuse_obj(this, finh, obj) \
         send_fuse_data (this, finh, obj, sizeof (*(obj)))
 
-static int
+int
 send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error)
 {
         struct fuse_out_header fouh = {0, };

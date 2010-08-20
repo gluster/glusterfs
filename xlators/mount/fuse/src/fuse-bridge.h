@@ -135,12 +135,21 @@ typedef struct fuse_private fuse_private_t;
                         free_fuse_state (state);                        \
                         return;                                         \
                 }                                                       \
-                xl = fuse_state_subvol (state);                         \
                                                                         \
                 frame->root->state = state;                             \
                 frame->root->op    = op_num;                            \
-		frame->op          = op_num;				\
-                STACK_WIND (frame, ret, xl, xl->fops->fop, args);       \
+                frame->op          = op_num;                            \
+                                                                        \
+                xl = fuse_state_subvol (state);                         \
+                if (!xl) {                                              \
+                        gf_log ("glusterfs-fuse", GF_LOG_ERROR,         \
+                                "xl is NULL");                          \
+                        send_fuse_err (state->this, state->finh, ENOENT); \
+                        free_fuse_state (state);                        \
+                        STACK_DESTROY (frame->root);                    \
+                } else {                                                \
+                        STACK_WIND (frame, ret, xl, xl->fops->fop, args); \
+                }                                                       \
         } while (0)
 
 
@@ -275,5 +284,5 @@ xlator_t *fuse_active_subvol (xlator_t *fuse);
 inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
 int is_gf_log_command (xlator_t *this, const char *name, char *value);
-
+int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);
 #endif /* _GF_FUSE_BRIDGE_H_ */
