@@ -185,6 +185,16 @@ def generate_volume_files ():
             except IOError, (errno, strerror):
                 print "Got %s creating client volfiles for transport '%s'" % (strerror, transport)
 
+        if options.need_nfs:
+            for transport in transports:
+                create_mnt = CreateVolfile (server_dict, None,
+                                            transport, transports,
+                                            options, server_array)
+                try:
+                    create_mnt.create_pmap_nfs_volfile ()
+                except IOError, (errno, strerror):
+                    print "Got %s creating nfs volfiles for transport '%s'" % (strerror, transport)
+
         return
 
     for server in server_dict.keys():
