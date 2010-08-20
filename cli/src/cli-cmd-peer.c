@@ -40,19 +40,19 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 void
 cli_cmd_probe_usage ()
 {
-        cli_out ("Usage: probe <hostname> [port]");
+        cli_out ("Usage: probe <hostname>");
 }
 
 void
 cli_cmd_deprobe_usage ()
 {
-        cli_out ("Usage: detach <hostname> [port]");
+        cli_out ("Usage: detach <hostname>");
 }
 
 void
 cli_cmd_peer_status_usage ()
 {
-        cli_out ("Usage: peer status <hostname> [port]");
+        cli_out ("Usage: peer status");
 }
 
 int
@@ -64,7 +64,7 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         dict_t                  *dict = NULL;
 
-        if (!((wordcount == 4) || (wordcount == 3))) {
+        if (!(wordcount == 3)) {
                 cli_cmd_probe_usage ();
                 goto out;
         }
@@ -83,12 +83,12 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret)
                 goto out;
 
-        if (words[3]) {
+/*        if (words[3]) {
                 ret = dict_set_str (dict, "port", (char *)words[3]);
                 if (ret)
                         goto out;
         }
-
+*/
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
@@ -109,7 +109,7 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t         *frame = NULL;
         dict_t               *dict  = NULL;
 
-        if (!((wordcount == 3) || (wordcount == 4))) {
+        if (!(wordcount == 3) ) {
                 cli_cmd_deprobe_usage ();
                 goto out;
         }
@@ -126,12 +126,12 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret)
                 goto out;
 
-        if (words[3]) {
+/*        if (words[3]) {
                 ret = dict_set_str (dict, "port", (char *)words[3]);
                 if (ret)
                         goto out;
         }
-
+*/
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
@@ -173,7 +173,7 @@ out:
 }
 
 struct cli_cmd cli_probe_cmds[] = {
-        { "peer probe <HOSTNAME> [PORT]",
+        { "peer probe <HOSTNAME>",
           cli_cmd_peer_probe_cbk,
           "probe peer specified by <HOSTNAME>"},
 
