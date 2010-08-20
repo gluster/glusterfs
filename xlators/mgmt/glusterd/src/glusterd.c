@@ -234,6 +234,7 @@ init (xlator_t *this)
                         gf_log (this->name, GF_LOG_CRITICAL,
                                 "Unable to create directory %s"
                                 " ,errno = %d", dirname, errno);
+                        exit (1);
                 }
         }
 
@@ -248,6 +249,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create volume directory %s"
                         " ,errno = %d", voldir, errno);
+                exit (1);
         }
 
         snprintf (voldir, PATH_MAX, "%s/peers", dirname);
@@ -258,6 +260,7 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_CRITICAL,
                         "Unable to create peers directory %s"
                         " ,errno = %d", voldir, errno);
+                exit (1);
         }
 
         rpc = rpcsvc_init (this->ctx, this->options);
