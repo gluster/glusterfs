@@ -1855,7 +1855,7 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                         ret = glusterd_volume_stop_glusterfs
                                                 (volinfo, brickinfo, mybrick);
                         if (ret) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to start "
+                                gf_log ("", GF_LOG_ERROR, "Unable to stop "
                                         "glusterfs, ret: %d", ret);
                                 goto out;
                         }
