@@ -771,7 +771,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                   "-s localhost --volfile-id %s -p %s --brick-name %s "
                   "--brick-port %d", GFS_PREFIX,
                   port, volfile, pidfile, brickinfo->path, port);
-        ret = system (cmd_str);
+        ret = gf_system (cmd_str);
 
         if (ret == 0) {
                 //pmap_registry_bind (THIS, port, brickinfo->path);
