@@ -328,5 +328,7 @@ int gf_unlockfd (int fd);
 int get_checksum_for_file (int fd, uint32_t *checksum);
 int log_base2 (unsigned long x);
 
+int gf_system (const char *command);
+
 #endif /* _COMMON_UTILS_H */
 

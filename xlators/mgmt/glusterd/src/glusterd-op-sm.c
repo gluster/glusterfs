@@ -294,7 +294,7 @@ glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
                                   " -c %s -r 1 %s -p %d --num-replica %d",
                                   GFS_PREFIX, volinfo->volname, path, bricks,
                                   volinfo->port, volinfo->sub_count);
-                        ret = system (cmd_str);
+                        ret = gf_system (cmd_str);
                         gf_log ("", 1, "%s", cmd_str);
                         break;
                 }
@@ -306,7 +306,7 @@ glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
                                   " -c %s -r 0 %s -p %d --num-stripe %d",
                                   GFS_PREFIX, volinfo->volname, path, bricks,
                                   volinfo->port, volinfo->sub_count);
-                        ret = system (cmd_str);
+                        ret = gf_system (cmd_str);
                         gf_log ("", 1, "%s", cmd_str);
                         break;
                 }
@@ -318,7 +318,7 @@ glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
                                   " -n %s -c %s %s -p %d",
                                   GFS_PREFIX, volinfo->volname, path, bricks,
                                   volinfo->port);
-                        ret = system (cmd_str);
+                        ret = gf_system (cmd_str);
                         gf_log ("", 1, "%s", cmd_str);
                         break;
                 }
@@ -1013,7 +1013,7 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
                   priv->workdir, volinfo->volname,
                   RB_DSTBRICK_PIDFILE);
 
-        ret = system (cmd_str);
+        ret = gf_system (cmd_str);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not start glusterfs");
@@ -1048,7 +1048,7 @@ rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
                   priv->workdir, volinfo->volname,
                   RB_CLIENT_MOUNTPOINT);
 
-        ret = system (cmd_str);
+        ret = gf_system (cmd_str);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not start glusterfs");
@@ -1255,11 +1255,11 @@ rb_destroy_maintainence_client (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        snprintf (cmd_str, 8192, "umount -f %s/vols/%s/%s",
+        snprintf (cmd_str, 8192, "/bin/umount -f %s/vols/%s/%s",
                   priv->workdir, volinfo->volname,
                   RB_CLIENT_MOUNTPOINT);
 
-        ret = system (cmd_str);
+        ret = gf_system (cmd_str);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "umount failed on maintainence client");
