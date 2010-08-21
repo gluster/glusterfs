@@ -73,10 +73,15 @@ enum argp_option_keys {
         ARGP_READ_ONLY_KEY = 148,
         ARGP_MAC_COMPAT_KEY = 149,
         ARGP_DUMP_FUSE_KEY = 150,
+        ARGP_BRICK_NAME_KEY = 151,
+        ARGP_BRICK_PORT_KEY = 152,
 };
 
 /* Moved here from fetch-spec.h */
 FILE *fetch_spec (glusterfs_ctx_t *ctx);
+
+int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);
+int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 
 
 #endif /* __GLUSTERFSD_H__ */

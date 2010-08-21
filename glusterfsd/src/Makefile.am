@@ -1,6 +1,6 @@
 sbin_PROGRAMS = glusterfsd
 
-glusterfsd_SOURCES = glusterfsd.c fetch-spec.c
+glusterfsd_SOURCES = glusterfsd.c glusterfsd-mgmt.c
 if GF_DARWIN_HOST_OS
 glusterfsd_SOURCES += $(CONTRIBDIR)/apple/daemon.c
 endif
