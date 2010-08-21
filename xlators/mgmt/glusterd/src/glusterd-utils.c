@@ -767,9 +767,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                   volinfo->volname, count);
 
         snprintf (cmd_str, 8192,
-                  "glusterfs --xlator-option server-*.listen-port=%d "
+                  "%s/sbin/glusterfs --xlator-option server-*.listen-port=%d "
                   "-s localhost --volfile-id %s -p %s --brick-name %s "
-                  "--brick-port %d",
+                  "--brick-port %d", GFS_PREFIX,
                   port, volfile, pidfile, brickinfo->path, port);
         ret = system (cmd_str);
 
