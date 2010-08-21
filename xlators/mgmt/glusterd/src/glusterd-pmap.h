@@ -51,5 +51,6 @@ struct pmap_registry {
 
 int pmap_registry_alloc (xlator_t *this);
 int pmap_registry_bind (xlator_t *this, int port, const char *brickname);
+int pmap_registry_remove (xlator_t *this, int port, const char *brickname);
 
 #endif

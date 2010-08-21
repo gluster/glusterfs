@@ -42,13 +42,44 @@ static size_t
 build_volfile_path (const char *volname, char *path,
                     size_t path_len)
 {
-        int32_t ret = -1;
-        glusterd_conf_t         *priv = NULL;
+        struct stat         stbuf       = {0,};
+        int32_t             ret         = -1;
+        glusterd_conf_t    *priv        = NULL;
+        char               *vol         = NULL;
+        char               *dup_volname = NULL;
+        char               *tmp         = NULL;
+        glusterd_volinfo_t *volinfo     = NULL;
 
         priv    = THIS->private;
+        dup_volname = gf_strdup (volname);
 
-        ret = snprintf (path, path_len, "%s/vols/%s/%s-tcp.vol",
-                        priv->workdir, volname, volname);
+        ret = glusterd_volinfo_find (dup_volname, &volinfo);
+        if (ret) {
+                /* Split the volume name */
+                vol = strtok_r (dup_volname, "-", &tmp);
+                if (!vol)
+                        goto out;
+                vol = strtok_r (NULL, "-", &tmp);
+                if (!vol)
+                        goto out;
+                ret = glusterd_volinfo_find (vol, &volinfo);
+                if (ret)
+                        goto out;
+        }
+        ret = snprintf (path, path_len, "%s/vols/%s/%s.vol",
+                        priv->workdir, volinfo->volname, volname);
+        if (ret == -1)
+                goto out;
+
+        ret = stat (path, &stbuf);
+        if ((ret == -1) && (errno == ENOENT))
+                ret = snprintf (path, path_len, "%s/vols/%s/%s-tcp.vol",
+                                priv->workdir, volinfo->volname, volname);
+
+        ret = 1;
+out:
+        if (dup_volname)
+                GF_FREE (dup_volname);
 
         return ret;
 }
@@ -139,6 +170,8 @@ fail:
         if (cookie)
                 rsp.op_errno = cookie;
 
+        if (!rsp.spec)
+                rsp.spec = "";
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (gd_serialize_t)xdr_serialize_getspec_rsp);

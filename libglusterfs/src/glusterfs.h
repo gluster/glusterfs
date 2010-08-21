@@ -241,6 +241,10 @@ struct _cmd_args {
 	/* key args */
 	char            *mount_point;
 	char            *volfile_id;
+
+        /* required for portmap */
+        int             brick_port;
+        char           *brick_name;
 };
 typedef struct _cmd_args cmd_args_t;
 

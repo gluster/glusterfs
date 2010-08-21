@@ -157,7 +157,11 @@ static struct argp_option gf_options[] = {
 #else
          "[default: \"off\"]"
 #endif
-         },
+        },
+        {"brick-name", ARGP_BRICK_NAME_KEY, "BRICK-NAME", OPTION_HIDDEN,
+         "Brick name to be registered with Gluster portmapper" },
+        {"brick-port", ARGP_BRICK_PORT_KEY, "BRICK-PORT", OPTION_HIDDEN,
+         "Brick Port to be registered with Gluster portmapper" },
 
         {0, 0, 0, 0, "Fuse options:"},
         {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
@@ -574,6 +578,20 @@ parse_opts (int key, char *arg, struct argp_state *state)
         case ARGP_DUMP_FUSE_KEY:
                 cmd_args->dump_fuse = gf_strdup (arg);
                 break;
+        case ARGP_BRICK_NAME_KEY:
+                cmd_args->brick_name = gf_strdup (arg);
+                break;
+        case ARGP_BRICK_PORT_KEY:
+                n = 0;
+
+                if (gf_string2uint_base10 (arg, &n) == 0) {
+                        cmd_args->brick_port = n;
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown brick (listen) port %s", arg);
+                break;
         }
 
         return 0;
@@ -588,13 +606,16 @@ cleanup_and_exit (int signum)
 
         ctx = glusterfs_ctx_get ();
 
+        /* TODO: is this the right place? */
+        glusterfs_mgmt_pmap_signout (ctx);
+
         gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
 
         tmp_pool = ctx->pool;
         mem_pool_destroy (tmp_pool->frame_mem_pool);
         mem_pool_destroy (tmp_pool->stack_mem_pool);
         tmp_pool = NULL;
-	 mem_pool_destroy (ctx->stub_mem_pool);
+        mem_pool_destroy (ctx->stub_mem_pool);
 
         glusterfs_pidfile_cleanup (ctx);
 

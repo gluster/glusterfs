@@ -763,16 +763,18 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         port = pmap_registry_alloc (THIS);
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname, count);
-        snprintf (volfile, PATH_MAX, "%s/%s-%s-%d.vol", path,
-                  brickinfo->hostname, volinfo->volname, count);
+        snprintf (volfile, PATH_MAX, "%s-%s-%d", brickinfo->hostname,
+                  volinfo->volname, count);
 
         snprintf (cmd_str, 8192,
-                  "glusterfs --xlator-option server-*.listen-port=%d -f %s -p %s",
-                  port, volfile, pidfile);
+                  "glusterfs --xlator-option server-*.listen-port=%d "
+                  "-s localhost --volfile-id %s -p %s --brick-name %s "
+                  "--brick-port %d",
+                  port, volfile, pidfile, brickinfo->path, port);
         ret = system (cmd_str);
 
         if (ret == 0) {
-                pmap_registry_bind (THIS, port, brickinfo->path);
+                //pmap_registry_bind (THIS, port, brickinfo->path);
                 brickinfo->port = port;
         }
 out:
@@ -831,6 +833,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                 gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
                 goto out;
         }
+
+        //pmap_registry_remove (THIS, brickinfo->port, brickinfo->path);
 
         ret = unlink (pidfile);
 

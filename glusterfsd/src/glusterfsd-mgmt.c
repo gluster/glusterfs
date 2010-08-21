@@ -36,9 +36,29 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 #include "glusterfs3.h"
+#include "portmap.h"
 
+static char is_mgmt_rpc_reconnect;
 
 typedef ssize_t (*mgmt_serialize_t) (struct iovec outmsg, void *args);
+
+
+char *clnt_pmap_procs[GF_PMAP_MAXVALUE] = {
+        [GF_PMAP_NULL]        = "NULL",
+        [GF_PMAP_PORTBYBRICK] = "PORTBYBRICK",
+        [GF_PMAP_BRICKBYPORT] = "BRICKBYPORT",
+        [GF_PMAP_SIGNIN]      = "SIGNIN",
+        [GF_PMAP_SIGNOUT]     = "SIGNOUT",
+        [GF_PMAP_SIGNUP]      = "SIGNUP",
+};
+
+
+rpc_clnt_prog_t clnt_pmap_prog = {
+        .progname  = "Gluster Portmap",
+        .prognum   = GLUSTER_PMAP_PROGRAM,
+        .progver   = GLUSTER_PMAP_VERSION,
+        .procnames = clnt_pmap_procs,
+};
 
 char *clnt_handshake_procs[GF_HNDSK_MAXVALUE] = {
         [GF_HNDSK_NULL]         = "NULL",
@@ -55,6 +75,7 @@ rpc_clnt_prog_t clnt_handshake_prog = {
 };
 
 
+int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
 int glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp);
 
@@ -161,13 +182,16 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         fwrite (rsp.spec, size, 1, tmpfp);
         fflush (tmpfp);
 
-
         ret = glusterfs_process_volfp (ctx, tmpfp);
         if (ret)
                 goto out;
 
         oldvollen = size;
         memcpy (oldvolfile, rsp.spec, size);
+        if (!is_mgmt_rpc_reconnect) {
+                glusterfs_mgmt_pmap_signin (ctx);
+                is_mgmt_rpc_reconnect = 1;
+        }
 
 out:
         tv.tv_sec = 1;
@@ -191,7 +215,6 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         gf_getspec_req    req = {0, };
         int               ret = 0;
         call_frame_t     *frame = NULL;
-
 
         {
                 if (timer)
@@ -230,6 +253,8 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 ret =  glusterfs_volfile_fetch (ctx);
 
+                if (is_mgmt_rpc_reconnect)
+                        glusterfs_mgmt_pmap_signin (ctx);
                 break;
         default:
                 break;
@@ -297,3 +322,130 @@ out:
         return ret;
 }
 
+
+static int
+mgmt_pmap_signin_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                      void *myframe)
+{
+        pmap_signin_rsp  rsp   = {0,};
+        call_frame_t    *frame = NULL;
+        int              ret   = 0;
+
+        frame = myframe;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        ret = xdr_to_pmap_signin_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "error");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        if (-1 == rsp.op_ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to register the port with glusterd");
+                goto out;
+        }
+out:
+
+        STACK_DESTROY (frame->root);
+        return 0;
+}
+
+int
+glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx)
+{
+        call_frame_t     *frame = NULL;
+        pmap_signin_req   req = {0, };
+        int               ret = -1;
+        cmd_args_t       *cmd_args = NULL;
+
+        frame = create_frame (THIS, ctx->pool);
+        cmd_args = &ctx->cmd_args;
+
+        if (!cmd_args->brick_port || !cmd_args->brick_name) {
+                gf_log ("fsd-mgmt", GF_LOG_DEBUG,
+                        "portmapper signin arguments not given");
+                goto out;
+        }
+
+        req.port  = cmd_args->brick_port;
+        req.brick = cmd_args->brick_name;
+
+        ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
+                                   GF_PMAP_SIGNIN, xdr_from_pmap_signin_req,
+                                   mgmt_pmap_signin_cbk);
+
+out:
+        return ret;
+}
+
+
+static int
+mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                       void *myframe)
+{
+        pmap_signout_rsp  rsp   = {0,};
+        call_frame_t    *frame = NULL;
+        int              ret   = 0;
+
+        frame = myframe;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        ret = xdr_to_pmap_signout_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log (frame->this->name, GF_LOG_ERROR, "error");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        if (-1 == rsp.op_ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to register the port with glusterd");
+                goto out;
+        }
+out:
+        if (frame)
+                STACK_DESTROY (frame->root);
+        return 0;
+}
+
+
+int
+glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx)
+{
+        int               ret = 0;
+        pmap_signout_req  req = {0, };
+        call_frame_t     *frame = NULL;
+        cmd_args_t       *cmd_args = NULL;
+
+        frame = create_frame (THIS, ctx->pool);
+        cmd_args = &ctx->cmd_args;
+
+        if (!cmd_args->brick_port || !cmd_args->brick_name) {
+                gf_log ("fsd-mgmt", GF_LOG_DEBUG,
+                        "portmapper signout arguments not given");
+                goto out;
+        }
+
+        req.port  = cmd_args->brick_port;
+        req.brick = cmd_args->brick_name;
+
+        ret = mgmt_submit_request (&req, frame, ctx, &clnt_pmap_prog,
+                                   GF_PMAP_SIGNOUT, xdr_from_pmap_signout_req,
+                                   mgmt_pmap_signout_cbk);
+out:
+        return ret;
+}

@@ -125,6 +125,25 @@ pmap_registry_search (xlator_t *this, const char *brickname)
 }
 
 
+char *
+pmap_registry_search_by_port (xlator_t *this, int port)
+{
+        struct pmap_registry *pmap = NULL;
+        char *brickname = NULL;
+
+        if (port > 65535)
+                goto out;
+
+        pmap = pmap_registry_get (this);
+
+        if (pmap->ports[port].used)
+                brickname = pmap->ports[port].brickname;
+
+out:
+        return brickname;
+}
+
+
 int
 pmap_registry_alloc (xlator_t *this)
 {
@@ -171,6 +190,26 @@ out:
         return 0;
 }
 
+int
+pmap_registry_remove (xlator_t *this, int port, const char *brickname)
+{
+        struct pmap_registry *pmap = NULL;
+        int                   p = 0;
+
+        pmap = pmap_registry_get (this);
+
+        if (port > 65535)
+                goto out;
+
+        p = port;
+        pmap->ports[p].used = 0;
+        if (pmap->ports[p].brickname)
+                free (pmap->ports[p].brickname);
+
+out:
+        return 0;
+}
+
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *data);
 
@@ -200,7 +239,6 @@ gluster_pmap_portbybrick (rpcsvc_request_t *req)
         char                     *brick = NULL;
         int                       port = 0;
 
-
         if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_port_by_brick_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
@@ -229,13 +267,16 @@ gluster_pmap_brickbyport (rpcsvc_request_t *req)
         pmap_brick_by_port_req    args = {0,};
         pmap_brick_by_port_rsp    rsp  = {0,};
 
-
         if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_brick_by_port_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
 
-
+        rsp.brick = pmap_registry_search_by_port (THIS, args.port);
+        if (!rsp.brick) {
+                rsp.op_ret = -1;
+                rsp.brick = "";
+        }
 fail:
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -258,6 +299,7 @@ gluster_pmap_signup (rpcsvc_request_t *req)
                 goto fail;
         }
 
+        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -273,12 +315,13 @@ gluster_pmap_signin (rpcsvc_request_t *req)
         pmap_signin_req    args = {0,};
         pmap_signin_rsp    rsp  = {0,};
 
-
         if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_signin_req)) {
                 req->rpc_err = GARBAGE_ARGS;
                 goto fail;
         }
 
+
+        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -302,6 +345,7 @@ gluster_pmap_signout (rpcsvc_request_t *req)
                 goto fail;
         }
 
+        rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
