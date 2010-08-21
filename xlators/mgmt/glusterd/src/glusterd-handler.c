@@ -863,10 +863,10 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s-tcp.vol "
+                snprintf (cmd_str, 4096, "%s/sbin/glusterfs -f %s/vols/%s/%s-tcp.vol "
                           "--xlator-option dht0.unhashed-sticky-bit=yes "
                           "--xlator-option dht0.lookup-unhashed=yes "
-                          "--volume-name quickread %s",
+                          "--volume-name quickread %s", GFS_PREFIX,
                           priv->workdir, cli_req.volname, cli_req.volname,
                           defrag->mount);
                 ret = system (cmd_str);

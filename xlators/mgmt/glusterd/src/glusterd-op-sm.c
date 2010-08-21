@@ -290,34 +290,36 @@ glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
                 case GF_CLUSTER_TYPE_REPLICATE:
                 {
                         snprintf (cmd_str, 8192,
-                                  "glusterfs-volgen --portmapper-mode -n %s "
+                                  "%s/bin/glusterfs-volgen --portmapper-mode -n %s "
                                   " -c %s -r 1 %s -p %d --num-replica %d",
-                                  volinfo->volname, path, bricks,
+                                  GFS_PREFIX, volinfo->volname, path, bricks,
                                   volinfo->port, volinfo->sub_count);
                         ret = system (cmd_str);
+                        gf_log ("", 1, "%s", cmd_str);
                         break;
                 }
 
                 case GF_CLUSTER_TYPE_STRIPE:
                 {
                         snprintf (cmd_str, 8192,
-                                  "glusterfs-volgen --portmapper-mode -n %s "
+                                  "%s/bin/glusterfs-volgen --portmapper-mode -n %s "
                                   " -c %s -r 0 %s -p %d --num-stripe %d",
-                                  volinfo->volname, path, bricks,
+                                  GFS_PREFIX, volinfo->volname, path, bricks,
                                   volinfo->port, volinfo->sub_count);
                         ret = system (cmd_str);
+                        gf_log ("", 1, "%s", cmd_str);
                         break;
                 }
 
                 case GF_CLUSTER_TYPE_NONE:
                 {
                         snprintf (cmd_str, 8192,
-                                  "glusterfs-volgen --portmapper-mode -n %s "
-                                  " -c %s %s -p %d",
-                                  volinfo->volname, path, bricks,
+                                  "%s/bin/glusterfs-volgen --portmapper-mode "
+                                  " -n %s -c %s %s -p %d",
+                                  GFS_PREFIX, volinfo->volname, path, bricks,
                                   volinfo->port);
-                        gf_log ("", 1, "%s", cmd_str);
                         ret = system (cmd_str);
+                        gf_log ("", 1, "%s", cmd_str);
                         break;
                 }
 
@@ -1004,8 +1006,9 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
 
         priv = THIS->private;
 
-        snprintf (cmd_str, 8192, "glusterfs -f %s/vols/%s/%s -p %s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
+        snprintf (cmd_str, 8192,
+                  "%s/sbin/glusterfs -f %s/vols/%s/%s -p %s/vols/%s/%s",
+                  GFS_PREFIX, priv->workdir, volinfo->volname,
                   RB_DSTBRICKVOL_FILENAME,
                   priv->workdir, volinfo->volname,
                   RB_DSTBRICK_PIDFILE);
@@ -1038,8 +1041,9 @@ rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
 
         priv = THIS->private;
 
-        snprintf (cmd_str, 4096, "glusterfs -f %s/vols/%s/%s %s/vols/%s/%s",
-                  priv->workdir, volinfo->volname,
+        snprintf (cmd_str, 4096,
+                  "%s/sbin/glusterfs -f %s/vols/%s/%s %s/vols/%s/%s",
+                  GFS_PREFIX, priv->workdir, volinfo->volname,
                   RB_CLIENTVOL_FILENAME,
                   priv->workdir, volinfo->volname,
                   RB_CLIENT_MOUNTPOINT);
