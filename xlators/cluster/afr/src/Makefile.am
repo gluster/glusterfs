@@ -1,7 +1,7 @@
 xlator_LTLIBRARIES = afr.la pump.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 
-afr_common_source = afr-dir-read.c afr-dir-write.c afr-inode-read.c afr-inode-write.c afr-open.c afr-transaction.c afr-self-heal-data.c afr-self-heal-common.c afr-self-heal-metadata.c afr-self-heal-entry.c afr-self-heal-algorithm.c
+afr_common_source = afr-dir-read.c afr-dir-write.c afr-inode-read.c afr-inode-write.c afr-open.c afr-transaction.c afr-self-heal-data.c afr-self-heal-common.c afr-self-heal-metadata.c afr-self-heal-entry.c afr-self-heal-algorithm.c afr-lk-common.c
 
 afr_la_LDFLAGS = -module -avoidversion
 afr_la_SOURCES = $(afr_common_source) afr.c

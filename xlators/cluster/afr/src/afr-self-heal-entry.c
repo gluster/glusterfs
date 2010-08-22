@@ -49,7 +49,8 @@
 #include "afr-self-heal.h"
 #include "afr-self-heal-common.h"
 
-
+int
+afr_sh_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this);
 
 int
 afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
@@ -57,7 +58,6 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
-        int              i = 0;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -71,9 +71,9 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
                 fd_unref (sh->healing_fd);
         sh->healing_fd = NULL;
 
-        for (i = 0; i < priv->child_count; i++) {
-                sh->locked_nodes[i] = 0;
-        }
+/*         for (i = 0; i < priv->child_count; i++) { */
+/*                 sh->locked_nodes[i] = 0; */
+/*         } */
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"self heal of %s completed",
@@ -86,90 +86,18 @@ afr_sh_entry_done (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_sh_entry_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			int32_t op_ret, int32_t op_errno)
-{
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	int           call_count = 0;
-	int           child_index = (long) cookie;
-
-	/* TODO: what if lock fails? */
-	
-	local = frame->local;
-	sh = &local->self_heal;
-
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"unlocking inode of %s on child %d failed: %s",
-				local->loc.path, child_index,
-				strerror (op_errno));
-		} else {
-			gf_log (this->name, GF_LOG_TRACE,
-				"unlocked inode of %s on child %d",
-				local->loc.path, child_index);
-		}
-	}
-	UNLOCK (&frame->lock);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		afr_sh_entry_done (frame, this);
-	}
-
-	return 0;
-}
-
-
-int
 afr_sh_entry_unlock (call_frame_t *frame, xlator_t *this)
 {
-	int i = 0;				
-	int call_count = 0;		     
+        afr_local_t         *local    = NULL;
+        afr_internal_lock_t *int_lock = NULL;
 
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
-	afr_self_heal_t * sh  = NULL;
+        local    = frame->local;
+        int_lock = &local->internal_lock;
 
+        int_lock->lock_cbk = afr_sh_entry_done;
+        afr_unlock (frame, this);
 
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->locked_nodes[i])
-                        call_count++;
-        }
-
-        if (call_count == 0) {
-                afr_sh_entry_done (frame, this);
-                return 0;
-        }
-
-	local->call_count = call_count;		
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (sh->locked_nodes[i]) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"unlocking %s on subvolume %s",
-				local->loc.path, priv->children[i]->name);
-
-			STACK_WIND_COOKIE (frame, afr_sh_entry_unlck_cbk,
-					   (void *) (long) i,
-					   priv->children[i], 
-					   priv->children[i]->fops->entrylk,
-                                           this->name,
-					   &local->loc, NULL,
-					   ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-			if (!--call_count)
-				break;
-		}
-	}
-
-	return 0;
+        return 0;
 }
 
 
@@ -376,8 +304,8 @@ build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 	if (strcmp (parent->path, "/") == 0)
 		ret = gf_asprintf ((char **)&child->path, "/%s", name);
 	else
-		ret = gf_asprintf ((char **)&child->path, "%s/%s", 
-                                   parent->path, name);
+		ret = gf_asprintf ((char **)&child->path, "%s/%s", parent->path, 
+                                name);
 
         if (-1 == ret) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -546,8 +474,8 @@ make_trash_path (const char *path)
         char *c  = NULL;
         char *tp = NULL;
 
-        tp = GF_CALLOC (strlen ("/" GF_REPLICATE_TRASH_DIR) + strlen (path) + 1, 
-                        sizeof (char), gf_afr_mt_char);
+        tp = GF_CALLOC (strlen ("/" GF_REPLICATE_TRASH_DIR) + strlen (path) + 1, sizeof (char),
+                        gf_afr_mt_char);
 
         strcpy (tp, GF_REPLICATE_TRASH_DIR);
         strcat (tp, path);
@@ -1338,7 +1266,8 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
         parentbuf     = impunge_sh->parentbuf;
         setattr_frame = copy_frame (impunge_frame);
 
-        parent_loc = GF_CALLOC (1, sizeof (*parent_loc), gf_afr_mt_loc_t);
+        parent_loc = GF_CALLOC (1, sizeof (*parent_loc),
+                                gf_afr_mt_loc_t);
         afr_build_parent_loc (parent_loc, &impunge_local->loc);
 
 	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_xattrop_cbk,
@@ -2437,93 +2366,76 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
 	return 0;
 }
 
-
-
 int
-afr_sh_entry_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		       int32_t op_ret, int32_t op_errno)
+afr_sh_post_blocking_entry_cbk (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	int              call_count = 0;
-	int              child_index = (long) cookie;
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
 
-	/* TODO: what if lock fails? */
-	
-	local = frame->local;
-	sh    = &local->self_heal;
+        local    = frame->local;
+        int_lock = &local->internal_lock;
 
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			sh->op_failed = 1;
+        if (int_lock->lock_op_ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Blocking entrylks failed.");
+                afr_sh_entry_done (frame, this);
+        } else {
 
-                        sh->locked_nodes[child_index] = 0;
-			gf_log (this->name, GF_LOG_DEBUG,
-				"locking inode of %s on child %d failed: %s",
-				local->loc.path, child_index,
-				strerror (op_errno));
-		} else {
-                        sh->locked_nodes[child_index] = 1;
-			gf_log (this->name, GF_LOG_TRACE,
-				"inode of %s on child %d locked",
-				local->loc.path, child_index);
-		}
-	}
-	UNLOCK (&frame->lock);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Blocking entrylks done. Proceeding to FOP");
+                afr_sh_entry_lookup(frame, this);
+        }
 
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		if (sh->op_failed == 1) {
-			afr_sh_entry_finish (frame, this);
-			return 0;
-		}
-
-		afr_sh_entry_lookup (frame, this);
-	}
-
-	return 0;
+        return 0;
 }
 
+int
+afr_sh_post_nonblocking_entry_cbk (call_frame_t *frame, xlator_t *this)
+{
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+
+        /* Initiate blocking locks if non-blocking has failed */
+        if (int_lock->lock_op_ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Non blocking entrylks failed. Proceeding to blocking");
+                int_lock->lock_cbk = afr_sh_post_blocking_entry_cbk;
+                afr_blocking_lock (frame, this);
+        } else {
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Non blocking entrylks done. Proceeding to FOP");
+                afr_sh_entry_lookup(frame, this);
+        }
+
+        return 0;
+}
 
 int
 afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
 {
-	int i = 0;				
-	int call_count = 0;		     
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+        afr_self_heal_t     *sh       = NULL;
 
-	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
-	afr_self_heal_t * sh  = NULL;
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+        sh       = &local->self_heal;
 
+        int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
+        int_lock->selfheal_lk_type    = AFR_ENTRY_SELF_HEAL_LK;
 
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+        afr_set_lock_number (frame, this);
 
-	call_count = afr_up_children_count (priv->child_count,
-                                            local->child_up);
+        int_lock->lk_basename = NULL;
+        int_lock->lk_loc      = &local->loc;
+        int_lock->lock_cbk    = afr_sh_post_nonblocking_entry_cbk;
 
-	local->call_count = call_count;		
+        afr_nonblocking_entrylk (frame, this);
 
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"locking %s on subvolume %s",
-				local->loc.path, priv->children[i]->name);
-
-			STACK_WIND_COOKIE (frame, afr_sh_entry_lock_cbk,
-					   (void *) (long) i,
-					   priv->children[i], 
-					   priv->children[i]->fops->entrylk,
-                                           this->name,
-					   &local->loc, NULL,
-					   ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
-			if (!--call_count)
-				break;
-		}
-	}
 
 	return 0;
 }

@@ -65,9 +65,9 @@ afr_sh_metadata_done (call_frame_t *frame, xlator_t *this)
 	memset (sh->buf, 0, sizeof (struct stat) * priv->child_count);
 	memset (sh->success, 0, sizeof (int) * priv->child_count);
 
-        for (i = 0; i < priv->child_count; i++) {
-                sh->locked_nodes[i] = 1;
-        }
+/*         for (i = 0; i < priv->child_count; i++) { */
+/*                 sh->locked_nodes[i] = 1; */
+/*         } */
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->xattr[i])
@@ -125,54 +125,25 @@ afr_sh_metadata_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
+int
+afr_sh_inode_unlock (call_frame_t *frame, xlator_t *this)
+{
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+
+        int_lock->lock_cbk = afr_sh_metadata_done;
+        afr_unlock (frame, this);
+
+        return 0;
+}
 
 int
 afr_sh_metadata_finish (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
-	int              i = 0;
-	int              call_count = 0;
-	struct flock     flock = {0, };
-
-
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
-
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->locked_nodes[i])
-                        call_count++;
-        }
-
-        if (call_count == 0) {
-                afr_sh_metadata_done (frame, this);
-                return 0;
-        }
-
-	local->call_count = call_count;
-
-	for (i = 0; i < priv->child_count; i++) {
-		flock.l_start   = 0;
-		flock.l_len     = 0;
-		flock.l_type    = F_UNLCK;
-
-		if (sh->locked_nodes[i]) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"unlocking %s on subvolume %s",
-				local->loc.path, priv->children[i]->name);
-
-			STACK_WIND (frame, afr_sh_metadata_unlck_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->inodelk,
-                                    this->name,
-				    &local->loc, F_SETLK, &flock);
-
-			if (!--call_count)
-				break;
-		}
-	}
+        afr_sh_inode_unlock (frame, this);
 
 	return 0;
 }
@@ -699,97 +670,77 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 	return 0;
 }
 
+int
+afr_sh_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
+{
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+
+        if (int_lock->lock_op_ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Blocking inodelks failed.");
+                afr_sh_metadata_done (frame, this);
+        } else {
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Blocking inodelks done. Proceeding to FOP");
+                afr_sh_metadata_lookup (frame, this);
+        }
+
+        return 0;
+}
 
 int
-afr_sh_metadata_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			int32_t op_ret, int32_t op_errno)
+afr_sh_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
-	int              call_count = 0;
-	int              child_index = (long) cookie;
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
 
-	/* TODO: what if lock fails? */
-	
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+        local    = frame->local;
+        int_lock = &local->internal_lock;
 
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			sh->op_failed = 1;
+        /* Initiate blocking locks if non-blocking has failed */
+        if (int_lock->lock_op_ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Non blocking inodelks failed. Proceeding to blocking");
+                int_lock->lock_cbk = afr_sh_post_blocking_inodelk_cbk;
+                afr_blocking_lock (frame, this);
+        } else {
 
-                        sh->locked_nodes[child_index] = 0;
-			gf_log (this->name, GF_LOG_DEBUG,
-				"locking of %s on child %d failed: %s",
-				local->loc.path, child_index,
-				strerror (op_errno));
-		} else {
-                        sh->locked_nodes[child_index] = 1;
-			gf_log (this->name, GF_LOG_TRACE,
-				"inode of %s on child %d locked",
-				local->loc.path, child_index);
-		}
-	}
-	UNLOCK (&frame->lock);
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Non blocking inodelks done. Proceeding to FOP");
+                afr_sh_metadata_lookup (frame, this);
+        }
 
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		if (sh->op_failed) {
-			afr_sh_metadata_finish (frame, this);
-			return 0;
-		}
-
-		afr_sh_metadata_lookup (frame, this);
-	}
-
-	return 0;
+        return 0;
 }
 
 
 int
 afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
-	int              i = 0;
-	int              call_count = 0;
-	struct flock     flock = {0, };
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+        afr_self_heal_t     *sh       = NULL;
 
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+        sh       = &local->self_heal;
 
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+        int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
+        int_lock->selfheal_lk_type    = AFR_METADATA_SELF_HEAL_LK;
 
-	call_count = afr_up_children_count (priv->child_count,
-                                            local->child_up);
-	local->call_count = call_count;
+        afr_set_lock_number (frame, this);
 
-	for (i = 0; i < priv->child_count; i++) {
-		flock.l_start   = 0;
-		flock.l_len     = 0;
-		flock.l_type    = F_WRLCK;
+        int_lock->lk_flock.l_start = 0;
+        int_lock->lk_flock.l_len   = 0;
+        int_lock->lk_flock.l_type  = F_WRLCK;
+        int_lock->lock_cbk         = afr_sh_post_nonblocking_inodelk_cbk;
 
-		if (local->child_up[i]) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"locking %s on subvolume %s",
-				local->loc.path, priv->children[i]->name);
-
-			STACK_WIND_COOKIE (frame, afr_sh_metadata_lk_cbk,
-					   (void *) (long) i,
-					   priv->children[i],
-					   priv->children[i]->fops->inodelk,
-                                           this->name,
-					   &local->loc, F_SETLK, &flock);
-
-			if (!--call_count)
-				break;
-		}
-	}
+        afr_nonblocking_inodelk (frame, this);
 
 	return 0;
 }

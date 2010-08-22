@@ -1358,66 +1358,92 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
 }
 
 
-static int
-sh_missing_entries_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			   int32_t op_ret, int32_t op_errno)
+
+int
+afr_sh_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	int              call_count = 0;
-	int              child_index = (long) cookie;
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
 
+        local    = frame->local;
+        int_lock = &local->internal_lock;
 
-	local = frame->local;
-	sh    = &local->self_heal;
+        if (int_lock->lock_op_ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Blocking entrylks failed.");
+                afr_sh_missing_entries_done (frame, this);
+        } else {
 
-	LOCK (&frame->lock);
-	{
-		if (op_ret == -1) {
-			sh->op_failed = 1;
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Blocking entrylks done. Proceeding to FOP");
+                sh_missing_entries_lookup (frame, this);
+        }
 
-                        sh->locked_nodes[child_index] = 0;
-			gf_log (this->name, GF_LOG_DEBUG,
-				"locking inode of %s on child %d failed: %s",
-				local->loc.path, child_index,
-				strerror (op_errno));
-		} else {
-                        sh->locked_nodes[child_index] = 1;
-			gf_log (this->name, GF_LOG_TRACE,
-				"inode of %s on child %d locked",
-				local->loc.path, child_index);
-		}
-	}
-	UNLOCK (&frame->lock);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		if (sh->op_failed == 1) {
-			sh_missing_entries_finish (frame, this);
-			return 0;
-		}
-
-		sh_missing_entries_lookup (frame, this);
-	}
-
-	return 0;
+        return 0;
 }
 
+int
+afr_sh_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
+{
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+
+        /* Initiate blocking locks if non-blocking has failed */
+        if (int_lock->lock_op_ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Non blocking entrylks failed. Proceeding to blocking");
+                int_lock->lock_cbk = afr_sh_post_blocking_entrylk_cbk;
+                afr_blocking_lock (frame, this);
+        } else {
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Non blocking entrylks done. Proceeding to FOP");
+                sh_missing_entries_lookup (frame, this);
+        }
+
+        return 0;
+}
+
+static int
+afr_sh_entrylk (call_frame_t *frame, xlator_t *this)
+{
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+        afr_self_heal_t     *sh       = NULL;
+
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+        sh       = &local->self_heal;
+
+        int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
+        int_lock->selfheal_lk_type    = AFR_ENTRY_SELF_HEAL_LK;
+
+        afr_set_lock_number (frame, this);
+
+        int_lock->lk_basename = local->loc.name;
+        int_lock->lk_loc      = &sh->parent_loc;
+        int_lock->lock_cbk    = afr_sh_post_nonblocking_entrylk_cbk;
+
+        afr_nonblocking_entrylk (frame, this);
+
+        return 0;
+}
 
 static int
 afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
-	int              i = 0;
-	int              call_count = 0;
+        afr_internal_lock_t *int_lock = NULL;
+	afr_local_t         *local    = NULL;
+	afr_self_heal_t     *sh       = NULL;
+	afr_private_t       *priv     = NULL;
 
-
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+	local    = frame->local;
+        int_lock = &local->internal_lock;
+	sh       = &local->self_heal;
+	priv     = this->private;
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"attempting to recreate missing entries for path=%s",
@@ -1425,28 +1451,9 @@ afr_self_heal_missing_entries (call_frame_t *frame, xlator_t *this)
 
 	afr_build_parent_loc (&sh->parent_loc, &local->loc);
 
-	call_count = afr_up_children_count (priv->child_count,
-                                            local->child_up);
-
-	local->call_count = call_count;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (local->child_up[i]) {
-			STACK_WIND_COOKIE (frame, sh_missing_entries_lk_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->entrylk,
-                                           this->name,
-                                           &sh->parent_loc, local->loc.name,
-                                           ENTRYLK_LOCK_NB, ENTRYLK_WRLCK);
-			if (!--call_count)
-				break;
-		}
- 	}
-
+        afr_sh_entrylk (frame, this);
 	return 0;
 }
-
 
 afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
 {
@@ -1490,6 +1497,38 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
                 lc->cont.lookup.inode = inode_ref (l->cont.lookup.inode);
         if (l->cont.lookup.xattr)
                 lc->cont.lookup.xattr = dict_ref (l->cont.lookup.xattr);
+        if (l->internal_lock.inode_locked_nodes)
+                lc->internal_lock.inode_locked_nodes =
+                        memdup (l->internal_lock.inode_locked_nodes,
+                                priv->child_count);
+        else
+                lc->internal_lock.inode_locked_nodes =
+                        GF_CALLOC (sizeof (*l->internal_lock.inode_locked_nodes),
+                                   priv->child_count,
+                                   gf_afr_mt_char);
+        if (l->internal_lock.entry_locked_nodes)
+                lc->internal_lock.entry_locked_nodes =
+                        memdup (l->internal_lock.entry_locked_nodes,
+                                priv->child_count);
+        else
+                lc->internal_lock.entry_locked_nodes =
+                        GF_CALLOC (sizeof (*l->internal_lock.entry_locked_nodes),
+                                   priv->child_count,
+                                   gf_afr_mt_char);
+        if (l->internal_lock.locked_nodes)
+                lc->internal_lock.locked_nodes =
+                        memdup (l->internal_lock.locked_nodes,
+                                priv->child_count);
+        else
+                lc->internal_lock.locked_nodes =
+                        GF_CALLOC (sizeof (*l->internal_lock.locked_nodes),
+                                   priv->child_count,
+                                   gf_afr_mt_char);
+
+        lc->internal_lock.inodelk_lock_count =
+                l->internal_lock.inodelk_lock_count;
+        lc->internal_lock.entrylk_lock_count =
+                l->internal_lock.entrylk_lock_count;
 
         return lc;
 }

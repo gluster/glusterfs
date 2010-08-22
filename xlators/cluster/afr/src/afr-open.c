@@ -217,8 +217,9 @@ afr_up_down_flush_open_cbk (call_frame_t *frame, void *cookie,
                             xlator_t *this, int32_t op_ret, int32_t op_errno,
                             fd_t *fd)
 {
-        afr_local_t *local  = NULL;
-        afr_private_t *priv = NULL;
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+        afr_private_t       *priv     = NULL;
 
         int ret = 0;
 
@@ -228,8 +229,9 @@ afr_up_down_flush_open_cbk (call_frame_t *frame, void *cookie,
         int call_count  = 0;
         int child_index = (long) cookie;
 
-        priv  = this->private;
-        local = frame->local;
+        priv     = this->private;
+        local    = frame->local;
+        int_lock = &local->internal_lock;
 
         LOCK (&frame->lock);
         {
@@ -255,6 +257,7 @@ out:
         call_count = afr_frame_return (frame);
 
         if (call_count == 0) {
+                int_lock->lock_cbk = local->transaction.done;
                 local->transaction.post_post_op (frame, this);
         }
 
@@ -434,6 +437,9 @@ out:
 
         afr_local_transaction_cleanup (local, this);
 
+        gf_log (this->name, GF_LOG_TRACE,
+                "The up/down flush is over");
+
         local->up_down_flush_cbk (frame, this);
 
 	return 0;
@@ -454,7 +460,7 @@ afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         local->op = GF_FOP_FLUSH;
 
-//        local->fd = fd_ref (local->fd);
+        local->fd = fd_ref (local->fd);
 
         local->transaction.fop          = afr_up_down_flush_wind;
         local->transaction.done         = afr_up_down_flush_done;

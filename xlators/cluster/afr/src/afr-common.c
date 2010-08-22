@@ -60,17 +60,6 @@
 #define AFR_ICTX_SPLIT_BRAIN_MASK      0x0000000100000000ULL
 #define AFR_ICTX_READ_CHILD_MASK       0x00000000FFFFFFFFULL
 
-void
-afr_set_lk_owner (call_frame_t *frame, xlator_t *this)
-{
-        if (!frame->root->lk_owner) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "Setting lk-owner=%llu",
-                        (unsigned long long) frame->root);
-                frame->root->lk_owner = (uint64_t) frame->root;
-        }
-}
-
 uint64_t
 afr_is_split_brain (xlator_t *this, inode_t *inode)
 {
@@ -318,7 +307,19 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this)
 
         GF_FREE (local->pending);
 
-	GF_FREE (local->transaction.locked_nodes);
+        if (local->internal_lock.locked_nodes)
+                GF_FREE (local->internal_lock.locked_nodes);
+
+        if (local->internal_lock.inode_locked_nodes)
+                GF_FREE (local->internal_lock.inode_locked_nodes);
+
+        if (local->internal_lock.entry_locked_nodes)
+                GF_FREE (local->internal_lock.entry_locked_nodes);
+
+        if (local->internal_lock.lower_locked_nodes)
+                GF_FREE (local->internal_lock.lower_locked_nodes);
+
+
 	GF_FREE (local->transaction.child_errno);
 	GF_FREE (local->child_errno);
 
@@ -447,20 +448,6 @@ afr_up_children_count (int child_count, unsigned char *child_up)
 	for (i = 0; i < child_count; i++)
 		if (child_up[i])
 			ret++;
-	return ret;
-}
-
-
-int
-afr_locked_nodes_count (unsigned char *locked_nodes, int child_count)
-{
-	int ret = 0;
-	int i;
-
-	for (i = 0; i < child_count; i++)
-		if (locked_nodes[i])
-			ret++;
-
 	return ret;
 }
 
