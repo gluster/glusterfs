@@ -138,7 +138,7 @@ free_state (server_state_t *state)
 
 int
 gf_add_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc, fd_t *fd, pid_t pid)
+               loc_t *loc, fd_t *fd, pid_t pid, uint64_t owner)
 {
         int32_t         ret = -1;
         struct _locker *new = NULL;
@@ -162,7 +162,8 @@ gf_add_locker (struct _lock_table *table, const char *volume,
                 dir = IA_ISDIR (fd->inode->ia_type);
         }
 
-        new->pid = pid;
+        new->pid   = pid;
+        new->owner = owner;
 
         LOCK (&table->lock);
         {
@@ -179,7 +180,7 @@ out:
 
 int
 gf_del_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc, fd_t *fd, pid_t pid)
+               loc_t *loc, fd_t *fd, uint64_t owner)
 {
         struct _locker    *locker = NULL;
         struct _locker    *tmp = NULL;
@@ -206,13 +207,13 @@ gf_del_locker (struct _lock_table *table, const char *volume,
 
                 list_for_each_entry_safe (locker, tmp, head, lockers) {
                         if (locker->fd && fd &&
-                            (locker->fd == fd) && (locker->pid == pid)
+                            (locker->fd == fd) && (locker->owner == owner)
                             && !strcmp (locker->volume, volume)) {
                                 list_move_tail (&locker->lockers, &del);
                         } else if (locker->loc.inode &&
                                    loc &&
                                    (locker->loc.inode == loc->inode) &&
-                                   (locker->pid == pid)
+                                   (locker->owner == owner)
                                    && !strcmp (locker->volume, volume)) {
                                 list_move_tail (&locker->lockers, &del);
                         }
@@ -307,11 +308,12 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         goto out;
                 }
                 /*
-                   pid = 0 is a special case that tells posix-locks
+                   lock owner = 0 is a special case that tells posix-locks
                    to release all locks from this transport
                 */
-                tmp_frame->root->pid = 0;
-                tmp_frame->root->trans = conn;
+                tmp_frame->root->pid      = 0;
+                tmp_frame->root->lk_owner = 0;
+                tmp_frame->root->trans    = conn;
 
                 if (locker->fd) {
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
@@ -338,8 +340,9 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
                 tmp_frame = copy_frame (frame);
 
-                tmp_frame->root->pid = 0;
-                tmp_frame->root->trans = conn;
+                tmp_frame->root->lk_owner = 0;
+                tmp_frame->root->pid      = 0;
+                tmp_frame->root->trans    = conn;
 
                 if (locker->fd) {
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
@@ -560,10 +563,10 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                           tmp, &file_lockers, lockers) {
                         tmp_frame = copy_frame (frame);
                         /*
-                           pid = 0 is a special case that tells posix-locks
+                           lock_owner = 0 is a special case that tells posix-locks
                            to release all locks from this transport
                         */
-                        tmp_frame->root->pid = 0;
+                        tmp_frame->root->lk_owner = 0;
                         tmp_frame->root->trans = conn;
 
                         if (locker->fd) {
@@ -591,7 +594,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
                         tmp_frame = copy_frame (frame);
 
-                        tmp_frame->root->pid = 0;
+                        tmp_frame->root->lk_owner = 0;
                         tmp_frame->root->trans = conn;
 
                         if (locker->fd) {
