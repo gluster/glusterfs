@@ -93,6 +93,8 @@ init (xlator_t *this)
         char * algo            = NULL;
 	char * change_log      = NULL;
 	char * strict_readdir  = NULL;
+        char * inodelk_trace   = NULL;
+        char * entrylk_trace   = NULL;
 
         int32_t background_count  = 0;
 	int32_t lock_server_count = 1;
@@ -249,6 +251,37 @@ init (xlator_t *this)
 	}
 
 	/* Locking options */
+
+        priv->inodelk_trace = 0;
+        priv->entrylk_trace = 0;
+
+	dict_ret = dict_get_str (this->options, "inodelk-trace",
+				 &inodelk_trace);
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (inodelk_trace, &priv->inodelk_trace);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Invalid 'option inodelk-trace %s' ",
+                                inodelk_trace);
+
+			priv->inodelk_trace = 0;
+		}
+	}
+
+
+	dict_ret = dict_get_str (this->options, "entrylk-trace",
+				 &entrylk_trace);
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (entrylk_trace, &priv->entrylk_trace);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Invalid 'option entrylk-trace %s' ",
+                                inodelk_trace);
+
+			priv->entrylk_trace = 0;
+		}
+	}
+
 
 	priv->data_lock_server_count = 1;
 	priv->metadata_lock_server_count = 0;

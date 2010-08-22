@@ -73,6 +73,9 @@ typedef struct _afr_private {
 	unsigned int metadata_lock_server_count;
 	unsigned int entry_lock_server_count;
 
+	gf_boolean_t inodelk_trace;
+	gf_boolean_t entrylk_trace;
+
 	gf_boolean_t strict_readdir;
 
 	unsigned int wait_count;      /* # of servers to wait for success */
@@ -134,7 +137,7 @@ typedef struct {
 	int active_source;
 	int active_sinks;
 	int *success;
-	int *locked_nodes;
+	unsigned char *locked_nodes;
         int lock_count;
 
         mode_t impunging_entry_mode;
@@ -173,6 +176,32 @@ typedef enum {
 	AFR_FLUSH_TRANSACTION,         /* flush */
 } afr_transaction_type;
 
+typedef enum {
+        AFR_TRANSACTION_LK,
+        AFR_SELFHEAL_LK,
+} transaction_lk_type_t;
+
+typedef enum {
+        AFR_LOCK_OP,
+        AFR_UNLOCK_OP,
+} afr_lock_op_type_t;
+
+typedef enum {
+        AFR_DATA_SELF_HEAL_LK,
+        AFR_METADATA_SELF_HEAL_LK,
+        AFR_ENTRY_SELF_HEAL_LK,
+}selfheal_lk_type_t;
+
+typedef enum {
+        AFR_INODELK_TRANSACTION,
+        AFR_INODELK_NB_TRANSACTION,
+        AFR_ENTRYLK_TRANSACTION,
+        AFR_ENTRYLK_NB_TRANSACTION,
+        AFR_INODELK_SELFHEAL,
+        AFR_INODELK_NB_SELFHEAL,
+        AFR_ENTRYLK_SELFHEAL,
+        AFR_ENTRYLK_NB_SELFHEAL,
+} afr_lock_call_type_t;
 
 /*
   xattr format: trusted.afr.volume = [x y z]
@@ -207,6 +236,37 @@ typedef enum {
         AFR_CHILD_DOWN_FLUSH,
 } afr_flush_type;
 
+typedef struct {
+        loc_t *lk_loc;
+        struct flock lk_flock;
+
+        const char *lk_basename;
+        const char *lower_basename;
+        const char *higher_basename;
+        char lower_locked;
+        char higher_locked;
+
+        unsigned char *locked_nodes;
+        unsigned char *lower_locked_nodes;
+        unsigned char *inode_locked_nodes;
+        unsigned char *entry_locked_nodes;
+
+        selfheal_lk_type_t selfheal_lk_type;
+        transaction_lk_type_t transaction_lk_type;
+
+        int32_t lock_count;
+        int32_t inodelk_lock_count;
+        int32_t entrylk_lock_count;
+
+        uint64_t lock_number;
+        int32_t lk_call_count;
+
+        int32_t lock_op_ret;
+        int32_t lock_op_errno;
+
+        int (*lock_cbk) (call_frame_t *, xlator_t *);
+
+} afr_internal_lock_t;
 
 typedef struct _afr_local {
 	unsigned int call_count;
@@ -243,6 +303,8 @@ typedef struct _afr_local {
 
 	int32_t  inodelk_count;
 	int32_t  entrylk_count;
+
+        afr_internal_lock_t internal_lock;
 
         dict_t  *dict;
 
@@ -513,9 +575,6 @@ typedef struct _afr_local {
 	struct {
 		off_t start, len;
 
-		unsigned char *locked_nodes;
-		int lock_count;
-
 		char *basename;
 		char *new_basename;
 
@@ -596,6 +655,29 @@ afr_notify (xlator_t *this, int32_t event,
 
 void
 afr_set_lk_owner (call_frame_t *frame, xlator_t *this);
+
+int
+afr_set_lock_number (call_frame_t *frame, xlator_t *this);
+
+
+loc_t *
+lower_path (loc_t *l1, const char *b1, loc_t *l2, const char *b2);
+
+int32_t
+afr_unlock (call_frame_t *frame, xlator_t *this);
+
+int
+afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this);
+
+int
+afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this);
+
+int
+afr_blocking_lock (call_frame_t *frame, xlator_t *this);
+
+int
+afr_internal_lock_finish (call_frame_t *frame, xlator_t *this);
+
 
 int pump_start (call_frame_t *frame, xlator_t *this);
 
@@ -716,6 +798,10 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 	local->op_ret = -1;
 	local->op_errno = EUCLEAN;
 
+        local->internal_lock.lock_op_ret   = -1;
+        local->internal_lock.lock_op_errno = EUCLEAN;
+
+
 	return 0;
 }
 
@@ -764,7 +850,7 @@ afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
 	local->pending = GF_CALLOC (sizeof (*local->pending),
                                     priv->child_count,
                                     gf_afr_mt_int32_t);
-        
+
 	if (!local->pending) {
 		return -ENOMEM;
 	}
@@ -776,14 +862,32 @@ afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
                 if (!local->pending[i])
                         return -ENOMEM;
         }
-        
-	local->transaction.locked_nodes = GF_CALLOC (sizeof (*local->transaction.locked_nodes),
-						     priv->child_count,
-                                                     gf_afr_mt_char);
+
+	local->internal_lock.inode_locked_nodes =
+                GF_CALLOC (sizeof (*local->internal_lock.inode_locked_nodes),
+                           priv->child_count,
+                           gf_afr_mt_char);
+
+	local->internal_lock.entry_locked_nodes =
+                GF_CALLOC (sizeof (*local->internal_lock.entry_locked_nodes),
+                           priv->child_count,
+                           gf_afr_mt_char);
+
+	local->internal_lock.locked_nodes =
+                GF_CALLOC (sizeof (*local->internal_lock.locked_nodes),
+                           priv->child_count,
+                           gf_afr_mt_char);
+
+	local->internal_lock.lower_locked_nodes
+                = GF_CALLOC (sizeof (*local->internal_lock.lower_locked_nodes),
+                             priv->child_count,
+                             gf_afr_mt_char);
 
 	local->transaction.child_errno = GF_CALLOC (sizeof (*local->transaction.child_errno),
 					            priv->child_count,
                                                     gf_afr_mt_int32_t);
+
+        local->internal_lock.transaction_lk_type = AFR_TRANSACTION_LK;
 
 	return 0;
 }
