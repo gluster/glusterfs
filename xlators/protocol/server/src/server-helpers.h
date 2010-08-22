@@ -51,13 +51,14 @@ int32_t
 gf_add_locker (struct _lock_table *table, const char *volume,
 	       loc_t *loc,
 	       fd_t *fd,
-	       pid_t pid);
+	       pid_t pid,
+               uint64_t owner);
 
 int32_t
 gf_del_locker (struct _lock_table *table, const char *volume,
 	       loc_t *loc,
 	       fd_t *fd,
-	       pid_t pid);
+	       uint64_t owner);
 
 void
 server_print_request (call_frame_t *frame);

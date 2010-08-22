@@ -334,14 +334,15 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 		goto out;
 	}
 
+        lock->frame   = frame;
+        lock->this    = this;
+        lock->trans   = trans;
+
 	conf = __lock_grantable (dom, basename, type);
 	if (conf) {
 		ret = -EAGAIN;
 		if (nonblock)
 			goto out;
-
-		lock->frame   = frame;
-		lock->this    = this;
 
 		list_add_tail (&lock->blocked_locks, &dom->blocked_entrylks);
 
@@ -367,12 +368,13 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 			"Blocking lock: {pinode=%p, basename=%s}",
 			pinode, basename);
 
+                ret = -EAGAIN;
 		goto out;
         }
         switch (type) {
 
 	case ENTRYLK_WRLCK:
-		list_add (&lock->domain_list, &dom->entrylk_list);
+		list_add_tail (&lock->domain_list, &dom->entrylk_list);
 		break;
 
         default:
@@ -414,7 +416,7 @@ __unlock_name (pl_dom_list_t *dom, const char *basename, entrylk_type type)
 	    && lock->type == type) {
 
 		if (type == ENTRYLK_WRLCK) {
-			list_del (&lock->domain_list);
+			list_del_init (&lock->domain_list);
 			ret_lock = lock;
 		}
 	} else {
@@ -457,6 +459,8 @@ __grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 		if (bl_ret == 0) {
 			list_add (&bl->blocked_locks, granted);
 		} else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "should never happen");
 			if (bl->basename)
 				GF_FREE ((char *)bl->basename);
 			GF_FREE (bl);
@@ -491,8 +495,6 @@ grant_blocked_entry_locks (xlator_t *this, pl_inode_t *pl_inode,
 
 		STACK_UNWIND_STRICT (entrylk, lock->frame, 0, 0);
 
-		GF_FREE ((char *)lock->basename);
-		GF_FREE (lock);
 	}
 
 	GF_FREE ((char *)unlocked->basename);
@@ -586,8 +588,9 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
                    const char *volume, inode_t *inode, const char *basename,
                    entrylk_cmd cmd, entrylk_type type, loc_t *loc, fd_t *fd)
 {
-	int32_t op_ret   = -1;
-	int32_t op_errno = 0;
+        uint64_t owner    = 0;
+	int32_t  op_ret   = -1;
+	int32_t  op_errno = 0;
 
 	void *        transport = NULL;
 	pid_t         pid       = -1;
@@ -618,9 +621,10 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
         entrylk_trace_in (this, frame, volume, fd, loc, basename, cmd, type);
 
 	pid       = frame->root->pid;
+        owner     = frame->root->lk_owner;
 	transport = frame->root->trans;
 
-	if (pid == 0) {
+	if (owner == 0) {
 		/*
                   this is a special case that means release
                   all locks from this transport
@@ -644,12 +648,19 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
+                op_errno = -ret;
 		if (ret < 0) {
-			if (ret == -EAGAIN)
-				unwind = 0;
-			op_errno = -ret;
+                        if (ret == -EAGAIN)
+                                unwind = 0;
+                        else
+                                unwind = 1;
 			goto out;
-		}
+		} else {
+                        op_ret = 0;
+                        op_errno = 0;
+                        unwind = 1;
+                        goto out;
+                }
 
 		break;
 
@@ -661,11 +672,11 @@ pl_common_entrylk (call_frame_t *frame, xlator_t *this,
 		}
 		pthread_mutex_unlock (&pinode->mutex);
 
-		if (ret < 0) {
+		if (ret < 0)
 			op_errno = -ret;
-			goto out;
-		}
 
+                unwind = 1;
+                goto out;
 		break;
 
 	case ENTRYLK_UNLOCK:

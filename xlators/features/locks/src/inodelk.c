@@ -130,13 +130,8 @@ static int same_inodelk_owner (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 static int
 inodelk_conflict (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 {
-	if (same_inodelk_owner (l1, l2))
-		return 0;
-
-	if (!inodelk_overlap (l1, l2))
-		return 0;
-
-	return (inodelk_type_conflict(l1, l2));
+        return (inodelk_overlap (l1, l2) &&
+                inodelk_type_conflict (l1, l2));
 }
 
 /* Determine if lock is grantable or not */
@@ -271,7 +266,8 @@ find_matching_inodelk (pl_inode_lock_t *lock, pl_dom_list_t *dom)
 {
 	pl_inode_lock_t *l = NULL;
 	list_for_each_entry (l, &dom->inodelk_list, list) {
-		if (inodelks_equal (l, lock))
+		if (inodelks_equal (l, lock) &&
+                    same_inodelk_owner (l, lock))
 			return l;
 	}
 	return NULL;
@@ -582,7 +578,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 
 	dom = get_domain (pinode, volume);
 
-	if (client_pid == 0) {
+	if (owner == 0) {
 		/*
                   special case: this means release all locks
                   from this transport
@@ -603,6 +599,9 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 		op_errno = ENOMEM;
 		goto unwind;
 	}
+
+        reqlock->frame = frame;
+        reqlock->this  = this;
 
 	switch (cmd) {
 	case F_SETLKW:
