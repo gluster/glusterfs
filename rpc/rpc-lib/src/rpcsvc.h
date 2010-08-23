@@ -392,8 +392,8 @@ rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t *program);
  * rpcsvc_program_register_portmap.
  */
 /* FIXME: can multiple programs registered on same port? */
-extern rpcsvc_listener_t *
-rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name);
+extern int32_t
+rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name);
 
 void
 rpcsvc_listener_destroy (rpcsvc_listener_t *listener);

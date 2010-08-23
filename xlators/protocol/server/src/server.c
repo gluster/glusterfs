@@ -482,12 +482,11 @@ init (xlator_t *this)
                 goto out;
         }
 
-        listener = rpcsvc_create_listener (conf->rpc, this->options,
-                                           this->name);
-        if (listener == NULL) {
+        ret = rpcsvc_create_listeners (conf->rpc, this->options,
+                                       this->name);
+        if (ret < 1) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "creation of listener failed");
-                ret = -1;
                 goto out;
         }
 
@@ -626,7 +625,9 @@ struct xlator_dumpops dumpops = {
 struct volume_options options[] = {
         { .key   = {"transport-type"},
           .value = {"rpc", "rpc-over-rdma", "tcp", "socket", "ib-verbs",
-                    "unix", "ib-sdp", "tcp/server", "ib-verbs/server"},
+                    "unix", "ib-sdp", "tcp/server", "ib-verbs/server",
+                    "rdma*([ \t]),*([ \t])socket",
+                    "socket*([ \t]),*([ \t])rdma"},
           .type  = GF_OPTION_TYPE_STR
         },
         { .key   = {"volume-filename.*"},

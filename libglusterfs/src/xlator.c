@@ -375,8 +375,8 @@ _volume_option_value_validate (xlator_t *xl,
 
 		for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
 			     opt->value[i]; i++) {
-			if (strcasecmp (opt->value[i], 
-					pair->value->data) == 0) {
+                        if (fnmatch (opt->value[i], pair->value->data,
+                                     FNM_EXTMATCH) == 0) {
 				ret = 0;
 				break;
 			}
