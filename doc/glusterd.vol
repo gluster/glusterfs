@@ -1,6 +1,7 @@
 volume management
     type mgmt/glusterd
     option working-directory /etc/glusterd
+    option transport-type tcp
     # option listen-port 6969
 end-volume
 
