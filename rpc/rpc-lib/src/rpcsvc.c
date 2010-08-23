@@ -1600,11 +1600,12 @@ out:
 }
 
 
-rpcsvc_listener_t *
+int32_t
 rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name)
 {
         rpc_transport_t   *trans    = NULL;
         rpcsvc_listener_t *listener = NULL;
+        int32_t            ret      = -1; 
 
         if (!svc || !options) {
                 goto out;
@@ -1620,12 +1621,107 @@ rpcsvc_create_listener (rpcsvc_t *svc, dict_t *options, char *name)
                 goto out;
         }
 
+        ret = 0;
 out:
         if (!listener && trans) {
                 rpc_transport_disconnect (trans);
         }
 
-        return listener;
+        return ret;
+}
+
+
+int32_t
+rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
+{
+        int32_t  ret            = -1, count = 0;
+        data_t  *data           = NULL;
+        char    *str            = NULL, *ptr = NULL, *transport_name = NULL;
+        char    *transport_type = NULL, *saveptr = NULL;
+
+        if ((svc == NULL) || (options == NULL) || (name == NULL)) {
+                goto out;
+        }
+         
+        data = dict_get (options, "transport-type");
+        if (data == NULL) {
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
+                        "option transport-type not set");
+                goto out;
+        }
+
+        transport_type = data_to_str (data);
+        if (transport_type == NULL) {
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
+                        "option transport-type not set");
+                goto out;
+        }
+
+        /* duplicate transport_type, since following dict_set will free it */
+        transport_type = gf_strdup (transport_type);
+        if (transport_type == NULL) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
+        str = gf_strdup (transport_type);
+        if (str == NULL) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
+        ptr = strtok_r (str, ",", &saveptr);
+
+        while (ptr != NULL) {
+                ptr = gf_strdup (ptr);
+                if (ptr == NULL) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "out of memory");
+                        goto out;
+                }
+
+                ret = dict_set_dynstr (options, "transport-type", ptr);
+                if (ret == -1) {
+                        goto out;
+                }
+
+                ret = asprintf (&transport_name, "%s.%s", ptr, name);
+                if (ret == -1) {
+                        goto out;
+                }
+
+                ret = rpcsvc_create_listener (svc, options, transport_name);
+                if (ret != 0) {
+                        goto out;
+                }
+
+                count++;
+
+                ptr = strtok_r (NULL, ",", &saveptr);
+        }
+
+        ptr = NULL;
+
+        ret = dict_set_dynstr (options, "transport-type", transport_type);
+        if (ret == -1) {
+                goto out;
+        }
+
+        transport_type = NULL;
+
+out:
+        if (str != NULL) {
+                GF_FREE (str);
+        }
+
+        if (transport_type != NULL) {
+                GF_FREE (transport_type);
+        }
+
+        if (ptr != NULL) {
+                GF_FREE (ptr);
+        }
+
+        return count;
 }
 
 

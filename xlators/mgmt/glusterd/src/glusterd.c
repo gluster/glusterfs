@@ -198,7 +198,6 @@ init (xlator_t *this)
         char              *port_str          = NULL;
         int                port_num          = 0;
         char               voldir [PATH_MAX] = {0,};
-        rpcsvc_listener_t *listener          = NULL;
         char               dirname [PATH_MAX];
 
 
@@ -285,11 +284,11 @@ init (xlator_t *this)
         }
 
         /*
-         * only one listener for glusterd1_mop_prog, gluster_pmap_prog and
-         * gluster_handshake_prog.
+         * only one (atmost a pair - rdma and socket) listener for
+         * glusterd1_mop_prog, gluster_pmap_prog and gluster_handshake_prog.
          */
-        listener = rpcsvc_create_listener (rpc, this->options, this->name);
-        if (listener == NULL) {
+        ret = rpcsvc_create_listeners (rpc, this->options, this->name);
+        if (ret < 1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "creation of listener failed");
                 goto out;
@@ -345,10 +344,6 @@ init (xlator_t *this)
         ret = 0;
 out:
         if (ret == -1) {
-                if (listener != NULL) {
-                        rpcsvc_listener_destroy (listener);
-                }
-
                 if (this->private != NULL) {
                         GF_FREE (this->private);
                         this->private = NULL;
