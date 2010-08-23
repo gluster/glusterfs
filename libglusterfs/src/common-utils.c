@@ -72,10 +72,10 @@ log_base2 (unsigned long x)
 
 
 int32_t
-gf_resolve_ip6 (const char *hostname, 
-		uint16_t port, 
-		int family, 
-		void **dnscache, 
+gf_resolve_ip6 (const char *hostname,
+		uint16_t port,
+		int family,
+		void **dnscache,
 		struct addrinfo **addr_info)
 {
 	int32_t ret = 0;
@@ -189,18 +189,18 @@ gf_log_volume_file (FILE *specfp)
 	extern FILE *gf_log_logfile;
 	int          lcount = 0;
 	char         data[GF_UNIT_KB];
-	
+
 	fseek (specfp, 0L, SEEK_SET);
-	
+
 	fprintf (gf_log_logfile, "Given volfile:\n");
-	fprintf (gf_log_logfile, 
+	fprintf (gf_log_logfile,
 		 "+---------------------------------------"
 		 "---------------------------------------+\n");
 	while (fgets (data, GF_UNIT_KB, specfp) != NULL){
 		lcount++;
 		fprintf (gf_log_logfile, "%3d: %s", lcount, data);
 	}
-	fprintf (gf_log_logfile, 
+	fprintf (gf_log_logfile,
 		 "\n+---------------------------------------"
 		 "---------------------------------------+\n");
 	fflush (gf_log_logfile);
@@ -419,28 +419,28 @@ char *
 gf_trim (char *string)
 {
 	register char *s, *t;
-  
+
 	if (string == NULL)
 	{
 		return NULL;
 	}
-  
+
 	for (s = string; isspace (*s); s++)
 		;
-  
+
 	if (*s == 0)
 		return s;
-  
+
 	t = s + strlen (s) - 1;
 	while (t > s && isspace (*t))
 		t--;
 	*++t = '\0';
-  
+
 	return s;
 }
 
-int 
-gf_strsplit (const char *str, const char *delim, 
+int
+gf_strsplit (const char *str, const char *delim,
 	     char ***tokens, int *token_count)
 {
 	char *_running = NULL;
@@ -450,57 +450,57 @@ gf_strsplit (const char *str, const char *delim,
 	int count = 0;
 	int i = 0;
 	int j = 0;
-  
+
 	if (str == NULL || delim == NULL || tokens == NULL || token_count == NULL)
 	{
 		return -1;
 	}
-  
+
         _running = gf_strdup (str);
 	if (_running == NULL)
 	{
 		return -1;
 	}
 	running = _running;
-  
+
 	while ((token = strsep (&running, delim)) != NULL)
 	{
 		if (token[0] != '\0')
 			count++;
 	}
 	GF_FREE (_running);
-  
+
         _running = gf_strdup (str);
 	if (_running == NULL)
 	{
 		return -1;
 	}
 	running = _running;
-  
+
 	if ((token_list = GF_CALLOC (count, sizeof (char *),
                                         gf_common_mt_char)) == NULL)
 	{
 		GF_FREE (_running);
 		return -1;
 	}
-  
+
 	while ((token = strsep (&running, delim)) != NULL)
 	{
 		if (token[0] == '\0')
 			continue;
-      
+
                 token_list[i] = gf_strdup (token);
 		if (token_list[i] == NULL)
 			goto free_exit;
                 i++;
 	}
-  
+
 	GF_FREE (_running);
-  
+
 	*tokens = token_list;
 	*token_count = count;
 	return 0;
-  
+
 free_exit:
 	GF_FREE (_running);
 	for (j = 0; j < i; j++)
@@ -511,7 +511,7 @@ free_exit:
 	return -1;
 }
 
-int 
+int
 gf_strstr (const char *str, const char *delim, const char *match)
 {
         char *tmp      = NULL;
@@ -551,41 +551,41 @@ int
 gf_volume_name_validate (const char *volume_name)
 {
 	const char *vname = NULL;
-  
+
 	if (volume_name == NULL)
 	{
 		return -1;
 	}
-  
+
 	if (!isalpha (volume_name[0]))
 	{
 		return 1;
 	}
-  
+
 	for (vname = &volume_name[1]; *vname != '\0'; vname++)
 	{
 		if (!(isalnum (*vname) || *vname == '_'))
 			return 1;
 	}
-  
+
 	return 0;
 }
 
 
-int 
+int
 gf_string2time (const char *str, uint32_t *n)
 {
 	unsigned long value = 0;
 	char *tail = NULL;
 	int old_errno = 0;
 	const char *s = NULL;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	for (s = str; *s != '\0'; s++)
 	{
 		if (isspace (*s))
@@ -598,48 +598,48 @@ gf_string2time (const char *str, uint32_t *n)
 		}
 		break;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtol (str, &tail, 0);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
 	}
-  
-	if (!((tail[0] == '\0') || 
+
+	if (!((tail[0] == '\0') ||
 	      ((tail[0] == 's') && (tail[1] == '\0')) ||
 	      ((tail[0] == 's') && (tail[1] == 'e') && (tail[2] == 'c') && (tail[3] == '\0'))))
 	{
 		return -1;
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
 
-int 
+int
 gf_string2percent (const char *str, uint32_t *n)
 {
 	unsigned long value = 0;
 	char *tail = NULL;
 	int old_errno = 0;
 	const char *s = NULL;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	for (s = str; *s != '\0'; s++)
 	{
 		if (isspace (*s))
@@ -652,55 +652,55 @@ gf_string2percent (const char *str, uint32_t *n)
 		}
 		break;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtol (str, &tail, 0);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
 	}
-  
-	if (!((tail[0] == '\0') || 
+
+	if (!((tail[0] == '\0') ||
 	      ((tail[0] == '%') && (tail[1] == '\0'))))
 	{
 		return -1;
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
 
-static int 
+static int
 _gf_string2long (const char *str, long *n, int base)
 {
 	long value = 0;
 	char *tail = NULL;
 	int old_errno = 0;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtol (str, &tail, base);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
@@ -711,26 +711,26 @@ _gf_string2long (const char *str, long *n, int base)
 		/* bala: invalid integer format */
 		return -1;
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
-static int 
+static int
 _gf_string2ulong (const char *str, unsigned long *n, int base)
 {
 	unsigned long value = 0;
 	char *tail = NULL;
 	int old_errno = 0;
 	const char *s = NULL;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	for (s = str; *s != '\0'; s++)
 	{
 		if (isspace (*s))
@@ -739,52 +739,52 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
 		}
 		if (*s == '-')
 		{
-			/* bala: we do not support suffixed (-) sign and 
+			/* bala: we do not support suffixed (-) sign and
 			   invalid integer format */
 			return -1;
 		}
 		break;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtoul (str, &tail, base);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
 	}
-  
+
 	if (tail[0] != '\0')
 	{
 		/* bala: invalid integer format */
 		return -1;
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
-static int 
+static int
 _gf_string2uint (const char *str, unsigned int *n, int base)
 {
 	unsigned long value = 0;
 	char *tail = NULL;
 	int old_errno = 0;
 	const char *s = NULL;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	for (s = str; *s != '\0'; s++)
 	{
 		if (isspace (*s))
@@ -793,123 +793,123 @@ _gf_string2uint (const char *str, unsigned int *n, int base)
 		}
 		if (*s == '-')
 		{
-			/* bala: we do not support suffixed (-) sign and 
+			/* bala: we do not support suffixed (-) sign and
 			   invalid integer format */
 			return -1;
 		}
 		break;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtoul (str, &tail, base);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
 	}
-  
+
 	if (tail[0] != '\0')
 	{
 		/* bala: invalid integer format */
 		return -1;
 	}
-  
+
 	*n = (unsigned int)value;
-  
+
 	return 0;
 }
 
-static int 
+static int
 _gf_string2double (const char *str, double *n)
 {
 	double value     = 0.0;
 	char   *tail     = NULL;
 	int    old_errno = 0;
-  
+
 	if (str == NULL || n == NULL) {
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtod (str, &tail);
-  
+
 	if (errno == ERANGE || errno == EINVAL)	{
 		return -1;
 	}
-  
+
 	if (errno == 0)	{
 		errno = old_errno;
 	}
-  
+
 	if (tail[0] != '\0') {
 		return -1;
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
-static int 
+static int
 _gf_string2longlong (const char *str, long long *n, int base)
 {
 	long long value = 0;
 	char *tail = NULL;
 	int old_errno = 0;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtoll (str, &tail, base);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
 	}
-  
+
 	if (tail[0] != '\0')
 	{
 		/* bala: invalid integer format */
 		return -1;
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
-static int 
+static int
 _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
 {
 	unsigned long long value = 0;
 	char *tail = NULL;
 	int old_errno = 0;
 	const char *s = NULL;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	for (s = str; *s != '\0'; s++)
 	{
 		if (isspace (*s))
@@ -918,57 +918,57 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
 		}
 		if (*s == '-')
 		{
-			/* bala: we do not support suffixed (-) sign and 
+			/* bala: we do not support suffixed (-) sign and
 			   invalid integer format */
 			return -1;
 		}
 		break;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtoull (str, &tail, base);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
 	}
-  
+
 	if (tail[0] != '\0')
 	{
 		/* bala: invalid integer format */
 		return -1;
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
-int 
+int
 gf_string2long (const char *str, long *n)
 {
 	return _gf_string2long (str, n, 0);
 }
 
-int 
+int
 gf_string2ulong (const char *str, unsigned long *n)
 {
 	return _gf_string2ulong (str, n, 0);
 }
 
-int 
+int
 gf_string2int (const char *str, int *n)
 {
 	return _gf_string2long (str, (long *) n, 0);
 }
 
-int 
+int
 gf_string2uint (const char *str, unsigned int *n)
 {
 	return _gf_string2uint (str, n, 0);
@@ -980,284 +980,284 @@ gf_string2double (const char *str, double *n)
 	return _gf_string2double (str, n);
 }
 
-int 
+int
 gf_string2longlong (const char *str, long long *n)
 {
 	return _gf_string2longlong (str, n, 0);
 }
 
-int 
+int
 gf_string2ulonglong (const char *str, unsigned long long *n)
 {
 	return _gf_string2ulonglong (str, n, 0);
 }
 
-int 
+int
 gf_string2int8 (const char *str, int8_t *n)
 {
 	long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2long (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= INT8_MIN && l <= INT8_MAX)
 	{
 		*n = (int8_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2int16 (const char *str, int16_t *n)
 {
 	long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2long (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= INT16_MIN && l <= INT16_MAX)
 	{
 		*n = (int16_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2int32 (const char *str, int32_t *n)
 {
 	long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2long (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= INT32_MIN && l <= INT32_MAX)
 	{
 		*n = (int32_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2int64 (const char *str, int64_t *n)
 {
 	long long l = 0LL;
 	int rv = 0;
-  
+
 	rv = _gf_string2longlong (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= INT64_MIN && l <= INT64_MAX)
 	{
 		*n = (int64_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2uint8 (const char *str, uint8_t *n)
 {
 	unsigned long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulong (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT8_MAX)
 	{
 		*n = (uint8_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2uint16 (const char *str, uint16_t *n)
 {
 	unsigned long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulong (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT16_MAX)
 	{
 		*n = (uint16_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2uint32 (const char *str, uint32_t *n)
 {
 	unsigned long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulong (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT32_MAX)
 	{
 		*n = (uint32_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2uint64 (const char *str, uint64_t *n)
 {
 	unsigned long long l = 0ULL;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulonglong (str, &l, 0);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT64_MAX)
 	{
 		*n = (uint64_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2ulong_base10 (const char *str, unsigned long *n)
 {
 	return _gf_string2ulong (str, n, 10);
 }
 
-int 
+int
 gf_string2uint_base10 (const char *str, unsigned int *n)
 {
 	return _gf_string2uint (str,  n, 10);
 }
 
-int 
+int
 gf_string2uint8_base10 (const char *str, uint8_t *n)
 {
 	unsigned long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulong (str, &l, 10);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT8_MAX)
 	{
 		*n = (uint8_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2uint16_base10 (const char *str, uint16_t *n)
 {
 	unsigned long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulong (str, &l, 10);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT16_MAX)
 	{
 		*n = (uint16_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2uint32_base10 (const char *str, uint32_t *n)
 {
 	unsigned long l = 0L;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulong (str, &l, 10);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT32_MAX)
 	{
 		*n = (uint32_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2uint64_base10 (const char *str, uint64_t *n)
 {
 	unsigned long long l = 0ULL;
 	int rv = 0;
-  
+
 	rv = _gf_string2ulonglong (str, &l, 10);
 	if (rv != 0)
 		return rv;
-  
+
 	if (l >= 0 && l <= UINT64_MAX)
 	{
 		*n = (uint64_t) l;
 		return 0;
 	}
-  
+
 	errno = ERANGE;
 	return -1;
 }
 
-int 
+int
 gf_string2bytesize (const char *str, uint64_t *n)
 {
 	uint64_t value = 0ULL;
 	char *tail = NULL;
 	int old_errno = 0;
 	const char *s = NULL;
-  
+
 	if (str == NULL || n == NULL)
 	{
 		errno = EINVAL;
 		return -1;
 	}
-  
+
 	for (s = str; *s != '\0'; s++)
 	{
 		if (isspace (*s))
@@ -1266,27 +1266,27 @@ gf_string2bytesize (const char *str, uint64_t *n)
 		}
 		if (*s == '-')
 		{
-			/* bala: we do not support suffixed (-) sign and 
+			/* bala: we do not support suffixed (-) sign and
 			   invalid integer format */
 			return -1;
 		}
 		break;
 	}
-  
+
 	old_errno = errno;
 	errno = 0;
 	value = strtoull (str, &tail, 10);
-  
+
 	if (errno == ERANGE || errno == EINVAL)
 	{
 		return -1;
 	}
-  
+
 	if (errno == 0)
 	{
 		errno = old_errno;
 	}
-  
+
 	if (tail[0] != '\0')
 	{
 		if (strcasecmp (tail, GF_UNIT_KB_STRING) == 0)
@@ -1309,19 +1309,19 @@ gf_string2bytesize (const char *str, uint64_t *n)
 		{
 			value *= GF_UNIT_PB;
 		}
-		else 
+		else
 		{
 			/* bala: invalid integer format */
 			return -1;
 		}
 	}
-  
+
 	*n = value;
-  
+
 	return 0;
 }
 
-int64_t 
+int64_t
 gf_str_to_long_long (const char *number)
 {
 	int64_t unit = 1;
@@ -1360,62 +1360,62 @@ gf_str_to_long_long (const char *number)
 	return ret * unit;
 }
 
-int 
+int
 gf_string2boolean (const char *str, gf_boolean_t *b)
 {
 	if (str == NULL) {
 		return -1;
 	}
-	
-	if ((strcasecmp (str, "1") == 0) || 
-	    (strcasecmp (str, "on") == 0) || 
-	    (strcasecmp (str, "yes") == 0) || 
-	    (strcasecmp (str, "true") == 0) || 
+
+	if ((strcasecmp (str, "1") == 0) ||
+	    (strcasecmp (str, "on") == 0) ||
+	    (strcasecmp (str, "yes") == 0) ||
+	    (strcasecmp (str, "true") == 0) ||
 	    (strcasecmp (str, "enable") == 0)) {
 		*b = _gf_true;
 		return 0;
 	}
-	
-	if ((strcasecmp (str, "0") == 0) || 
-	    (strcasecmp (str, "off") == 0) || 
-	    (strcasecmp (str, "no") == 0) || 
-	    (strcasecmp (str, "false") == 0) || 
+
+	if ((strcasecmp (str, "0") == 0) ||
+	    (strcasecmp (str, "off") == 0) ||
+	    (strcasecmp (str, "no") == 0) ||
+	    (strcasecmp (str, "false") == 0) ||
 	    (strcasecmp (str, "disable") == 0)) {
 		*b = _gf_false;
 		return 0;
 	}
-	
+
 	return -1;
 }
 
 
-int 
+int
 gf_lockfd (int fd)
 {
 	struct flock fl;
-	
+
 	fl.l_type = F_WRLCK;
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
-	
+
 	return fcntl (fd, F_SETLK, &fl);
 }
 
 
-int 
+int
 gf_unlockfd (int fd)
 {
 	struct flock fl;
-	
+
 	fl.l_type = F_UNLCK;
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
 	fl.l_len = 0;
-	
+
 	return fcntl (fd, F_SETLK, &fl);
 }
-  
+
 static void
 compute_checksum (char *buf, size_t size, uint32_t *checksum)
 {
@@ -1428,7 +1428,7 @@ compute_checksum (char *buf, size_t size, uint32_t *checksum)
                 checksum_buf [0] = 0xba;
                 checksum_buf [1] = 0xbe;
                 checksum_buf [2] = 0xb0;
-                checksum_buf [3] = 0x0b;                
+                checksum_buf [3] = 0x0b;
         }
 
         for (ret = 0; ret < (size - 4); ret += 4) {
@@ -1441,14 +1441,14 @@ compute_checksum (char *buf, size_t size, uint32_t *checksum)
         for (ret = 0; ret <= (size % 4); ret++) {
                 checksum_buf[ret] ^= (buf[(size - 4) + ret] << ret);
         }
-        
+
         return;
 }
 
 #define GF_CHECKSUM_BUF_SIZE 1024
 
 int
-get_checksum_for_file (int fd, uint32_t *checksum) 
+get_checksum_for_file (int fd, uint32_t *checksum)
 {
         int ret = -1;
         char buf[GF_CHECKSUM_BUF_SIZE] = {0,};
@@ -1458,7 +1458,7 @@ get_checksum_for_file (int fd, uint32_t *checksum)
         do {
                 ret = read (fd, &buf, GF_CHECKSUM_BUF_SIZE);
                 if (ret > 0)
-                        compute_checksum (buf, GF_CHECKSUM_BUF_SIZE, 
+                        compute_checksum (buf, GF_CHECKSUM_BUF_SIZE,
                                           checksum);
         } while (ret > 0);
 
@@ -1519,6 +1519,32 @@ gf_system (const char *command)
 out:
         if (dupcmd)
                 GF_FREE (dupcmd);
+
+        return ret;
+}
+
+int
+get_checksum_for_path (char *path, uint32_t *checksum)
+{
+        int     ret = -1;
+        int     fd = -1;
+
+        GF_ASSERT (path);
+        GF_ASSERT (checksum);
+
+        fd = open (path, O_RDWR);
+
+        if (fd == -1) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open %s, errno: %d",
+                        path, errno);
+                goto out;
+        }
+
+        ret = get_checksum_for_file (fd, checksum);
+
+out:
+        if (fd != -1)
+                close (fd);
 
         return ret;
 }

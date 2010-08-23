@@ -127,12 +127,22 @@ struct glusterd_volinfo_ {
         uint64_t                rebalance_data;
         uint64_t                lookedup_files;
         glusterd_defrag_info_t  *defrag;
+
+        int                     version;
+        uint32_t                cksum;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
 
 enum glusterd_op_ret {
         GLUSTERD_CONNECTION_AWAITED = 100,
+};
+
+enum glusterd_vol_comp_status_ {
+        GLUSTERD_VOL_COMP_NONE = 0,
+        GLUSTERD_VOL_COMP_SCS = 1,
+        GLUSTERD_VOL_COMP_UPDATE_REQ,
+        GLUSTERD_VOL_COMP_RJT,
 };
 
 #define GLUSTERD_DEFAULT_WORKDIR "/etc/glusterd"
@@ -142,6 +152,7 @@ enum glusterd_op_ret {
 #define GLUSTERD_PEER_DIR_PREFIX "peers"
 #define GLUSTERD_VOLUME_INFO_FILE "info"
 #define GLUSTERD_BRICK_INFO_DIR "bricks"
+#define GLUSTERD_CKSUM_FILE "cksum"
 
 /*All definitions related to replace brick */
 #define RB_PUMP_START_CMD       "trusted.glusterfs.pump.start"
@@ -173,7 +184,8 @@ int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
 
 int
-glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port);
+glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname,
+                               int port, int32_t op_ret);
 
 int
 glusterd_friend_find (uuid_t uuid, char *hostname,

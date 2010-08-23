@@ -117,4 +117,16 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t **brickinfo);
 int32_t
 glusterd_is_local_addr (char *hostname);
+
+int32_t
+glusterd_build_volume_dict (dict_t **vols);
+
+int32_t
+glusterd_compare_friend_data (dict_t  *vols, int32_t *status);
+
+int
+glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo);
+
+int
+glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo);
 #endif

@@ -124,6 +124,7 @@ typedef struct glusterd_friend_req_ctx_ {
         char                    *hostname;
         rpcsvc_request_t        *req;
         int                      port;
+        dict_t                  *vols;
 } glusterd_friend_req_ctx_t;
 
 typedef glusterd_friend_req_ctx_t glusterd_friend_update_ctx_t;

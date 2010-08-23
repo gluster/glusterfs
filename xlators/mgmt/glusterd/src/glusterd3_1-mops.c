@@ -639,6 +639,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
         glusterd_conf_t         *priv = NULL;
         glusterd_friend_sm_event_t     *event = NULL;
         glusterd_friend_req_ctx_t *ctx = NULL;
+        dict_t                  *vols = NULL;
 
 
         if (!frame || !this || !data) {
@@ -655,15 +656,32 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
 
         peerinfo = event->peerinfo;
 
+        ret = glusterd_build_volume_dict (&vols);
+        if (ret)
+                goto out;
+
         uuid_copy (req.uuid, priv->uuid);
         req.hostname = gf_strdup (peerinfo->hostname);
         req.port = peerinfo->port;
+
+        ret = dict_allocate_and_serialize (vols, &req.vols.vols_val,
+                                           (size_t *)&req.vols.vols_len);
+        if (ret)
+                goto out;
+
         ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
                                        GD_MGMT_FRIEND_ADD,
                                        NULL, gd_xdr_from_mgmt_friend_req,
                                        this, glusterd3_1_friend_add_cbk);
 
+
 out:
+        if (req.vols.vols_val)
+                GF_FREE (req.vols.vols_val);
+
+        if (vols)
+                dict_destroy (vols);
+
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

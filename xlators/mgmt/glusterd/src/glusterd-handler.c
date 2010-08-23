@@ -119,7 +119,8 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
 }
 
 static int
-glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid, char *hostname, int port)
+glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
+                            char *hostname, int port, dict_t *dict)
 {
         int                             ret = -1;
         glusterd_peerinfo_t             *peerinfo = NULL;
@@ -159,6 +160,7 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid, char *hostname,
         if (hostname)
                 ctx->hostname = gf_strdup (hostname);
         ctx->req = req;
+        ctx->vols = dict;
 
         event->ctx = ctx;
 
@@ -176,6 +178,8 @@ out:
         if (0 != ret) {
                 if (ctx && ctx->hostname)
                         GF_FREE (ctx->hostname);
+                if (ctx && ctx->vols)
+                        dict_destroy (ctx->vols);
                 if (ctx)
                         GF_FREE (ctx);
         }
@@ -742,7 +746,7 @@ out:
                 defrag->mount);
 
         snprintf (cmd_str, 1024, "umount %s", defrag->mount);
-        system (cmd_str);
+        ret = system (cmd_str);
         volinfo->defrag = NULL;
         LOCK_DESTROY (&defrag->lock);
         GF_FREE (defrag);
@@ -1291,7 +1295,8 @@ glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gd1_mgmt_friend_req     friend_req = {{0},};
-        char                    str[50];
+        char                    str[50] = {0,};
+        dict_t                  *dict = NULL;
 
         GF_ASSERT (req);
         if (!gd_xdr_to_mgmt_friend_req (req->msg[0], &friend_req)) {
@@ -1304,8 +1309,22 @@ glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received probe from uuid: %s", str);
 
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (friend_req.vols.vols_val,
+                                friend_req.vols.vols_len,
+                                &dict);
+
+        if (ret)
+                goto out;
+
         ret = glusterd_handle_friend_req (req, friend_req.uuid,
-                                          friend_req.hostname, friend_req.port);
+                                          friend_req.hostname, friend_req.port,
+                                          dict);
 
 out:
 
@@ -1728,7 +1747,8 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
 }
 
 int
-glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port)
+glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
+                               int32_t op_ret)
 {
         gd1_mgmt_friend_rsp  rsp = {{0}, };
         int32_t              ret = -1;
@@ -1737,7 +1757,7 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port)
 
         GF_ASSERT (hostname);
 
-        rsp.op_ret = 0;
+        rsp.op_ret = op_ret;
         this = THIS;
         GF_ASSERT (this);
 
