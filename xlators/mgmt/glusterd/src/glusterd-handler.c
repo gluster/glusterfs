@@ -209,7 +209,7 @@ glusterd_handle_unfriend_req (rpcsvc_request_t *req, uuid_t  uuid,
         }
 
         ret = glusterd_friend_sm_new_event
-                        (GD_FRIEND_EVENT_REMOVE_FRIEND, &event);
+                        (GD_FRIEND_EVENT_RCVD_REMOVE_FRIEND, &event);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "event generation failed: %d", ret);
