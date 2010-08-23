@@ -156,7 +156,6 @@ ioc_inode_t *
 ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 {
 	ioc_inode_t     *ioc_inode   = NULL;
-        unsigned long    no_of_pages = 0;
 
         ioc_inode = GF_CALLOC (1, sizeof (ioc_inode_t),
                                gf_ioc_mt_ioc_inode_t);
@@ -165,10 +164,6 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
         }
   
 	ioc_inode->table = table;
-
-        no_of_pages = (table->cache_size / table->page_size)
-                + ((table->cache_size % table->page_size) ? 1 : 0);
-
 	INIT_LIST_HEAD (&ioc_inode->cache.page_lru);
 
 	ioc_table_lock (table);
