@@ -26,7 +26,7 @@
 #ifndef _GLUSTERD1_H_RPCGEN
 #define _GLUSTERD1_H_RPCGEN
 
-//#include <rpc/rpc.h>
+#include <rpc/rpc.h>
 
 
 #ifdef __cplusplus
@@ -44,46 +44,50 @@ typedef enum glusterd_volume_status glusterd_volume_status;
 struct gd1_mgmt_probe_req {
 	u_char uuid[16];
 	char *hostname;
-        int port;
+	int port;
 };
 typedef struct gd1_mgmt_probe_req gd1_mgmt_probe_req;
 
 struct gd1_mgmt_probe_rsp {
 	u_char uuid[16];
 	char *hostname;
-        int port;
+	int port;
 };
 typedef struct gd1_mgmt_probe_rsp gd1_mgmt_probe_rsp;
 
 struct gd1_mgmt_friend_req {
 	u_char uuid[16];
 	char *hostname;
-        int port;
+	int port;
+	struct {
+		u_int vols_len;
+		char *vols_val;
+	} vols;
 };
 typedef struct gd1_mgmt_friend_req gd1_mgmt_friend_req;
 
 struct gd1_mgmt_friend_rsp {
 	u_char uuid[16];
 	char *hostname;
-        int port;
 	int op_ret;
 	int op_errno;
+	int port;
 };
 typedef struct gd1_mgmt_friend_rsp gd1_mgmt_friend_rsp;
 
 struct gd1_mgmt_unfriend_req {
 	u_char uuid[16];
 	char *hostname;
-        int port;
+	int port;
 };
 typedef struct gd1_mgmt_unfriend_req gd1_mgmt_unfriend_req;
 
 struct gd1_mgmt_unfriend_rsp {
 	u_char uuid[16];
 	char *hostname;
-        int port;
 	int op_ret;
 	int op_errno;
+	int port;
 };
 typedef struct gd1_mgmt_unfriend_rsp gd1_mgmt_unfriend_rsp;
 
@@ -153,7 +157,7 @@ struct gd1_mgmt_friend_update {
 		u_int friends_len;
 		char *friends_val;
 	} friends;
-        int port;
+	int port;
 };
 typedef struct gd1_mgmt_friend_update gd1_mgmt_friend_update;
 

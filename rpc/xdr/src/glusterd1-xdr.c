@@ -73,6 +73,8 @@ xdr_gd1_mgmt_friend_req (XDR *xdrs, gd1_mgmt_friend_req *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->port))
 		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->vols.vols_val, (u_int *) &objp->vols.vols_len, ~0))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -85,11 +87,11 @@ xdr_gd1_mgmt_friend_rsp (XDR *xdrs, gd1_mgmt_friend_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
 		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->port))
-		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->port))
 		 return FALSE;
 	return TRUE;
 }
@@ -117,11 +119,11 @@ xdr_gd1_mgmt_unfriend_rsp (XDR *xdrs, gd1_mgmt_unfriend_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
 		 return FALSE;
-	 if (!xdr_int (xdrs, &objp->port))
-		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->port))
 		 return FALSE;
 	return TRUE;
 }

@@ -7,16 +7,20 @@
  struct gd1_mgmt_probe_req {
         unsigned char  uuid[16];
         string  hostname<>;
+        int     port;
 }  ;
 
  struct gd1_mgmt_probe_rsp {
         unsigned char  uuid[16];
         string  hostname<>;
+        int     port;
 }  ;
 
 struct gd1_mgmt_friend_req {
         unsigned char  uuid[16];
         string  hostname<>;
+        int     port;
+        opaque  vols<>;
 }  ;
 
 struct gd1_mgmt_friend_rsp {
@@ -24,11 +28,13 @@ struct gd1_mgmt_friend_rsp {
         string  hostname<>;
         int     op_ret;
         int     op_errno;
+        int     port;
 }  ;
 
 struct gd1_mgmt_unfriend_req {
         unsigned char  uuid[16];
         string  hostname<>;
+        int     port;
 }  ;
 
 struct gd1_mgmt_unfriend_rsp {
@@ -36,6 +42,7 @@ struct gd1_mgmt_unfriend_rsp {
         string  hostname<>;
         int     op_ret;
         int     op_errno;
+        int     port;
 }  ;
 
 struct gd1_mgmt_cluster_lock_req {
@@ -89,6 +96,7 @@ struct gd1_mgmt_commit_op_rsp {
 struct gd1_mgmt_friend_update {
         unsigned char uuid[16];
         opaque  friends<>;
+        int     port;
 } ;
 
 struct gd1_mgmt_friend_update_rsp {

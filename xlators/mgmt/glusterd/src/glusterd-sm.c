@@ -306,6 +306,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_sm_event_t      *new_event = NULL;
         glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
         int                             status = 0;
+        int32_t                         op_ret = -1;
 
         GF_ASSERT (ctx);
         ev_ctx = ctx;
@@ -315,11 +316,18 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         uuid_copy (peerinfo->uuid, ev_ctx->uuid);
 
         //Build comparison logic here.
+        ret = glusterd_compare_friend_data (ev_ctx->vols, &status);
+        if (ret)
+                goto out;
 
-        if (!status)
+        if (GLUSTERD_VOL_COMP_RJT != status) {
                 event_type = GD_FRIEND_EVENT_LOCAL_ACC;
-        else
+                op_ret = 0;
+        }
+        else {
                 event_type = GD_FRIEND_EVENT_LOCAL_RJT;
+                op_ret = -1;
+        }
 
         ret = glusterd_friend_sm_new_event (event_type, &new_event);
 
@@ -344,7 +352,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_sm_inject_event (new_event);
 
         ret = glusterd_xfer_friend_add_resp (ev_ctx->req, ev_ctx->hostname,
-                                             ev_ctx->port);
+                                             ev_ctx->port, op_ret);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -408,7 +416,7 @@ glusterd_sm_t  glusterd_state_req_rcvd [] = {
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_ACC
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_RJT
-        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
+        {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCV_FRIEND_REQ
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND,
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND

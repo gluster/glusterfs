@@ -253,7 +253,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
 {
         int32_t         ret = -1;
@@ -800,6 +800,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
                 i++;
         }
         list_add_tail (&volinfo->vol_list, &priv->volumes);
+        volinfo->version++;
 
         ret = glusterd_store_create_volume (volinfo);
 
@@ -810,6 +811,10 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         if (ret)
                 goto out;
 
+
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
 
 out:
         return ret;
@@ -941,6 +946,12 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                 if (ret)
                         goto out;
         }
+
+        volinfo->version++;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
 
         ret = glusterd_store_update_volume (volinfo);
 
@@ -1878,6 +1889,12 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                 if (ret)
                         goto out;
         }
+
+        volinfo->version++;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
 
         ret = glusterd_store_update_volume (volinfo);
 

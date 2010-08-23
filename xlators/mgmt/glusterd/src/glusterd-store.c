@@ -134,9 +134,9 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
 
 
         snprintf (buf, sizeof(buf), "hostname=%s\n", brickinfo->hostname);
-        write (fd, buf, strlen(buf));
+        ret = write (fd, buf, strlen(buf));
         snprintf (buf, sizeof(buf), "path=%s\n", brickinfo->path);
-        write (fd, buf, strlen(buf));
+        ret = write (fd, buf, strlen(buf));
 
         ret = 0;
 
@@ -293,15 +293,21 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->status);
+/*        snprintf (buf, sizeof (buf), "%d", volinfo->port);
         ret = glusterd_store_save_value (volinfo->shandle,
                                         GLUSTERD_STORE_KEY_VOL_PORT, buf);
         if (ret)
                 goto out;
-
+*/
         snprintf (buf, sizeof (buf), "%d", volinfo->sub_count);
         ret = glusterd_store_save_value (volinfo->shandle,
                                         GLUSTERD_STORE_KEY_VOL_SUB_COUNT, buf);
+        if (ret)
+                goto out;
+
+        snprintf (buf, sizeof (buf), "%d", volinfo->version);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_VERSION, buf);
         if (ret)
                 goto out;
 
@@ -328,7 +334,7 @@ int32_t
 glusterd_store_delete_volume (glusterd_volinfo_t *volinfo)
 {
         char    pathname[PATH_MAX] = {0,};
-        int32_t ret = -1;
+        int32_t ret = 0;
         glusterd_conf_t *priv = NULL;
         DIR     *dir = NULL;
         struct dirent *entry = NULL;
