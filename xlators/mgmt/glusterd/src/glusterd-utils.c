@@ -688,7 +688,6 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
         if (peerinfo->rpc) {
-                rpc_clnt_destroy (peerinfo->rpc);
                 peerinfo->rpc = NULL;
         }
         glusterd_peer_destroy (peerinfo);
