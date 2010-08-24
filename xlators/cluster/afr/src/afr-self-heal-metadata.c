@@ -111,11 +111,7 @@ int
 afr_sh_metadata_unlck_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			   int32_t op_ret, int32_t op_errno)
 {
-	afr_local_t      *local = NULL;
 	int               call_count = 0;
-
-
-	local = frame->local;
 
 	call_count = afr_frame_return (frame);
 
@@ -155,13 +151,9 @@ afr_sh_metadata_erase_pending_cbk (call_frame_t *frame, void *cookie,
 				   int32_t op_errno, dict_t *xattr)
 {
 	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
 	int             call_count = 0;
 
 	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -623,7 +615,6 @@ int
 afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 	int              i = 0;
 	int              call_count = 0;
@@ -631,20 +622,22 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 	int              ret = 0;
 
 	local = frame->local;
-	sh = &local->self_heal;
 	priv = this->private;
 
 	call_count = afr_up_children_count (priv->child_count,
                                             local->child_up);
 	local->call_count = call_count;
-	
+
 	xattr_req = dict_new();
-	
+
 	if (xattr_req) {
                 for (i = 0; i < priv->child_count; i++) {
-                        ret = dict_set_uint64 (xattr_req, 
+                        ret = dict_set_uint64 (xattr_req,
                                                priv->pending_key[i],
                                                3 * sizeof(int32_t));
+                        if (ret < 0)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Unable to set dict value.");
                 }
         }
 
@@ -698,11 +691,9 @@ afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        afr_self_heal_t     *sh       = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        sh       = &local->self_heal;
 
         int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
         int_lock->selfheal_lk_type    = AFR_METADATA_SELF_HEAL_LK;
@@ -724,12 +715,10 @@ int
 afr_self_heal_metadata (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t   *local = NULL;
-	afr_self_heal_t *sh = NULL;
 	afr_private_t *priv = this->private;
 
 
 	local = frame->local;
-	sh = &local->self_heal;
 
 	if (local->self_heal.need_metadata_self_heal && priv->metadata_self_heal) {
 		afr_sh_metadata_lock (frame, this);
