@@ -98,7 +98,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 	int i, j;
 
         /* 10 digits per entry + 1 space + '[' and ']' */
-	buf = GF_MALLOC (priv->child_count * 11 + 8, gf_afr_mt_char); 
+	buf = GF_MALLOC (priv->child_count * 11 + 8, gf_afr_mt_char);
 
 	for (i = 0; i < priv->child_count; i++) {
 		ptr = buf;
@@ -106,7 +106,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 		for (j = 0; j < priv->child_count; j++) {
 			ptr += sprintf (ptr, "%d ", pending_matrix[i][j]);
 		}
-		ptr += sprintf (ptr, "]");
+		sprintf (ptr, "]");
 		gf_log (this->name, GF_LOG_TRACE,
 			"pending_matrix: %s", buf);
 	}
@@ -578,12 +578,16 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                 for (j = 0; j < child_count; j++) {
                         ret = dict_get_ptr (xattr[i], priv->pending_key[j],
                                             &pending_raw);
+                        if (ret < 0)
+                                gf_log ("afr_sh_pending_to_delta",
+                                        GF_LOG_WARNING,
+                                        "Unable to get dict value.");
 
                         if (!success[j])
                                 continue;
 
                         k = afr_index_for_transaction_type (type);
-                        
+
                         if (pending_raw) {
 				memcpy (pending, pending_raw, sizeof(pending));
                                 delta_matrix[i][j] = -(ntoh32 (pending[k]));
@@ -622,12 +626,15 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
 
 			pending[k] = hton32 (delta_matrix[i][j]);
 
-                        ret = dict_set_bin (xattr[i], priv->pending_key[j], 
+                        ret = dict_set_bin (xattr[i], priv->pending_key[j],
                                             pending,
                                             3 * sizeof (int32_t));
+                        if (ret < 0)
+                                gf_log ("afr_sh_delta_to_xattr",
+                                        GF_LOG_WARNING,
+                                        "Unable to set dict value.");
 		}
 	}
-
 	return 0;
 }
 
@@ -792,14 +799,9 @@ sh_missing_entries_unlck_cbk (call_frame_t *frame, void *cookie,
 			      int32_t op_ret, int32_t op_errno)
 {
 	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
 	int              call_count = 0;
 
-
 	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -814,7 +816,7 @@ sh_missing_entries_unlck_cbk (call_frame_t *frame, void *cookie,
 
 	return 0;
 }
-			      
+
 
 static int
 sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
@@ -1261,12 +1263,10 @@ sh_missing_entries_lookup_cbk (call_frame_t *frame, void *cookie,
 	int              child_index = 0;
 	afr_local_t     *local = NULL;
 	int              call_count = 0;
-	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 
 
 	local = frame->local;
-	sh = &local->self_heal;
 	priv = this->private;
 
 	child_index = (long) cookie;
@@ -1322,14 +1322,17 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
                                             local->child_up);
 
 	local->call_count = call_count;
-	
+
 	xattr_req = dict_new();
-	
+
 	if (xattr_req) {
                 for (i = 0; i < priv->child_count; i++) {
-                        ret = dict_set_uint64 (xattr_req, 
+                        ret = dict_set_uint64 (xattr_req,
                                                priv->pending_key[i],
                                                3 * sizeof(int32_t));
+                        if (ret < 0)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Unable to set dict value.");
                 }
         }
 
@@ -1350,7 +1353,7 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
 				break;
 		}
 	}
-	
+
 	if (xattr_req)
 		dict_unref (xattr_req);
 
