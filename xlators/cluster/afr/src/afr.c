@@ -370,7 +370,7 @@ init (xlator_t *this)
 	if (!priv->child_up) {
 		gf_log (this->name, GF_LOG_ERROR,	
 			"Out of memory.");		
-		op_errno = ENOMEM;			
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -379,7 +379,7 @@ init (xlator_t *this)
 	if (!priv->children) {
 		gf_log (this->name, GF_LOG_ERROR,	
 			"Out of memory.");		
-		op_errno = ENOMEM;			
+		ret = -ENOMEM;
 		goto out;
 	}
 
@@ -389,7 +389,7 @@ init (xlator_t *this)
         if (!priv->pending_key) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
-                op_errno = ENOMEM;
+                ret = -ENOMEM;
                 goto out;
         }
 
@@ -404,7 +404,7 @@ init (xlator_t *this)
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_ERROR, 
                                 "asprintf failed to set pending key");
-                        op_errno = ENOMEM;
+                        ret = -ENOMEM;
                         goto out;
                 }
 
