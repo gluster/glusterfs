@@ -491,14 +491,10 @@ static int
 server_resolve_inode (call_frame_t *frame)
 {
         server_state_t     *state = NULL;
-        xlator_t           *this = NULL;
-        server_resolve_t   *resolve = NULL;
         int                 ret = 0;
         loc_t              *loc = NULL;
 
         state = CALL_STATE (frame);
-        this  = frame->this;
-        resolve = state->resolve_now;
         loc  = state->loc_now;
 
         ret = resolve_inode_simple (frame);

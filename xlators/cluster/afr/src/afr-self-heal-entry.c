@@ -122,19 +122,7 @@ afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
 				xlator_t *this, int32_t op_ret,
 				int32_t op_errno, dict_t *xattr)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
 	int             call_count = 0;
-
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
-
-	LOCK (&frame->lock);
-	{
-	}
-	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
 
@@ -351,19 +339,7 @@ int
 afr_sh_entry_expunge_entry_done (call_frame_t *frame, xlator_t *this,
 				 int active_src)
 {
-	afr_private_t   *priv = NULL;
-	afr_local_t     *local  = NULL;
-	afr_self_heal_t *sh  = NULL;
 	int              call_count = 0;
-
-	priv = this->private;
-	local = frame->local;
-	sh = &local->self_heal;
-
-	LOCK (&frame->lock);
-	{
-	}
-	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
 
@@ -1051,19 +1027,7 @@ int
 afr_sh_entry_impunge_entry_done (call_frame_t *frame, xlator_t *this,
 				 int active_src)
 {
-	afr_private_t   *priv = NULL;
-	afr_local_t     *local  = NULL;
-	afr_self_heal_t *sh  = NULL;
 	int              call_count = 0;
-
-	priv = this->private;
-	local = frame->local;
-	sh = &local->self_heal;
-
-	LOCK (&frame->lock);
-	{
-	}
-	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
 
@@ -1136,7 +1100,6 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
 	afr_self_heal_t *impunge_sh = NULL;
-	call_frame_t    *frame = NULL;
 	int              child_index = 0;
 
         struct iatt stbuf;
@@ -1145,7 +1108,6 @@ afr_sh_entry_impunge_xattrop_cbk (call_frame_t *impunge_frame, void *cookie,
 	priv          = this->private;
 	impunge_local = impunge_frame->local;
 	impunge_sh    = &impunge_local->self_heal;
-	frame         = impunge_sh->sh_frame;
 
 	child_index = (long) cookie;
 
@@ -1261,6 +1223,9 @@ afr_sh_entry_impunge_newfile_cbk (call_frame_t *impunge_frame, void *cookie,
 
         ret = dict_set_static_bin (xattr, priv->pending_key[child_index],
                                    pending_array, sizeof (pending_array));
+        if (ret < 0)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to set dict value.");
 
         valid         = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
         parentbuf     = impunge_sh->parentbuf;
@@ -1308,12 +1273,9 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
-	afr_self_heal_t *impunge_sh = NULL;
-
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
-	impunge_sh = &impunge_local->self_heal;
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating missing file %s on %s",
@@ -1339,12 +1301,9 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
-	afr_self_heal_t *impunge_sh = NULL;
-
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
-	impunge_sh = &impunge_local->self_heal;
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating missing directory %s on %s",
@@ -1368,12 +1327,9 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
-	afr_self_heal_t *impunge_sh = NULL;
-
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
-	impunge_sh = &impunge_local->self_heal;
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating missing symlink %s -> %s on %s",
@@ -1448,11 +1404,9 @@ afr_sh_entry_impunge_symlink_unlink (call_frame_t *impunge_frame, xlator_t *this
 {
 	afr_private_t   *priv          = NULL;
 	afr_local_t     *impunge_local = NULL;
-	afr_self_heal_t *impunge_sh    = NULL;
 
 	priv          = this->private;
 	impunge_local = impunge_frame->local;
-	impunge_sh    = &impunge_local->self_heal;
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"unlinking symlink %s with wrong target on %s",
@@ -1547,12 +1501,9 @@ afr_sh_entry_impunge_readlink_sink (call_frame_t *impunge_frame, xlator_t *this,
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
-	afr_self_heal_t *impunge_sh = NULL;
-
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
-	impunge_sh = &impunge_local->self_heal;
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"checking symlink target of %s on %s",
@@ -2287,7 +2238,6 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                          inode_t *inode, struct iatt *buf, dict_t *xattr,
                          struct iatt *postparent)
 {
-	afr_private_t   *priv  = NULL;
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 
@@ -2296,7 +2246,6 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
 
 	local = frame->local;
 	sh = &local->self_heal;
-	priv = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -2321,7 +2270,6 @@ afr_sh_entry_lookup_cbk (call_frame_t *frame, void *cookie,
 int
 afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
 {
-	afr_self_heal_t * sh    = NULL; 
 	afr_local_t    *  local = NULL;
 	afr_private_t  *  priv  = NULL;
 	dict_t         *xattr_req = NULL;
@@ -2331,19 +2279,21 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
 
 	priv  = this->private;
 	local = frame->local;
-	sh    = &local->self_heal;
 
 	call_count = afr_up_children_count (priv->child_count,
                                             local->child_up);
 
 	local->call_count = call_count;
-	
+
 	xattr_req = dict_new();
 	if (xattr_req) {
                 for (i = 0; i < priv->child_count; i++) {
-                        ret = dict_set_uint64 (xattr_req, 
+                        ret = dict_set_uint64 (xattr_req,
                                                priv->pending_key[i],
                                                3 * sizeof(int32_t));
+                        if (ret < 0)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Unable to set dict value.");
                 }
         }
 
@@ -2352,14 +2302,14 @@ afr_sh_entry_lookup (call_frame_t *frame, xlator_t *this)
 			STACK_WIND_COOKIE (frame,
 					   afr_sh_entry_lookup_cbk,
 					   (void *) (long) i,
-					   priv->children[i], 
+					   priv->children[i],
 					   priv->children[i]->fops->lookup,
 					   &local->loc, xattr_req);
 			if (!--call_count)
 				break;
 		}
 	}
-	
+
 	if (xattr_req)
 		dict_unref (xattr_req);
 
@@ -2394,11 +2344,9 @@ afr_sh_entry_lock (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
-        afr_self_heal_t     *sh       = NULL;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
-        sh       = &local->self_heal;
 
         int_lock->transaction_lk_type = AFR_SELFHEAL_LK;
         int_lock->selfheal_lk_type    = AFR_ENTRY_SELF_HEAL_LK;
@@ -2420,13 +2368,11 @@ int
 afr_self_heal_entry (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t   *local = NULL;
-	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 
 
 	priv = this->private;
 	local = frame->local;
-	sh = &local->self_heal;
 
 	if (local->self_heal.need_entry_self_heal && priv->entry_self_heal) {
 		afr_sh_entry_lock (frame, this);
