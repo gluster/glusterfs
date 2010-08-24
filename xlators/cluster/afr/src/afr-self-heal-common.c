@@ -1200,7 +1200,7 @@ sh_missing_entries_create (call_frame_t *frame, xlator_t *this)
 
 	if (govinda_gOvinda) {
 		gf_log (this->name, GF_LOG_ERROR,
-			"conflicing filetypes exist for path %s. returning.",
+			"conflicting filetypes exist for path %s. returning.",
 			local->loc.path);
 
 		local->govinda_gOvinda = 1;
