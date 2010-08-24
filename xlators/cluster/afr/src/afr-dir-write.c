@@ -77,11 +77,9 @@ int
 afr_create_unwind (call_frame_t *frame, xlator_t *this)
 {
 	call_frame_t *main_frame = NULL;
-        afr_private_t * priv     = NULL;
 	afr_local_t  *local = NULL;
         struct iatt  *unwind_buf = NULL;
 
-        priv  = this->private;
 	local = frame->local;
 
 	LOCK (&frame->lock);
@@ -1400,13 +1398,11 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *prenewparent, struct iatt *postnewparent)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 
 	int call_count = -1;
 	int child_index = -1;
 
 	local = frame->local;
-	priv  = this->private;
 
 	child_index = (long) cookie;
 
@@ -1444,7 +1440,6 @@ afr_rename_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (call_count == 0) {
 		local->transaction.unwind (frame, this);
-
 		local->transaction.resume (frame, this);
 	}
 	
@@ -1622,13 +1617,9 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	int call_count  = -1;
 	int child_index = (long) cookie;
-	int need_unwind = 0;
-        int read_child  = 0;
 
 	local = frame->local;
 	priv  = this->private;
-
-        read_child = afr_read_child (this, local->loc.inode);
 
 	LOCK (&frame->lock);
 	{
@@ -1652,11 +1643,6 @@ afr_unlink_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
 
 			local->success_count++;
-
-			if ((local->success_count == priv->wait_count)
-                            && local->read_child_returned) {
-				need_unwind = 1;
-			}
 		}
 
 		local->op_errno = op_errno;
@@ -1837,13 +1823,10 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	int call_count  = -1;
 	int child_index = (long) cookie;
-	int need_unwind = 0;
         int read_child  = 0;
 
 	local = frame->local;
 	priv = this->private;
-
-        read_child = afr_read_child (this, local->loc.inode);
 
 	LOCK (&frame->lock);
 	{
@@ -1868,10 +1851,6 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         }
 
 			local->success_count++;
-
-			if ((local->success_count == priv->wait_count)
-                            && local->read_child_returned)
-				need_unwind = 1;
 		}
 
 		local->op_errno = op_errno;
@@ -1882,7 +1861,6 @@ afr_rmdir_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	if (call_count == 0) {
 		local->transaction.unwind (frame, this);
-
 		local->transaction.resume (frame, this);
 	}
 	
