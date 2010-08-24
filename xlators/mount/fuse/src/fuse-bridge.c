@@ -3278,11 +3278,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_GRAPH_NEW:
                 graph = data;
 
-                ret = fuse_graph_setup (this, graph);
-                if (ret)
-                        break;
-
                 if (!private->fuse_thread_started) {
+                        ret = fuse_graph_setup (this, graph);
+                        if (ret)
+                                break;
                         private->fuse_thread_started = 1;
 
                         ret = pthread_create (&private->fuse_thread, NULL,
@@ -3303,6 +3302,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         {
                 /* set priv->active_subvol */
                 /* set priv->first_lookup = 1 */
+                graph = data;
+                ret = fuse_graph_setup (this, graph);
+                if (ret)
+                        break;
 
                 pthread_mutex_lock (&private->sync_mutex);
                 {
@@ -3314,20 +3317,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 break;
         }
 
-        case GF_EVENT_VOLFILE_MODIFIED:
-        {
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "Remote volume file changed, try re-mounting.");
-                if (private->strict_volfile_check) {
-                        //fuse_session_remove_chan (private->ch);
-                        //fuse_session_destroy (private->se);
-                        //fuse_unmount (private->mount_point, private->ch);
-                        /* TODO: Above code if works, will be a cleaner way,
-                           but for now, lets just achieve what we want */
-                        raise (SIGTERM);
-                }
-                break;
-        }
         default:
                 break;
         }
