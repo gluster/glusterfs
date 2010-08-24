@@ -1062,13 +1062,29 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
         for (i = 0; i < priv->child_count; i++) {
 		ret = dict_set_uint64 (local->xattr_req, priv->pending_key[i],
 				       3 * sizeof(int32_t));
-
+                if (ret < 0)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Unable to set dict value.");
                 /* 3 = data+metadata+entry */
         }
 
 	ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_OPEN_FD_COUNT, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to set dict value.");
+        }
+
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to set dict value.");
+        }
+
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Unable to set dict value.");
+        }
 
 	for (i = 0; i < priv->child_count; i++) {
                 if (local->child_up[i]) {
@@ -1098,7 +1114,6 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 {
         afr_private_t * priv = NULL;
 
-        int op_ret = 0;
         int ret    = 0;
 
         uint64_t       ctx;
@@ -1122,7 +1137,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
 
-                        op_ret = -ENOMEM;
+                        ret = -ENOMEM;
                         goto unlock;
                 }
 
@@ -1132,7 +1147,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 if (!fd_ctx->pre_op_done) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
-                        op_ret = -ENOMEM;
+                        ret = -ENOMEM;
                         goto unlock;
                 }
 
@@ -1142,7 +1157,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 if (!fd_ctx->opened_on) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
-                        op_ret = -ENOMEM;
+                        ret = -ENOMEM;
                         goto unlock;
                 }
 
@@ -1155,7 +1170,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
 
-                        op_ret = -ENOMEM;
+                        ret = -ENOMEM;
                         goto unlock;
                 }
 
@@ -1163,9 +1178,6 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 fd_ctx->down_count = priv->down_count;
 
                 ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
-                if (ret < 0) {
-                        op_ret = ret;
-                }
 
                 INIT_LIST_HEAD (&fd_ctx->entries);
         }
@@ -1181,11 +1193,9 @@ int
 afr_flush_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -2357,15 +2367,12 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
 
-	int call_count  = -1;
 	int child_index = -1;
 
 	local = frame->local;
 	priv  = this->private;
 
 	child_index = (long) cookie;
-
-	call_count = --local->call_count;
 
 	if (!child_went_down (op_ret, op_errno) && (op_ret == -1)) {
 		local->op_ret   = -1;
