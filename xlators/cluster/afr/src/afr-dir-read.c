@@ -54,10 +54,8 @@ int
 afr_examine_dir_sh_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local  = NULL;
-        afr_self_heal_t *sh = NULL;
 
         local = frame->local;
-        sh    = &local->self_heal;
 
         afr_set_opendir_done (this, local->fd->inode);
 
@@ -228,13 +226,9 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
 		 fd_t *fd)
 {
-        afr_private_t *priv = NULL;
 	afr_local_t * local  = NULL;
 
 	int call_count = -1;
-        int ret        = 0;
-
-        priv = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -251,7 +245,7 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 
 	if (call_count == 0) {
                 if (local->op_ret == 0) {
-                        ret = afr_fd_ctx_set (this, local->fd);
+                        afr_fd_ctx_set (this, local->fd);
 
                         if (!afr_is_opendir_done (this, local->fd->inode)) {
 
@@ -476,7 +470,6 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
 {
 	afr_private_t * priv     = NULL;
 	afr_local_t *   local    = NULL;
-	xlator_t **     children = NULL;
 
         gf_dirent_t * entry = NULL;
         gf_dirent_t * tmp   = NULL;
@@ -484,10 +477,7 @@ afr_readdir_cbk (call_frame_t *frame, void *cookie,
         int child_index = -1;
 
 	priv     = this->private;
-	children = priv->children;
-
 	local = frame->local;
-
         child_index = (long) cookie;
 
 	if (op_ret != -1) {
