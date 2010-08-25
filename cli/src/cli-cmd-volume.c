@@ -332,6 +332,12 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         return 0;
 }
 
+void
+cli_cmd_volume_add_brick_usage ()
+{
+        cli_out ("usage: volume add-brick <VOLNAME> "
+                 "[(replica <COUNT>)|(stripe <COUNT>)] <NEW-BRICK> ...");
+}
 
 int
 cli_cmd_volume_add_brick_cbk (struct cli_state *state,
@@ -349,8 +355,11 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
 
         ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
 
-        if (ret)
+        if (ret) {
+                printf("Command Parsing failed, ");
+                cli_cmd_volume_add_brick_usage ();
                 goto out;
+        }
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_ADD_BRICK];
 
@@ -360,12 +369,21 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
 
 out:
         if (!proc && ret) {
-                char *volname = (char *) words[2];
-                cli_out ("Adding brick to Volume %s failed",volname );
+                if (wordcount > 2) {
+                        char *volname = (char *) words[2];
+                        cli_out ("Adding brick to Volume %s failed",volname );
+                }
         }
         return ret;
 }
 
+
+void
+cli_cmd_volume_remove_brick_usage ()
+{
+        cli_out ("usage: volume remove-brick <VOLNAME> "
+                 "[(replica <COUNT>)|(stripe <COUNT>)] <BRICK> ...");
+}
 
 int
 cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
@@ -383,8 +401,11 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
 
         ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options);
 
-        if (ret)
+        if (ret) {
+                printf("Command Parsing failed, ");
+                cli_cmd_volume_remove_brick_usage ();
                 goto out;
+        }
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_REMOVE_BRICK];
 
@@ -394,14 +415,21 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
 
 out:
         if (!proc && ret) {
-                char *volname = (char *) words[2];
-                cli_out ("Removing brick from Volume %s failed",volname );
+                if (wordcount > 2) {
+                        char *volname = (char *) words[2];
+                        cli_out ("Removing brick from Volume %s failed",volname );
+                }
         }
         return ret;
 
 }
 
-
+void
+cli_cmd_volume_replace_brick_usage ()
+{
+        cli_out("usage: volume replace-brick <VOLNAME> "
+                "(<BRICK> <NEW-BRICK>)|pause|abort|start|status");
+}
 
 
 int
@@ -423,8 +451,11 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
 
         ret = cli_cmd_volume_replace_brick_parse (words, wordcount, &options);
 
-        if (ret)
+        if (ret) {
+                printf("Command Parsing failed, ");
+                cli_cmd_volume_replace_brick_usage ();
                 goto out;
+        }
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
@@ -432,8 +463,10 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
 
 out:
         if (ret) {
-                char *volname = (char *) words[2];
-                cli_out ("Replacing brick from Volume %s failed",volname );
+                if (wordcount > 2) {
+                        char *volname = (char *) words[2];
+                        cli_out ("Replacing brick from Volume %s failed",volname );
+                }
         }
         return ret;
 
