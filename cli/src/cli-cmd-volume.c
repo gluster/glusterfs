@@ -67,6 +67,12 @@ out:
 
 }
 
+void
+cli_cmd_volume_create_usage ()
+{
+        cli_out ("usage: volume create <NEW-VOLNAME> "
+                 "[stripe <COUNT>] [replica <COUNT>] <NEW-BRICK> ...");
+}
 
 int
 cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
@@ -86,7 +92,8 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         ret = cli_cmd_volume_create_parse (words, wordcount, &options);
 
         if (ret) {
-                cli_out ("Command Parsing Failed");
+                printf ("Command Parsing failed, ");
+                cli_cmd_volume_create_usage ();
                 goto out;
         }
 
