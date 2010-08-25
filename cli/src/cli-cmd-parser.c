@@ -60,6 +60,9 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         if (!dict)
                 goto out;
 
+        if (wordcount < 3)
+                goto out;
+
         volname = (char *)words[2];
 
         GF_ASSERT (volname);
@@ -88,8 +91,16 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         if (ret)
                 goto out;
 
+        if (wordcount < 4) {
+                ret = -1;
+                goto out;
+        }
         if ((strcasecmp (words[3], "replica")) == 0) {
                 type = GF_CLUSTER_TYPE_REPLICATE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
                 count = strtol (words[4], NULL, 0);
                 if (!count) {
                         /* Wrong number of replica count */
@@ -106,6 +117,10 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 brick_index = 5;
         } else if ((strcasecmp (words[3], "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
                 count = strtol (words[4], NULL, 0);
                 if (!count) {
                         /* Wrong number of stripe count */

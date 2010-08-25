@@ -85,8 +85,10 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         ret = cli_cmd_volume_create_parse (words, wordcount, &options);
 
-        if (ret)
+        if (ret) {
+                cli_out ("Command Parsing Failed");
                 goto out;
+        }
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, options);
@@ -94,8 +96,10 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (ret) {
-                char *volname = (char *) words[2];
-                cli_out ("Creating Volume %s failed",volname );
+                if (wordcount > 2) {
+                        char *volname = (char *) words[2];
+                        cli_out ("Creating Volume %s failed",volname );
+                }
         }
         if (options)
                 dict_destroy (options);
