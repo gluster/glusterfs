@@ -91,13 +91,11 @@ afr_sh_data_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t     *local = NULL;
 	afr_private_t   *priv  = NULL;
-	afr_self_heal_t *sh = NULL;
 	int              call_count = 0;
 
         int child_index = (long) cookie;
 
 	local = frame->local;
-	sh = &local->self_heal;
 	priv = this->private;
 
 	LOCK (&frame->lock);
@@ -137,21 +135,19 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
 	afr_local_t     *local = NULL;
 	afr_private_t   *priv  = NULL;
 	afr_self_heal_t *sh    = NULL;
-        
+
 	int  i            = 0;
 	int  call_count   = 0;
         int  source       = 0;
-        int  active_sinks = 0;
         int32_t valid     = 0;
 
         struct iatt stbuf = {0,};
-        
+
         local = frame->local;
         sh    = &local->self_heal;
         priv  = this->private;
 
         source       = sh->source;
-        active_sinks = sh->active_sinks;
 
         valid |= (GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME);
 
@@ -192,7 +188,7 @@ afr_sh_data_close (call_frame_t *frame, xlator_t *this)
                            priv->children[sh->source],
                            priv->children[sh->source]->fops->setattr,
                            &local->loc, &stbuf, valid);
-        
+
         call_count--;
 
         if (call_count == 0)
@@ -310,19 +306,7 @@ afr_sh_data_erase_pending_cbk (call_frame_t *frame, void *cookie,
 			       xlator_t *this, int32_t op_ret,
 			       int32_t op_errno, dict_t *xattr)
 {
-	afr_local_t     *local = NULL;
-	afr_self_heal_t *sh = NULL;
-	afr_private_t   *priv = NULL;
 	int             call_count = 0;
-
-	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
-
-	LOCK (&frame->lock);
-	{
-	}
-	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
 
@@ -403,13 +387,11 @@ afr_sh_data_trim_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
-	afr_self_heal_t *sh  = NULL;
 	int              call_count = 0;
 	int              child_index = 0;
 
 	priv = this->private;
 	local = frame->local;
-	sh = &local->self_heal;
 
 	child_index = (long) cookie;
 
@@ -725,7 +707,6 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
 	afr_self_heal_t *sh   = NULL;
 	afr_private_t   *priv = NULL;
 
-	int              nsources = 0;
 	int              source = 0;
 	int              i = 0;
 
@@ -746,8 +727,7 @@ afr_self_heal_get_source (xlator_t *this, afr_local_t *local, dict_t **xattr)
 	afr_sh_build_pending_matrix (priv, sh->pending_matrix, xattr,
 				     priv->child_count, AFR_DATA_TRANSACTION);
 
-	nsources = afr_sh_mark_sources (sh, priv->child_count,
-                                        AFR_SELF_HEAL_DATA);
+	(void)afr_sh_mark_sources (sh, priv->child_count, AFR_SELF_HEAL_DATA);
 
 	source = afr_sh_select_source (sh->sources, priv->child_count);
 
@@ -872,7 +852,7 @@ afr_sh_data_fxattrop_cbk (call_frame_t *frame, void *cookie,
 int
 afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
 {
-	afr_self_heal_t *sh    = NULL; 
+	afr_self_heal_t *sh    = NULL;
 	afr_local_t     *local = NULL;
 	afr_private_t   *priv  = NULL;
 	dict_t          *xattr_req = NULL;
@@ -891,12 +871,15 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
                                             local->child_up);
 
 	local->call_count = call_count;
-	
+
 	xattr_req = dict_new();
 	if (xattr_req) {
                 for (i = 0; i < priv->child_count; i++) {
                         ret = dict_set_static_bin (xattr_req, priv->pending_key[i],
                                                    zero_pending, 3 * sizeof(int32_t));
+                        if (ret < 0)
+				gf_log (this->name, GF_LOG_WARNING,
+					"Unable to set dict value");
                 }
         }
 
@@ -904,7 +887,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_sh_data_fxattrop_cbk,
 					   (void *) (long) i,
-					   priv->children[i], 
+					   priv->children[i],
 					   priv->children[i]->fops->fxattrop,
 					   sh->healing_fd, GF_XATTROP_ADD_ARRAY,
                                            xattr_req);
@@ -913,7 +896,7 @@ afr_sh_data_fxattrop (call_frame_t *frame, xlator_t *this)
 				break;
 		}
 	}
-	
+
 	if (xattr_req)
 		dict_unref (xattr_req);
 
