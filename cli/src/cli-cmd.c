@@ -44,6 +44,9 @@ static pthread_mutex_t     conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 int    cli_op_ret = 0;
 int    connected = 0;
 
+int cli_cmd_log_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount);
+
 static gf_boolean_t
 cli_cmd_needs_connection (struct cli_cmd_word *word)
 {
@@ -92,6 +95,9 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
                 return -1;
         }
 
+	if ( strcmp (word->word,"--help")==0 )
+		goto callback;
+
         await_conn = cli_cmd_needs_connection (word);
 
         if (await_conn) {
@@ -104,7 +110,7 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
                 }
         }
 
-
+callback:
         ret = word->cbkfn (state, word, (const char **)argv, argc);
 
         return ret;

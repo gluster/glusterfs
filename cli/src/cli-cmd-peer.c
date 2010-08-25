@@ -37,6 +37,9 @@ extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
+int cli_cmd_peer_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount);
+
 void
 cli_cmd_probe_usage ()
 {
@@ -184,10 +187,33 @@ struct cli_cmd cli_probe_cmds[] = {
         { "peer status",
           cli_cmd_peer_status_cbk,
           "list status of peers"},
+	
+	{ "peer --help", 
+           cli_cmd_peer_help_cbk, 
+           "Help command for peer "},
+
 
         { NULL, NULL, NULL }
 };
 
+int
+cli_cmd_peer_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount)
+{
+        struct cli_cmd        *cmd = NULL;
+
+   
+
+        for (cmd = cli_probe_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+
+      
+
+        if (!state->rl_enabled)
+                exit (0);
+
+        return 0;
+}
 
 int
 cli_cmd_probe_register (struct cli_state *state)

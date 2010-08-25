@@ -76,9 +76,6 @@
 
 extern int connected;
 /* using argp for command line parsing */
-static char gf_doc[] = "";
-
-static char argp_doc[] = "COMMAND [PARAM ...]";
 
 const char *argp_program_version = ""                                 \
         PACKAGE_NAME" "PACKAGE_VERSION" built on "__DATE__" "__TIME__ \
@@ -91,14 +88,7 @@ const char *argp_program_version = ""                                 \
 
 const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
-static struct argp_option gf_options[] = {
-        {0, 0, 0, 0, "Basic options:"},
-        {"debug", ARGP_DEBUG_KEY, 0, 0,
-         "Process runs in foreground and logs to console"},
-        {"remote-port", ARGP_PORT_KEY, "PORT", 0,
-         "glusterd port to connect with"},
-        {0, }
-};
+
 
 struct rpc_clnt *global_rpc;
 
@@ -107,44 +97,7 @@ rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli3_1_prog;
 
-static error_t
-parse_opts (int key, char *arg, struct argp_state *argp_state)
-{
-        struct cli_state  *state = NULL;
-        char             **argv = NULL;
 
-        state = argp_state->input;
-
-        switch (key) {
-        case ARGP_DEBUG_KEY:
-                break;
-        case ARGP_PORT_KEY:
-                state->remote_port = strtol (arg, NULL, 0);
-                break;
-        case ARGP_KEY_ARG:
-                if (!state->argc) {
-                        argv = calloc (state->argc + 2,
-                                       sizeof (*state->argv));
-                } else {
-                        argv = realloc (state->argv, (state->argc + 2) *
-                                        sizeof (*state->argv));
-                }
-                if (!argv)
-                        return -1;
-
-                state->argv = argv;
-
-                argv[state->argc] = strdup (arg);
-                if (!argv[state->argc])
-                        return -1;
-                state->argc++;
-                argv[state->argc] = NULL;
-
-                break;
-        }
-
-        return 0;
-}
 
 
 static char *
@@ -375,14 +328,9 @@ int
 parse_cmdline (int argc, char *argv[], struct cli_state *state)
 {
         int         ret = 0;
-        struct argp argp = { 0,};
 
-        argp.options    = gf_options;
-        argp.parser     = parse_opts;
-        argp.args_doc   = argp_doc;
-        argp.doc        = gf_doc;
-
-        ret = argp_parse (&argp, argc, argv, ARGP_IN_ORDER, NULL, state);
+	state->argc=argc-1;
+        state->argv=&argv[1];
 
         return ret;
 }
