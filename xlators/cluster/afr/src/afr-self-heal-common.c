@@ -1360,29 +1360,6 @@ sh_missing_entries_lookup (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_sh_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking entrylks failed.");
-                afr_sh_missing_entries_done (frame, this);
-        } else {
-
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking entrylks done. Proceeding to FOP");
-                sh_missing_entries_lookup (frame, this);
-        }
-
-        return 0;
-}
-
-int
 afr_sh_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
@@ -1391,12 +1368,10 @@ afr_sh_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
         local    = frame->local;
         int_lock = &local->internal_lock;
 
-        /* Initiate blocking locks if non-blocking has failed */
         if (int_lock->lock_op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking entrylks failed. Proceeding to blocking");
-                int_lock->lock_cbk = afr_sh_post_blocking_entrylk_cbk;
-                afr_blocking_lock (frame, this);
+                        "Non blocking entrylks failed.");
+                afr_sh_missing_entries_done (frame, this);
         } else {
 
                 gf_log (this->name, GF_LOG_DEBUG,

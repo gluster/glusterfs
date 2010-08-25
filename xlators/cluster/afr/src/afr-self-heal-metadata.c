@@ -671,29 +671,6 @@ afr_sh_metadata_lookup (call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_sh_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
-{
-        afr_internal_lock_t *int_lock = NULL;
-        afr_local_t         *local    = NULL;
-
-        local    = frame->local;
-        int_lock = &local->internal_lock;
-
-        if (int_lock->lock_op_ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking inodelks failed.");
-                afr_sh_metadata_done (frame, this);
-        } else {
-
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Blocking inodelks done. Proceeding to FOP");
-                afr_sh_metadata_lookup (frame, this);
-        }
-
-        return 0;
-}
-
-int
 afr_sh_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
@@ -702,22 +679,19 @@ afr_sh_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         local    = frame->local;
         int_lock = &local->internal_lock;
 
-        /* Initiate blocking locks if non-blocking has failed */
         if (int_lock->lock_op_ret < 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking inodelks failed. Proceeding to blocking");
-                int_lock->lock_cbk = afr_sh_post_blocking_inodelk_cbk;
-                afr_blocking_lock (frame, this);
+                        "Non Blocking inodelks failed.");
+                afr_sh_metadata_done (frame, this);
         } else {
 
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Non blocking inodelks done. Proceeding to FOP");
+                        "Non Blocking inodelks done. Proceeding to FOP");
                 afr_sh_metadata_lookup (frame, this);
         }
 
         return 0;
 }
-
 
 int
 afr_sh_metadata_lock (call_frame_t *frame, xlator_t *this)
