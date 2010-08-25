@@ -165,7 +165,8 @@ static struct argp_option gf_options[] = {
         {0, 0, 0, 0, "Fuse options:"},
         {"direct-io-mode", ARGP_DIRECT_IO_MODE_KEY, "BOOL", OPTION_ARG_OPTIONAL,
          "Use direct I/O mode in fuse kernel module"
-         " [default: \"off\" if big writes are supported, else \"on\"]"},
+         " [default: \"off\" if big writes are supported, else "
+         "\"on\" for fds not opened with O_RDONLY]"},
         {"entry-timeout", ARGP_ENTRY_TIMEOUT_KEY, "SECONDS", 0,
          "Set entry timeout to SECONDS in fuse kernel module [default: 1]"},
         {"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0,
