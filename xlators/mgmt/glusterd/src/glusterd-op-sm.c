@@ -518,7 +518,14 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
         int                                     ret = 0;
         dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
-        gf_boolean_t                            exists = _gf_false;
+        int                                     count = 0;
+        int                                     i = 0;
+        char                                    *bricks    = NULL;
+        char                                    *brick_list = NULL;
+        char                                    *saveptr = NULL;
+        char                                    *brick = NULL;
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
 
         GF_ASSERT (req);
 
@@ -540,14 +547,43 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        exists = glusterd_check_volume_exists (volname);
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to find volume: %s", volname);
+                goto out;
+        }
 
-        if (!exists) {
-                gf_log ("", GF_LOG_ERROR, "Volume with name: %s exists",
-                        volname);
-                ret = -1;
-        } else {
-                ret = 0;
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "bricks", &bricks);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                goto out;
+        }
+
+        if (bricks)
+                brick_list = gf_strdup (bricks);
+
+        if (count)
+                brick = strtok_r (brick_list+1, " \n", &saveptr);
+
+        while ( i < count) {
+                ret = glusterd_brickinfo_get (brick, volinfo, &brickinfo);
+                if (!ret) {
+                        gf_log ("", GF_LOG_ERROR, "Adding duplicate brick: %s",
+                                brick);
+                        ret = -1;
+                        goto out;
+                } else {
+                        ret = 0;
+                }
+
+                brick = strtok_r (NULL, " \n", &saveptr);
+                i++;
         }
 
 out:
