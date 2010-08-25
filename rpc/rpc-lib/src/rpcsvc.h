@@ -39,6 +39,7 @@
 #include <pthread.h>
 #include <sys/uio.h>
 #include <inttypes.h>
+#include <rpc/rpc_msg.h>
 #include "compat.h"
 
 #ifndef NGRPS
