@@ -37,6 +37,9 @@ extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
+int cli_cmd_log_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount);
+
 int
 cli_cmd_log_cbk (struct cli_state *state, struct cli_cmd_word *word,
                  const char **words, int wordcount)
@@ -49,10 +52,32 @@ struct cli_cmd cli_log_cmds[] = {
         { "log <VOLNAME> ...",
           cli_cmd_log_cbk,
           "set log level for <VOLNAME>"},
+	
+	{ "log --help",
+           cli_cmd_log_help_cbk,
+           "help command for log"},
 
         { NULL, NULL, NULL }
 };
 
+int
+cli_cmd_log_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount)
+{
+        struct cli_cmd        *cmd = NULL;
+
+   
+
+        for (cmd = cli_log_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+
+      
+
+        if (!state->rl_enabled)
+                exit (0);
+
+        return 0;
+}
 
 int
 cli_cmd_log_register (struct cli_state *state)

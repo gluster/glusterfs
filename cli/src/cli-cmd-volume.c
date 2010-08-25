@@ -36,6 +36,10 @@ extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 
+int
+cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount);
+
 void
 cli_cmd_volume_start_usage ()
 {
@@ -503,9 +507,29 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_set_cbk,
          "set options for volume <VOLNAME>"},
 
+        { "volume --help",
+          cli_cmd_volume_help_cbk,
+          "display help for the volume command"},
+
+
         { NULL, NULL, NULL }
 };
 
+int
+cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
+                      const char **words, int wordcount)
+{
+        struct cli_cmd        *cmd = NULL;
+
+        for (cmd = volume_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
+
+        
+        if (!state->rl_enabled)
+                exit (0);
+
+        return 0;
+}
 
 int
 cli_cmd_volume_register (struct cli_state *state)
