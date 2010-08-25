@@ -77,6 +77,7 @@ struct gf1_cli_get_vol_rsp {
         int     op_ret;
         int     op_errno;
         string  volname<>;
+	 string  op_errstr<>;
 }  ;
 
  struct gf1_cli_delete_vol_req {
