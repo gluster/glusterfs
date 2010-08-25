@@ -52,6 +52,7 @@
 #include "statedump.h"
 #include "locking.h"
 #include "timer.h"
+#include "glusterfs3-xdr.h"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -4016,7 +4017,9 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                     && (!strcmp(entry->d_name, GF_REPLICATE_TRASH_DIR)))
                         continue;
 
-                this_size = dirent_size (entry);
+                this_size = max (sizeof (gf_dirent_t),
+                                 sizeof (gfs3_dirplist))
+                        + strlen (entry->d_name) + 1;
 
                 if (this_size + filled > size) {
                         seekdir (dir, in_case);

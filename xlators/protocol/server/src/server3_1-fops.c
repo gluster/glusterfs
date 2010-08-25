@@ -3868,9 +3868,10 @@ out:
 int
 server_readdirp (rpcsvc_request_t *req)
 {
-        server_state_t      *state = NULL;
-        call_frame_t        *frame = NULL;
-        gfs3_readdirp_req    args  = {0,};
+        server_state_t      *state        = NULL;
+        call_frame_t        *frame        = NULL;
+        gfs3_readdirp_req    args         = {0,};
+        size_t               headers_size = 0;
 
         if (!req)
                 return 0;
@@ -3896,9 +3897,19 @@ server_readdirp (rpcsvc_request_t *req)
                 goto out;
         }
 
+        /* FIXME: this should go away when variable sized iobufs are introduced
+         * and transport layer can send msgs bigger than current page-size.
+         */
+        headers_size = sizeof (struct rpc_msg) + sizeof (gfs3_readdir_rsp);
+        if ((frame->this->ctx->page_size < args.size)
+            || ((frame->this->ctx->page_size - args.size) < headers_size)) {
+                state->size = frame->this->ctx->page_size - headers_size;
+        } else {
+                state->size   = args.size;
+        }
+
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
-        state->size   = args.size;
         state->offset = args.offset;
 
         resolve_and_resume (frame, server_readdirp_resume);
@@ -3909,9 +3920,10 @@ out:
 int
 server_readdir (rpcsvc_request_t *req)
 {
-        server_state_t      *state = NULL;
-        call_frame_t        *frame = NULL;
-        gfs3_readdir_req     args  = {0,};
+        server_state_t      *state        = NULL;
+        call_frame_t        *frame        = NULL;
+        gfs3_readdir_req     args         = {0,};
+        size_t               headers_size = 0;
 
         if (!req)
                 return 0;
@@ -3937,9 +3949,19 @@ server_readdir (rpcsvc_request_t *req)
                 goto out;
         }
 
+        /* FIXME: this should go away when variable sized iobufs are introduced
+         * and transport layer can send msgs bigger than current page-size.
+         */
+        headers_size = sizeof (struct rpc_msg) + sizeof (gfs3_readdir_rsp);
+        if ((frame->this->ctx->page_size < args.size)
+            || ((frame->this->ctx->page_size - args.size) < headers_size)) {
+                state->size = frame->this->ctx->page_size - headers_size;
+        } else {
+                state->size   = args.size;
+        }
+
         state->resolve.type = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
-        state->size   = args.size;
         state->offset = args.offset;
 
         resolve_and_resume (frame, server_readdir_resume);
