@@ -27,7 +27,7 @@
 
 
 struct saved_frames *
-saved_frames_new (void)
+gf_client_saved_frames_new (void)
 {
 	struct saved_frames *saved_frames = NULL;
 
@@ -37,6 +37,7 @@ saved_frames_new (void)
 		return NULL;
 	}
 
+        gf_log ("", 1, "here");
 	INIT_LIST_HEAD (&saved_frames->fops.list);
 	INIT_LIST_HEAD (&saved_frames->mops.list);
 	INIT_LIST_HEAD (&saved_frames->cbks.list);
@@ -183,8 +184,9 @@ saved_frames_unwind (xlator_t *this, struct saved_frames *saved_frames,
 
 
 void
-saved_frames_destroy (xlator_t *this, struct saved_frames *frames,
-		      gf_op_t gf_fops[], gf_op_t gf_mops[], gf_op_t gf_cbks[])
+gf_client_saved_frames_destroy (xlator_t *this, struct saved_frames *frames,
+                                gf_op_t gf_fops[], gf_op_t gf_mops[],
+                                gf_op_t gf_cbks[])
 {
 	saved_frames_unwind (this, frames, &frames->fops, gf_fops, gf_fop_list);
 	saved_frames_unwind (this, frames, &frames->mops, gf_mops, gf_mop_list);

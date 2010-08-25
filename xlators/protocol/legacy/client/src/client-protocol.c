@@ -5866,7 +5866,7 @@ protocol_client_cleanup (transport_t *trans)
         pthread_mutex_lock (&conn->lock);
         {
                 saved_frames = conn->saved_frames;
-                conn->saved_frames = saved_frames_new ();
+                conn->saved_frames = gf_client_saved_frames_new ();
 
                 /* bailout logic cleanup */
                 if (conn->timer) {
@@ -5880,8 +5880,8 @@ protocol_client_cleanup (transport_t *trans)
         }
         pthread_mutex_unlock (&conn->lock);
 
-        saved_frames_destroy (trans->xl, saved_frames,
-                              gf_fops, gf_mops, gf_cbks);
+        gf_client_saved_frames_destroy (trans->xl, saved_frames,
+                                        gf_fops, gf_mops, gf_cbks);
 
         return 0;
 }
@@ -6156,7 +6156,7 @@ init (xlator_t *this)
                 conn = GF_CALLOC (1, sizeof (*conn),
                                   gf_client_mt_client_connection_t);
 
-                conn->saved_frames = saved_frames_new ();
+                conn->saved_frames = gf_client_saved_frames_new ();
 
                 conn->callid = 1;
 
