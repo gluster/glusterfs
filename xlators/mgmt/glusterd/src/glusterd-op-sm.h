@@ -212,4 +212,8 @@ glusterd_op_clear_op (glusterd_op_t op);
 
 int32_t
 glusterd_op_clear_ctx (glusterd_op_t op);
+
+int32_t
+glusterd_opinfo_unlock();
+
 #endif

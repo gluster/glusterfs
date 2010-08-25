@@ -2352,6 +2352,7 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.volname = "";
+				 rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_create_vol_rsp;
                                 break;
@@ -3054,4 +3055,9 @@ glusterd_op_sm_init ()
 {
         INIT_LIST_HEAD (&gd_op_sm_queue);
         return 0;
+}
+
+int32_t
+glusterd_opinfo_unlock(){
+        return (pthread_mutex_unlock(&opinfo.lock));
 }
