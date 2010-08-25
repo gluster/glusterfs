@@ -62,7 +62,7 @@ struct saved_frames {
 };
 
 
-struct saved_frames *saved_frames_new ();
+struct saved_frames *gf_client_saved_frames_new ();
 int saved_frames_put (struct saved_frames *frames, call_frame_t *frame,
 		      int32_t op, int8_t type, int64_t callid);
 call_frame_t *saved_frames_get (struct saved_frames *frames, int32_t op,
@@ -72,8 +72,8 @@ struct saved_frame *
 saved_frames_get_timedout (struct saved_frames *frames, int8_t type, 
 			   uint32_t timeout, struct timeval *current);
 
-void saved_frames_destroy (xlator_t *this, struct saved_frames *frames,
-			   gf_op_t gf_fops[], gf_op_t gf_mops[],
-			   gf_op_t gf_cbks[]);
+void gf_client_saved_frames_destroy (xlator_t *this, struct saved_frames *frames,
+                                     gf_op_t gf_fops[], gf_op_t gf_mops[],
+                                     gf_op_t gf_cbks[]);
 
 #endif /* _SAVED_FRAMES_H */
