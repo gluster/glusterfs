@@ -225,6 +225,9 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (!dict)
                 goto out;
 
+        if (wordcount < 3)
+                goto out;
+
         volname = (char *)words[2];
 
         GF_ASSERT (volname);
@@ -296,6 +299,9 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         if (!dict)
                 goto out;
 
+        if (wordcount < 3)
+                goto out;
+
         volname = (char *)words[2];
 
         GF_ASSERT (volname);
@@ -305,12 +311,27 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
+        if (wordcount < 4) {
+                ret = -1;
+                goto out;
+        }
+
         if ((strcasecmp (words[3], "replica")) == 0) {
                 type = GF_CLUSTER_TYPE_REPLICATE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+
                 count = strtol (words[4], NULL, 0);
                 brick_index = 5;
         } else if ((strcasecmp (words[3], "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+
                 count = strtol (words[4], NULL, 0);
                 brick_index = 5;
         } else {
@@ -393,6 +414,9 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         if (!dict)
                 goto out;
 
+        if (wordcount < 3)
+                goto out;
+
         volname = (char *)words[2];
 
         GF_ASSERT (volname);
@@ -402,12 +426,27 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
+        if (wordcount < 4) {
+                ret = -1;
+                goto out;
+        }
+
         if ((strcasecmp (words[3], "replica")) == 0) {
                 type = GF_CLUSTER_TYPE_REPLICATE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+
                 count = strtol (words[4], NULL, 0);
                 brick_index = 5;
         } else if ((strcasecmp (words[3], "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+
                 count = strtol (words[4], NULL, 0);
                 brick_index = 5;
         } else {
@@ -469,6 +508,9 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         if (!dict)
                 goto out;
 
+        if (wordcount < 3)
+                goto out;
+
         volname = (char *)words[2];
 
         GF_ASSERT (volname);
@@ -478,13 +520,21 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
+        if (wordcount < 4) {
+                ret = -1;
+                goto out;
+        }
+
         if (strchr ((char *)words[3], ':')) {
                 ret = dict_set_str (dict, "src-brick", (char *)words[3]);
 
                 if (ret)
                         goto out;
 
-                GF_ASSERT (words[4]);
+                if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
 
                 ret = dict_set_str (dict, "dst-brick", (char *)words[4]);
 
@@ -496,7 +546,10 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 op_index = 3;
         }
 
-        GF_ASSERT (words[op_index]);
+        if (wordcount < (op_index + 1)) {
+                ret = -1;
+                goto out;
+        }
 
         op = (char *) words[op_index];
 
@@ -512,7 +565,10 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 replace_op = GF_REPLACE_OP_STATUS;
         }
 
-        GF_ASSERT (replace_op != GF_REPLACE_OP_NONE);
+        if (replace_op == GF_REPLACE_OP_NONE) {
+                ret = -1;
+                goto out;
+        }
 
         ret = dict_set_int32 (dict, "operation", (int32_t) replace_op);
 
