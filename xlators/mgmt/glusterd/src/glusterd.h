@@ -130,6 +130,9 @@ struct glusterd_volinfo_ {
 
         int                     version;
         uint32_t                cksum;
+
+        /* All xlator options */
+        dict_t                  *dict;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
@@ -180,6 +183,9 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname, count)         \
         snprintf (pidfile, PATH_MAX, "%s/run/%s-%d.pid", volpath, hostname, count);
 
+int32_t
+glusterd_brick_from_brickinfo (glusterd_brickinfo_t *brickinfo,
+                               char **new_brick);
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
 
