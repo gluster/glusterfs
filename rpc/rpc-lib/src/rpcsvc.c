@@ -1157,6 +1157,8 @@ rpcsvc_fill_reply (rpcsvc_request_t *req, struct rpc_msg *reply)
                 return -1;
 
         prog = rpcsvc_request_program (req);
+        if (!prog)
+                return -1;
 
         rpc_fill_empty_reply (reply, req->xid);
 
@@ -1192,6 +1194,7 @@ rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
         struct iovec            recordhdr = {0, };
         size_t                  pagesize = 0;
         rpcsvc_t                *svc = NULL;
+        int                     ret = -1;
 
         if ((!req) || (!req->trans) || (!req->svc) || (!recbuf))
                 return NULL;
@@ -1207,7 +1210,10 @@ rpcsvc_record_build_record (rpcsvc_request_t *req, size_t payload,
         record = iobuf_ptr (replyiob);  /* Now we have it. */
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
-        rpcsvc_fill_reply (req, &reply);
+        ret = rpcsvc_fill_reply (req, &reply);
+        if (ret)
+                goto err_exit;
+
         recordhdr = rpcsvc_record_build_header (record, pagesize, reply,
                                                 payload);
         if (!recordhdr.iov_base) {
