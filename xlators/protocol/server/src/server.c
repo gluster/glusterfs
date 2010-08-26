@@ -457,6 +457,10 @@ init (xlator_t *this)
         if (ret)
                 goto out;
 
+        ret = dict_get_str (this->options, "config-directory", &conf->conf_dir);
+        if (ret)
+                conf->conf_dir = CONFDIR;
+
         /* Authentication modules */
         conf->auth_modules = dict_new ();
         GF_VALIDATE_OR_GOTO(this->name, conf->auth_modules, out);
