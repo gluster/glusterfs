@@ -72,12 +72,15 @@ pmap_registry_new (void)
                 return NULL;
 
         for (i = 0; i < 65536; i++) {
-                if (!pmap_port_isfree (i))
+                if (!pmap_port_isfree (i)) {
                         pmap->ports[i].used = 1;
+                        pmap->last_alloc = i;
+                }
         }
 
         pmap->base_port = 6969;
-        pmap->last_alloc = 6969;
+        if (pmap->last_alloc < 6969)
+                pmap->last_alloc = 6969;
 
         return pmap;
 }
@@ -112,10 +115,31 @@ pmap_registry_search (xlator_t *this, const char *brickname)
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->base_port; p < 65535; p++) {
+        for (p = pmap->base_port; p < pmap->last_alloc; p++) {
                 if (!pmap->ports[p].brickname)
                         continue;
                 if (strcmp (pmap->ports[p].brickname, brickname) == 0) {
+                        port = p;
+                        break;
+                }
+        }
+
+        return port;
+}
+
+int
+pmap_registry_search_by_xprt (xlator_t *this, void *xprt)
+{
+        struct pmap_registry *pmap = NULL;
+        int                   p    = 0;
+        int                   port = 0;
+
+        pmap = pmap_registry_get (this);
+
+        for (p = pmap->base_port; p < pmap->last_alloc; p++) {
+                if (!pmap->ports[p].xprt)
+                        continue;
+                if (pmap->ports[p].xprt == xprt) {
                         port = p;
                         break;
                 }
@@ -167,10 +191,9 @@ pmap_registry_alloc (xlator_t *this)
         return port;
 }
 
-
-
 int
-pmap_registry_bind (xlator_t *this, int port, const char *brickname)
+pmap_registry_bind (xlator_t *this, int port,
+                    const char *brickname, void *xprt)
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
@@ -185,26 +208,57 @@ pmap_registry_bind (xlator_t *this, int port, const char *brickname)
         if (pmap->ports[p].brickname)
                 free (pmap->ports[p].brickname);
         pmap->ports[p].brickname = strdup (brickname);
+        pmap->ports[p].xprt = xprt;
 
+        gf_log ("pmap", GF_LOG_INFO, "adding brick %s on port %d",
+                brickname, port);
+
+        if (pmap->last_alloc < p)
+                pmap->last_alloc = p;
 out:
         return 0;
 }
 
 int
-pmap_registry_remove (xlator_t *this, int port, const char *brickname)
+pmap_registry_remove (xlator_t *this, int port,
+                      const char *brickname, void *xprt)
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
 
         pmap = pmap_registry_get (this);
 
-        if (port > 65535)
-                goto out;
+        if (port) {
+                if (port > 65535)
+                        goto out;
 
-        p = port;
+                p = port;
+                goto remove;
+        }
+
+        if (brickname && strchr (brickname, '/')) {
+                p = pmap_registry_search (this, brickname);
+                if (p)
+                        goto remove;
+        }
+
+        if (xprt) {
+                p = pmap_registry_search_by_xprt (this, xprt);
+                if (p)
+                        goto remove;
+        }
+
+        goto out;
+remove:
+        gf_log ("pmap", GF_LOG_INFO, "removing brick %s on port %d",
+                pmap->ports[p].brickname, p);
+
         pmap->ports[p].used = 0;
         if (pmap->ports[p].brickname)
                 free (pmap->ports[p].brickname);
+
+        pmap->ports[p].brickname = NULL;
+        pmap->ports[p].xprt = NULL;
 
 out:
         return 0;
@@ -299,7 +353,7 @@ gluster_pmap_signup (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick);
+        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick, req->trans);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -320,8 +374,8 @@ gluster_pmap_signin (rpcsvc_request_t *req)
                 goto fail;
         }
 
-
-        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick);
+        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick,
+                                         req->trans);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -345,7 +399,8 @@ gluster_pmap_signout (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick);
+        rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick,
+                                           req->trans);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,

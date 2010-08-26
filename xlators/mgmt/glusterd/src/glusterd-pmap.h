@@ -41,6 +41,7 @@
 struct pmap_port_status {
         int    used;
         char  *brickname;
+        void  *xprt;
 };
 
 struct pmap_registry {
@@ -50,7 +51,9 @@ struct pmap_registry {
 };
 
 int pmap_registry_alloc (xlator_t *this);
-int pmap_registry_bind (xlator_t *this, int port, const char *brickname);
-int pmap_registry_remove (xlator_t *this, int port, const char *brickname);
+int pmap_registry_bind (xlator_t *this, int port, const char *brickname,
+                        void *xprt);
+int pmap_registry_remove (xlator_t *this, int port, const char *brickname,
+                          void *xprt);
 
 #endif
