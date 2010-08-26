@@ -234,6 +234,12 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
 		 */
 		ret = dict_set_uint32 (local->xattr_req,
 				       "trusted.glusterfs.dht", 4 * 4);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set dict value.");
+                        op_errno = -1;
+                        goto err;
+                }
 
 		for (i = 0; i < layout->cnt; i++) {
 			subvol = layout->list[i].xlator;
@@ -249,9 +255,21 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
         do_fresh_lookup:
 		ret = dict_set_uint32 (local->xattr_req,
 				       "trusted.glusterfs.dht", 4 * 4);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set dict value.");
+                        op_errno = -1;
+                        goto err;
+                }
 
 		ret = dict_set_uint32 (local->xattr_req,
 				       "trusted.glusterfs.dht.linkto", 256);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Failed to set dict value.");
+                        op_errno = -1;
+                        goto err;
+                }
 
 		/* Send it to only local volume */
 		STACK_WIND (frame, nufa_local_lookup_cbk,
@@ -276,12 +294,8 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
                                  struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
-	call_frame_t *prev = NULL;
-	dht_conf_t   *conf  = NULL;
 
 	local = frame->local;
-	prev  = cookie;
-	conf  = this->private;
 
 	if (op_ret == -1)
 		goto err;
@@ -289,7 +303,6 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 	STACK_WIND (frame, dht_create_cbk,
 		    local->cached_subvol, local->cached_subvol->fops->create,
 		    &local->loc, local->flags, local->mode, local->fd);
-
 	return 0;
 
  err:
@@ -386,19 +399,14 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *postparent)
 {
 	dht_local_t  *local = NULL;
-	call_frame_t *prev = NULL;
-	dht_conf_t   *conf  = NULL;
 
 	local = frame->local;
-	prev  = cookie;
-	conf  = this->private;
 
 	if (op_ret >= 0) {
 		STACK_WIND (frame, dht_newfile_cbk,
 			    local->cached_subvol,
 			    local->cached_subvol->fops->mknod,
 			    &local->loc, local->mode, local->rdev);
-
 		return 0;
 	}
 
