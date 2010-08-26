@@ -118,6 +118,7 @@ struct glusterd_op_info_ {
         int32_t                         op_errno;
         pthread_mutex_t                 lock;
         int32_t                         cli_op;
+        gf_boolean_t                    ctx_free[GD_OP_MAX];
 };
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
@@ -216,4 +217,12 @@ glusterd_op_clear_ctx (glusterd_op_t op);
 int32_t
 glusterd_opinfo_unlock();
 
+int32_t
+glusterd_op_set_ctx_free (glusterd_op_t op, gf_boolean_t ctx_free);
+
+int32_t
+glusterd_op_clear_ctx_free (glusterd_op_t op);
+
+gf_boolean_t
+glusterd_op_get_ctx_free (glusterd_op_t op);
 #endif
