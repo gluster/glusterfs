@@ -440,6 +440,7 @@ out:
         gf_log (this->name, GF_LOG_TRACE,
                 "The up/down flush is over");
 
+        fd_unref (local->fd);
         local->up_down_flush_cbk (frame, this);
 
 	return 0;
@@ -460,7 +461,7 @@ afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         local->op = GF_FOP_FLUSH;
 
-        local->fd = fd_ref (local->fd);
+        local->fd = fd_ref (fd);
 
         local->transaction.fop          = afr_up_down_flush_wind;
         local->transaction.done         = afr_up_down_flush_done;
