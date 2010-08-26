@@ -396,6 +396,10 @@ __socket_reset (rpc_transport_t *this)
                 iobuf_unref (priv->incoming.iobuf);
         }
 
+        if (priv->incoming.request_info != NULL) {
+                GF_FREE (priv->incoming.request_info);
+        }
+
         memset (&priv->incoming, 0, sizeof (priv->incoming));
 
         event_unregister (this->ctx->event_pool, priv->sock, priv->idx);
@@ -1311,6 +1315,11 @@ void __socket_reset_priv (socket_private_t *priv)
 
         if (priv->incoming.iobuf) {
                 iobuf_unref (priv->incoming.iobuf);
+        }
+
+        if (priv->incoming.request_info != NULL) {
+                GF_FREE (priv->incoming.request_info);
+                priv->incoming.request_info = NULL;
         }
 
         memset (&priv->incoming.payload_vector, 0,
