@@ -375,6 +375,8 @@ xdr_gf1_cli_add_brick_rsp (XDR *xdrs, gf1_cli_add_brick_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0)) 
+		 return FALSE;
 	return TRUE;
 }
 

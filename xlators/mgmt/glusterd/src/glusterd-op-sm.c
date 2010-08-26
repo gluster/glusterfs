@@ -2408,6 +2408,7 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.volname = "";
+                                rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_add_brick_rsp;
                                 break;
