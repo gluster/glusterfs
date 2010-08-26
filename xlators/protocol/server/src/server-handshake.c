@@ -114,9 +114,9 @@ _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
 }
 
 
-size_t
-build_volfile_path (xlator_t *this, const char *key, char *path,
-                    size_t path_len)
+static size_t
+getspec_build_volfile_path (xlator_t *this, const char *key, char *path,
+                           size_t path_len)
 {
         int              ret = -1;
         int              free_filename = 0;
@@ -150,12 +150,6 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
                                 goto out;
                         }
                 }
-
-                ret = gf_asprintf (&filename, "%s/%s.vol", conf->conf_dir, key);
-                if (-1 == ret)
-                        goto out;
-
-                free_filename = 1;
         }
 
         if (!filename) {
@@ -165,9 +159,18 @@ build_volfile_path (xlator_t *this, const char *key, char *path,
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "no default volume filename given, "
                                 "defaulting to %s", DEFAULT_VOLUME_FILE_PATH);
-                        filename = DEFAULT_VOLUME_FILE_PATH;
                 }
         }
+
+        if (!filename && key) {
+                ret = gf_asprintf (&filename, "%s/%s.vol", conf->conf_dir, key);
+                if (-1 == ret)
+                        goto out;
+
+                free_filename = 1;
+        }
+        if (!filename)
+                filename = DEFAULT_VOLUME_FILE_PATH;
 
         ret = -1;
 
@@ -201,7 +204,7 @@ _validate_volfile_checksum (xlator_t *this, char *key,
                 goto out;
 
         if (!temp_volfile) {
-                ret = build_volfile_path (this, key, filename,
+                ret = getspec_build_volfile_path (this, key, filename,
                                           sizeof (filename));
                 if (ret <= 0)
                         goto out;
@@ -246,23 +249,23 @@ out:
 int
 server_getspec (rpcsvc_request_t *req)
 {
-        int32_t               ret = -1;
-        int32_t               op_errno = ENOENT;
-        int32_t               spec_fd = -1;
-        size_t                file_len = 0;
-        char                  filename[ZR_PATH_MAX] = {0,};
-        struct stat           stbuf = {0,};
-        uint32_t              checksum = 0;
-        char                 *key = NULL;
-        server_conf_t        *conf = NULL;
-
-        gf_getspec_req    args = {0,};
-        gf_getspec_rsp    rsp  = {0,};
-        server_connection_t  *conn = NULL;
+        int32_t              ret                    = -1;
+        int32_t              op_errno               = ENOENT;
+        int32_t              spec_fd                = -1;
+        size_t               file_len               = 0;
+        char                 filename[ZR_PATH_MAX]  = {0,};
+        struct stat          stbuf                  = {0,};
+        uint32_t             checksum               = 0;
+        char                *key                    = NULL;
+        server_conf_t       *conf                   = NULL;
+        xlator_t            *this                   = NULL;
+        gf_getspec_req       args                   = {0,};
+        gf_getspec_rsp       rsp                    = {0,};
+        server_connection_t *conn                   = NULL;
 
         conn = req->trans->private;
-        conf = conn->this->private;
-
+        this = req->svc->mydata;
+        conf = this->private;
         if (xdr_to_glusterfs_req (req, &args, xdr_to_getspec_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -270,13 +273,13 @@ server_getspec (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        ret = build_volfile_path (conn->this, args.key,
-                                  filename, sizeof (filename));
+        ret = getspec_build_volfile_path (this, args.key,
+                                          filename, sizeof (filename));
         if (ret > 0) {
                 /* to allocate the proper buffer to hold the file data */
                 ret = stat (filename, &stbuf);
                 if (ret < 0){
-                        gf_log (conn->this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to stat %s (%s)",
                                 filename, strerror (errno));
                         op_errno = errno;
@@ -285,7 +288,7 @@ server_getspec (rpcsvc_request_t *req)
 
                 spec_fd = open (filename, O_RDONLY);
                 if (spec_fd < 0) {
-                        gf_log (conn->this->name, GF_LOG_ERROR,
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "Unable to open %s (%s)",
                                 filename, strerror (errno));
                         op_errno = errno;
@@ -295,7 +298,7 @@ server_getspec (rpcsvc_request_t *req)
 
                 if (conf->verify_volfile) {
                         get_checksum_for_file (spec_fd, &checksum);
-                        _volfile_update_checksum (conn->this, key, checksum);
+                        _volfile_update_checksum (this, key, checksum);
                 }
         } else {
                 op_errno = ENOENT;
@@ -317,6 +320,8 @@ server_getspec (rpcsvc_request_t *req)
         /* convert to XDR */
         op_errno = errno;
 fail:
+        if (!rsp.spec)
+                rsp.spec = "";
         rsp.op_errno = gf_errno_to_error (op_errno);
         rsp.op_ret   = ret;
 
