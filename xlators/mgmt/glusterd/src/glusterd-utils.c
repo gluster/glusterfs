@@ -40,6 +40,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
+#include "glusterd-volgen.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -480,6 +481,14 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
         INIT_LIST_HEAD (&new_volinfo->vol_list);
         INIT_LIST_HEAD (&new_volinfo->bricks);
 
+        ret = glusterd_default_xlator_options (new_volinfo);
+        if (ret) {
+                if (new_volinfo)
+                        GF_FREE (new_volinfo);
+
+                goto out;
+        }
+
         *volinfo = new_volinfo;
 
         ret = 0;
@@ -522,6 +531,8 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
                 if (ret)
                         goto out;
         }
+
+        dict_unref (volinfo->dict);
 
         GF_FREE (volinfo);
         ret = 0;
@@ -631,7 +642,6 @@ out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-
 
 int32_t
 glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,

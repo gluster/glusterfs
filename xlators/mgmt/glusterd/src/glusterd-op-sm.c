@@ -45,6 +45,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 #include "cli1.h"
+#include "glusterd-volgen.h"
 
 #include <sys/types.h>
 #include <signal.h>
@@ -724,7 +725,6 @@ out:
         return ret;
 }
 
-
 static int
 glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
 {
@@ -843,10 +843,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_volume_create_generate_volfiles (volinfo);
-        if (ret)
-                goto out;
-
+        ret = glusterd_create_volfiles (volinfo);
 
         ret = glusterd_volume_compute_cksum (volinfo);
         if (ret)
