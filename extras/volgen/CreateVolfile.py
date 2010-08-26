@@ -348,7 +348,7 @@ class CreateVolfile:
         i = 0
         for export in self.host_dict[self.host]:
             export_volfile = "%s/%s-%d.vol" % (self.conf_dir,
-                                               str(self.host + '-' + self.volume_name),
+                                               str(self.volume_name + '.' + self.host),
                                                i)
             i += 1
             exp_fd = file ("%s" % (export_volfile),"w")

@@ -762,8 +762,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         port = pmap_registry_alloc (THIS);
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname, count);
-        snprintf (volfile, PATH_MAX, "%s-%s-%d", brickinfo->hostname,
-                  volinfo->volname, count);
+        snprintf (volfile, PATH_MAX, "%s.%s-%d", volinfo->volname,
+                  brickinfo->hostname, count);
 
         snprintf (cmd_str, 8192,
                   "%s/sbin/glusterfs --xlator-option server-*.listen-port=%d "

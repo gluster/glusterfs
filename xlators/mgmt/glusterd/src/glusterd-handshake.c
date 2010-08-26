@@ -56,10 +56,7 @@ build_volfile_path (const char *volname, char *path,
         ret = glusterd_volinfo_find (dup_volname, &volinfo);
         if (ret) {
                 /* Split the volume name */
-                vol = strtok_r (dup_volname, "-", &tmp);
-                if (!vol)
-                        goto out;
-                vol = strtok_r (NULL, "-", &tmp);
+                vol = strtok_r (dup_volname, ".", &tmp);
                 if (!vol)
                         goto out;
                 ret = glusterd_volinfo_find (vol, &volinfo);
