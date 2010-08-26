@@ -2097,6 +2097,8 @@ glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
 
         glusterd_op_set_ctx (GD_OP_CREATE_VOLUME, dict);
 
+        glusterd_op_set_ctx_free (GD_OP_CREATE_VOLUME, _gf_true);
+
         glusterd_op_set_req (req);
 
         data = dict_get (dict, "volname");
@@ -2140,6 +2142,7 @@ glusterd_start_volume (rpcsvc_request_t *req, char *volname, int flags)
         glusterd_op_set_op (GD_OP_START_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_START_VOLUME, ctx);
+        glusterd_op_set_ctx_free (GD_OP_START_VOLUME, _gf_true);
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
@@ -2167,6 +2170,7 @@ glusterd_stop_volume (rpcsvc_request_t *req, char *volname, int flags)
         glusterd_op_set_op (GD_OP_STOP_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_STOP_VOLUME, ctx);
+        glusterd_op_set_ctx_free (GD_OP_STOP_VOLUME, _gf_true);
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
@@ -2194,6 +2198,7 @@ glusterd_delete_volume (rpcsvc_request_t *req, char *volname, int flags)
         glusterd_op_set_op (GD_OP_DELETE_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_DELETE_VOLUME, ctx);
+        glusterd_op_set_ctx_free (GD_OP_DELETE_VOLUME, _gf_true);
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
@@ -2213,6 +2218,7 @@ glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_op (GD_OP_ADD_BRICK);
 
         glusterd_op_set_ctx (GD_OP_ADD_BRICK, dict);
+        glusterd_op_set_ctx_free (GD_OP_ADD_BRICK, _gf_true);
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
@@ -2232,6 +2238,8 @@ glusterd_replace_brick (rpcsvc_request_t *req, dict_t *dict)
 
         glusterd_op_set_ctx (GD_OP_REPLACE_BRICK, dict);
 
+        glusterd_op_set_ctx_free (GD_OP_REPLACE_BRICK, _gf_true);
+
         ret = glusterd_op_txn_begin ();
 
         return ret;
@@ -2248,6 +2256,7 @@ glusterd_remove_brick (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_op (GD_OP_REMOVE_BRICK);
 
         glusterd_op_set_ctx (GD_OP_REMOVE_BRICK, dict);
+        glusterd_op_set_ctx_free (GD_OP_REMOVE_BRICK, _gf_true);
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();

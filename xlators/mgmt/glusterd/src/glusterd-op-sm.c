@@ -51,7 +51,7 @@
 #include <signal.h>
 
 static struct list_head gd_op_sm_queue;
-glusterd_op_info_t    opinfo;
+glusterd_op_info_t    opinfo = {{0},};
 static int glusterfs_port = GLUSTERD_DEFAULT_PORT;
 
 static void
@@ -2470,6 +2470,7 @@ glusterd_op_txn_complete ()
                 glusterd_op_clear_commit_op (op);
                 glusterd_op_clear_op (op);
                 glusterd_op_clear_ctx (op);
+                glusterd_op_clear_ctx_free (op);
         }
 
 out:
@@ -3033,7 +3034,9 @@ glusterd_op_clear_ctx (glusterd_op_t op)
 
         opinfo.op_ctx[op] = NULL;
 
-        //Cleanup to be done here
+        if (ctx && glusterd_op_get_ctx_free(op)) {
+                GF_FREE(ctx);
+        }
         return 0;
 
 }
@@ -3045,6 +3048,42 @@ glusterd_op_get_ctx (glusterd_op_t op)
         GF_ASSERT (op > GD_OP_NONE);
 
         return opinfo.op_ctx[op];
+
+}
+
+int32_t
+glusterd_op_set_ctx_free (glusterd_op_t op, gf_boolean_t ctx_free)
+{
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        opinfo.ctx_free[op] = ctx_free;
+
+        return 0;
+
+}
+
+int32_t
+glusterd_op_clear_ctx_free (glusterd_op_t op)
+{
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        opinfo.ctx_free[op] = _gf_false;
+
+        return 0;
+
+}
+
+gf_boolean_t
+glusterd_op_get_ctx_free (glusterd_op_t op)
+{
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+
+        return opinfo.ctx_free[op];
 
 }
 
