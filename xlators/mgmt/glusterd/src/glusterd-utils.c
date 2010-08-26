@@ -670,8 +670,13 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         hostname = strtok (dup_brick, ":");
         path = strtok (NULL, ":");
 
-        GF_ASSERT (hostname);
-        GF_ASSERT (path);
+        if (!hostname || !path) {
+                gf_log ("", GF_LOG_ERROR,
+                        "brick %s is not of form <HOSTNAME>:<export-dir>",
+                        brick);
+                ret = -1;
+                goto out;
+        }
 
         list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
 

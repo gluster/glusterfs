@@ -41,6 +41,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
+        char    *delimiter = NULL;
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 1;
@@ -148,8 +149,9 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 goto out;
         strcpy (brick_list, " ");
         while (brick_index < wordcount) {
-                GF_ASSERT (words[brick_index]);
-                if (!strchr (words[brick_index], ':')) {
+                delimiter = strchr (words[brick_index], ':');
+                if (!delimiter || delimiter == words[brick_index]
+                    || *(delimiter+1) != '/') {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "wrong brick type, use <HOSTNAME>:<export-dir>");
                         ret = -1;
@@ -296,6 +298,7 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
+        char    *delimiter = NULL;
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 0;
@@ -356,8 +359,9 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
 
         strcpy (brick_list, " ");
         while (brick_index < wordcount) {
-                GF_ASSERT (words[brick_index]);
-                if (!strchr (words[brick_index], ':')) {
+                delimiter = strchr (words[brick_index], ':');
+                if (!delimiter || delimiter == words[brick_index]
+                    || *(delimiter+1) != '/') {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "wrong brick type, use <HOSTNAME>:<export-dir>");
                         ret = -1;
@@ -413,6 +417,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
+        char    *delimiter = NULL;
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 0;
@@ -475,7 +480,14 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                 goto out;
 
         while (brick_index < wordcount) {
-                GF_ASSERT (words[brick_index]);
+                delimiter = strchr(words[brick_index], ':');
+                if (!delimiter || delimiter == words[brick_index]
+                    || *(delimiter+1) != '/') {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "wrong brick type, use <HOSTNAME>:<export-dir>");
+                        ret = -1;
+                        goto out;
+                }
 
                 snprintf (key, 50, "brick%d", ++brick_count);
                 ret = dict_set_str (dict, key, (char *)words[brick_index++]);
@@ -511,6 +523,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         int     ret = -1;
         char    *op = NULL;
         int     op_index = 0;
+        char    *delimiter = NULL;
         gf1_cli_replace_op replace_op = GF_REPLACE_OP_NONE;
 
         GF_ASSERT (words);
@@ -541,13 +554,24 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 goto out;
         }
 
-        if (strchr ((char *)words[3], ':')) {
+        delimiter = strchr ((char *)words[3], ':');
+        if (delimiter && delimiter != words[3]
+            && *(delimiter+1) == '/') {
                 ret = dict_set_str (dict, "src-brick", (char *)words[3]);
 
                 if (ret)
                         goto out;
 
                 if (wordcount < 5) {
+                        ret = -1;
+                        goto out;
+                }
+
+                delimiter = strchr ((char *)words[4], ':');
+                if (!delimiter || delimiter == words[4]
+                    || *(delimiter+1) != '/') {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "wrong brick type, use <HOSTNAME>:<export-dir>");
                         ret = -1;
                         goto out;
                 }
