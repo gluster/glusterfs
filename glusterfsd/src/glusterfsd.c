@@ -226,29 +226,65 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
                 goto err;
         }
 
-        if (cmd_args->fuse_attribute_timeout >= 0)
+        if (cmd_args->fuse_attribute_timeout >= 0) {
                 ret = dict_set_double (master->options, ZR_ATTR_TIMEOUT_OPT,
                                        cmd_args->fuse_attribute_timeout);
-        if (cmd_args->fuse_entry_timeout >= 0)
+
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value.");
+                        goto err;
+                }
+        }
+
+        if (cmd_args->fuse_entry_timeout >= 0) {
                 ret = dict_set_double (master->options, ZR_ENTRY_TIMEOUT_OPT,
                                        cmd_args->fuse_entry_timeout);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value.");
+                        goto err;
+                }
+        }
 
-        if (cmd_args->volfile_check)
+        if (cmd_args->volfile_check) {
                 ret = dict_set_int32 (master->options, ZR_STRICT_VOLFILE_CHECK,
                                       cmd_args->volfile_check);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value.");
+                        goto err;
+                }
+        }
 
-        if (cmd_args->dump_fuse)
+        if (cmd_args->dump_fuse) {
                 ret = dict_set_static_ptr (master->options, ZR_DUMP_FUSE,
                                            cmd_args->dump_fuse);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value.");
+                        goto err;
+                }
+        }
 
         switch (cmd_args->fuse_direct_io_mode) {
         case GF_OPTION_DISABLE: /* disable */
                 ret = dict_set_static_ptr (master->options, ZR_DIRECT_IO_OPT,
                                            "disable");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value.");
+                        goto err;
+                }
                 break;
         case GF_OPTION_ENABLE: /* enable */
                 ret = dict_set_static_ptr (master->options, ZR_DIRECT_IO_OPT,
                                            "enable");
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value.");
+                        goto err;
+                }
                 break;
         case GF_OPTION_DEFERRED: /* default */
         default:
@@ -638,7 +674,9 @@ reincarnate (int signum)
 
         if (!cmd_args->volfile_server)
                 ret = glusterfs_volumes_init (ctx);
-
+        if (ret < 0)
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "volume initialization failed.");
         return;
 }
 
@@ -984,6 +1022,12 @@ glusterfs_pidfile_setup (glusterfs_ctx_t *ctx)
                 cmd_args->pid_file);
 
         ret = lockf (fileno (pidfp), F_ULOCK, 0);
+        if (ret) {
+                gf_log ("glusterfsd", GF_LOG_ERROR,
+                        "pidfile %s unlock error (%s)",
+                        cmd_args->pid_file, strerror (errno));
+                return ret;
+        }
 
         ctx->pidfp = pidfp;
 
@@ -1184,6 +1228,11 @@ daemonize (glusterfs_ctx_t *ctx)
                 goto postfork;
 
         ret = os_daemon (0, 0);
+        if (ret == -1) {
+                gf_log ("daemonize", GF_LOG_ERROR,
+                        "Daemonization failed: %s", strerror(errno));
+                return ret;
+        }
 
 postfork:
         ret = glusterfs_pidfile_update (ctx);
