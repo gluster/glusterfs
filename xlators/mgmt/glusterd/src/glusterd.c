@@ -291,6 +291,7 @@ init (xlator_t *this)
         if (ret < 1) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "creation of listener failed");
+                ret = -1;
                 goto out;
         }
 
