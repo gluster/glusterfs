@@ -151,7 +151,10 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
+        {
+                pmap_registry_remove (this, 0, NULL, xprt);
                 break;
+        }
 
         default:
                 break;
