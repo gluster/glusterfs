@@ -1679,15 +1679,17 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
                         goto out;
                 }
 
+                ret = asprintf (&transport_name, "%s.%s", ptr, name);
+                if (ret == -1) {
+                        goto out;
+                }
+
                 ret = dict_set_dynstr (options, "transport-type", ptr);
                 if (ret == -1) {
                         goto out;
                 }
 
-                ret = asprintf (&transport_name, "%s.%s", ptr, name);
-                if (ret == -1) {
-                        goto out;
-                }
+                ptr = strtok_r (NULL, ",", &saveptr);
 
                 ret = rpcsvc_create_listener (svc, options, transport_name);
                 if (ret != 0) {
@@ -1695,8 +1697,6 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
                 }
 
                 count++;
-
-                ptr = strtok_r (NULL, ",", &saveptr);
         }
 
         ptr = NULL;
