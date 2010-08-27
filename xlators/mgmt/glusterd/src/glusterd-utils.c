@@ -861,12 +861,13 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
 
         ret = unlink (pidfile);
 
-        if (ret) {
+        if (ret && (ENOENT != errno)) {
                 gf_log ("", GF_LOG_ERROR, "Unable to unlink pidfile: %s",
                                 pidfile);
                 goto out;
         }
 
+        ret = 0;
 out:
         if (file)
                 fclose (file);
