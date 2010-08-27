@@ -1767,6 +1767,7 @@ glusterd_friend_add (const char *hoststr, int port,
         dict_t                  *options = NULL;
         struct rpc_clnt_config  rpc_cfg = {0,};
         glusterd_peer_hostname_t *name = NULL;
+        char                    *hostname = NULL;
 
         priv = THIS->private;
 
@@ -1802,7 +1803,13 @@ glusterd_friend_add (const char *hoststr, int port,
                 if (!options)
                         return -1;
 
-                ret = dict_set_str (options, "remote-host", (char *)hoststr);
+                hostname = gf_strdup((char*)hoststr);
+                if (!hostname) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_str (options, "remote-host", hostname);
                 if (ret)
                         goto out;
 
