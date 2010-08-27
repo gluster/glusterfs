@@ -27,6 +27,7 @@
 #include <dirent.h>
 #include <sys/mount.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <fnmatch.h>
 
 #ifndef _CONFIG_H
@@ -85,6 +86,7 @@ struct fuse_private {
         char                 fuse_thread_started;
 
         uint32_t             direct_io_mode;
+        char                 can_exec_directio;
         size_t              *msg0_len_p;
 
         double               entry_timeout;
@@ -100,8 +102,10 @@ struct fuse_private {
 
         fuse_handler_t     **fuse_ops;
         fuse_handler_t     **fuse_ops0;
+        fuse_handler_t    ***fuse_ops_flipped;
         pthread_mutex_t      fuse_dump_mutex;
         int                  fuse_dump_fd;
+        char                 pre_test_stage;
 
         glusterfs_graph_t   *next_graph;
         xlator_t            *active_subvol;

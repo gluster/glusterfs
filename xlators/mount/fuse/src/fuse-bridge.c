@@ -29,6 +29,7 @@
 
 static int gf_fuse_conn_err_log;
 static int gf_fuse_xattr_enotsup_log;
+static int gf_fuse_pre_stuck_log;
 
 
 /*
@@ -536,7 +537,18 @@ fuse_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 foo.open_flags = 0;
 
                 if (!IA_ISDIR (fd->inode->ia_type)) {
-                        if (priv->direct_io_mode)
+                        if (priv->direct_io_mode &&
+                            (
+#ifdef GF_LINUX_HOST_OS
+                             (state->flags & O_ACCMODE) != O_RDONLY ||
+#endif
+#ifdef GF_DARWIN_HOST_OS
+                             /* On Darwin machines, O_APPEND is not handled,
+                              * which may corrupt the data
+                              */
+                             (state->flags & O_ACCMODE) == O_RDONLY &&
+#endif
+                             priv->can_exec_directio))
                                 foo.open_flags |= FOPEN_DIRECT_IO;
 #ifdef GF_DARWIN_HOST_OS
                                 /* In Linux: by default, buffer cache
@@ -1430,7 +1442,15 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0) {
                 foo.fh = (uintptr_t) fd;
 
-                if (priv->direct_io_mode)
+                if (priv->direct_io_mode &&
+                    (
+#ifdef GF_LINUX_HOST_OS
+                     (state->flags & O_ACCMODE) != O_RDONLY ||
+#endif
+#ifdef GF_DARWIN_HOST_OS
+                     (state->flags & O_ACCMODE) == O_RDONLY &&
+#endif
+                     priv->can_exec_directio))
                         foo.open_flags |= FOPEN_DIRECT_IO;
 
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
@@ -2798,6 +2818,9 @@ fuse_setlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         return;
 }
 
+
+static void *fuse_pre_test_directio_exec (void *arg);
+
 static void
 fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
@@ -2806,6 +2829,9 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
         struct fuse_init_out fino;
         fuse_private_t *priv = NULL;
         int ret;
+#ifndef GF_DARWIN_HOST_OS
+        pthread_t prethread = {0, };
+#endif
 
         priv = this->private;
 
@@ -2867,6 +2893,20 @@ fuse_init (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
  out:
         GF_FREE (finh);
+
+#ifdef GF_DARWIN_HOST_OS
+        /* MacFUSE applies a "mount comes after a succesful handshake"
+         * strategy, which was taken from early fuse4bsd. Linux (and recent
+         * fuse4bsd) is rather doing "mount, then handshake; if that fails,
+         * unmount" strategy. Therefore on OS X it would be too early to
+         * launch the pre-test thread here. To work this around, we launch
+         * it from the LOOKUP pre-test handler (that will come instantly,
+         * as OS X automatically checks for the presence of some files
+         * upon a new mount).
+         */
+#else
+        pthread_create (&prethread, NULL, &fuse_pre_test_directio_exec, this);
+#endif
 }
 
 
@@ -3035,11 +3075,9 @@ fuse_thread_proc (void *data)
         struct iovec iov_in[2];
         void *msg = NULL;
         const size_t msg0_size = sizeof (*finh) + 128;
-        fuse_handler_t **fuse_ops = NULL;
 
         this = data;
         priv = this->private;
-        fuse_ops = priv->fuse_ops;
 
         THIS = this;
 
@@ -3154,7 +3192,7 @@ fuse_thread_proc (void *data)
                         fuse_enosys (this, finh, msg);
                 else
 #endif
-                fuse_ops[finh->opcode] (this, finh, msg);
+                priv->fuse_ops[finh->opcode] (this, finh, msg);
 
                 iobuf_unref (iobuf);
                 continue;
@@ -3419,6 +3457,287 @@ fuse_dumper (xlator_t *this, fuse_in_header_t *finh, void *msg)
 }
 
 
+/*
+ *  FUSE pre-test stuff
+ *  -------------------
+ */
+
+#define FUSE_PRE_TESTFILE     ".__fuse_pre_testfile"
+#define FUSE_PRE_TESTFILE1    ".__fuse_pre_testfile1"
+#define FUSE_PRE_TESTFILE_ID  ((uint64_t)-1)
+#define FUSE_PRE_TESTFILE_FH  ((uint64_t)1)
+
+#define FUSE_PRE_TEST_TEST do {                                 \
+        if (finh->uid != getuid () ||                           \
+            finh->nodeid != FUSE_PRE_TESTFILE_ID)               \
+                return fuse_std_fallback (this, finh, msg);     \
+} while (0)
+
+static fuse_handler_t *fuse_std_ops[];
+
+static void
+fuse_std_fallback (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        static int fuse_pre_cnt;
+
+        if (fuse_pre_cnt++ > 200)
+                GF_LOG_OCCASIONALLY (gf_fuse_pre_stuck_log,
+                                     "glusterfs-fuse",
+                                     GF_LOG_WARNING,
+                                     "fuse pre test does not complete");
+
+        return fuse_std_ops[finh->opcode] (this, finh, msg);
+}
+
+
+static void
+fuse_pre_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        char *name = msg;
+        fuse_private_t *priv = NULL;
+        struct fuse_entry_out feo = {0, };
+        unsigned pre_testfile[2] = {0, 0};
+#ifdef GF_DARWIN_HOST_OS
+        static int prethread_spawn;
+        pthread_t prethread = {0, };
+
+        if (!prethread_spawn) {
+                prethread_spawn = 1;
+                pthread_create (&prethread, NULL, &fuse_pre_test_directio_exec,
+                                this);
+        }
+#endif
+
+        priv = this->private;
+
+        pre_testfile[0] = !strcmp (name, FUSE_PRE_TESTFILE);
+        pre_testfile[1] = !strcmp (name, FUSE_PRE_TESTFILE1);
+        if (finh->uid != getuid () ||
+            finh->nodeid != 1 ||
+            !(pre_testfile[0] || pre_testfile[1]))
+                return fuse_std_fallback (this, finh, msg);
+
+        if (priv->pre_test_stage == 0 && pre_testfile[1]) {
+                send_fuse_err (this, finh, ENOENT);
+
+                return;
+        }
+
+        memset (&feo, 0, sizeof (feo));
+        feo.nodeid = FUSE_PRE_TESTFILE_ID;
+        feo.attr.ino = FUSE_PRE_TESTFILE_ID;
+        feo.attr.mode = (priv->pre_test_stage == 2 ? S_IFDIR : S_IFREG) | 0755;
+        feo.attr.nlink = 1;
+
+#if FUSE_KERNEL_MINOR_VERSION >= 9
+        priv->proto_minor >= 9 ?
+        send_fuse_obj (this, finh, &feo) :
+        send_fuse_data (this, finh, &feo,
+                        FUSE_COMPAT_ENTRY_OUT_SIZE);
+#else
+        send_fuse_obj (this, finh, &feo);
+#endif
+}
+
+
+static void
+fuse_pre_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        fuse_private_t *priv = NULL;
+        struct fuse_attr_out fao = {0, };
+
+        priv = this->private;
+
+        FUSE_PRE_TEST_TEST;
+
+        fao.attr.mode = (priv->pre_test_stage == 2 ? S_IFDIR : S_IFREG) | 0755;
+        fao.attr.nlink = 1;
+
+#if FUSE_KERNEL_MINOR_VERSION >= 9
+        priv->proto_minor >= 9 ?
+        send_fuse_obj (this, finh, &fao) :
+        send_fuse_data (this, finh, &fao,
+                        FUSE_COMPAT_ATTR_OUT_SIZE);
+#else
+        send_fuse_obj (this, finh, &fao);
+#endif
+}
+
+
+static void
+fuse_pre_open (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        struct fuse_open_out   foo = {0, };
+
+        FUSE_PRE_TEST_TEST;
+
+        foo.fh = FUSE_PRE_TESTFILE_FH;
+        foo.open_flags = FOPEN_DIRECT_IO;
+
+        send_fuse_obj (this, finh, &foo);
+}
+
+
+static void
+fuse_pre_deadpan (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        FUSE_PRE_TEST_TEST;
+
+        send_fuse_err (this, finh, 0);
+}
+
+
+static void
+fuse_pre_rename (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        struct fuse_rename_in  *fri = msg;
+        char *oldname = (char *)(fri + 1);
+        char *newname = oldname + strlen (oldname) + 1;
+
+        fuse_private_t *priv = NULL;
+
+        if (finh->uid != getuid () ||
+            finh->nodeid != 1 ||
+            fri->newdir != 1 ||
+            strcmp (oldname, FUSE_PRE_TESTFILE) != 0 ||
+            strcmp (newname, FUSE_PRE_TESTFILE1) != 0)
+                return fuse_std_fallback (this, finh, msg);
+
+        priv = this->private;
+        priv->pre_test_stage = 1;
+
+        send_fuse_err (this, finh, 0);
+}
+
+
+static void
+fuse_pre_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        if (finh->nodeid != FUSE_PRE_TESTFILE_ID)
+                return fuse_std_fallback (this, finh, msg);
+
+        send_fuse_err (this, finh, 0);
+}
+
+
+static void
+fuse_pre_forget (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        fuse_private_t *priv = NULL;
+
+        if (finh->nodeid != FUSE_PRE_TESTFILE_ID)
+                return fuse_std_fallback (this, finh, msg);
+
+        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                "terminating pre-test, switching to standard ops");
+        priv = this->private;
+        *(priv->fuse_ops_flipped) = fuse_std_ops;
+}
+
+
+/* XXX  Hope this will work out with xattr based ACL systems... */
+static void
+fuse_pre_xattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
+{
+        FUSE_PRE_TEST_TEST;
+
+        send_fuse_err (this, finh, ENODATA);
+}
+
+
+static fuse_handler_t *fuse_pre_ops[FUSE_OP_HIGH] = {
+        [FUSE_LOOKUP]      = fuse_pre_lookup,
+        [FUSE_FORGET]      = fuse_pre_forget,
+        [FUSE_GETATTR]     = fuse_pre_getattr,
+        [FUSE_ACCESS]      = fuse_pre_deadpan,
+        [FUSE_RENAME]      = fuse_pre_rename,
+        [FUSE_OPEN]        = fuse_pre_open,
+        [FUSE_READ]        = fuse_pre_deadpan,
+        [FUSE_FLUSH]       = fuse_pre_deadpan,
+        [FUSE_RELEASE]     = fuse_pre_release,
+        [FUSE_FSYNC]       = fuse_pre_deadpan,
+        [FUSE_GETXATTR]    = fuse_pre_xattr,
+        [FUSE_LISTXATTR]   = fuse_pre_xattr,
+};
+
+
+enum {
+        FUSE_DIOEXEC_OK,
+        FUSE_DIOEXEC_FAIL,
+        FUSE_DIOEXEC_DUNNO
+};
+
+static void *
+fuse_pre_test_directio_exec (void *arg)
+{
+        fuse_private_t *priv = NULL;
+        pid_t pid = 0;
+        struct stat st = {0, };
+        char pre_testfile[PATH_MAX];
+        char pre_testfile1[PATH_MAX];
+        int ret = 0;
+        xlator_t *this = NULL;
+
+        this = arg;
+        priv = this->private;
+
+        if (fstat (priv->fd, &st) == -1)
+                return NULL;
+        if (strlen (priv->mount_point) +
+            max (strlen (FUSE_PRE_TESTFILE), strlen (FUSE_PRE_TESTFILE1)) + 2 >
+              PATH_MAX)
+                return NULL;
+        strcat (strcat (strcpy (pre_testfile, priv->mount_point), "/"),
+                FUSE_PRE_TESTFILE);
+        strcat (strcat (strcpy (pre_testfile1, priv->mount_point), "/"),
+                FUSE_PRE_TESTFILE1);
+
+        if ((pid = fork ()) == -1)
+                return NULL;
+        if (pid == 0) {
+                close (priv->fd);
+                execl (pre_testfile, FUSE_PRE_TESTFILE, NULL);
+                switch (errno) {
+                case ENOEXEC:
+                        exit (FUSE_DIOEXEC_OK);
+                case EFAULT:
+                        exit (FUSE_DIOEXEC_FAIL);
+                default:
+                        fprintf (stderr,
+                                 "warning: fuse exec-on-diretio pre-test ended"
+                                 " unexpectedly (%s)\n", strerror (errno));
+                        exit (FUSE_DIOEXEC_DUNNO);
+                }
+        }
+
+        if (waitpid (pid, &ret, 0) == pid &&
+            WIFEXITED (ret)) {
+                switch (WEXITSTATUS (ret)) {
+                case FUSE_DIOEXEC_OK:
+                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                                "exec on directio: OK");
+                        priv->can_exec_directio = 1;
+                        break;
+                case FUSE_DIOEXEC_FAIL:
+                        gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
+                                "exec on directio: FAIL");
+                        break;
+                default:
+                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                                "exec on directio: uninterpretable result");
+                }
+        } else
+                gf_log ("glusterfs-fuse", GF_LOG_WARNING,
+                        "exec on directio: abnormal termination");
+
+        ret = rename (pre_testfile, pre_testfile1);
+        priv->pre_test_stage = 2;
+        stat (ret ? pre_testfile : pre_testfile1, &st);
+
+        pthread_exit (0);
+}
+
+
 int
 init (xlator_t *this_xl)
 {
@@ -3587,11 +3906,15 @@ init (xlator_t *this_xl)
                         fuse_std_ops[i] = fuse_enosys;
                 if (!fuse_dump_ops[i])
                         fuse_dump_ops[i] = fuse_dumper;
+                if (!fuse_pre_ops[i])
+                        fuse_pre_ops[i] = fuse_std_fallback;
         }
-        priv->fuse_ops = fuse_std_ops;
+        priv->fuse_ops = fuse_pre_ops;
+        priv->fuse_ops_flipped = &priv->fuse_ops;
         if (priv->fuse_dump_fd != -1) {
                 priv->fuse_ops0 = priv->fuse_ops;
                 priv->fuse_ops  = fuse_dump_ops;
+                priv->fuse_ops_flipped = &priv->fuse_ops0;
         }
 
         return 0;
