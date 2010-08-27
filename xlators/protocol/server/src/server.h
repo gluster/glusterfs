@@ -99,6 +99,7 @@ struct server_conf {
 	dict_t                 *auth_modules;
 	pthread_mutex_t         mutex;
 	struct list_head        conns;
+        struct list_head        xprt_list;
 };
 typedef struct server_conf server_conf_t;
 

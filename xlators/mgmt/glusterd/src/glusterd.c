@@ -52,6 +52,12 @@ extern struct rpc_clnt_program glusterd3_1_mgmt_prog;
 extern struct rpcsvc_program gluster_pmap_prog;
 extern glusterd_op_info_t opinfo;
 
+rpcsvc_cbk_program_t glusterd_cbk_prog = {
+        .progname  = "Gluster Callback",
+        .prognum   = GLUSTER_CBK_PROGRAM,
+        .progver   = GLUSTER_CBK_VERSION,
+};
+
 
 static int
 glusterd_opinfo_init ()
@@ -100,7 +106,24 @@ glusterd_uuid_init ()
         return 0;
 }
 
+int
+glusterd_fetchspec_notify (xlator_t *this)
+{
+        int              ret   = -1;
+        glusterd_conf_t *priv  = NULL;
+        rpc_transport_t *trans = NULL;
 
+        priv = this->private;
+
+        list_for_each_entry (trans, &priv->xprt_list, list) {
+                rpcsvc_callback_submit (priv->rpc, trans, &glusterd_cbk_prog,
+                                        GF_CBK_FETCHSPEC, NULL, 0);
+        }
+
+        ret = 0;
+
+        return ret;
+}
 
 int
 glusterd_priv (xlator_t *this)
@@ -135,6 +158,7 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 {
         xlator_t            *this = NULL;
         rpc_transport_t     *xprt = NULL;
+        glusterd_conf_t     *priv = NULL;
 
         if (!xl || !data) {
                 gf_log ("glusterd", GF_LOG_WARNING,
@@ -145,13 +169,19 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         this = xl;
         xprt = data;
 
+        priv = this->private;
+
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
         {
+                INIT_LIST_HEAD (&xprt->list);
+
+                list_add_tail (&xprt->list, &priv->xprt_list);
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
         {
+                list_del (&xprt->list);
                 pmap_registry_remove (this, 0, NULL, xprt);
                 break;
         }
@@ -328,11 +358,12 @@ init (xlator_t *this)
         conf->mgmt = &glusterd3_1_mgmt_prog;
         strncpy (conf->workdir, dirname, PATH_MAX);
 
+        INIT_LIST_HEAD (&conf->xprt_list);
+
         this->private = conf;
         //this->ctx->top = this;
 
         ret = glusterd_uuid_init ();
-
         if (ret < 0)
                 goto out;
 
@@ -390,21 +421,10 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         int          ret = 0;
-        //transport_t *trans = data;
-        //peer_info_t *peerinfo = NULL;
-        //peer_info_t *myinfo = NULL;
 
-/*        if (trans != NULL) {
-                peerinfo = &(trans->peerinfo);
-                myinfo = &(trans->myinfo);
-        }
-*/
         switch (event) {
-
                 case GF_EVENT_POLLIN:
-          //              ret = glusterd_pollin (this, trans);
                         break;
-
 
                 case GF_EVENT_POLLERR:
                         break;
@@ -421,10 +441,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         return ret;
 }
 
-
-
-//struct xlator_mops mops = {
-//};
 
 struct xlator_fops fops = {
 };

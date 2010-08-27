@@ -166,6 +166,7 @@ struct rpc_transport_pollin {
         char vectored;
         void *private;
         struct iobref *iobref;
+        char is_reply;
 };
 typedef struct rpc_transport_pollin rpc_transport_pollin_t;
 
@@ -196,6 +197,8 @@ struct rpc_transport {
         void                      *notify_data;
 	peer_info_t                peerinfo;
 	peer_info_t                myinfo;
+
+        struct list_head           list;
 };
 
 struct rpc_transport_ops {

@@ -140,6 +140,13 @@ enum gf_probe_resp {
 	GF_PROBE_FRIEND,
 };
 
+enum gf_cbk_procnum {
+        GF_CBK_NULL = 0,
+        GF_CBK_FETCHSPEC,
+        GF_CBK_INO_FLUSH,
+        GF_CBK_MAXVALUE,
+};
+
 #define GLUSTER3_1_FOP_PROGRAM   1298437 /* Completely random */
 #define GLUSTER3_1_FOP_VERSION   310 /* 3.1.0 */
 #define GLUSTER3_1_FOP_PROCCNT   GFS3_OP_MAXVALUE
@@ -152,10 +159,13 @@ enum gf_probe_resp {
 #define GLUSTER3_1_CLI_VERSION   1   /* 0.0.1 */
 #define GLUSTER3_1_CLI_PROCCNT   GF1_CLI_MAXVALUE
 
-#define GLUSTER_HNDSK_PROGRAM   14398633 /* Completely random */
-#define GLUSTER_HNDSK_VERSION   1   /* 0.0.1 */
+#define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
+#define GLUSTER_HNDSK_VERSION    1   /* 0.0.1 */
 
-#define GLUSTER_PMAP_PROGRAM    34123456
-#define GLUSTER_PMAP_VERSION    1
+#define GLUSTER_PMAP_PROGRAM     34123456
+#define GLUSTER_PMAP_VERSION     1
+
+#define GLUSTER_CBK_PROGRAM      52743234 /* Completely random */
+#define GLUSTER_CBK_VERSION      1   /* 0.0.1 */
 
 #endif /* !_PROTOCOL_COMMON_H */

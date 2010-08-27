@@ -1356,7 +1356,7 @@ glusterd_import_friend_volume (dict_t *vols, int count)
                 ret = glusterd_store_update_volume (volinfo);
         }
 
-        ret = glusterd_volume_create_generate_volfiles (volinfo);
+        ret = glusterd_create_volfiles (volinfo);
         if (ret)
                 goto out;
 

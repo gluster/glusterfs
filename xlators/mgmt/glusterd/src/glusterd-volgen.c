@@ -1683,6 +1683,8 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
+        ret = glusterd_fetchspec_notify (THIS);
+
 out:
         return ret;
 }

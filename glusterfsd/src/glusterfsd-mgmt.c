@@ -43,6 +43,36 @@ static char is_mgmt_rpc_reconnect;
 typedef ssize_t (*mgmt_serialize_t) (struct iovec outmsg, void *args);
 
 
+
+int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
+int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
+int glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp);
+
+int
+mgmt_cbk_spec (void *data)
+{
+        glusterfs_ctx_t *ctx = NULL;
+
+        ctx = glusterfs_ctx_get ();
+        gf_log ("mgmt", GF_LOG_INFO, "Volume file changed");
+
+        glusterfs_volfile_fetch (ctx);
+        return 0;
+}
+
+rpcclnt_cb_actor_t gluster_cbk_actors[] = {
+        [GF_CBK_FETCHSPEC] = {"FETCHSPEC", GF_CBK_FETCHSPEC, mgmt_cbk_spec },
+};
+
+
+struct rpcclnt_cb_program mgmt_cbk_prog = {
+        .progname  = "GlusterFS Callback",
+        .prognum   = GLUSTER_CBK_PROGRAM,
+        .progver   = GLUSTER_CBK_VERSION,
+        .actors    = gluster_cbk_actors,
+        .numactors = GF_CBK_MAXVALUE,
+};
+
 char *clnt_pmap_procs[GF_PMAP_MAXVALUE] = {
         [GF_PMAP_NULL]        = "NULL",
         [GF_PMAP_PORTBYBRICK] = "PORTBYBRICK",
@@ -73,11 +103,6 @@ rpc_clnt_prog_t clnt_handshake_prog = {
         .progver   = GLUSTER_HNDSK_VERSION,
         .procnames = clnt_handshake_procs,
 };
-
-
-int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
-int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
-int glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp);
 
 int
 mgmt_submit_request (void *req, call_frame_t *frame,
@@ -133,7 +158,6 @@ out:
 /* XXX: move these into @ctx */
 static char oldvolfile[131072];
 static int oldvollen = 0;
-static void *timer;
 
 int
 mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
@@ -145,7 +169,6 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int                      ret   = 0;
         ssize_t                  size = 0;
         FILE                    *tmpfp = NULL;
-        struct timeval           tv = {0, };
 
         frame = myframe;
         ctx = frame->this->ctx;
@@ -194,11 +217,6 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
-        tv.tv_sec = 1;
-        timer = gf_timer_call_after (ctx, tv,
-                                     (gf_timer_cbk_t) glusterfs_volfile_fetch,
-                                     ctx);
-
         STACK_DESTROY (frame->root);
 
         if (rsp.spec)
@@ -215,12 +233,6 @@ glusterfs_volfile_fetch (glusterfs_ctx_t *ctx)
         gf_getspec_req    req = {0, };
         int               ret = 0;
         call_frame_t     *frame = NULL;
-
-        {
-                if (timer)
-                        gf_timer_call_cancel (ctx, timer);
-                timer = NULL;
-        }
 
         cmd_args = &ctx->cmd_args;
 
@@ -315,6 +327,10 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         ctx->mgmt = rpc;
 
         ret = rpc_clnt_register_notify (rpc, mgmt_rpc_notify, THIS);
+        if (ret)
+                goto out;
+
+        ret = rpcclnt_cbk_program_register (rpc, &mgmt_cbk_prog);
         if (ret)
                 goto out;
 

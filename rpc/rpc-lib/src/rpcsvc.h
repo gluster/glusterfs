@@ -375,7 +375,11 @@ struct rpcsvc_program {
         struct list_head        program;
 };
 
-
+typedef struct rpcsvc_cbk_program {
+        char                 *progname;
+        int                   prognum;
+        int                   progver;
+} rpcsvc_cbk_program_t;
 /* All users of RPC services should use this API to register their
  * procedure handlers.
  */
@@ -525,4 +529,9 @@ rpcsvc_combine_gen_spec_volume_checks (int gen, int spec);
 
 extern char *
 rpcsvc_volume_allowed (dict_t *options, char *volname);
+
+int rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
+                            rpcsvc_cbk_program_t *prog, int procnum,
+                            struct iovec *proghdr, int proghdrcount);
+
 #endif

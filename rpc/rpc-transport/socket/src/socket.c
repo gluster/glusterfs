@@ -1477,6 +1477,8 @@ __socket_proto_state_machine (rpc_transport_t *this,
                                         ret = -1;
                                         goto out;
                                 }
+                                if (priv->incoming.msg_type == REPLY)
+                                        (*pollin)->is_reply = 1;
 
                                 priv->incoming.request_info = NULL;
                         }
