@@ -528,7 +528,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
 					       cli_req.hostname, cli_req.port);
 		 goto out;
 	 }
-	 if (!(ret = glusterd_friend_find_by_hostname(cli_req.hostname, 
+	 if (!(ret = glusterd_friend_find_by_hostname(cli_req.hostname,
 					  &peerinfo))) {
                  if ((peerinfo->state.state != GD_FRIEND_STATE_REQ_RCVD)
                     || (peerinfo->state.state != GD_FRIEND_STATE_DEFAULT)) {
@@ -1012,7 +1012,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 
 	 if ((ret = glusterd_check_volume_exists (volname))) {
 		snprintf(err_str, 1048, "Volname %s already exists",
-			 volname);	
+			 volname);
 		gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
 		err_ret = 1;
 		goto out;
@@ -1030,23 +1030,25 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		goto out;
         }
 
-        if (bricks) 
+        if (bricks)
                 brick_list = gf_strdup (bricks);
 
         while ( i < brick_count) {
 		i++;
-		brick= strtok_r (brick_list, " \n", &tmpptr); 
+		brick= strtok_r (brick_list, " \n", &tmpptr);
 		brick_list = tmpptr;
 		ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
 		if (ret)
 			goto out;
-		if(!(ret = glusterd_is_local_addr(brickinfo->hostname)))
-			goto brick_validation;	//localhost, continue without validation	
-		ret = glusterd_friend_find_by_hostname(brickinfo->hostname,
-							&peerinfo); 
+
+		if(!(ret = glusterd_is_local_addr (brickinfo->hostname)))
+			goto brick_validation;	//localhost, continue without validation
+
+		ret = glusterd_friend_find_by_hostname (brickinfo->hostname,
+							&peerinfo);
 		if (ret) {
-                	snprintf(err_str, 1048, "Host %s not a friend",
-			         brickinfo->hostname);
+                        snprintf (err_str, 1048, "Host %s not a friend",
+			          brickinfo->hostname);
 			gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
 			err_ret = 1;
 			goto out;
@@ -1062,7 +1064,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 brick_validation:
 		list_for_each_entry (volinfo, &priv->volumes, vol_list) {
 
-                        list_for_each_entry (tmpbrkinfo, &volinfo->bricks, 
+                        list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
                                              brick_list) {
 
                                 if ((!strcmp(brickinfo->hostname, tmpbrkinfo->
@@ -1074,7 +1076,7 @@ brick_validation:
                                                 err_str);
                                         err_ret = 1;
                                         goto out;
-                                }                            
+                                }
 			}
 		}
 	 }
@@ -1093,7 +1095,7 @@ out:
                         gf_log ("glusterd", GF_LOG_ERROR, "Unlock on opinfo"
                                 " failed");
                 ret = 0; //Client response sent, prevent second response
-        }        
+        }
         return ret;
 }
 
@@ -1260,7 +1262,7 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                         snprintf(err_str, 2048, "Incorrect number of bricks"
                                 " supplied %d for type %s with count %d",
                                 brick_count, (volinfo->type == 1)? "STRIPE":
-                                "REPLICATE", volinfo->sub_count);  
+                                "REPLICATE", volinfo->sub_count);
                         rsp.op_errstr = err_str;
                         cli_rsp = &rsp;
                         glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
@@ -1271,11 +1273,11 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
 
                         ret = 0; //sent error to cli, prevent second reply
                         goto out;
-                }       
+                }
         } else {
                 gf_log("", GF_LOG_ERROR, "Unable to get volinfo for volname"
                        " %s", volname);
-                goto out; 
+                goto out;
         }
 
 brick_val:
@@ -1296,7 +1298,7 @@ brick_val:
                 if (ret)
                         goto out;
                 if(!(ret = glusterd_is_local_addr(brickinfo->hostname)))
-                        continue;       //localhost, continue without validation        
+                        continue;       //localhost, continue without validation
                 ret = glusterd_friend_find_by_hostname(brickinfo->hostname,
                                                         &peerinfo);
                 if (ret) {
