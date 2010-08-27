@@ -262,6 +262,15 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
         dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         gf_boolean_t                            exists = _gf_false;
+        char                                    *bricks = NULL;
+        char                                    *brick_list = NULL;
+        glusterd_brickinfo_t                    *brick_info = NULL;        
+        int32_t                                 brick_count = 0;
+        int32_t                                 i = 0;
+        struct stat                             st_buf = {0,};
+        char                                    *brick = NULL;
+        char                                    *tmpptr = NULL;
+        char                                    cmd_str[1024];
 
         GF_ASSERT (req);
 
@@ -292,7 +301,38 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
         } else {
                 ret = 0;
         }
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                goto out;
+        }
 
+        ret = dict_get_str (dict, "bricks", &bricks);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                goto out;
+        }
+
+        if (bricks)
+                brick_list = gf_strdup (bricks);
+
+        while ( i < brick_count) {
+                i++;
+                brick= strtok_r (brick_list, " \n", &tmpptr);
+                brick_list = tmpptr;
+                ret = glusterd_brickinfo_from_brick (brick, &brick_info);
+                if (ret)
+                        goto out;
+                snprintf (cmd_str, 1024, "%s", brick_info->path); 
+                ret = stat (cmd_str, &st_buf);
+                if (ret == -1) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Volname %s, brick"
+                                ":%s path %s not present", volname,
+                                brick, brick_info->path);
+                        goto out;
+                }
+                brick_list = tmpptr;
+        }
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
