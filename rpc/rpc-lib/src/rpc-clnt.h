@@ -83,6 +83,38 @@ typedef struct rpc_clnt_program {
         int                   numproc;
 } rpc_clnt_prog_t;
 
+typedef int (*rpcclnt_cb_fn) (void *data);
+
+/* The descriptor for each procedure/actor that runs
+ * over the RPC service.
+ */
+typedef struct rpcclnt_actor_desc {
+        char                 procname[32];
+        int                  procnum;
+        rpcclnt_cb_fn        actor;
+} rpcclnt_cb_actor_t;
+
+/* Describes a program and its version along with the function pointers
+ * required to handle the procedures/actors of each program/version.
+ * Never changed ever by any thread so no need for a lock.
+ */
+typedef struct rpcclnt_cb_program {
+        char                      progname[32];
+        int                       prognum;
+        int                       progver;
+        rpcclnt_cb_actor_t       *actors;        /* All procedure handlers */
+        int                       numactors;     /* Num actors in actor array */
+
+        /* Program specific state handed to actors */
+        void                    *private;
+
+
+        /* list member to link to list of registered services with rpc_clnt */
+        struct list_head        program;
+} rpcclnt_cb_program_t;
+
+
+
 #define RPC_MAX_AUTH_BYTES   400
 typedef struct rpc_auth_data {
         int             flavour;
@@ -141,6 +173,9 @@ struct rpc_clnt {
         void                  *mydata;
         uint64_t               xid;
 
+        /* list of cb programs registered with rpc-clnt */
+        struct list_head       programs;
+
         /* Memory pool for rpc_req_t */
         struct mem_pool       *reqpool;
 
@@ -171,7 +206,7 @@ int rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
  *    also be filled with pointer to buffer to hold header and length
  *    of the header.
  */
- 
+
 int rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                      int procnum, fop_cbk_fn_t cbkfn,
                      struct iovec *proghdr, int proghdrcount,
@@ -189,5 +224,11 @@ void rpc_clnt_unset_connected (rpc_clnt_connection_t *conn);
 void rpc_clnt_reconnect (void *trans_ptr);
 
 void rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config);
+
+/* All users of RPC services should use this API to register their
+ * procedure handlers.
+ */
+int rpcclnt_cbk_program_register (struct rpc_clnt *svc,
+                                  rpcclnt_cb_program_t *program);
 
 #endif /* !_RPC_CLNT_H */

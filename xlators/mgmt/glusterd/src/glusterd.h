@@ -69,6 +69,7 @@ typedef struct {
         struct pmap_registry *pmap;
         struct list_head  volumes;
         struct list_head  hostnames;
+        struct list_head  xprt_list;
         glusterd_store_handle_t *handle;
 } glusterd_conf_t;
 
@@ -337,4 +338,8 @@ glusterd_remove_brick (rpcsvc_request_t *req, dict_t *dict);
 int
 glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
                                 int32_t op_errno, char *hostname);
+
+int
+glusterd_fetchspec_notify (xlator_t *this);
+
 #endif

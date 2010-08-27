@@ -34,6 +34,7 @@
 
 extern rpc_clnt_prog_t clnt_handshake_prog;
 extern rpc_clnt_prog_t clnt_dump_prog;
+extern struct rpcclnt_cb_program gluster_cbk_prog;
 
 int client_handshake (xlator_t *this, struct rpc_clnt *rpc);
 void client_start_ping (void *data);
@@ -1729,6 +1730,10 @@ client_init_rpc (xlator_t *this)
 
         conf->handshake = &clnt_handshake_prog;
         conf->dump      = &clnt_dump_prog;
+
+        ret = rpcclnt_cbk_program_register (conf->rpc, &gluster_cbk_prog);
+        if (ret)
+                goto out;
 
         ret = 0;
 

@@ -254,87 +254,6 @@ out:
         return ret;
 }
 
-int
-glusterd_volume_create_generate_volfiles (glusterd_volinfo_t *volinfo)
-{
-        int32_t         ret = -1;
-        char            cmd_str[8192] = {0,};
-        char            path[PATH_MAX] = {0,};
-        glusterd_conf_t *priv = NULL;
-        xlator_t        *this = NULL;
-        char            bricks[8192] = {0,};
-        glusterd_brickinfo_t    *brickinfo = NULL;
-        int32_t         len = 0;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-
-        GF_ASSERT (priv);
-        GF_ASSERT (volinfo);
-
-        GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv);
-        if (!volinfo->port) {
-                //volinfo->port = ++glusterfs_port;
-        }
-
-        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                snprintf (bricks + len, 8192 - len, "%s:%s ",
-                          brickinfo->hostname, brickinfo->path);
-                len = strlen (bricks);
-        }
-
-        gf_log ("", GF_LOG_DEBUG, "Brick string: %s", bricks);
-
-        switch (volinfo->type) {
-
-                case GF_CLUSTER_TYPE_REPLICATE:
-                {
-                        snprintf (cmd_str, 8192,
-                                  "%s/bin/glusterfs-volgen --portmapper-mode -n %s "
-                                  " -c %s -r 1 %s -p %d --num-replica %d",
-                                  GFS_PREFIX, volinfo->volname, path, bricks,
-                                  volinfo->port, volinfo->sub_count);
-                        ret = gf_system (cmd_str);
-                        gf_log ("", 1, "%s", cmd_str);
-                        break;
-                }
-
-                case GF_CLUSTER_TYPE_STRIPE:
-                {
-                        snprintf (cmd_str, 8192,
-                                  "%s/bin/glusterfs-volgen --portmapper-mode -n %s "
-                                  " -c %s -r 0 %s -p %d --num-stripe %d",
-                                  GFS_PREFIX, volinfo->volname, path, bricks,
-                                  volinfo->port, volinfo->sub_count);
-                        ret = gf_system (cmd_str);
-                        gf_log ("", 1, "%s", cmd_str);
-                        break;
-                }
-
-                case GF_CLUSTER_TYPE_NONE:
-                {
-                        snprintf (cmd_str, 8192,
-                                  "%s/bin/glusterfs-volgen --portmapper-mode "
-                                  " -n %s -c %s %s -p %d",
-                                  GFS_PREFIX, volinfo->volname, path, bricks,
-                                  volinfo->port);
-                        ret = gf_system (cmd_str);
-                        gf_log ("", 1, "%s", cmd_str);
-                        break;
-                }
-
-                default:
-                        gf_log ("", GF_LOG_ERROR, "Unkown type: %d",
-                                volinfo->type);
-                        ret = -1;
-        }
-//out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-
 
 static int
 glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
@@ -952,8 +871,7 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
 
                 if (!ret && (!uuid_compare (brickinfo->uuid, priv->uuid)) &&
                                 (GLUSTERD_STATUS_STARTED == volinfo->status)) {
-                        ret =
-                          glusterd_volume_create_generate_volfiles (volinfo);
+                        ret = glusterd_create_volfiles (volinfo);
                         if (ret)
                                 goto out;
 
@@ -975,7 +893,7 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
         }
 
         if (!glfs_started) {
-                ret = glusterd_volume_create_generate_volfiles (volinfo);
+                ret = glusterd_create_volfiles (volinfo);
                 if (ret)
                         goto out;
         }
@@ -1892,8 +1810,7 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
 
                 if ((!uuid_compare (brickinfo->uuid, priv->uuid)) &&
                     (GLUSTERD_STATUS_STARTED == volinfo->status)) {
-                        ret =
-                          glusterd_volume_create_generate_volfiles (volinfo);
+                        ret = glusterd_create_volfiles (volinfo);
                         if (ret)
                                 goto out;
 
@@ -1918,7 +1835,7 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
         }
 
         if (!glfs_stopped) {
-                ret = glusterd_volume_create_generate_volfiles (volinfo);
+                ret = glusterd_create_volfiles (volinfo);
                 if (ret)
                         goto out;
         }

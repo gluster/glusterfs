@@ -46,6 +46,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include "xdr-rpcclnt.h"
+
 struct rpcsvc_program gluster_dump_prog;
 
 #define rpcsvc_alloc_request(svc, request)                              \
@@ -1119,6 +1121,189 @@ err:
         return txrecord;
 }
 
+inline int
+rpcsvc_get_callid (rpcsvc_t *rpc)
+{
+        return GF_UNIVERSAL_ANSWER;
+}
+
+int
+rpcsvc_fill_callback (int prognum, int progver, int procnum, int payload,
+                      uint64_t xid, struct rpc_msg *request)
+{
+        int   ret          = -1;
+
+        if (!request) {
+                goto out;
+        }
+
+        memset (request, 0, sizeof (*request));
+
+        request->rm_xid = xid;
+        request->rm_direction = CALL;
+
+        request->rm_call.cb_rpcvers = 2;
+        request->rm_call.cb_prog = prognum;
+        request->rm_call.cb_vers = progver;
+        request->rm_call.cb_proc = procnum;
+
+        request->rm_call.cb_cred.oa_flavor = AUTH_NONE;
+        request->rm_call.cb_cred.oa_base   = NULL;
+        request->rm_call.cb_cred.oa_length = 0;
+
+        request->rm_call.cb_verf.oa_flavor = AUTH_NONE;
+        request->rm_call.cb_verf.oa_base = NULL;
+        request->rm_call.cb_verf.oa_length = 0;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+
+struct iovec
+rpcsvc_callback_build_header (char *recordstart, size_t rlen,
+                             struct rpc_msg *request, size_t payload)
+{
+        struct iovec    requesthdr = {0, };
+        struct iovec    txrecord   = {0, 0};
+        int             ret        = -1;
+        size_t          fraglen    = 0;
+
+        ret = rpc_request_to_xdr (request, recordstart, rlen, &requesthdr);
+        if (ret == -1) {
+                gf_log ("rpcsvc", GF_LOG_DEBUG,
+                        "Failed to create RPC request");
+                goto out;
+        }
+
+        fraglen = payload + requesthdr.iov_len;
+        gf_log ("rpcsvc", GF_LOG_TRACE, "Request fraglen %zu, payload: %zu, "
+                "rpc hdr: %zu", fraglen, payload, requesthdr.iov_len);
+
+        txrecord.iov_base = recordstart;
+
+        /* Remember, this is only the vec for the RPC header and does not
+         * include the payload above. We needed the payload only to calculate
+         * the size of the full fragment. This size is sent in the fragment
+         * header.
+         */
+        txrecord.iov_len = requesthdr.iov_len;
+
+out:
+        return txrecord;
+}
+
+struct iobuf *
+rpcsvc_callback_build_record (rpcsvc_t *rpc, int prognum, int progver,
+                              int procnum, size_t payload, uint64_t xid,
+                              struct iovec *recbuf)
+{
+        struct rpc_msg           request     = {0, };
+        struct iobuf            *request_iob = NULL;
+        char                    *record      = NULL;
+        struct iovec             recordhdr   = {0, };
+        size_t                   pagesize    = 0;
+        int                      ret         = -1;
+
+        if ((!rpc) || (!recbuf)) {
+                goto out;
+        }
+
+        /* First, try to get a pointer into the buffer which the RPC
+         * layer can use.
+         */
+        request_iob = iobuf_get (rpc->ctx->iobuf_pool);
+        if (!request_iob) {
+                gf_log ("rpcsvc", GF_LOG_ERROR, "Failed to get iobuf");
+                goto out;
+        }
+
+        pagesize = ((struct iobuf_pool *)rpc->ctx->iobuf_pool)->page_size;
+
+        record = iobuf_ptr (request_iob);  /* Now we have it. */
+
+        /* Fill the rpc structure and XDR it into the buffer got above. */
+        ret = rpcsvc_fill_callback (prognum, progver, procnum, payload, xid,
+                                    &request);
+        if (ret == -1) {
+                gf_log ("rpcsvc", GF_LOG_DEBUG, "cannot build a rpc-request "
+                        "xid (%"PRIu64")", xid);
+                goto out;
+        }
+
+        recordhdr = rpcsvc_callback_build_header (record, pagesize, &request,
+                                                  payload);
+
+        if (!recordhdr.iov_base) {
+                gf_log ("rpc-clnt", GF_LOG_ERROR, "Failed to build record "
+                        " header");
+                iobuf_unref (request_iob);
+                request_iob = NULL;
+                recbuf->iov_base = NULL;
+                goto out;
+        }
+
+        recbuf->iov_base = recordhdr.iov_base;
+        recbuf->iov_len = recordhdr.iov_len;
+
+out:
+        return request_iob;
+}
+
+int
+rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
+                        rpcsvc_cbk_program_t *prog, int procnum,
+                        struct iovec *proghdr, int proghdrcount)
+{
+        struct iobuf          *request_iob = NULL;
+        struct iovec           rpchdr      = {0,};
+        rpc_transport_req_t    req;
+        int                    ret         = -1;
+        int                    proglen     = 0;
+        uint64_t               callid      = 0;
+
+        if (!rpc) {
+                goto out;
+        }
+
+        memset (&req, 0, sizeof (req));
+
+        callid = rpcsvc_get_callid (rpc);
+
+        if (proghdr) {
+                proglen += iov_length (proghdr, proghdrcount);
+        }
+
+        request_iob = rpcsvc_callback_build_record (rpc, prog->prognum,
+                                                    prog->progver, procnum,
+                                                    proglen, callid,
+                                                    &rpchdr);
+        if (!request_iob) {
+                gf_log ("rpcsvc", GF_LOG_DEBUG,
+                        "cannot build rpc-record");
+                goto out;
+        }
+
+        req.msg.rpchdr = &rpchdr;
+        req.msg.rpchdrcount = 1;
+        req.msg.proghdr = proghdr;
+        req.msg.proghdrcount = proghdrcount;
+
+        ret = rpc_transport_submit_request (trans, &req);
+        if (ret == -1) {
+                gf_log ("rpc-clnt", GF_LOG_DEBUG,
+                        "transmission of rpc-request failed");
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        iobuf_unref (request_iob);
+
+        return ret;
+}
 
 inline int
 rpcsvc_transport_submit (rpc_transport_t *trans, struct iovec *hdrvec,

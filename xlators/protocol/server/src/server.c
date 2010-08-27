@@ -123,6 +123,10 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         ret = rpcsvc_submit_generic (req, &rsp, 1, payload, payloadcount,
                                      iobref);
 
+        /* TODO: this is demo purpose only */
+        /* ret = rpcsvc_callback_submit (req->svc, req->trans, req->prog,
+                                         GF_CBK_NULL, &rsp, 1);
+        */
         /* Now that we've done our job of handing the message to the RPC layer
          * we can safely unref the iob in the hope that RPC layer must have
          * ref'ed the iob on receiving into the txlist.
@@ -366,6 +370,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         xlator_t            *this = NULL;
         rpc_transport_t     *xprt = NULL;
         server_connection_t *conn = NULL;
+        server_conf_t       *conf = NULL;
 
 
         if (!xl || !data) {
@@ -376,6 +381,7 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 
         this = xl;
         xprt = data;
+        conf = this->private;
 
         switch (event) {
         case RPCSVC_EVENT_ACCEPT:
@@ -388,12 +394,18 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 
                 xprt->protocol_private = conn;
                 */
+                INIT_LIST_HEAD (&xprt->list);
+
+                list_add_tail (&xprt->list, &conf->xprt_list);
+
                 break;
         }
         case RPCSVC_EVENT_DISCONNECT:
                 conn = get_server_conn_state (this, xprt);
                 if (conn)
                         server_connection_put (this, conn);
+
+                list_del (&xprt->list);
 
                 break;
         default:
@@ -449,6 +461,7 @@ init (xlator_t *this)
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
         INIT_LIST_HEAD (&conf->conns);
+        INIT_LIST_HEAD (&conf->xprt_list);
         pthread_mutex_init (&conf->mutex, NULL);
 
         this->private = conf;
