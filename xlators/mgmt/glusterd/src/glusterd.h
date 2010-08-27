@@ -180,8 +180,17 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                   GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname, \
                   GLUSTERD_BRICK_INFO_DIR);
 
-#define GLUSTERD_GET_BRICK_PIDFILE(pidfile, volpath, hostname, count)         \
-        snprintf (pidfile, PATH_MAX, "%s/run/%s-%d.pid", volpath, hostname, count);
+#define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volpath,hostname,brickpath) { \
+                int i = 0;                                              \
+                char exp_path[PATH_MAX] = {0,};                         \
+                for (i = 0; i < strlen (path); i++) {                   \
+                        exp_path[i] = brickpath[i];                     \
+                        if (exp_path[i] == '/')                         \
+                                exp_path[i] = '-';                      \
+                }                                                       \
+                snprintf (pidfile, PATH_MAX, "%s/run/%s-%s.pid",        \
+                          volpath, hostname, exp_path);                 \
+        }
 
 int32_t
 glusterd_brick_from_brickinfo (glusterd_brickinfo_t *brickinfo,

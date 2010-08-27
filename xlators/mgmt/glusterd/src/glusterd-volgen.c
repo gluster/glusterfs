@@ -83,7 +83,7 @@ set_default_options (dict_t *dict, char *volname)
                 goto out;
 
         ret = set_xlator_option (dict, VOLGEN_POSIX_OPTION_SPANDEVICES,
-                                 "on");
+                                 "1");
         if (ret)
                 goto out;
 
@@ -103,7 +103,7 @@ set_default_options (dict_t *dict, char *volname)
                 goto out;
 
         ret = set_xlator_option (dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
-                                 "on");
+                                 "tcp");
         if (ret)
                 goto out;
 
@@ -113,7 +113,7 @@ set_default_options (dict_t *dict, char *volname)
                 goto out;
 
         ret = set_xlator_option (dict, VOLGEN_IOT_OPTION_THREADCOUNT,
-                                 "on");
+                                 "16");
         if (ret)
                 goto out;
 
@@ -133,7 +133,7 @@ set_default_options (dict_t *dict, char *volname)
                 goto out;
 
         ret = set_xlator_option (dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
-                                 "on");
+                                 "tcp");
         if (ret)
                 goto out;
 
@@ -355,7 +355,7 @@ __write_posix_xlator (FILE *file, dict_t *dict,
                 "option o-direct %s\n"
                 "option export-statfs-size %s\n"
                 "option mandate-attribute %s\n"
-                "option span-devices %s\n"
+                "#option span-devices %s\n"
                 "option background-unlink %s\n"
                 "end-volume\n\n";
 
@@ -460,8 +460,7 @@ static int
 __write_client_xlator (FILE *file, dict_t *dict,
                        char *remote_subvol,
                        char *remote_host,
-                       int count,
-                       int replace_brick_flag)
+                       int count)
 {
         char       *volname               = NULL;
         char       *opt_transtype         = NULL;
@@ -473,7 +472,6 @@ __write_client_xlator (FILE *file, dict_t *dict,
                 "type protocol/client\n"
                 "option transport-type %s\n"
                 "option remote-host %s\n"
-                "option remote-port %s\n"
                 "option transport.socket.nodelay %s\n"
                 "option remote-subvolume %s\n"
                 "end-volume\n\n";
@@ -497,14 +495,57 @@ __write_client_xlator (FILE *file, dict_t *dict,
 
         fprintf (file, client_str,
                  volname,
-                 replace_brick_flag ?
-                 "replace-brick" : "client",
+                 "client",
                  count,
                  opt_transtype,
-                 replace_brick_flag ? "" : remote_host,
-                 replace_brick_flag ? "34034" : "",
+                 remote_host,
                  opt_nodelay,
-                 replace_brick_flag ? "" : remote_subvol);
+                 remote_subvol);
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+__write_replace_brick_xlator (FILE *file, dict_t *dict)
+{
+        char       *volname               = NULL;
+        char       *opt_transtype         = NULL;
+        char       *opt_nodelay           = NULL;
+        int         ret                   = 0;
+
+
+        const char *client_str = "volume %s-%s\n"
+                "type protocol/client\n"
+                "option transport-type %s\n"
+                "option remote-port 34034\n"
+                "option transport.socket.nodelay %s\n"
+                "end-volume\n\n";
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
+                            &opt_transtype);
+        if (ret) {
+                goto out;
+        }
+
+        ret = dict_get_str (dict, VOLGEN_CLIENT_OPTION_NODELAY,
+                            &opt_nodelay);
+        if (ret) {
+                goto out;
+        }
+
+        fprintf (file, client_str,
+                 volname,
+                 "replace-brick",
+                 opt_transtype,
+                 opt_nodelay);
 
         ret = 0;
 
@@ -521,7 +562,7 @@ __write_pump_xlator (FILE *file, dict_t *dict,
 
         const char *pump_str = "volume %s-%s\n"
                 "type cluster/pump\n"
-                "subvolumes %s %s-replace-brick-0\n"
+                "subvolumes %s %s-replace-brick\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -551,16 +592,16 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
         char       *opt_maxthreads    = NULL;
         int         ret               = -1;
 
-        const char *iot_str = "volume %s-%s\n"
+        const char *iot_str = "volume %s\n"
                 "type performance/io-threads\n"
                 "option thread-count %s\n"
-                "option autoscaling %s\n"
-                "option min-threads %s\n"
-                "option max-threads %s\n"
+                "#option autoscaling %s\n"
+                "#option min-threads %s\n"
+                "#option max-threads %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_str (dict, "export-path", &volname);
         if (ret) {
                 goto out;
         }
@@ -590,7 +631,7 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
         }
 
         fprintf (file, iot_str,
-                 volname, "io-threads",
+                 volname,
                  opt_threadcount,
                  opt_autoscaling,
                  opt_minthreads,
@@ -615,7 +656,7 @@ __write_server_xlator (FILE *file, dict_t *dict,
         const char *server_str = "volume %s-%s\n"
                 "type protocol/server\n"
                 "option transport-type %s\n"
-                "option auth.addr.%s.allow\n"
+                "option auth.addr.%s.allow *\n"
                 "option transport.socket.nodelay %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
@@ -676,18 +717,18 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
 
         const char *replicate_str = "volume %s-%s-%d\n"
                 "type cluster/replicate\n"
-                "option read-subvolume %s\n"
-                "option favorite-child %s\n"
-                "option background-self-heal-count %s\n"
-                "option data-self-heal %s\n"
-                "option data-self-heal-algorithm %s\n"
-                "option data-self-heal-window-size %s\n"
-                "option metadata-self-heal %s\n"
-                "option entry-self-heal %s\n"
-                "option data-change-log %s\n"
-                "option metadata-change-log %s\n"
-                "option entry-change-log %s\n"
-                "option strict-readdir %s\n"
+                "#option read-subvolume %s\n"
+                "#option favorite-child %s\n"
+                "#option background-self-heal-count %s\n"
+                "#option data-self-heal %s\n"
+                "#option data-self-heal-algorithm %s\n"
+                "#option data-self-heal-window-size %s\n"
+                "#option metadata-self-heal %s\n"
+                "#option entry-self-heal %s\n"
+                "#option data-change-log %s\n"
+                "#option metadata-change-log %s\n"
+                "#option entry-change-log %s\n"
+                "#option strict-readdir %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -814,8 +855,8 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
 
         const char *stripe_str = "volume %s-%s-%d\n"
                 "type cluster/stripe\n"
-                "option block-size %s\n"
-                "option use-xattr %s\n"
+                "#option block-size %s\n"
+                "#option use-xattr %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -873,9 +914,9 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
 
         const char *dht_str = "volume %s-%s\n"
                 "type cluster/distribute\n"
-                "option lookup-unhashed %s\n"
-                "option min-free-disk %s\n"
-                "option unhashed-sticky-bit %s\n"
+                "#option lookup-unhashed %s\n"
+                "#option min-free-disk %s\n"
+                "#option unhashed-sticky-bit %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -936,11 +977,11 @@ __write_wb_xlator (FILE *file, dict_t *dict,
 
         const char *dht_str = "volume %s-%s\n"
                 "type performance/write-behind\n"
-                "option flush-behind %s\n"
-                "option cache-size %s\n"
-                "option disable-for-first-nbytes %s\n"
-                "option enable-O_SYNC %s\n"
-                "option enable-trickling-writes %s\n"
+                "#option flush-behind %s\n"
+                "#option cache-size %s\n"
+                "#option disable-for-first-nbytes %s\n"
+                "#option enable-O_SYNC %s\n"
+                "#option enable-trickling-writes %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -1007,8 +1048,8 @@ __write_ra_xlator (FILE *file, dict_t *dict,
 
         const char *ra_str = "volume %s-%s\n"
                 "type performance/read-ahead\n"
-                "option force-atime-update %s\n"
-                "option page-count %s\n"
+                "#option force-atime-update %s\n"
+                "#option page-count %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -1057,11 +1098,11 @@ __write_iocache_xlator (FILE *file, dict_t *dict,
 
         const char *iocache_str = "volume %s-%s\n"
                 "type performance/io-cache\n"
-                "option priority %s\n"
-                "option cache-timeout %s\n"
-                "option cache-size %s\n"
-                "option min-file-size %s\n"
-                "option max-file-size %s\n"
+                "#option priority %s\n"
+                "#option cache-timeout %s\n"
+                "#option cache-size %s\n"
+                "#option min-file-size %s\n"
+                "#option max-file-size %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -1130,10 +1171,10 @@ __write_qr_xlator (FILE *file, dict_t *dict,
 
         const char *qr_str = "volume %s-%s\n"
                 "type performance/quick-read\n"
-                "option priority %s\n"
-                "option cache-timeout %s\n"
-                "option cache-size %s\n"
-                "option max-file-size %s\n"
+                "#option priority %s\n"
+                "#option cache-timeout %s\n"
+                "#option cache-size %s\n"
+                "#option max-file-size %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -1189,7 +1230,7 @@ __write_statprefetch_xlator (FILE *file, dict_t *dict,
         int   ret     = -1;
 
         const char *statprefetch_str = "volume %s-%s\n"
-                "type performance/statprefetch\n"
+                "type performance/stat-prefetch\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -1257,23 +1298,12 @@ generate_server_volfile (glusterd_brickinfo_t *brickinfo,
 
         VOLGEN_GENERATE_VOLNAME (subvol, volname, "locks");
 
-        ret = __write_iothreads_xlator (file, dict, subvol);
+        ret = __write_replace_brick_xlator (file, dict);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not write xlator");
                 goto out;
         }
-
-        ret = __write_client_xlator (file, dict,
-                                     "", "",
-                                     0, 1);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "io-threads");
 
         ret = __write_pump_xlator (file, dict, subvol);
         if (ret) {
@@ -1284,7 +1314,19 @@ generate_server_volfile (glusterd_brickinfo_t *brickinfo,
 
         VOLGEN_GENERATE_VOLNAME (subvol, volname, "pump");
 
-        ret = __write_server_xlator (file, dict, subvol);
+        ret = dict_set_str (dict, "export-path", brickinfo->path);
+        if (ret) {
+                goto out;
+        }
+
+        ret = __write_iothreads_xlator (file, dict, subvol);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not write xlator");
+                goto out;
+        }
+
+        ret = __write_server_xlator (file, dict, brickinfo->path);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not write xlator");
@@ -1366,7 +1408,7 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
 
                 ret = __write_client_xlator (file, dict, brick->path,
-                                             brick->hostname, count, 0);
+                                             brick->hostname, count);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
                                 "Could not write xlator");
@@ -1508,24 +1550,18 @@ get_brick_filename (glusterd_volinfo_t *volinfo,
         char  path[PATH_MAX]   = {0,};
         char *ret              = NULL;
         char  brick[PATH_MAX]  = {0,};
-        char *tmp              = NULL;
-        char *dir              = NULL;
-        char *junk             = NULL;
         char *filename         = NULL;
+        int   i                = 0;
 
         filename = GF_CALLOC (1, PATH_MAX, gf_gld_mt_char);
         if (!filename)
                 goto out;
 
-        tmp = gf_strdup (brickinfo->path);
-        if (!tmp)
-                goto out;
-
-        dir = strtok_r (tmp, "/", &junk);
-        while (dir != NULL) {
-                strcat (brick, dir);
-                strcat (brick, "-");
-                dir = strtok_r (NULL, "/", &junk);
+        /* TODO: make this part a macro, so everyone uses same thing */
+        for (i = 1; i < strlen (brickinfo->path); i++) {
+                brick[i-1] = brickinfo->path[i];
+                if (brick[i-1] == '/')
+                        brick[i-1] = '-';
         }
 
         VOLGEN_GET_VOLUME_DIR (path, volinfo);
@@ -1534,8 +1570,6 @@ get_brick_filename (glusterd_volinfo_t *volinfo,
                   path, volinfo->volname,
                   brickinfo->hostname,
                   brick);
-
-        GF_FREE (tmp);
 
         ret = filename;
 out:
