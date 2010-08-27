@@ -87,9 +87,19 @@ glusterd_is_local_addr (char *hostname)
         struct          addrinfo *res = NULL;
         int32_t         found = 0;
         struct          ifconf buf = {0,};
+        char            nodename[256] = {0,};
 
         if ((!strcmp (hostname, "localhost")) ||
              (!strcmp (hostname, "127.0.0.1"))) {
+                found = 1;
+                goto out;
+        }
+
+        ret = gethostname (nodename, 256);
+        if (ret)
+                goto out;
+
+        if ((!strcmp (nodename, hostname))) {
                 found = 1;
                 goto out;
         }
