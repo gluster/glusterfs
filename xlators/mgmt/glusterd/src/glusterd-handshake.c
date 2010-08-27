@@ -69,9 +69,15 @@ build_volfile_path (const char *volname, char *path,
                 goto out;
 
         ret = stat (path, &stbuf);
-        if ((ret == -1) && (errno == ENOENT))
+        if ((ret == -1) && (errno == ENOENT)) {
+                ret = snprintf (path, path_len, "%s/vols/%s/%s-fuse.vol",
+                                priv->workdir, volinfo->volname, volname);
+                ret = stat (path, &stbuf);
+        }
+        if ((ret == -1) && (errno == ENOENT)) {
                 ret = snprintf (path, path_len, "%s/vols/%s/%s-tcp.vol",
                                 priv->workdir, volinfo->volname, volname);
+        }
 
         ret = 1;
 out:

@@ -754,7 +754,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    path[PATH_MAX] = {0,};
         char                    cmd_str[8192] = {0,};
         char                    rundir[PATH_MAX] = {0,};
+        char                    exp_path[PATH_MAX] = {0,};
         int                     port = 0;
+        int                     i = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -776,14 +778,20 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
         port = pmap_registry_alloc (THIS);
 
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname, count);
-        snprintf (volfile, PATH_MAX, "%s.%s-%d", volinfo->volname,
-                  brickinfo->hostname, count);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
+                                    brickinfo->path);
+        for (i = 1; i < strlen (brickinfo->path); i++) {
+                exp_path[i-1] = brickinfo->path[i];
+                if (exp_path[i-1] == '/')
+                        exp_path[i-1] = '-';
+        }
+        snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
+                  brickinfo->hostname, exp_path);
 
         snprintf (cmd_str, 8192,
-                  "%s/sbin/glusterfs --xlator-option server-*.listen-port=%d "
+                  "%s/sbin/glusterfs --xlator-option %s-server.listen-port=%d "
                   "-s localhost --volfile-id %s -p %s --brick-name %s "
-                  "--brick-port %d", GFS_PREFIX,
+                  "--brick-port %d", GFS_PREFIX, volinfo->volname,
                   port, volfile, pidfile, brickinfo->path, port);
         ret = gf_system (cmd_str);
 
@@ -817,7 +825,8 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         priv = this->private;
 
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname, count);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
+                                    brickinfo->path);
 
         file = fopen (pidfile, "r+");
 
