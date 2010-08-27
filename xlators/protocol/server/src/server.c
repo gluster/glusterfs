@@ -599,9 +599,6 @@ fini (xlator_t *this)
                         ;
                 }
 
-                if (conf->conf_dir)
-                        GF_FREE (conf->conf_dir);
-
                 if (conf->auth_modules)
                         dict_unref (conf->auth_modules);
 
