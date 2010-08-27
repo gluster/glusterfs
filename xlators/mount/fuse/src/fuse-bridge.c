@@ -3245,6 +3245,10 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
 
         priv = this->private;
 
+        /* handle the case of more than one CHILD_UP on same graph */
+        if (priv->active_subvol == graph->top)
+                return -1;
+
         itable = inode_table_new (0, graph->top);
         if (!itable)
                 return -1;
