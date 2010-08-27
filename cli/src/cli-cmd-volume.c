@@ -43,7 +43,25 @@ cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
 void
 cli_cmd_volume_start_usage ()
 {
-        cli_out ("Usage: volume start <volname>");
+        cli_out ("Usage: volume start <VOLNAME>");
+}
+
+void
+cli_cmd_volume_stop_usage ()
+{
+        cli_out ("Usage: volume stop <VOLNAME>");
+}
+
+void
+cli_cmd_volume_rename_usage ()
+{
+        cli_out ("Usage: volume rename <VOLNAME> <NEW-VOLNAME>");
+}
+
+void
+cli_cmd_volume_delete_usage ()
+{
+        cli_out ("Usage: volume delete <VOLNAME>");
 }
 
 int
@@ -74,7 +92,7 @@ out:
 void
 cli_cmd_volume_create_usage ()
 {
-        cli_out ("usage: volume create <NEW-VOLNAME> "
+        cli_out ("Usage: volume create <NEW-VOLNAME> "
                  "[stripe <COUNT>] [replica <COUNT>] <NEW-BRICK> ...");
 }
 
@@ -96,7 +114,6 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         ret = cli_cmd_volume_create_parse (words, wordcount, &options);
 
         if (ret) {
-                printf ("Command Parsing failed, ");
                 cli_cmd_volume_create_usage ();
                 goto out;
         }
@@ -134,16 +151,19 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
-        //TODO: Build validation here
+        if (wordcount != 3) {
+                cli_cmd_volume_delete_usage ();
+                goto out;
+        }
+
         volname = (char *)words[2];
-        GF_ASSERT (volname);
 
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, volname);
         }
 
 out:
-        if (ret)
+        if (ret && volname)
                 cli_out ("Deleting Volume %s failed", volname);
 
         return ret;
@@ -164,14 +184,12 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
-        //TODO: Build validation here
-        if (wordcount < 3) {
+        if (wordcount != 3) {
                cli_cmd_volume_start_usage ();
                goto out;
         }
 
         volname = (char *)words[2];
-        GF_ASSERT (volname);
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_START_VOLUME];
 
@@ -201,9 +219,12 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
-        //TODO: Build validation here
+        if (wordcount != 3) {
+               cli_cmd_volume_stop_usage ();
+               goto out;
+        }
+
         volname = (char *)words[2];
-        GF_ASSERT (volname);
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_STOP_VOLUME];
 
@@ -212,7 +233,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (!proc && ret)
+        if (!proc && ret && volname)
                 cli_out ("Stopping Volume %s failed", volname);
 
         return ret;
@@ -237,10 +258,11 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!dict)
                 goto out;
 
-        GF_ASSERT (words[2]);
-        GF_ASSERT (words[3]);
+        if (wordcount != 4) {
+                cli_cmd_volume_rename_usage ();
+                goto out;
+        }
 
-        //TODO: Build validation here
         ret = dict_set_str (dict, "old-volname", (char *)words[2]);
 
         if (ret)
@@ -259,10 +281,10 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (!proc && ret) {
-                char *volname = (char *) words[2];
                 if (dict)
                         dict_destroy (dict);
-                cli_out ("Renaming Volume %s failed", volname );
+                if (wordcount > 2)
+                        cli_out ("Renaming Volume %s failed", (char *)words[2]);
         }
 
         return ret;
@@ -271,7 +293,7 @@ out:
 void
 cli_cmd_volume_defrag_usage ()
 {
-        cli_out ("Usage: volume rebalance <volname> <start|stop|status>");
+        cli_out ("Usage: volume rebalance <VOLNAME> <start|stop|status>");
 }
 
 int
@@ -291,13 +313,11 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!dict)
                 goto out;
 
-        GF_ASSERT (words[2]);
-
-        if (!(words[3])) {
+        if (wordcount != 4) {
                 cli_cmd_volume_defrag_usage();
                 goto out;
         }
-        //TODO: Build validation here
+
         ret = dict_set_str (dict, "volname", (char *)words[2]);
         if (ret)
                 goto out;
@@ -317,7 +337,9 @@ out:
                 if (dict)
                         dict_destroy (dict);
 
-                cli_out ("Defrag of Volume %s failed", (char *)words[2]);
+                if (wordcount > 2)
+                        cli_out ("Rebalance of Volume %s failed",
+                                 (char *)words[2]);
         }
 
         return 0;
@@ -335,7 +357,7 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
 void
 cli_cmd_volume_add_brick_usage ()
 {
-        cli_out ("usage: volume add-brick <VOLNAME> "
+        cli_out ("Usage: volume add-brick <VOLNAME> "
                  "[(replica <COUNT>)|(stripe <COUNT>)] <NEW-BRICK> ...");
 }
 
@@ -356,7 +378,6 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
 
         if (ret) {
-                printf("Command Parsing failed, ");
                 cli_cmd_volume_add_brick_usage ();
                 goto out;
         }
@@ -381,7 +402,7 @@ out:
 void
 cli_cmd_volume_remove_brick_usage ()
 {
-        cli_out ("usage: volume remove-brick <VOLNAME> "
+        cli_out ("Usage: volume remove-brick <VOLNAME> "
                  "[(replica <COUNT>)|(stripe <COUNT>)] <BRICK> ...");
 }
 
@@ -402,7 +423,6 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options);
 
         if (ret) {
-                printf("Command Parsing failed, ");
                 cli_cmd_volume_remove_brick_usage ();
                 goto out;
         }
@@ -427,8 +447,8 @@ out:
 void
 cli_cmd_volume_replace_brick_usage ()
 {
-        cli_out("usage: volume replace-brick <VOLNAME> "
-                "(<BRICK> <NEW-BRICK>)|pause|abort|start|status");
+        cli_out("Usage: volume replace-brick <VOLNAME> "
+                "(<BRICK> <NEW-BRICK>) start|pause|abort|status");
 }
 
 
@@ -452,7 +472,6 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
         ret = cli_cmd_volume_replace_brick_parse (words, wordcount, &options);
 
         if (ret) {
-                printf("Command Parsing failed, ");
                 cli_cmd_volume_replace_brick_usage ();
                 goto out;
         }
@@ -528,7 +547,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_defrag_cbk,
           "rebalance status of volume <VOLNAME>"},
 
-        { "volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>)|pause|abort|start|status",
+        { "volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status",
           cli_cmd_volume_replace_brick_cbk,
           "replace-brick operations"},
 
@@ -557,7 +576,7 @@ cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         for (cmd = volume_cmds; cmd->pattern; cmd++)
                 cli_out ("%s - %s", cmd->pattern, cmd->desc);
 
-        
+
         if (!state->rl_enabled)
                 exit (0);
 
