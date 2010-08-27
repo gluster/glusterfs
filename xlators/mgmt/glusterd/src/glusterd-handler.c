@@ -968,9 +968,17 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 	 void				 *cli_rsp = NULL;
 	 char				 err_str[1048];
 	 gf1_cli_create_vol_rsp          rsp = {0,};
-
+        glusterd_conf_t                 *priv = NULL;
+        int                             err_ret = 0;
+        glusterd_brickinfo_t            *tmpbrkinfo = NULL;
+        glusterd_volinfo_t              *volinfo = NULL;
+        xlator_t                        *this = NULL;
         GF_ASSERT (req);
 
+        this = THIS;
+        priv = this->private;
+
+        GF_ASSERT(this);
 
         if (!gf_xdr_to_cli_create_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
@@ -1003,22 +1011,10 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         }
 
 	 if ((ret = glusterd_check_volume_exists (volname))) {
-		gf_log ("", GF_LOG_ERROR, "Volname %s already exists",
-			volname);
-		rsp.op_ret = -1;
-		rsp.op_errno = 0; 
-		rsp.volname = "";
 		snprintf(err_str, 1048, "Volname %s already exists",
 			 volname);	
-		rsp.op_errstr = err_str;
-		cli_rsp = &rsp; 
-		glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-			              gf_xdr_serialize_cli_create_vol_rsp);
-                if (!glusterd_opinfo_unlock())
-                        gf_log ("glusterd", GF_LOG_ERROR, "Unlock on opinfo"
-				" failed");
-
-		ret = 0; //sent error to cli, prevent second reply
+		gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+		err_ret = 1;
 		goto out;
 	 }
 
@@ -1045,48 +1041,59 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		if (ret)
 			goto out;
 		if(!(ret = glusterd_is_local_addr(brickinfo->hostname)))
-			continue;	//localhost, continue without validation	
+			goto brick_validation;	//localhost, continue without validation	
 		ret = glusterd_friend_find_by_hostname(brickinfo->hostname,
 							&peerinfo); 
 		if (ret) {
-        	        rsp.op_ret = -1;
-	                rsp.op_errno = 0;
-                	rsp.volname = "";
                 	snprintf(err_str, 1048, "Host %s not a friend",
 			         brickinfo->hostname);
-                	rsp.op_errstr = err_str;
-                	cli_rsp = &rsp;
-                	glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-				              gf_xdr_serialize_cli_create_vol_rsp);
-			if (!glusterd_opinfo_unlock())
-				gf_log ("glusterd", GF_LOG_ERROR, "Unlock on "
-					"opinfo failed");
-
-			ret = 0; //sent error to cli, prevent second reply
+			gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+			err_ret = 1;
 			goto out;
 		}
 		if ((!peerinfo->connected) &&
 		    (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                        rsp.op_ret = -1;
-                        rsp.op_errno = 0;
-                        rsp.volname = "";
                         snprintf(err_str, 1048, "Host %s not connected",
 				 brickinfo->hostname);
-                        rsp.op_errstr = err_str;
-                        cli_rsp = &rsp;
-                        glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-					      gf_xdr_serialize_cli_create_vol_rsp);
-			if (!glusterd_opinfo_unlock())
-				gf_log ("glusterd", GF_LOG_ERROR, "Unlock on "
-					"opinfo failed");
-
-                        ret = 0; //sent error to cli, prevent second reply
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                        err_ret = 1;
                         goto out;
+		}
+brick_validation:
+		list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+
+                        list_for_each_entry (tmpbrkinfo, &volinfo->bricks, 
+                                             brick_list) {
+
+                                if ((!strcmp(brickinfo->hostname, tmpbrkinfo->
+                                    hostname) && !strcmp(brickinfo->path,
+                                    tmpbrkinfo->path))) {
+                                        snprintf(err_str, 1048, "Brick %s already"
+                                                "in use", brick);
+                                        gf_log ("glusterd", GF_LOG_ERROR, "%s",
+                                                err_str);
+                                        err_ret = 1;
+                                        goto out;
+                                }                            
+			}
 		}
 	 }
         ret = glusterd_create_volume (req, dict);
 
 out:
+        if (err_ret) {
+                rsp.op_ret = -1;
+                rsp.op_errno = 0;
+                rsp.volname = "";
+                rsp.op_errstr = err_str;
+                cli_rsp = &rsp;
+                glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
+                                      gf_xdr_serialize_cli_create_vol_rsp);
+                if (!glusterd_opinfo_unlock())
+                        gf_log ("glusterd", GF_LOG_ERROR, "Unlock on opinfo"
+                                " failed");
+                ret = 0; //Client response sent, prevent second response
+        }        
         return ret;
 }
 
