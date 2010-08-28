@@ -1285,6 +1285,8 @@ glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
                 goto out;
         }
 
+        gf_log_volume_file (fp);
+
 out:
         if (fp)
                 fclose (fp);
