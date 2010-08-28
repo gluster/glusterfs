@@ -207,7 +207,7 @@ init (xlator_t *this)
 	/* Change log options */
 
 	priv->data_change_log     = 1;
-	priv->metadata_change_log = 0;
+	priv->metadata_change_log = 1;
 	priv->entry_change_log    = 1;
 
 	dict_ret = dict_get_str (this->options, "data-change-log",
