@@ -34,7 +34,7 @@ static int
 gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr);
 
 
-static fd_t *
+fd_t *
 _fd_ref (fd_t *fd);
 
 /*
