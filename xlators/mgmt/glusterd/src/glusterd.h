@@ -184,7 +184,7 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
 #define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volpath,hostname,brickpath) { \
                 int i = 0;                                              \
                 char exp_path[PATH_MAX] = {0,};                         \
-                for (i = 0; i < strlen (path); i++) {                   \
+                for (i = 0; i < strlen (brickpath); i++) {              \
                         exp_path[i] = brickpath[i];                     \
                         if (exp_path[i] == '/')                         \
                                 exp_path[i] = '-';                      \
