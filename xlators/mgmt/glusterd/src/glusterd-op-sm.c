@@ -179,13 +179,20 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
 
                 case GD_OP_STOP_VOLUME:
                         {
-                                glusterd_op_stop_volume_ctx_t *ctx = NULL;
-                                ctx = glusterd_op_get_ctx (op);
-                                GF_ASSERT (ctx);
-                                stage_req->buf.buf_len  =
-                                        strlen (ctx->volume_name);
-                                stage_req->buf.buf_val =
-                                        gf_strdup (ctx->volume_name);
+                                dict_t  *dict = NULL;
+                                dict = glusterd_op_get_ctx (op);
+                                if (!dict) {
+                                        gf_log ("", GF_LOG_ERROR, "Null Context for "
+                                                "stop volume");
+                                        ret = -1;
+                                        goto out;
+                                }
+                                ret = dict_allocate_and_serialize (dict,
+                                                &stage_req->buf.buf_val,
+                                        (size_t *)&stage_req->buf.buf_len);
+                                if (ret) {
+                                        goto out;
+                                }
                         }
                         break;
 
@@ -264,7 +271,7 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
         gf_boolean_t                            exists = _gf_false;
         char                                    *bricks = NULL;
         char                                    *brick_list = NULL;
-        glusterd_brickinfo_t                    *brick_info = NULL;        
+        glusterd_brickinfo_t                    *brick_info = NULL;
         int32_t                                 brick_count = 0;
         int32_t                                 i = 0;
         struct stat                             st_buf = {0,};
@@ -385,16 +392,53 @@ out:
 }
 
 static int
+glusterd_op_stop_volume_args_get (gd1_mgmt_stage_op_req *req,
+                                  dict_t *dict, char** volname,
+                                  int *flags)
+{
+        int ret = -1;
+
+        if (!req || !dict || !volname || !flags)
+                goto out;
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "flags", flags);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get flags");
+                goto out;
+        }
+out:
+        return ret;
+}
+static int
 glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req)
 {
-        int                                     ret = 0;
-        char                                    volname[1024] = {0,};
+        int                                     ret = -1;
+        dict_t                                  *dict = NULL;
+        char                                    *volname = NULL;
+        int                                     flags = 0;
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
 
-        GF_ASSERT (req);
+        dict = dict_new ();
+        if (!dict)
+                goto out;
 
-        strncpy (volname, req->buf.buf_val, req->buf.buf_len);
+        ret = glusterd_op_stop_volume_args_get (req, dict, &volname, &flags);
+        if (ret)
+                goto out;
 
         exists = glusterd_check_volume_exists (volname);
 
@@ -411,16 +455,21 @@ glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req)
         if (ret)
                 goto out;
 
-        ret = glusterd_is_volume_started (volinfo);
+        if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
+                ret = glusterd_is_volume_started (volinfo);
 
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Volume %s has not been started",
-                        volname);
-                goto out;
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Volume %s "
+                                "has not been started", volname);
+                        goto out;
+                }
         }
 
 
 out:
+        if (dict)
+                dict_unref (dict);
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -1986,21 +2035,27 @@ static int
 glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
 {
         int                                     ret = 0;
-        char                                    volname[1024] = {0,};
+        int                                     flags = 0;
+        char                                    *volname = NULL;
         glusterd_conf_t                         *priv = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         xlator_t                                *this = NULL;
         int32_t                                 mybrick = 0;
-
-        GF_ASSERT (req);
+        dict_t                                  *dict = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
 
-        strncpy (volname, req->buf.buf_val, req->buf.buf_len);
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = glusterd_op_stop_volume_args_get (req, dict, &volname, &flags);
+        if (ret)
+                goto out;
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
 
@@ -2026,6 +2081,10 @@ glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STOPPED);
 
 out:
+        if (flags & GF_CLI_FLAG_OP_FORCE)
+                ret = 0;
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 

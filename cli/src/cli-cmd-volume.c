@@ -31,6 +31,7 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
+#include "cli1-xdr.h"
 
 extern struct rpc_clnt *global_rpc;
 
@@ -49,7 +50,7 @@ cli_cmd_volume_start_usage ()
 void
 cli_cmd_volume_stop_usage ()
 {
-        cli_out ("Usage: volume stop <VOLNAME>");
+        cli_out ("Usage: volume stop <VOLNAME> [force]");
 }
 
 void
@@ -212,29 +213,42 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
-        char                    *volname = NULL;
-
+        int                     flags   = 0;
+        gf1_cli_stop_vol_req    req = {0,};
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
-        if (wordcount != 3) {
+        if (wordcount < 3 || wordcount > 4) {
                cli_cmd_volume_stop_usage ();
                goto out;
         }
 
-        volname = (char *)words[2];
+        req.volname = (char *)words[2];
+        if (!req.volname)
+                goto out;
 
+        if (wordcount == 4) {
+                if (!strcmp("force", words[3])) {
+                        flags |= GF_CLI_FLAG_OP_FORCE;
+                } else {
+                        ret = -1;
+                        cli_cmd_volume_stop_usage ();
+                        goto out;
+                }
+        }
+
+        req.flags = flags;
         proc = &cli_rpc_prog->proctable[GF1_CLI_STOP_VOLUME];
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, volname);
+                ret = proc->fn (frame, THIS, &req);
         }
 
 out:
-        if (!proc && ret && volname)
-                cli_out ("Stopping Volume %s failed", volname);
+        if (!proc && ret && req.volname)
+                cli_out ("Stopping Volume %s failed", req.volname);
 
         return ret;
 }
@@ -519,7 +533,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_start_cbk,
           "start volume specified by <VOLNAME>"},
 
-        { "volume stop <VOLNAME>",
+        { "volume stop <VOLNAME> [force]",
           cli_cmd_volume_stop_cbk,
           "stop volume specified by <VOLNAME>"},
 

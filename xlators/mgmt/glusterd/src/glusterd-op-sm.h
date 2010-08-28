@@ -128,7 +128,6 @@ struct glusterd_op_start_volume_ctx_ {
 };
 
 typedef struct glusterd_op_start_volume_ctx_ glusterd_op_start_volume_ctx_t;
-typedef struct glusterd_op_start_volume_ctx_ glusterd_op_stop_volume_ctx_t;
 typedef struct glusterd_op_start_volume_ctx_ glusterd_op_delete_volume_ctx_t;
 
 

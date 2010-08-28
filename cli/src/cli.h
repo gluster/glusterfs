@@ -110,6 +110,7 @@ struct cli_local {
 
                 struct {
                         char    *volname;
+                        int     flags;
                 } stop_vol;
 
                 struct {

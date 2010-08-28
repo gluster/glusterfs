@@ -7,7 +7,7 @@
  enum gf1_cli_replace_op {
         GF_REPLACE_OP_NONE = 0,
         GF_REPLACE_OP_START,
-        GF_REPLACE_OP_STOP,
+        GF_REPLACE_OP_COMMIT,
         GF_REPLACE_OP_PAUSE,
         GF_REPLACE_OP_ABORT,
         GF_REPLACE_OP_STATUS
@@ -20,6 +20,10 @@ enum gf1_cli_friends_list {
 enum gf1_cli_get_volume {
         GF_CLI_GET_VOLUME_ALL = 1
 } ;
+
+enum gf1_cli_op_flags {
+        GF_CLI_FLAG_OP_FORCE = 1
+};
 
  struct gf1_cli_probe_req {
         string  hostname<>;
@@ -103,6 +107,7 @@ struct gf1_cli_get_vol_rsp {
 
  struct gf1_cli_stop_vol_req {
         string volname<>;
+        int flags;
 }  ;
 
 
@@ -125,6 +130,7 @@ struct gf1_cli_get_vol_rsp {
 }  ;
 
  struct gf1_cli_defrag_vol_req {
+        int    cmd;
         string volname<>;
 }  ;
 
@@ -132,6 +138,9 @@ struct gf1_cli_get_vol_rsp {
         int     op_ret;
         int     op_errno;
         string  volname<>;
+        unsigned hyper   files;
+        unsigned hyper   size;
+        unsigned hyper   lookedup_files;
 }  ;
 
  struct gf1_cli_add_brick_req {

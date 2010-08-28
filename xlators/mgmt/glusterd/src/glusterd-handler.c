@@ -1129,7 +1129,6 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_stop_vol_req           cli_req = {0,};
-        int32_t                         flags = 0;
 
         GF_ASSERT (req);
 
@@ -1142,7 +1141,7 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL, "Received stop vol req"
                 "for volume %s", cli_req.volname);
 
-        ret = glusterd_stop_volume (req, cli_req.volname, flags);
+        ret = glusterd_stop_volume (req, cli_req.volname, cli_req.flags);
 
 out:
         return ret;
@@ -2174,18 +2173,29 @@ out:
 int32_t
 glusterd_stop_volume (rpcsvc_request_t *req, char *volname, int flags)
 {
-        int32_t      ret       = -1;
-        glusterd_op_stop_volume_ctx_t  *ctx = NULL;
+        int32_t      ret        = -1;
+        dict_t       *ctx       = NULL;
+        char         *dup_volname = NULL;
 
         GF_ASSERT (req);
         GF_ASSERT (volname);
 
-        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_stop_volume_ctx_t);
+        ctx = dict_new ();
 
         if (!ctx)
                 goto out;
 
-        strncpy (ctx->volume_name, volname, GD_VOLUME_NAME_MAX);
+        dup_volname = gf_strdup(volname);
+        if (!dup_volname)
+                goto out;
+
+        ret = dict_set_str (ctx, "volname", dup_volname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (ctx, "flags", flags);
+        if (ret)
+                goto out;
 
         glusterd_op_set_op (GD_OP_STOP_VOLUME);
 
