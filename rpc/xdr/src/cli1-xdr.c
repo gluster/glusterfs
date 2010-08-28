@@ -62,6 +62,15 @@ xdr_gf1_cli_get_volume (XDR *xdrs, gf1_cli_get_volume *objp)
 }
 
 bool_t
+xdr_gf1_cli_op_flags (XDR *xdrs, gf1_cli_op_flags *objp)
+{
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_probe_req (XDR *xdrs, gf1_cli_probe_req *objp)
 {
 
@@ -76,7 +85,7 @@ bool_t
 xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 {
 
-	register int32_t *buf;
+        register int32_t *buf;
 
 	if (xdrs->x_op == XDR_ENCODE) {
 		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
@@ -224,9 +233,8 @@ xdr_gf1_cli_create_vol_rsp (XDR *xdrs, gf1_cli_create_vol_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
-        if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-                return FALSE;
-
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -279,6 +287,8 @@ xdr_gf1_cli_stop_vol_req (XDR *xdrs, gf1_cli_stop_vol_req *objp)
 {
 
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->flags))
 		 return FALSE;
 	return TRUE;
 }
@@ -375,7 +385,7 @@ xdr_gf1_cli_add_brick_rsp (XDR *xdrs, gf1_cli_add_brick_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
-	 if (!xdr_string (xdrs, &objp->op_errstr, ~0)) 
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 		 return FALSE;
 	return TRUE;
 }

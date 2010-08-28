@@ -1095,12 +1095,12 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        req.volname = data;
-
+        req = *((gf1_cli_stop_vol_req*)data);
         local = cli_local_get ();
 
         if (local) {
-                local->u.stop_vol.volname = data;
+                local->u.stop_vol.volname = req.volname;
+                local->u.stop_vol.flags = req.flags;
                 frame->local = local;
         }
 

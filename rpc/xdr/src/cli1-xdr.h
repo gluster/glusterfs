@@ -26,8 +26,7 @@
 #ifndef _CLI1_H_RPCGEN
 #define _CLI1_H_RPCGEN
 
-//#include <rpc/rpc.h>
-#include <rpc/xdr.h>
+#include <rpc/rpc.h>
 
 
 #ifdef __cplusplus
@@ -61,6 +60,11 @@ enum gf1_cli_get_volume {
 	GF_CLI_GET_VOLUME_ALL = 1,
 };
 typedef enum gf1_cli_get_volume gf1_cli_get_volume;
+
+enum gf1_cli_op_flags {
+	GF_CLI_FLAG_OP_FORCE = 1,
+};
+typedef enum gf1_cli_op_flags gf1_cli_op_flags;
 
 struct gf1_cli_probe_req {
 	char *hostname;
@@ -172,6 +176,7 @@ typedef struct gf1_cli_start_vol_rsp gf1_cli_start_vol_rsp;
 
 struct gf1_cli_stop_vol_req {
 	char *volname;
+	int flags;
 };
 typedef struct gf1_cli_stop_vol_req gf1_cli_stop_vol_req;
 
@@ -196,7 +201,7 @@ struct gf1_cli_rename_vol_rsp {
 typedef struct gf1_cli_rename_vol_rsp gf1_cli_rename_vol_rsp;
 
 struct gf1_cli_defrag_vol_req {
-        int   cmd;
+	int cmd;
 	char *volname;
 };
 typedef struct gf1_cli_defrag_vol_req gf1_cli_defrag_vol_req;
@@ -205,9 +210,9 @@ struct gf1_cli_defrag_vol_rsp {
 	int op_ret;
 	int op_errno;
 	char *volname;
-        u_quad_t files;
-        u_quad_t size;
-        u_quad_t lookedup_files;
+	u_quad_t files;
+	u_quad_t size;
+	u_quad_t lookedup_files;
 };
 typedef struct gf1_cli_defrag_vol_rsp gf1_cli_defrag_vol_rsp;
 
@@ -288,6 +293,7 @@ extern  bool_t xdr_gf1_cluster_type (XDR *, gf1_cluster_type*);
 extern  bool_t xdr_gf1_cli_replace_op (XDR *, gf1_cli_replace_op*);
 extern  bool_t xdr_gf1_cli_friends_list (XDR *, gf1_cli_friends_list*);
 extern  bool_t xdr_gf1_cli_get_volume (XDR *, gf1_cli_get_volume*);
+extern  bool_t xdr_gf1_cli_op_flags (XDR *, gf1_cli_op_flags*);
 extern  bool_t xdr_gf1_cli_probe_req (XDR *, gf1_cli_probe_req*);
 extern  bool_t xdr_gf1_cli_probe_rsp (XDR *, gf1_cli_probe_rsp*);
 extern  bool_t xdr_gf1_cli_deprobe_req (XDR *, gf1_cli_deprobe_req*);
@@ -322,6 +328,7 @@ extern bool_t xdr_gf1_cluster_type ();
 extern bool_t xdr_gf1_cli_replace_op ();
 extern bool_t xdr_gf1_cli_friends_list ();
 extern bool_t xdr_gf1_cli_get_volume ();
+extern bool_t xdr_gf1_cli_op_flags ();
 extern bool_t xdr_gf1_cli_probe_req ();
 extern bool_t xdr_gf1_cli_probe_rsp ();
 extern bool_t xdr_gf1_cli_deprobe_req ();
