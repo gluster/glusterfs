@@ -352,11 +352,11 @@ __write_posix_xlator (FILE *file, dict_t *dict,
         const char *posix_str = "volume %s-%s\n"
                 "type storage/posix\n"
                 "option directory %s\n"
-                "option o-direct %s\n"
-                "option export-statfs-size %s\n"
-                "option mandate-attribute %s\n"
+                "#option o-direct %s\n"
+                "#option export-statfs-size %s\n"
+                "#option mandate-attribute %s\n"
                 "#option span-devices %s\n"
-                "option background-unlink %s\n"
+                "#option background-unlink %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -421,8 +421,8 @@ __write_locks_xlator (FILE *file, dict_t *dict,
 
         const char *locks_str = "volume %s-%s\n"
                 "type features/locks\n"
-                "option trace %s\n"
-                "option mandatory %s\n"
+                "#option trace %s\n"
+                "#option mandatory %s\n"
                 "subvolumes %s\n"
                 "end-volume\n\n";
 
