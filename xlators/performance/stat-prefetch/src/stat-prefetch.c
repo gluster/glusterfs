@@ -634,6 +634,70 @@ out:
         return cache;
 }
 
+fd_t *
+_fd_ref (fd_t *fd);
+
+void
+sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode,
+                                      char *name)
+{
+        fd_t       *fd    = NULL;
+        sp_cache_t *cache = NULL;
+        struct fd_wrapper {
+                fd_t             *fd;
+                struct list_head  list;
+        };
+
+        struct fd_wrapper *wrapper    = NULL, *tmp = NULL;
+        struct list_head   head       = {0, };
+        char               remove_all = 0;
+
+        wrapper = NULL;
+
+        INIT_LIST_HEAD (&head);
+
+        if ((this == NULL) || (inode == NULL)) {
+                goto out;
+        }
+
+        remove_all = (name == NULL);
+ 
+        LOCK (&inode->lock);
+        {
+                list_for_each_entry (fd, &inode->fd_list, inode_list) {
+                        wrapper = GF_CALLOC (1, sizeof (*wrapper),
+                                             gf_sp_mt_fd_wrapper_t);
+                        if (wrapper == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "out of memory");
+                                goto unlock;
+                        }
+
+                        INIT_LIST_HEAD (&wrapper->list);
+
+                        wrapper->fd = _fd_ref (fd);
+                        list_add_tail (&wrapper->list, &head);
+                }
+        }
+unlock:
+        UNLOCK (&inode->lock);
+
+        list_for_each_entry_safe (wrapper, tmp, &head, list) {
+                cache = sp_get_cache_fd (this, wrapper->fd);
+                if (cache) {
+                        sp_cache_remove_entry (cache, name, remove_all);
+                        sp_cache_unref (cache);
+                }
+
+                list_del (&wrapper->list);
+                fd_unref (wrapper->fd);
+                GF_FREE (wrapper);
+        }
+
+out:
+        return;
+}
+
 
 inline int32_t
 __sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
@@ -742,7 +806,6 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct list_head     waiting_ops = {0, };
         call_stub_t         *stub        = NULL, *tmp = NULL;
         sp_local_t          *local       = NULL;
-        sp_cache_t          *cache       = NULL;
         int                  need_unwind = 0;
         char                 looked_up   = 0, lookup_in_progress = 0;
 
@@ -758,14 +821,8 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
         if (op_ret == -1) {
-                cache = sp_get_cache_inode (this, local->loc.parent,
-                                            frame->root->pid);
-
-                if (cache) {
-                        sp_cache_remove_entry (cache, (char *)local->loc.name,
-                                               0);
-                        sp_cache_unref (cache);
-                }
+                sp_remove_caches_from_all_fds_opened (this, local->loc.parent,
+                                                      (char *)local->loc.name);
         }
 
         if (local->is_lookup)
@@ -838,7 +895,6 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this,
 {
         char       *parent    = NULL, *grand_parent = NULL, *cpy = NULL;
         inode_t    *inode_gp  = NULL;
-        sp_cache_t *cache_gp  = NULL;
         int32_t     ret       = -1;
 
         ret = sp_get_ancestors (path, &parent, &grand_parent);
@@ -850,19 +906,16 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this,
         if (grand_parent && strcmp (grand_parent, "/")) {
                 inode_gp = inode_from_path (itable, grand_parent);
                 if (inode_gp) {
-                        cache_gp = sp_get_cache_inode (this, inode_gp,
-                                                       frame->root->pid);
-                        if (cache_gp) {
-                                cpy = gf_strdup (parent);
-                                GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
-                                                                cpy, out, errno,
-                                                                ENOMEM);
-                                path = basename (cpy);
-                                sp_cache_remove_entry (cache_gp, path, 0);
-                                GF_FREE (cpy);
+                        cpy = gf_strdup (parent);
+                        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
+                                                        cpy, out, errno,
+                                                        ENOMEM);
+                        path = basename (cpy);
+                        sp_remove_caches_from_all_fds_opened (this,
+                                                              inode_gp,
+                                                              path);
+                        GF_FREE (cpy);
 
-                                sp_cache_unref (cache_gp);
-                        }
                         inode_unref (inode_gp);
                 }
         }
@@ -1855,7 +1908,6 @@ int32_t
 sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
         call_stub_t *stub         = NULL;
-        sp_cache_t  *cache        = NULL;
         int32_t      ret          = 0, op_errno = -1; 
         char         can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
@@ -1879,11 +1931,8 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 goto out;
         }
 
-        cache = sp_get_cache_inode (this, oldloc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)oldloc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, oldloc->parent,
+                                              (char *)oldloc->name);
 
         stub = fop_link_stub (frame, sp_link_helper, oldloc, newloc);
         if (stub == NULL) {
@@ -1956,7 +2005,6 @@ unwind:
 int32_t
 sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
-        sp_cache_t     *cache        = NULL;
         int32_t         op_errno     = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -1966,11 +2014,8 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->parent,
+                                              (char *)loc->name);
 
         stub = fop_truncate_stub (frame, sp_truncate_helper, loc, offset);
         if (stub == NULL) {
@@ -2002,7 +2047,6 @@ int32_t
 sp_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
-        sp_cache_t  *cache  = NULL;
         uint64_t     value  = 0;
         int32_t      ret    = 0; 
         inode_t     *parent = NULL;
@@ -2018,11 +2062,8 @@ sp_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         name   = fd_ctx->name;
         parent = fd_ctx->parent_inode;
 
-        cache = sp_get_cache_inode (this, parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, parent,
+                                              (char *)name);
 
 	STACK_WIND (frame, sp_truncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset);
@@ -2090,7 +2131,6 @@ int
 sp_setattr (call_frame_t *frame, xlator_t *this,
             loc_t *loc, struct iatt *buf, int32_t valid)
 {
-        sp_cache_t     *cache        = NULL;
         int32_t         op_errno     = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -2100,11 +2140,8 @@ sp_setattr (call_frame_t *frame, xlator_t *this,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->parent,
+                                              (char *)loc->name);
         
         stub = fop_setattr_stub (frame, sp_setattr_helper, loc, buf, valid);
         if (stub == NULL) {
@@ -2187,7 +2224,6 @@ unwind:
 int32_t
 sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 {
-        sp_cache_t     *cache        = NULL;
         int32_t         op_errno     = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -2197,11 +2233,8 @@ sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out,
                                         op_errno, EINVAL);
 
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->parent,
+                                              (char *)loc->name);
 
         stub = fop_readlink_stub (frame, sp_readlink_helper, loc, size);
         if (stub == NULL) {
@@ -2294,7 +2327,6 @@ unwind:
 int32_t
 sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        sp_cache_t     *cache        = NULL;
         int32_t         ret          = -1, op_errno = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -2304,11 +2336,8 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->parent,
+                                              (char *)loc->name);
 
         ret = sp_cache_remove_parent_entry (frame, this, loc->parent->table,
                                             (char *)loc->path);
@@ -2341,26 +2370,6 @@ out:
          }
 
          return 0;
-}
-
-
-void
-sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode)
-{
-        fd_t       *fd    = NULL;
-        sp_cache_t *cache = NULL;
-
-        LOCK (&inode->lock);
-        {
-                list_for_each_entry (fd, &inode->fd_list, inode_list) {
-                        cache = sp_get_cache_fd (this, fd);
-                        if (cache) {
-                                sp_cache_remove_entry (cache, NULL, 1);
-                                sp_cache_unref (cache);
-                        }
-                }
-        }
-        UNLOCK (&inode->lock);
 }
 
 
@@ -2408,7 +2417,6 @@ unwind:
 int32_t
 sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        sp_cache_t     *cache        = NULL;
         int32_t         ret          = -1, op_errno = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -2422,13 +2430,7 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
                                         op_errno, EINVAL);
 
-        sp_remove_caches_from_all_fds_opened (this, loc->inode);
-
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->inode, NULL);
 
         ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
                                             (char *)loc->path);
@@ -2480,7 +2482,6 @@ sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
-        sp_cache_t  *cache  = NULL;
         uint64_t     value  = 0;
         int32_t      ret    = 0; 
         inode_t     *parent = NULL;
@@ -2496,11 +2497,8 @@ sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         name   = fd_ctx->name;
         parent = fd_ctx->parent_inode;
 
-        cache = sp_get_cache_inode (this, parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, parent,
+                                              (char *)name);
 
 	STACK_WIND (frame, sp_readv_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readv, fd, size, offset);
@@ -2517,7 +2515,6 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
            int32_t count, off_t off, struct iobref *iobref)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
-        sp_cache_t  *cache  = NULL;
         uint64_t     value  = 0;
         int32_t      ret    = 0; 
         inode_t     *parent = NULL;
@@ -2533,11 +2530,8 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         name   = fd_ctx->name;
         parent = fd_ctx->parent_inode;
 
-        cache = sp_get_cache_inode (this, parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, parent,
+                                              (char *)name);
 
 	STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev, fd, vector, count, off,
@@ -2554,11 +2548,10 @@ int32_t
 sp_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
-        sp_cache_t  *cache  = NULL;
         uint64_t     value  = 0;
         int32_t      ret    = 0; 
         inode_t     *parent = NULL;
-        char        *name   = NULL; 
+        char        *name   = NULL;
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
@@ -2570,11 +2563,8 @@ sp_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         name   = fd_ctx->name;
         parent = fd_ctx->parent_inode;
 
-        cache = sp_get_cache_inode (this, parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, parent,
+                                              (char *)name);
 
 	STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsync, fd, flags);
@@ -2686,7 +2676,6 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         char            need_unwind           = 1;
         uint64_t        value                 = 0;
         call_stub_t    *stub                  = NULL;
-        sp_cache_t     *cache                 = NULL;
         sp_inode_ctx_t *inode_ctx             = NULL;
         int32_t         ret                   = -1, op_errno = -1;
         char            old_inode_can_wind    = 0, new_inode_can_wind = 0;
@@ -2706,17 +2695,11 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, out,
                                         op_errno, EINVAL);
 
-        cache = sp_get_cache_inode (this, oldloc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)oldloc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, oldloc->parent,
+                                              (char *)oldloc->name);
 
-        cache = sp_get_cache_inode (this, newloc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)newloc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, newloc->parent,
+                                              (char *)newloc->name);
 
         ret = sp_cache_remove_parent_entry (frame, this, oldloc->parent->table,
                                             (char *)oldloc->path);
@@ -2733,7 +2716,8 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         }
 
         if (IA_ISDIR (oldloc->inode->ia_type)) {
-                sp_remove_caches_from_all_fds_opened (this, oldloc->inode);
+                sp_remove_caches_from_all_fds_opened (this, oldloc->inode,
+                                                      NULL);
         }
 
         stub = fop_rename_stub (frame, sp_rename_helper, oldloc, newloc);
@@ -2862,7 +2846,6 @@ int32_t
 sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags)
 {
-        sp_cache_t     *cache        = NULL;
         int32_t         op_errno     = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -2872,11 +2855,8 @@ sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->parent,
+                                              (char *)loc->name);
 
         stub = fop_setxattr_stub (frame, sp_setxattr_helper, loc, dict, flags);
         if (stub == NULL) {
@@ -2951,7 +2931,6 @@ int32_t
 sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name)
 {
-        sp_cache_t     *cache        = NULL;
         int32_t         op_errno     = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -2961,11 +2940,8 @@ sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->parent,
+                                              (char *)loc->name);
 
         stub = fop_removexattr_stub (frame, sp_removexattr_helper, loc, name);
         if (stub == NULL) {
@@ -3137,7 +3113,6 @@ int32_t
 sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
             gf_xattrop_flags_t flags, dict_t *dict)
 {
-        sp_cache_t     *cache    = NULL;
         int32_t         op_errno     = -1;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
@@ -3147,11 +3122,8 @@ sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
                                         EINVAL);
 
-        cache = sp_get_cache_inode (this, loc->parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, (char *)loc->name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, loc->parent,
+                                              (char *)loc->name);
 
         stub = fop_xattrop_stub (frame, sp_xattrop_helper, loc, flags, dict);
         if (stub == NULL) {
@@ -3184,7 +3156,6 @@ sp_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
              gf_xattrop_flags_t flags, dict_t *dict)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
-        sp_cache_t  *cache  = NULL;
         uint64_t     value  = 0;
         int32_t      ret    = 0; 
         inode_t     *parent = NULL;
@@ -3200,11 +3171,7 @@ sp_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         name   = fd_ctx->name;
         parent = fd_ctx->parent_inode;
 
-        cache = sp_get_cache_inode (this, parent, frame->root->pid);
-        if (cache) {
-                sp_cache_remove_entry (cache, name, 0);
-                sp_cache_unref (cache);
-        }
+        sp_remove_caches_from_all_fds_opened (this, parent, name);
 
 	STACK_WIND (frame, sp_xattrop_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fxattrop, fd, flags, dict);

@@ -30,6 +30,7 @@ enum gf_sp_mem_types_ {
         gf_sp_mt_sp_local_t,
         gf_sp_mt_sp_inode_ctx_t,
         gf_sp_mt_sp_private_t,
+        gf_sp_mt_fd_wrapper_t,
         gf_sp_mt_end
 };
 #endif
