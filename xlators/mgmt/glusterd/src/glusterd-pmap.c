@@ -74,13 +74,11 @@ pmap_registry_new (void)
         for (i = 0; i < 65536; i++) {
                 if (!pmap_port_isfree (i)) {
                         pmap->ports[i].used = 1;
-                        pmap->last_alloc = i;
                 }
         }
 
-        pmap->base_port = 6969;
-        if (pmap->last_alloc < 6969)
-                pmap->last_alloc = 6969;
+        pmap->base_port = 6971; /* 6969 default for tcp, 6970 for IB */
+        pmap->last_alloc = 6971;
 
         return pmap;
 }
@@ -115,7 +113,7 @@ pmap_registry_search (xlator_t *this, const char *brickname)
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->base_port; p < pmap->last_alloc; p++) {
+        for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
                 if (!pmap->ports[p].brickname)
                         continue;
                 if (strcmp (pmap->ports[p].brickname, brickname) == 0) {
@@ -136,7 +134,7 @@ pmap_registry_search_by_xprt (xlator_t *this, void *xprt)
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->base_port; p < pmap->last_alloc; p++) {
+        for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
                 if (!pmap->ports[p].xprt)
                         continue;
                 if (pmap->ports[p].xprt == xprt) {
@@ -177,7 +175,7 @@ pmap_registry_alloc (xlator_t *this)
 
         pmap = pmap_registry_get (this);
 
-        for (p = pmap->base_port; p < 65535; p++) {
+        for (p = pmap->last_alloc; p < 65535; p++) {
                 if (pmap->ports[p].used)
                         continue;
 
@@ -187,6 +185,9 @@ pmap_registry_alloc (xlator_t *this)
                         break;
                 }
         }
+
+        if (port)
+                pmap->last_alloc = port;
 
         return port;
 }
@@ -253,7 +254,6 @@ remove:
         gf_log ("pmap", GF_LOG_INFO, "removing brick %s on port %d",
                 pmap->ports[p].brickname, p);
 
-        pmap->ports[p].used = 0;
         if (pmap->ports[p].brickname)
                 free (pmap->ports[p].brickname);
 

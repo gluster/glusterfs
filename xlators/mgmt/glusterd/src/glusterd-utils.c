@@ -786,7 +786,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 goto out;
         }
 
-        port = pmap_registry_alloc (THIS);
+        port = brickinfo->port;
+        if (!port)
+                port = pmap_registry_alloc (THIS);
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
