@@ -77,11 +77,9 @@ enum argp_option_keys {
         ARGP_BRICK_PORT_KEY = 152,
 };
 
-/* Moved here from fetch-spec.h */
-FILE *fetch_spec (glusterfs_ctx_t *ctx);
-
 int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
+int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
 
 
 #endif /* __GLUSTERFSD_H__ */

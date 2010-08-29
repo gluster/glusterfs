@@ -669,14 +669,24 @@ reincarnate (int signum)
         ctx = glusterfs_ctx_get ();
         cmd_args = &ctx->cmd_args;
 
-        gf_log ("glusterfsd", GF_LOG_NORMAL,
-                "Reloading volfile ...");
 
-        if (!cmd_args->volfile_server)
+        if (cmd_args->volfile_server) {
+                gf_log ("glusterfsd", GF_LOG_NORMAL,
+                        "Fetching the volume file from server...");
+                ret = glusterfs_volfile_fetch (ctx);
+        } else {
+                gf_log ("glusterfsd", GF_LOG_NORMAL,
+                        "Reloading volfile ...");
                 ret = glusterfs_volumes_init (ctx);
+        }
+
         if (ret < 0)
                 gf_log ("glusterfsd", GF_LOG_ERROR,
                         "volume initialization failed.");
+
+        /* Also, SIGHUP should do logroate */
+        gf_log_logrotate (1);
+
         return;
 }
 
