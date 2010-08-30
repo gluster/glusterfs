@@ -1914,10 +1914,6 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
 
                 if ((!uuid_compare (brickinfo->uuid, priv->uuid)) &&
                     (GLUSTERD_STATUS_STARTED == volinfo->status)) {
-                        ret = glusterd_create_volfiles (volinfo);
-                        if (ret)
-                                goto out;
-
                         gf_log ("", GF_LOG_NORMAL, "About to stop glusterfs"
                                 " for brick %s:%s", brickinfo->hostname,
                                 brickinfo->path);
@@ -1940,11 +1936,9 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                 i++;
         }
 
-        if (!glfs_stopped) {
-                ret = glusterd_create_volfiles (volinfo);
-                if (ret)
-                        goto out;
-        }
+        ret = glusterd_create_volfiles (volinfo);
+        if (ret)
+                goto out;
 
         volinfo->version++;
 
