@@ -699,7 +699,7 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 {
     
         char               msg[1024];
-        struct iobuf_arena *trav;
+        struct iobuf_arena *trav = NULL;
         int                i = 1;
         int                ret = -1;
 
