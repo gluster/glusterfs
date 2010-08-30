@@ -535,6 +535,8 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
         char                                    *brick = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
+        struct stat                             st_buf = {0,};
+        char                                    cmd_str[1024];
 
         GF_ASSERT (req);
 
@@ -588,7 +590,20 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
                         ret = -1;
                         goto out;
                 } else {
-                        ret = 0;
+                        ret = glusterd_brickinfo_from_brick(brick, &brickinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "Add-brick: Unable"
+                                       " to get brickinfo");
+                                goto out;
+                        }
+                }
+                snprintf (cmd_str, 1024, "%s", brickinfo->path);
+                ret = stat (cmd_str, &st_buf);
+                if (ret == -1) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Volname %s, brick"
+                                ":%s path %s not present", volname,
+                                brick, brickinfo->path);
+                        goto out;
                 }
 
                 brick = strtok_r (NULL, " \n", &saveptr);
