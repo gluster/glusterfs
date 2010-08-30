@@ -306,6 +306,9 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         int     brick_count = 0, brick_index = 0;
         int     brick_list_size = 1;
         char    brick_list[120000] = {0,};
+        int     j = 0;
+        char    *tmp_list = NULL;
+        char    *tmpptr = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -373,6 +376,19 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                                 "can take (brick_count %d)", brick_count);
                         ret = -1;
                         goto out;
+                }
+                tmp_list = strdup(brick_list+1);
+                j = 0;
+                while(( brick_count != 0) && (j < brick_count)) {
+                        strtok_r (tmp_list, " ", &tmpptr);
+                        if (!(strcmp (tmp_list, words[brick_index]))) {
+                                ret = -1;
+                                cli_out ("Found duplicate"
+                                         " exports %s",words[brick_index]);
+                                goto out;
+                       }
+                       tmp_list = tmpptr;
+                       j++;
                 }
 
                 strcat (brick_list, words[brick_index]);

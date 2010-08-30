@@ -1190,6 +1190,16 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         char                            err_str[1048];
         gf1_cli_add_brick_rsp           rsp = {0,};
         glusterd_volinfo_t              *volinfo = NULL;
+        glusterd_brickinfo_t            *tmpbrkinfo = NULL;
+        int32_t                         err_ret = 0;
+        glusterd_volinfo_t              *tmpvolinfo = NULL;
+        glusterd_conf_t                 *priv = NULL;
+        xlator_t                        *this = NULL;
+
+        this = THIS;
+        priv = this->private;
+
+        GF_ASSERT(this);
 
         GF_ASSERT (req);
 
@@ -1224,22 +1234,10 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         }
 
         if (!(ret = glusterd_check_volume_exists (volname))) {
-                gf_log ("", GF_LOG_ERROR, "Volname %s does not exist",
-                        volname);
-                rsp.op_ret = -1;
-                rsp.op_errno = 0;
-                rsp.volname = "";
                 snprintf(err_str, 1048, "Volname %s does not exist",
                          volname);
-                rsp.op_errstr = err_str;
-                cli_rsp = &rsp;
-                glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                      gf_xdr_serialize_cli_add_brick_rsp);
-                if (!glusterd_opinfo_unlock())
-                        gf_log ("glusterd", GF_LOG_ERROR, "Unlock on opinfo"
-                                " failed");
-
-                ret = 0; //sent error to cli, prevent second reply
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                err_ret = -1;
                 goto out;
         }
 
@@ -1255,22 +1253,12 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 if (!brick_count || !volinfo->sub_count)
                         goto brick_val;
                 if ((brick_count % volinfo->sub_count) != 0) {
-                        rsp.op_ret = -1;
-                        rsp.op_errno = -1;
-                        rsp.volname = "";
                         snprintf(err_str, 2048, "Incorrect number of bricks"
                                 " supplied %d for type %s with count %d",
                                 brick_count, (volinfo->type == 1)? "STRIPE":
                                 "REPLICATE", volinfo->sub_count);
-                        rsp.op_errstr = err_str;
-                        cli_rsp = &rsp;
-                        glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                            gf_xdr_serialize_cli_add_brick_rsp);
-                        if (!glusterd_opinfo_unlock())
-                                  gf_log ("glusterd", GF_LOG_ERROR, "Unlock on opinfo"
-                                          " failed");
-
-                        ret = 0; //sent error to cli, prevent second reply
+                        gf_log("glusterd", GF_LOG_ERROR, "%s", err_str);
+                        err_ret = 1;
                         goto out;
                 }
         } else {
@@ -1297,49 +1285,61 @@ brick_val:
                 if (ret)
                         goto out;
                 if(!(ret = glusterd_is_local_addr(brickinfo->hostname)))
-                        continue;       //localhost, continue without validation
+                        goto brick_validation;       //localhost, continue without validation
                 ret = glusterd_friend_find_by_hostname(brickinfo->hostname,
                                                         &peerinfo);
                 if (ret) {
-                        rsp.op_ret = -1;
-                        rsp.op_errno = 0;
-                        rsp.volname = "";
                         snprintf(err_str, 1048, "Host %s not a friend",
                                  brickinfo->hostname);
-                        rsp.op_errstr = err_str;
-                        cli_rsp = &rsp;
-                        glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                              gf_xdr_serialize_cli_add_brick_rsp);
-                        if (!glusterd_opinfo_unlock())
-                                gf_log ("glusterd", GF_LOG_ERROR, "Unlock on "
-                                        "opinfo failed");
-
-                        ret = 0; //sent error to cli, prevent second reply
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                        err_ret = 1; 
                         goto out;
                 }
                 if ((!peerinfo->connected) &&
                     (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                        rsp.op_ret = -1;
-                        rsp.op_errno = 0;
-                        rsp.volname = "";
                         snprintf(err_str, 1048, "Host %s not connected",
                                  brickinfo->hostname);
-                        rsp.op_errstr = err_str;
-                        cli_rsp = &rsp;
-                        glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
-                                              gf_xdr_serialize_cli_add_brick_rsp);
-                        if (!glusterd_opinfo_unlock())
-                                gf_log ("glusterd", GF_LOG_ERROR, "Unlock on "
-                                        "opinfo failed");
-
-                        ret = 0; //sent error to cli, prevent second reply
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                        err_ret = 1;
                         goto out;
+                }
+brick_validation:
+                list_for_each_entry (tmpvolinfo, &priv->volumes, vol_list) {
+
+                        list_for_each_entry (tmpbrkinfo, &tmpvolinfo->bricks,
+                                             brick_list) {
+
+                                if ((!strcmp(brickinfo->hostname, tmpbrkinfo->
+                                    hostname) && !strcmp(brickinfo->path,
+                                    tmpbrkinfo->path))) {
+                                        snprintf(err_str, 1048, "Brick %s already"
+                                                "in use", brick);
+                                        gf_log ("glusterd", GF_LOG_ERROR, "%s",
+                                                err_str);
+                                        err_ret = 1;
+                                        goto out;
+                                }
+                        }
                 }
         }
 
         ret = glusterd_add_brick (req, dict);
 
 out:
+        if (err_ret) {
+                rsp.op_ret = -1;
+                rsp.op_errno = 0;
+                rsp.volname = "";
+                rsp.op_errstr = err_str;
+                cli_rsp = &rsp;
+                glusterd_submit_reply(req, cli_rsp, NULL, 0, NULL,
+                                      gf_xdr_serialize_cli_add_brick_rsp);
+                if (!glusterd_opinfo_unlock())
+                        gf_log ("glusterd", GF_LOG_ERROR, "Unlock on "
+                               "opinfo failed");
+
+                ret = 0; //sent error to cli, prevent second reply
+        }
         return ret;
 }
 
