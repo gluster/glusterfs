@@ -87,6 +87,15 @@ enum gf_common_mem_types_ {
         gf_common_mt_rpc_trans_reqinfo_t,
         gf_common_mt_rpc_trans_rsp_t,
         gf_common_mt_glusterfs_graph_t,
+        gf_common_mt_rdma_private_t,
+        gf_common_mt_rdma_ioq_t,
+        gf_common_mt_rpc_transport_t,
+        gf_common_mt_rdma_local_t,
+        gf_common_mt_rdma_post_t,
+        gf_common_mt_qpent,
+        gf_common_mt_rdma_device_t,
+        gf_common_mt_rdma_context_t,
+        gf_common_mt_sge,
         gf_common_mt_end
 };
 #endif

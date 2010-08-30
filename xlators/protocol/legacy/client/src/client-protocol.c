@@ -6054,7 +6054,7 @@ protocol_client_interpret (xlator_t *this, transport_t *trans,
 int32_t
 mem_acct_init (xlator_t *this)
 {
-        int     ret = -1;
+        int     ret       = -1;
 
         if (!this)
                 return ret;
