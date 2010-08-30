@@ -1365,23 +1365,15 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
                 num_bricks++;
 
         if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
-                ret = dict_get_int32 (dict, "replica-count",
-                                      &replicate_count);
-                if (ret)
-                        goto out;
-
                 gf_log ("", GF_LOG_DEBUG,
                         "Volfile is distributed-replicated");
+                replicate_count = volinfo->sub_count;
                 dist_count = num_bricks / replicate_count;
 
         } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
-                ret = dict_get_int32 (dict, "stripe-count",
-                                      &stripe_count);
-                if (ret)
-                        goto out;
-
                 gf_log ("", GF_LOG_DEBUG,
                         "Volfile is distributed-striped");
+                stripe_count = volinfo->sub_count;
                 dist_count = num_bricks / stripe_count;
         } else {
                 gf_log ("", GF_LOG_DEBUG,
