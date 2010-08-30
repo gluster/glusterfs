@@ -1966,7 +1966,7 @@ struct volume_options options[] = {
         },
         { .key   = {"transport-type"},
           .value = {"tcp", "socket", "ib-verbs", "unix", "ib-sdp",
-                    "tcp/client", "ib-verbs/client"},
+                    "tcp/client", "ib-verbs/client", "rdma"},
           .type  = GF_OPTION_TYPE_STR
         },
         { .key   = {"remote-host"},
