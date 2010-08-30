@@ -713,6 +713,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         dict_t                          *dict             = NULL;
         char                            *src_brick        = NULL;
         char                            *dst_brick        = NULL;
+        char                            *status_reply     = NULL;
         gf1_cli_replace_op               replace_op       = 0;
         char                            *rb_operation_str = NULL;
         char                             cmd_str[8192]    = {0,};
@@ -742,24 +743,44 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
         switch (replace_op) {
         case GF_REPLACE_OP_START:
-                rb_operation_str = "Replace brick start operation";
+                if (rsp.op_ret)
+                        rb_operation_str = "replace-brick failed to start";
+                else
+                        rb_operation_str = "replace-brick started successfully";
                 break;
 
         case GF_REPLACE_OP_STATUS:
-                rb_operation_str = "Replace brick status operation";
+
+                ret = dict_get_str (dict, "status-reply",
+                                    &status_reply);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "dict_get failed on status reply");
+                        goto out;
+                }
+
+                if (rsp.op_ret || ret)
+                        rb_operation_str = "replace-brick status unknown";
+                else
+                        rb_operation_str = status_reply;
+
                 break;
 
         case GF_REPLACE_OP_PAUSE:
-                rb_operation_str = "Replace brick pause operation";
+                if (rsp.op_ret)
+                        rb_operation_str = "replace-brick pause failed";
+                else
+                        rb_operation_str = "replace-brick paused successfully";
                 break;
 
         case GF_REPLACE_OP_ABORT:
-                rb_operation_str = "Replace brick abort operation";
+                if (rsp.op_ret)
+                        rb_operation_str = "replace-brick abort failed";
+                else
+                        rb_operation_str = "replace-brick aborted successfully";
                 break;
 
         case GF_REPLACE_OP_COMMIT:
-                rb_operation_str = "Replace brick commit operation";
-
                 ret = dict_get_str (dict, "src-brick", &src_brick);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
@@ -804,6 +825,11 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
+                if (rsp.op_ret || ret)
+                        rb_operation_str = "replace-brick commit failed";
+                else
+                        rb_operation_str = "replace-brick commit successful";
+
                 break;
 
         default:
@@ -814,10 +840,8 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to replace brick");
-        cli_out ("%s %s",
-                 rb_operation_str ? rb_operation_str : "Unknown operation",
-                 (rsp.op_ret) ? "unsuccessful":
-                 "successful");
+        cli_out ("%s",
+                 rb_operation_str ? rb_operation_str : "Unknown operation");
 
         ret = rsp.op_ret;
 
