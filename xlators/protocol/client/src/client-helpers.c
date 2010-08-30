@@ -98,8 +98,13 @@ client_local_wipe (clnt_local_t *local)
         if (local) {
                 loc_wipe (&local->loc);
 
-                if (local->fd)
+                if (local->fd) {
                         fd_unref (local->fd);
+                }
+
+                if (local->iobref) {
+                        iobref_unref (local->iobref);
+                }
 
                  GF_FREE (local);
         }

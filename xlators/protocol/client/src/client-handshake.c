@@ -187,7 +187,8 @@ client_start_ping (void *data)
                 goto fail;
 
         ret = client_submit_request (this, NULL, frame, conf->handshake,
-                                     GF_HNDSK_PING, client_ping_cbk, NULL, NULL);
+                                     GF_HNDSK_PING, client_ping_cbk, NULL, NULL,
+                                     NULL, 0, NULL, 0, NULL);
         if (ret)
                 goto fail;
 
@@ -311,8 +312,10 @@ int32_t client3_getspec (call_frame_t *frame, xlator_t *this, void *data)
         req.flags = args->flags;
         req.key   = (char *)args->name;
 
-        ret = client_submit_request (this, &req, frame, conf->handshake, GF_HNDSK_GETSPEC,
-                               client3_getspec_cbk, NULL, xdr_from_getspec_req);
+        ret = client_submit_request (this, &req, frame, conf->handshake,
+                                     GF_HNDSK_GETSPEC, client3_getspec_cbk,
+                                     NULL, xdr_from_getspec_req, NULL, 0,
+                                     NULL, 0, NULL);
 
         if (ret)
                 goto unwind;
@@ -611,7 +614,8 @@ client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
 
         ret = client_submit_request (this, &req, fr, conf->handshake,
                                      GF_HNDSK_SETVOLUME, client_setvolume_cbk,
-                                     NULL, xdr_from_setvolume_req);
+                                     NULL, xdr_from_setvolume_req, NULL, 0,
+                                     NULL, 0, NULL);
 
 fail:
         if (ret) {
@@ -763,8 +767,10 @@ client_query_portmap (xlator_t *this, struct rpc_clnt *rpc)
         }
 
         ret = client_submit_request (this, &req, fr, &clnt_pmap_prog,
-                                     GF_PMAP_PORTBYBRICK, client_query_portmap_cbk,
-                                     NULL, xdr_from_pmap_port_by_brick_req);
+                                     GF_PMAP_PORTBYBRICK,
+                                     client_query_portmap_cbk,
+                                     NULL, xdr_from_pmap_port_by_brick_req,
+                                     NULL, 0, NULL, 0, NULL);
 
 fail:
         return ret;
@@ -772,7 +778,8 @@ fail:
 
 
 int
-client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count, void *myframe)
+client_dump_version_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                         void *myframe)
 {
         gf_dump_rsp     rsp   = {0,};
         gf_prog_detail *trav  = NULL;
@@ -855,7 +862,8 @@ client_handshake (xlator_t *this, struct rpc_clnt *rpc)
         req.gfs_id = 0xbabe;
         ret = client_submit_request (this, &req, frame, conf->dump,
                                      GF_DUMP_DUMP, client_dump_version_cbk,
-                                     NULL, xdr_from_dump_req);
+                                     NULL, xdr_from_dump_req, NULL, 0, NULL, 0,
+                                     NULL);
 
 out:
         return ret;

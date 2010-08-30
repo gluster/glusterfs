@@ -1978,16 +1978,19 @@ int
 client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
-        call_frame_t  *frame  = NULL;
-        struct iobref *iobref = NULL;
-        struct iovec   vector[MAX_IOVEC];
-        struct iatt    stat   = {0,};
-        gfs3_read_rsp  rsp    = {0,};
-        int            ret    = 0, rspcount = 0;
+        call_frame_t   *frame  = NULL;
+        struct iobref  *iobref = NULL;
+        struct iovec    vector[MAX_IOVEC];
+        struct iatt     stat   = {0,};
+        gfs3_read_rsp   rsp    = {0,};
+        int             ret    = 0, rspcount = 0;
+        clnt_local_t   *local  = NULL;
 
         memset (vector, 0, sizeof (vector));
 
         frame = myframe;
+        local = frame->local;
+        frame->local = NULL;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -2016,6 +2019,10 @@ out:
         STACK_UNWIND_STRICT (readv, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), vector, rspcount,
                              &stat, iobref);
+
+        if (local) {
+                client_local_wipe (local);
+        }
 
         return 0;
 }
@@ -2060,15 +2067,19 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 req.fd = fdctx->remote_fd;
                 req.gfs_id = GFS3_OP_RELEASEDIR;
                 ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
-                                             GFS3_OP_RELEASEDIR, client3_1_releasedir_cbk,
-                                             NULL, xdr_from_releasedir_req);
+                                             GFS3_OP_RELEASEDIR,
+                                             client3_1_releasedir_cbk,
+                                             NULL, xdr_from_releasedir_req,
+                                             NULL, 0, NULL, 0, NULL);
         } else {
                 gfs3_release_req  req = {0,};
                 req.fd = fdctx->remote_fd;
                 req.gfs_id = GFS3_OP_RELEASE;
                 ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
-                                             GFS3_OP_RELEASE, client3_1_release_cbk, NULL,
-                                             xdr_from_release_req);
+                                             GFS3_OP_RELEASE,
+                                             client3_1_release_cbk, NULL,
+                                             xdr_from_release_req, NULL, 0,
+                                             NULL, 0, NULL);
         }
 
 out:
@@ -2261,8 +2272,11 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         frame->local = local; local = NULL;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_OPENDIR,
-                                     client3_1_opendir_cbk, NULL, xdr_from_opendir_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPENDIR,
+                                     client3_1_opendir_cbk, NULL,
+                                     xdr_from_opendir_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret)
                 goto out;
 
@@ -2333,8 +2347,9 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 "attempting reopen on %s", local->loc.path);
 
         local = NULL;
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_OPEN,
-                                     client3_1_open_cbk, NULL, xdr_from_open_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPEN, client3_1_open_cbk, NULL,
+                                     xdr_from_open_req, NULL, 0, NULL, 0, NULL);
         if (ret)
                 goto out;
 
@@ -2398,8 +2413,10 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
                 req.fd = remote_fd;
                 req.gfs_id = GFS3_OP_RELEASEDIR;
                 ret = client_submit_request (this, &req, frame, conf->fops,
-                                             GFS3_OP_RELEASEDIR, client3_1_releasedir_cbk,
-                                             NULL, xdr_from_releasedir_req);
+                                             GFS3_OP_RELEASEDIR,
+                                             client3_1_releasedir_cbk,
+                                             NULL, xdr_from_releasedir_req,
+                                             NULL, 0, NULL, 0, NULL);
                 inode_unref (fdctx->inode);
                 GF_FREE (fdctx);
         }
@@ -2451,8 +2468,10 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
                 req.fd = remote_fd;
                 req.gfs_id = GFS3_OP_RELEASE;
                 ret = client_submit_request (this, &req, frame, conf->fops,
-                                             GFS3_OP_RELEASE, client3_1_release_cbk, NULL,
-                                             xdr_from_release_req);
+                                             GFS3_OP_RELEASE,
+                                             client3_1_release_cbk, NULL,
+                                             xdr_from_release_req, NULL, 0,
+                                             NULL, 0, NULL);
                 inode_unref (fdctx->inode);
                 GF_FREE (fdctx);
         }
@@ -2468,16 +2487,24 @@ int32_t
 client3_1_lookup (call_frame_t *frame, xlator_t *this,
                   void *data)
 {
-        clnt_conf_t     *conf     = NULL;
-        clnt_local_t    *local    = NULL;
-        clnt_args_t     *args     = NULL;
-        gfs3_lookup_req  req      = {0,};
-        int              ret      = 0;
-        size_t           dict_len = 0;
-        int              op_errno = ESTALE;
+        clnt_conf_t     *conf              = NULL;
+        clnt_local_t    *local             = NULL;
+        clnt_args_t     *args              = NULL;
+        gfs3_lookup_req  req               = {0,};
+        int              ret               = 0;
+        size_t           dict_len          = 0;
+        int              op_errno          = ESTALE;
+        data_t          *content           = NULL;
+        struct iovec     vector[MAX_IOVEC];
+        int              count             = 0;
+        struct iobref   *rsp_iobref        = NULL;
+        struct iobuf    *rsp_iobuf         = NULL;
+        struct iovec    *rsphdr            = NULL;
 
         if (!frame || !this || !data)
                 goto unwind;
+
+        memset (vector, 0, sizeof (vector));
 
         conf = this->private;
         args = data;
@@ -2507,6 +2534,34 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         }
 
         if (args->dict) {
+                content = dict_get (args->dict, GF_CONTENT_KEY);
+                if (content != NULL) {
+                        rsp_iobref = iobref_new ();
+                        if (rsp_iobref == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "out of memory");
+                                goto unwind;
+                        }
+
+                        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+                        if (rsp_iobuf == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "out of memory");
+                                goto unwind;
+                        }
+
+                        iobref_add (rsp_iobref, rsp_iobuf);
+                        iobuf_unref (rsp_iobuf);
+                        rsphdr = &vector[0];
+                        rsphdr->iov_base = iobuf_ptr (rsp_iobuf);
+                        rsphdr->iov_len
+                                = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+                        count = 1;
+                        rsp_iobuf = NULL;
+                        local->iobref = rsp_iobref;
+                        rsp_iobref = NULL;
+                }
+
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
                                                    &dict_len);
@@ -2525,7 +2580,8 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_LOOKUP, client3_1_lookup_cbk,
-                                     NULL, xdr_from_lookup_req);
+                                     NULL, xdr_from_lookup_req, rsphdr, count,
+                                     NULL, 0, rsp_iobref);
 
         if (ret) {
                 op_errno = ENOTCONN;
@@ -2536,19 +2592,32 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                 GF_FREE (req.dict.dict_val);
         }
 
+        if (rsp_iobref != NULL) {
+                iobref_unref (rsp_iobref);
+        }
+
         return 0;
 
 unwind:
         if (frame)
                 frame->local = NULL;
 
-        STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL);
 
         if (local)
                 client_local_wipe (local);
 
         if (req.dict.dict_val)
                 GF_FREE (req.dict.dict_val);
+
+        if (rsp_iobref != NULL) {
+                iobref_unref (rsp_iobref);
+        }
+
+        if (rsp_iobuf != NULL) {
+                iobuf_unref (rsp_iobuf);
+        }
 
         return 0;
 }
@@ -2582,8 +2651,9 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_STAT;
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_STAT,
-                                     client3_1_stat_cbk, NULL, xdr_from_stat_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_STAT, client3_1_stat_cbk, NULL,
+                                     xdr_from_stat_req, NULL, 0, NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2625,8 +2695,11 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_TRUNCATE,
-                                     client3_1_truncate_cbk, NULL, xdr_from_truncate_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_TRUNCATE,
+                                     client3_1_truncate_cbk, NULL,
+                                     xdr_from_truncate_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2681,8 +2754,11 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
         req.fd     = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_FTRUNCATE;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FTRUNCATE,
-                                     client3_1_ftruncate_cbk, NULL, xdr_from_ftruncate_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FTRUNCATE,
+                                     client3_1_ftruncate_cbk, NULL,
+                                     xdr_from_ftruncate_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2724,8 +2800,11 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_ACCESS,
-                                     client3_1_access_cbk, NULL, xdr_from_access_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_ACCESS,
+                                     client3_1_access_cbk, NULL,
+                                     xdr_from_access_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2765,8 +2844,11 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_READLINK;
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_READLINK,
-                                     client3_1_readlink_cbk, NULL, xdr_from_readlink_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_READLINK,
+                                     client3_1_readlink_cbk, NULL,
+                                     xdr_from_readlink_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2809,8 +2891,11 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_UNLINK;
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_UNLINK,
-                                     client3_1_unlink_cbk, NULL, xdr_from_unlink_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_UNLINK,
+                                     client3_1_unlink_cbk, NULL,
+                                     xdr_from_unlink_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2851,8 +2936,10 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_RMDIR;
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_RMDIR,
-                                     client3_1_rmdir_cbk, NULL, xdr_from_rmdir_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_RMDIR, client3_1_rmdir_cbk, NULL,
+                                     xdr_from_rmdir_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2905,8 +2992,10 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_SYMLINK;
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_SYMLINK,
-                                     client3_1_symlink_cbk, NULL, xdr_from_symlink_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_SYMLINK, client3_1_symlink_cbk,
+                                     NULL, xdr_from_symlink_req, NULL, 0, NULL,
+                                     0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -2968,8 +3057,10 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_RENAME;
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_RENAME,
-                                     client3_1_rename_cbk, NULL, xdr_from_rename_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_RENAME, client3_1_rename_cbk, NULL,
+                                     xdr_from_rename_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3035,8 +3126,9 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_LINK;
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_LINK,
-                                     client3_1_link_cbk, NULL, xdr_from_link_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_LINK, client3_1_link_cbk, NULL,
+                                     xdr_from_link_req, NULL, 0, NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3092,8 +3184,10 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_MKNOD,
-                                     client3_1_mknod_cbk, NULL, xdr_from_mknod_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_MKNOD, client3_1_mknod_cbk, NULL,
+                                     xdr_from_mknod_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3154,8 +3248,10 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_MKDIR,
-                                     client3_1_mkdir_cbk, NULL, xdr_from_mkdir_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_MKDIR, client3_1_mkdir_cbk, NULL,
+                                     xdr_from_mkdir_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3217,8 +3313,10 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_CREATE,
-                                     client3_1_create_cbk, NULL, xdr_from_create_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_CREATE, client3_1_create_cbk, NULL,
+                                     xdr_from_create_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3228,7 +3326,8 @@ unwind:
         if (frame)
                 frame->local = NULL;
 
-        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL);
         if (local)
                 client_local_wipe (local);
         return 0;
@@ -3278,8 +3377,9 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_OPEN,
-                                     client3_1_open_cbk, NULL, xdr_from_open_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPEN, client3_1_open_cbk, NULL,
+                                     xdr_from_open_req, NULL, 0, NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3302,12 +3402,16 @@ int32_t
 client3_1_readv (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
-        clnt_args_t   *args     = NULL;
-        clnt_fd_ctx_t *fdctx    = NULL;
-        clnt_conf_t   *conf     = NULL;
-        int            op_errno = ESTALE;
-        gfs3_read_req  req      = {0,};
-        int            ret        = 0;
+        clnt_args_t    *args       = NULL;
+        clnt_fd_ctx_t  *fdctx      = NULL;
+        clnt_conf_t    *conf       = NULL;
+        int             op_errno   = ESTALE;
+        gfs3_read_req   req        = {0,};
+        int             ret        = 0;
+        struct iovec    rsp_vec    = {0, };
+        struct iobuf   *rsp_iobuf  = NULL;
+        struct iobref  *rsp_iobref = NULL;
+        clnt_local_t   *local      = NULL;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -3341,14 +3445,67 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         req.fd     = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_READ;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_READ,
-                                     client3_1_readv_cbk, NULL, xdr_from_readv_req);
+        rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
+        if (rsp_iobuf == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        rsp_iobref = iobref_new ();
+        if (rsp_iobref == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        iobref_add (rsp_iobref, rsp_iobuf);
+        iobuf_unref (rsp_iobuf);
+        rsp_vec.iov_base = iobuf_ptr (rsp_iobuf);
+        rsp_vec.iov_len = rsp_iobuf->iobuf_arena->iobuf_pool->page_size;
+
+        rsp_iobuf = NULL;
+
+        if (args->size > rsp_vec.iov_len) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "read-size (%lu) is bigger than iobuf size (%lu)",
+                        (unsigned long)args->size,
+                        (unsigned long)rsp_vec.iov_len);
+                op_errno = EINVAL;
+                goto unwind;
+        }
+
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "out of memory");
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
+        local->iobref = rsp_iobref;
+        rsp_iobref = NULL;
+        frame->local = local;
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_READ, client3_1_readv_cbk, NULL,
+                                     xdr_from_readv_req, NULL, 0, &rsp_vec, 1,
+                                     local->iobref);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
         }
+
         return 0;
 unwind:
+        if (rsp_iobuf) {
+                iobuf_unref (rsp_iobuf);
+        }
+
+        if (rsp_iobref) {
+                iobref_unref (rsp_iobref);
+        }
+
         STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
         return 0;
 }
@@ -3452,8 +3609,10 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         req.fd = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_FLUSH;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FLUSH,
-                                     client3_1_flush_cbk, NULL, xdr_from_flush_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FLUSH, client3_1_flush_cbk, NULL,
+                                     xdr_from_flush_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3508,8 +3667,10 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         req.data = args->flags;
         req.gfs_id = GFS3_OP_FSYNC;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FSYNC,
-                                     client3_1_fsync_cbk, NULL, xdr_from_fsync_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FSYNC, client3_1_fsync_cbk, NULL,
+                                     xdr_from_fsync_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3563,8 +3724,10 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         req.fd = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_FSTAT;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FSTAT,
-                                     client3_1_fstat_cbk, NULL, xdr_from_fstat_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FSTAT, client3_1_fstat_cbk, NULL,
+                                     xdr_from_fstat_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3615,8 +3778,10 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_OPENDIR,
-                                     client3_1_opendir_cbk, NULL, xdr_from_opendir_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPENDIR, client3_1_opendir_cbk,
+                                     NULL, xdr_from_opendir_req,
+                                     NULL, 0, NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3676,8 +3841,10 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FSYNCDIR,
-                                     client3_1_fsyncdir_cbk, NULL, xdr_from_fsyncdir_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FSYNCDIR, client3_1_fsyncdir_cbk,
+                                     NULL, xdr_from_fsyncdir_req, NULL, 0,
+                                     NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3726,8 +3893,10 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_STATFS,
-                                     client3_1_statfs_cbk, NULL, xdr_from_statfs_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_STATFS, client3_1_statfs_cbk, NULL,
+                                     xdr_from_statfs_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3782,8 +3951,10 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_SETXATTR,
-                                     client3_1_setxattr_cbk, NULL, xdr_from_setxattr_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_SETXATTR, client3_1_setxattr_cbk,
+                                     NULL, xdr_from_setxattr_req, NULL, 0,
+                                     NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3859,8 +4030,10 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
                 req.dict.dict_len = dict_len;
         }
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FSETXATTR,
-                                     client3_1_fsetxattr_cbk, NULL, xdr_from_fsetxattr_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FSETXATTR, client3_1_fsetxattr_cbk,
+                                     NULL, xdr_from_fsetxattr_req, NULL, 0,
+                                     NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3929,8 +4102,11 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         }
         req.gfs_id = GFS3_OP_FGETXATTR;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FGETXATTR,
-                                     client3_1_fgetxattr_cbk, NULL, xdr_from_fgetxattr_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FGETXATTR,
+                                     client3_1_fgetxattr_cbk, NULL,
+                                     xdr_from_fgetxattr_req, NULL, 0,
+                                     NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -3979,8 +4155,11 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_GETXATTR,
-                                     client3_1_getxattr_cbk, NULL, xdr_from_getxattr_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_GETXATTR,
+                                     client3_1_getxattr_cbk, NULL,
+                                     xdr_from_getxattr_req, NULL, 0,
+                                     NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4036,8 +4215,11 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_XATTROP,
-                                     client3_1_xattrop_cbk, NULL, xdr_from_xattrop_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_XATTROP,
+                                     client3_1_xattrop_cbk, NULL,
+                                     xdr_from_xattrop_req, NULL, 0,
+                                     NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4113,8 +4295,11 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
                 req.dict.dict_len = dict_len;
         }
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FXATTROP,
-                                     client3_1_fxattrop_cbk, NULL, xdr_from_fxattrop_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FXATTROP,
+                                     client3_1_fxattrop_cbk, NULL,
+                                     xdr_from_fxattrop_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4164,8 +4349,11 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_REMOVEXATTR,
-                                     client3_1_removexattr_cbk, NULL, xdr_from_removexattr_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_REMOVEXATTR,
+                                     client3_1_removexattr_cbk, NULL,
+                                     xdr_from_removexattr_req, NULL, 0, NULL,
+                                     0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4249,7 +4437,8 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         req.gfs_id = GFS3_OP_LK;
 
         ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_LK,
-                                     client3_1_lk_cbk, NULL, xdr_from_lk_req);
+                                     client3_1_lk_cbk, NULL, xdr_from_lk_req,
+                                     NULL, 0, NULL, 0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4321,8 +4510,11 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_INODELK,
-                                     client3_1_inodelk_cbk, NULL, xdr_from_inodelk_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_INODELK,
+                                     client3_1_inodelk_cbk, NULL,
+                                     xdr_from_inodelk_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4407,8 +4599,11 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         gf_flock_from_flock (&req.flock, args->flock);
         req.gfs_id = GFS3_OP_FINODELK;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FINODELK,
-                                     client3_1_finodelk_cbk, NULL, xdr_from_finodelk_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FINODELK,
+                                     client3_1_finodelk_cbk, NULL,
+                                     xdr_from_finodelk_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4457,8 +4652,11 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_ENTRYLK,
-                                     client3_1_entrylk_cbk, NULL, xdr_from_entrylk_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_ENTRYLK,
+                                     client3_1_entrylk_cbk, NULL,
+                                     xdr_from_entrylk_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4521,8 +4719,11 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
         }
         req.gfs_id = GFS3_OP_FENTRYLK;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FENTRYLK,
-                                     client3_1_fentrylk_cbk, NULL, xdr_from_fentrylk_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FENTRYLK,
+                                     client3_1_fentrylk_cbk, NULL,
+                                     xdr_from_fentrylk_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4578,8 +4779,11 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
         req.fd     = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_RCHECKSUM;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_RCHECKSUM,
-                                     client3_1_rchecksum_cbk, NULL, xdr_from_rchecksum_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_RCHECKSUM,
+                                     client3_1_rchecksum_cbk, NULL,
+                                     xdr_from_rchecksum_req, NULL, 0, NULL,
+                                     0, NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4636,8 +4840,11 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         req.fd = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_READDIR;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_READDIR,
-                                     client3_1_readdir_cbk, NULL, xdr_from_readdir_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_READDIR,
+                                     client3_1_readdir_cbk, NULL,
+                                     xdr_from_readdir_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4693,8 +4900,11 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         req.fd = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_READDIRP;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_READDIRP,
-                                     client3_1_readdirp_cbk, NULL, xdr_from_readdirp_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_READDIRP,
+                                     client3_1_readdirp_cbk, NULL,
+                                     xdr_from_readdirp_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4738,8 +4948,11 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_SETATTR,
-                                     client3_1_setattr_cbk, NULL, xdr_from_setattr_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_SETATTR,
+                                     client3_1_setattr_cbk, NULL,
+                                     xdr_from_setattr_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;
@@ -4793,8 +5006,11 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
         gf_stat_from_iatt (&req.stbuf, args->stbuf);
         req.gfs_id = GFS3_OP_FSETATTR;
 
-        ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_FSETATTR,
-                                     client3_1_fsetattr_cbk, NULL, xdr_from_fsetattr_req);
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_FSETATTR,
+                                     client3_1_fsetattr_cbk, NULL,
+                                     xdr_from_fsetattr_req, NULL, 0, NULL, 0,
+                                     NULL);
         if (ret) {
                 op_errno = ENOTCONN;
                 goto unwind;

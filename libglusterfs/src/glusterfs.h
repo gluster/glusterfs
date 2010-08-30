@@ -195,6 +195,9 @@ typedef enum {
 
 #define GF_REPLICATE_TRASH_DIR          ".landfill"
 
+/* key value which quick read uses to get small files in lookup cbk */
+#define GF_CONTENT_KEY "glusterfs.content"
+
 struct _xlator_cmdline_option {
 	struct list_head    cmd_args;
 	char               *volume;
