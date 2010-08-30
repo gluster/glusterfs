@@ -1917,6 +1917,8 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                         mybrick++;
                 }
 
+                glusterd_delete_volfile (volinfo, brickinfo);
+                glusterd_store_delete_brick (volinfo, brickinfo);
                 glusterd_brickinfo_delete (brickinfo);
                 volinfo->brick_count--;
 

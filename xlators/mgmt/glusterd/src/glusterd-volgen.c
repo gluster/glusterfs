@@ -1688,3 +1688,22 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 out:
         return ret;
 }
+
+int
+glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
+                         glusterd_brickinfo_t *brickinfo)
+{
+        char                    *filename  = NULL;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+        filename = get_brick_filename (volinfo, brickinfo);
+
+        if (filename)
+                unlink (filename);
+
+        if (filename)
+                GF_FREE (filename);
+        return 0;
+}
