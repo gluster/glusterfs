@@ -637,8 +637,9 @@ parse_opts (int key, char *arg, struct argp_state *state)
 static void
 cleanup_and_exit (int signum)
 {
-        glusterfs_ctx_t *ctx = NULL;
+        glusterfs_ctx_t *ctx      = NULL;
         call_pool_t     *tmp_pool = NULL;
+        xlator_t        *trav     = NULL;
 
         ctx = glusterfs_ctx_get ();
 
@@ -652,6 +653,21 @@ cleanup_and_exit (int signum)
         mem_pool_destroy (tmp_pool->stack_mem_pool);
         tmp_pool = NULL;
         mem_pool_destroy (ctx->stub_mem_pool);
+
+        /* Call fini() of FUSE xlator first */
+        trav = ctx->master;
+        if (trav && trav->fini)
+                trav->fini (trav);
+
+        /* call fini() of each xlator */
+        trav = NULL;
+        if (ctx->active)
+                trav = ctx->active->top;
+        while (trav) {
+                if (trav->fini)
+                        trav->fini (trav);
+                trav = trav->next;
+        }
 
         glusterfs_pidfile_cleanup (ctx);
 
