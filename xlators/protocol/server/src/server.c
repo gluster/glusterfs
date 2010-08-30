@@ -640,7 +640,7 @@ struct xlator_dumpops dumpops = {
 struct volume_options options[] = {
         { .key   = {"transport-type"},
           .value = {"rpc", "rpc-over-rdma", "tcp", "socket", "ib-verbs",
-                    "unix", "ib-sdp", "tcp/server", "ib-verbs/server",
+                    "unix", "ib-sdp", "tcp/server", "ib-verbs/server", "rdma",
                     "rdma*([ \t]),*([ \t])socket",
                     "socket*([ \t]),*([ \t])rdma"},
           .type  = GF_OPTION_TYPE_STR
