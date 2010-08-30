@@ -1683,9 +1683,11 @@ out:
 static int
 rb_do_operation_status (glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *src_brickinfo,
-                        glusterd_brickinfo_t *dst_brickinfo)
+                        glusterd_brickinfo_t *dst_brickinfo,
+                        dict_t *dict)
 {
-        const char *status = NULL;
+        const char *status       = NULL;
+        char       *status_reply = NULL;
         int ret = -1;
 
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
@@ -1710,6 +1712,22 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
 
                 gf_log ("", GF_LOG_DEBUG,
                         "pump status is %s", status);
+
+                status_reply = gf_strdup (status);
+                if (!status_reply) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_dynstr (dict, "status-reply",
+                                       status_reply);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "failed to set pump status in dict");
+                        goto out;
+                }
 
                 ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
                 if (ret) {
@@ -1809,26 +1827,28 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
 
         switch (replace_op) {
         case GF_REPLACE_OP_START:
-                rb_do_operation_start (volinfo, src_brickinfo, dst_brickinfo);
+                ret = rb_do_operation_start (volinfo, src_brickinfo, dst_brickinfo);
                 break;
         case GF_REPLACE_OP_COMMIT:
-                rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
+                ret = rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
                 break;
         case GF_REPLACE_OP_PAUSE:
-                rb_do_operation_pause (volinfo, src_brickinfo, dst_brickinfo);
+                ret = rb_do_operation_pause (volinfo, src_brickinfo, dst_brickinfo);
                 break;
         case GF_REPLACE_OP_ABORT:
-                rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
+                ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
                 break;
         case GF_REPLACE_OP_STATUS:
-                rb_do_operation_status (volinfo, src_brickinfo, dst_brickinfo);
+                ret = rb_do_operation_status (volinfo, src_brickinfo, dst_brickinfo,
+                                              dict);
                 break;
         default:
                 ret = -1;
                 goto out;
         }
 
-        ret = 0;
+        if (ret)
+                goto out;
 
 out:
         return ret;
