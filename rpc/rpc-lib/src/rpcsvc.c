@@ -925,9 +925,38 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
         rpcsvc_actor_t          *actor = NULL;
         rpcsvc_request_t        *req = NULL;
         int                     ret = -1;
+        uint16_t                port = 0;
 
         if (!trans || !svc)
                 return -1;
+
+        switch (trans->peerinfo.sockaddr.ss_family) {
+        case AF_INET:
+                port = ((struct sockaddr_in *)&trans->peerinfo.sockaddr)->sin_port;
+                break;
+
+        case AF_INET6:
+                port = ((struct sockaddr_in6 *)&trans->peerinfo.sockaddr)->sin6_port;
+                break;
+
+        default:
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
+                        "invalid address family (%d)",
+                        trans->peerinfo.sockaddr.ss_family);
+                return -1;
+        }
+
+
+
+        port = ntohs (port);
+
+        gf_log ("rpcsvc", GF_LOG_TRACE, "Client port: %d", (int)port);
+
+        if (port > 1024) {  //Non-privilaged user, fail request
+                gf_log ("glusterd", GF_LOG_ERROR, "Request received from non-"
+                        "privileged port. Failing request");
+                return -1;
+        }
 
         req = rpcsvc_request_create (svc, trans, msg);
         if (!req)
