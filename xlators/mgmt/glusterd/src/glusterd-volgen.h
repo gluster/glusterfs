@@ -123,6 +123,10 @@
 int
 glusterd_create_volfiles (glusterd_volinfo_t *volinfo);
 
+int
+glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
+                         glusterd_brickinfo_t *brickinfo);
+
 int32_t
 glusterd_default_xlator_options (glusterd_volinfo_t *volinfo);
 
