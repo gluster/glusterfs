@@ -3425,11 +3425,13 @@ init (xlator_t *this_xl)
         int                ret = 0;
         dict_t            *options = NULL;
         char              *value_string = NULL;
+        cmd_args_t        *cmd_args = NULL;
         char              *fsname = NULL;
         fuse_private_t    *priv = NULL;
         struct stat        stbuf = {0,};
         int                i = 0;
         int                xl_name_allocated = 0;
+        int                fsname_allocated = 0;
 
         if (this_xl == NULL)
                 return -1;
@@ -3545,9 +3547,28 @@ init (xlator_t *this_xl)
                 priv->fuse_dump_fd = ret;
         }
 
-        fsname = this_xl->ctx->cmd_args.volfile;
-        fsname = (fsname ? fsname : this_xl->ctx->cmd_args.volfile_server);
-        fsname = (fsname ? fsname : "glusterfs");
+        cmd_args = &this_xl->ctx->cmd_args;
+        fsname = cmd_args->volfile;
+        if (!fsname && cmd_args->volfile_server) {
+                if (cmd_args->volfile_id) {
+                        fsname = GF_MALLOC (
+                                   strlen (cmd_args->volfile_server) + 1 +
+                                   strlen (cmd_args->volfile_server) + 1,
+                                   gf_fuse_mt_fuse_private_t);
+                        if (!fsname) {
+                                gf_log ("glusterfs-fuse", GF_LOG_ERROR,
+                                        "Out of memory");
+                                goto cleanup_exit;
+                        }
+                        fsname_allocated = 1;
+                        strcpy (fsname, cmd_args->volfile_server);
+                        strcat (fsname, ":");
+                        strcat (fsname, cmd_args->volfile_id);
+                } else
+                        fsname = cmd_args->volfile_server;
+        }
+        if (!fsname)
+                fsname = "glusterfs";
 
 
         priv->fd = gf_fuse_mount (priv->mount_point, fsname,
@@ -3578,6 +3599,8 @@ init (xlator_t *this_xl)
 cleanup_exit:
         if (xl_name_allocated)
                 GF_FREE (this_xl->name);
+        if (fsname_allocated)
+                GF_FREE (fsname);
         if (priv) {
                 GF_FREE (priv->mount_point);
                 close (priv->fd);
