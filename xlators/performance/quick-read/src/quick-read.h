@@ -43,8 +43,6 @@
 #include <fnmatch.h>
 #include "quick-read-mem-types.h"
 
-#define GLUSTERFS_CONTENT_KEY "glusterfs.content"
-
 struct qr_fd_ctx {
         char              opened;
         char              disabled;

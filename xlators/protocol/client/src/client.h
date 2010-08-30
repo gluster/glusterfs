@@ -77,6 +77,7 @@ typedef struct client_local {
         clnt_fd_ctx_t     *fdctx;
         uint32_t           flags;
         uint32_t           wbflags;
+        struct iobref     *iobref;
         fop_cbk_fn_t       op;
 } clnt_local_t;
 
@@ -124,7 +125,10 @@ int client_local_wipe (clnt_local_t *local);
 int client_submit_request (xlator_t *this, void *req,
                            call_frame_t *frame, rpc_clnt_prog_t *prog,
                            int procnum, fop_cbk_fn_t cbk,
-                           struct iobref *iobref, gfs_serialize_t sfunc);
+                           struct iobref *iobref, gfs_serialize_t sfunc,
+                           struct iovec *rsphdr, int rsphdr_count,
+                           struct iovec *rsp_payload, int rsp_count,
+                           struct iobref *rsp_iobref);
 
 int protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx);
 int protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx);

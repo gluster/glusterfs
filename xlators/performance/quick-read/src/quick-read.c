@@ -322,7 +322,7 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        content = dict_get (dict, GLUSTERFS_CONTENT_KEY);
+        content = dict_get (dict, GF_CONTENT_KEY);
         if (content == NULL) {
                 goto out;
         }
@@ -445,7 +445,7 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 
         if (!cached) {
                 if (xattr_req) {
-                        content = dict_get (xattr_req, GLUSTERFS_CONTENT_KEY);
+                        content = dict_get (xattr_req, GF_CONTENT_KEY);
                         if (content) {
                                 requested_size = data_to_uint64 (content);
                         }
@@ -456,7 +456,7 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                         size = (conf->max_file_size > requested_size) ?
                                 conf->max_file_size : requested_size;
 
-                        op_ret = dict_set (xattr_req, GLUSTERFS_CONTENT_KEY,
+                        op_ret = dict_set (xattr_req, GF_CONTENT_KEY,
                                            data_from_uint64 (size));
                         if (op_ret < 0) {
                                 op_ret = -1;
@@ -972,7 +972,7 @@ qr_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                                         }
 
                                         content = dict_get (qr_inode->xattr,
-                                                            GLUSTERFS_CONTENT_KEY);
+                                                            GF_CONTENT_KEY);
 
                                         
                                         stbuf = qr_inode->stbuf;

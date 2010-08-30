@@ -44,7 +44,10 @@ int client_destroy_rpc (xlator_t *this);
 int
 client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                        rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbk,
-                       struct iobref *iobref, gfs_serialize_t sfunc)
+                       struct iobref *iobref, gfs_serialize_t sfunc,
+                       struct iovec *rsphdr, int rsphdr_count,
+                       struct iovec *rsp_payload, int rsp_payload_count,
+                       struct iobref *rsp_iobref)
 {
         int          ret         = -1;
         clnt_conf_t *conf        = NULL;
@@ -96,8 +99,9 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 count = 1;
         }
         /* Send the msg */
-        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL, 0,
-                               iobref, frame, NULL, 0, NULL, 0, NULL);
+        ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL,
+                               0, iobref, frame, rsphdr, rsphdr_count,
+                               rsp_payload, rsp_payload_count, rsp_iobref);
 
         if (ret == 0) {
                 pthread_mutex_lock (&conf->rpc->conn.lock);

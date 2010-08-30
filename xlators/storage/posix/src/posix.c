@@ -112,7 +112,7 @@ _posix_xattr_get_set (dict_t *xattr_req,
 
 
     	/* should size be put into the data_t ? */
-	if (!strcmp (key, "glusterfs.content")
+	if (!strcmp (key, GF_CONTENT_KEY)
             && IA_ISREG (filler->stbuf->ia_type)) {
 
     		/* file content request */
