@@ -29,6 +29,21 @@
 #define GF_DUMP_LOGFILE_ROOT "/tmp/glusterdump"
 #define GF_DUMP_LOGFILE_ROOT_LEN 256
 
+#define GF_DUMP_OPTIONFILE "/tmp/glusterdump.input"
+
+typedef struct gf_dump_xl_options_ {
+        gf_boolean_t    dump_priv;
+        gf_boolean_t    dump_inode;
+        gf_boolean_t    dump_fd;
+} gf_dump_xl_options_t;
+
+typedef struct gf_dump_options_ {
+        gf_boolean_t            dump_mem;
+        gf_boolean_t            dump_iobuf;
+        gf_boolean_t            dump_callpool;
+        gf_dump_xl_options_t    xl_options; //options for all xlators
+} gf_dump_options_t;
+
 static inline
 void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)
 {
@@ -46,6 +61,8 @@ void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)
 {\
         _gf_proc_dump_build_key(key, key_prefix, ##fmt);\
 }
+
+#define GF_PROC_DUMP_SET_OPTION(opt,val) opt = val
 
 void
 gf_proc_dump_init();
