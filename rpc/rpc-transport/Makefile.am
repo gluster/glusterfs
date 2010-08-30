@@ -1,1 +1,1 @@
-SUBDIRS = socket
+SUBDIRS = socket rdma
