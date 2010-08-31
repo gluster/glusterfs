@@ -97,6 +97,7 @@ typedef enum gf_defrag_status_ {
         GF_DEFRAG_STATUS_STARTED,
         GF_DEFRAG_STATUS_STOPED,
         GF_DEFRAG_STATUS_COMPLETE,
+        GF_DEFRAG_STATUS_FAILED,
 } gf_defrag_status_t;
 
 struct glusterd_defrag_info_ {

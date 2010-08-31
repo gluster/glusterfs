@@ -657,6 +657,8 @@ glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
                         getxattr (full_path, "trusted.distribute.fix.layout",
                                   &value, 128);
 
+                        /* add some delay */
+                        usleep (500);
                         ret = glusterd_check_and_rebalance (volinfo, full_path);
                 }
                 if (S_ISREG (stbuf.st_mode) && ((stbuf.st_mode & 01000) == 01000)) {
@@ -737,11 +739,26 @@ glusterd_defrag_start (void *data)
         glusterd_defrag_info_t *defrag  = NULL;
         char                    cmd_str[1024] = {0,};
         int                     ret     = -1;
+        struct stat             stbuf   = {0,};
 
-        /* TODO: make it more generic.. */
         defrag = volinfo->defrag;
         if (!defrag)
                 goto out;
+
+        sleep (5);
+        ret = stat (defrag->mount, &stbuf);
+        if ((ret == -1) && (errno == ENOTCONN)) {
+                /* Wait for some more time before starting rebalance */
+                sleep (7);
+                ret = stat (defrag->mount, &stbuf);
+                if (ret == -1) {
+                        volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
+                        volinfo->rebalance_files = 0;
+                        volinfo->rebalance_data  = 0;
+                        volinfo->lookedup_files  = 0;
+                        goto out;
+                }
+        }
 
         ret = glusterd_check_and_rebalance (volinfo, defrag->mount);
 
@@ -754,14 +771,16 @@ glusterd_defrag_start (void *data)
         volinfo->rebalance_data  = defrag->total_data;
         volinfo->lookedup_files  = defrag->num_files_lookedup;
 out:
-        gf_log ("defrag", GF_LOG_NORMAL, "defrag on %s complete",
-                defrag->mount);
+        if (defrag) {
+                gf_log ("defrag", GF_LOG_NORMAL, "defrag on %s complete",
+                        defrag->mount);
 
-        snprintf (cmd_str, 1024, "umount %s", defrag->mount);
-        ret = system (cmd_str);
+                snprintf (cmd_str, 1024, "umount -l %s", defrag->mount);
+                ret = system (cmd_str);
+                LOCK_DESTROY (&defrag->lock);
+                GF_FREE (defrag);
+        }
         volinfo->defrag = NULL;
-        LOCK_DESTROY (&defrag->lock);
-        GF_FREE (defrag);
 
         return NULL;
 }
@@ -808,6 +827,8 @@ glusterd_defrag_status_get (glusterd_volinfo_t *volinfo,
                 rsp->size  = volinfo->rebalance_data;
                 rsp->lookedup_files = volinfo->lookedup_files;
         }
+
+        rsp->op_errno = volinfo->defrag_status;
         rsp->op_ret = 0;
 out:
         return 0;
@@ -892,19 +913,21 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                snprintf (cmd_str, 4096, "%s/sbin/glusterfs -f %s/vols/%s/%s-tcp.vol "
-                          "--xlator-option dht0.unhashed-sticky-bit=yes "
-                          "--xlator-option dht0.lookup-unhashed=yes "
-                          "--volume-name quickread %s", GFS_PREFIX,
-                          priv->workdir, cli_req.volname, cli_req.volname,
+                snprintf (cmd_str, 4096, "%s/sbin/glusterfs -s localhost "
+                          "--volfile-id %s --volume-name %s-quick-read "
+                          "--xlator-option *dht.unhashed-sticky-bit=yes "
+                          "--xlator-option *dht.lookup-unhashed=yes %s",
+                          GFS_PREFIX, cli_req.volname, cli_req.volname,
                           defrag->mount);
-                ret = system (cmd_str);
-
+                ret = gf_system (cmd_str);
                 if (ret) {
                         gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
                         goto out;
                 }
+
+                volinfo->defrag_status = GF_DEFRAG_STATUS_STARTED;
                 rsp.op_ret = 0;
+
                 ret = pthread_create (&defrag->th, NULL, glusterd_defrag_start,
                                       volinfo);
                 if (ret) {

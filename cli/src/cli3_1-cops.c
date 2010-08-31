@@ -566,8 +566,20 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 if (rsp.op_ret == -1)
                         cli_out ("failed to get the status of defrag process");
                 else {
-                        cli_out ("rebalanced %"PRId64" files of size %"PRId64
-                                 " (total files scanned %"PRId64")",
+                        char *status = "unknown";
+                        if (rsp.op_errno == 0)
+                                status = "not started";
+                        if (rsp.op_errno == 1)
+                                status = "in progress";
+                        if (rsp.op_errno == 2)
+                                status = "stopped";
+                        if (rsp.op_errno == 3)
+                                status = "completed";
+                        if (rsp.op_errno == 4)
+                                status = "failed";
+
+                        cli_out ("rebalance %s: rebalanced %"PRId64" files of size %"PRId64
+                                 " (total files scanned %"PRId64")", status,
                                  rsp.files, rsp.size, rsp.lookedup_files);
                 }
         }

@@ -1736,7 +1736,9 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                                         "Out of memory");
                                 goto err;
                         }
-                        local->layout = layout;
+                        local->layout = layout = dht_layout_new (this,
+                                                                 conf->subvolume_cnt);
+
                         dht_selfheal_new_directory (frame, dht_fix_layout_cbk,
                                                     layout);
                         return 0;
