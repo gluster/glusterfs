@@ -438,7 +438,7 @@ dht_selfheal_new_directory (call_frame_t *frame,
 	local->selfheal.layout = dht_layout_ref (frame->this, layout);
 
 	dht_layout_sort_volname (layout);
-	dht_selfheal_layout_new_directory (frame, &local->loc, layout);	
+	dht_selfheal_layout_new_directory (frame, &local->loc, layout);
 	dht_selfheal_dir_xattr (frame, &local->loc, layout);
 	return 0;
 }
