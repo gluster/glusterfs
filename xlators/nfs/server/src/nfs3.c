@@ -3260,6 +3260,7 @@ nfs3svc_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                     ret = -EFAULT;
         nfsstat3                stat = NFS3ERR_SERVERFAULT;
         nfs3_call_state_t       *cs = NULL;
+        fd_t                    *openfd = NULL;
 
         cs = frame->local;
         if (op_ret == -1) {
@@ -3268,6 +3269,24 @@ nfs3svc_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         stat = NFS3_OK;
+        /* Close any cached fds so that when any currently active writes to the
+         * dst finish, the file is finally removed.
+         *
+         * This logic works because we know resolvedloc contains dst, which is
+         * resolved after src
+         */
+        openfd = fd_lookup (cs->resolvedloc.inode, 0);
+        if (openfd) {
+                fd_unref (openfd);
+                nfs3_fdcache_remove (cs->nfs3state, openfd);
+        }
+
+        /* This is the unref equivalent of the ref done when the inode was
+         * created on a lookup or a create request.
+         * The inode is finally unrefed in call state wipe.
+         */
+        inode_unref (cs->resolvedloc.inode);
+
 nfs3err:
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "RENAME", stat,
                              -ret);
