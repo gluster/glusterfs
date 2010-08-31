@@ -275,14 +275,17 @@ if test "x$enable_ibverbs" = "xyes" -a "x$HAVE_LIBIBVERBS" = "xno"; then
    exit 1
 fi
 
-
+BUILD_RDMA=no
 BUILD_IBVERBS=no
 if test "x$enable_ibverbs" != "xno" -a "x$HAVE_LIBIBVERBS" = "xyes"; then
   IBVERBS_SUBDIR=ib-verbs
   BUILD_IBVERBS=yes
+  RDMA_SUBDIR=rdma
+  BUILD_RDMA=yes
 fi
 
 AC_SUBST(IBVERBS_SUBDIR)
+AC_SUBST(RDMA_SUBDIR)
 # end IBVERBS section
 
 
