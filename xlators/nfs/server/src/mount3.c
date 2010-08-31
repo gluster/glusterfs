@@ -225,12 +225,14 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         int                     autharr[10];
         int                     autharrlen = 0;
         rpcsvc_t                *svc = NULL;
+        xlator_t                *mntxl = NULL;
 
         req = (rpcsvc_request_t *)frame->local;
 
         if (!req)
                 return -1;
 
+        mntxl = (xlator_t *)cookie;
         ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "mount state not found");
@@ -244,13 +246,13 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         if (status != MNT3_OK)
                 goto xmit_res;
 
-        fh = nfs3_fh_build_root_fh (ms->nfsx->children, this);
-        mnt3svc_update_mountlist (ms, req, this->name);
+        fh = nfs3_fh_build_root_fh (ms->nfsx->children, mntxl);
+        mnt3svc_update_mountlist (ms, req, mntxl->name);
 xmit_res:
         gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d", status);
         if (op_ret == 0) {
                 svc = nfs_rpcsvc_request_service (req);
-                autharrlen = nfs_rpcsvc_auth_array (svc, this->name, autharr,
+                autharrlen = nfs_rpcsvc_auth_array (svc, mntxl->name, autharr,
                                                     10);
         }
 
@@ -480,9 +482,10 @@ mnt3_resolve_subdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                     autharrlen = 0;
         rpcsvc_t                *svc = NULL;
         mountres3               res = {0, };
+        xlator_t                *mntxl = NULL;
 
         mres = frame->local;
-
+        mntxl = (xlator_t *)cookie;
         if (op_ret == -1) {
                 mntstat = mnt3svc_errno_to_mnterr (op_errno);
                 goto err;
@@ -509,7 +512,7 @@ err:
                 gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d",
                         mntstat);
                 svc = nfs_rpcsvc_request_service (mres->req);
-                autharrlen = nfs_rpcsvc_auth_array (svc, this->name, autharr,
+                autharrlen = nfs_rpcsvc_auth_array (svc, mntxl->name, autharr,
                                                     10);
 
                 res = mnt3svc_set_mountres3 (mntstat, &fh, autharr, autharrlen);
