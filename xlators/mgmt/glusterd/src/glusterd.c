@@ -232,7 +232,7 @@ init (xlator_t *this)
         int                port_num          = 0;
         char               voldir [PATH_MAX] = {0,};
         char               dirname [PATH_MAX];
-
+        char               cmd_log_filename [PATH_MAX] = {0,};
 
         dir_data = dict_get (this->options, "working-directory");
 
@@ -272,6 +272,15 @@ init (xlator_t *this)
 
         gf_log (this->name, GF_LOG_NORMAL, "Using %s as working directory",
                 dirname);
+
+        snprintf (cmd_log_filename, PATH_MAX,"%s/.cmd_log_history",dirname);
+        ret = gf_cmd_log_init (cmd_log_filename);
+
+        if (ret == -1) {
+                gf_log ("this->name", GF_LOG_CRITICAL,
+                        "Unable to create cmd log file %s", cmd_log_filename);
+                exit (1);
+        }
 
         snprintf (voldir, PATH_MAX, "%s/vols", dirname);
 

@@ -120,4 +120,9 @@ void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
 #define GF_ERROR(xl, format, args...) \
 	gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
 
+int
+gf_cmd_log (const char *domain, const char *fmt, ...);
+
+int
+gf_cmd_log_init (const char *filename);
 #endif /* __LOGGING_H__ */
