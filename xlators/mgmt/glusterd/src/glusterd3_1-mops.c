@@ -1193,6 +1193,19 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                 case GD_MGMT_CLI_REMOVE_BRICK:
                         ret = glusterd_handle_remove_brick (req);
                         break;
+
+                case GD_MGMT_CLI_LOG_FILENAME:
+                        ret = glusterd_handle_log_filename (req);
+                        break;
+
+                case GD_MGMT_CLI_LOG_LOCATE:
+                        ret = glusterd_handle_log_locate (req);
+                        break;
+
+                case GD_MGMT_CLI_LOG_ROTATE:
+                        ret = glusterd_handle_log_rotate (req);
+                        break;
+
                 default:
                         GF_ASSERT (0);
         }
@@ -1231,6 +1244,9 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_ADD_BRICK] = { "ADD_BRICK", GD_MGMT_CLI_ADD_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_REPLACE_BRICK] = { "REPLACE_BRICK", GD_MGMT_CLI_REPLACE_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_REMOVE_BRICK] = { "REMOVE_BRICK", GD_MGMT_CLI_REMOVE_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_LOG_FILENAME] = { "LOG FILENAME", GD_MGMT_CLI_LOG_FILENAME, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_LOG_LOCATE] = { "LOG LOCATE", GD_MGMT_CLI_LOG_LOCATE, glusterd_handle_log_locate, NULL, NULL},
+        [GD_MGMT_CLI_LOG_ROTATE] = { "LOG FILENAME", GD_MGMT_CLI_LOG_ROTATE, glusterd_handle_rpc_msg, NULL, NULL},
 };
 
 /*rpcsvc_actor_t glusterd1_mgmt_actors[] = {

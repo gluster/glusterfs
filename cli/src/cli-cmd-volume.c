@@ -515,6 +515,140 @@ cli_cmd_volume_set_transport_cbk (struct cli_state *state,
         return 0;
 }
 
+void
+cli_cmd_log_filename_usage ()
+{
+        cli_out ("Usage: volume log filename <VOLNAME> [BRICK] <PATH>");
+}
+
+int
+cli_cmd_log_filename_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                          const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+
+        if (!((wordcount == 5) || (wordcount == 6))) {
+               cli_cmd_log_filename_usage ();
+               goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_LOG_FILENAME];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_log_filename_parse (words, wordcount, &options);
+        if (ret)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret)
+                cli_out ("setting log filename failed");
+
+        if (options)
+                dict_destroy (options);
+
+        return ret;
+}
+
+
+void
+cli_cmd_log_locate_usage ()
+{
+        cli_out ("Usage: volume log locate <VOLNAME> [BRICK]");
+}
+
+int
+cli_cmd_log_locate_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                        const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+
+        if (!((wordcount == 4) || (wordcount == 5))) {
+               cli_cmd_log_locate_usage ();
+               goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_LOG_LOCATE];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_log_locate_parse (words, wordcount, &options);
+        if (ret)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret)
+                cli_out ("getting log file location information failed");
+
+        if (options)
+                dict_destroy (options);
+
+
+        return ret;
+}
+
+void
+cli_cmd_log_rotate_usage ()
+{
+        cli_out ("Usage: volume log rotate <VOLNAME> [BRICK]");
+}
+
+int
+cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                        const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+
+        if (!((wordcount == 4) || (wordcount == 5))) {
+               cli_cmd_log_rotate_usage ();
+               goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_LOG_ROTATE];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_log_rotate_parse (words, wordcount, &options);
+        if (ret)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (ret)
+                cli_out ("getting log file location information failed");
+
+        if (options)
+                dict_destroy (options);
+
+        return ret;
+}
+
 
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
@@ -577,6 +711,17 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_help_cbk,
           "display help for the volume command"},
 
+        { "volume log filename <VOLNAME> [BRICK] <PATH>",
+          cli_cmd_log_filename_cbk,
+         "set the log file for corresponding volume/brick"},
+
+        { "volume log locate <VOLNAME> [BRICK]",
+          cli_cmd_log_locate_cbk,
+         "locate the log file for corresponding volume/brick"},
+
+        { "volume log rotate <VOLNAME> [BRICK]",
+          cli_cmd_log_rotate_cbk,
+         "rotate the log file for corresponding volume/brick"},
 
         { NULL, NULL, NULL }
 };

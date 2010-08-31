@@ -195,3 +195,37 @@ struct gf1_cli_set_vol_req {
         int     op_errno;
         string  volname<>;
 }  ;
+
+struct gf1_cli_log_filename_req {
+        string volname<>;
+        string brick<>;
+        string path<>;
+};
+
+struct gf1_cli_log_filename_rsp {
+	int op_ret;
+	int op_errno;
+        string errstr<>;
+};
+
+struct gf1_cli_log_locate_req {
+	string volname<>;
+        string brick<>;
+};
+
+struct gf1_cli_log_locate_rsp {
+	int op_ret;
+	int op_errno;
+        string path<>;
+};
+
+struct gf1_cli_log_rotate_req {
+	string volname<>;
+        string brick<>;
+};
+
+struct gf1_cli_log_rotate_rsp {
+	int op_ret;
+	int op_errno;
+        string errstr<>;
+};

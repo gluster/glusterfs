@@ -642,3 +642,138 @@ out:
 
         return ret;
 }
+
+int32_t
+cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options)
+{
+        dict_t  *dict = NULL;
+        char    *volname = NULL;
+        char    *str = NULL;
+        int     ret = -1;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "log")) == 0);
+        GF_ASSERT ((strcmp (words[2], "filename")) == 0);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        volname = (char *)words[3];
+        GF_ASSERT (volname);
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret)
+                goto out;
+
+        str = (char *)words[4];
+        if (strchr (str, ':')) {
+                ret = dict_set_str (dict, "brick", str);
+                if (ret)
+                        goto out;
+                /* Path */
+                str = (char *)words[5];
+                ret = dict_set_str (dict, "path", str);
+                if (ret)
+                        goto out;
+        } else {
+                ret = dict_set_str (dict, "path", str);
+                if (ret)
+                        goto out;
+        }
+
+        *options = dict;
+
+out:
+        if (ret && dict)
+                dict_destroy (dict);
+
+        return ret;
+}
+
+int32_t
+cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
+{
+        dict_t  *dict = NULL;
+        char    *volname = NULL;
+        char    *str = NULL;
+        int     ret = -1;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "log")) == 0);
+        GF_ASSERT ((strcmp (words[2], "locate")) == 0);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        volname = (char *)words[3];
+        GF_ASSERT (volname);
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret)
+                goto out;
+
+        str = (char *)words[4];
+        if (str && strchr (str, ':')) {
+                ret = dict_set_str (dict, "brick", str);
+                if (ret)
+                        goto out;
+        }
+
+        *options = dict;
+
+out:
+        if (ret && dict)
+                dict_destroy (dict);
+
+        return ret;
+}
+
+int32_t
+cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options)
+{
+        dict_t  *dict = NULL;
+        char    *volname = NULL;
+        char    *str = NULL;
+        int     ret = -1;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "log")) == 0);
+        GF_ASSERT ((strcmp (words[2], "rotate")) == 0);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        volname = (char *)words[3];
+        GF_ASSERT (volname);
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret)
+                goto out;
+
+        str = (char *)words[4];
+        if (str && strchr (str, ':')) {
+                ret = dict_set_str (dict, "brick", str);
+                if (ret)
+                        goto out;
+        }
+
+        *options = dict;
+
+out:
+        if (ret && dict)
+                dict_destroy (dict);
+
+        return ret;
+}

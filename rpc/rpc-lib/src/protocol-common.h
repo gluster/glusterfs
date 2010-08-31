@@ -99,6 +99,9 @@ enum gf_mgmt_procnum_ {
         GD_MGMT_CLI_ADD_BRICK,
         GD_MGMT_CLI_REMOVE_BRICK,
         GD_MGMT_CLI_REPLACE_BRICK,
+        GD_MGMT_CLI_LOG_FILENAME,
+        GD_MGMT_CLI_LOG_LOCATE,
+        GD_MGMT_CLI_LOG_ROTATE,
         GD_MGMT_MAXVALUE,
 };
 
@@ -120,6 +123,9 @@ enum gf_cli_procnum {
         GF1_CLI_ADD_BRICK,
         GF1_CLI_REMOVE_BRICK,
         GF1_CLI_REPLACE_BRICK,
+        GF1_CLI_LOG_FILENAME,
+        GF1_CLI_LOG_LOCATE,
+        GF1_CLI_LOG_ROTATE,
         GF1_CLI_MAXVALUE,
 };
 

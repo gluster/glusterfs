@@ -250,6 +250,34 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                         }
                         break;
 
+                case GD_OP_LOG_FILENAME:
+                        {
+                                dict_t  *dict = NULL;
+                                dict = glusterd_op_get_ctx (op);
+                                GF_ASSERT (dict);
+                                ret = dict_allocate_and_serialize (dict,
+                                        &stage_req->buf.buf_val,
+                                        (size_t *)&stage_req->buf.buf_len);
+                                if (ret) {
+                                        goto out;
+                                }
+                        }
+                        break;
+
+                case GD_OP_LOG_ROTATE:
+                        {
+                                dict_t  *dict = NULL;
+                                dict = glusterd_op_get_ctx (op);
+                                GF_ASSERT (dict);
+                                ret = dict_allocate_and_serialize (dict,
+                                        &stage_req->buf.buf_val,
+                                        (size_t *)&stage_req->buf.buf_len);
+                                if (ret) {
+                                        goto out;
+                                }
+                        }
+                        break;
+
                 default:
                         break;
         }
@@ -696,6 +724,86 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
         }
 
         ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
+glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req)
+{
+        int                                     ret = 0;
+        dict_t                                  *dict = NULL;
+        char                                    *volname = NULL;
+        gf_boolean_t                            exists = _gf_false;
+
+        GF_ASSERT (req);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+        if (!exists) {
+                gf_log ("", GF_LOG_ERROR, "Volume with name: %s not exists",
+                        volname);
+                ret = -1;
+                goto out;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+static int
+glusterd_op_stage_log_rotate (gd1_mgmt_stage_op_req *req)
+{
+        int                                     ret = 0;
+        dict_t                                  *dict = NULL;
+        char                                    *volname = NULL;
+        gf_boolean_t                            exists = _gf_false;
+
+        GF_ASSERT (req);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+        if (!exists) {
+                gf_log ("", GF_LOG_ERROR, "Volume with name: %s not exists",
+                        volname);
+                ret = -1;
+                goto out;
+        }
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2069,6 +2177,195 @@ out:
 }
 
 static int
+glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
+{
+        int                   ret                = 0;
+        dict_t               *dict               = NULL;
+        glusterd_conf_t      *priv               = NULL;
+        glusterd_volinfo_t   *volinfo            = NULL;
+        glusterd_brickinfo_t *brickinfo          = NULL;
+        xlator_t             *this               = NULL;
+        char                 *volname            = NULL;
+        char                 *brick              = NULL;
+        char                 *path               = NULL;
+        char                  logfile[PATH_MAX]  = {0,};
+        char                  exp_path[PATH_MAX] = {0,};
+        struct stat           stbuf              = {0,};
+
+        GF_ASSERT (req);
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log ("", GF_LOG_ERROR, "ENOMEM, !dict");
+                goto out;
+        }
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "volname not found");
+                goto out;
+        }
+        ret = dict_get_str (dict, "path", &path);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "path not found");
+                goto out;
+        }
+
+        ret = stat (path, &stbuf);
+        if (!S_ISDIR (stbuf.st_mode)) {
+                ret = -1;
+                gf_log ("", GF_LOG_ERROR, "not a directory");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "brick", &brick);
+        if (ret)
+                goto out;
+
+        if (!strchr (brick, ':'))
+                brick = NULL;
+
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (brick && strcmp (brickinfo->path, brick))
+                        continue;
+
+                GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
+
+                snprintf (logfile, PATH_MAX, "%s/%s.log", path, exp_path);
+
+                if (brickinfo->logfile)
+                        GF_FREE (brickinfo->logfile);
+                brickinfo->logfile = gf_strdup (logfile);
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
+{
+        int                   ret                = 0;
+        dict_t               *dict               = NULL;
+        glusterd_conf_t      *priv               = NULL;
+        glusterd_volinfo_t   *volinfo            = NULL;
+        glusterd_brickinfo_t *brickinfo          = NULL;
+        xlator_t             *this               = NULL;
+        char                 *volname            = NULL;
+        char                 *brick              = NULL;
+        char                  path[PATH_MAX]     = {0,};
+        char                  logfile[PATH_MAX]  = {0,};
+        char                  pidfile[PATH_MAX]  = {0,};
+        FILE                 *file               = NULL;
+        pid_t                 pid                = 0;
+        uint64_t              key                = 0;
+
+        GF_ASSERT (req);
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log ("", GF_LOG_ERROR, "ENOMEM, !dict");
+                goto out;
+        }
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "volname not found");
+                goto out;
+        }
+
+        ret = dict_get_uint64 (dict, "rotate-key", &key);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "rotate key not found");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "brick", &brick);
+        if (ret)
+                goto out;
+
+        if (!strchr (brick, ':'))
+                brick = NULL;
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (brick && strcmp (brickinfo->path, brick))
+                        continue;
+
+                GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+                GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
+                                            brickinfo->path);
+
+                file = fopen (pidfile, "r+");
+                if (!file) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                                pidfile);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = fscanf (file, "%d", &pid);
+                if (ret <= 0) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                                pidfile);
+                        ret = -1;
+                        goto out;
+                }
+                fclose (file);
+                file = NULL;
+
+                snprintf (logfile, PATH_MAX, "%s.%"PRIu64,
+                          brickinfo->logfile, key);
+
+                ret = rename (brickinfo->logfile, logfile);
+                if (ret)
+                        gf_log ("", GF_LOG_WARNING, "rename failed");
+
+                ret = kill (pid, SIGHUP);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to SIGHUP to %d", pid);
+                        goto out;
+                }
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
 {
         int                                     ret = 0;
@@ -2480,8 +2777,28 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 sfunc = gf_xdr_serialize_cli_remove_brick_rsp;
                                 break;
                         }
-        }
 
+                case GD_MGMT_CLI_LOG_FILENAME:
+                        {
+                                gf1_cli_log_filename_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.errstr = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_log_filename_rsp;
+                                break;
+                        }
+                case GD_MGMT_CLI_LOG_ROTATE:
+                        {
+                                gf1_cli_log_rotate_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.errstr = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_log_rotate_rsp;
+                                break;
+                        }
+        }
 
         ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
                                      sfunc);
@@ -2666,9 +2983,16 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req)
                         ret = glusterd_op_stage_replace_brick (req);
                         break;
 
-
                 case GD_OP_REMOVE_BRICK:
                         ret = glusterd_op_stage_remove_brick (req);
+                        break;
+
+                case GD_OP_LOG_FILENAME:
+                        ret = glusterd_op_stage_log_filename (req);
+                        break;
+
+                case GD_OP_LOG_ROTATE:
+                        ret = glusterd_op_stage_log_rotate (req);
                         break;
 
                 default:
@@ -2716,6 +3040,14 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req)
 
                 case GD_OP_REMOVE_BRICK:
                         ret = glusterd_op_remove_brick (req);
+                        break;
+
+                case GD_OP_LOG_FILENAME:
+                        ret = glusterd_op_log_filename (req);
+                        break;
+
+                case GD_OP_LOG_ROTATE:
+                        ret = glusterd_op_log_rotate (req);
                         break;
 
                 default:

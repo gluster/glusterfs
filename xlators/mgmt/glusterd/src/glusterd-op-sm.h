@@ -96,6 +96,9 @@ typedef enum glusterd_op_ {
         GD_OP_REMOVE_BRICK,
         GD_OP_REPLACE_BRICK,
         GD_OP_SYNC_VOLUME,
+        GD_OP_LOG_FILENAME,
+        GD_OP_LOG_LOCATE,
+        GD_OP_LOG_ROTATE,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -130,6 +133,12 @@ struct glusterd_op_start_volume_ctx_ {
 typedef struct glusterd_op_start_volume_ctx_ glusterd_op_start_volume_ctx_t;
 typedef struct glusterd_op_start_volume_ctx_ glusterd_op_delete_volume_ctx_t;
 
+struct glusterd_op_log_filename_ctx_ {
+        char                    volume_name[GD_VOLUME_NAME_MAX];
+        char                    brick[GD_VOLUME_NAME_MAX];
+        char                    path[PATH_MAX];
+};
+typedef struct glusterd_op_log_filename_ctx_ glusterd_op_log_filename_ctx_t;
 
 struct glusterd_op_lock_ctx_ {
         uuid_t                  uuid;

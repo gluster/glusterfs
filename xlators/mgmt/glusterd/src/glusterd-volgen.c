@@ -1543,19 +1543,12 @@ get_brick_filename (glusterd_volinfo_t *volinfo,
         char *ret              = NULL;
         char  brick[PATH_MAX]  = {0,};
         char *filename         = NULL;
-        int   i                = 0;
 
         filename = GF_CALLOC (1, PATH_MAX, gf_gld_mt_char);
         if (!filename)
                 goto out;
 
-        /* TODO: make this part a macro, so everyone uses same thing */
-        for (i = 1; i < strlen (brickinfo->path); i++) {
-                brick[i-1] = brickinfo->path[i];
-                if (brick[i-1] == '/')
-                        brick[i-1] = '-';
-        }
-
+        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, brick);
         VOLGEN_GET_VOLUME_DIR (path, volinfo);
 
         snprintf (filename, PATH_MAX, "%s/%s.%s.%s.vol",

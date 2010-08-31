@@ -467,3 +467,74 @@ xdr_gf1_cli_set_vol_rsp (XDR *xdrs, gf1_cli_set_vol_rsp *objp)
 		 return FALSE;
 	return TRUE;
 }
+
+
+bool_t
+xdr_gf1_cli_log_filename_req (XDR *xdrs, gf1_cli_log_filename_req *objp)
+{
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->brick, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->path, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_log_filename_rsp (XDR *xdrs, gf1_cli_log_filename_rsp *objp)
+{
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->errstr, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+
+bool_t
+xdr_gf1_cli_log_locate_req (XDR *xdrs, gf1_cli_log_locate_req *objp)
+{
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->brick, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_log_locate_rsp (XDR *xdrs, gf1_cli_log_locate_rsp *objp)
+{
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->path, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+
+bool_t
+xdr_gf1_cli_log_rotate_req (XDR *xdrs, gf1_cli_log_rotate_req *objp)
+{
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->brick, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_log_rotate_rsp (XDR *xdrs, gf1_cli_log_rotate_rsp *objp)
+{
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->errstr, ~0))
+		 return FALSE;
+	return TRUE;
+}

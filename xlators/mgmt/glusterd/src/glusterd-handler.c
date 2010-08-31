@@ -54,7 +54,6 @@
 #include "defaults.c"
 #include "common-utils.h"
 
-
 static int
 glusterd_friend_find_by_hostname (const char *hoststr,
                                   glusterd_peerinfo_t  **peerinfo)
@@ -515,7 +514,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
 
         if (!gf_xdr_to_cli_probe_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
-                gf_log ("", 1, "error");
+                gf_log ("", GF_LOG_ERROR, "xdr decoding error");
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
@@ -1156,6 +1155,7 @@ out:
         return ret;
 }
 
+
 int
 glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
 {
@@ -1560,6 +1560,144 @@ out:
                 GF_FREE (brick_list);
         return ret;
 }
+
+int
+glusterd_handle_log_filename (rpcsvc_request_t *req)
+{
+        int32_t                   ret     = -1;
+        gf1_cli_log_filename_req  cli_req = {0,};
+        dict_t                   *dict    = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_log_filename_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received log filename req "
+                "for volume %s", cli_req.volname);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_str (dict, "volname", cli_req.volname);
+        if (ret)
+                goto out;
+        ret = dict_set_str (dict, "brick", cli_req.brick);
+        if (ret)
+                goto out;
+        ret = dict_set_str (dict, "path", cli_req.path);
+        if (ret)
+                goto out;
+
+        ret = glusterd_log_filename (req, dict);
+
+out:
+        return ret;
+}
+
+int
+glusterd_handle_log_locate (rpcsvc_request_t *req)
+{
+        int32_t                 ret     = -1;
+        gf1_cli_log_locate_req  cli_req = {0,};
+        gf1_cli_log_locate_rsp  rsp     = {0,};
+        dict_t                 *dict    = NULL;
+        glusterd_volinfo_t     *volinfo = NULL;
+        glusterd_brickinfo_t   *brickinfo = NULL;
+        char                   *tmp_str = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_log_locate_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received log locate req "
+                "for volume %s", cli_req.volname);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (strchr (cli_req.brick, ':')) {
+                /* TODO: need to get info of only that brick and then
+                   tell what is the exact location */
+                gf_log ("", GF_LOG_DEBUG, "brick : %s", cli_req.brick);
+        }
+
+        ret = glusterd_volinfo_find (cli_req.volname, &volinfo);
+        if (ret) {
+                rsp.path = "request sent on non-existent volume";
+                goto out;
+        }
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                tmp_str = gf_strdup (brickinfo->logfile);
+                rsp.path = dirname (tmp_str);
+                break;
+        }
+
+        ret = 0;
+out:
+        rsp.op_ret = ret;
+        if (!rsp.path)
+                rsp.path = "";
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     gf_xdr_serialize_cli_log_locate_rsp);
+
+        if (tmp_str)
+                GF_FREE (tmp_str);
+
+        return ret;
+}
+
+int
+glusterd_handle_log_rotate (rpcsvc_request_t *req)
+{
+        int32_t                 ret     = -1;
+        gf1_cli_log_rotate_req  cli_req = {0,};
+        dict_t                 *dict    = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_log_rotate_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received log rotate req "
+                "for volume %s", cli_req.volname);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_str (dict, "volname", cli_req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "brick", cli_req.brick);
+        if (ret)
+                goto out;
+
+        ret = dict_set_uint64 (dict, "rotate-key", (uint64_t)time (NULL));
+        if (ret)
+                goto out;
+
+        ret = glusterd_log_rotate (req, dict);
+
+out:
+        return ret;
+}
+
 
 int
 glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status)
@@ -2435,6 +2573,44 @@ glusterd_remove_brick (rpcsvc_request_t *req, dict_t *dict)
 
         return ret;
 }
+
+int32_t
+glusterd_log_filename (rpcsvc_request_t *req, dict_t *dict)
+{
+        int32_t      ret       = -1;
+
+        GF_ASSERT (req);
+        GF_ASSERT (dict);
+
+        glusterd_op_set_op (GD_OP_LOG_FILENAME);
+        glusterd_op_set_ctx (GD_OP_LOG_FILENAME, dict);
+        glusterd_op_set_ctx_free (GD_OP_LOG_FILENAME, _gf_true);
+        glusterd_op_set_req (req);
+
+        ret = glusterd_op_txn_begin ();
+
+        return ret;
+}
+
+
+int32_t
+glusterd_log_rotate (rpcsvc_request_t *req, dict_t *dict)
+{
+        int32_t      ret       = -1;
+
+        GF_ASSERT (req);
+        GF_ASSERT (dict);
+
+        glusterd_op_set_op (GD_OP_LOG_ROTATE);
+        glusterd_op_set_ctx (GD_OP_LOG_ROTATE, dict);
+        glusterd_op_set_ctx_free (GD_OP_LOG_ROTATE, _gf_true);
+        glusterd_op_set_req (req);
+
+        ret = glusterd_op_txn_begin ();
+
+        return ret;
+}
+
 
 int32_t
 glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)

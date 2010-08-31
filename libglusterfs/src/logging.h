@@ -73,14 +73,14 @@ typedef enum {
 #define GF_LOG_MAX GF_LOG_DEBUG
 
 extern gf_loglevel_t gf_log_loglevel;
+extern char gf_log_xl_log_set;
 
 #define gf_log(dom, levl, fmt...) do {					\
+                if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
+                        break;                                          \
                 _gf_log (dom, __FILE__, __FUNCTION__, __LINE__,         \
                          levl, ##fmt);                                  \
-		if (0) {						\
-			printf (fmt);					\
-		}							\
-} while (0)
+        } while (0)
 
 /* Log once in GF_UNIVERSAL_ANSWER times */
 #define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \

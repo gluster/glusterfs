@@ -856,6 +856,90 @@ out:
         return ret;
 }
 
+static int
+gf_cli3_1_log_filename_cbk (struct rpc_req *req, struct iovec *iov,
+                            int count, void *myframe)
+{
+        gf1_cli_log_filename_rsp        rsp   = {0,};
+        int                             ret   = -1;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_log_filename_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to log filename");
+        cli_out ("log filename : %s",
+                 (rsp.op_ret) ? "unsuccessful": "successful");
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+static int
+gf_cli3_1_log_locate_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
+{
+        gf1_cli_log_locate_rsp rsp   = {0,};
+        int                    ret   = -1;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_log_locate_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to log locate");
+        cli_out ("log file location: %s", rsp.path);
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+static int
+gf_cli3_1_log_rotate_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
+{
+        gf1_cli_log_rotate_rsp rsp   = {0,};
+        int                    ret   = -1;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_log_rotate_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to log rotate");
+        cli_out ("log rotate %s", (rsp.op_ret) ? "unsuccessful": "successful");
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+
+
 int32_t
 gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
                  void *data)
@@ -1472,6 +1556,115 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_log_filename (call_frame_t *frame, xlator_t *this,
+                        void *data)
+{
+        gf1_cli_log_filename_req  req = {0,};
+        int                       ret = 0;
+        dict_t                   *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "brick", &req.brick);
+        if (ret)
+                req.brick = "";
+
+        ret = dict_get_str (dict, "path", &req.path);
+        if (ret)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_LOG_FILENAME, NULL,
+                              gf_xdr_from_cli_log_filename_req,
+                              this, gf_cli3_1_log_filename_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
+int32_t
+gf_cli3_1_log_locate (call_frame_t *frame, xlator_t *this,
+                      void *data)
+{
+        gf1_cli_log_locate_req  req = {0,};
+        int                     ret = 0;
+        dict_t                 *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "brick", &req.brick);
+        if (ret)
+                req.brick = "";
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_LOG_LOCATE, NULL,
+                              gf_xdr_from_cli_log_locate_req,
+                              this, gf_cli3_1_log_locate_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int32_t
+gf_cli3_1_log_rotate (call_frame_t *frame, xlator_t *this,
+                      void *data)
+{
+        gf1_cli_log_locate_req  req = {0,};
+        int                       ret = 0;
+        dict_t                   *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, "brick", &req.brick);
+        if (ret)
+                req.brick = "";
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_LOG_ROTATE, NULL,
+                              gf_xdr_from_cli_log_rotate_req,
+                              this, gf_cli3_1_log_rotate_cbk);
+
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
 struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
         [GF1_CLI_PROBE]  = { "PROBE_QUERY",  gf_cli3_1_probe},
@@ -1488,12 +1681,15 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_ADD_BRICK] = {"ADD_BRICK", gf_cli3_1_add_brick},
         [GF1_CLI_REMOVE_BRICK] = {"REMOVE_BRICK", gf_cli3_1_remove_brick},
         [GF1_CLI_REPLACE_BRICK] = {"REPLACE_BRICK", gf_cli3_1_replace_brick},
+        [GF1_CLI_LOG_FILENAME] = {"LOG FILENAME", gf_cli3_1_log_filename},
+        [GF1_CLI_LOG_LOCATE] = {"LOG LOCATE", gf_cli3_1_log_locate},
+        [GF1_CLI_LOG_ROTATE] = {"LOG ROTATE", gf_cli3_1_log_rotate},
 };
 
 struct rpc_clnt_program cli3_1_prog = {
         .progname = "CLI 3.1",
         .prognum  = GLUSTER3_1_CLI_PROGRAM,
         .progver  = GLUSTER3_1_CLI_VERSION,
-        .proctable    = gluster3_1_cli_actors,
+        .proctable  = gluster3_1_cli_actors,
         .numproc  = GLUSTER3_1_CLI_PROCCNT,
 };
