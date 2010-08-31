@@ -647,26 +647,30 @@ cleanup_and_exit (int signum)
 
         gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
 
-        tmp_pool = ctx->pool;
-        mem_pool_destroy (tmp_pool->frame_mem_pool);
-        mem_pool_destroy (tmp_pool->stack_mem_pool);
-        tmp_pool = NULL;
-        mem_pool_destroy (ctx->stub_mem_pool);
-
         /* Call fini() of FUSE xlator first */
         trav = ctx->master;
-        if (trav && trav->fini)
+        if (trav && trav->fini) {
+                THIS = trav;
                 trav->fini (trav);
+        }
 
         /* call fini() of each xlator */
         trav = NULL;
         if (ctx->active)
                 trav = ctx->active->top;
         while (trav) {
-                if (trav->fini)
+                if (trav->fini) {
+                        THIS = trav;
                         trav->fini (trav);
+                }
                 trav = trav->next;
         }
+
+        tmp_pool = ctx->pool;
+        mem_pool_destroy (tmp_pool->frame_mem_pool);
+        mem_pool_destroy (tmp_pool->stack_mem_pool);
+        tmp_pool = NULL;
+        mem_pool_destroy (ctx->stub_mem_pool);
 
         glusterfs_pidfile_cleanup (ctx);
 
