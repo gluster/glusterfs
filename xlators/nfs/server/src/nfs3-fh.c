@@ -276,6 +276,10 @@ nfs3_fh_compute_size (struct nfs3_fh *fh)
         return fhlen;
 }
 
+
+/* There is no point searching at a directory level which is beyond that of
+ * the hashcount given in the file handle.
+ */
 int
 nfs3_fh_hash_index_is_beyond (struct nfs3_fh *fh, int hashidx)
 {

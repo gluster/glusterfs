@@ -2507,8 +2507,8 @@ nfs3_fh_resolve_check_entry (struct nfs3_fh *fh, gf_dirent_t *candidate,
         ia = &candidate->d_stat;
         if ((ia->ia_gen == fh->gen) && (ia->ia_ino == fh->ino)) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Found entry: gen: %"PRId64
-                        " ino: %"PRId64", name: %s", ia->ia_gen, ia->ia_ino,
-                        candidate->d_name);
+                        " ino: %"PRId64", name: %s, hashcount %d", ia->ia_gen,
+                        ia->ia_ino, candidate->d_name, hashidx);
                 ret = GF_NFS3_FHRESOLVE_FOUND;
                 goto found_entry;
         }
@@ -2522,8 +2522,8 @@ nfs3_fh_resolve_check_entry (struct nfs3_fh *fh, gf_dirent_t *candidate,
                 goto found_entry;
         entryhash = fh->entryhash[hashidx];
         if (entryhash == nfs3_fh_hash_entry (ia->ia_ino, ia->ia_gen)) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Found hash match: %s: %d",
-                        candidate->d_name, entryhash);
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Found hash match: %s: %d, "
+                        "hashidx: %d", candidate->d_name, entryhash, hashidx);
                 ret = GF_NFS3_FHRESOLVE_DIRFOUND;
                 goto found_entry;
         }
@@ -2776,7 +2776,7 @@ nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uint64_t ino, uint64_t gen,
 
         nfs_user_root_create (&nfu);
         gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard dir resolution: ino:"
-                " %"PRIu64", gen: %"PRIu64", entry: %s, hashidx: %d",
+                " %"PRIu64", gen: %"PRIu64", entry: %s, next hashcount: %d",
                 ino, gen, entry, cs->hashidx);
         ret = nfs_entry_loc_fill (cs->vol->itable, ino, gen, entry,
                                   &cs->resolvedloc, NFS_RESOLVE_CREATE);
@@ -2922,16 +2922,18 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
         nfs_loc_wipe (&cs->resolvedloc);
         if (nfs3_fh_hash_index_is_beyond (&cs->resolvefh, cs->hashidx)) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Hash index is beyond: idx %d, "
-                        " fh idx: %d", cs->hashidx, cs->resolvefh.hashcount);
+                        " fh hashcount: %d", cs->hashidx,
+                        cs->resolvefh.hashcount);
                 nfs3_call_resume_estale (cs);
                 ret = 0;
                 goto out;
         }
 
         nfs_user_root_create (&nfu);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution: ino:"
-                " %"PRIu64", gen: %"PRIu64", hashidx: %d", cs->resolvefh.ino,
-                cs->resolvefh.gen, cs->hashidx);
+        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution for: ino:"
+                " %"PRIu64", gen: %"PRIu64", hashcount: %d, current hashidx "
+                "%d", cs->resolvefh.ino, cs->resolvefh.gen,
+                cs->resolvefh.hashcount, cs->hashidx);
         ret = nfs_ino_loc_fill (cs->vol->itable, 1, 0, &cs->resolvedloc);
 
         if (ret == 0) {
@@ -3040,9 +3042,16 @@ nfs3_fh_resolve_and_resume (nfs3_call_state_t *cs, struct nfs3_fh *fh,
         cs->resolvefh = *fh;
         cs->hashidx = 0;
 
-        if (!entry)
+        /* Check if the resolution is:
+         * a. fh resolution
+         *
+         * or
+         *
+         * b. (fh, basename) resolution
+         */
+        if (!entry)     /* a */
                 ret = nfs3_fh_resolve_inode (cs);
-        else {
+        else {          /* b */
                 cs->resolventry = gf_strdup (entry);
                 if (!cs->resolventry)
                         goto err;
