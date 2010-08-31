@@ -1215,9 +1215,17 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
 
 out:
         if (ret && is_cli_req) {
-                glusterd_op_send_cli_response (req->procnum, ret, 0, req);
+                /* if we are sending a reply here, then return value should
+                   be 0, and we should not point to any RPC errors, because
+                   otherwise rpcsvc.c will send an error reply for the same
+                   request, which causes double replies */
+                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req);
+                if (!ret)
+                        req->rpc_err = SUCCESS;
         }
-        gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
+        if (!ret)
+                gf_log ("", GF_LOG_WARNING, "Returning %d", ret);
+
         return ret;
 }
 
