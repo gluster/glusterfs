@@ -269,6 +269,8 @@ _dict_set (dict_t *this,
 			"@pair->key - NULL returned by CALLOC");
 		FREE (pair);
 
+                if (key_free)
+                        GF_FREE (key);
 		return -1;
 	}
 

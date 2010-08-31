@@ -47,11 +47,13 @@ build_volfile_path (const char *volname, char *path,
         glusterd_conf_t    *priv        = NULL;
         char               *vol         = NULL;
         char               *dup_volname = NULL;
+        char               *free_ptr    = NULL;
         char               *tmp         = NULL;
         glusterd_volinfo_t *volinfo     = NULL;
 
         priv    = THIS->private;
         dup_volname = gf_strdup (volname);
+        free_ptr = dup_volname;
 
         ret = glusterd_volinfo_find (dup_volname, &volinfo);
         if (ret) {
@@ -81,9 +83,8 @@ build_volfile_path (const char *volname, char *path,
 
         ret = 1;
 out:
-        if (dup_volname)
-                GF_FREE (dup_volname);
-
+        if (free_ptr)
+                GF_FREE (free_ptr);
         return ret;
 }
 

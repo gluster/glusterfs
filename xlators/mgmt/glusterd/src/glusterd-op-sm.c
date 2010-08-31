@@ -374,7 +374,7 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
                 ret = glusterd_brickinfo_from_brick (brick, &brick_info);
                 if (ret)
                         goto out;
-                snprintf (cmd_str, 1024, "%s", brick_info->path); 
+                snprintf (cmd_str, 1024, "%s", brick_info->path);
                 ret = glusterd_resolve_brick (brick_info);
                 if (ret) {
                         gf_log ("glusterd", GF_LOG_ERROR,
@@ -392,8 +392,11 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
                         }
                         brick_list = tmpptr;
                 }
+                glusterd_brickinfo_delete (brick_info);
         }
 out:
+        if (dict)
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -585,6 +588,7 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
         char                                    *bricks    = NULL;
         char                                    *brick_list = NULL;
         char                                    *saveptr = NULL;
+        char                                    *free_ptr = NULL;
         char                                    *brick = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
@@ -629,8 +633,10 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        if (bricks)
+        if (bricks) {
                 brick_list = gf_strdup (bricks);
+                free_ptr = brick_list;
+        }
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
@@ -659,11 +665,16 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
                         goto out;
                 }
 
+                glusterd_brickinfo_delete (brickinfo);
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
         }
 
 out:
+        if (dict)
+                dict_unref (dict);
+        if (free_ptr)
+                GF_FREE (free_ptr);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -751,6 +762,8 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
         ret = 0;
 
 out:
+        if (dict)
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -791,6 +804,8 @@ glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req)
         }
 
 out:
+        if (dict)
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -896,6 +911,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         int32_t                                 i = 1;
         char                                    *bricks    = NULL;
         char                                    *brick_list = NULL;
+        char                                    *free_ptr   = NULL;
         char                                    *saveptr = NULL;
         int32_t                                 sub_count = 0;
 
@@ -976,8 +992,10 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         volinfo->sub_count = sub_count;
 
 
-        if (bricks)
+        if (bricks) {
                 brick_list = gf_strdup (bricks);
+                free_ptr = brick_list;
+        }
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
@@ -1006,6 +1024,12 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
                 goto out;
 
 out:
+        if (dict)
+                dict_unref (dict);
+
+        if (free_ptr)
+                GF_FREE(free_ptr);
+
         return ret;
 }
 
@@ -1024,6 +1048,8 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
         int32_t                                 i = 1;
         char                                    *bricks    = NULL;
         char                                    *brick_list = NULL;
+        char                                    *free_ptr1  = NULL;
+        char                                    *free_ptr2  = NULL;
         char                                    *saveptr = NULL;
         gf_boolean_t                            glfs_started = _gf_false;
         int32_t                                 mybrick = 0;
@@ -1076,8 +1102,10 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        if (bricks)
+        if (bricks) {
                 brick_list = gf_strdup (bricks);
+                free_ptr1 = brick_list;
+        }
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
@@ -1093,6 +1121,7 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
         }
 
         brick_list = gf_strdup (bricks);
+        free_ptr2 = brick_list;
         i = 1;
 
         if (count)
@@ -1149,6 +1178,12 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
 
 
 out:
+        if (dict)
+                dict_unref (dict);
+        if (free_ptr1)
+                GF_FREE (free_ptr1);
+        if (free_ptr2)
+                GF_FREE (free_ptr2);
         return ret;
 }
 
@@ -1984,6 +2019,8 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
 
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -2053,7 +2090,11 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                         gf_log ("", GF_LOG_ERROR, "Unable to get %s", key);
                         goto out;
                 }
+                if (dup_brick)
+                        GF_FREE (dup_brick);
                 dup_brick = gf_strdup (brick);
+                if (!dup_brick)
+                        goto out;
 
                 ret = glusterd_brickinfo_get (dup_brick, volinfo,  &brickinfo);
                 if (ret)
@@ -2107,6 +2148,10 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
 
 
 out:
+        if (dict)
+                dict_unref (dict);
+        if (dup_brick)
+                GF_FREE (dup_brick);
         return ret;
 }
 
@@ -3451,7 +3496,21 @@ glusterd_op_clear_ctx (glusterd_op_t op)
         opinfo.op_ctx[op] = NULL;
 
         if (ctx && glusterd_op_get_ctx_free(op)) {
-                GF_FREE(ctx);
+                switch (op) {
+                case GD_OP_CREATE_VOLUME:
+                case GD_OP_STOP_VOLUME:
+                case GD_OP_ADD_BRICK:
+                case GD_OP_REMOVE_BRICK:
+                case GD_OP_REPLACE_BRICK:
+                        dict_unref (ctx);
+                        break;
+                case GD_OP_DELETE_VOLUME:
+                case GD_OP_START_VOLUME:
+                        GF_FREE (ctx);
+                        break;
+                default:
+                        break;
+                }
         }
         return 0;
 

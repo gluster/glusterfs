@@ -700,6 +700,7 @@ xlator_set_type (xlator_t *xl,
 	handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 	if (!handle) {
 		gf_log ("xlator", GF_LOG_DEBUG, "%s", dlerror ());
+                GF_FREE (name);
 		return -1;
 	}
         xl->dlhandle = handle;
@@ -707,24 +708,28 @@ xlator_set_type (xlator_t *xl,
 	if (!(xl->fops = dlsym (handle, "fops"))) {
 		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fops) on %s",
 			dlerror ());
+                GF_FREE (name);
 		return -1;
 	}
 
 	if (!(xl->cbks = dlsym (handle, "cbks"))) {
 		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(cbks) on %s",
 			dlerror ());
+                GF_FREE (name);
 		return -1;
 	}
 
 	if (!(xl->init = dlsym (handle, "init"))) {
 		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(init) on %s",
 			dlerror ());
+                GF_FREE (name);
 		return -1;
 	}
 
 	if (!(xl->fini = dlsym (handle, "fini"))) {
 		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fini) on %s",
 			dlerror ());
+                GF_FREE (name);
 		return -1;
 	}
 
@@ -749,8 +754,10 @@ xlator_set_type (xlator_t *xl,
 	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                          gf_common_mt_volume_opt_list_t);
 
-        if (!vol_opt)
+        if (!vol_opt) {
+                GF_FREE (name);
                 return -1;
+        }
 
 	if (!(vol_opt->given_opt = dlsym (handle, "options"))) {
 		dlerror ();

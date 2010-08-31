@@ -118,6 +118,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
         reg = gf_timer_registry_init (ctx);
         if (!reg) {
                 gf_log ("timer", GF_LOG_ERROR, "!reg");
+                GF_FREE (event);
                 return 0;
         }
 

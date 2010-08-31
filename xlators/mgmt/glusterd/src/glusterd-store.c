@@ -192,6 +192,8 @@ glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
         }
 
 out:
+        if (brickinfo->shandle)
+                glusterd_store_handle_destroy (brickinfo->shandle);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
@@ -397,6 +399,8 @@ stat_failed:
 
 
 out:
+        if (volinfo->shandle)
+                glusterd_store_handle_destroy (volinfo->shandle);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -413,6 +417,7 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
         char            *iter_key = NULL;
         char            *iter_val = NULL;
         char            *str = NULL;
+        char            *free_str = NULL;
 
         GF_ASSERT (handle);
 
@@ -430,9 +435,15 @@ glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
         ret = fscanf (handle->read, "%s", scan_str);
 
         while (ret != EOF) {
+                if (free_str) {
+                        GF_FREE (free_str);
+                        free_str = NULL;
+                }
                 str = gf_strdup (scan_str);
                 if (!str)
                         goto out;
+                else
+                        free_str = str;
                 iter_key = strtok (str, "=");
                 gf_log ("", GF_LOG_DEBUG, "key %s read", iter_key);
 
@@ -455,6 +466,9 @@ out:
                 close (handle->fd);
                 handle->read = NULL;
         }
+
+        if (free_str)
+                GF_FREE (free_str);
 
         return ret;
 }
@@ -674,6 +688,8 @@ glusterd_retrieve_uuid ()
         uuid_parse (uuid_str, priv->uuid);
 
 out:
+        if (uuid_str)
+                GF_FREE (uuid_str);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -730,6 +746,7 @@ glusterd_store_iter_get_next (glusterd_store_iter_t *iter,
         int32_t         ret = -1;
         char            scan_str[4096] = {0,};
         char            *str = NULL;
+        char            *free_str = NULL;
         char            *iter_key = NULL;
         char            *iter_val = NULL;
 
@@ -746,6 +763,8 @@ glusterd_store_iter_get_next (glusterd_store_iter_t *iter,
         str = gf_strdup (scan_str);
         if (!str)
                 goto out;
+        else
+                free_str = str;
 
         iter_key = strtok (str, "=");
         gf_log ("", GF_LOG_DEBUG, "key %s read", iter_key);
@@ -761,8 +780,8 @@ glusterd_store_iter_get_next (glusterd_store_iter_t *iter,
         ret = 0;
 
 out:
-        if (str)
-                GF_FREE (str);
+        if (free_str)
+                GF_FREE (free_str);
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
@@ -1103,6 +1122,8 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
         ret = unlink (filepath);
 
 out:
+        if (peerinfo->shandle)
+                glusterd_store_handle_destroy(peerinfo->shandle);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;

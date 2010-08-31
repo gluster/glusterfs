@@ -153,7 +153,7 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
 
 out:
         if (dict)
-                dict_destroy (dict);
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;

@@ -54,16 +54,18 @@ get_scheduler (xlator_t *xl, const char *name)
 
 	handle = dlopen (sched_file, RTLD_LAZY);
 	if (!handle) {
-		gf_log ("scheduler", GF_LOG_ERROR,
-			"dlopen(%s): %s", sched_file, dlerror ());
-		return NULL;
+                gf_log ("scheduler", GF_LOG_ERROR,
+                        "dlopen(%s): %s", sched_file, dlerror ());
+                GF_FREE(sched_file);
+                return NULL;
 	}
 
 	tmp_sched = dlsym (handle, "sched");
 	if (!tmp_sched) {
-		gf_log ("scheduler", GF_LOG_ERROR,
-			"dlsym(sched) on %s", dlerror ());
-		return NULL;
+                gf_log ("scheduler", GF_LOG_ERROR,
+                        "dlsym(sched) on %s", dlerror ());
+                GF_FREE(sched_file);
+                return NULL;
 	}
   
 	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
@@ -78,10 +80,12 @@ get_scheduler (xlator_t *xl, const char *name)
 		    == -1) {
 			gf_log ("scheduler", GF_LOG_ERROR,
 				"volume option validation failed");
+                        GF_FREE(sched_file);
 			return NULL;
 		}
 	}
         GF_FREE(sched_file);
+        GF_FREE (vol_opt);
 	
 	return tmp_sched;
 }
