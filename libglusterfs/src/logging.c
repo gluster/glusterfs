@@ -51,6 +51,8 @@ static int              gf_log_syslog = 0;
 gf_loglevel_t           gf_log_loglevel; /* extern'd */
 FILE                   *gf_log_logfile;
 
+static char            *cmd_log_filename = NULL;
+static FILE            *cmdlogfile = NULL;
 
 void
 gf_log_logrotate (int signum)
@@ -411,4 +413,101 @@ gf_log_from_client (const char *msg, char *identifier)
         fflush (client_log);
 
         return 0;
+}
+
+int
+gf_cmd_log_init (const char *filename) 
+{
+        if (!filename){
+                gf_log ("glusterd",GF_LOG_CRITICAL, "gf_cmd_log_init: no "
+                        "filename specified\n");
+                return -1;
+        }
+
+        cmd_log_filename = gf_strdup (filename);
+        if (!filename) {
+                gf_log ("glusterd",GF_LOG_CRITICAL, "gf_cmd_log_init: strdup"
+                        " error\n");
+                return -1;
+        }
+
+        cmdlogfile = fopen (cmd_log_filename, "a");
+        if (!cmdlogfile){
+                gf_log ("glusterd", GF_LOG_CRITICAL,
+                         "gf_cmd_log_init: failed to open logfile \"%s\" "
+                         "(%s)\n", cmd_log_filename, strerror (errno));
+                return -1;
+        }
+        return 0;
+}
+
+int
+gf_cmd_log (const char *domain, const char *fmt, ...)
+{
+        va_list      ap;
+        struct tm   *tm = NULL;
+        char         timestr[256];
+        struct timeval tv = {0,};
+        char        *str1 = NULL;
+        char        *str2 = NULL;
+        char        *msg  = NULL;
+        size_t       len  = 0;
+        int          ret  = 0;
+
+        if (!cmdlogfile)
+                return -1;
+
+
+        if (!domain || !fmt) {
+                gf_log ("glusterd", GF_LOG_TRACE,
+                         "logging: invalid argument\n");
+                return -1;
+        }
+
+        ret = gettimeofday (&tv, NULL);
+        if (ret == -1)
+                goto out;
+
+        tm = localtime (&tv.tv_sec);
+
+        va_start (ap, fmt);
+        strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+        snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                  ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+
+        ret = gf_asprintf (&str1, "[%s] %s : ",
+                          timestr, domain);
+        if (ret == -1) {
+              goto out;
+        }
+
+        ret = vasprintf (&str2, fmt, ap);
+        if (ret == -1) {
+               goto out;
+        }
+
+        va_end (ap);
+
+        len = strlen (str1);
+        msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+
+        strcpy (msg, str1);
+        strcpy (msg + len, str2);
+
+        fprintf (cmdlogfile, "%s\n", msg);
+        fflush (cmdlogfile);
+
+out:
+        if (msg) {
+               GF_FREE (msg);
+        }
+
+        if (str1)
+                GF_FREE (str1);
+
+        if (str2)
+                FREE (str2);
+
+        return (0);
+                                                  
 }
