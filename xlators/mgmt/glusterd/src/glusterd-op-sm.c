@@ -2058,6 +2058,12 @@ glusterd_op_start_volume (gd1_mgmt_stage_op_req *req)
 
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STARTED);
 
+        ret = glusterd_store_update_volume (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
+
 out:
         return ret;
 }
@@ -2110,6 +2116,12 @@ glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
         }
 
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STOPPED);
+
+        ret = glusterd_store_update_volume (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
 
 out:
         if (flags & GF_CLI_FLAG_OP_FORCE)
