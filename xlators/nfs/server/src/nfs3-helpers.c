@@ -2797,6 +2797,23 @@ out:
 }
 
 
+/*
+ * Called in a recursive code path, so if another
+ * directory was opened in an earlier call during fh resolution, we must unref
+ * through this reference before opening another fd_t.
+ */
+#define nfs3_fh_resolve_close_cwd(cst)                                  \
+        do {                                                            \
+                if ((cst)->resolve_dir_fd) {                            \
+                        gf_log (GF_NFS3, GF_LOG_TRACE, "resolve fd "    \
+                                "unrefing: 0x%lx, ref: %d",             \
+                                (long)(cst)->resolve_dir_fd,            \
+                                (cst)->resolve_dir_fd->refcount);       \
+                                fd_unref ((cst)->resolve_dir_fd);       \
+                }                                                       \
+        } while (0)                                                     \
+
+
 int
 nfs3_fh_resolve_check_response (nfs3_call_state_t *cs, gf_dirent_t *candidate,
                                 int response, off_t last_offt)
@@ -2812,16 +2829,25 @@ nfs3_fh_resolve_check_response (nfs3_call_state_t *cs, gf_dirent_t *candidate,
         dirino = cs->resolvedloc.inode->ino;
         dirgen = cs->resolvedloc.inode->generation;
 
-        if (response == GF_NFS3_FHRESOLVE_DIRFOUND)
+        switch (response) {
+
+        case GF_NFS3_FHRESOLVE_DIRFOUND:
+                nfs3_fh_resolve_close_cwd (cs);
                 nfs3_fh_resolve_dir_hard (cs, dirino, dirgen,
                                           candidate->d_name);
-        else if (response == GF_NFS3_FHRESOLVE_FOUND)
+                break;
+
+        case GF_NFS3_FHRESOLVE_FOUND:
+                nfs3_fh_resolve_close_cwd (cs);
                 nfs3_fh_resolve_found (cs, candidate);
-        else if (response == GF_NFS3_FHRESOLVE_NOTFOUND) {
+                break;
+
+        case GF_NFS3_FHRESOLVE_NOTFOUND:
                 nfs_user_root_create (&nfu);
                 nfs_readdirp (cs->nfsx, cs->vol, &nfu, cs->resolve_dir_fd,
                               GF_NFS3_DTPREF, last_offt,
                               nfs3_fh_resolve_readdir_cbk, cs);
+                break;
         }
 
         return 0;
