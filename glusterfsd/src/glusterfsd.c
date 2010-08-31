@@ -112,9 +112,8 @@ static struct argp_option gf_options[] = {
         {"spec-file", ARGP_VOLUME_FILE_KEY, "VOLFILE", OPTION_HIDDEN,
          "File to use as VOLFILE [default : "DEFAULT_CLIENT_VOLFILE" or "
          DEFAULT_SERVER_VOLFILE"]"},
-        {"log-server", ARGP_LOG_SERVER_KEY, "LOG SERVER", 0,
-         "Server to use as the central log server."
-         "--log-server option"},
+        {"log-server", ARGP_LOG_SERVER_KEY, "LOGSERVER", 0,
+         "Server to use as the central log server"},
 
         {"log-level", ARGP_LOG_LEVEL_KEY, "LOGLEVEL", 0,
          "Logging severity.  Valid options are DEBUG, NORMAL, WARNING, ERROR, "
