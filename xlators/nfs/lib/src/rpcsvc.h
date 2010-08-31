@@ -34,6 +34,7 @@
 #include "iobuf.h"
 #include "xdr-rpc.h"
 #include "glusterfs.h"
+#include "xlator.h"
 
 #include <pthread.h>
 #include <sys/uio.h>
@@ -369,6 +370,8 @@ struct rpcsvc_request {
 #define nfs_rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->conn->program))
 #define nfs_rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->conn->program))->private)
 #define nfs_rpcsvc_request_conn(req)        (req)->conn
+#define nfs_rpcsvc_program_xlator(prg)      ((prg)->actorxl)
+#define nfs_rpcsvc_request_actorxl(rq)      (nfs_rpcsvc_request_program(rq))->actorxl
 #define nfs_rpcsvc_request_accepted(req)    ((req)->rpc_stat == MSG_ACCEPTED)
 #define nfs_rpcsvc_request_accepted_success(req) ((req)->rpc_err == SUCCESS)
 #define nfs_rpcsvc_request_uid(req)         ((req)->uid)
@@ -484,6 +487,11 @@ struct rpc_svc_program {
          * See RFC 1813, Section 5.2.1.
          */
         int                     min_auth;
+
+        /* The translator in whose context the actor must execute. This is
+         * needed to setup THIS for memory accounting to work correctly.
+         */
+        xlator_t                *actorxl;
 };
 
 

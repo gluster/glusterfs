@@ -1897,6 +1897,7 @@ nfs_rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn)
                 goto err_reply;
 
         if ((actor) && (actor->actor)) {
+                THIS = nfs_rpcsvc_request_actorxl (req);
                 nfs_rpcsvc_conn_ref (conn);
                 ret = actor->actor (req);
         }
@@ -2201,6 +2202,7 @@ nfs_rpcsvc_record_vectored_call_actor (rpcsvc_conn_t *conn)
 
         if (actor->vector_actor) {
                 nfs_rpcsvc_conn_ref (conn);
+                THIS = nfs_rpcsvc_request_actorxl (req);
                 ret = actor->vector_actor (req, rs->vectoriob);
         } else {
                 nfs_rpcsvc_request_seterr (req, PROC_UNAVAIL);
