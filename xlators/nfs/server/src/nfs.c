@@ -233,7 +233,7 @@ nfs_start_subvol_lookup_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Started %s", this->name);
+        gf_log (GF_NFS, GF_LOG_TRACE, "Started %s", ((xlator_t *)cookie)->name);
 err:
         return 0;
 }
