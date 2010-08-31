@@ -520,6 +520,8 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
                 goto out;
         }
 
+        gf_cmd_log ("peer probe", " %s:%d", cli_req.hostname,
+                    cli_req.port);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received CLI probe req %s %d",
                 cli_req.hostname, cli_req.port);
 
@@ -543,6 +545,8 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
         ret = glusterd_probe_begin (req, cli_req.hostname, cli_req.port);
 
 out:
+        gf_cmd_log ("peer probe","on %s:%d %s",cli_req.hostname, cli_req.port,
+                    (ret) ? "FAILED" : "SUCCESS");
         return ret;
 }
 
@@ -560,12 +564,17 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 goto out;
         }
 
+        gf_cmd_log ("peer deprobe", " %s:%d", cli_req.hostname,
+                    cli_req.port);
+
         gf_log ("glusterd", GF_LOG_NORMAL, "Received CLI deprobe req");
 
 
         ret = glusterd_deprobe_begin (req, cli_req.hostname, cli_req.port);
 
 out:
+        gf_cmd_log ("peer deprobe", "on %s:%d %s", cli_req.hostname,
+                    cli_req.port, (ret) ? "FAILED" : "SUCCESS");
         return ret;
 }
 
@@ -815,6 +824,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         glusterd_volinfo_t      *volinfo = NULL;
         glusterd_defrag_info_t *defrag =  NULL;
         gf1_cli_defrag_vol_rsp rsp = {0,};
+        char                   operation[8];
 
         GF_ASSERT (req);
 
@@ -825,6 +835,18 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        switch (cli_req.cmd) {
+                case GF_DEFRAG_CMD_START: strcpy (operation, "start");
+                        break;
+                case GF_DEFRAG_CMD_STOP: strcpy (operation, "stop");
+                        break;
+                case GF_DEFRAG_CMD_STATUS: strcpy (operation, "status");
+                        break;
+                default: strcpy (operation, "unknown");
+                        break;
+        }
+        gf_cmd_log ("Volume rebalance","volname: %s cmd:%s", cli_req.volname, 
+                    operation); 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag volume on %s",
                 cli_req.volname);
 
@@ -909,6 +931,8 @@ out:
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gf_xdr_serialize_cli_defrag_vol_rsp);
 
+        gf_cmd_log ("volume rebalance"," on %s %d %s",cli_req.volname, 
+                    cli_req.cmd, ((ret)?"FAILED":"SUCCESS"));
         return ret;
 }
 
@@ -1009,6 +1033,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
 		goto out;
         }
+        gf_cmd_log ("Volume create", "volname: %s", volname);
 
 	 if ((ret = glusterd_check_volume_exists (volname))) {
 		snprintf(err_str, 1048, "Volname %s already exists",
@@ -1032,6 +1057,11 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 
         if (bricks)
                 brick_list = gf_strdup (bricks);
+
+        gf_cmd_log ("Volume create", "volname: %s type:%s count:%d bricks:%s",
+                    cli_req.volname, ((cli_req.type == 0)? "DEFAULT":
+                    ((cli_req.type == 1)? "STRIPE":"REPLICATE")), cli_req.count,
+                    bricks);
 
         while ( i < brick_count) {
 		i++;
@@ -1096,6 +1126,8 @@ out:
                                 " failed");
                 ret = 0; //Client response sent, prevent second response
         }
+        gf_cmd_log ("Volume create", "on volname:%s %s", volname,
+                    ((ret || err_ret) != 0) ? "FAILED": "SUCCESS");
         return ret;
 }
 
@@ -1138,12 +1170,15 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        gf_cmd_log ("volume stop","volname:%s",cli_req.volname);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received stop vol req"
                 "for volume %s", cli_req.volname);
 
         ret = glusterd_stop_volume (req, cli_req.volname, cli_req.flags);
 
 out:
+        gf_cmd_log ("Volume stop","on %s %s", cli_req.volname,
+                    ((ret)?"FAILED":"SUCCESS"));
         return ret;
 }
 
@@ -1161,6 +1196,7 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
+        gf_cmd_log ("Volume delete","volname:%s", cli_req.volname);
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received delete vol req"
                 "for volume %s", cli_req.volname);
@@ -1168,6 +1204,8 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
         ret = glusterd_delete_volume (req, cli_req.volname, flags);
 
 out:
+        gf_cmd_log ("Volume delete", "on volname:%s %s", cli_req.volname,
+                   ((ret) ? "FAILED" : "SUCCESS"));
         return ret;
 }
 
@@ -1209,6 +1247,8 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
+        gf_cmd_log ("Volume add-brick", "volname:%s",
+                    cli_req.volname);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received add brick req");
 
         if (cli_req.bricks.bricks_len) {
@@ -1277,6 +1317,10 @@ brick_val:
         if (bricks)
                 brick_list = gf_strdup (bricks);
 
+        gf_cmd_log ("Volume add-brick", "volname:%s type %s count:%d bricks:%s"
+                    ,volname, ((volinfo->type == 0)? "DEFAULT" : ((volinfo->type
+                    == 1)? "STRIPE": "REPLICATE")), brick_count, brick_list); 
+
         while ( i < brick_count) {
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
@@ -1340,6 +1384,8 @@ out:
 
                 ret = 0; //sent error to cli, prevent second reply
         }
+        gf_cmd_log ("Volume add-brick","on volname %s %s", volname,
+                   ((ret || err_ret) != 0)? "FAILED" : "SUCCESS");
         return ret;
 }
 
@@ -1349,6 +1395,10 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf1_cli_replace_brick_req          cli_req = {0,};
         dict_t                          *dict = NULL;
+        char                            *src_brick = NULL;
+        char                            *dst_brick = NULL;
+        int32_t                         op = 0;
+        char                            operation[8];
 
         GF_ASSERT (req);
 
@@ -1357,6 +1407,8 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
+
+        gf_cmd_log ("Volume replace-brick","volname:%s", cli_req.volname);
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received replace brick req");
 
@@ -1375,9 +1427,57 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 }
         }
 
+        ret = dict_get_int32 (dict, "operation", &op);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "dict_get on operation failed");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "src-brick", &src_brick);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get src brick");
+                goto out;
+        }
+        gf_log ("", GF_LOG_DEBUG,
+                "src brick=%s", src_brick);
+
+        ret = dict_get_str (dict, "dst-brick", &dst_brick);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get dest brick");
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG,
+                "dst brick=%s", dst_brick);
+
+        switch (op) {
+                case GF_REPLACE_OP_START: strcpy (operation, "start");
+                        break;
+                case GF_REPLACE_OP_COMMIT: strcpy (operation, "commit");
+                        break;
+                case GF_REPLACE_OP_PAUSE:  strcpy (operation, "pause");
+                        break;
+                case GF_REPLACE_OP_ABORT:  strcpy (operation, "abort");
+                        break;
+                case GF_REPLACE_OP_STATUS: strcpy (operation, "status");
+                        break;
+                default:strcpy (operation, "unknown");
+                        break;
+        }
+
+        gf_cmd_log ("Volume replace-brick","volname:%s src_brick:%s"
+                    " dst_brick:%s op:%s",cli_req.volname, src_brick, dst_brick
+                    ,operation);
+
+
         ret = glusterd_replace_brick (req, dict);
 
 out:
+        gf_cmd_log ("Volume replace-brick","on volname:%s %s", cli_req.volname,
+                   (ret) ? "FAILED" : "SUCCESS");
         return ret;
 }
 
@@ -1387,6 +1487,11 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf1_cli_remove_brick_req        cli_req = {0,};
         dict_t                          *dict = NULL;
+        int32_t                         count = 0;
+        char                            *brick = NULL;
+        char                            key[256] = {0,};
+        char                            *brick_list = NULL;
+        int                             i = 1;
 
         GF_ASSERT (req);
 
@@ -1396,6 +1501,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
+        gf_cmd_log ("Volume remove-brick","volname:%s",cli_req.volname);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received rem brick req");
 
         if (cli_req.bricks.bricks_len) {
@@ -1413,9 +1519,45 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 }
         }
 
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                goto out;
+        }
+        brick_list = GF_MALLOC (120000 * sizeof(brick_list),gf_common_mt_char);
+
+        if (!brick_list) {
+                gf_log ("",GF_LOG_ERROR,"glusterd_handle_remove_brick: "
+                        "Unable to get memory");
+                ret = -1;
+                goto out;
+        }
+        strcpy(brick_list, " ");
+        while ( i <= count) {
+                snprintf (key, 256, "brick%d", i);
+                ret = dict_get_str (dict, key, &brick);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get %s", key);
+                        goto out;
+                }
+                gf_log ("", GF_LOG_DEBUG, "Remove brick count %i brick: %s",
+                        i, brick);
+
+                strcat (brick_list, brick);
+                strcat (brick_list, " ");
+                i++;
+        }
+//        strcat(brick_list,"\n");
+        gf_cmd_log ("Volume remove-brick","volname:%s count:%d bricks:%s", 
+                    cli_req.volname, count, brick_list);
+
         ret = glusterd_remove_brick (req, dict);
 
 out:
+        gf_cmd_log ("Volume remove-brick","on %s %s",cli_req.volname,
+                    (ret) ? "FAILED" : "SUCCESS");
+        if (brick_list)
+                GF_FREE (brick_list);
         return ret;
 }
 
