@@ -2753,6 +2753,42 @@ err:
 }
 
 
+/* Validate the depth of the dir such that we do not end up opening and
+ * reading directories beyond those that are needed for resolving the file
+ * handle.
+ * Returns 1 if fh resolution can continue, 0 otherwise.
+ */
+int
+nfs3_fh_resolve_validate_dirdepth (nfs3_call_state_t *cs)
+{
+        int     ret = 1;
+
+        if (!cs)
+                return 0;
+
+        /* This condition will generally never be hit because the
+         * hash-matching scheme will prevent us from going into a
+         * directory that is not part of the hash-array.
+         */
+        if (nfs3_fh_hash_index_is_beyond (&cs->resolvefh, cs->hashidx)) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Hash index is beyond: idx %d,"
+                        " fh idx: %d", cs->hashidx, cs->resolvefh.hashcount);
+                ret = 0;
+                goto out;
+        }
+
+        if (cs->hashidx >= GF_NFSFH_MAXHASHES) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Hash index beyond max hashes:"
+                        " hashidx %d, max: %d", cs->hashidx,
+                        GF_NFSFH_MAXHASHES);
+                ret = 0;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
 
 int
 nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uint64_t ino, uint64_t gen,
@@ -2766,9 +2802,8 @@ nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uint64_t ino, uint64_t gen,
 
         cs->hashidx++;
         nfs_loc_wipe (&cs->resolvedloc);
-        if (nfs3_fh_hash_index_is_beyond (&cs->resolvefh, cs->hashidx)) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Hash index is beyond: idx %d, "
-                        " fh idx: %d", cs->hashidx, cs->resolvefh.hashcount);
+        if (!nfs3_fh_resolve_validate_dirdepth (cs)) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Dir depth validation failed");
                 nfs3_call_resume_estale (cs);
                 ret = 0;
                 goto out;
@@ -2920,10 +2955,8 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
 
         cs->hashidx++;
         nfs_loc_wipe (&cs->resolvedloc);
-        if (nfs3_fh_hash_index_is_beyond (&cs->resolvefh, cs->hashidx)) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Hash index is beyond: idx %d, "
-                        " fh hashcount: %d", cs->hashidx,
-                        cs->resolvefh.hashcount);
+        if (!nfs3_fh_resolve_validate_dirdepth (cs)) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Dir depth validation failed");
                 nfs3_call_resume_estale (cs);
                 ret = 0;
                 goto out;
