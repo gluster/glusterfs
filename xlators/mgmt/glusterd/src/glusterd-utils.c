@@ -989,7 +989,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         snprintf (cksum_path, sizeof (cksum_path), "%s/%s",
                   path, GLUSTERD_CKSUM_FILE);
 
-        fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT, 0644);
+        fd = open (cksum_path, O_RDWR | O_APPEND | O_CREAT| O_TRUNC, 0644);
 
         if (-1 == fd) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open %s, errno: %d",
