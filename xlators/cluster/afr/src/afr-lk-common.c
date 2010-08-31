@@ -628,6 +628,9 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                         }
 
                 }
+
+                if (!--call_count)
+                        break;
         }
 
 out:
@@ -691,6 +694,9 @@ afr_unlock_entrylk (call_frame_t *frame, xlator_t *this)
                                            loc, basename,
                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
                 }
+
+                if (!--call_count)
+                        break;
         }
 
 out:
@@ -1262,6 +1268,9 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                                                    this->name, loc, basename,
                                                    ENTRYLK_LOCK, ENTRYLK_WRLCK);
                         }
+
+                        if (!--call_count)
+                                break;
                 }
         }
 
@@ -1397,6 +1406,10 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                                                    F_SETLK, &flock);
 
                         }
+
+                        if (!--call_count)
+                                break;
+
                 }
         } else {
                 call_count = internal_lock_count (frame, this, NULL);
@@ -1414,6 +1427,9 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                                                    this->name, &local->loc,
                                                    F_SETLK, &flock);
                         }
+
+                        if (!--call_count)
+                                break;
                 }
         }
 
@@ -1511,6 +1527,8 @@ afr_unlock_lower_entrylk (call_frame_t *frame, xlator_t *this)
                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
                 }
 
+                if (!--call_count)
+                        break;
         }
 
 out:
