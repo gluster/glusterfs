@@ -278,12 +278,12 @@ nfs_fop_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Lookup: %s", loc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_lookup_cbk, nfsx, xl,
-                            xl->fops->lookup, loc, NULL);
+        STACK_WIND_COOKIE (frame, nfs_fop_lookup_cbk, xl, xl,
+                           xl->fops->lookup, loc, NULL);
 
         ret = 0;
 err:
@@ -325,12 +325,12 @@ nfs_fop_stat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Stat: %s", loc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_stat_cbk, nfsx, xl, xl->fops->stat,
-                            loc);
+        STACK_WIND_COOKIE (frame, nfs_fop_stat_cbk, xl, xl, xl->fops->stat,
+                           loc);
         ret = 0;
 err:
         if (ret < 0) {
@@ -371,12 +371,12 @@ nfs_fop_fstat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "FStat");
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_fd_ino (nfl, fd);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_fstat_cbk, nfsx, xl, xl->fops->fstat,
-                            fd);
+        STACK_WIND_COOKIE (frame, nfs_fop_fstat_cbk, xl, xl, xl->fops->fstat,
+                           fd);
 
         ret = 0;
 err:
@@ -416,10 +416,10 @@ nfs_fop_opendir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Opendir: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_opendir_cbk, nfsx, xl,
+        STACK_WIND_COOKIE (frame, nfs_fop_opendir_cbk, xl, xl,
                            xl->fops->opendir, pathloc, dirfd);
         ret = 0;
 
@@ -459,10 +459,10 @@ nfs_fop_flush (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         if ((!nfsx) || (!xl) || (!fd) || (!nfu))
                 return ret;
 
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_flush_cbk, nfsx, xl, xl->fops->flush,
+        STACK_WIND_COOKIE (frame, nfs_fop_flush_cbk, xl, xl, xl->fops->flush,
                            fd);
         ret = 0;
 err:
@@ -505,10 +505,10 @@ nfs_fop_readdirp (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *dirfd,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "readdir");
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_readdirp_cbk, nfsx, xl,
+        STACK_WIND_COOKIE (frame, nfs_fop_readdirp_cbk, xl, xl,
                            xl->fops->readdirp, dirfd, bufsize, offset);
 
         ret = 0;
@@ -551,11 +551,11 @@ nfs_fop_statfs (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Statfs: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_statfs_cbk, nfsx, xl,
-                            xl->fops->statfs, pathloc);
+        STACK_WIND_COOKIE (frame, nfs_fop_statfs_cbk, xl, xl,
+                           xl->fops->statfs, pathloc);
         ret = 0;
 err:
         if (ret < 0) {
@@ -600,12 +600,12 @@ nfs_fop_create (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Create: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_create_cbk, nfsx, xl,xl->fops->create
-                            , pathloc, flags, mode, fd);
+        STACK_WIND_COOKIE (frame, nfs_fop_create_cbk, xl, xl,xl->fops->create
+                           , pathloc, flags, mode, fd);
         ret = 0;
 err:
         if (ret < 0) {
@@ -648,11 +648,11 @@ nfs_fop_setattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Setattr: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_setattr_cbk, nfsx, xl,
+        STACK_WIND_COOKIE (frame, nfs_fop_setattr_cbk, xl, xl,
                            xl->fops->setattr, pathloc, buf, valid);
         ret = 0;
 err:
@@ -696,12 +696,12 @@ nfs_fop_mkdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Mkdir: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_mkdir_cbk, nfsx, xl, xl->fops->mkdir,
-                            pathloc, mode);
+        STACK_WIND_COOKIE (frame, nfs_fop_mkdir_cbk, xl, xl, xl->fops->mkdir,
+                           pathloc, mode);
         ret = 0;
 err:
         if (ret < 0) {
@@ -743,12 +743,12 @@ nfs_fop_symlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, char *target,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Symlink: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_symlink_cbk, nfsx, xl,
-                            xl->fops->symlink, target, pathloc);
+        STACK_WIND_COOKIE (frame, nfs_fop_symlink_cbk, xl, xl,
+                           xl->fops->symlink, target, pathloc);
         ret = 0;
 err:
         if (ret < 0) {
@@ -789,12 +789,12 @@ nfs_fop_readlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Readlink: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_readlink_cbk, nfsx, xl,
-                            xl->fops->readlink, pathloc, size);
+        STACK_WIND_COOKIE (frame, nfs_fop_readlink_cbk, xl, xl,
+                           xl->fops->readlink, pathloc, size);
         ret = 0;
 err:
         if (ret < 0) {
@@ -837,12 +837,12 @@ nfs_fop_mknod (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Mknod: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_mknod_cbk, nfsx, xl, xl->fops->mknod,
-                            pathloc, mode, dev);
+        STACK_WIND_COOKIE (frame, nfs_fop_mknod_cbk, xl, xl, xl->fops->mknod,
+                           pathloc, mode, dev);
         ret = 0;
 err:
         if (ret < 0) {
@@ -884,12 +884,12 @@ nfs_fop_rmdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Rmdir: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_rmdir_cbk, nfsx, xl, xl->fops->rmdir,
-                            pathloc);
+        STACK_WIND_COOKIE (frame, nfs_fop_rmdir_cbk, xl, xl, xl->fops->rmdir,
+                           pathloc);
         ret = 0;
 err:
         if (ret < 0) {
@@ -932,12 +932,12 @@ nfs_fop_unlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Unlink: %s", pathloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_unlink_cbk, nfsx, xl,
-                            xl->fops->unlink, pathloc);
+        STACK_WIND_COOKIE (frame, nfs_fop_unlink_cbk, xl, xl,
+                           xl->fops->unlink, pathloc);
         ret = 0;
 err:
         if (ret < 0) {
@@ -983,11 +983,11 @@ nfs_fop_link (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Link: %s -> %s", newloc->path,
                 oldloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, newloc);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_link_cbk, nfsx, xl, xl->fops->link,
+        STACK_WIND_COOKIE (frame, nfs_fop_link_cbk, xl, xl, xl->fops->link,
                            oldloc, newloc);
         ret = 0;
 err:
@@ -1040,13 +1040,13 @@ nfs_fop_rename (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Rename: %s -> %s", oldloc->path,
                 newloc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, oldloc);
         nfs_fop_newloc_save_root_ino (nfl, newloc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_rename_cbk, nfsx, xl,
-                            xl->fops->rename, oldloc, newloc);
+        STACK_WIND_COOKIE (frame, nfs_fop_rename_cbk, xl, xl,
+                           xl->fops->rename, oldloc, newloc);
         ret = 0;
 err:
         if (ret < 0) {
@@ -1086,11 +1086,11 @@ nfs_fop_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
                 return ret;
 
         gf_log (GF_NFS, GF_LOG_TRACE, "Open: %s", loc->path);
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_open_cbk, nfsx, xl, xl->fops->open,
-                            loc, flags, fd, wbflags);
+        STACK_WIND_COOKIE (frame, nfs_fop_open_cbk, xl, xl, xl->fops->open,
+                           loc, flags, fd, wbflags);
         ret = 0;
 err:
         if (ret < 0) {
@@ -1133,7 +1133,7 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         if ((!nfsx) || (!xl) || (!fd) || (!vector) || (!nfu) || (!srciob))
                 return ret;
 
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_fd_ino (nfl, fd);
 
@@ -1145,8 +1145,8 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         }
 
         iobref_add (nfl->iobref, srciob);
-        STACK_WIND_COOKIE  (frame, nfs_fop_writev_cbk, nfsx, xl,xl->fops->writev
-                            , fd, vector, count, offset, nfl->iobref);
+        STACK_WIND_COOKIE (frame, nfs_fop_writev_cbk, xl, xl,xl->fops->writev
+                           , fd, vector, count, offset, nfl->iobref);
         ret = 0;
 err:
         if (ret < 0) {
@@ -1187,11 +1187,11 @@ nfs_fop_fsync (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         if ((!nfsx) || (!xl) || (!fd))
                 return ret;
 
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_fd_ino (nfl, fd);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_fsync_cbk, nfsx, xl,
+        STACK_WIND_COOKIE (frame, nfs_fop_fsync_cbk, xl, xl,
                            xl->fops->fsync, fd, datasync);
         ret = 0;
 err:
@@ -1234,11 +1234,11 @@ nfs_fop_read (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
         if ((!xl) || (!fd) || (!nfu))
                 return ret;
 
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_fd_ino (nfl, fd);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_readv_cbk, nfsx, xl, xl->fops->readv,
+        STACK_WIND_COOKIE (frame, nfs_fop_readv_cbk, xl, xl, xl->fops->readv,
                            fd, size, offset);
         ret = 0;
 err:
@@ -1280,11 +1280,11 @@ nfs_fop_truncate (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         if ((!nfsx) || (!xl) || (!loc) || (!nfu))
                 return ret;
 
-        nfs_fop_handle_frame_create (frame, xl, nfu, ret, err);
+        nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
 
-        STACK_WIND_COOKIE  (frame, nfs_fop_truncate_cbk, nfsx, xl,
+        STACK_WIND_COOKIE  (frame, nfs_fop_truncate_cbk, xl, xl,
                             xl->fops->truncate, loc, offset);
 
         ret = 0;
