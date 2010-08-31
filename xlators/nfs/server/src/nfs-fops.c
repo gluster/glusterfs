@@ -35,13 +35,6 @@
 #include <libgen.h>
 #include <semaphore.h>
 
-#define nfs_stack_destroy(fram)                                         \
-        do {                                                            \
-                (fram)->local = NULL;                                   \
-                STACK_DESTROY ((fram)->root);                           \
-        } while (0)                                                     \
-
-
 struct nfs_fop_local *
 nfs_fop_local_init (xlator_t *nfsx)
 {
@@ -82,6 +75,14 @@ nfs_fop_local_wipe (xlator_t *nfsx, struct nfs_fop_local *l)
 
         return;
 }
+
+#define nfs_stack_destroy(nfl, fram)                                    \
+        do {                                                            \
+                nfs_fop_local_wipe ((nfl)->nfsx, nfl);                  \
+                (fram)->local = NULL;                                   \
+                STACK_DESTROY ((fram)->root);                           \
+        } while (0)                                                     \
+
 
 pthread_mutex_t         ctr = PTHREAD_MUTEX_INITIALIZER;
 unsigned int            cval = 1;
@@ -260,7 +261,7 @@ nfs_fop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          xattr, postparent);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (local, frame);
         return 0;
 }
 
@@ -288,7 +289,7 @@ nfs_fop_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -307,7 +308,7 @@ nfs_fop_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, buf);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -334,7 +335,7 @@ nfs_fop_stat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -353,7 +354,7 @@ nfs_fop_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, buf);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -381,7 +382,7 @@ nfs_fop_fstat (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -398,7 +399,7 @@ nfs_fop_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, fd);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -425,7 +426,7 @@ nfs_fop_opendir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -442,7 +443,7 @@ nfs_fop_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -467,7 +468,7 @@ nfs_fop_flush (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -485,7 +486,7 @@ nfs_fop_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, entries);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
 
         return 0;
 }
@@ -514,7 +515,7 @@ nfs_fop_readdirp (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *dirfd,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -533,7 +534,7 @@ nfs_fop_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, buf);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -559,7 +560,7 @@ nfs_fop_statfs (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -581,7 +582,7 @@ nfs_fop_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 progcbk (frame, cookie, this, op_ret, op_errno, fd, inode, buf,
                          preparent, postparent);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -609,7 +610,7 @@ nfs_fop_create (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -628,7 +629,7 @@ nfs_fop_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs_fop_restore_root_ino (nfl, pre, post, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, pre, post);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -657,7 +658,7 @@ nfs_fop_setattr (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -678,7 +679,7 @@ nfs_fop_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -705,7 +706,7 @@ nfs_fop_mkdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -726,7 +727,7 @@ nfs_fop_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -752,7 +753,7 @@ nfs_fop_symlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, char *target,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -771,7 +772,7 @@ nfs_fop_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs_fop_restore_root_ino (nfl, buf, NULL, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, path, buf);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -798,7 +799,7 @@ nfs_fop_readlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -819,7 +820,7 @@ nfs_fop_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -846,7 +847,7 @@ nfs_fop_mknod (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -865,7 +866,7 @@ nfs_fop_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, preparent,
                          postparent);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -893,7 +894,7 @@ nfs_fop_rmdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -914,7 +915,7 @@ nfs_fop_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, preparent,
                          postparent);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -941,7 +942,7 @@ nfs_fop_unlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -964,7 +965,7 @@ nfs_fop_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -992,7 +993,7 @@ nfs_fop_link (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -1021,7 +1022,7 @@ nfs_fop_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 progcbk (frame, cookie, this, op_ret, op_errno, buf,
                          preoldparent, postoldparent, prenewparent,
                          postnewparent);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -1050,7 +1051,7 @@ nfs_fop_rename (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *oldloc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -1067,7 +1068,7 @@ nfs_fop_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, fd);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
 
         return 0;
 }
@@ -1094,7 +1095,7 @@ nfs_fop_open (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -1114,7 +1115,7 @@ nfs_fop_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, prebuf,postbuf);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
 
         return 0;
 }
@@ -1150,8 +1151,7 @@ nfs_fop_write (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
-                nfs_fop_local_wipe (nfsx, nfl);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -1170,7 +1170,7 @@ nfs_fop_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs_fop_restore_root_ino (nfl, prebuf, postbuf, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, prebuf,postbuf);
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -1197,7 +1197,7 @@ nfs_fop_fsync (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -1218,7 +1218,7 @@ nfs_fop_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 progcbk (frame, cookie, this, op_ret, op_errno, vector, count,
                          stbuf, iobref);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -1244,7 +1244,7 @@ nfs_fop_read (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, fd_t *fd,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;
@@ -1264,7 +1264,7 @@ nfs_fop_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, prebuf,postbuf);
 
-        nfs_stack_destroy (frame);
+        nfs_stack_destroy (nfl, frame);
         return 0;
 }
 
@@ -1291,7 +1291,7 @@ nfs_fop_truncate (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
 err:
         if (ret < 0) {
                 if (frame)
-                        nfs_stack_destroy (frame);
+                        nfs_stack_destroy (nfl, frame);
         }
 
         return ret;

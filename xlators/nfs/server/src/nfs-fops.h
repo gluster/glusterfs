@@ -129,7 +129,6 @@ nfs_fop_local_wipe (xlator_t *xl, struct nfs_fop_local *l);
                 nflocal = fram->local;                                  \
                 fram->local = nflocal->proglocal;                       \
                 pcbk = nflocal->progcbk;                                \
-                nfs_fop_local_wipe (nflocal->nfsx, nflocal);            \
         } while (0)                                                     \
 
 #define nfs_fop_handle_local_init(fram,nfx, nfloc, cbck,prgloc,retval,lab)  \
