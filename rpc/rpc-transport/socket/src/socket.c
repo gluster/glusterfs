@@ -37,10 +37,12 @@
 /* ugly #includes below */
 #include "protocol-common.h"
 #include "glusterfs3-xdr.h"
+#include "glusterfs3.h"
 
 #include <fcntl.h>
 #include <errno.h>
 #include <netinet/tcp.h>
+#include <rpc/xdr.h>
 
 #define GF_LOG_ERRNO(errno) ((errno == ENOTCONN) ? GF_LOG_DEBUG : GF_LOG_ERROR)
 #define SA(ptr) ((struct sockaddr *)ptr)
@@ -737,6 +739,7 @@ __socket_read_vectored_request (rpc_transport_t *this)
         struct iobuf     *iobuf                  = NULL;
         uint32_t          remaining_size         = 0;
         uint32_t          gluster_write_proc_len = 0;
+        gfs3_write_req    write_req              = {0, };
 
         if (!this || !this->private)
                 goto out;
@@ -773,7 +776,15 @@ __socket_read_vectored_request (rpc_transport_t *this)
                  * here
                  */
                 /* also read proc-header */
-                gluster_write_proc_len = sizeof (gfs3_write_req);
+                gluster_write_proc_len = xdr_sizeof ((xdrproc_t) xdr_gfs3_write_req,
+                                                     &write_req);
+
+                if (gluster_write_proc_len == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "xdr_sizeof on gfs3_write_req failed");
+                        ret = -1;
+                        goto out;
+                }
 
                 verflen = ntoh32 (*((uint32_t *)addr))
                         + gluster_write_proc_len;
@@ -939,6 +950,7 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
         int               ret                      = 0;
         struct iobuf     *iobuf                    = NULL;
         uint32_t          gluster_read_rsp_hdr_len = 0;
+        gfs3_read_rsp     read_rsp                 = {0, };
 
         if (!this || !this->private)
                 goto out;
@@ -948,8 +960,15 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
         switch (priv->incoming.frag.call_body.reply.accepted_success_state) {
 
         case SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT:
-                gluster_read_rsp_hdr_len = sizeof (gfs3_read_rsp);
+                gluster_read_rsp_hdr_len = xdr_sizeof ((xdrproc_t) xdr_gfs3_read_rsp,
+                                                       &read_rsp);
 
+                if (gluster_read_rsp_hdr_len == 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "xdr_sizeof on gfs3_read_rsp failed");
+                        ret = -1;
+                        goto out;
+                } 
                 __socket_proto_init_pending (priv, gluster_read_rsp_hdr_len);
 
                 priv->incoming.frag.call_body.reply.accepted_success_state
