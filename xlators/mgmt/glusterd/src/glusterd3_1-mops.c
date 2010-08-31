@@ -624,6 +624,8 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
                                        this, glusterd3_1_probe_cbk);
 
 out:
+        if (req.hostname)
+                GF_FREE (req.hostname);
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -680,7 +682,10 @@ out:
                 GF_FREE (req.vols.vols_val);
 
         if (vols)
-                dict_destroy (vols);
+                dict_unref (vols);
+
+        if (req.hostname)
+                GF_FREE (req.hostname);
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -805,6 +810,10 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         }
 
 out:
+        if (friends)
+                dict_unref (friends);
+        if (req.friends.friends_val)
+                GF_FREE (req.friends.friends_val);
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

@@ -497,6 +497,7 @@ rpcsvc_volume_allowed (dict_t *options, char *volname)
                 if (ret)
                         gf_log ("rpcsvc", GF_LOG_DEBUG,
                                 "failed to get the string %s", srchstr);
+                GF_FREE (srchstr);
         }
 out:
         return addrstr;
@@ -643,6 +644,8 @@ rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname,
                         " allowed");
 
 err:
+        if (srchstr)
+                GF_FREE (srchstr);
         return ret;
 }
 

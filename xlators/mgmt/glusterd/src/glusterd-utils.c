@@ -661,6 +661,7 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         char                    *hostname = NULL;
         char                    *path = NULL;
         char                    *dup_brick = NULL;
+        char                    *free_ptr = NULL;
         glusterd_brickinfo_t    *tmp = NULL;
 
         GF_ASSERT (brick);
@@ -675,6 +676,8 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
                         "Out of memory");
                 ret = -1;
                 goto out;
+        } else {
+                free_ptr = dup_brick;
         }
 
         hostname = strtok (dup_brick, ":");
@@ -701,8 +704,8 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         *brickinfo = tmp;
 
 out:
-        if (dup_brick)
-                GF_FREE (dup_brick);
+        if (free_ptr)
+                GF_FREE (free_ptr);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1189,7 +1192,7 @@ glusterd_build_volume_dict (dict_t **vols)
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         if (ret)
-                dict_destroy (dict);
+                dict_unref (dict);
 
         return ret;
 }

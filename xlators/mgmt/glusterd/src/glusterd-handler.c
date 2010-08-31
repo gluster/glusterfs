@@ -612,6 +612,8 @@ glusterd_handle_cli_list_friends (rpcsvc_request_t *req)
         ret = glusterd_list_friends (req, dict, cli_req.flags);
 
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -993,6 +995,8 @@ glusterd_handle_cli_get_volume (rpcsvc_request_t *req)
         ret = glusterd_get_volumes (req, dict, cli_req.flags);
 
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -1002,23 +1006,24 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gf1_cli_create_vol_req          cli_req = {0,};
         dict_t                          *dict = NULL;
- 	 glusterd_brickinfo_t            *brickinfo = NULL;
-	 char				 *brick = NULL;
-	 char				 *bricks = NULL;
-	 char				 *volname = NULL;
-	 int				 brick_count = 0;
-	 char                            *tmpptr = NULL;
-	 int				 i = 0;
-	 glusterd_peerinfo_t             *peerinfo = NULL;
-	 char				 *brick_list = NULL;
-	 void				 *cli_rsp = NULL;
-	 char				 err_str[1048];
-	 gf1_cli_create_vol_rsp          rsp = {0,};
+        glusterd_brickinfo_t            *brickinfo = NULL;
+        char				*brick = NULL;
+        char				*bricks = NULL;
+        char				*volname = NULL;
+        int				brick_count = 0;
+        char                            *tmpptr = NULL;
+        int				i = 0;
+        glusterd_peerinfo_t             *peerinfo = NULL;
+        char				*brick_list = NULL;
+        void				*cli_rsp = NULL;
+        char				err_str[1048];
+        gf1_cli_create_vol_rsp          rsp = {0,};
         glusterd_conf_t                 *priv = NULL;
         int                             err_ret = 0;
         glusterd_brickinfo_t            *tmpbrkinfo = NULL;
         glusterd_volinfo_t              *volinfo = NULL;
         xlator_t                        *this = NULL;
+        char                            *free_ptr = NULL;
         GF_ASSERT (req);
 
         this = THIS;
@@ -1077,8 +1082,10 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		goto out;
         }
 
-        if (bricks)
+        if (bricks) {
                 brick_list = gf_strdup (bricks);
+                free_ptr = brick_list;
+        }
 
         gf_cmd_log ("Volume create", "volname: %s type:%s count:%d bricks:%s",
                     cli_req.volname, ((cli_req.type == 0)? "DEFAULT":
@@ -1148,8 +1155,11 @@ out:
                                 " failed");
                 ret = 0; //Client response sent, prevent second response
         }
+
         gf_cmd_log ("Volume create", "on volname:%s %s", volname,
                     ((ret || err_ret) != 0) ? "FAILED": "SUCCESS");
+        if (free_ptr)
+                GF_FREE(free_ptr);
         return ret;
 }
 
@@ -2001,6 +2011,8 @@ out:
         uuid_copy (rsp.uuid, priv->uuid);
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_friend_update_rsp);
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -2153,8 +2165,9 @@ glusterd_friend_add (const char *hoststr, int port,
 
 out:
         gf_log ("glusterd", GF_LOG_NORMAL, "connect returned %d", ret);
+        if (rpc_cfg.remote_host)
+                GF_FREE (rpc_cfg.remote_host);
         return ret;
-
 }
 
 
@@ -2299,6 +2312,8 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_friend_rsp);
 
+        if (rsp.hostname)
+                GF_FREE (rsp.hostname);
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Responded to %s (%d), ret: %d", hostname, port, ret);
         return ret;
@@ -2686,13 +2701,15 @@ out:
 
         if (ret) {
                 if (friends)
-                        dict_destroy (friends);
+                        dict_unref (friends);
         }
 
         rsp.op_ret = ret;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gf_xdr_serialize_cli_peer_list_rsp);
+        if (rsp.friends.friends_val)
+                GF_FREE (rsp.friends.friends_val);
 
         return ret;
 }
@@ -2753,7 +2770,7 @@ out:
                                      gf_xdr_serialize_cli_peer_list_rsp);
 
         if (volumes)
-                dict_destroy (volumes);
+                dict_unref (volumes);
 
         if (rsp.volumes.volumes_val)
                 GF_FREE (rsp.volumes.volumes_val);

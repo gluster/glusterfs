@@ -958,6 +958,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	pthread_mutex_init (&trans->lock, NULL);
         trans->xl = THIS;
 	return_trans = trans;
+        GF_FREE (vol_opt);
 	return return_trans;
 
 fail:
