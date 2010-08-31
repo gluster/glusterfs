@@ -113,6 +113,7 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                 }
 
                 prog = version->init (this);
+                prog->actorxl = this;
                 version->program = prog;
                 if (!prog) {
                         ret = -1;
