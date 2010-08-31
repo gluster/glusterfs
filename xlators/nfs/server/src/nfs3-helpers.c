@@ -1788,7 +1788,7 @@ nfs3_dir_open_and_resume (nfs3_call_state_t *cs, nfs3_resume_fn_t resume)
         fd = fd_lookup (cs->resolvedloc.inode, 0);
         if (fd) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "fd found in state: ref: %d", fd->refcount);
-                cs->fd = fd_ref (fd);    /* Gets unrefd when the call state is wiped. */
+                cs->fd = fd;    /* Gets unrefd when the call state is wiped. */
                 cs->resolve_ret = 0;
                 nfs3_call_resume (cs);
                 ret = 0;
