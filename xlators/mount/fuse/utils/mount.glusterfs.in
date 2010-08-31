@@ -1,16 +1,16 @@
 #!/bin/bash
 # (C) 2006, 2007, 2008 Gluster Inc. <http://www.gluster.com>
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of
 # the License, or (at your option) any later version.
-#   
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
-#   
+#
 # You should have received a copy of the GNU General Public
 # License along with this program; if not, write to the Free
 # Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
@@ -32,6 +32,8 @@ _init ()
     prefix="@prefix@";
     exec_prefix=@exec_prefix@;
     cmd_line=$(echo "@sbindir@/glusterfs");
+
+    UPDATEDBCONF=/etc/updatedb.conf
 }
 
 start_glusterfs ()
@@ -66,7 +68,7 @@ start_glusterfs ()
 	esac
     fi
     cmd_line=$(echo "$cmd_line --log-level=$log_level");
-    
+
     if [ -n "$read_only" ]; then
 	cmd_line=$(echo "$cmd_line --read-only");
     fi
@@ -86,7 +88,7 @@ start_glusterfs ()
     if [ -n "$volume_name" ]; then
         cmd_line=$(echo "$cmd_line --volume-name=$volume_name");
     fi
-    
+
     if [ -n "$log_server" ]; then
         if [ -n "$log_server_port" ]; then
             cmd_line=$(echo "$cmd_line \
@@ -100,7 +102,7 @@ start_glusterfs ()
             if [ -n "$server_port" ]; then
                 cmd_line=$(echo "$cmd_line --volfile-server-port=$server_port");
             fi
-	    if [ -n "$transport" ]; then 
+	    if [ -n "$transport" ]; then
                 cmd_line=$(echo "$cmd_line --volfile-server-transport=$transport");
             fi
             if [ -n "$volume_id" ]; then
@@ -116,11 +118,11 @@ start_glusterfs ()
     else
         cmd_line=$(echo "$cmd_line --volfile=$volfile_loc");
     fi
-    
+
     cmd_line=$(echo "$cmd_line $mount_point");
     $cmd_line;
 
-    # retry the failover 
+    # retry the failover
     if [ $? != "0" ]; then
         if [ -n "$cmd_line1" ]; then
             cmd_line1=$(echo "$cmd_line1 $mount_point");
@@ -133,11 +135,11 @@ start_glusterfs ()
 usage ()
 {
 
-echo "Usage:  mount.glusterfs <volumeserver>:<volumeid/volumeport> -o <options> <mountpoint> 
-Options: 
-man 8 mount.glusterfs 
+echo "Usage:  mount.glusterfs <volumeserver>:<volumeid/volumeport> -o <options> <mountpoint>
+Options:
+man 8 mount.glusterfs
 
-To display the version number of the mount helper: 
+To display the version number of the mount helper:
 mount.glusterfs --version"
 
 }
@@ -149,7 +151,7 @@ main ()
     options=$(echo "$@" | sed -n 's/.*\-o[ ]*\([^ ]*\).*/\1/p');
 
     new_log_level=$(echo "$options" | sed -n 's/.*log-level=\([^,]*\).*/\1/p');
-    
+
     [ -n "$new_log_level" ] && {
 	log_level_str="$new_log_level";
     }
@@ -172,17 +174,17 @@ main ()
     backupvolfile_server=$(echo "$options" | sed -n 's/.*backupvolfile-server=\([^,]*\).*/\1/p');
 
     log_server=$(echo "$options" | sed -n 's/.*log-server=\([^,]*\).*/\1/p');
-    
+
     log_server_port=$(echo "$options" | sed -n 's/.*log-server-port=\([^,]*\).*/\1/p');
-   
+
     volfile_loc="$1";
-    
+
     [ -r "$volfile_loc" ] || {
 	server_ip=$(echo "$volfile_loc" | sed -n 's/\([^\:]*\).*/\1/p');
         test_str=$(echo "$volfile_loc" | sed -n 's/.*:\([^ ]*\).*/\1/p');
         [ -n "$test_str" ] && {
             volume_id="$test_str";
-        } 
+        }
 	volfile_loc="";
     }
 
@@ -199,7 +201,7 @@ main ()
         -e 's/[,]*ro[^,]*//' \
         -e 's/[,]*log-server-port=[^,]*//');
 
-    # 
+    #
     [ -n "$helper" ] && {
         cmd_line=$(echo "$cmd_line --$helper");
         exec $cmd_line;
@@ -227,7 +229,18 @@ main ()
     fi
 
     fs_options=$(echo "$fs_options,$new_fs_options");
-    
+
+    # Append fuse.glusterfs to PRUNEFS variable in updatedb.conf(5). updatedb(8)
+    # should not index files under GlusterFS, indexing will slow down GlusteFS
+    # if the filesystem is several TB in size.
+    test -f $UPDATEDBCONF && {
+        if ! grep -q 'glusterfs' $UPDATEDBCONF; then
+            sed 's/\(PRUNEFS.*\)"/\1 fuse.glusterfs"/' $UPDATEDBCONF \
+                > ${UPDATEDBCONF}.bak
+            mv -f ${UPDATEDBCONF}.bak $UPDATEDBCONF
+        fi
+    }
+
     start_glusterfs;
 
     sleep 3;
