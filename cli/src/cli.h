@@ -176,6 +176,13 @@ int32_t
 cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                                    dict_t **options);
 
+int32_t
+cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options);
+int32_t
+cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options);
+int32_t
+cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options);
+
 cli_local_t * cli_local_get ();
 
 void

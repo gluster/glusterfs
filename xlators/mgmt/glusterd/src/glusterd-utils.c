@@ -765,8 +765,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    cmd_str[8192] = {0,};
         char                    rundir[PATH_MAX] = {0,};
         char                    exp_path[PATH_MAX] = {0,};
+        char                    logfile[PATH_MAX] = {0,};
         int                     port = 0;
-        int                     i = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -792,19 +792,23 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
-        for (i = 1; i < strlen (brickinfo->path); i++) {
-                exp_path[i-1] = brickinfo->path[i];
-                if (exp_path[i-1] == '/')
-                        exp_path[i-1] = '-';
-        }
+
+        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
         snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
                   brickinfo->hostname, exp_path);
+
+        if (!brickinfo->logfile) {
+                snprintf (logfile, PATH_MAX, "%s/logs/%s.log",
+                          priv->workdir, exp_path);
+                brickinfo->logfile = gf_strdup (logfile);
+        }
 
         snprintf (cmd_str, 8192,
                   "%s/sbin/glusterfs --xlator-option %s-server.listen-port=%d "
                   "-s localhost --volfile-id %s -p %s --brick-name %s "
-                  "--brick-port %d", GFS_PREFIX, volinfo->volname,
-                  port, volfile, pidfile, brickinfo->path, port);
+                  "--brick-port %d -l %s", GFS_PREFIX, volinfo->volname,
+                  port, volfile, pidfile, brickinfo->path, port,
+                  brickinfo->logfile);
         ret = gf_system (cmd_str);
 
         if (ret == 0) {
@@ -957,6 +961,9 @@ glusterd_is_cli_op_req (int32_t op)
                 case GD_MGMT_CLI_DEFRAG_VOLUME:
                 case GD_MGMT_CLI_ADD_BRICK:
                 case GD_MGMT_CLI_REMOVE_BRICK:
+                case GD_MGMT_CLI_LOG_FILENAME:
+                case GD_MGMT_CLI_LOG_LOCATE:
+                case GD_MGMT_CLI_LOG_ROTATE:
                         return _gf_true;
                         break;
         }

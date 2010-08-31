@@ -61,9 +61,6 @@ cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
         for (cmd = cli_probe_cmds; cmd->pattern; cmd++)
                 cli_out ("%s - %s", cmd->pattern, cmd->desc);
 
-        for (cmd = cli_log_cmds; cmd->pattern; cmd++)
-                cli_out ("%s - %s", cmd->pattern, cmd->desc);
-
         for (cmd = cli_misc_cmds; cmd->pattern; cmd++)
                 cli_out ("%s - %s", cmd->pattern, cmd->desc);
 

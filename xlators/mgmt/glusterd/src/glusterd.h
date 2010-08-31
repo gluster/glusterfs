@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <libgen.h>
 
 #include "uuid.h"
 
@@ -79,6 +80,7 @@ struct glusterd_brickinfo {
         struct list_head  brick_list;
         uuid_t  uuid;
         int     port;
+        char   *logfile;
         glusterd_store_handle_t *shandle;
 };
 
@@ -181,14 +183,18 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                   GLUSTERD_VOLUME_DIR_PREFIX, volinfo->volname, \
                   GLUSTERD_BRICK_INFO_DIR);
 
-#define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volpath,hostname,brickpath) { \
+#define GLUSTERD_REMOVE_SLASH_FROM_PATH(path,string) do {               \
                 int i = 0;                                              \
-                char exp_path[PATH_MAX] = {0,};                         \
-                for (i = 0; i < strlen (brickpath); i++) {              \
-                        exp_path[i] = brickpath[i];                     \
-                        if (exp_path[i] == '/')                         \
-                                exp_path[i] = '-';                      \
+                for (i = 1; i < strlen (path); i++) {                   \
+                        string[i-1] = path[i];                          \
+                        if (string[i-1] == '/')                         \
+                                string[i-1] = '-';                      \
                 }                                                       \
+        } while (0)
+
+#define GLUSTERD_GET_BRICK_PIDFILE(pidfile,volpath,hostname,brickpath) { \
+                char exp_path[PATH_MAX] = {0,};                         \
+                GLUSTERD_REMOVE_SLASH_FROM_PATH (brickpath, exp_path);  \
                 snprintf (pidfile, PATH_MAX, "%s/run/%s-%s.pid",        \
                           volpath, hostname, exp_path);                 \
         }
@@ -322,7 +328,6 @@ glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict);
 int
 glusterd_handle_add_brick (rpcsvc_request_t *req);
 
-
 int32_t
 glusterd_replace_brick (rpcsvc_request_t *req, dict_t *dict);
 
@@ -331,6 +336,18 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req);
 
 int
 glusterd_handle_remove_brick (rpcsvc_request_t *req);
+
+int
+glusterd_handle_log_filename (rpcsvc_request_t *req);
+int
+glusterd_handle_log_locate (rpcsvc_request_t *req);
+int
+glusterd_handle_log_rotate (rpcsvc_request_t *req);
+
+int32_t
+glusterd_log_filename (rpcsvc_request_t *req, dict_t *dict);
+int32_t
+glusterd_log_rotate (rpcsvc_request_t *req, dict_t *dict);
 
 int32_t
 glusterd_remove_brick (rpcsvc_request_t *req, dict_t *dict);

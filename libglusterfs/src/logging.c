@@ -43,11 +43,11 @@
 static pthread_mutex_t  logfile_mutex;
 static char            *filename = NULL;
 static uint8_t          logrotate = 0;
-
 static FILE            *logfile = NULL;
 static gf_loglevel_t    loglevel = GF_LOG_MAX;
 static int              gf_log_syslog = 0;
 
+char                    gf_log_xl_log_set;
 gf_loglevel_t           gf_log_loglevel; /* extern'd */
 FILE                   *gf_log_logfile;
 
@@ -100,6 +100,7 @@ gf_log_set_xl_loglevel (void *this, gf_loglevel_t level)
         xlator_t *xl = this;
         if (!xl)
                 return;
+        gf_log_xl_log_set = 1;
         xl->loglevel = level;
 }
 
@@ -260,10 +261,6 @@ log:
                 goto out;
 
 	tm    = localtime (&tv.tv_sec);
-
-	if (level > xlator_loglevel) {
-		goto out;
-	}
 
 	pthread_mutex_lock (&logfile_mutex);
 	{

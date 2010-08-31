@@ -286,6 +286,47 @@ struct gf1_cli_set_vol_rsp {
 };
 typedef struct gf1_cli_set_vol_rsp gf1_cli_set_vol_rsp;
 
+struct gf1_cli_log_filename_req {
+	char *volname;
+        char *brick;
+        char *path;
+};
+typedef struct gf1_cli_log_filename_req gf1_cli_log_filename_req;
+
+struct gf1_cli_log_filename_rsp {
+	int op_ret;
+	int op_errno;
+        char *errstr;
+};
+typedef struct gf1_cli_log_filename_rsp gf1_cli_log_filename_rsp;
+
+struct gf1_cli_log_locate_req {
+	char *volname;
+        char *brick;
+};
+typedef struct gf1_cli_log_locate_req gf1_cli_log_locate_req;
+
+struct gf1_cli_log_locate_rsp {
+	int op_ret;
+	int op_errno;
+        char *path;
+};
+typedef struct gf1_cli_log_locate_rsp gf1_cli_log_locate_rsp;
+
+struct gf1_cli_log_rotate_req {
+	char *volname;
+        char *brick;
+};
+typedef struct gf1_cli_log_rotate_req gf1_cli_log_rotate_req;
+
+struct gf1_cli_log_rotate_rsp {
+	int op_ret;
+	int op_errno;
+        char *errstr;
+};
+typedef struct gf1_cli_log_rotate_rsp gf1_cli_log_rotate_rsp;
+
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -322,6 +363,13 @@ extern  bool_t xdr_gf1_cli_replace_brick_req (XDR *, gf1_cli_replace_brick_req*)
 extern  bool_t xdr_gf1_cli_replace_brick_rsp (XDR *, gf1_cli_replace_brick_rsp*);
 extern  bool_t xdr_gf1_cli_set_vol_req (XDR *, gf1_cli_set_vol_req*);
 extern  bool_t xdr_gf1_cli_set_vol_rsp (XDR *, gf1_cli_set_vol_rsp*);
+extern  bool_t xdr_gf1_cli_log_filename_req (XDR *, gf1_cli_log_filename_req*);
+extern  bool_t xdr_gf1_cli_log_filename_rsp (XDR *, gf1_cli_log_filename_rsp*);
+extern  bool_t xdr_gf1_cli_log_locate_req (XDR *, gf1_cli_log_locate_req*);
+extern  bool_t xdr_gf1_cli_log_locate_rsp (XDR *, gf1_cli_log_locate_rsp*);
+extern  bool_t xdr_gf1_cli_log_rotate_req (XDR *, gf1_cli_log_rotate_req*);
+extern  bool_t xdr_gf1_cli_log_rotate_rsp (XDR *, gf1_cli_log_rotate_rsp*);
+
 
 #else /* K&R C */
 extern bool_t xdr_gf1_cluster_type ();
@@ -357,6 +405,12 @@ extern bool_t xdr_gf1_cli_replace_brick_req ();
 extern bool_t xdr_gf1_cli_replace_brick_rsp ();
 extern bool_t xdr_gf1_cli_set_vol_req ();
 extern bool_t xdr_gf1_cli_set_vol_rsp ();
+extern bool_t xdr_gf1_cli_log_filename_req ();
+extern bool_t xdr_gf1_cli_log_filename_rsp ();
+extern bool_t xdr_gf1_cli_log_locate_req ();
+extern bool_t xdr_gf1_cli_log_locate_rsp ();
+extern bool_t xdr_gf1_cli_log_rotate_req ();
+extern bool_t xdr_gf1_cli_log_rotate_rsp ();
 
 #endif /* K&R C */
 
