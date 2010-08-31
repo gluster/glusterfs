@@ -1679,7 +1679,7 @@ __rdma_ioq_churn_entry (rdma_peer_t *peer, rdma_ioq_t *entry)
                         ret = __rdma_ioq_churn_reply (peer, entry, post);
                 }
 
-                if (ret > 0) {
+                if (ret != 0) {
                         __rdma_ioq_entry_free (entry);
                 }
         }
