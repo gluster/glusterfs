@@ -44,6 +44,7 @@
 typedef uint16_t                nfs3_hash_entry_t;
 #define GF_NFSFH_ENTRYHASH_SIZE (sizeof (nfs3_hash_entry_t))
 #define GF_NFSFH_MAXHASHES      ((int)(GF_NFSFH_MAX_HASH_BYTES / GF_NFSFH_ENTRYHASH_SIZE))
+#define nfs3_fh_hashcounted_size(hcount) (GF_NFSFH_STATIC_SIZE + (hcount * GF_NFSFH_ENTRYHASH_SIZE))
 
 /* ATTENTION: Change in size of the structure below should be reflected in the
  * GF_NFSFH_STATIC_SIZE.

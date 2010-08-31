@@ -220,6 +220,7 @@ int
 nfs3_fh_build_child_fh (struct nfs3_fh *parent, struct iatt *newstat,
                         struct nfs3_fh *newfh)
 {
+        int             hashcount = 0;
         int             entry = 0;
 
         if ((!parent) || (!newstat) || (!newfh))
@@ -234,10 +235,23 @@ nfs3_fh_build_child_fh (struct nfs3_fh *parent, struct iatt *newstat,
         }
 
         newfh->hashcount = parent->hashcount + 1;
+        /* Only copy the hashes that are available in the parent file
+         * handle. */
+        if (parent->hashcount > GF_NFSFH_MAXHASHES)
+                hashcount = GF_NFSFH_MAXHASHES;
+        else
+                hashcount = parent->hashcount;
+
         memcpy (newfh->entryhash, parent->entryhash,
-                parent->hashcount * GF_NFSFH_ENTRYHASH_SIZE);
-        entry = newfh->hashcount - 1;
-        newfh->entryhash[entry] = nfs3_fh_hash_entry (parent->ino, parent->gen);
+                hashcount * GF_NFSFH_ENTRYHASH_SIZE);
+
+        /* Do not insert parent dir hash if there is no space left in the hash
+         * array of the child entry. */
+        if (newfh->hashcount <= GF_NFSFH_MAXHASHES) {
+                entry = newfh->hashcount - 1;
+                newfh->entryhash[entry] = nfs3_fh_hash_entry (parent->ino,
+                                                              parent->gen);
+        }
 
 done:
 //        nfs3_log_fh (newfh);
@@ -249,11 +263,17 @@ done:
 uint32_t
 nfs3_fh_compute_size (struct nfs3_fh *fh)
 {
+        uint32_t        fhlen = 0;
+
         if (!fh)
                 return 0;
 
-        return (GF_NFSFH_STATIC_SIZE +
-                        (fh->hashcount * GF_NFSFH_ENTRYHASH_SIZE));
+        if (fh->hashcount <= GF_NFSFH_MAXHASHES)
+                fhlen = nfs3_fh_hashcounted_size (fh->hashcount);
+        else
+                fhlen = nfs3_fh_hashcounted_size (GF_NFSFH_MAXHASHES);
+
+        return fhlen;
 }
 
 int
