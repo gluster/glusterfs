@@ -199,12 +199,10 @@ nfs3_call_state_wipe (nfs3_call_state_t *cs)
 
         nfs3 = cs->nfs3state;
         if (cs->fd) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "fd ref: %d", cs->fd->refcount);
+                gf_log (GF_NFS3, GF_LOG_TRACE, "fd 0x%lx ref: %d",
+                        (long)cs->fd, cs->fd->refcount);
                 fd_unref (cs->fd);
         }
-
-        if (cs->resolve_dir_fd)
-                fd_unref (cs->resolve_dir_fd);
 
         if (cs->resolventry)
                 GF_FREE (cs->resolventry);

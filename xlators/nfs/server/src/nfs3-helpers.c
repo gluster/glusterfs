@@ -2704,14 +2704,16 @@ nfs3_fh_resolve_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         cs->resolvedloc.path);
 
         nfs_user_root_create (&nfu);
-        /* This function can be called in a recursive code path, so if another
-         * directory was opened in an earlier call, we must unref through this
-         * reference before opening another fd_t.
+        /* Keep this directory fd_t around till we have either:
+         * a. found the entry,
+         * b. exhausted all the entries,
+         * c. decide to step into a child directory.
+         *
+         * This decision is made in nfs3_fh_resolve_check_response.
          */
-        if (cs->resolve_dir_fd)
-                fd_unref (cs->resolve_dir_fd);
-
-        cs->resolve_dir_fd = fd_ref (fd);
+        cs->resolve_dir_fd = fd;
+        gf_log (GF_NFS3, GF_LOG_TRACE, "resolve new fd refed: 0x%lx, ref: %d",
+                (long)cs->resolve_dir_fd, cs->resolve_dir_fd->refcount);
         ret = nfs_readdirp (cs->nfsx, cs->vol, &nfu, fd, GF_NFS3_DTPREF, 0,
                             nfs3_fh_resolve_readdir_cbk, cs);
 
