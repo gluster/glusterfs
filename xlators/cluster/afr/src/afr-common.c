@@ -597,10 +597,13 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
 {
         int  unwind = 1;
         int  source = -1;
+        int  up_count = 0;
         char sh_type_str[256] = {0,};
 
-        afr_local_t *local = NULL;
+        afr_private_t *priv  = NULL;
+        afr_local_t   *local = NULL;
 
+        priv  = this->private;
         local = frame->local;
 
         local->cont.lookup.postparent.ia_ino  = local->cont.lookup.parent_ino;
@@ -608,6 +611,13 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
         if (local->cont.lookup.ino) {
                 local->cont.lookup.buf.ia_ino = local->cont.lookup.ino;
                 local->cont.lookup.buf.ia_gen = local->cont.lookup.gen;
+        }
+
+        up_count = afr_up_children_count (priv->child_count, priv->child_up);
+        if (up_count == 1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Only 1 child up - do not attempt to detect self heal");
+                goto unwind;
         }
 
         if (local->op_ret == 0) {
@@ -689,6 +699,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                 }
         }
 
+unwind:
         if (unwind) {
                 AFR_STACK_UNWIND (lookup, frame, local->op_ret,
                                   local->op_errno,
