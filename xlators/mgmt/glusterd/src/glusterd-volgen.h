@@ -37,6 +37,12 @@
 #include "cli1.h"
 #include "glusterd-mem-types.h"
 
+#define VOLGEN_GET_NFS_DIR(path)                                      \
+        do {                                                            \
+                glusterd_conf_t *priv = THIS->private;                  \
+                snprintf (path, PATH_MAX, "%s/nfs", priv->workdir);\
+        } while (0);                                                    \
+
 #define VOLGEN_GET_VOLUME_DIR(path, volinfo)                            \
         do {                                                            \
                 glusterd_conf_t *priv = THIS->private;                  \
@@ -130,4 +136,9 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
 int32_t
 glusterd_default_xlator_options (glusterd_volinfo_t *volinfo);
 
+char *
+glusterd_get_nfs_filepath ();
+
+int
+volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo);
 #endif

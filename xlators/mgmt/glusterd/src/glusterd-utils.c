@@ -1461,3 +1461,192 @@ out:
 
         return ret;
 }
+
+int
+glusterd_file_copy (int out, int in)
+{
+        int     read_size = 0;
+        char    buffer[16 * 1024];
+        int     ret = -1;
+
+        if (out <= 0 || in < 0) {
+                gf_log ("", GF_LOG_ERROR, "Invalid File descriptors");
+                goto out;
+        }
+
+        while (1) {
+                read_size = read(in, buffer, sizeof(buffer));
+
+                if (read_size == 0) {
+                        ret = 0;
+                        break;              /* end of file */
+                }
+
+                if (read_size < 0) {
+                        ret = -1;
+                        break; /*error reading file); */
+                }
+                write (out, buffer, (unsigned int) read_size);
+        }
+out:
+        return ret;
+}
+
+gf_boolean_t
+glusterd_is_nfs_started ()
+{
+        int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        char                    pidfile[PATH_MAX] = {0,};
+
+        this = THIS;
+        GF_ASSERT(this);
+
+        priv = this->private;
+
+        GLUSTERD_GET_NFS_PIDFILE(pidfile);
+        ret = access (pidfile, F_OK);
+
+        if (ret == 0)
+                return _gf_true;
+        else
+                return _gf_false;
+}
+
+int32_t
+glusterd_nfs_server_start ()
+{
+        int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        char                    pidfile[PATH_MAX] = {0,};
+        char                    *volfile = NULL;
+        char                    path[PATH_MAX] = {0,};
+        char                    cmd_str[8192] = {0,};
+        char                    rundir[PATH_MAX] = {0,};
+
+        this = THIS;
+        GF_ASSERT(this);
+
+        priv = this->private;
+
+        GLUSTERD_GET_NFS_DIR(path, priv);
+        snprintf (rundir, PATH_MAX, "%s/run", path);
+        ret = mkdir (rundir, 0777);
+
+        if ((ret == -1) && (EEXIST != errno)) {
+                gf_log ("", GF_LOG_ERROR, "Unable to create rundir %s",
+                        rundir);
+                goto out;
+        }
+
+        GLUSTERD_GET_NFS_PIDFILE(pidfile);
+        volfile = glusterd_get_nfs_filepath ();
+        if (!volfile) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = access (volfile, F_OK);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Nfs Volfile %s is not present",
+                        volfile);
+                goto out;
+        }
+
+        snprintf (cmd_str, 8192,
+                  "%s/sbin/glusterfs  -f %s -p %s",
+                  GFS_PREFIX, volfile, pidfile);
+        ret = gf_system (cmd_str);
+
+out:
+        if (volfile)
+                GF_FREE(volfile);
+        return ret;
+}
+
+int32_t
+glusterd_nfs_server_stop ()
+{
+        int32_t                 ret = -1;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        char                    pidfile[PATH_MAX] = {0,};
+        char                    path[PATH_MAX] = {0,};
+        pid_t                   pid = -1;
+        FILE                    *file = NULL;
+
+        this = THIS;
+        GF_ASSERT(this);
+
+        priv = this->private;
+
+        GLUSTERD_GET_NFS_DIR(path, priv);
+        GLUSTERD_GET_NFS_PIDFILE(pidfile);
+
+        file = fopen (pidfile, "r+");
+
+        if (!file) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                                pidfile);
+                ret = -1;
+                goto out;
+        }
+
+        ret = fscanf (file, "%d", &pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                                pidfile);
+                ret = -1;
+                goto out;
+        }
+        fclose (file);
+        file = NULL;
+
+        gf_log ("", GF_LOG_NORMAL, "Stopping glusterfs running in pid: %d",
+                pid);
+
+        ret = kill (pid, SIGTERM);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
+                goto out;
+        }
+
+        ret = unlink (pidfile);
+
+        if (ret && (ENOENT != errno)) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unlink pidfile: %s",
+                                pidfile);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (file)
+                fclose (file);
+        return ret;
+}
+
+gf_boolean_t
+glusterd_are_all_volumes_stopped ()
+{
+        glusterd_conf_t                         *priv = NULL;
+        xlator_t                                *this = NULL;
+        glusterd_volinfo_t                      *voliter = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status == GLUSTERD_STATUS_STARTED)
+                        return _gf_false;
+        }
+
+        return _gf_true;
+
+}
+

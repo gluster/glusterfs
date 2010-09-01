@@ -36,6 +36,7 @@
 #include "cli1.h"
 #include "glusterd-mem-types.h"
 #include "glusterd-volgen.h"
+#include "glusterd-utils.h"
 
 static int
 set_xlator_option (dict_t *dict, char *key,
@@ -638,6 +639,31 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
                  opt_maxthreads,
                  subvolume);
 
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
+__write_access_control_xlator (FILE *file, dict_t *dict,
+                               char *subvolume)
+{
+        char  *volname       = NULL;
+        int    ret           = -1;
+
+        const char *ac_str = "volume %s-access-control\n"
+                             "type features/access-control\n"
+                             "subvolumes %s\n"
+                             "end-volume\n";
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                goto out;
+        }
+
+
+        fprintf (file, ac_str, volname, subvolume);
         ret = 0;
 
 out:
@@ -1300,6 +1326,15 @@ generate_server_volfile (glusterd_brickinfo_t *brickinfo,
 
         VOLGEN_GENERATE_VOLNAME (subvol, volname, "posix");
 
+        ret = __write_access_control_xlator (file, dict, subvol);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not write xlator");
+                goto out;
+        }
+
+        VOLGEN_GENERATE_VOLNAME (subvol, volname, "access-control");
+
         ret = __write_locks_xlator (file, dict, subvol);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
@@ -1584,8 +1619,31 @@ out:
         return ret;
 }
 
+char *
+glusterd_get_nfs_filepath ()
+{
+        char  path[PATH_MAX] = {0,};
+        char *ret            = NULL;
+        char *filepath       = NULL;
+
+        filepath = GF_CALLOC (1, PATH_MAX, gf_common_mt_char);
+        if (!filepath) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate nfs file path");
+                goto out;
+        }
+
+        VOLGEN_GET_NFS_DIR (path);
+
+        snprintf (filepath, PATH_MAX, "%s/nfs-server.vol", path);
+
+        ret = filepath;
+out:
+        return ret;
+}
+
+
 static char *
-get_client_filename (glusterd_volinfo_t *volinfo)
+get_client_filepath (glusterd_volinfo_t *volinfo)
 {
         char  path[PATH_MAX] = {0,};
         char *ret            = NULL;
@@ -1644,12 +1702,161 @@ out:
 }
 
 static int
+glusterfsd_write_nfs_xlator (int fd, char *subvols)
+{
+        char    buffer[1024] = {0,};
+        if (fd <= 0)
+                return -1;
+        const char *nfs_str = "volume nfs-server\n"
+                              "type nfs/server\n"
+                              "subvolumes %s\n"
+                              "option rpc­auth.addr.allow *\n"
+                              "end-volume\n";
+        snprintf (buffer, sizeof(buffer), nfs_str, subvols);
+        write (fd, buffer, (unsigned int) strlen(buffer));
+        return 0;
+}
+
+int
+volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
+{
+        char                 *nfs_filepath      = NULL;
+        char                 *fuse_filepath     = NULL;
+        int                  nfs_fd             = -1;
+        int                  fuse_fd            = -1;
+        int                  ret                = -1;
+        char                 nfs_orig_path[PATH_MAX] = {0,};
+        char                 *pad               = NULL;
+        char                 *nfs_subvols       = NULL;
+        char                 fuse_subvols[2048] = {0,};
+        char                 *fuse_top_xlator = "stat-prefetch";
+        int                  subvol_len = 0;
+        glusterd_volinfo_t   *voliter = NULL;
+        glusterd_conf_t                         *priv = NULL;
+        xlator_t                                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+        if (!volinfo) {
+                gf_log ("", GF_LOG_ERROR, "Invalid Volume info");
+                goto out;
+        }
+
+        nfs_filepath = glusterd_get_nfs_filepath (volinfo);
+        if (!nfs_filepath)
+                goto out;
+
+        strncat (nfs_filepath, ".tmp", PATH_MAX);
+        nfs_fd = open (nfs_filepath, O_WRONLY|O_TRUNC|O_CREAT, 0666);
+        if (nfs_fd < 0) {
+                gf_log ("", GF_LOG_ERROR, "Could not open file: %s",
+                        nfs_filepath);
+                goto out;
+        }
+
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+                else
+                        subvol_len += (strlen (voliter->volname) +
+                                       strlen (fuse_top_xlator) + 2); //- + ' '
+        }
+
+        if (subvol_len == 0) {
+                gf_log ("", GF_LOG_ERROR, "No volumes started");
+                ret = -1;
+                goto out;
+        } else {
+                subvol_len++; //null character
+                nfs_subvols = GF_CALLOC (subvol_len, sizeof(*nfs_subvols),
+                                         gf_common_mt_char);
+                if (!nfs_subvols) {
+                        gf_log ("", GF_LOG_ERROR, "Memory not available");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        voliter = NULL;
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+
+                gf_log ("", GF_LOG_DEBUG,
+                        "adding fuse info of - %s", voliter->volname);
+
+                snprintf (fuse_subvols, sizeof(fuse_subvols), " %s-%s",
+                          voliter->volname, fuse_top_xlator);
+                fuse_filepath = get_client_filepath (voliter);
+                if (!fuse_filepath) {
+                        ret = -1;
+                        goto out;
+                }
+
+                fuse_fd = open (fuse_filepath, O_RDONLY);
+                if (fuse_fd < 0) {
+                        gf_log ("", GF_LOG_ERROR, "Could not open file: %s",
+                                fuse_filepath);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = glusterd_file_copy (nfs_fd, fuse_fd);
+                if (ret)
+                        goto out;
+                GF_FREE (fuse_filepath);
+                fuse_filepath = NULL;
+                close (fuse_fd);
+                fuse_fd = -1;
+                if (subvol_len > strlen (fuse_subvols)) {
+                        strncat (nfs_subvols, fuse_subvols, subvol_len - 1);
+                        subvol_len -= strlen (fuse_subvols);
+                } else {
+                        ret = -1;
+                        gf_log ("", GF_LOG_ERROR, "Too many subvolumes");
+                        goto out;
+                }
+        }
+
+        ret = glusterfsd_write_nfs_xlator (nfs_fd, nfs_subvols);
+        if (ret)
+                goto out;
+
+        strncpy (nfs_orig_path, nfs_filepath, PATH_MAX);
+        pad = strrchr (nfs_orig_path, '.');
+        if (!pad) {
+                gf_log ("", GF_LOG_ERROR, "Failed to find the pad in nfs pat");
+                ret = -1;
+                goto out;
+        }
+        *pad = '\0';
+        ret = rename (nfs_filepath, nfs_orig_path);
+out:
+        if (ret && nfs_filepath)
+                unlink (nfs_filepath);
+        if (fuse_filepath)
+                GF_FREE (fuse_filepath);
+        if (nfs_filepath)
+                GF_FREE (nfs_filepath);
+        if (nfs_subvols)
+                GF_FREE (nfs_subvols);
+        if (fuse_fd > 0)
+                close (fuse_fd);
+        if (nfs_fd > 0)
+                close (nfs_fd);
+        return ret;
+}
+
+static int
 generate_client_volfiles (glusterd_volinfo_t *volinfo)
 {
         char                 *filename    = NULL;
         int                   ret         = -1;
 
-        filename = get_client_filename (volinfo);
+        filename = get_client_filepath (volinfo);
         if (!filename) {
                 gf_log ("", GF_LOG_ERROR,
                         "Out of memory");
