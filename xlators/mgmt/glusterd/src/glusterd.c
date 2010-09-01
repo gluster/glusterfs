@@ -313,6 +313,15 @@ init (xlator_t *this)
                 exit (1);
         }
 
+        snprintf (voldir, PATH_MAX, "%s/nfs", dirname);
+        ret = mkdir (voldir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create nfs directory %s"
+                        " ,errno = %d", voldir, errno);
+                exit (1);
+        }
+
         rpc = rpcsvc_init (this->ctx, this->options);
         if (rpc == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,

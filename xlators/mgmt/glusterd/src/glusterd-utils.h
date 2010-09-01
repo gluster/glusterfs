@@ -127,4 +127,19 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status);
 int
 glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo);
 
+gf_boolean_t
+glusterd_is_nfs_started ();
+
+int32_t
+glusterd_nfs_server_start ();
+
+int32_t
+glusterd_nfs_server_stop ();
+
+int
+glusterd_file_copy (int out, int in);
+
+gf_boolean_t
+glusterd_are_all_volumes_stopped ();
+
 #endif

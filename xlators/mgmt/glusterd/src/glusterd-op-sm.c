@@ -289,6 +289,30 @@ out:
         return ret;
 }
 
+static int
+glusterd_check_generate_start_nfs (glusterd_volinfo_t *volinfo)
+{
+        int ret = -1;
+
+        if (!volinfo) {
+                gf_log ("", GF_LOG_ERROR, "Invalid Arguments");
+                goto out;
+        }
+
+        ret = volgen_generate_nfs_volfile (volinfo);
+        if (ret)
+                goto out;
+
+        if (glusterd_is_nfs_started ()) {
+                ret = glusterd_nfs_server_stop ();
+                if (ret)
+                        goto out;
+        }
+
+        ret = glusterd_nfs_server_start ();
+out:
+        return ret;
+}
 
 static int
 glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
@@ -1181,7 +1205,8 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
         if (ret)
                 goto out;
 
-
+        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+                ret = glusterd_check_generate_start_nfs (volinfo);
 
 out:
         if (dict)
@@ -2151,7 +2176,8 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
         if (ret)
                 goto out;
 
-
+        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+                ret = glusterd_check_generate_start_nfs (volinfo);
 
 out:
         if (dict)
@@ -2247,6 +2273,10 @@ glusterd_op_start_volume (gd1_mgmt_stage_op_req *req)
                 goto out;
 
         ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_check_generate_start_nfs (volinfo);
 
 out:
         return ret;
@@ -2495,6 +2525,16 @@ glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
                 goto out;
 
         ret = glusterd_volume_compute_cksum (volinfo);
+
+        if (glusterd_are_all_volumes_stopped ()) {
+                if (glusterd_is_nfs_started ()) {
+                        ret = glusterd_nfs_server_stop ();
+                        if (ret)
+                                goto out;
+                }
+        } else {
+                ret = glusterd_check_generate_start_nfs (volinfo);
+        }
 
 out:
         if (flags & GF_CLI_FLAG_OP_FORCE)
