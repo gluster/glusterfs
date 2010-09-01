@@ -3048,6 +3048,8 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                         __rdma_request_context_destroy (request_context);
                 }
                 pthread_mutex_unlock (&priv->write_mutex);
+
+                pollin->is_reply = 1;
         }
 
         ret = rpc_transport_notify (peer->trans, RPC_TRANSPORT_MSG_RECEIVED,
