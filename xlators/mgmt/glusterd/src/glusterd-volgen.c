@@ -350,13 +350,13 @@ __write_posix_xlator (FILE *file, dict_t *dict,
         int         ret                     = -1;
 
         const char *posix_str = "volume %s-%s\n"
-                "type storage/posix\n"
-                "option directory %s\n"
-                "#option o-direct %s\n"
-                "#option export-statfs-size %s\n"
-                "#option mandate-attribute %s\n"
-                "#option span-devices %s\n"
-                "#option background-unlink %s\n"
+                "    type storage/posix\n"
+                "    option directory %s\n"
+                "#   option o-direct %s\n"
+                "#   option export-statfs-size %s\n"
+                "#   option mandate-attribute %s\n"
+                "#   option span-devices %s\n"
+                "#   option background-unlink %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -420,10 +420,10 @@ __write_locks_xlator (FILE *file, dict_t *dict,
         int         ret               = -1;
 
         const char *locks_str = "volume %s-%s\n"
-                "type features/locks\n"
-                "#option trace %s\n"
-                "#option mandatory %s\n"
-                "subvolumes %s\n"
+                "    type features/locks\n"
+                "#   option trace %s\n"
+                "#   option mandatory %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -469,11 +469,11 @@ __write_client_xlator (FILE *file, dict_t *dict,
 
 
         const char *client_str = "volume %s-%s-%d\n"
-                "type protocol/client\n"
-                "option transport-type %s\n"
-                "option remote-host %s\n"
-                "option transport.socket.nodelay %s\n"
-                "option remote-subvolume %s\n"
+                "    type protocol/client\n"
+                "    option transport-type %s\n"
+                "    option remote-host %s\n"
+                "    option transport.socket.nodelay %s\n"
+                "    option remote-subvolume %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -518,10 +518,10 @@ __write_replace_brick_xlator (FILE *file, dict_t *dict)
 
 
         const char *client_str = "volume %s-%s\n"
-                "type protocol/client\n"
-                "option transport-type %s\n"
-                "option remote-port 34034\n"
-                "option transport.socket.nodelay %s\n"
+                "    type protocol/client\n"
+                "    option transport-type %s\n"
+                "    option remote-port 34034\n"
+                "    option transport.socket.nodelay %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -561,8 +561,8 @@ __write_pump_xlator (FILE *file, dict_t *dict,
         int   ret       = -1;
 
         const char *pump_str = "volume %s-%s\n"
-                "type cluster/pump\n"
-                "subvolumes %s %s-replace-brick\n"
+                "    type cluster/pump\n"
+                "    subvolumes %s %s-replace-brick\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -593,12 +593,12 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
         int         ret               = -1;
 
         const char *iot_str = "volume %s\n"
-                "type performance/io-threads\n"
-                "option thread-count %s\n"
-                "#option autoscaling %s\n"
-                "#option min-threads %s\n"
-                "#option max-threads %s\n"
-                "subvolumes %s\n"
+                "    type performance/io-threads\n"
+                "    option thread-count %s\n"
+                "#   option autoscaling %s\n"
+                "#   option min-threads %s\n"
+                "#   option max-threads %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "export-path", &volname);
@@ -654,11 +654,11 @@ __write_server_xlator (FILE *file, dict_t *dict,
         int    ret           = -1;
 
         const char *server_str = "volume %s-%s\n"
-                "type protocol/server\n"
-                "option transport-type %s\n"
-                "option auth.addr.%s.allow *\n"
-                "option transport.socket.nodelay %s\n"
-                "subvolumes %s\n"
+                "    type protocol/server\n"
+                "    option transport-type %s\n"
+                "    option auth.addr.%s.allow *\n"
+                "    option transport.socket.nodelay %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -695,6 +695,7 @@ static int
 __write_replicate_xlator (FILE *file, dict_t *dict,
                           char *subvolume,
                           int replicate_count,
+                          int subvol_count,
                           int count)
 {
         char *volname               = NULL;
@@ -713,24 +714,27 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
         char        subvol_str[8192]      = {0,};
         char        tmp[4096]             = {0,};
         int         ret                   = -1;
+        int         subvolume_count       = 0;
         int         i                     = 0;
 
         const char *replicate_str = "volume %s-%s-%d\n"
-                "type cluster/replicate\n"
-                "#option read-subvolume %s\n"
-                "#option favorite-child %s\n"
-                "#option background-self-heal-count %s\n"
-                "#option data-self-heal %s\n"
-                "#option data-self-heal-algorithm %s\n"
-                "#option data-self-heal-window-size %s\n"
-                "#option metadata-self-heal %s\n"
-                "#option entry-self-heal %s\n"
-                "#option data-change-log %s\n"
-                "#option metadata-change-log %s\n"
-                "#option entry-change-log %s\n"
-                "#option strict-readdir %s\n"
-                "subvolumes %s\n"
+                "    type cluster/replicate\n"
+                "#   option read-subvolume %s\n"
+                "#   option favorite-child %s\n"
+                "#   option background-self-heal-count %s\n"
+                "#   option data-self-heal %s\n"
+                "#   option data-self-heal-algorithm %s\n"
+                "#   option data-self-heal-window-size %s\n"
+                "#   option metadata-self-heal %s\n"
+                "#   option entry-self-heal %s\n"
+                "#   option data-change-log %s\n"
+                "#   option metadata-change-log %s\n"
+                "#   option entry-change-log %s\n"
+                "#   option strict-readdir %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
+
+        subvolume_count = subvol_count;
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -810,8 +814,10 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
         }
 
         for (i = 0; i < replicate_count; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume, i);
+                snprintf (tmp, 4096, "%s-%d ", subvolume,
+                          subvolume_count);
                 strncat (subvol_str, tmp, strlen (tmp));
+                subvolume_count++;
         }
 
         fprintf (file, replicate_str,
@@ -843,6 +849,7 @@ static int
 __write_stripe_xlator (FILE *file, dict_t *dict,
                        char *subvolume,
                        int stripe_count,
+                       int subvol_count,
                        int count)
 {
         char *volname = NULL;
@@ -850,15 +857,18 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
         char       *opt_usexattr     = NULL;
         char        subvol_str[8192] = {0,};
         char        tmp[4096]        = {0,};
+        int         subvolume_count  = 0;
         int         ret              = -1;
         int         i                = 0;
 
         const char *stripe_str = "volume %s-%s-%d\n"
-                "type cluster/stripe\n"
-                "#option block-size %s\n"
-                "#option use-xattr %s\n"
-                "subvolumes %s\n"
+                "    type cluster/stripe\n"
+                "#   option block-size %s\n"
+                "#   option use-xattr %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
+
+        subvolume_count = subvol_count;
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -879,14 +889,15 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
 
 
         for (i = 0; i < stripe_count; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume, i);
+                snprintf (tmp, 4096, "%s-%d ", subvolume, subvolume_count);
                 strncat (subvol_str, tmp, strlen (tmp));
+                subvolume_count++;
         }
 
         fprintf (file, stripe_str,
                  volname,
-                 count,
                  "stripe",
+                 count,
                  opt_blocksize,
                  opt_usexattr,
                  subvol_str);
@@ -914,10 +925,10 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
 
         const char *dht_str = "volume %s-%s\n"
                 "type cluster/distribute\n"
-                "#option lookup-unhashed %s\n"
-                "#option min-free-disk %s\n"
-                "#option unhashed-sticky-bit %s\n"
-                "subvolumes %s\n"
+                "#   option lookup-unhashed %s\n"
+                "#   option min-free-disk %s\n"
+                "#   option unhashed-sticky-bit %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -976,13 +987,13 @@ __write_wb_xlator (FILE *file, dict_t *dict,
         int          ret                 = -1;
 
         const char *dht_str = "volume %s-%s\n"
-                "type performance/write-behind\n"
-                "#option flush-behind %s\n"
-                "#option cache-size %s\n"
-                "#option disable-for-first-nbytes %s\n"
-                "#option enable-O_SYNC %s\n"
-                "#option enable-trickling-writes %s\n"
-                "subvolumes %s\n"
+                "    type performance/write-behind\n"
+                "#   option flush-behind %s\n"
+                "#   option cache-size %s\n"
+                "#   option disable-for-first-nbytes %s\n"
+                "#   option enable-O_SYNC %s\n"
+                "#   option enable-trickling-writes %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -1047,10 +1058,10 @@ __write_ra_xlator (FILE *file, dict_t *dict,
         int         ret           = -1;
 
         const char *ra_str = "volume %s-%s\n"
-                "type performance/read-ahead\n"
-                "#option force-atime-update %s\n"
-                "#option page-count %s\n"
-                "subvolumes %s\n"
+                "    type performance/read-ahead\n"
+                "#   option force-atime-update %s\n"
+                "#   option page-count %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -1097,13 +1108,13 @@ __write_iocache_xlator (FILE *file, dict_t *dict,
         int         ret             = -1;
 
         const char *iocache_str = "volume %s-%s\n"
-                "type performance/io-cache\n"
-                "#option priority %s\n"
-                "#option cache-timeout %s\n"
-                "#option cache-size %s\n"
-                "#option min-file-size %s\n"
-                "#option max-file-size %s\n"
-                "subvolumes %s\n"
+                "    type performance/io-cache\n"
+                "#   option priority %s\n"
+                "#   option cache-timeout %s\n"
+                "#   option cache-size %s\n"
+                "#   option min-file-size %s\n"
+                "#   option max-file-size %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -1170,12 +1181,12 @@ __write_qr_xlator (FILE *file, dict_t *dict,
         int         ret             = -1;
 
         const char *qr_str = "volume %s-%s\n"
-                "type performance/quick-read\n"
-                "#option priority %s\n"
-                "#option cache-timeout %s\n"
-                "#option cache-size %s\n"
-                "#option max-file-size %s\n"
-                "subvolumes %s\n"
+                "    type performance/quick-read\n"
+                "#   option priority %s\n"
+                "#   option cache-timeout %s\n"
+                "#   option cache-size %s\n"
+                "#   option max-file-size %s\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -1230,8 +1241,8 @@ __write_statprefetch_xlator (FILE *file, dict_t *dict,
         int   ret     = -1;
 
         const char *statprefetch_str = "volume %s-%s\n"
-                "type performance/stat-prefetch\n"
-                "subvolumes %s\n"
+                "    type performance/stat-prefetch\n"
+                "    subvolumes %s\n"
                 "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
@@ -1352,6 +1363,7 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         int32_t  stripe_count       = 0;
         int32_t  dist_count         = 0;
         int32_t  num_bricks         = 0;
+        int      subvol_count       = 0;
         int      count              = 0;
         int      i                  = 0;
         int      ret                = -1;
@@ -1418,32 +1430,43 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         }
 
         if (replicate_count > 1) {
+                subvol_count = 0;
                 for (i = 0; i < dist_count; i++) {
 
                         VOLGEN_GENERATE_VOLNAME (subvol, volname, "client");
 
                         ret = __write_replicate_xlator (file, dict, subvol,
-                                                        replicate_count, i);
+                                                        replicate_count,
+                                                        subvol_count,
+                                                        i);
                         if (ret) {
                                 gf_log ("", GF_LOG_DEBUG,
                                         "Count not write xlator");
                                 goto out;
                         }
+
+                        subvol_count += replicate_count;
+
                 }
         }
 
         if (stripe_count > 1) {
+                subvol_count = 0;
                 for (i = 0; i < dist_count; i++) {
 
                         VOLGEN_GENERATE_VOLNAME (subvol, volname, "client");
 
                         ret = __write_stripe_xlator (file, dict, subvol,
-                                                     stripe_count, i);
+                                                     stripe_count,
+                                                     subvol_count,
+                                                     i);
                         if (ret) {
                                 gf_log ("", GF_LOG_DEBUG,
                                         "Count not write xlator");
                                 goto out;
                         }
+
+                        subvol_count += stripe_count;
                 }
 
         }
