@@ -1184,6 +1184,7 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
                         gf_log ("", GF_LOG_DEBUG, "Destroying store handle");
                         glusterd_store_handle_destroy (peerinfo->shandle);
                         peerinfo->shandle = NULL;
+                        ret = remove (hostname_path);
                 }
         }
 

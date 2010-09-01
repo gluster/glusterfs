@@ -1130,7 +1130,7 @@ brick_validation:
                                     hostname) && !strcmp(brickinfo->path,
                                     tmpbrkinfo->path))) {
                                         snprintf(err_str, 1048, "Brick %s already"
-                                                "in use", brick);
+                                                " in use", brick);
                                         gf_log ("glusterd", GF_LOG_ERROR, "%s",
                                                 err_str);
                                         err_ret = 1;
