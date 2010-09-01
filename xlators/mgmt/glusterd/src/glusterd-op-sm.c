@@ -441,6 +441,12 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req)
                 }
         }
 
+        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "volume already started");
+                ret = -1;
+        }
+
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
