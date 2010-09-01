@@ -704,6 +704,8 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to remove brick");
         cli_out ("Remove Brick %s", (rsp.op_ret) ? "unsuccessful":
                                         "successful");
+        if (rsp.op_ret && rsp.op_errstr)
+                cli_out ("%s", rsp.op_errstr);
 
         ret = rsp.op_ret;
 

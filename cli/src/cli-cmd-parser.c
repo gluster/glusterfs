@@ -439,6 +439,10 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         int     count = 0;
         char    key[50];
         int     brick_count = 0, brick_index = 0;
+        int32_t tmp_index = 0;
+        int32_t j = 0;
+        char    *tmp_brick = NULL;
+        char    *tmp_brick1 = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -495,6 +499,25 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         if (ret)
                 goto out;
 
+        tmp_index = brick_index;
+        tmp_brick = GF_MALLOC(2048 * sizeof(*tmp_brick), gf_common_mt_char);
+
+        if (!tmp_brick) {
+                gf_log ("",GF_LOG_ERROR,"cli_cmd_volume_remove_brick_parse: "
+                        "Unable to get memory");
+                ret = -1;
+                goto out;
+        }
+ 
+        tmp_brick1 = GF_MALLOC(2048 * sizeof(*tmp_brick1), gf_common_mt_char);
+
+        if (!tmp_brick1) {
+                gf_log ("",GF_LOG_ERROR,"cli_cmd_volume_remove_brick_parse: "
+                        "Unable to get memory");
+                ret = -1;
+                goto out;
+        }
+
         while (brick_index < wordcount) {
                 delimiter = strchr(words[brick_index], ':');
                 if (!delimiter || delimiter == words[brick_index]
@@ -504,7 +527,20 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         ret = -1;
                         goto out;
                 }
-
+                j = tmp_index;
+                strcpy(tmp_brick, words[brick_index]);
+                while ( j < brick_index) {
+                        strcpy(tmp_brick1, words[j]);
+                        if (!(strcmp (tmp_brick, tmp_brick1))) { 
+                                gf_log("",GF_LOG_ERROR, "Duplicate bricks"
+                                       " found %s", words[brick_index]);
+                                cli_out("Duplicate bricks found %s",
+                                        words[brick_index]);
+                                ret = -1;
+                                goto out;
+                        }
+                        j++;
+                }
                 snprintf (key, 50, "brick%d", ++brick_count);
                 ret = dict_set_str (dict, key, (char *)words[brick_index++]);
 
@@ -525,6 +561,11 @@ out:
                 if (dict)
                         dict_destroy (dict);
         }
+
+        if (tmp_brick)
+                GF_FREE (tmp_brick);
+        if (tmp_brick1)
+                GF_FREE (tmp_brick1);
 
         return ret;
 }
