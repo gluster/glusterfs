@@ -63,6 +63,7 @@ typedef enum glusterd_op_sm_event_type_ {
         GD_OP_EVENT_STAGE_OP,
         GD_OP_EVENT_COMMIT_OP,
         GD_OP_EVENT_UNLOCK,
+        GD_OP_EVENT_START_UNLOCK,
         GD_OP_EVENT_MAX
 } glusterd_op_sm_event_type_t;
 

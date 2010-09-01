@@ -2947,6 +2947,9 @@ glusterd_op_ac_commit_error (glusterd_op_sm_event_t *event, void *ctx)
 
         //Log here with who failed the commit
         //
+
+        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_START_UNLOCK, NULL);
+
         return ret;
 }
 
@@ -3142,6 +3145,7 @@ glusterd_op_sm_t glusterd_op_state_default [] = {
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
@@ -3156,7 +3160,8 @@ glusterd_op_sm_t glusterd_op_state_lock_sent [] = {
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_RCVD_RJT
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
-        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_LOCK_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
@@ -3172,6 +3177,7 @@ glusterd_op_sm_t glusterd_op_state_locked [] = {
         {GD_OP_STATE_STAGED, glusterd_op_ac_stage_op}, //EVENT_STAGE_OP
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_LOCKED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
@@ -3187,6 +3193,7 @@ glusterd_op_sm_t glusterd_op_state_stage_op_sent [] = {
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_STAGE_OP_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
@@ -3202,6 +3209,7 @@ glusterd_op_sm_t glusterd_op_state_staged [] = {
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMITED, glusterd_op_ac_commit_op}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_STAGED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
@@ -3217,6 +3225,7 @@ glusterd_op_sm_t glusterd_op_state_commit_op_sent [] = {
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_send_unlock}, //EVENT_START_UNLOCK
         {GD_OP_STATE_COMMIT_OP_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
@@ -3232,6 +3241,7 @@ glusterd_op_sm_t glusterd_op_state_commited [] = {
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_DEFAULT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_MAX
 };
 
@@ -3247,6 +3257,7 @@ glusterd_op_sm_t glusterd_op_state_unlock_sent [] = {
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
+        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
