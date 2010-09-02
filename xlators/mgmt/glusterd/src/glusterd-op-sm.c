@@ -2936,6 +2936,10 @@ glusterd_op_txn_complete ()
         int32_t                 ret = -1;
         glusterd_conf_t         *priv = NULL;
         int32_t                 op = -1;
+        int32_t                 op_ret = 0;
+        int32_t                 op_errno = 0;
+        int32_t                 cli_op = 0;
+        rpcsvc_request_t        *req = NULL;
 
         priv = THIS->private;
         GF_ASSERT (priv);
@@ -2950,8 +2954,11 @@ glusterd_op_txn_complete ()
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Cleared local lock");
 
-        ret = glusterd_op_send_cli_response (opinfo.cli_op, opinfo.op_ret,
-                                             opinfo.op_errno, opinfo.req);
+        op_ret = opinfo.op_ret;
+        op_errno = opinfo.op_errno;
+        cli_op = opinfo.cli_op;
+        req = opinfo.req;
+
 
         opinfo.op_ret = 0;
         opinfo.op_errno = 0;
@@ -2968,6 +2975,8 @@ glusterd_op_txn_complete ()
 
 out:
         pthread_mutex_unlock (&opinfo.lock);
+        ret = glusterd_op_send_cli_response (cli_op, op_ret,
+                                             op_errno, req);
         gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
         return ret;
 }
