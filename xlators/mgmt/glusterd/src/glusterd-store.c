@@ -940,6 +940,9 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_STATUS,
                             strlen (GLUSTERD_STORE_KEY_VOL_STATUS))) {
                         volinfo->status = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_VERSION,
+                            strlen (GLUSTERD_STORE_KEY_VOL_VERSION))) {
+                        volinfo->version = atoi (value);
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_PORT,
                             strlen (GLUSTERD_STORE_KEY_VOL_PORT))) {
                         volinfo->port = atoi (value);
