@@ -1231,7 +1231,7 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
         if (ret)
                 goto out;
 
-        if (version != volinfo->version) {
+        if (version > volinfo->version) {
                 //Mismatch detected
                 ret = 0;
                 gf_log ("", GF_LOG_ERROR, "Version of volume %s differ."
@@ -1239,7 +1239,10 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
                         volinfo->volname, volinfo->version, version);
                 *status = GLUSTERD_VOL_COMP_UPDATE_REQ;
                 goto out;
-        }
+        } else if (version < volinfo->version) {
+		*status = GLUSTERD_VOL_COMP_SCS;
+		goto out;
+	}
 
         //Now, versions are same, compare cksums.
         //

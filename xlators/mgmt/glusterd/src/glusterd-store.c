@@ -1058,11 +1058,13 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        snprintf (buf, sizeof (buf), "%d", volinfo->status);
+        snprintf (buf, sizeof (buf), "%d", volinfo->version);
         ret = glusterd_store_save_value (volinfo->shandle,
                                         GLUSTERD_STORE_KEY_VOL_VERSION, buf);
         if (ret)
                 goto out;
+
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_create_brick (volinfo, brickinfo);
                 if (ret)

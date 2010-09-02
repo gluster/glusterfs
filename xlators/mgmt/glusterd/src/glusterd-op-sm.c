@@ -1196,12 +1196,13 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
 
         volinfo->version++;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
 
         ret = glusterd_store_update_volume (volinfo);
 
+        if (ret)
+                goto out;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
         if (ret)
                 goto out;
 
@@ -2175,12 +2176,13 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
 
         volinfo->version++;
 
-        ret = glusterd_volume_compute_cksum (volinfo);
-        if (ret)
-                goto out;
 
         ret = glusterd_store_update_volume (volinfo);
 
+        if (ret)
+                goto out;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
         if (ret)
                 goto out;
 
