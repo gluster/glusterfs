@@ -211,14 +211,7 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	prev   = cookie;
 	subvol = prev->this;
 
-        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
-        if (prev->this == local->hashed_subvol)
-                local->ia_ino = local->stbuf.ia_ino;
-
-        dht_iatt_merge (this, &local->preparent, preparent, prev->this);
-        dht_iatt_merge (this, &local->postparent, postparent, prev->this);
-
-	if ((op_ret == 0) || (op_errno == EEXIST)) {
+	if ((op_ret == 0) || ((op_ret == -1) && (op_errno == EEXIST))) {
 		for (i = 0; i < layout->cnt; i++) {
 			if (layout->list[i].xlator == subvol) {
 				layout->list[i].err = -1;
@@ -227,6 +220,18 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 	}
 
+        if (op_ret)
+                goto out;
+
+
+        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+        if (prev->this == local->hashed_subvol)
+                local->ia_ino = local->stbuf.ia_ino;
+
+        dht_iatt_merge (this, &local->preparent, preparent, prev->this);
+        dht_iatt_merge (this, &local->postparent, postparent, prev->this);
+
+out:
 	this_call_cnt = dht_frame_return (frame);
 
 	if (is_last_call (this_call_cnt)) {
