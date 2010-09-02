@@ -33,6 +33,13 @@ struct cli_cmd {
         const char     *desc;
 };
 
+struct cli_cmd_volume_get_ctx_ {
+        char            *volname;
+        int             flags;
+};
+
+typedef struct cli_cmd_volume_get_ctx_ cli_cmd_volume_get_ctx_t;
+
 int cli_cmd_volume_register (struct cli_state *state);
 
 int cli_cmd_probe_register (struct cli_state *state);

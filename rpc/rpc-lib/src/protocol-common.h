@@ -114,6 +114,7 @@ enum gf_cli_procnum {
         GF1_CLI_LIST_FRIENDS,
         GF1_CLI_CREATE_VOLUME,
         GF1_CLI_GET_VOLUME,
+        GF1_CLI_GET_NEXT_VOLUME,
         GF1_CLI_DELETE_VOLUME,
         GF1_CLI_START_VOLUME,
         GF1_CLI_STOP_VOLUME,

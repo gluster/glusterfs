@@ -126,6 +126,11 @@ struct cli_local {
                         char    *volname;
                         dict_t  *dict;
                 } replace_brick;
+
+                struct {
+                        char    *volname;
+                        int     flags;
+                } get_vol;
         } u;
 };
 

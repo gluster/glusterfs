@@ -69,9 +69,11 @@ int
 cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                          const char **words, int wordcount)
 {
-        int                     ret = -1;
-        rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
+        int                             ret = -1;
+        rpc_clnt_procedure_t            *proc = NULL;
+        call_frame_t                    *frame = NULL;
+        cli_cmd_volume_get_ctx_t        ctx = {0,};
+        cli_local_t                     *local = NULL;
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_GET_VOLUME];
 
@@ -79,8 +81,23 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (!frame)
                 goto out;
 
+        if ((wordcount == 2)  || (wordcount == 3 &&
+                                  !strcmp (words[2], "all"))) {
+                ctx.flags = GF_CLI_GET_NEXT_VOLUME;
+                proc = &cli_rpc_prog->proctable[GF1_CLI_GET_NEXT_VOLUME];
+        }
+
+        local = cli_local_get ();
+
+        if (!local)
+                goto out;
+
+        local->u.get_vol.flags = ctx.flags;
+
+        frame->local = local;
+
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, NULL);
+                ret = proc->fn (frame, THIS, &ctx);
         }
 
 out:
@@ -131,7 +148,7 @@ out:
                 }
         }
         if (options)
-                dict_destroy (options);
+                dict_unref (options);
 
         return ret;
 }

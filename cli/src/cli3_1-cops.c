@@ -48,6 +48,10 @@ char *cli_volume_status[] = {"Created",
                              "Stopped"
 };
 
+int32_t
+gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
+                      void *data);
+
 int
 gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                         int count, void *myframe)
@@ -252,6 +256,8 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    brick_count = 0;
         char                       *brick = NULL;
         int32_t                    j = 1;
+        cli_local_t                *local = NULL;
+
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -300,7 +306,14 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
-                cli_out ("Number of Volumes: %d", count);
+                local = ((call_frame_t *)myframe)->local;
+                //cli_out ("Number of Volumes: %d", count);
+
+                if (!count) {
+                        local->u.get_vol.volname = NULL;
+                        ret = 0;
+                        goto out;
+                }
 
                 while ( i <= count) {
                         cli_out ("");
@@ -324,11 +337,16 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
+
                         cli_out ("Volume Name: %s", volname);
                         cli_out ("Type: %s", cli_volume_type[type]);
                         cli_out ("Status: %s", cli_volume_status[status], brick_count);
                         cli_out ("Number of Bricks: %d", brick_count);
                         j = 1;
+
+
+                        GF_FREE (local->u.get_vol.volname);
+                        local->u.get_vol.volname = gf_strdup (volname);
 
                         if (brick_count)
                                 cli_out ("Bricks:");
@@ -344,6 +362,8 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         }
                         i++;
                 }
+
+
         } else {
                 ret = -1;
                 goto out;
@@ -1052,18 +1072,68 @@ out:
 }
 
 int32_t
-gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
-                        void *data)
+gf_cli3_1_get_next_volume (call_frame_t *frame, xlator_t *this,
+                           void *data)
 {
-        gf1_cli_get_vol_req     req = {0,};
-        int                     ret = 0;
 
-        if (!frame || !this) {
+        int                             ret = 0;
+        cli_cmd_volume_get_ctx_t        *ctx = NULL;
+        cli_local_t                     *local = NULL;
+
+        if (!frame || !this || !data) {
                 ret = -1;
                 goto out;
         }
 
-        req.flags = GF_CLI_GET_VOLUME_ALL;
+        ctx = data;
+
+        ret = gf_cli3_1_get_volume (frame, this, data);
+
+        local = frame->local;
+
+        ctx->volname = local->u.get_vol.volname;
+
+        while (ctx->volname) {
+                ret = gf_cli3_1_get_volume (frame, this, ctx);
+                if (ret)
+                        goto out;
+                ctx->volname = local->u.get_vol.volname;
+        }
+
+out:
+        return ret;
+}
+
+int32_t
+gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
+                      void *data)
+{
+        gf1_cli_get_vol_req             req = {0,};
+        int                             ret = 0;
+        cli_cmd_volume_get_ctx_t        *ctx = NULL;
+        dict_t                          *dict = NULL;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        ctx = data;
+        req.flags = ctx->flags;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (ctx->volname) {
+                ret = dict_set_str (dict, "volname", ctx->volname);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_allocate_and_serialize (dict,
+                                           &req.dict.dict_val,
+                                           (size_t *)&req.dict.dict_len);
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
                               GD_MGMT_CLI_GET_VOLUME, NULL,
@@ -1074,6 +1144,7 @@ out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
+
 
 int32_t
 gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
@@ -1117,7 +1188,7 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
         local = cli_local_get ();
 
         if (local) {
-                local->u.create_vol.dict = dict;
+                local->u.create_vol.dict = dict_ref (dict);
                 frame->local = local;
         }
 
@@ -1691,6 +1762,7 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_RENAME_VOLUME] = {"RENAME_VOLUME", gf_cli3_1_rename_volume},
         [GF1_CLI_DEFRAG_VOLUME] = {"DEFRAG_VOLUME", gf_cli3_1_defrag_volume},
         [GF1_CLI_GET_VOLUME] = {"GET_VOLUME", gf_cli3_1_get_volume},
+        [GF1_CLI_GET_NEXT_VOLUME] = {"GET_NEXT_VOLUME", gf_cli3_1_get_next_volume},
         [GF1_CLI_SET_VOLUME] = {"SET_VOLUME", gf_cli3_1_set_volume},
         [GF1_CLI_ADD_BRICK] = {"ADD_BRICK", gf_cli3_1_add_brick},
         [GF1_CLI_REMOVE_BRICK] = {"REMOVE_BRICK", gf_cli3_1_remove_brick},

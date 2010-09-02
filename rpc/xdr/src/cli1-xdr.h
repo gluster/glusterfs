@@ -58,6 +58,8 @@ typedef enum gf1_cli_friends_list gf1_cli_friends_list;
 
 enum gf1_cli_get_volume {
 	GF_CLI_GET_VOLUME_ALL = 1,
+	GF_CLI_GET_VOLUME = 1 + 1,
+	GF_CLI_GET_NEXT_VOLUME = 1 + 2,
 };
 typedef enum gf1_cli_get_volume gf1_cli_get_volume;
 
