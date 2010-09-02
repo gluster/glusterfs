@@ -392,7 +392,7 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
                 "Received LOCK from uuid: %s", str);
 
 
-        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_stage_ctx_t);
+        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
 
         if (!ctx) {
                 //respond here
@@ -1096,6 +1096,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		i++;
 		brick= strtok_r (brick_list, " \n", &tmpptr);
 		brick_list = tmpptr;
+                if (brickinfo)
+                        glusterd_brickinfo_delete (brickinfo);
 		ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
 		if (ret)
 			goto out;
@@ -1160,6 +1162,8 @@ out:
                     ((ret || err_ret) != 0) ? "FAILED": "SUCCESS");
         if (free_ptr)
                 GF_FREE(free_ptr);
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
         return ret;
 }
 
@@ -1358,6 +1362,8 @@ brick_val:
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
                 brick_list = tmpptr;
+                if (brickinfo)
+                        glusterd_brickinfo_delete (brickinfo);
                 ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
@@ -1419,6 +1425,8 @@ out:
         }
         gf_cmd_log ("Volume add-brick","on volname %s %s", volname,
                    ((ret || err_ret) != 0)? "FAILED" : "SUCCESS");
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
         return ret;
 }
 
@@ -1742,7 +1750,6 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         int32_t                 ret     = -1;
         gf1_cli_log_locate_req  cli_req = {0,};
         gf1_cli_log_locate_rsp  rsp     = {0,};
-        dict_t                 *dict    = NULL;
         glusterd_conf_t        *priv = NULL;
         glusterd_volinfo_t     *volinfo = NULL;
         glusterd_brickinfo_t   *brickinfo = NULL;
@@ -1760,10 +1767,6 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received log locate req "
                 "for volume %s", cli_req.volname);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
 
         if (strchr (cli_req.brick, ':')) {
                 /* TODO: need to get info of only that brick and then
@@ -2808,10 +2811,8 @@ glusterd_list_friends (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         ret = 0;
 out:
 
-        if (ret) {
-                if (friends)
-                        dict_unref (friends);
-        }
+        if (friends)
+                dict_unref (friends);
 
         rsp.op_ret = ret;
 

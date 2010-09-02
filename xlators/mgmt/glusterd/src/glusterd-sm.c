@@ -46,6 +46,33 @@
 
 static struct list_head gd_friend_sm_queue;
 
+void
+glusterd_destroy_probe_ctx (glusterd_probe_ctx_t *ctx)
+{
+        if (!ctx)
+                return;
+
+        if (ctx->hostname)
+                GF_FREE (ctx->hostname);
+        GF_FREE (ctx);
+}
+
+void
+glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx)
+{
+        if (!ctx)
+                return;
+
+        if (ctx->vols)
+                dict_unref (ctx->vols);
+        if (ctx->hostname)
+                GF_FREE (ctx->hostname);
+        GF_FREE (ctx);
+}
+
+#define glusterd_destroy_friend_update_ctx(ctx)\
+        glusterd_destroy_friend_req_ctx(ctx)
+
 static int
 glusterd_ac_none (glusterd_friend_sm_event_t *event, void *ctx)
 {
@@ -543,6 +570,27 @@ glusterd_friend_sm_inject_event (glusterd_friend_sm_event_t *event)
         return 0;
 }
 
+void
+glusterd_destroy_friend_event_context (glusterd_friend_sm_event_t *event)
+{
+        if (!event)
+                return;
+
+        switch (event->event) {
+        case GD_FRIEND_EVENT_RCVD_FRIEND_REQ:
+        case GD_FRIEND_EVENT_RCVD_REMOVE_FRIEND:
+                glusterd_destroy_friend_req_ctx (event->ctx);
+                break;
+        case GD_FRIEND_EVENT_LOCAL_ACC:
+        case GD_FRIEND_EVENT_LOCAL_RJT:
+        case GD_FRIEND_EVENT_RCVD_ACC:
+        case GD_FRIEND_EVENT_RCVD_RJT:
+                glusterd_destroy_friend_update_ctx(event->ctx);
+                break;
+        default:
+                break;
+        }
+}
 
 int
 glusterd_friend_sm ()
@@ -594,12 +642,14 @@ glusterd_friend_sm ()
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR, "handler returned: "
                                                 "%d", ret);
+                                glusterd_destroy_friend_event_context (event);
                                 GF_FREE (event);
                                 continue;
                         }
 
                         if ((GD_FRIEND_EVENT_REMOVE_FRIEND == event_type) ||
                            (GD_FRIEND_EVENT_INIT_REMOVE_FRIEND == event_type)){
+                                glusterd_destroy_friend_event_context (event);
                                 GF_FREE (event);
                                 continue;
                         }
@@ -615,6 +665,7 @@ glusterd_friend_sm ()
 
                         ret = glusterd_store_update_peerinfo (peerinfo);
 
+                        glusterd_destroy_friend_event_context (event);
                         GF_FREE (event);
                 }
         }
