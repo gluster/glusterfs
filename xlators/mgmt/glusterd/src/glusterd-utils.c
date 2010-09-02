@@ -174,6 +174,9 @@ glusterd_is_local_addr (char *hostname)
                         }
                         ifr++;
                 }
+
+                if (sd > 0)
+                        close (sd);
         }
 
 
