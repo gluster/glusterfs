@@ -3282,12 +3282,6 @@ nfs3svc_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 nfs3_fdcache_remove (cs->nfs3state, openfd);
         }
 
-        /* This is the unref equivalent of the ref done when the inode was
-         * created on a lookup or a create request.
-         * The inode is finally unrefed in call state wipe.
-         */
-        inode_unref (cs->resolvedloc.inode);
-
 nfs3err:
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "RENAME", stat,
                              -ret);
