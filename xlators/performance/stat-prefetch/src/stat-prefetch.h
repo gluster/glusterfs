@@ -82,6 +82,7 @@ typedef struct sp_inode_ctx sp_inode_ctx_t;
 
 struct sp_private {
         struct mem_pool  *mem_pool;
+        uint32_t         entries;
         gf_lock_t        lock;
 };
 typedef struct sp_private sp_private_t;
