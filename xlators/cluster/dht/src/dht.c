@@ -294,7 +294,14 @@ init (xlator_t *this)
                           &temp_str) == 0) {
 	        gf_string2boolean (temp_str, &conf->unhashed_sticky_bit);
 	}
-        
+
+	conf->use_readdirp = 0;
+
+	if (dict_get_str (this->options, "use-readdirp",
+                          &temp_str) == 0) {
+	        gf_string2boolean (temp_str, &conf->use_readdirp);
+	}
+
         conf->disk_unit = 'p';
         conf->min_free_disk = 10;
 
@@ -433,6 +440,9 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
         },
         { .key = {"unhashed-sticky-bit"},
+          .type = GF_OPTION_TYPE_BOOL
+        },
+        { .key = {"use-readdirp"},
           .type = GF_OPTION_TYPE_BOOL
         },
 	{ .key  = {NULL} },
