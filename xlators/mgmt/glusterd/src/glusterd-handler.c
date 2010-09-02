@@ -1743,11 +1743,14 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         gf1_cli_log_locate_req  cli_req = {0,};
         gf1_cli_log_locate_rsp  rsp     = {0,};
         dict_t                 *dict    = NULL;
+        glusterd_conf_t        *priv = NULL;
         glusterd_volinfo_t     *volinfo = NULL;
         glusterd_brickinfo_t   *brickinfo = NULL;
-        char                   *tmp_str = NULL;
+        char                    tmp_str[PATH_MAX] = {0,};
 
         GF_ASSERT (req);
+
+        priv    = THIS->private;
 
         if (!gf_xdr_to_cli_log_locate_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
@@ -1775,8 +1778,13 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                tmp_str = gf_strdup (brickinfo->logfile);
-                rsp.path = dirname (tmp_str);
+                if (brickinfo->logfile) {
+                        strcpy (tmp_str, brickinfo->logfile);
+                        rsp.path = dirname (tmp_str);
+                } else {
+                        snprintf (tmp_str, PATH_MAX, "%s/logs/", priv->workdir);
+                        rsp.path = tmp_str;
+                }
                 break;
         }
 
@@ -1788,9 +1796,6 @@ out:
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gf_xdr_serialize_cli_log_locate_rsp);
-
-        if (tmp_str)
-                GF_FREE (tmp_str);
 
         return ret;
 }
