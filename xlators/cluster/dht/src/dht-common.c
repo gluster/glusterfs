@@ -1652,6 +1652,8 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         dht_layout_t *layout        = NULL;
         int           op_errno      = -1;
         int           ret           = 0;
+        int           flag          = 0;
+        int           i             = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1717,7 +1719,13 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
         if (key && (strcmp (key, GF_XATTR_FIX_LAYOUT_KEY) == 0)) {
-                if (layout->cnt < conf->subvolume_cnt) {
+                for (i = 0; i < layout->cnt; i++) {
+                        if (layout->list[i].start == layout->list[i].stop) {
+                                flag = 1;
+                                break;
+                        }
+                }
+                if ((layout->cnt < conf->subvolume_cnt) || flag) {
                         gf_log (this->name, GF_LOG_INFO,
                                 "expanding layout of %s from %d to %d",
                                 loc->path, layout->cnt, conf->subvolume_cnt);
@@ -1736,8 +1744,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                                         "Out of memory");
                                 goto err;
                         }
-                        local->layout = layout = dht_layout_new (this,
-                                                                 conf->subvolume_cnt);
+                        local->layout = layout;
 
                         dht_selfheal_new_directory (frame, dht_fix_layout_cbk,
                                                     layout);
