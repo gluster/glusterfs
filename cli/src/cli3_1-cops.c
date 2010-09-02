@@ -785,14 +785,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
         case GF_REPLACE_OP_STATUS:
 
-                ret = dict_get_str (dict, "status-reply",
-                                    &status_reply);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "dict_get failed on status reply");
-                        goto out;
-                }
-
+                status_reply = rsp.status;
                 if (rsp.op_ret || ret)
                         rb_operation_str = "replace-brick status unknown";
                 else

@@ -1887,6 +1887,7 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
 {
         const char *status       = NULL;
         char       *status_reply = NULL;
+        dict_t     *ctx          = NULL;
         int ret = -1;
 
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
@@ -1912,6 +1913,13 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                 gf_log ("", GF_LOG_DEBUG,
                         "pump status is %s", status);
 
+                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                if (!ctx) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Operation Context is not present");
+                        ret = -1;
+                        goto out;
+                }
                 status_reply = gf_strdup (status);
                 if (!status_reply) {
                         gf_log ("", GF_LOG_ERROR,
@@ -1920,11 +1928,11 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                         goto out;
                 }
 
-                ret = dict_set_dynstr (dict, "status-reply",
+                ret = dict_set_dynstr (ctx, "status-reply",
                                        status_reply);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
-                                "failed to set pump status in dict");
+                                "failed to set pump status in ctx");
                         goto out;
                 }
 
@@ -2813,6 +2821,7 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
         int32_t         ret = -1;
         gd_serialize_t  sfunc = NULL;
         void            *cli_rsp = NULL;
+        dict_t          *ctx = NULL;
 
         switch (op) {
                 case GD_MGMT_CLI_CREATE_VOLUME:
@@ -2892,6 +2901,26 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_remove_brick_rsp;
+                                break;
+                        }
+
+                case GD_MGMT_CLI_REPLACE_BRICK:
+                        {
+                                gf1_cli_replace_brick_rsp rsp = {0,};
+                                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                                if (!ctx) {
+                                        gf_log ("", GF_LOG_ERROR,
+                                                "Operation Context is not present");
+                                        ret = -1;
+                                        goto out;
+                                }
+                                if (dict_get_str (ctx, "status-reply", &rsp.status))
+                                        rsp.status = "";
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_replace_brick_rsp;
                                 break;
                         }
 

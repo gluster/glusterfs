@@ -443,6 +443,8 @@ xdr_gf1_cli_replace_brick_rsp (XDR *xdrs, gf1_cli_replace_brick_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->status, ~0))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -470,10 +472,10 @@ xdr_gf1_cli_set_vol_rsp (XDR *xdrs, gf1_cli_set_vol_rsp *objp)
 	return TRUE;
 }
 
-
 bool_t
 xdr_gf1_cli_log_filename_req (XDR *xdrs, gf1_cli_log_filename_req *objp)
 {
+
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->brick, ~0))
@@ -486,6 +488,7 @@ xdr_gf1_cli_log_filename_req (XDR *xdrs, gf1_cli_log_filename_req *objp)
 bool_t
 xdr_gf1_cli_log_filename_rsp (XDR *xdrs, gf1_cli_log_filename_rsp *objp)
 {
+
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
@@ -495,10 +498,10 @@ xdr_gf1_cli_log_filename_rsp (XDR *xdrs, gf1_cli_log_filename_rsp *objp)
 	return TRUE;
 }
 
-
 bool_t
 xdr_gf1_cli_log_locate_req (XDR *xdrs, gf1_cli_log_locate_req *objp)
 {
+
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->brick, ~0))
@@ -509,6 +512,7 @@ xdr_gf1_cli_log_locate_req (XDR *xdrs, gf1_cli_log_locate_req *objp)
 bool_t
 xdr_gf1_cli_log_locate_rsp (XDR *xdrs, gf1_cli_log_locate_rsp *objp)
 {
+
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
@@ -518,10 +522,10 @@ xdr_gf1_cli_log_locate_rsp (XDR *xdrs, gf1_cli_log_locate_rsp *objp)
 	return TRUE;
 }
 
-
 bool_t
 xdr_gf1_cli_log_rotate_req (XDR *xdrs, gf1_cli_log_rotate_req *objp)
 {
+
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->brick, ~0))
@@ -532,6 +536,7 @@ xdr_gf1_cli_log_rotate_req (XDR *xdrs, gf1_cli_log_rotate_req *objp)
 bool_t
 xdr_gf1_cli_log_rotate_rsp (XDR *xdrs, gf1_cli_log_rotate_rsp *objp)
 {
+
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
