@@ -1929,6 +1929,7 @@ nfs3svc_write_vec (rpcsvc_request_t *req, struct iobuf *iob)
         ret = nfs3_write (req, (struct nfs3_fh *)args->file.data.data_val,
                           args->offset, args->count, args->stable, payload,iob);
         xdr_free_write3args_nocopy (args);
+        GF_FREE (args);
         if (ret < 0) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "WRITE procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);

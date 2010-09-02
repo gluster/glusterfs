@@ -1891,8 +1891,7 @@ xdr_free_write3args_nocopy (write3args *wa)
         if (!wa)
                 return;
 
-        GF_FREE (wa->file.data.data_val);
-        GF_FREE (wa);
+        FREE (wa->file.data.data_val);
 }
 
 
