@@ -943,6 +943,8 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
         }
 
         list_del_init (&peerinfo->hostnames);
+        if (peerinfo->hostname)
+                GF_FREE (peerinfo->hostname);
         GF_FREE (peerinfo);
         peerinfo = NULL;
 

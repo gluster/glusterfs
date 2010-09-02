@@ -93,8 +93,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_peer_hostname_new (rsp.hostname, &name);
                 list_add_tail (&name->hostname_list, &peerinfo->hostnames);
                 peerinfo->rpc = dup_peerinfo->rpc;
-                list_del_init (&dup_peerinfo->uuid_list);
-                GF_FREE (dup_peerinfo);
+                glusterd_peer_destroy  (dup_peerinfo);
         }
         if (!peerinfo->hostname)
                 peerinfo->hostname = gf_strdup (rsp.hostname);
@@ -111,6 +110,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 
         event->peerinfo = peerinfo;
         event->ctx      = ((call_frame_t *)myframe)->local;
+        ((call_frame_t *)myframe)->local = NULL;
         ret = glusterd_friend_sm_inject_event (event);
 
 
@@ -203,6 +203,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                 goto out;
 
         ctx = ((call_frame_t *)myframe)->local;
+        ((call_frame_t *)myframe)->local = NULL;
 
         GF_ASSERT (ctx);
 
@@ -212,7 +213,8 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
         }
-
+        if (ctx)
+                glusterd_destroy_probe_ctx (ctx);
 out:
         return ret;
 }
@@ -236,6 +238,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         GF_ASSERT (conf);
 
         ctx = ((call_frame_t *)myframe)->local;
+        ((call_frame_t *)myframe)->local = NULL;
         GF_ASSERT (ctx);
 
         if (-1 == req->rpc_status) {
@@ -289,6 +292,8 @@ inject:
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
+        if (ctx)
+                glusterd_destroy_probe_ctx (ctx);
 
         op_ret = 0;
 

@@ -54,6 +54,36 @@ static struct list_head gd_op_sm_queue;
 glusterd_op_info_t    opinfo = {{0},};
 static int glusterfs_port = GLUSTERD_DEFAULT_PORT;
 
+void
+glusterd_destroy_lock_ctx (glusterd_op_lock_ctx_t *ctx)
+{
+        if (!ctx)
+                return;
+        GF_FREE (ctx);
+}
+
+void
+glusterd_destroy_stage_ctx (glusterd_op_stage_ctx_t *ctx)
+{
+        if (!ctx)
+                return;
+
+        if (ctx->stage_req.buf.buf_val)
+                GF_FREE (ctx->stage_req.buf.buf_val);
+        GF_FREE (ctx);
+}
+
+void
+glusterd_destroy_commit_ctx (glusterd_op_commit_ctx_t *ctx)
+{
+        if (!ctx)
+                return;
+
+        if (ctx->stage_req.buf.buf_val)
+                GF_FREE (ctx->stage_req.buf.buf_val);
+        GF_FREE (ctx);
+}
+
 static void
 glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
                             glusterd_volume_status status)
@@ -876,6 +906,8 @@ glusterd_op_stage_log_rotate (gd1_mgmt_stage_op_req *req)
         }
 
 out:
+        if (dict)
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -2372,6 +2404,8 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
         ret = 0;
 
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -2478,6 +2512,8 @@ glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
         ret = 0;
 
 out:
+        if (dict)
+                dict_unref (dict);
         return ret;
 }
 
@@ -3407,6 +3443,27 @@ out:
         return ret;
 }
 
+void
+glusterd_destroy_op_event_ctx (glusterd_op_sm_event_t *event)
+{
+        if (!event)
+                return;
+
+        switch (event->event) {
+        case GD_OP_EVENT_LOCK:
+        case GD_OP_EVENT_UNLOCK:
+                glusterd_destroy_lock_ctx (event->ctx);
+                break;
+        case GD_OP_EVENT_STAGE_OP:
+                glusterd_destroy_stage_ctx (event->ctx);
+                break;
+        case GD_OP_EVENT_COMMIT_OP:
+                glusterd_destroy_commit_ctx (event->ctx);
+                break;
+        default:
+                break;
+        }
+}
 
 int
 glusterd_op_sm ()
@@ -3438,6 +3495,7 @@ glusterd_op_sm ()
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR,
                                         "handler returned: %d", ret);
+                                glusterd_destroy_op_event_ctx (event);
                                 GF_FREE (event);
                                 continue;
                         }
@@ -3454,6 +3512,7 @@ glusterd_op_sm ()
                                 return ret;
                         }
 
+                        glusterd_destroy_op_event_ctx (event);
                         GF_FREE (event);
                 }
         }
@@ -3600,6 +3659,8 @@ glusterd_op_clear_ctx (glusterd_op_t op)
                 case GD_OP_ADD_BRICK:
                 case GD_OP_REMOVE_BRICK:
                 case GD_OP_REPLACE_BRICK:
+                case GD_OP_LOG_FILENAME:
+                case GD_OP_LOG_ROTATE:
                         dict_unref (ctx);
                         break;
                 case GD_OP_DELETE_VOLUME:

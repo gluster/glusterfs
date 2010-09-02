@@ -146,4 +146,9 @@ glusterd_friend_sm_init ();
 int
 glusterd_friend_sm ();
 
+void
+glusterd_destroy_probe_ctx (glusterd_probe_ctx_t *ctx);
+
+void
+glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx);
 #endif
