@@ -2832,6 +2832,7 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         int32_t                 count = 0;
         dict_t                  *volumes = NULL;
         gf1_cli_get_vol_rsp     rsp = {0,};
+        char                    *volname = NULL;
 
         priv = THIS->private;
         GF_ASSERT (priv);
@@ -2848,20 +2849,52 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         }
 
         if (flags == GF_CLI_GET_VOLUME_ALL) {
-                        list_for_each_entry (entry, &priv->volumes, vol_list) {
-                                count++;
-                                ret = glusterd_add_volume_detail_to_dict (entry,
-                                                                volumes, count);
-                                if (ret)
-                                        goto out;
-
-                        }
-
-                        ret = dict_set_int32 (volumes, "count", count);
-
+                list_for_each_entry (entry, &priv->volumes, vol_list) {
+                        count++;
+                        ret = glusterd_add_volume_detail_to_dict (entry,
+                                                        volumes, count);
                         if (ret)
                                 goto out;
+
+                }
+
+                ret = dict_set_int32 (volumes, "count", count);
+
+                if (ret)
+                        goto out;
+        } else if (flags == GF_CLI_GET_NEXT_VOLUME) {
+                ret = dict_get_str (dict, "volname", &volname);
+
+                if (ret) {
+                        if (priv->volumes.next) {
+                                entry = list_entry (priv->volumes.next,
+                                                    typeof (*entry),
+                                                    vol_list);
+                        }
+                } else {
+                        ret = glusterd_volinfo_find (volname, &entry);
+                        if (ret)
+                                goto out;
+                        entry = list_entry (entry->vol_list.next, typeof (*entry),
+                                            vol_list);
+                }
+
+                if (&entry->vol_list == &priv->volumes) {
+                        ret = dict_set_int32 (volumes, "count", count);
+                } else {
+                        count++;
+                        ret = glusterd_add_volume_detail_to_dict (entry,
+                                                         volumes, count);
+                        if (ret)
+                                goto out;
+
+                        ret = dict_set_int32 (volumes, "count", count);
+                        if (ret)
+                                goto out;
+
+                }
         }
+
 
         ret = dict_allocate_and_serialize (volumes, &rsp.volumes.volumes_val,
                                            (size_t *)&rsp.volumes.volumes_len);

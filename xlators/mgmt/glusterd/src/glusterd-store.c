@@ -716,8 +716,8 @@ glusterd_store_iter_new (glusterd_store_handle_t  *shandle,
         fd = open (shandle->path, O_RDWR);
 
         if (fd < 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open %s",
-                        shandle->path);
+                gf_log ("", GF_LOG_ERROR, "Unable to open %s, errno: %d",
+                        shandle->path, errno);
                 goto out;
         }
 
@@ -885,6 +885,8 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
         }
 
 out:
+        if (dir)
+                closedir (dir);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
