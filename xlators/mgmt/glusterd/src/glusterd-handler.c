@@ -636,12 +636,12 @@ glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
         if (!defrag)
                 goto out;
 
+
+        /* Fix files at this level */
         fd = opendir (dir);
         if (!fd)
                 goto out;
-
-        do {
-                entry = readdir (fd);
+        while ((entry = readdir (fd))) {
                 if (!entry)
                         break;
 
@@ -655,13 +655,10 @@ glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
                         continue;
 
                 if (S_ISDIR (stbuf.st_mode)) {
-                        //getfattr -n trusted.distribute.fix.layout "$path" ;
+                        /* Fix the layout of the directory */
                         getxattr (full_path, "trusted.distribute.fix.layout",
                                   &value, 128);
-
-                        /* add some delay */
-                        usleep (500);
-                        ret = glusterd_check_and_rebalance (volinfo, full_path);
+                        continue;
                 }
                 if (S_ISREG (stbuf.st_mode) && ((stbuf.st_mode & 01000) == 01000)) {
                         /* TODO: run the defrag */
@@ -708,23 +705,46 @@ glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
                                 }
                                 UNLOCK (&defrag->lock);
                         }
+                } else {
+                        LOCK (&defrag->lock);
+                        {
+                                if (S_ISREG (stbuf.st_mode))
+                                        defrag->num_files_lookedup += 1;
+                        }
+                        UNLOCK (&defrag->lock);
                 }
-                ret = 0;
 
-                LOCK (&defrag->lock);
-                {
-                        if (S_ISREG (stbuf.st_mode))
-                                defrag->num_files_lookedup += 1;
-                        if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED)
-                                ret = 1;
+                if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED) {
+                        closedir (fd);
+                        goto out;
                 }
-                UNLOCK (&defrag->lock);
-                if (ret)
+        }
+        closedir (fd);
+
+        /* Iterate over directories */
+        fd = opendir (dir);
+        if (!fd)
+                goto out;
+        while ((entry = readdir (fd))) {
+                if (!entry)
                         break;
 
-                /* Write the full 'glusterfs-defrag' here */
+                if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
+                        continue;
 
-        } while (1);
+                snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
+
+                ret = stat (full_path, &stbuf);
+                if (ret == -1)
+                        continue;
+
+                if (S_ISDIR (stbuf.st_mode)) {
+                        /* iterate in subdirectories */
+                        ret = glusterd_check_and_rebalance (volinfo, full_path);
+                        if (ret)
+                                break;
+                }
+        }
 
         closedir (fd);
 
@@ -918,6 +938,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 snprintf (cmd_str, 4096, "%s/sbin/glusterfs -s localhost "
                           "--volfile-id %s --volume-name %s-quick-read "
                           "--xlator-option *dht.unhashed-sticky-bit=yes "
+                          "--xlator-option *dht.use-readdirp=yes "
                           "--xlator-option *dht.lookup-unhashed=yes %s",
                           GFS_PREFIX, cli_req.volname, cli_req.volname,
                           defrag->mount);
