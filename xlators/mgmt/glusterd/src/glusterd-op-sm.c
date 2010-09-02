@@ -654,8 +654,13 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
         glusterd_volinfo_t                      *volinfo = NULL;
         struct stat                             st_buf = {0,};
         char                                    cmd_str[1024];
+        glusterd_conf_t                         *priv = NULL;
 
         GF_ASSERT (req);
+
+        priv = THIS->private;
+        if (!priv)
+                goto out;
 
         dict = dict_new ();
         if (!dict)
@@ -717,12 +722,21 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
                         }
                 }
                 snprintf (cmd_str, 1024, "%s", brickinfo->path);
-                ret = stat (cmd_str, &st_buf);
-                if (ret == -1) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Volname %s, brick"
-                                ":%s path %s not present", volname,
-                                brick, brickinfo->path);
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "resolve brick failed");
                         goto out;
+                }
+
+                if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
+                        ret = stat (cmd_str, &st_buf);
+                        if (ret == -1) {
+                                gf_log ("glusterd", GF_LOG_ERROR, "Volname %s, brick"
+                                        ":%s path %s not present", volname,
+                                        brick, brickinfo->path);
+                                goto out;
+                        }
                 }
 
                 glusterd_brickinfo_delete (brickinfo);
