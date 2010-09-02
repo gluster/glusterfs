@@ -1266,7 +1266,7 @@ __write_statprefetch_xlator (FILE *file, dict_t *dict,
         char *volname = NULL;
         int   ret     = -1;
 
-        const char *statprefetch_str = "volume %s-%s\n"
+        const char *statprefetch_str = "volume %s\n"
                 "    type performance/stat-prefetch\n"
                 "    subvolumes %s\n"
                 "end-volume\n\n";
@@ -1278,7 +1278,6 @@ __write_statprefetch_xlator (FILE *file, dict_t *dict,
 
         fprintf (file, statprefetch_str,
                  volname,
-                 "stat-prefetch",
                  subvolume);
 
         ret = 0;
@@ -1704,16 +1703,41 @@ out:
 static int
 glusterfsd_write_nfs_xlator (int fd, char *subvols)
 {
-        char    buffer[1024] = {0,};
+        char    *dup_subvols = NULL;
+        char    *subvols_remain = NULL;
+        char    *subvol      = NULL;
+        char    *str         = NULL;
+        char    *free_ptr    = NULL;
+        const char *nfs_str = "volume nfs-server\n"
+                              "type nfs/server\n";
+
         if (fd <= 0)
                 return -1;
-        const char *nfs_str = "volume nfs-server\n"
-                              "type nfs/server\n"
-                              "subvolumes %s\n"
-                              "option rpc­auth.addr.allow *\n"
-                              "end-volume\n";
-        snprintf (buffer, sizeof(buffer), nfs_str, subvols);
-        write (fd, buffer, (unsigned int) strlen(buffer));
+
+        dup_subvols = gf_strdup (subvols);
+        if (!dup_subvols)
+                return -1;
+        else
+                free_ptr = dup_subvols;
+
+        write (fd, nfs_str, strlen(nfs_str));
+
+        subvol = strtok_r (dup_subvols, " \n", &subvols_remain);
+        while (subvol) {
+                str = "option rpc-auth.addr.";
+                write (fd, str, strlen (str));
+                write (fd, subvol, strlen (subvol));
+                str = ".allow *\n";
+                write (fd, str, strlen (str));
+                subvol = strtok_r (NULL, " \n", &subvols_remain);
+        }
+        str = "subvolumes ";
+        write (fd, str, strlen (str));
+        write (fd, subvols, strlen (subvols));
+        str = "\nend-volume\n";
+        write (fd, str, strlen (str));
+        GF_FREE (free_ptr);
+
         return 0;
 }
 
@@ -1729,7 +1753,6 @@ volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
         char                 *pad               = NULL;
         char                 *nfs_subvols       = NULL;
         char                 fuse_subvols[2048] = {0,};
-        char                 *fuse_top_xlator = "stat-prefetch";
         int                  subvol_len = 0;
         glusterd_volinfo_t   *voliter = NULL;
         glusterd_conf_t                         *priv = NULL;
@@ -1761,8 +1784,7 @@ volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
                 else
-                        subvol_len += (strlen (voliter->volname) +
-                                       strlen (fuse_top_xlator) + 2); //- + ' '
+                        subvol_len += (strlen (voliter->volname) + 1); // ' '
         }
 
         if (subvol_len == 0) {
@@ -1788,8 +1810,7 @@ volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
                 gf_log ("", GF_LOG_DEBUG,
                         "adding fuse info of - %s", voliter->volname);
 
-                snprintf (fuse_subvols, sizeof(fuse_subvols), " %s-%s",
-                          voliter->volname, fuse_top_xlator);
+                snprintf (fuse_subvols, sizeof(fuse_subvols), " %s", voliter->volname);
                 fuse_filepath = get_client_filepath (voliter);
                 if (!fuse_filepath) {
                         ret = -1;
