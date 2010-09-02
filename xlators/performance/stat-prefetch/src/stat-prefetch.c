@@ -18,6 +18,7 @@
 */
 
 #include "stat-prefetch.h"
+#include "statedump.h"
 
 #define GF_SP_CACHE_BUCKETS 1
 #define GF_SP_CACHE_ENTRIES_EXPECTED 1048576
@@ -410,12 +411,26 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
                         } else {
                                 rbthash_table_destroy (table);
                                 ret = 0;
+                                if (priv) {
+                                        LOCK (&priv->lock);
+                                        {
+                                                priv->entries = 0;
+                                        }
+                                        UNLOCK (&priv->lock);
+                                }
                         }
                 } else {
                         data = rbthash_remove (cache->table, name,
                                                strlen (name));
                         GF_FREE (data);
                         ret = 0;
+                        if (priv) {
+                                LOCK (&priv->lock);
+                                {
+                                        priv->entries--;
+                                }
+                                UNLOCK (&priv->lock);
+                        }
                 }
         }
         UNLOCK (&cache->lock);
@@ -758,7 +773,13 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
         gf_dirent_t *entry           = NULL, *new = NULL;
         int32_t      ret             = -1;
         uint64_t     expected_offset = 0;
-        
+        xlator_t     *this = NULL;
+        sp_private_t *priv = NULL;
+
+        this = cache->this;
+        if (this)
+                priv = this->private;
+
         LOCK (&cache->lock);
         {
                 list_for_each_entry (entry, &entries->list, list) {
@@ -785,6 +806,13 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
                         }
 
                         expected_offset = new->d_off;
+                        if (priv) {
+                                LOCK (&priv->lock);
+                                {
+                                        priv->entries++;
+                                }
+                                UNLOCK (&priv->lock);
+                        }
                 }
 
                 cache->expected_offset = expected_offset;
@@ -3557,6 +3585,37 @@ sp_release (xlator_t *this, fd_t *fd)
         return 0;
 }
 
+int
+sp_priv_dump (xlator_t *this)
+{
+        sp_private_t            *priv = NULL;
+        uint32_t                total_entries = 0;
+        uint32_t                ret = -1;
+        char                    key[GF_DUMP_MAX_BUF_LEN];
+        char                    key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+
+        priv = this->private;
+        if (!priv)
+                goto out;
+
+        total_entries = priv->entries;
+
+        gf_proc_dump_build_key (key_prefix,
+                                "xlator.performance.stat-prefetch",
+                                "priv");
+        gf_proc_dump_add_section (key_prefix);
+
+        gf_proc_dump_build_key (key, key_prefix, "max_allowed_entries");
+        gf_proc_dump_write (key, "%lu", GF_SP_CACHE_ENTRIES_EXPECTED);
+        gf_proc_dump_build_key (key, key_prefix, "num_entries_cached");
+        gf_proc_dump_write (key, "%lu",(unsigned long)total_entries);
+        ret = 0;
+
+out:
+        return ret;
+}
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -3604,6 +3663,20 @@ out:
 void
 fini (xlator_t *this)
 {
+        sp_private_t  *priv = NULL;
+
+        if (!this)
+                goto out;
+        else {
+                priv = this->private;
+                if (priv) {
+                        if (priv->mem_pool)
+                                mem_pool_destroy (priv->mem_pool);
+                        LOCK_DESTROY (&priv->lock);
+                        GF_FREE (priv);
+                }
+        }
+out:
         return;
 }
 
@@ -3644,4 +3717,8 @@ struct xlator_cbks cbks = {
         .forget     = sp_forget,
         .release    = sp_release,
         .releasedir = sp_release
+};
+
+struct xlator_dumpops dumpops = {
+        .priv = sp_priv_dump,
 };
