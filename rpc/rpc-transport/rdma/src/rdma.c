@@ -2860,7 +2860,7 @@ rdma_decode_header (rdma_peer_t *peer, rdma_post_t *post,
                 break;
 
         case RDMA_ERROR:
-                ret = rdma_decode_error_msg (peer, post, bytes_in_post);
+                /* ret = rdma_decode_error_msg (peer, post, bytes_in_post); */
                 break;
 
         default:
@@ -3208,12 +3208,19 @@ rdma_process_recv (rdma_peer_t *peer, struct ibv_wc *wc)
                 break;
 
         case RDMA_ERROR:
-                ret = rdma_pollin_notify (peer, post);
-                if (ret == -1) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                                "pollin notification failed");
-                }
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                        "an error has happened while transmission of msg, "
+                        "disconnecting the transport");
+                rpc_transport_disconnect (peer->trans);
                 goto out;
+
+/*                ret = rdma_pollin_notify (peer, post);
+                  if (ret == -1) {
+                  gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                  "pollin notification failed");
+                  }
+                  goto out;
+*/
 
         default:
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
