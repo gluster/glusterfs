@@ -896,10 +896,14 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args->log_level = DEFAULT_LOG_LEVEL;
 #ifdef GF_DARWIN_HOST_OS
         cmd_args->mac_compat = GF_OPTION_DEFERRED;
+        /* On Darwin machines, O_APPEND is not handled,
+         * which may corrupt the data
+         */
+        cmd_args->fuse_direct_io_mode = GF_OPTION_DISABLE;
 #else
         cmd_args->mac_compat = GF_OPTION_DISABLE;
-#endif
         cmd_args->fuse_direct_io_mode = GF_OPTION_DEFERRED;
+#endif
         cmd_args->fuse_attribute_timeout = -1;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
