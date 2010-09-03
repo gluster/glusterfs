@@ -199,6 +199,11 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
 		local->fd = NULL;
 	}
 
+        if (local->params) {
+                dict_unref (local->params);
+                local->params = NULL;
+        }
+
 	if (local->xattr_req)
 		dict_unref (local->xattr_req);
 

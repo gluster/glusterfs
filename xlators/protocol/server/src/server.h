@@ -162,6 +162,7 @@ struct _server_state {
         int               valid;
 
 	fd_t             *fd;
+        dict_t           *params;
 	int               flags;
         int               wbflags;
         struct iovec      payload_vector[MAX_IOVEC];

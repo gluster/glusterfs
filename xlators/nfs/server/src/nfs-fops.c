@@ -604,8 +604,9 @@ nfs_fop_create (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_create_cbk, xl, xl,xl->fops->create
-                           , pathloc, flags, mode, fd);
+        STACK_WIND_COOKIE (frame, nfs_fop_create_cbk, xl, xl, xl->fops->create,
+                           pathloc, flags, mode, fd, NULL);
+
         ret = 0;
 err:
         if (ret < 0) {

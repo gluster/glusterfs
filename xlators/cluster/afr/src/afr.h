@@ -480,6 +480,7 @@ typedef struct _afr_local {
                         uint64_t gen;
                         ino_t parent_ino;
 			fd_t *fd;
+                        dict_t *params;
 			int32_t flags;
 			mode_t mode;
 			inode_t *inode;

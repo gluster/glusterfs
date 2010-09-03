@@ -232,6 +232,7 @@ typedef struct {
 			int32_t flags;
 			mode_t mode;
 			fd_t *fd;
+                        dict_t *params;
 		} create;
 		struct {
 			fop_create_cbk_t fn;
@@ -778,11 +779,9 @@ fop_link_cbk_stub (call_frame_t *frame,
                    struct iatt *postparent);
 
 call_stub_t *
-fop_create_stub (call_frame_t *frame,
-		 fop_create_t fn,
-		 loc_t *loc,
-		 int32_t flags,
-		 mode_t mode, fd_t *fd);
+fop_create_stub (call_frame_t *frame, fop_create_t fn,
+		 loc_t *loc, int32_t flags, mode_t mode,
+                 fd_t *fd, dict_t *params);
 
 call_stub_t *
 fop_create_cbk_stub (call_frame_t *frame,

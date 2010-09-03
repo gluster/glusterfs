@@ -899,7 +899,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->create,
                                     &local->newloc, flags,
                                     st_mode_from_ia (prot, local->loc.inode->ia_type),
-                                    local->newfd);
+                                    local->newfd, NULL);
                         goto out;
                 }
         }
@@ -1003,7 +1003,7 @@ trash_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     FIRST_CHILD(this)->fops->create,
                     &local->newloc, flags,
                     st_mode_from_ia (buf->ia_prot, local->loc.inode->ia_type),
-                    local->newfd);
+                    local->newfd, NULL);
 
         return 0;
 }
@@ -1268,7 +1268,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                     FIRST_CHILD(this)->fops->create,
                                     &local->newloc, flags,
                                     st_mode_from_ia (prot, local->loc.inode->ia_type),
-                                    local->newfd);
+                                    local->newfd, NULL);
                         goto out;
                 }
         }
@@ -1340,7 +1340,7 @@ trash_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     FIRST_CHILD(this)->fops->create, &local->newloc,
                     ( O_CREAT | O_EXCL | O_WRONLY ),
                     st_mode_from_ia (buf->ia_prot, local->loc.inode->ia_type),
-                    local->newfd);
+                    local->newfd, NULL);
 
         return 0;
 }

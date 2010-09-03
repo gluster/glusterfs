@@ -1510,7 +1510,7 @@ out:
 
 int32_t
 sp_create (call_frame_t *frame,	xlator_t *this,	loc_t *loc, int32_t flags,
-           mode_t mode, fd_t *fd)
+           mode_t mode, fd_t *fd, dict_t *params)
 {
         sp_local_t        *local        = NULL;
         int32_t            op_errno     = -1, ret = -1;
@@ -1562,7 +1562,7 @@ out:
         } else {
                 STACK_WIND (frame, sp_create_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->create, loc, flags,
-                            mode, fd);
+                            mode, fd, params);
         }
         return 0;
 }

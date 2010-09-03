@@ -1156,10 +1156,11 @@ out:
 
 int32_t
 ac_create_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                  int32_t flags, mode_t mode, fd_t *fd)
+                  int32_t flags, mode_t mode, fd_t *fd, dict_t *params)
 {
         STACK_WIND (frame, default_create_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->create, loc, flags, mode, fd);
+                    FIRST_CHILD(this)->fops->create, loc, flags, mode,
+                    fd, params);
         return 0;
 }
 
@@ -1197,13 +1198,14 @@ out:
 
 int32_t
 ac_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-           mode_t mode, fd_t *fd)
+           mode_t mode, fd_t *fd, dict_t *params)
 {
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
-        stub = fop_create_stub (frame, ac_create_resume, loc, flags, mode, fd);
+        stub = fop_create_stub (frame, ac_create_resume, loc, flags, mode,
+                                fd, params);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");

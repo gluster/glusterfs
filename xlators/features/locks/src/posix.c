@@ -466,11 +466,11 @@ unwind:
 
 int
 pl_create (call_frame_t *frame, xlator_t *this,
-           loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
+           loc_t *loc, int32_t flags, mode_t mode, fd_t *fd, dict_t *params)
 {
         STACK_WIND (frame, pl_create_cbk,
                     FIRST_CHILD (this), FIRST_CHILD (this)->fops->create,
-                    loc, flags, mode, fd);
+                    loc, flags, mode, fd, params);
         return 0;
 }
 

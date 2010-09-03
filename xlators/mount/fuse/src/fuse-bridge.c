@@ -1519,7 +1519,8 @@ fuse_create_resume (fuse_state_t *state)
                 state->loc.path);
 
         FUSE_FOP (state, fuse_create_cbk, GF_FOP_CREATE,
-                  create, &state->loc, state->flags, state->mode, fd);
+                  create, &state->loc, state->flags, state->mode,
+                  fd, NULL);
 
 }
 

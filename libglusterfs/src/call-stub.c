@@ -772,11 +772,9 @@ out:
 
 
 call_stub_t *
-fop_create_stub (call_frame_t *frame,
-		 fop_create_t fn,
-		 loc_t *loc,
-		 int32_t flags,
-		 mode_t mode, fd_t *fd)
+fop_create_stub (call_frame_t *frame, fop_create_t fn,
+		 loc_t *loc, int32_t flags, mode_t mode,
+                 fd_t *fd, dict_t *params)
 {
 	call_stub_t *stub = NULL;
 
@@ -792,6 +790,8 @@ fop_create_stub (call_frame_t *frame,
 	stub->args.create.mode = mode;
 	if (fd)
 		stub->args.create.fd = fd_ref (fd);
+        if (params)
+                stub->args.create.params = dict_ref (params);
 out:
 	return stub;
 }
@@ -2130,7 +2130,8 @@ call_resume_wind (call_stub_t *stub)
 				      &stub->args.create.loc,
 				      stub->args.create.flags,
 				      stub->args.create.mode,
-				      stub->args.create.fd);
+				      stub->args.create.fd,
+                                      stub->args.create.params);
 		break;
 	}
 	case GF_FOP_STAT:
@@ -3315,6 +3316,8 @@ call_stub_destroy_wind (call_stub_t *stub)
 		loc_wipe (&stub->args.create.loc);
 		if (stub->args.create.fd)
 			fd_unref (stub->args.create.fd);
+                if (stub->args.create.params)
+                        dict_unref (stub->args.create.params);
 		break;
 	}
 	case GF_FOP_STAT:

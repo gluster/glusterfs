@@ -1998,7 +1998,7 @@ posix_truncate (call_frame_t *frame,
 int32_t
 posix_create (call_frame_t *frame, xlator_t *this,
               loc_t *loc, int32_t flags, mode_t mode,
-              fd_t *fd)
+              fd_t *fd, dict_t *params)
 {
         int32_t                op_ret      = -1;
         int32_t                op_errno    = 0;

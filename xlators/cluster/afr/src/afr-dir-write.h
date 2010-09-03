@@ -22,7 +22,8 @@
 
 int32_t
 afr_create (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, int32_t flags, mode_t mode, fd_t *fd);
+            loc_t *loc, int32_t flags, mode_t mode,
+            fd_t *fd, dict_t *params);
 
 int32_t
 afr_mknod (call_frame_t *frame, xlator_t *this,

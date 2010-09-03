@@ -105,6 +105,11 @@ free_state (server_state_t *state)
                 state->fd = NULL;
         }
 
+        if (state->params) {
+                dict_unref (state->params);
+                state->params = NULL;
+        }
+
         if (state->iobref) {
                 iobref_unref (state->iobref);
                 state->iobref = NULL;

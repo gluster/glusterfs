@@ -253,7 +253,8 @@ afr_create_wind (call_frame_t *frame, xlator_t *this)
 					   &local->loc, 
 					   local->cont.create.flags, 
 					   local->cont.create.mode, 
-					   local->cont.create.fd);
+					   local->cont.create.fd,
+                                           local->cont.create.params);
 			if (!--call_count)
 				break;
 		}
@@ -280,7 +281,8 @@ afr_create_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_create (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
+	    loc_t *loc, int32_t flags, mode_t mode,
+            fd_t *fd, dict_t *params)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -326,6 +328,8 @@ afr_create (call_frame_t *frame, xlator_t *this,
 	local->cont.create.flags = flags;
 	local->cont.create.mode  = mode;
 	local->cont.create.fd    = fd_ref (fd);
+        if (params)
+                local->cont.create.params = dict_ref (params);
 
         if (loc->parent)
                 local->cont.create.parent_ino = loc->parent->ino;

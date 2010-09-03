@@ -2492,7 +2492,8 @@ server_create_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         STACK_WIND (frame, server_create_cbk,
                     bound_xl, bound_xl->fops->create,
-                    &(state->loc), state->flags, state->mode, state->fd);
+                    &(state->loc), state->flags, state->mode,
+                    state->fd, state->params);
 
         return 0;
 err:

@@ -685,7 +685,7 @@ protocol_client_xfer (call_frame_t *frame, xlator_t *this, transport_t *trans,
 
 int
 client_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-               mode_t mode, fd_t *fd)
+               mode_t mode, fd_t *fd, dict_t *params)
 {
         gf_hdr_common_t     *hdr = NULL;
         gf_fop_create_req_t *req = NULL;

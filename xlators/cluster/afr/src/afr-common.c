@@ -391,6 +391,8 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
 	{ /* create */
 		if (local->cont.create.fd)
 			fd_unref (local->cont.create.fd);
+                if (local->cont.create.params)
+                        dict_unref (local->cont.create.params);
 	}
 
 	{ /* writev */
