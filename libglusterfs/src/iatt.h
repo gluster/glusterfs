@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "compat.h"
+#include "uuid.h"
 
 typedef enum {
         IA_INVAL = 0,
@@ -59,6 +60,7 @@ typedef struct {
 struct iatt {
         uint64_t     ia_ino;        /* inode number */
         uint64_t     ia_gen;        /* generation number */
+        uuid_t       ia_gfid;
         uint64_t     ia_dev;        /* backing device ID */
         ia_type_t    ia_type;       /* type of file */
         ia_prot_t    ia_prot;       /* protection */
