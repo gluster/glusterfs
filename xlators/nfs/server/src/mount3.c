@@ -306,8 +306,8 @@ mnt3svc_mount_inode (rpcsvc_request_t *req, struct mount3_state *ms,
         ret = nfs_inode_loc_fill (exportinode, &exportloc);
         if (ret < 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Loc fill failed for export inode"
-                        ": ino %"PRIu64", gen: %"PRIu64", volume: %s",
-                        exportinode->ino, exportinode->generation, xl->name);
+                        ": ino %"PRIu64", volume: %s",
+                        exportinode->ino, xl->name);
                 goto err;
         }
 
@@ -446,7 +446,7 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
                 goto err;
 
         parino = mres->resolveloc.inode->ino;
-        pargen = mres->resolveloc.inode->generation;
+
         /* Wipe the contents of the previous component */
         nfs_loc_wipe (&mres->resolveloc);
         ret = nfs_entry_loc_fill (mres->exp->vol->itable, parino, pargen,

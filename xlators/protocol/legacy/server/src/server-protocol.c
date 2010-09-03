@@ -2068,13 +2068,6 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                          state->loc.name, stbuf);
 
                 if (link_inode != inode) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "create(%s) inode (ptr=%p, ino=%"PRId64", "
-                                "gen=%"PRId64") found conflict (ptr=%p, "
-                                "ino=%"PRId64", gen=%"PRId64")",
-                                state->loc.path, inode, inode->ino,
-                                inode->generation, link_inode,
-                                link_inode->ino, link_inode->generation);
 
                         /*
                            VERY racy code (if used anywhere else)

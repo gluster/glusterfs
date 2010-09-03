@@ -145,14 +145,6 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            state->loc.name, buf);
 
                 if (linked_inode != inode) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "%s(%s) inode (ptr=%p, ino=%"PRId64", "
-                                "gen=%"PRId64") found conflict (ptr=%p, "
-                                "ino=%"PRId64", gen=%"PRId64")",
-                                gf_fop_list[frame->root->op],
-                                state->loc.path, inode, inode->ino,
-                                inode->generation, linked_inode,
-                                linked_inode->ino, linked_inode->generation);
                 }
 
                 inode_lookup (linked_inode);
@@ -160,8 +152,6 @@ fuse_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 /* TODO: make these timeouts configurable (via meta?) */
                 /* should we do linked_node or inode */
                 feo.nodeid = inode_to_fuse_nodeid (linked_inode);
-
-                feo.generation = linked_inode->generation;
 
                 inode_unref (linked_inode);
 
@@ -1445,14 +1435,6 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                            state->loc.name, buf);
 
                 if (linked_inode != inode) {
-                        gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                                "create(%s) inode (ptr=%p, ino=%"PRId64", "
-                                "gen=%"PRId64") found conflict (ptr=%p, "
-                                "ino=%"PRId64", gen=%"PRId64")",
-                                state->loc.path, inode, inode->ino,
-                                inode->generation, linked_inode,
-                                linked_inode->ino, linked_inode->generation);
-
                         /*
                            VERY racy code (if used anywhere else)
                            -- don't do this without understanding
@@ -1469,8 +1451,6 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 fd_ref (fd);
 
                 feo.nodeid = inode_to_fuse_nodeid (linked_inode);
-
-                feo.generation = linked_inode->generation;
 
                 feo.entry_valid = calc_timeout_sec (priv->entry_timeout);
                 feo.entry_valid_nsec = calc_timeout_nsec (priv->entry_timeout);
@@ -2933,6 +2913,7 @@ fuse_first_lookup (xlator_t *this)
         xlator_t                  *xl = NULL;
         dict_t                    *dict = NULL;
         struct fuse_first_lookup   stub;
+        uuid_t                     gfid;
 
         priv = this->private;
 
@@ -2953,6 +2934,10 @@ fuse_first_lookup (xlator_t *this)
         stub.fin = 0;
 
         frame->local = &stub;
+
+        memset (gfid, 0, 16);
+        gfid[15] = 1;
+        
 
         STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
                     &loc, dict);

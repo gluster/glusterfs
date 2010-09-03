@@ -626,8 +626,6 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                 if (local->cont.lookup.inode->ino) {
                         local->cont.lookup.buf.ia_ino =
                                 local->cont.lookup.inode->ino;
-                        local->cont.lookup.buf.ia_gen =
-                                local->cont.lookup.inode->generation;
                 }
         }
 

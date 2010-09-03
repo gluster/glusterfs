@@ -349,7 +349,8 @@ resolve_entry_simple (call_frame_t *frame)
                 goto out;
         }
 
-        if (parent->ino != 1 && parent->generation != resolve->gen) {
+//        if (parent->ino != 1 && parent->generation != resolve->gen) {
+        if (0) {
                 /* simple resolution is decisive - request was for a
                    stale handle */
                 resolve->op_ret   = -1;
@@ -457,7 +458,8 @@ resolve_inode_simple (call_frame_t *frame)
                 goto out;
         }
 
-        if (inode->ino != 1 && inode->generation != resolve->gen) {
+//        if (inode->ino != 1 && inode->generation != resolve->gen) {
+        if (0) {
                 resolve->op_ret      = -1;
                 resolve->op_errno    = ENOENT;
                 ret = -1;
