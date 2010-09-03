@@ -252,6 +252,34 @@ out:
 
 
 int
+posix_fill_gfid_path (xlator_t *this, const char *path, struct iatt *iatt)
+{
+        int ret = 0;
+
+        if (!iatt)
+                return 0;
+
+        ret = sys_lgetxattr (path, "trusted.gfid", iatt->ia_gfid, 16);
+
+        return ret;
+}
+
+
+int
+posix_fill_gfid_fd (xlator_t *this, int fd, struct iatt *iatt)
+{
+        int ret = 0;
+
+        if (!iatt)
+                return 0;
+
+        ret = sys_fgetxattr (fd, "trusted.gfid", iatt->ia_gfid, 16);
+
+        return ret;
+}
+
+
+int
 posix_lstat_with_gen (xlator_t *this, const char *path, struct iatt *stbuf_p)
 {
         struct posix_private  *priv    = NULL;
@@ -291,6 +319,8 @@ posix_lstat_with_gen (xlator_t *this, const char *path, struct iatt *stbuf_p)
                 return 0;
         }
 #endif /* !GF_LINUX_HOST_OS */
+
+        ret = posix_fill_gfid_path (this, path, &stbuf);
 
         ret = snprintf (gen_key, 1024, "trusted.%s.gen", this->name);
 
@@ -360,6 +390,8 @@ posix_fstat_with_gen (xlator_t *this, int fd, struct iatt *stbuf_p)
                 return 0;
         }
 #endif /* !GF_LINUX_HOST_OS */
+
+        ret = posix_fill_gfid_fd (this, fd, &stbuf);
 
         ret = snprintf (gen_key, 1024, "trusted.%s.gen", this->name);
 
@@ -472,6 +504,36 @@ out:
 }
 
 
+int
+posix_gfid_set (xlator_t *this, const char *path, dict_t *xattr_req)
+{
+        void        *uuid_req = NULL;
+        uuid_t       uuid_curr;
+        int          ret = 0;
+        struct stat  stat = {0, };
+
+        if (!xattr_req)
+                return 0;
+
+        if (sys_lstat (path, &stat) != 0)
+                return 0;
+
+        ret = sys_lgetxattr (path, "trusted.gfid", uuid_curr, 16);
+
+        if (ret == 16)
+                return 0;
+
+        ret = dict_get_ptr (xattr_req, "gfid-req", &uuid_req);
+        if (ret)
+                goto out;
+
+        ret = sys_lsetxattr (path, "trusted.gfid", uuid_req, 16, XATTR_CREATE);
+
+out:
+        return ret;
+}
+
+
 int32_t
 posix_lookup (call_frame_t *frame, xlator_t *this,
               loc_t *loc, dict_t *xattr_req)
@@ -492,6 +554,8 @@ posix_lookup (call_frame_t *frame, xlator_t *this,
 	VALIDATE_OR_GOTO (loc->path, out);
 
         MAKE_REAL_PATH (real_path, this, loc->path);
+
+        posix_gfid_set (this, real_path, xattr_req);
 
         op_ret   = posix_lstat_with_gen (this, real_path, &buf);
         op_errno = errno;
@@ -1134,6 +1198,8 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
 		}
         }
 
+        op_ret = posix_gfid_set (this, real_path, params);
+
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, gid);
         if (op_ret == -1) {
@@ -1388,6 +1454,8 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
+
+        op_ret = posix_gfid_set (this, real_path, params);
 
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, gid);
@@ -1662,6 +1730,8 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
                         loc->path, linkname, strerror (op_errno));
                 goto out;
         }
+
+        op_ret = posix_gfid_set (this, real_path, params);
 
 #ifndef HAVE_SET_FSID
         op_ret = lchown (real_path, frame->root->uid, gid);
@@ -2079,6 +2149,8 @@ posix_create (call_frame_t *frame, xlator_t *this,
                         strerror (op_errno));
                 goto out;
         }
+
+        op_ret = posix_gfid_set (this, real_path, params);
 
 #ifndef HAVE_SET_FSID
         op_ret = chown (real_path, frame->root->uid, gid);
