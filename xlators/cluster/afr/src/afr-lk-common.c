@@ -62,8 +62,8 @@ afr_set_lk_owner (call_frame_t *frame, xlator_t *this)
         if (!frame->root->lk_owner) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "Setting lk-owner=%llu",
-                        (unsigned long long) frame->root);
-                frame->root->lk_owner = (uint64_t) frame->root;
+                        (unsigned long long) (unsigned long)frame->root);
+                frame->root->lk_owner = (uint64_t) (unsigned long)frame->root;
         }
 }
 
