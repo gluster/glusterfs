@@ -330,7 +330,7 @@ resolve_entry_simple (call_frame_t *frame)
         this  = frame->this;
         resolve = state->resolve_now;
 
-        parent = inode_get (state->itable, resolve->par, 0);
+        parent = inode_find (state->itable, resolve->pargfid);
         if (!parent) {
                 /* simple resolution is indecisive. need to perform
                    deep resolution */
@@ -346,16 +346,6 @@ resolve_entry_simple (call_frame_t *frame)
                                 inode, inode->ino, resolve->path);
                         inode_unref (inode);
                 }
-                goto out;
-        }
-
-//        if (parent->ino != 1 && parent->generation != resolve->gen) {
-        if (0) {
-                /* simple resolution is decisive - request was for a
-                   stale handle */
-                resolve->op_ret   = -1;
-                resolve->op_errno = ENOENT;
-                ret = -1;
                 goto out;
         }
 
@@ -445,24 +435,12 @@ resolve_inode_simple (call_frame_t *frame)
         state = CALL_STATE (frame);
         resolve = state->resolve_now;
 
-        if (resolve->type == RESOLVE_EXACT) {
-                inode = inode_get (state->itable, resolve->ino, resolve->gen);
-        } else {
-                inode = inode_get (state->itable, resolve->ino, 0);
-        }
+        inode = inode_find (state->itable, resolve->gfid);
 
         if (!inode) {
                 resolve->op_ret   = -1;
                 resolve->op_errno = ENOENT;
                 ret = 1;
-                goto out;
-        }
-
-//        if (inode->ino != 1 && inode->generation != resolve->gen) {
-        if (0) {
-                resolve->op_ret      = -1;
-                resolve->op_errno    = ENOENT;
-                ret = -1;
                 goto out;
         }
 
@@ -545,11 +523,11 @@ server_resolve (call_frame_t *frame)
 
                 server_resolve_fd (frame);
 
-        } else if (resolve->par) {
+        } else if (!uuid_is_null (resolve->pargfid)) {
 
                 server_resolve_entry (frame);
 
-        } else if (resolve->ino) {
+        } else if (!uuid_is_null (resolve->gfid)) {
 
                 server_resolve_inode (frame);
 
