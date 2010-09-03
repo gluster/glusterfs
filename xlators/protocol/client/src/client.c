@@ -468,10 +468,9 @@ out:
 }
 
 
-
-int32_t
+int
 client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
-                loc_t *loc)
+                loc_t *loc, dict_t *params)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;

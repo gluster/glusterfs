@@ -186,6 +186,7 @@ typedef struct {
 			fop_symlink_t fn;
 			const char *linkname;
 			loc_t loc;
+                        dict_t *params;
 		} symlink;
 		struct {
 			fop_symlink_cbk_t fn;
@@ -727,10 +728,8 @@ fop_rmdir_cbk_stub (call_frame_t *frame,
                     struct iatt *postparent);
 
 call_stub_t *
-fop_symlink_stub (call_frame_t *frame,
-		  fop_symlink_t fn,
-		  const char *linkname,
-		  loc_t *loc);
+fop_symlink_stub (call_frame_t *frame, fop_symlink_t fn,
+		  const char *linkname, loc_t *loc, dict_t *params);
 
 call_stub_t *
 fop_symlink_cbk_stub (call_frame_t *frame,

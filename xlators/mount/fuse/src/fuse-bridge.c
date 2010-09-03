@@ -1213,7 +1213,7 @@ fuse_symlink_resume (fuse_state_t *state)
                 state->loc.path, state->name);
 
         FUSE_FOP (state, fuse_newentry_cbk, GF_FOP_SYMLINK,
-                  symlink, state->name, &state->loc);
+                  symlink, state->name, &state->loc, NULL);
 }
 
 static void

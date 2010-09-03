@@ -584,22 +584,23 @@ iot_symlink_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
 
 int
 iot_symlink_wrapper (call_frame_t *frame, xlator_t *this, const char *linkname,
-                     loc_t *loc)
+                     loc_t *loc, dict_t *params)
 {
         STACK_WIND (frame, iot_symlink_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->symlink, linkname, loc);
+                    FIRST_CHILD (this)->fops->symlink, linkname, loc, params);
         return 0;
 }
 
 
 int
 iot_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
-             loc_t *loc)
+             loc_t *loc, dict_t *params)
 {
         call_stub_t     *stub = NULL;
         int             ret = -1;
 
-        stub = fop_symlink_stub (frame, iot_symlink_wrapper, linkname, loc);
+        stub = fop_symlink_stub (frame, iot_symlink_wrapper, linkname, loc,
+                                 params);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create symlink stub"
                         "(out of memory)");

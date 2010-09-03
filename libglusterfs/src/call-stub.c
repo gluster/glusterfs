@@ -599,10 +599,8 @@ out:
 
 
 call_stub_t *
-fop_symlink_stub (call_frame_t *frame,
-		  fop_symlink_t fn,
-		  const char *linkname,
-		  loc_t *loc)
+fop_symlink_stub (call_frame_t *frame, fop_symlink_t fn,
+		  const char *linkname, loc_t *loc, dict_t *params)
 {
 	call_stub_t *stub = NULL;
 
@@ -616,6 +614,8 @@ fop_symlink_stub (call_frame_t *frame,
 	stub->args.symlink.fn = fn;
 	stub->args.symlink.linkname = gf_strdup (linkname);
 	loc_copy (&stub->args.symlink.loc, loc);
+        if (params)
+                stub->args.symlink.params = dict_ref (params);
 out:
 	return stub;
 }
@@ -2189,7 +2189,8 @@ call_resume_wind (call_stub_t *stub)
 		stub->args.symlink.fn (stub->frame,
 				       stub->frame->this,
 				       stub->args.symlink.linkname,
-				       &stub->args.symlink.loc);
+				       &stub->args.symlink.loc,
+                                       stub->args.symlink.params);
 	}
 	break;
   
@@ -3362,6 +3363,8 @@ call_stub_destroy_wind (call_stub_t *stub)
 	{
 		GF_FREE ((char *)stub->args.symlink.linkname);
 		loc_wipe (&stub->args.symlink.loc);
+                if (stub->args.symlink.params)
+                        dict_unref (stub->args.symlink.params);
 	}
 	break;
   

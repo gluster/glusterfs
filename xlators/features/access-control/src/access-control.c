@@ -867,10 +867,10 @@ out:
 
 int32_t
 ac_symlink_resume (call_frame_t *frame, xlator_t *this, const char *linkname,
-                   loc_t *loc)
+                   loc_t *loc, dict_t *params)
 {
         STACK_WIND (frame, default_symlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->symlink, linkname, loc);
+                    FIRST_CHILD(this)->fops->symlink, linkname, loc, params);
         return 0;
 }
 
@@ -906,15 +906,16 @@ out:
 }
 
 
-int32_t
+int
 ac_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
-            loc_t *loc)
+            loc_t *loc, dict_t *params)
 {
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
-        stub = fop_symlink_stub (frame, ac_symlink_resume, linkname, loc);
+        stub = fop_symlink_stub (frame, ac_symlink_resume, linkname, loc,
+                                 params);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");

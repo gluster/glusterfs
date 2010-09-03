@@ -1404,7 +1404,7 @@ trace_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 int
 trace_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
-               loc_t *loc)
+               loc_t *loc, dict_t *params)
 {
         if (trace_fop_names[GF_FOP_SYMLINK].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,
@@ -1416,7 +1416,7 @@ trace_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         STACK_WIND (frame, trace_symlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->symlink,
-                    linkpath, loc);
+                    linkpath, loc, params);
 
         return 0;
 }

@@ -96,10 +96,8 @@ int32_t default_rmdir (call_frame_t *frame,
 		       xlator_t *this,
 		       loc_t *loc);
 
-int32_t default_symlink (call_frame_t *frame,
-			 xlator_t *this,
-			 const char *linkpath,
-			 loc_t *loc);
+int32_t default_symlink (call_frame_t *frame, xlator_t *this,
+			 const char *linkpath, loc_t *loc, dict_t *params);
 
 int32_t default_rename (call_frame_t *frame,
 			xlator_t *this,

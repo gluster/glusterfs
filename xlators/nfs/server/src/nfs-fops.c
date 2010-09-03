@@ -748,8 +748,8 @@ nfs_fop_symlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, char *target,
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_symlink_cbk, xl, xl,
-                           xl->fops->symlink, target, pathloc);
+        STACK_WIND_COOKIE  (frame, nfs_fop_symlink_cbk, xl, xl,
+                            xl->fops->symlink, target, pathloc, NULL);
         ret = 0;
 err:
         if (ret < 0) {

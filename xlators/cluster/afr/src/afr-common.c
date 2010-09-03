@@ -405,6 +405,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                         dict_unref (local->cont.mkdir.params);
 	}
 
+	{ /* symlink */
+                if (local->cont.symlink.params)
+                        dict_unref (local->cont.symlink.params);
+	}
+
 	{ /* writev */
 		GF_FREE (local->cont.writev.vector);
 	}

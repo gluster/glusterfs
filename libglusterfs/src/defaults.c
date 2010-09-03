@@ -370,17 +370,15 @@ default_symlink_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-default_symlink (call_frame_t *frame,
-		 xlator_t *this,
-		 const char *linkpath,
-		 loc_t *loc)
+
+int
+default_symlink (call_frame_t *frame, xlator_t *this,
+		 const char *linkpath, loc_t *loc, dict_t *params)
 {
-	STACK_WIND (frame,
-		    default_symlink_cbk,
+	STACK_WIND (frame, default_symlink_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->symlink,
-		    linkpath, loc);
+		    linkpath, loc, params);
 	return 0;
 }
 

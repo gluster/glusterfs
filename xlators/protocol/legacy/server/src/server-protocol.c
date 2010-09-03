@@ -4618,7 +4618,7 @@ server_symlink_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         STACK_WIND (frame, server_symlink_cbk,
                     bound_xl, bound_xl->fops->symlink,
-                    state->name, &state->loc);
+                    state->name, &state->loc, state->params);
 
         return 0;
 err:

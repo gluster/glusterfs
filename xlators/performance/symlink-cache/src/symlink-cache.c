@@ -311,14 +311,14 @@ sc_symlink_cbk (call_frame_t *frame, void *cookie,
 
 int
 sc_symlink (call_frame_t *frame, xlator_t *this,
-	    const char *dst, loc_t *src)
+	    const char *dst, loc_t *src, dict_t *params)
 {
 	frame->local = strdup (dst);
 
         STACK_WIND (frame, sc_symlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->symlink,
-                    dst, src);
+                    dst, src, params);
 
 	return 0;
 }

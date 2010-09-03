@@ -1115,7 +1115,7 @@ sh_missing_entries_symlink (call_frame_t *frame, xlator_t *this,
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->symlink,
-					   link, &local->loc);
+					   link, &local->loc, NULL);
 			if (!--call_count)
 				break;
 		}

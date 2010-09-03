@@ -847,7 +847,7 @@ error_gen_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 error_gen_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
-		   loc_t *loc)
+		   loc_t *loc, dict_t *params)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -869,7 +869,7 @@ error_gen_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 	STACK_WIND (frame, error_gen_symlink_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->symlink,
-		    linkpath, loc);
+		    linkpath, loc, params);
 	return 0;
 }
 

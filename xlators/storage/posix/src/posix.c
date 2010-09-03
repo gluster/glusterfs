@@ -1598,9 +1598,10 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t
+
+int
 posix_symlink (call_frame_t *frame, xlator_t *this,
-               const char *linkname, loc_t *loc)
+               const char *linkname, loc_t *loc, dict_t *params)
 {
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;
