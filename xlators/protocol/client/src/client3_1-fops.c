@@ -143,16 +143,6 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (-1 != rsp.op_ret) {
                 gf_stat_to_iatt (&rsp.stat, &stbuf);
 
-                ret = inode_ctx_put2 (inode, frame->this,
-                                      stbuf.ia_ino, stbuf.ia_gen);
-                if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "SYMLINK %"PRId64"/%s (%s): failed to set "
-                                "remote inode number to inode ctx",
-                                local->loc.parent->ino, local->loc.name,
-                                local->loc.path);
-                }
-
                 gf_stat_to_iatt (&rsp.preparent, &preparent);
                 gf_stat_to_iatt (&rsp.postparent, &postparent);
         }
@@ -205,16 +195,6 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (-1 != rsp.op_ret) {
                 gf_stat_to_iatt (&rsp.stat, &stbuf);
 
-                ret = inode_ctx_put2 (inode, frame->this,
-                                      stbuf.ia_ino, stbuf.ia_gen);
-                if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "MKNOD %"PRId64"/%s (%s): failed to set "
-                                "remote inode number to inode ctx",
-                                local->loc.parent->ino, local->loc.name,
-                                local->loc.path);
-                }
-
                 gf_stat_to_iatt (&rsp.preparent, &preparent);
                 gf_stat_to_iatt (&rsp.postparent, &postparent);
         }
@@ -266,16 +246,6 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (-1 != rsp.op_ret) {
                 gf_stat_to_iatt (&rsp.stat, &stbuf);
 
-                ret = inode_ctx_put2 (inode, frame->this,
-                                      stbuf.ia_ino, stbuf.ia_gen);
-                if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "MKDIR %"PRId64"/%s (%s): failed to set "
-                                "remote inode number to inode ctx",
-                                local->loc.parent->ino, local->loc.name,
-                                local->loc.path);
-                }
-
                 gf_stat_to_iatt (&rsp.preparent, &preparent);
                 gf_stat_to_iatt (&rsp.postparent, &postparent);
         }
@@ -300,8 +270,6 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         clnt_fd_ctx_t *fdctx = NULL;
         call_frame_t  *frame = NULL;
         fd_t          *fd    = NULL;
-        ino_t          ino   = 0;
-        uint64_t       gen   = 0;
         int            ret   = 0;
         gfs3_open_rsp  rsp   = {0,};
 
@@ -339,12 +307,8 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto out;
                 }
 
-                inode_ctx_get2 (fd->inode, frame->this, &ino, &gen);
-
                 fdctx->remote_fd = rsp.fd;
                 fdctx->inode     = inode_ref (fd->inode);
-                fdctx->ino       = ino;
-                fdctx->gen       = gen;
                 fdctx->flags     = local->flags;
                 fdctx->wbflags   = local->wbflags;
 
@@ -1462,16 +1426,6 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (-1 != rsp.op_ret) {
                 gf_stat_to_iatt (&rsp.stat, &stbuf);
 
-                ret = inode_ctx_put2 (inode, frame->this,
-                                      stbuf.ia_ino, stbuf.ia_gen);
-                if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "CREATE %"PRId64"/%s (%s): failed to set "
-                                "remote inode number to inode ctx",
-                                local->loc.parent->ino, local->loc.name,
-                                local->loc.path);
-                }
-
                 gf_stat_to_iatt (&rsp.preparent, &preparent);
                 gf_stat_to_iatt (&rsp.postparent, &postparent);
 
@@ -1485,8 +1439,6 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
                 fdctx->remote_fd = rsp.fd;
                 fdctx->inode     = inode_ref (inode);
-                fdctx->ino       = stbuf.ia_ino;
-                fdctx->gen       = stbuf.ia_gen;
                 fdctx->flags     = local->flags;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
@@ -1780,8 +1732,6 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         clnt_local_t      *local = NULL;
         clnt_conf_t       *conf = NULL;
         clnt_fd_ctx_t     *fdctx = NULL;
-        ino_t                ino = 0;
-        uint64_t             gen = 0;
         call_frame_t   *frame = NULL;
         fd_t             *fd = NULL;
         int ret = 0;
@@ -1822,13 +1772,8 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         goto out;
                 }
 
-                inode_ctx_get2 (fd->inode, frame->this, &ino, &gen);
-
                 fdctx->remote_fd = rsp.fd;
                 fdctx->inode     = inode_ref (fd->inode);
-                fdctx->ino       = ino;
-                fdctx->gen       = gen;
-
                 fdctx->is_dir    = 1;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
@@ -1864,8 +1809,6 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt      stbuf      = {0,};
         struct iatt      postparent = {0,};
         int              op_errno   = EINVAL;
-        ino_t            oldino     = 0;
-        uint64_t         oldgen     = 0;
         dict_t          *xattr      = NULL;
         inode_t         *inode      = NULL;
         char            *buf        = NULL;
@@ -1892,62 +1835,34 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         op_errno = gf_error_to_errno (rsp.op_errno);
         gf_stat_to_iatt (&rsp.postparent, &postparent);
 
-        if (rsp.op_ret == 0) {
-                rsp.op_ret = -1;
-                gf_stat_to_iatt (&rsp.stat, &stbuf);
+        if (rsp.op_ret == -1)
+                goto out;
 
-                ret = inode_ctx_get2 (inode, frame->this, &oldino, &oldgen);
-                if ((!ret) && ((oldino != stbuf.ia_ino) ||
-                               (oldgen != stbuf.ia_gen))) {
+        rsp.op_ret = -1;
+        gf_stat_to_iatt (&rsp.stat, &stbuf);
+
+        if (rsp.dict.dict_len > 0) {
+                xattr = dict_new();
+                GF_VALIDATE_OR_GOTO (frame->this->name, xattr, out);
+
+                buf = memdup (rsp.dict.dict_val, rsp.dict.dict_len);
+                GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
+
+                ret = dict_unserialize (buf, rsp.dict.dict_len, &xattr);
+                if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "LOOKUP %"PRId64"/%s (%s): "
-                                "inode number changed from "
-                                "{%"PRId64",%"PRId64"} to {%"PRId64",%"PRId64"}",
-                                local->loc.parent ?
-                                local->loc.parent->ino : (uint64_t) 0,
-                                local->loc.name,
-                                local->loc.path,
-                                oldgen, oldino, stbuf.ia_gen, stbuf.ia_ino);
-                        op_errno = ESTALE;
+                                "%s (%"PRId64"): failed to "
+                                "unserialize dictionary",
+                                local->loc.path, inode->ino);
+                        op_errno = EINVAL;
                         goto out;
                 }
 
-                ret = inode_ctx_put2 (inode, frame->this,
-                                      stbuf.ia_ino, stbuf.ia_gen);
-                if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
-                                "LOOKUP %"PRId64"/%s (%s) : "
-                                "failed to set remote inode "
-                                "number to inode ctx",
-                                local->loc.parent ?
-                                local->loc.parent->ino : (uint64_t) 0,
-                                local->loc.name,
-                                local->loc.path);
-                }
-
-                if (rsp.dict.dict_len > 0) {
-                        xattr = dict_new();
-                        GF_VALIDATE_OR_GOTO (frame->this->name, xattr, out);
-
-                        buf = memdup (rsp.dict.dict_val, rsp.dict.dict_len);
-                        GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
-
-                        ret = dict_unserialize (buf, rsp.dict.dict_len, &xattr);
-                        if (ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_DEBUG,
-                                        "%s (%"PRId64"): failed to "
-                                        "unserialize dictionary",
-                                        local->loc.path, inode->ino);
-                                op_errno = EINVAL;
-                                goto out;
-                        }
-
-                        xattr->extra_free = buf;
-                        buf = NULL;
-                }
-
-                rsp.op_ret = 0;
+                xattr->extra_free = buf;
+                buf = NULL;
         }
+
+        rsp.op_ret = 0;
 
 out:
         rsp.op_errno = op_errno;
@@ -2262,8 +2177,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
                 goto out;
         }
 
-        req.ino   = fdctx->ino;
-        req.gen   = fdctx->gen;
+        memcpy (req.gfid,  inode->gfid, 16);
         req.path  = (char *)local->loc.path;
         req.gfs_id = GFS3_OP_OPENDIR;
 
@@ -2336,8 +2250,7 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         path            = NULL;
         frame->local    = local;
 
-        req.ino      = fdctx->ino;
-        req.gen      = fdctx->gen;
+        memcpy (req.gfid,  inode->gfid, 16);
         req.flags    = gf_flags_from_flags (fdctx->flags);
         req.wbflags  = fdctx->wbflags;
         req.path     = (char *)local->loc.path;
@@ -2514,24 +2427,16 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
         loc_copy (&local->loc, args->loc);
         frame->local = local;
 
-        if (args->loc->ino != 1 && args->loc->parent) {
-                ret = inode_ctx_get2 (args->loc->parent, this,
-                                      &req.par, &req.gen);
-                if (args->loc->parent->ino && ret < 0) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "LOOKUP %"PRId64"/%s (%s): failed to get "
-                                "remote inode number for parent",
-                                args->loc->parent->ino, args->loc->name,
-                                args->loc->path);
-                        goto unwind;
-                }
-                GF_VALIDATE_OR_GOTO (this->name, args->loc->name, unwind);
-        } else {
-                req.ino = 1;
-        }
+        if (args->loc->parent)
+                memcpy (req.pargfid, args->loc->parent->gfid, 16);
+        else
+                memcpy (req.gfid, args->loc->inode->gfid, 16);
 
         if (args->dict) {
                 content = dict_get (args->dict, GF_CONTENT_KEY);
@@ -2638,15 +2543,10 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
                 goto unwind;
 
         args = data;
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.gfs_id = GFS3_OP_STAT;
         conf = this->private;
@@ -2681,14 +2581,10 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.offset = args->offset;
         req.gfs_id = GFS3_OP_TRUNCATE;
@@ -2786,14 +2682,10 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.mask = args->mask;
         req.gfs_id = GFS3_OP_ACCESS;
@@ -2831,14 +2723,10 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.size = args->size;
         req.gfs_id = GFS3_OP_READLINK;
@@ -2878,14 +2766,10 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->parent, this, &req.par, &req.gen);
-        if (args->loc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64"/%s (%s): "
-                        "failed to get remote inode number for parent",
-                        args->loc->parent->ino, args->loc->name, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->parent))
+                goto unwind;
+
+        memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.gfs_id = GFS3_OP_UNLINK;
@@ -2923,14 +2807,10 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->parent, this, &req.par, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64"/%s (%s): "
-                        "failed to get remote inode number for parent",
-                        args->loc->parent->ino, args->loc->name, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->parent))
+                goto unwind;
+
+        memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.gfs_id = GFS3_OP_RMDIR;
@@ -2960,6 +2840,7 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args     = NULL;
         gfs3_symlink_req  req      = {0,};
+        size_t            dict_len = 0;
         int               ret      = 0;
         int               op_errno = ESTALE;
 
@@ -2973,23 +2854,30 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        if (!(args->loc && args->loc->parent))
+                goto unwind;
+
         loc_copy (&local->loc, args->loc);
         frame->local = local;
 
-        ret = inode_ctx_get2 (args->loc->parent, this, &req.par, &req.gen);
-        if (args->loc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "SYMLINK %"PRId64"/%s (%s): failed to get remote inode"
-                        " number parent",
-                        args->loc->parent->ino, args->loc->name,
-                        args->loc->path);
-                        goto unwind;
-        }
-
+        memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path     = (char *)args->loc->path;
         req.linkname = (char *)args->linkname;
         req.bname    = (char *)args->loc->name;
         req.gfs_id = GFS3_OP_SYMLINK;
+        if (args->dict) {
+                ret = dict_allocate_and_serialize (args->dict,
+                                                   &req.dict.dict_val,
+                                                   &dict_len);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to get serialized length of dict");
+                        op_errno = EINVAL;
+                        goto unwind;
+                }
+        }
+        req.dict.dict_len = dict_len;
+
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -3000,6 +2888,9 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOTCONN;
                 goto unwind;
         }
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 unwind:
         if (frame)
@@ -3009,6 +2900,9 @@ unwind:
 
         if (local)
                 client_local_wipe (local);
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 }
 
@@ -3029,26 +2923,12 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->oldloc->parent, this,
-                              &req.oldpar, &req.oldgen);
-        if (args->oldloc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "RENAME %"PRId64"/%s (%s): failed to get remote inode "
-                        "number for source parent", args->oldloc->parent->ino,
-                        args->oldloc->name, args->oldloc->path);
-                        goto unwind;
-        }
+        if (!(args->oldloc && args->newloc && args->oldloc->parent &&
+              args->newloc->parent))
+                goto unwind;
 
-        ret = inode_ctx_get2 (args->newloc->parent, this, &req.newpar,
-                              &req.newgen);
-        if (args->newloc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "CREATE %"PRId64"/%s (%s): failed to get remote inode "
-                        "number for destination parent",
-                        args->newloc->parent->ino, args->newloc->name,
-                        args->newloc->path);
-                        goto unwind;
-        }
+        memcpy (req.oldgfid,  args->oldloc->parent->gfid, 16);
+        memcpy (req.newgfid, args->newloc->parent->gfid, 16);
 
         req.oldpath = (char *)args->oldloc->path;
         req.oldbname =  (char *)args->oldloc->name;
@@ -3089,6 +2969,13 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
+        if (!(args->oldloc && args->oldloc->inode && args->newloc &&
+              args->newloc->parent))
+                goto unwind;
+
+        memcpy (req.oldgfid,  args->oldloc->inode->gfid, 16);
+        memcpy (req.newgfid, args->newloc->parent->gfid, 16);
+
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
                 op_errno = ENOMEM;
@@ -3097,28 +2984,6 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
 
         loc_copy (&local->loc, args->oldloc);
         frame->local = local;
-
-        ret = inode_ctx_get2 (args->oldloc->inode, this,
-                              &req.oldino, &req.oldgen);
-        if (args->oldloc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "RENAME %"PRId64"/%s (%s): failed to get remote inode "
-                        "number for source parent", args->oldloc->parent->ino,
-                        args->oldloc->name, args->oldloc->path);
-                        op_errno = ENOENT;
-                        goto unwind;
-        }
-
-        ret = inode_ctx_get2 (args->newloc->parent, this, &req.newpar,
-                              &req.newgen);
-        if (args->newloc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "CREATE %"PRId64"/%s (%s): failed to get remote inode "
-                        "number for destination parent",
-                        args->newloc->parent->ino, args->newloc->name,
-                        args->newloc->path);
-                        goto unwind;
-        }
 
         req.oldpath = (char *)args->oldloc->path;
         req.newpath = (char *)args->newloc->path;
@@ -3149,6 +3014,7 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         clnt_conf_t    *conf     = NULL;
         clnt_args_t    *args     = NULL;
         gfs3_mknod_req  req      = {0,};
+        size_t          dict_len = 0;
         int             ret      = 0;
         int             op_errno = ESTALE;
 
@@ -3163,24 +3029,30 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        if (!(args->loc && args->loc->parent))
+                goto unwind;
+
         loc_copy (&local->loc, args->loc);
         frame->local = local;
 
-        ret = inode_ctx_get2 (args->loc->parent, this, &req.par, &req.gen);
-        if (args->loc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "SYMLINK %"PRId64"/%s (%s): failed to get remote inode"
-                        " number parent",
-                        args->loc->parent->ino, args->loc->name,
-                        args->loc->path);
-                        goto unwind;
-        }
-
+        memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path   = (char *)args->loc->path;
         req.bname  = (char *)args->loc->name;
         req.mode   = args->mode;
         req.dev    = args->rdev;
         req.gfs_id = GFS3_OP_MKNOD;
+        if (args->dict) {
+                ret = dict_allocate_and_serialize (args->dict,
+                                                   &req.dict.dict_val,
+                                                   &dict_len);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to get serialized length of dict");
+                        op_errno = EINVAL;
+                        goto unwind;
+                }
+        }
+        req.dict.dict_len = dict_len;
 
         conf = this->private;
 
@@ -3192,6 +3064,9 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOTCONN;
                 goto unwind;
         }
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 unwind:
         if (frame)
@@ -3201,6 +3076,9 @@ unwind:
 
         if (local)
                 client_local_wipe (local);
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 }
 
@@ -3214,6 +3092,7 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         clnt_conf_t    *conf     = NULL;
         clnt_args_t    *args     = NULL;
         gfs3_mkdir_req  req      = {0,};
+        size_t          dict_len = 0;
         int             ret      = 0;
         int             op_errno = ESTALE;
 
@@ -3228,23 +3107,29 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
+        if (!(args->loc && args->loc->parent))
+                goto unwind;
+
         loc_copy (&local->loc, args->loc);
         frame->local = local;
 
-        ret = inode_ctx_get2 (args->loc->parent, this, &req.par, &req.gen);
-        if (args->loc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "SYMLINK %"PRId64"/%s (%s): failed to get remote inode"
-                        " number parent",
-                        args->loc->parent->ino, args->loc->name,
-                        args->loc->path);
-                        goto unwind;
-        }
-
+        memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
         req.gfs_id = GFS3_OP_MKDIR;
+        if (args->dict) {
+                ret = dict_allocate_and_serialize (args->dict,
+                                                   &req.dict.dict_val,
+                                                   &dict_len);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to get serialized length of dict");
+                        op_errno = EINVAL;
+                        goto unwind;
+                }
+        }
+        req.dict.dict_len = dict_len;
 
         conf = this->private;
 
@@ -3256,6 +3141,9 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOTCONN;
                 goto unwind;
         }
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 unwind:
         if (frame)
@@ -3265,6 +3153,9 @@ unwind:
 
         if (local)
                 client_local_wipe (local);
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 }
 
@@ -3277,6 +3168,7 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         clnt_conf_t     *conf     = NULL;
         clnt_args_t     *args     = NULL;
         gfs3_create_req  req      = {0,};
+        size_t           dict_len = 0;
         int              ret      = 0;
         int              op_errno = ESTALE;
 
@@ -3290,26 +3182,33 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto unwind;
         }
+        if (!(args->loc && args->loc->parent))
+                goto unwind;
+
         local->fd = fd_ref (args->fd);
         local->flags = args->flags;
+
         loc_copy (&local->loc, args->loc);
         frame->local = local;
 
-        ret = inode_ctx_get2 (args->loc->parent, this, &req.par, &req.gen);
-        if (args->loc->parent->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "SYMLINK %"PRId64"/%s (%s): failed to get remote inode"
-                        " number parent",
-                        args->loc->parent->ino, args->loc->name,
-                        args->loc->path);
-                        goto unwind;
-        }
-
+        memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
         req.flags = gf_flags_from_flags (args->flags);
         req.gfs_id = GFS3_OP_CREATE;
+        if (args->dict) {
+                ret = dict_allocate_and_serialize (args->dict,
+                                                   &req.dict.dict_val,
+                                                   &dict_len);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to get serialized length of dict");
+                        op_errno = EINVAL;
+                        goto unwind;
+                }
+        }
+        req.dict.dict_len = dict_len;
 
         conf = this->private;
 
@@ -3321,6 +3220,9 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOTCONN;
                 goto unwind;
         }
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 unwind:
         if (frame)
@@ -3330,6 +3232,9 @@ unwind:
                              NULL, NULL);
         if (local)
                 client_local_wipe (local);
+        if (req.dict.dict_val) {
+                GF_FREE (req.dict.dict_val);
+        }
         return 0;
 }
 
@@ -3356,20 +3261,16 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto unwind;
         }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
         local->fd = fd_ref (args->fd);
         local->flags = args->flags;
         local->wbflags = args->wbflags;
         loc_copy (&local->loc, args->loc);
         frame->local = local;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "OPEN %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.flags = gf_flags_from_flags (args->flags);
         req.wbflags = args->wbflags;
         req.path = (char *)args->loc->path;
@@ -3761,18 +3662,14 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOMEM;
                 goto unwind;
         }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
         local->fd = fd_ref (args->fd);
         loc_copy (&local->loc, args->loc);
         frame->local = local;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "OPEN %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.gfs_id = GFS3_OP_OPENDIR;
 
@@ -3872,22 +3769,10 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        if (args->loc && args->loc->inode) {
-                if (args->loc->inode->ino == 1) {
-                        req.ino = 1;
-                        req.gen = 0;
-                } else {
-                        ret = inode_ctx_get2 (args->loc->inode, this,
-                                              &req.ino, &req.gen);
-                        if (args->loc->inode->ino && ret < 0) {
-                                gf_log (this->name, GF_LOG_TRACE,
-                                        "STATFS %"PRId64" (%s): "
-                                        "failed to get remote inode number",
-                                        args->loc->inode->ino, args->loc->path);
-                                goto unwind;
-                        }
-                }
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.gfs_id = GFS3_OP_STATFS;
 
@@ -3925,14 +3810,10 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "SETXATTR %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -4015,7 +3896,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         req.fd    = fdctx->remote_fd;
         req.flags = args->flags;
-        req.ino   = args->fd->inode->ino;
+        memcpy (req.gfid,  args->fd->inode->gfid, 16);
         req.gfs_id = GFS3_OP_FSETXATTR;
 
         if (args->dict) {
@@ -4135,15 +4016,10 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
 
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.namelen = 1; /* Use it as a flag */
         req.path = (char *)args->loc->path;
         req.name = (char *)args->name;
@@ -4189,14 +4065,10 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "SETXATTR %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -4278,9 +4150,9 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        req.fd    = fdctx->remote_fd;
-        req.flags = args->flags;
-        req.ino   = args->fd->inode->ino;
+        req.fd     = fdctx->remote_fd;
+        req.flags  = args->flags;
+        memcpy (req.gfid,  args->fd->inode->gfid, 16);
         req.gfs_id = GFS3_OP_FXATTROP;
 
         if (args->dict) {
@@ -4335,14 +4207,10 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "REMOVEXATTR %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.name = (char *)args->name;
         req.gfs_id = GFS3_OP_REMOVEXATTR;
@@ -4467,15 +4335,10 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
 
         args = data;
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "INODELK %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
 
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         if (args->cmd == F_GETLK || args->cmd == F_GETLK64)
                 gf_cmd = GF_LK_GETLK;
         else if (args->cmd == F_SETLK || args->cmd == F_SETLK64)
@@ -4631,14 +4494,10 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.cmd = args->cmd_entrylk;
         req.type = args->type;
@@ -4932,15 +4791,10 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        ret = inode_ctx_get2 (args->loc->inode, this, &req.ino, &req.gen);
-        if (args->loc->inode->ino && ret < 0) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "STAT %"PRId64" (%s): "
-                        "failed to get remote inode number",
-                        args->loc->inode->ino, args->loc->path);
-                        op_errno = ENOENT;
-                        goto unwind;
-        }
+        if (!(args->loc && args->loc->inode))
+                goto unwind;
+
+        memcpy (req.gfid, args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.valid = args->valid;
         gf_stat_from_iatt (&req.stbuf, args->stbuf);

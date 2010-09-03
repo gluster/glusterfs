@@ -2682,8 +2682,7 @@ server_stat (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.ino   = args.ino;
-        state->resolve.gen   = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path  = gf_strdup (args.path);
 
         resolve_and_resume (frame, server_stat_resume);
@@ -2727,8 +2726,7 @@ server_setattr (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.ino   = args.ino;
-        state->resolve.gen   = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path  = gf_strdup (args.path);
 
         gf_stat_to_iatt (&args.stbuf, &state->stbuf);
@@ -2818,8 +2816,7 @@ server_readlink (rpcsvc_request_t *req)
         }
 
         state->resolve.type = RESOLVE_MUST;
-        state->resolve.ino  = args.ino;
-        state->resolve.gen  = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path = gf_strdup (args.path);
 
         state->size  = args.size;
@@ -2835,10 +2832,12 @@ server_create (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
+        dict_t              *params                 = NULL;
+        char                *buf                    = NULL;
         gfs3_create_req      args                   = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
-
+        int                  ret                    = 0;
         if (!req)
                 return 0;
 
@@ -2865,18 +2864,53 @@ server_create (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
+        if (args.dict.dict_len) {
+                /* Unserialize the dictionary */
+                params = dict_new ();
+
+                buf = memdup (args.dict.dict_val, args.dict.dict_len);
+                if (buf == NULL) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "out of memory");
+                        goto out;
+                }
+
+                ret = dict_unserialize (buf, args.dict.dict_len,
+                                        &params);
+                if (ret < 0) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "unserialize req-buffer to dictionary",
+                                frame->root->unique, state->resolve.path,
+                                state->resolve.ino);
+                        goto out;
+                }
+
+                state->dict = params;
+
+                params->extra_free = buf;
+
+                buf = NULL;
+        }
 
         state->resolve.type   = RESOLVE_NOT;
-        state->resolve.par    = args.par;
-        state->resolve.gen    = args.gen;
         state->resolve.path   = gf_strdup (args.path);
         state->resolve.bname  = gf_strdup (args.bname);
         state->mode           = args.mode;
         state->flags          = gf_flags_to_flags (args.flags);
+        memcpy (state->resolve.pargfid, args.pargfid, 16);
 
         resolve_and_resume (frame, server_create_resume);
-out:
         return 0;
+out:
+        if (params)
+                dict_unref (params);
+
+        if (buf) {
+                GF_FREE (buf);
+        }
+        return 0;
+
 }
 
 
@@ -2915,8 +2949,7 @@ server_open (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.ino   = args.ino;
-        state->resolve.gen   = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path  = gf_strdup (args.path);
 
         state->flags = gf_flags_to_flags (args.flags);
@@ -3283,8 +3316,7 @@ server_truncate (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.path  = gf_strdup (args.path);
-        state->resolve.ino   = args.ino;
-        state->resolve.gen   = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->offset        = args.offset;
 
         resolve_and_resume (frame, server_truncate_resume);
@@ -3331,10 +3363,9 @@ server_unlink (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.par    = args.par;
-        state->resolve.gen    = args.gen;
         state->resolve.path   = gf_strdup (args.path);
         state->resolve.bname  = gf_strdup (args.bname);
+        memcpy (state->resolve.pargfid, args.pargfid, 16);
 
         resolve_and_resume (frame, server_unlink_resume);
 out:
@@ -3386,9 +3417,8 @@ server_setxattr (rpcsvc_request_t *req)
 
         state->resolve.type     = RESOLVE_MUST;
         state->resolve.path     = gf_strdup (args.path);
-        state->resolve.ino      = args.ino;
-        state->resolve.gen      = args.gen;
         state->flags            = args.flags;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.dict.dict_len) {
                 dict = dict_new ();
@@ -3547,10 +3577,8 @@ server_fxattrop (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.fd_no   = args.fd;
-
-        state->resolve.ino     = args.ino;
-        state->resolve.gen     = args.gen;
         state->flags           = args.flags;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -3631,9 +3659,8 @@ server_xattrop (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.path    = gf_strdup (args.path);
-        state->resolve.ino     = args.ino;
-        state->resolve.gen     = args.gen;
         state->flags           = args.flags;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -3707,8 +3734,7 @@ server_getxattr (rpcsvc_request_t *req)
 
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.path  = gf_strdup (args.path);
-        state->resolve.ino   = args.ino;
-        state->resolve.gen   = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.namelen)
                 state->name = gf_strdup (args.name);
@@ -3802,8 +3828,7 @@ server_removexattr (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.path   = gf_strdup (args.path);
-        state->resolve.ino    = args.ino;
-        state->resolve.gen    = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->name           = gf_strdup (args.name);
 
         resolve_and_resume (frame, server_removexattr_resume);
@@ -3850,8 +3875,7 @@ server_opendir (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.path   = gf_strdup (args.path);
-        state->resolve.ino    = args.ino;
-        state->resolve.gen    = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         resolve_and_resume (frame, server_opendir_resume);
 out:
@@ -4010,9 +4034,12 @@ server_mknod (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
+        dict_t              *params                 = NULL;
+        char                *buf                    = NULL;
         gfs3_mknod_req       args                   = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
+        int                  ret                    = 0;
 
         if (!req)
                 return 0;
@@ -4041,9 +4068,37 @@ server_mknod (rpcsvc_request_t *req)
                 goto out;
         }
 
+        if (args.dict.dict_len) {
+                /* Unserialize the dictionary */
+                params = dict_new ();
+
+                buf = memdup (args.dict.dict_val, args.dict.dict_len);
+                if (buf == NULL) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "out of memory");
+                        goto out;
+                }
+
+                ret = dict_unserialize (buf, args.dict.dict_len,
+                                        &params);
+                if (ret < 0) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "unserialize req-buffer to dictionary",
+                                frame->root->unique, state->resolve.path,
+                                state->resolve.ino);
+                        goto out;
+                }
+
+                state->dict = params;
+
+                params->extra_free = buf;
+
+                buf = NULL;
+        }
+
         state->resolve.type    = RESOLVE_NOT;
-        state->resolve.par     = args.par;
-        state->resolve.gen     = args.gen;
+        memcpy (state->resolve.pargfid, args.pargfid, 16);
         state->resolve.path    = gf_strdup (args.path);
         state->resolve.bname   = gf_strdup (args.bname);
 
@@ -4051,8 +4106,16 @@ server_mknod (rpcsvc_request_t *req)
         state->dev  = args.dev;
 
         resolve_and_resume (frame, server_mknod_resume);
-out:
         return 0;
+out:
+        if (params)
+                dict_unref (params);
+
+        if (buf) {
+                GF_FREE (buf);
+        }
+        return 0;
+
 }
 
 
@@ -4061,9 +4124,12 @@ server_mkdir (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
+        dict_t              *params                 = NULL;
+        char                *buf                    = NULL;
         gfs3_mkdir_req       args                   = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
+        int                  ret                    = 0;
 
         if (!req)
                 return 0;
@@ -4091,18 +4157,53 @@ server_mkdir (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
+        if (args.dict.dict_len) {
+                /* Unserialize the dictionary */
+                params = dict_new ();
+
+                buf = memdup (args.dict.dict_val, args.dict.dict_len);
+                if (buf == NULL) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "out of memory");
+                        goto out;
+                }
+
+                ret = dict_unserialize (buf, args.dict.dict_len,
+                                        &params);
+                if (ret < 0) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "unserialize req-buffer to dictionary",
+                                frame->root->unique, state->resolve.path,
+                                state->resolve.ino);
+                        goto out;
+                }
+
+                state->dict = params;
+
+                params->extra_free = buf;
+
+                buf = NULL;
+        }
 
         state->resolve.type    = RESOLVE_NOT;
-        state->resolve.par     = args.par;
-        state->resolve.gen     = args.gen;
+        memcpy (state->resolve.pargfid, args.pargfid, 16);
         state->resolve.path    = gf_strdup (args.path);
         state->resolve.bname   = gf_strdup (args.bname);
 
         state->mode = args.mode;
 
         resolve_and_resume (frame, server_mkdir_resume);
-out:
         return 0;
+out:
+        if (params)
+                dict_unref (params);
+
+        if (buf) {
+                GF_FREE (buf);
+        }
+        return 0;
+
 }
 
 
@@ -4143,8 +4244,7 @@ server_rmdir (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_MUST;
-        state->resolve.par     = args.par;
-        state->resolve.gen     = args.gen;
+        memcpy (state->resolve.pargfid, args.pargfid, 16);
         state->resolve.path    = gf_strdup (args.path);
         state->resolve.bname   = gf_strdup (args.bname);
 
@@ -4193,8 +4293,7 @@ server_inodelk (rpcsvc_request_t *req)
         }
 
         state->resolve.type    = RESOLVE_EXACT;
-        state->resolve.ino     = args.ino;
-        state->resolve.gen     = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path    = gf_strdup (args.path);
 
         cmd = args.cmd;
@@ -4344,8 +4443,7 @@ server_entrylk (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_EXACT;
         state->resolve.path   = gf_strdup (args.path);
-        state->resolve.ino    = args.ino;
-        state->resolve.gen    = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         if (args.namelen)
                 state->name   = gf_strdup (args.name);
@@ -4442,8 +4540,7 @@ server_access (rpcsvc_request_t *req)
         }
 
         state->resolve.type  = RESOLVE_MUST;
-        state->resolve.ino   = args.ino;
-        state->resolve.gen   = args.gen;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path  = gf_strdup (args.path);
         state->mask          = args.mask;
 
@@ -4459,10 +4556,13 @@ server_symlink (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
+        dict_t              *params                = NULL;
+        char                *buf                   = NULL;
         gfs3_symlink_req     args                  = {0,};
         char                 linkname[4096]        = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 bname[4096]           = {0,};
+        int                  ret                   = 0;
 
         if (!req)
                 return 0;
@@ -4492,15 +4592,50 @@ server_symlink (rpcsvc_request_t *req)
                 goto out;
         }
 
+        if (args.dict.dict_len) {
+                /* Unserialize the dictionary */
+                params = dict_new ();
+
+                buf = memdup (args.dict.dict_val, args.dict.dict_len);
+                if (buf == NULL) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "out of memory");
+                        goto out;
+                }
+
+                ret = dict_unserialize (buf, args.dict.dict_len,
+                                        &params);
+                if (ret < 0) {
+                        gf_log (state->conn->bound_xl->name, GF_LOG_ERROR,
+                                "%"PRId64": %s (%"PRId64"): failed to "
+                                "unserialize req-buffer to dictionary",
+                                frame->root->unique, state->resolve.path,
+                                state->resolve.ino);
+                        goto out;
+                }
+
+                state->dict = params;
+
+                params->extra_free = buf;
+
+                buf = NULL;
+        }
+
         state->resolve.type   = RESOLVE_NOT;
-        state->resolve.par    = args.par;
-        state->resolve.gen    = args.gen;
+        memcpy (state->resolve.pargfid, args.pargfid, 16);
         state->resolve.path   = gf_strdup (args.path);
         state->resolve.bname  = gf_strdup (args.bname);
         state->name           = gf_strdup (args.linkname);
 
         resolve_and_resume (frame, server_symlink_resume);
+        return 0;
 out:
+        if (params)
+                dict_unref (params);
+
+        if (buf) {
+                GF_FREE (buf);
+        }
         return 0;
 }
 
@@ -4546,14 +4681,12 @@ server_link (rpcsvc_request_t *req)
 
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.path    = gf_strdup (args.oldpath);
-        state->resolve.ino     = args.oldino;
-        state->resolve.gen     = args.oldgen;
+        memcpy (state->resolve.gfid, args.oldgfid, 16);
 
         state->resolve2.type   = RESOLVE_NOT;
         state->resolve2.path   = gf_strdup (args.newpath);
         state->resolve2.bname  = gf_strdup (args.newbname);
-        state->resolve2.par    = args.newpar;
-        state->resolve2.gen    = args.newgen;
+        memcpy (state->resolve2.pargfid, args.newgfid, 16);
 
         resolve_and_resume (frame, server_link_resume);
 out:
@@ -4603,14 +4736,12 @@ server_rename (rpcsvc_request_t *req)
         state->resolve.type   = RESOLVE_MUST;
         state->resolve.path   = gf_strdup (args.oldpath);
         state->resolve.bname  = gf_strdup (args.oldbname);
-        state->resolve.par    = args.oldpar;
-        state->resolve.gen    = args.oldgen;
+        memcpy (state->resolve.pargfid, args.oldgfid, 16);
 
         state->resolve2.type  = RESOLVE_MAY;
         state->resolve2.path  = gf_strdup (args.newpath);
         state->resolve2.bname = gf_strdup (args.newbname);
-        state->resolve2.par   = args.newpar;
-        state->resolve2.gen   = args.newgen;
+        memcpy (state->resolve2.pargfid, args.newgfid, 16);
 
         resolve_and_resume (frame, server_rename_resume);
 out:
@@ -4796,13 +4927,10 @@ server_lookup (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        state->resolve.ino    = args.ino;
-        if (state->resolve.ino != 1)
-                state->resolve.ino = 0;
+        memcpy (state->resolve.gfid, args.gfid, 16);
 
         state->resolve.type   = RESOLVE_DONTCARE;
-        state->resolve.par    = args.par;
-        state->resolve.gen    = args.gen;
+        memcpy (state->resolve.pargfid, args.pargfid, 16);
         state->resolve.path   = gf_strdup (args.path);
 
         if (IS_NOT_ROOT (STRLEN_0 (args.path))) {
@@ -4889,9 +5017,7 @@ server_statfs (rpcsvc_request_t *req)
         }
 
         state->resolve.type   = RESOLVE_MUST;
-        state->resolve.ino    = args.ino;
-        if (!state->resolve.ino)
-                state->resolve.ino = 1;
+        memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.gen    = args.gen;
         state->resolve.path   = gf_strdup (args.path);
 
