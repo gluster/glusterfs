@@ -4253,10 +4253,10 @@ rdma_handshake_pollerr (rpc_transport_t *this)
         }
         pthread_mutex_unlock (&priv->write_mutex);
 
-/*        xlator_notify (this->xl, GF_EVENT_POLLERR, this, NULL); */
-
         if (need_unref)
                 rpc_transport_unref (this);
+
+        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
 
         return 0;
 }
