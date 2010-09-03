@@ -2445,8 +2445,7 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_friend_rsp);
 
-        if (rsp.hostname)
-                GF_FREE (rsp.hostname);
+
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Responded to %s (%d), ret: %d", hostname, port, ret);
         return ret;
