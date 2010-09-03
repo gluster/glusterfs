@@ -443,11 +443,9 @@ typedef int32_t (*fop_readlink_t) (call_frame_t *frame,
 				   loc_t *loc,
 				   size_t size);
 
-typedef int32_t (*fop_mknod_t) (call_frame_t *frame,
-				xlator_t *this,
-				loc_t *loc,
-				mode_t mode,
-				dev_t rdev);
+typedef int32_t (*fop_mknod_t) (call_frame_t *frame, xlator_t *this,
+				loc_t *loc, mode_t mode, dev_t rdev,
+                                dict_t *params);
 
 typedef int32_t (*fop_mkdir_t) (call_frame_t *frame,
 				xlator_t *this,

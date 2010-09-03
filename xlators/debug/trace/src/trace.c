@@ -1331,7 +1331,7 @@ trace_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 
 int
 trace_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
-             mode_t mode, dev_t dev)
+             mode_t mode, dev_t dev, dict_t *params)
 {
         if (trace_fop_names[GF_FOP_MKNOD].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,
@@ -1342,7 +1342,7 @@ trace_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
         STACK_WIND (frame, trace_mknod_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mknod,
-                    loc, mode, dev);
+                    loc, mode, dev, params);
 
         return 0;
 }

@@ -4157,7 +4157,8 @@ server_mknod_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         STACK_WIND (frame, server_mknod_cbk,
                     bound_xl, bound_xl->fops->mknod,
-                    &(state->loc), state->mode, state->dev);
+                    &(state->loc), state->mode, state->dev,
+                    state->params);
 
         return 0;
 err:

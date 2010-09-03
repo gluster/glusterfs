@@ -130,6 +130,7 @@ typedef struct {
 			loc_t loc;
 			mode_t mode;
 			dev_t rdev;
+                        dict_t *params;
 		} mknod;
 		struct {
 			fop_mknod_cbk_t fn;
@@ -671,11 +672,8 @@ fop_readlink_cbk_stub (call_frame_t *frame,
                        struct iatt *buf);
 
 call_stub_t *
-fop_mknod_stub (call_frame_t *frame,
-		fop_mknod_t fn,
-		loc_t *loc,
-		mode_t mode,
-		dev_t rdev);
+fop_mknod_stub (call_frame_t *frame, fop_mknod_t fn,
+		loc_t *loc, mode_t mode, dev_t rdev, dict_t *params);
 
 call_stub_t *
 fop_mknod_cbk_stub (call_frame_t *frame,

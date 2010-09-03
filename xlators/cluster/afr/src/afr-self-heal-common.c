@@ -987,7 +987,7 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 	int              enoent_count = 0;
 	int              call_count = 0;
 	mode_t           st_mode = 0;
-	dev_t            ia_gen = 0;
+	dev_t            ia_dev = 0;
 
 
 	local = frame->local;
@@ -1003,7 +1003,7 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 
 	st_mode = st_mode_from_ia (sh->buf[sh->source].ia_prot,
                                    sh->buf[sh->source].ia_type);
-	ia_gen  = sh->buf[sh->source].ia_gen;
+	ia_dev  = sh->buf[sh->source].ia_dev;
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"mknod %s mode 0%o on %d subvolumes",
@@ -1016,7 +1016,7 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->mknod,
-					   &local->loc, st_mode, ia_gen);
+					   &local->loc, st_mode, ia_dev, NULL);
 			if (!--call_count)
 				break;
 		}

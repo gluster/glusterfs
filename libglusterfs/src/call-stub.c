@@ -393,11 +393,8 @@ out:
 
 
 call_stub_t *
-fop_mknod_stub (call_frame_t *frame,
-		fop_mknod_t fn,
-		loc_t *loc,
-		mode_t mode,
-		dev_t rdev)
+fop_mknod_stub (call_frame_t *frame, fop_mknod_t fn,
+		loc_t *loc, mode_t mode, dev_t rdev, dict_t *params)
 {
 	call_stub_t *stub = NULL;
 
@@ -411,6 +408,8 @@ fop_mknod_stub (call_frame_t *frame,
 	loc_copy (&stub->args.mknod.loc, loc);
 	stub->args.mknod.mode = mode;
 	stub->args.mknod.rdev = rdev;
+        if (params)
+                stub->args.mknod.params = dict_ref (params);
 out:
 	return stub;
 }
@@ -2152,11 +2151,11 @@ call_resume_wind (call_stub_t *stub)
   
 	case GF_FOP_MKNOD:
 	{
-		stub->args.mknod.fn (stub->frame,
-				     stub->frame->this,
+		stub->args.mknod.fn (stub->frame, stub->frame->this,
 				     &stub->args.mknod.loc,
 				     stub->args.mknod.mode,
-				     stub->args.mknod.rdev);
+				     stub->args.mknod.rdev,
+                                     stub->args.mknod.params);
 	}
 	break;
   
@@ -3334,6 +3333,8 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_MKNOD:
 	{
 		loc_wipe (&stub->args.mknod.loc);
+                if (stub->args.mknod.params)
+                        dict_unref (stub->args.mknod.params);
 	}
 	break;
   

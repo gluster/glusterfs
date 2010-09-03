@@ -1064,9 +1064,10 @@ posix_readlink (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t
+
+int
 posix_mknod (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, mode_t mode, dev_t dev)
+             loc_t *loc, mode_t mode, dev_t dev, dict_t *params)
 {
 	int                   tmp_fd      = 0;
         int32_t               op_ret      = -1;

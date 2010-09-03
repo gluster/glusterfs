@@ -252,18 +252,15 @@ default_mknod_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-default_mknod (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc,
-	       mode_t mode,
-	       dev_t rdev)
+
+int
+default_mknod (call_frame_t *frame, xlator_t *this,
+	       loc_t *loc, mode_t mode, dev_t rdev, dict_t *parms)
 {
-	STACK_WIND (frame,
-		    default_mknod_cbk,
+	STACK_WIND (frame, default_mknod_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->mknod,
-		    loc, mode, rdev);
+		    loc, mode, rdev, parms);
 	return 0;
 }
 

@@ -545,12 +545,12 @@ out:
 }
 
 
-int32_t
+int
 ac_mknod_resume (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-                 dev_t rdev)
+                 dev_t rdev, dict_t *params)
 {
         STACK_WIND (frame, default_mknod_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev);
+                    FIRST_CHILD(this)->fops->mknod, loc, mode, rdev, params);
         return 0;
 }
 
@@ -586,15 +586,15 @@ out:
 }
 
 
-int32_t
+int
 ac_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-          dev_t rdev)
+          dev_t rdev, dict_t *params)
 {
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
-        stub = fop_mknod_stub (frame, ac_mknod_resume, loc, mode, rdev);
+        stub = fop_mknod_stub (frame, ac_mknod_resume, loc, mode, rdev, params);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");

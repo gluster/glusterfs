@@ -113,9 +113,9 @@ ro_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 	return 0;
 }
 
-int32_t
+int
 ro_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-          dev_t rdev)
+          dev_t rdev, dict_t *params)
 {
         STACK_UNWIND_STRICT (mknod, frame, -1, EROFS, NULL, NULL, NULL, NULL);
         return 0;

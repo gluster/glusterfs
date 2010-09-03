@@ -1019,7 +1019,7 @@ fuse_mknod_resume (fuse_state_t *state)
                 state->loc.path);
 
         FUSE_FOP (state, fuse_newentry_cbk, GF_FOP_MKNOD,
-                  mknod, &state->loc, state->mode, state->rdev);
+                  mknod, &state->loc, state->mode, state->rdev, NULL);
 
 }
 

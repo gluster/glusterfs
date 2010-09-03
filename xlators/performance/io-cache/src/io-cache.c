@@ -698,9 +698,9 @@ ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int32_t
+int
 ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-           dev_t rdev)
+           dev_t rdev, dict_t *params)
 {
         ioc_local_t *local = NULL;
         int32_t      op_errno = -1, ret = -1;
@@ -722,11 +722,10 @@ ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         frame->local = local;
 
-	STACK_WIND (frame,
-		    ioc_mknod_cbk,
+	STACK_WIND (frame, ioc_mknod_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->mknod,
-		    loc, mode, rdev);
+		    loc, mode, rdev, params);
         return 0;
 
 unwind:

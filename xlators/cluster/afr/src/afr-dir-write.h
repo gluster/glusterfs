@@ -27,7 +27,7 @@ afr_create (call_frame_t *frame, xlator_t *this,
 
 int32_t
 afr_mknod (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode, dev_t dev);
+	   loc_t *loc, mode_t mode, dev_t dev, dict_t *params);
 
 int32_t
 afr_mkdir (call_frame_t *frame, xlator_t *this,

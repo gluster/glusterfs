@@ -496,6 +496,7 @@ typedef struct _afr_local {
                         ino_t parent_ino;
 			dev_t dev;
 			mode_t mode;
+                        dict_t *params;
 			inode_t *inode;
 			struct iatt buf;
                         struct iatt preparent;

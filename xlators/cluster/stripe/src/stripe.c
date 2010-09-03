@@ -181,7 +181,8 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
                                     trav->xlator, trav->xlator->fops->mknod,
                                     &local->loc,
                                     st_mode_from_ia (local->stbuf.ia_prot,
-                                                     local->stbuf.ia_type), 0);
+                                                     local->stbuf.ia_type), 0,
+                                    NULL);
                 }
                 if (IA_ISDIR (local->stbuf.ia_type)) {
                         STACK_WIND (rframe, stripe_sh_make_entry_cbk,
@@ -1425,9 +1426,10 @@ stripe_single_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 }
 
-int32_t
+
+int
 stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-              dev_t rdev)
+              dev_t rdev, dict_t *params)
 {
         stripe_private_t *priv = NULL;
         stripe_local_t   *local = NULL;
@@ -1482,7 +1484,7 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 while (trav) {
                         STACK_WIND (frame, stripe_mknod_ifreg_cbk,
                                     trav->xlator, trav->xlator->fops->mknod,
-                                    loc, mode, rdev);
+                                    loc, mode, rdev, params);
                         trav = trav->next;
                 }
 
@@ -1492,7 +1494,7 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         STACK_WIND (frame, stripe_single_mknod_cbk,
                     FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
-                    loc, mode, rdev);
+                    loc, mode, rdev, params);
 
         return 0;
 err:

@@ -395,6 +395,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                         dict_unref (local->cont.create.params);
 	}
 
+	{ /* mknod */
+                if (local->cont.mknod.params)
+                        dict_unref (local->cont.mknod.params);
+	}
+
 	{ /* writev */
 		GF_FREE (local->cont.writev.vector);
 	}

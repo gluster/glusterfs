@@ -410,7 +410,9 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		STACK_WIND (frame, dht_newfile_cbk,
 			    local->cached_subvol,
 			    local->cached_subvol->fops->mknod,
-			    &local->loc, local->mode, local->rdev);
+			    &local->loc, local->mode, local->rdev,
+                            local->params);
+
 		return 0;
 	}
 
@@ -425,7 +427,7 @@ nufa_mknod_linkfile_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 nufa_mknod (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, mode_t mode, dev_t rdev)
+	    loc_t *loc, mode_t mode, dev_t rdev, dict_t *params)
 {
 	dht_local_t *local = NULL;
 	dht_conf_t  *conf  = NULL;
@@ -477,6 +479,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 			goto err;
 		}
 
+                local->params = dict_ref (params);
 		local->mode = mode;
 		local->rdev = rdev;
 		local->cached_subvol = avail_subvol;
@@ -491,7 +494,7 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, dht_newfile_cbk,
 		    subvol, subvol->fops->mknod,
-		    loc, mode, rdev);
+		    loc, mode, rdev, params);
 
 	return 0;
 

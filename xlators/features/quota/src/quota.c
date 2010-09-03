@@ -324,7 +324,7 @@ quota_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 quota_mknod (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, mode_t mode, dev_t rdev)
+	     loc_t *loc, mode_t mode, dev_t rdev, dict_t *params)
 {
 	struct quota_priv *priv = NULL;
 
@@ -351,7 +351,7 @@ quota_mknod (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, quota_mknod_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->mknod,
-		    loc, mode, rdev);
+		    loc, mode, rdev, params);
 	return 0;
 }
 
