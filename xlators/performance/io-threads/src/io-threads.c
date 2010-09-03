@@ -737,25 +737,25 @@ iot_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_create_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc,
-                    int32_t flags, mode_t mode, fd_t *fd)
+                    int32_t flags, mode_t mode, fd_t *fd, dict_t *params)
 {
 	STACK_WIND (frame, iot_create_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->create,
-		    loc, flags, mode, fd);
+		    loc, flags, mode, fd, params);
 	return 0;
 }
 
 
 int
 iot_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-            mode_t mode, fd_t *fd)
+            mode_t mode, fd_t *fd, dict_t *params)
 {
         call_stub_t     *stub = NULL;
         int             ret = -1;
 
         stub = fop_create_stub (frame, iot_create_wrapper, loc, flags, mode,
-                                fd);
+                                fd, params);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "cannot create \"create\" call stub"

@@ -3242,7 +3242,8 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         STACK_WIND (frame, dht_create_cbk,
                     cached_subvol, cached_subvol->fops->create,
-                    &local->loc, local->flags, local->mode, local->fd);
+                    &local->loc, local->flags, local->mode,
+                    local->fd, local->params);
 
         return 0;
  err:
@@ -3252,7 +3253,8 @@ dht_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
 int
 dht_create (call_frame_t *frame, xlator_t *this,
-	    loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
+	    loc_t *loc, int32_t flags, mode_t mode,
+            fd_t *fd, dict_t *params)
 {
 	int          op_errno = -1;
         int          ret = -1;
@@ -3284,7 +3286,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
                         local->loc.path, subvol->name, loc->path);
                 STACK_WIND (frame, dht_create_cbk,
                             subvol, subvol->fops->create,
-                            &local->loc, flags, mode, fd);
+                            &local->loc, flags, mode, fd, params);
                 goto done;
         }
 
@@ -3309,7 +3311,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
                         "creating %s on %s", loc->path, subvol->name);
                 STACK_WIND (frame, dht_create_cbk,
                             subvol, subvol->fops->create,
-                            loc, flags, mode, fd);
+                            loc, flags, mode, fd, params);
                 goto done;
         }
         /* Choose the minimum filled volume, and create the 
@@ -3318,6 +3320,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
         avail_subvol = dht_free_disk_available_subvol (this, subvol);
         if (avail_subvol != subvol) {
                 local->fd = fd_ref (fd);
+                local->params = dict_ref (params);
                 local->flags = flags;
                 local->mode = mode;
 
@@ -3335,7 +3338,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
                 "creating %s on %s", loc->path, subvol->name);
         STACK_WIND (frame, dht_create_cbk,
                     subvol, subvol->fops->create,
-                    loc, flags, mode, fd);
+                    loc, flags, mode, fd, params);
 done:
 	return 0;
 

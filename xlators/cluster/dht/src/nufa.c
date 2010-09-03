@@ -302,7 +302,9 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
 	STACK_WIND (frame, dht_create_cbk,
 		    local->cached_subvol, local->cached_subvol->fops->create,
-		    &local->loc, local->flags, local->mode, local->fd);
+		    &local->loc, local->flags, local->mode, local->fd,
+                    local->params);
+
 	return 0;
 
  err:
@@ -313,7 +315,8 @@ nufa_create_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
 int
 nufa_create (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
+	     loc_t *loc, int32_t flags, mode_t mode,
+             fd_t *fd, dict_t *params)
 {
 	dht_local_t *local = NULL;
 	dht_conf_t  *conf  = NULL;
@@ -365,6 +368,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                 }
 
                 local->fd = fd_ref (fd);
+                local->params = dict_ref (params);
                 local->mode = mode;
                 local->flags = flags;
 
@@ -380,7 +384,7 @@ nufa_create (call_frame_t *frame, xlator_t *this,
 
         STACK_WIND (frame, dht_create_cbk,
                     subvol, subvol->fops->create,
-                    loc, flags, mode, fd);
+                    loc, flags, mode, fd, params);
 
         return 0;
 

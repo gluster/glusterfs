@@ -971,7 +971,7 @@ error_gen_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 error_gen_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
-		  int32_t flags, mode_t mode, fd_t *fd)
+		  int32_t flags, mode_t mode, fd_t *fd, dict_t *params)
 {
 	int             op_errno = 0;
         eg_t            *egp = NULL;
@@ -993,7 +993,7 @@ error_gen_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
 	STACK_WIND (frame, error_gen_create_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->create,
-		    loc, flags, mode, fd);
+		    loc, flags, mode, fd, params);
 	return 0;
 }
 

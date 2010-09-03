@@ -116,11 +116,9 @@ int32_t default_link (call_frame_t *frame,
 		      loc_t *oldloc,
 		      loc_t *newloc);
 
-int32_t default_create (call_frame_t *frame,
-			xlator_t *this,
-			loc_t *loc,
-			int32_t flags,
-			mode_t mode, fd_t *fd);
+int32_t default_create (call_frame_t *frame, xlator_t *this,
+			loc_t *loc, int32_t flags, mode_t mode,
+                        fd_t *fd, dict_t *params);
 
 int32_t default_open (call_frame_t *frame,
 		      xlator_t *this,

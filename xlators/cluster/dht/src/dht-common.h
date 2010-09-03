@@ -81,6 +81,7 @@ struct dht_local {
 	struct statvfs           statvfs;
 	fd_t                    *fd;
 	inode_t                 *inode;
+        dict_t                  *params;
 	dict_t                  *xattr;
 	dict_t                  *xattr_req;
 	dht_layout_t            *layout;

@@ -1017,7 +1017,8 @@ io_stats_open (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_create (call_frame_t *frame, xlator_t *this,
-                 loc_t *loc, int32_t flags, mode_t mode, fd_t *fd)
+                 loc_t *loc, int32_t flags, mode_t mode,
+                 fd_t *fd, dict_t *params)
 {
         BUMP_FOP (CREATE);
 
@@ -1026,7 +1027,7 @@ io_stats_create (call_frame_t *frame, xlator_t *this,
         STACK_WIND (frame, io_stats_create_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
-                    loc, flags, mode, fd);
+                    loc, flags, mode, fd, params);
         return 0;
 }
 

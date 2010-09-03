@@ -171,7 +171,7 @@ ro_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
 int32_t
 ro_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-           mode_t mode, fd_t *fd)
+           mode_t mode, fd_t *fd, dict_t *params)
 {
         STACK_UNWIND_STRICT (create, frame, -1, EROFS, NULL, NULL, NULL,
                              NULL, NULL);

@@ -477,12 +477,9 @@ typedef int32_t (*fop_link_t) (call_frame_t *frame,
 			       loc_t *oldloc,
 			       loc_t *newloc);
 
-typedef int32_t (*fop_create_t) (call_frame_t *frame,
-				 xlator_t *this,
-				 loc_t *loc,
-				 int32_t flags,
-				 mode_t mode,
-				 fd_t *fd);
+typedef int32_t (*fop_create_t) (call_frame_t *frame, xlator_t *this,
+				 loc_t *loc, int32_t flags, mode_t mode,
+				 fd_t *fd, dict_t *params);
 
 /* Tell subsequent writes on the fd_t to fsync after every writev fop without
  * requiring a fsync fop.
