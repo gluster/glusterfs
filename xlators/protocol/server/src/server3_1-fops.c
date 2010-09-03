@@ -2886,7 +2886,7 @@ server_create (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                state->dict = params;
+                state->params = params;
 
                 params->extra_free = buf;
 
@@ -4090,7 +4090,7 @@ server_mknod (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                state->dict = params;
+                state->params = params;
 
                 params->extra_free = buf;
 
@@ -4179,7 +4179,7 @@ server_mkdir (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                state->dict = params;
+                state->params = params;
 
                 params->extra_free = buf;
 
@@ -4614,7 +4614,7 @@ server_symlink (rpcsvc_request_t *req)
                         goto out;
                 }
 
-                state->dict = params;
+                state->params = params;
 
                 params->extra_free = buf;
 
