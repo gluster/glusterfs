@@ -1327,9 +1327,9 @@ unlock:
 }
 
 
-int32_t
+int
 posix_mkdir (call_frame_t *frame, xlator_t *this,
-             loc_t *loc, mode_t mode)
+             loc_t *loc, mode_t mode, dict_t *params)
 {
         int32_t               op_ret      = -1;
         int32_t               op_errno    = 0;

@@ -449,10 +449,8 @@ out:
 
 
 call_stub_t *
-fop_mkdir_stub (call_frame_t *frame,
-		fop_mkdir_t fn,
-		loc_t *loc,
-		mode_t mode)
+fop_mkdir_stub (call_frame_t *frame, fop_mkdir_t fn,
+		loc_t *loc, mode_t mode, dict_t *params)
 {
 	call_stub_t *stub = NULL;
 
@@ -465,6 +463,8 @@ fop_mkdir_stub (call_frame_t *frame,
 	stub->args.mkdir.fn = fn;
 	loc_copy (&stub->args.mkdir.loc, loc);
 	stub->args.mkdir.mode = mode;
+        if (params)
+                stub->args.mkdir.params = dict_ref (params);
 out:
 	return stub;
 }
@@ -2161,10 +2161,10 @@ call_resume_wind (call_stub_t *stub)
   
 	case GF_FOP_MKDIR:
 	{
-		stub->args.mkdir.fn (stub->frame,
-				     stub->frame->this,
+		stub->args.mkdir.fn (stub->frame, stub->frame->this,
 				     &stub->args.mkdir.loc,
-				     stub->args.mkdir.mode);
+				     stub->args.mkdir.mode,
+                                     stub->args.mkdir.params);
 	}
 	break;
   
@@ -3341,6 +3341,8 @@ call_stub_destroy_wind (call_stub_t *stub)
 	case GF_FOP_MKDIR:
 	{
 		loc_wipe (&stub->args.mkdir.loc);
+                if (stub->args.mkdir.params)
+                        dict_unref (stub->args.mkdir.params);
 	}
 	break;
   

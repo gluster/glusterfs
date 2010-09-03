@@ -277,7 +277,8 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 				    layout->list[i].xlator->fops->mkdir,
 				    loc,
                                     st_mode_from_ia (local->stbuf.ia_prot,
-                                                     local->stbuf.ia_type));
+                                                     local->stbuf.ia_type),
+                                    NULL);
 		}
 	}
 

@@ -701,8 +701,8 @@ nfs_fop_mkdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
 
-        STACK_WIND_COOKIE (frame, nfs_fop_mkdir_cbk, xl, xl, xl->fops->mkdir,
-                           pathloc, mode);
+        STACK_WIND_COOKIE  (frame, nfs_fop_mkdir_cbk, xl, xl, xl->fops->mkdir,
+                            pathloc, mode, NULL);
         ret = 0;
 err:
         if (ret < 0) {

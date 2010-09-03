@@ -122,8 +122,9 @@ ro_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 }
 
 
-int32_t
-ro_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+int
+ro_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+          dict_t *params)
 {
         STACK_UNWIND_STRICT (mkdir, frame, -1, EROFS, NULL, NULL, NULL, NULL);
         return 0;

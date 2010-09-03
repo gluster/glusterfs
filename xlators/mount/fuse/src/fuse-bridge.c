@@ -1079,7 +1079,7 @@ fuse_mkdir_resume (fuse_state_t *state)
                 state->loc.path);
 
         FUSE_FOP (state, fuse_newentry_cbk, GF_FOP_MKDIR,
-                  mkdir, &state->loc, state->mode);
+                  mkdir, &state->loc, state->mode, NULL);
 }
 
 static void

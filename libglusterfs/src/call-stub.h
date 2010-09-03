@@ -146,6 +146,7 @@ typedef struct {
 			fop_mkdir_t fn;
 			loc_t loc;
 			mode_t mode;
+                        dict_t *params;
 		} mkdir;
 		struct {
 			fop_mkdir_cbk_t fn;
@@ -686,10 +687,8 @@ fop_mknod_cbk_stub (call_frame_t *frame,
                     struct iatt *postparent);
 
 call_stub_t *
-fop_mkdir_stub (call_frame_t *frame,
-		fop_mkdir_t fn,
-		loc_t *loc,
-		mode_t mode);
+fop_mkdir_stub (call_frame_t *frame, fop_mkdir_t fn,
+		loc_t *loc, mode_t mode, dict_t *params);
 
 call_stub_t *
 fop_mkdir_cbk_stub (call_frame_t *frame,

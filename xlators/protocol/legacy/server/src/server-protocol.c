@@ -4212,7 +4212,8 @@ server_mkdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 
         STACK_WIND (frame, server_mkdir_cbk,
                     bound_xl, bound_xl->fops->mkdir,
-                    &(state->loc), state->mode);
+                    &(state->loc), state->mode,
+                    state->params);
 
         return 0;
 err:

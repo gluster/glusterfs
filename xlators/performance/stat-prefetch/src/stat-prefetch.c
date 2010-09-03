@@ -1697,8 +1697,9 @@ out:
 }
 
 
-int32_t
-sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+int
+sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+          dict_t *params)
 {
         int32_t         ret          = -1, op_errno = -1;
         char            need_unwind  = 1;
@@ -1750,7 +1751,7 @@ out:
                                  NULL);
         } else {
                 STACK_WIND (frame, sp_new_entry_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->mkdir, loc, mode);
+                            FIRST_CHILD(this)->fops->mkdir, loc, mode, params);
         }
          
         return 0;

@@ -509,6 +509,7 @@ typedef struct _afr_local {
                         uint64_t gen;
                         ino_t parent_ino;
 			int32_t mode;
+                        dict_t *params;
 			inode_t *inode;
 			struct iatt buf;
                         struct iatt read_child_buf;

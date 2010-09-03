@@ -884,14 +884,14 @@ io_stats_mknod (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_mkdir (call_frame_t *frame, xlator_t *this,
-                loc_t *loc, mode_t mode)
+                loc_t *loc, mode_t mode, dict_t *params)
 {
         BUMP_FOP (MKDIR);
 
         STACK_WIND (frame, io_stats_mkdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mkdir,
-                    loc, mode);
+                    loc, mode, params);
         return 0;
 }
 

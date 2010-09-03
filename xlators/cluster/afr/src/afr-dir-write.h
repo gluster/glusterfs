@@ -31,7 +31,7 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
 int32_t
 afr_mkdir (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode);
+	   loc_t *loc, mode_t mode, dict_t *params);
 
 int32_t
 afr_unlink (call_frame_t *frame, xlator_t *this,

@@ -3493,7 +3493,7 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 		STACK_WIND (frame, dht_mkdir_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->mkdir,
-			    &local->loc, local->mode);
+			    &local->loc, local->mode, local->params);
 	}
 	return 0;
 err:
@@ -3501,9 +3501,10 @@ err:
         return 0;
 }
 
+
 int
 dht_mkdir (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode)
+	   loc_t *loc, mode_t mode, dict_t *params)
 {
 	dht_local_t  *local  = NULL;
 	dht_conf_t   *conf = NULL;
@@ -3552,6 +3553,8 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
+        local->params = dict_ref (params);
+
 	local->layout = dht_layout_new (this, conf->subvolume_cnt);
 	if (!local->layout) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -3563,7 +3566,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, dht_mkdir_hashed_cbk,
 		    hashed_subvol,
 		    hashed_subvol->fops->mkdir,
-		    loc, mode);
+		    loc, mode, params);
 
 	return 0;
 

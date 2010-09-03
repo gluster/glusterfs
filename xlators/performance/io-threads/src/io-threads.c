@@ -482,21 +482,23 @@ iot_mkdir_cbk (call_frame_t *frame, void * cookie, xlator_t *this,
 
 
 int
-iot_mkdir_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+iot_mkdir_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+                   dict_t *params)
 {
         STACK_WIND (frame, iot_mkdir_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->mkdir, loc, mode);
+                    FIRST_CHILD (this)->fops->mkdir, loc, mode, params);
         return 0;
 }
 
 
 int
-iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+iot_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+           dict_t *params)
 {
         call_stub_t     *stub = NULL;
         int             ret = -1;
 
-        stub = fop_mkdir_stub (frame, iot_mkdir_wrapper, loc, mode);
+        stub = fop_mkdir_stub (frame, iot_mkdir_wrapper, loc, mode, params);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create mkdir stub"
                         "(out of memory)");

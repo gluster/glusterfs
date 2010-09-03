@@ -188,7 +188,8 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
                         STACK_WIND (rframe, stripe_sh_make_entry_cbk,
                                     trav->xlator, trav->xlator->fops->mkdir,
                                     &local->loc, st_mode_from_ia (local->stbuf.ia_prot,
-                                                                  local->stbuf.ia_type));
+                                                                  local->stbuf.ia_type),
+                                    NULL);
                 }
                 trav = trav->next;
         }
@@ -1585,8 +1586,10 @@ out:
         return 0;
 }
 
-int32_t
-stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+
+int
+stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+              dict_t *params)
 {
         stripe_private_t *priv = NULL;
         stripe_local_t   *local = NULL;
@@ -1622,7 +1625,7 @@ stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         while (trav) {
                 STACK_WIND (frame, stripe_mkdir_cbk,
                             trav->xlator, trav->xlator->fops->mkdir,
-                            loc, mode);
+                            loc, mode, params);
                 trav = trav->next;
         }
 
