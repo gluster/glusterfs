@@ -626,11 +626,12 @@ out:
 }
 
 
-int32_t
-ac_mkdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+int
+ac_mkdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+                 dict_t *params)
 {
         STACK_WIND (frame, default_mkdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->mkdir, loc, mode);
+                    FIRST_CHILD(this)->fops->mkdir, loc, mode, params);
         return 0;
 }
 
@@ -670,14 +671,15 @@ out:
 }
 
 
-int32_t
-ac_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+int
+ac_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+          dict_t *params)
 {
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
-        stub = fop_mkdir_stub (frame, ac_mkdir_resume, loc, mode);
+        stub = fop_mkdir_stub (frame, ac_mkdir_resume, loc, mode, params);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");

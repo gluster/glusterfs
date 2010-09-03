@@ -762,7 +762,8 @@ afr_mkdir_wind (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,	
 					   priv->children[i], 
 					   priv->children[i]->fops->mkdir,
-					   &local->loc, local->cont.mkdir.mode);
+					   &local->loc, local->cont.mkdir.mode,
+                                           local->cont.mkdir.params);
 			if (!--call_count)
 				break;
 		}
@@ -789,7 +790,7 @@ afr_mkdir_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_mkdir (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode)
+	   loc_t *loc, mode_t mode, dict_t *params)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -833,6 +834,8 @@ afr_mkdir (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->read_child_lock);
 
 	local->cont.mkdir.mode  = mode;
+        if (params)
+                local->cont.mkdir.params = dict_ref (params);
 
         if (loc->parent)
                 local->cont.mkdir.parent_ino = loc->parent->ino;

@@ -377,7 +377,8 @@ quota_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+             dict_t *params)
 {
 	struct quota_priv *priv = NULL;
 
@@ -405,7 +406,7 @@ quota_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
 	STACK_WIND (frame, quota_mkdir_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->mkdir,
-		    loc, mode);
+		    loc, mode, params);
 
 	return 0;
 }

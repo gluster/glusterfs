@@ -285,17 +285,15 @@ default_mkdir_cbk (call_frame_t *frame,
 	return 0;
 }
 
-int32_t
-default_mkdir (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc,
-	       mode_t mode)
+
+int
+default_mkdir (call_frame_t *frame, xlator_t *this,
+	       loc_t *loc, mode_t mode, dict_t *params)
 {
-	STACK_WIND (frame,
-		    default_mkdir_cbk,
+	STACK_WIND (frame, default_mkdir_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->mkdir,
-		    loc, mode);
+		    loc, mode, params);
 	return 0;
 }
 

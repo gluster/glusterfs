@@ -730,7 +730,7 @@ error_gen_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 error_gen_mkdir (call_frame_t *frame, xlator_t *this,
-		 loc_t *loc, mode_t mode)
+		 loc_t *loc, mode_t mode, dict_t *params)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -752,7 +752,7 @@ error_gen_mkdir (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, error_gen_mkdir_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->mkdir,
-		    loc, mode);
+		    loc, mode, params);
 	return 0;
 }
 

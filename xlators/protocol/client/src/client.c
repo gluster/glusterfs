@@ -387,10 +387,9 @@ out:
 }
 
 
-
-int32_t
+int
 client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
-              mode_t mode)
+              mode_t mode, dict_t *params)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;

@@ -124,7 +124,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_path,
                                    this->children->xlator,
                                    this->children->xlator->fops->mkdir,
-                                   &tmp_loc, 0755);
+                                   &tmp_loc, 0755, NULL);
 
                 goto out;
         }
@@ -166,7 +166,7 @@ trash_unlink_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_path,
                            this->children->xlator,
                            this->children->xlator->fops->mkdir,
-                           &tmp_loc, 0755);
+                           &tmp_loc, 0755, NULL);
 
 out:
         GF_FREE (cookie);
@@ -215,7 +215,7 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, trash_unlink_mkdir_cbk, tmp_cookie,
                                    FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mkdir,
-                                   &tmp_loc, 0755);
+                                   &tmp_loc, 0755, NULL);
 
                 GF_FREE (tmp_str);
 
@@ -360,7 +360,7 @@ trash_rename_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, trash_rename_mkdir_cbk, tmp_path,
                                    this->children->xlator,
                                    this->children->xlator->fops->mkdir,
-                                   &tmp_loc, 0755);
+                                   &tmp_loc, 0755, NULL);
 
                 GF_FREE (tmp_str);
                 return 0;
@@ -426,7 +426,7 @@ trash_rename_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         STACK_WIND_COOKIE (frame, trash_rename_mkdir_cbk,
                                            tmp_path,  this->children->xlator,
                                            this->children->xlator->fops->mkdir,
-                                           &tmp_loc, 0755);
+                                           &tmp_loc, 0755, NULL);
                 }
 
                 goto out;
@@ -805,7 +805,7 @@ trash_truncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
                                    tmp_path, FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mkdir,
-                                   &tmp_loc, 0755);
+                                   &tmp_loc, 0755, NULL);
                 GF_FREE (tmp_str);
                 goto out;
         }
@@ -883,7 +883,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
                                    tmp_path, this->children->xlator,
                                    this->children->xlator->fops->mkdir,
-                                   &tmp_loc, 0755);
+                                   &tmp_loc, 0755, NULL);
 
                 goto out;
         }
@@ -930,7 +930,7 @@ trash_truncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk, tmp_path,
                            this->children->xlator,
                            this->children->xlator->fops->mkdir,
-                           &tmp_loc, 0755);
+                           &tmp_loc, 0755, NULL);
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */
@@ -1182,7 +1182,7 @@ trash_ftruncate_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, trash_truncate_mkdir_cbk,
                                    tmp_path, FIRST_CHILD(this),
                                    FIRST_CHILD(this)->fops->mkdir,
-                                   &tmp_loc, 0755);
+                                   &tmp_loc, 0755, NULL);
                 GF_FREE (tmp_str);
                 return 0;
         }
@@ -1251,7 +1251,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 STACK_WIND_COOKIE (frame, trash_ftruncate_mkdir_cbk,
                                    tmp_path, this->children->xlator,
                                    this->children->xlator->fops->mkdir,
-                                   &tmp_loc, 0755);
+                                   &tmp_loc, 0755, NULL);
 
                 goto out;
         }
@@ -1298,7 +1298,7 @@ trash_ftruncate_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_WIND_COOKIE (frame, trash_ftruncate_mkdir_cbk, tmp_path,
                            this->children->xlator,
                            this->children->xlator->fops->mkdir,
-                           &tmp_loc, 0755);
+                           &tmp_loc, 0755, NULL);
 
 out:
         GF_FREE (cookie); /* strdup (dir_name) was sent here :) */

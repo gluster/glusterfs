@@ -400,6 +400,11 @@ afr_local_cleanup (afr_local_t *local, xlator_t *this)
                         dict_unref (local->cont.mknod.params);
 	}
 
+	{ /* mkdir */
+                if (local->cont.mkdir.params)
+                        dict_unref (local->cont.mkdir.params);
+	}
+
 	{ /* writev */
 		GF_FREE (local->cont.writev.vector);
 	}

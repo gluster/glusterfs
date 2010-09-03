@@ -1011,7 +1011,8 @@ unwind:
  * external reference through client_protocol_xlator->fops->mkdir
  */
 int
-client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+              dict_t *params)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_mkdir_req_t *req = NULL;

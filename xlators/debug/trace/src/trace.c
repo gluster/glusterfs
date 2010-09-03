@@ -1349,7 +1349,8 @@ trace_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 
 int
-trace_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
+trace_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
+             dict_t *params)
 {
         if (trace_fop_names[GF_FOP_MKDIR].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,
@@ -1361,7 +1362,7 @@ trace_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode)
         STACK_WIND (frame, trace_mkdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mkdir,
-                    loc, mode);
+                    loc, mode, params);
         return 0;
 }
 

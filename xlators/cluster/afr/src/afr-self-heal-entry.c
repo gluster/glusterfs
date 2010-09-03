@@ -575,7 +575,7 @@ afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie
                                    (void *) (long) active_src,
                                    priv->children[active_src],
                                    priv->children[active_src]->fops->mkdir,
-                                   &trash_loc, 0777);
+                                   &trash_loc, 0777, NULL);
 
                 loc_wipe (&trash_loc);
                 return 0;
@@ -1315,7 +1315,8 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
 			   priv->children[child_index],
 			   priv->children[child_index]->fops->mkdir,
 			   &impunge_local->loc,
-                           st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type));
+                           st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
+                           NULL);
 
 	return 0;
 }

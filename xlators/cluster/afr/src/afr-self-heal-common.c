@@ -1070,7 +1070,7 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
                                                    (void *) (long) i,
                                                    priv->children[i],
                                                    priv->children[i]->fops->mkdir,
-                                                   &local->loc, st_mode);
+                                                   &local->loc, st_mode, NULL);
                                 if (!--call_count)
                                         break;
                         }
