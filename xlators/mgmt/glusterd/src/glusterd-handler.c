@@ -662,8 +662,9 @@ glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
                 }
                 if (S_ISREG (stbuf.st_mode) && ((stbuf.st_mode & 01000) == 01000)) {
                         /* TODO: run the defrag */
-                        snprintf (tmp_filename, 1024, "%s/.%s.gfs%zu", dir,
-                                  entry->d_name, stbuf.st_size);
+                        snprintf (tmp_filename, 1024, "%s/.%s.gfs%llu", dir,
+                                  entry->d_name,
+                                  (unsigned long long)stbuf.st_size);
 
                         dst_fd = creat (tmp_filename, (stbuf.st_mode & ~01000));
                         if (dst_fd == -1)
