@@ -689,10 +689,35 @@ gf_resolve_all (fuse_state_t *state)
 
 
 int
+fuse_gfid_set (fuse_state_t *state)
+{
+        int   ret = 0;
+
+        if (uuid_is_null (state->gfid))
+                goto out;
+
+        if (!state->dict)
+                state->dict = dict_new ();
+
+        if (!state->dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_static_bin (state->dict, "gfid-req",
+                                   state->gfid, sizeof (state->gfid));
+out:
+        return ret;
+}
+
+
+int
 fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn)
 {
         xlator_t *inode_xl = NULL;
         xlator_t *active_xl = NULL;
+
+        fuse_gfid_set (state);
 
         state->resume_fn = fn;
 

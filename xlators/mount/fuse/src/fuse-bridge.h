@@ -267,6 +267,8 @@ typedef struct {
         struct iatt    attr;
         struct flock   lk_lock;
         struct iovec   vector;
+
+        uuid_t         gfid;
 } fuse_state_t;
 
 typedef void (*fuse_resume_fn_t) (fuse_state_t *state);
@@ -285,4 +287,5 @@ inode_t *fuse_ino_to_inode (uint64_t ino, xlator_t *fuse);
 int fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn);
 int is_gf_log_command (xlator_t *this, const char *name, char *value);
 int send_fuse_err (xlator_t *this, fuse_in_header_t *finh, int error);
+int fuse_gfid_set (fuse_state_t *state);
 #endif /* _GF_FUSE_BRIDGE_H_ */
