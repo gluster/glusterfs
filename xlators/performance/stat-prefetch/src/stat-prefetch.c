@@ -1757,9 +1757,9 @@ out:
 }
 
 
-int32_t
+int
 sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-          dev_t rdev)
+          dev_t rdev, dict_t *params)
 {
         int32_t         op_errno     = -1, ret = -1;
         char            need_unwind  = 1;
@@ -1811,7 +1811,8 @@ out:
                                  NULL);
         } else {
                 STACK_WIND (frame, sp_new_entry_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->mknod, loc, mode, rdev);
+                            FIRST_CHILD(this)->fops->mknod, loc, mode,
+                            rdev, params);
         }
 
         return 0;

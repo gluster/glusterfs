@@ -2804,7 +2804,8 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
         STACK_WIND (frame, dht_newfile_cbk,
                     cached_subvol, cached_subvol->fops->mknod,
-                    &local->loc, local->mode, local->rdev);
+                    &local->loc, local->mode, local->rdev,
+                    local->params);
 
         return 0;
  err:
@@ -2814,7 +2815,7 @@ dht_mknod_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
 int
 dht_mknod (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode, dev_t rdev)
+	   loc_t *loc, mode_t mode, dev_t rdev, dict_t *params)
 {
 	xlator_t    *subvol = NULL;
 	int          op_errno = -1;
@@ -2862,13 +2863,14 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                 
                 STACK_WIND (frame, dht_newfile_cbk,
                             subvol, subvol->fops->mknod,
-                            loc, mode, rdev);
+                            loc, mode, rdev, params);
         } else {
                 avail_subvol = dht_free_disk_available_subvol (this, subvol);
                 if (avail_subvol != subvol) {
                         /* Choose the minimum filled volume, and create the 
                            files there */
 
+                        local->params = dict_ref (params);
                         local->cached_subvol = avail_subvol;
                         local->mode = mode; 
                         local->rdev = rdev;
@@ -2882,7 +2884,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
                         
                         STACK_WIND (frame, dht_newfile_cbk,
                                     subvol, subvol->fops->mknod,
-                                    loc, mode, rdev);
+                                    loc, mode, rdev, params);
                 }
         }
 

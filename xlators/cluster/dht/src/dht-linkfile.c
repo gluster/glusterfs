@@ -124,7 +124,7 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 
 	STACK_WIND (frame, dht_linkfile_create_cbk,
 		    fromvol, fromvol->fops->mknod, loc,
-		    S_IFREG | DHT_LINKFILE_MODE, 0);
+		    S_IFREG | DHT_LINKFILE_MODE, 0, NULL);
 
 	return 0;
 }

@@ -82,11 +82,8 @@ int32_t default_readlink (call_frame_t *frame,
 			  loc_t *loc,
 			  size_t size);
 
-int32_t default_mknod (call_frame_t *frame,
-		       xlator_t *this,
-		       loc_t *loc,
-		       mode_t mode,
-		       dev_t rdev);
+int32_t default_mknod (call_frame_t *frame, xlator_t *this,
+		       loc_t *loc, mode_t mode, dev_t rdev, dict_t *params);
 
 int32_t default_mkdir (call_frame_t *frame,
 		       xlator_t *this,

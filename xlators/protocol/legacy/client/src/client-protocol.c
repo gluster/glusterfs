@@ -943,7 +943,7 @@ unwind:
  */
 int
 client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
-              dev_t dev)
+              dev_t dev, dict_t *params)
 {
         gf_hdr_common_t    *hdr = NULL;
         gf_fop_mknod_req_t *req = NULL;

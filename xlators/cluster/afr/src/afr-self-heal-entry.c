@@ -1288,7 +1288,7 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 			   priv->children[child_index]->fops->mknod,
 			   &impunge_local->loc,
 			   st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
-                           stbuf->ia_rdev);
+                           stbuf->ia_rdev, NULL);
 
 	return 0;
 }

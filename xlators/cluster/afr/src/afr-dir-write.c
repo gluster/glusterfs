@@ -508,7 +508,8 @@ afr_mknod_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i], 
 					   priv->children[i]->fops->mknod,
 					   &local->loc, local->cont.mknod.mode,
-					   local->cont.mknod.dev);
+					   local->cont.mknod.dev,
+                                           local->cont.mknod.params);
 			if (!--call_count)
 				break;
 		}
@@ -534,7 +535,7 @@ afr_mknod_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_mknod (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc, mode_t mode, dev_t dev)
+	   loc_t *loc, mode_t mode, dev_t dev, dict_t *params)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -579,6 +580,8 @@ afr_mknod (call_frame_t *frame, xlator_t *this,
 
 	local->cont.mknod.mode  = mode;
 	local->cont.mknod.dev   = dev;
+        if (params)
+                local->cont.mknod.params = dict_ref (params);
 
         if (loc->parent)
                 local->cont.mknod.parent_ino = loc->parent->ino;
