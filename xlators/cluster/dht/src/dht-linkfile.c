@@ -115,17 +115,33 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 		     xlator_t *tovol, xlator_t *fromvol, loc_t *loc)
 {
 	dht_local_t *local = NULL;
-
+        dict_t      *dict = NULL;
+        int          ret = 0;
 
 	local = frame->local;
 	local->linkfile.linkfile_cbk = linkfile_cbk;
 	local->linkfile.srcvol = tovol;
 	loc_copy (&local->linkfile.loc, loc);
 
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_static_bin (dict, "gfid-req", loc->inode->gfid, 16);
+        if (ret)
+                gf_log ("dht-linkfile", GF_LOG_DEBUG, "gfid set failed");
+
 	STACK_WIND (frame, dht_linkfile_create_cbk,
 		    fromvol, fromvol->fops->mknod, loc,
-		    S_IFREG | DHT_LINKFILE_MODE, 0, NULL);
+		    S_IFREG | DHT_LINKFILE_MODE, 0, dict);
 
+        if (dict)
+                dict_unref (dict);
+
+        return 0;
+out:
+	local->linkfile.linkfile_cbk (frame, NULL, frame->this, -1, ENOMEM,
+				      loc->inode, NULL, NULL, NULL);
 	return 0;
 }
 

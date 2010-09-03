@@ -417,6 +417,8 @@ dht_iatt_merge (xlator_t *this, struct iatt *to,
 
 	to->ia_dev      = from->ia_dev;
 
+        uuid_copy (to->ia_gfid, from->ia_gfid);
+
 	dht_itransform (this, subvol, from->ia_ino, &to->ia_ino);
         to->ia_gen      = from->ia_gen;
 
