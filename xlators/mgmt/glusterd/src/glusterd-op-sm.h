@@ -207,7 +207,8 @@ glusterd_op_set_cli_op (gf_mgmt_procnum op);
 
 int32_t
 glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
-                               int32_t op_errno, rpcsvc_request_t *req);
+                               int32_t op_errno, rpcsvc_request_t *req,
+                               void *ctx);
 int32_t
 glusterd_op_get_op ();
 

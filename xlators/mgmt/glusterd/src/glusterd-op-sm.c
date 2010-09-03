@@ -2868,7 +2868,8 @@ out:
 
 int32_t
 glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
-                               int32_t op_errno, rpcsvc_request_t *req)
+                               int32_t op_errno, rpcsvc_request_t *req,
+                               void *op_ctx)
 {
         int32_t         ret = -1;
         gd_serialize_t  sfunc = NULL;
@@ -2959,14 +2960,9 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                 case GD_MGMT_CLI_REPLACE_BRICK:
                         {
                                 gf1_cli_replace_brick_rsp rsp = {0,};
-                                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-                                if (!ctx) {
-                                        gf_log ("", GF_LOG_ERROR,
-                                                "Operation Context is not present");
-                                        ret = -1;
-                                        goto out;
-                                }
-                                if (dict_get_str (ctx, "status-reply", &rsp.status))
+                                ctx = op_ctx;
+                                if (ctx &&
+                                    dict_get_str (ctx, "status-reply", &rsp.status))
                                         rsp.status = "";
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
@@ -3021,6 +3017,8 @@ glusterd_op_txn_complete ()
         int32_t                 op_errno = 0;
         int32_t                 cli_op = 0;
         rpcsvc_request_t        *req = NULL;
+        void                    *ctx = NULL;
+        gf_boolean_t            ctx_free = _gf_false;
 
         priv = THIS->private;
         GF_ASSERT (priv);
@@ -3050,14 +3048,17 @@ glusterd_op_txn_complete ()
                 glusterd_op_clear_pending_op (op);
                 glusterd_op_clear_commit_op (op);
                 glusterd_op_clear_op (op);
-                glusterd_op_clear_ctx (op);
+                ctx = glusterd_op_get_ctx (op);
+                ctx_free = glusterd_op_get_ctx_free (op);
                 glusterd_op_clear_ctx_free (op);
         }
 
 out:
         pthread_mutex_unlock (&opinfo.lock);
         ret = glusterd_op_send_cli_response (cli_op, op_ret,
-                                             op_errno, req);
+                                             op_errno, req, ctx);
+        if (ctx_free && ctx && (op != -1))
+                glusterd_op_clear_ctx (op);
         gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
         return ret;
 }
