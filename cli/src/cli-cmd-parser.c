@@ -345,7 +345,11 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                         goto out;
                 }
 
+                errno = 0;
                 count = strtol (words[4], NULL, 0);
+                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
+                        goto out;
+
                 brick_index = 5;
         } else if ((strcasecmp (words[3], "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
@@ -354,7 +358,11 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                         goto out;
                 }
 
+                errno = 0;
                 count = strtol (words[4], NULL, 0);
+                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
+                        goto out;
+
                 brick_index = 5;
         } else {
                 brick_index = 3;
@@ -478,8 +486,11 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         ret = -1;
                         goto out;
                 }
-
+                errno = 0;
                 count = strtol (words[4], NULL, 0);
+                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
+                        goto out;
+
                 brick_index = 5;
         } else if ((strcasecmp (words[3], "stripe")) == 0) {
                 type = GF_CLUSTER_TYPE_STRIPE;
@@ -488,7 +499,11 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                         goto out;
                 }
 
+                errno = 0;
                 count = strtol (words[4], NULL, 0);
+                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
+                        goto out;
+
                 brick_index = 5;
         } else {
                 brick_index = 3;
