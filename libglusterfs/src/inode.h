@@ -40,6 +40,7 @@ typedef struct _dentry dentry_t;
 #include "list.h"
 #include "xlator.h"
 #include "iatt.h"
+#include "uuid.h"
 
 
 struct _inode_table {
@@ -94,6 +95,7 @@ struct _inode_ctx {
 
 struct _inode {
         inode_table_t       *table;         /* the table this inode belongs to */
+        uuid_t               gfid;
         gf_lock_t            lock;
         uint64_t             nlookup;
         uint64_t             generation;
