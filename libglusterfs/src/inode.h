@@ -60,13 +60,9 @@ struct _inode_table {
         struct list_head   purge;       /* list of inodes to be purged soon */
         uint32_t           purge_size;  /* count of inodes in purge list */
 
-        struct list_head   attic;       /* list of inodes which do not have the latest generation
-                                           number. inode_t's @hash is linked with @attic. It is
-                                           otherwise linked with @inode_hash */
-        uint32_t           attic_size;
         struct mem_pool   *inode_pool;  /* memory pool for inodes */
         struct mem_pool   *dentry_pool; /* memory pool for dentrys */
-	 struct mem_pool   *fd_mem_pool; /* memory pool for fd_t */
+        struct mem_pool   *fd_mem_pool; /* memory pool for fd_t */
 };
 
 
@@ -98,8 +94,6 @@ struct _inode {
         uuid_t               gfid;
         gf_lock_t            lock;
         uint64_t             nlookup;
-        uint64_t             generation;
-        uint32_t             in_attic;      /* whether @hash is linked with @inode_hash or @attic */
         uint32_t             ref;           /* reference count on this inode */
         ino_t                ino;           /* inode number in the storage (persistent) */
         ia_type_t            ia_type;       /* what kind of file */
@@ -117,9 +111,6 @@ inode_table_new (size_t lru_limit, xlator_t *xl);
 
 inode_t *
 inode_new (inode_table_t *table);
-
-inode_t *
-inode_search (inode_table_t *table, ino_t ino, const char *name);
 
 inode_t *
 inode_link (inode_t *inode, inode_t *parent,
@@ -154,14 +145,14 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name);
 inode_t *
 inode_get (inode_table_t *table, ino_t ino, uint64_t gen);
 
+inode_t *
+inode_find (inode_table_t *table, uuid_t gfid);
+
 int
 inode_path (inode_t *inode, const char *name, char **bufp);
 
 inode_t *
 inode_from_path (inode_table_t *table, const char *path);
-
-dentry_t *
-dentry_search_for_inode (inode_t *inode, ino_t par, const char *name);
 
 int
 __inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
@@ -169,13 +160,13 @@ __inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
 int
 inode_ctx_put (inode_t *inode, xlator_t *xlator, uint64_t value);
 
-int 
+int
 __inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
-int 
+int
 inode_ctx_get (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
-int 
+int
 inode_ctx_del (inode_t *inode, xlator_t *xlator, uint64_t *value);
 
 int

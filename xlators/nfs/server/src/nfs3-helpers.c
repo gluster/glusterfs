@@ -2580,7 +2580,6 @@ nfs3_fh_resolve_found_entry (nfs3_call_state_t *cs, gf_dirent_t *candidate)
                 return -EFAULT;
 
         dirino = cs->resolvedloc.inode->ino;
-        dirgen = cs->resolvedloc.inode->generation;
 
         nfs_loc_wipe (&cs->resolvedloc);
         ret = nfs_entry_loc_fill (cs->vol->itable, dirino, dirgen,
@@ -2644,7 +2643,6 @@ nfs3_fh_resolve_found_parent (nfs3_call_state_t *cs, gf_dirent_t *candidate)
                 return -EFAULT;
 
         dirino = cs->resolvedloc.inode->ino;
-        dirgen = cs->resolvedloc.inode->generation;
 
         nfs_loc_wipe (&cs->resolvedloc);
         ret = nfs_entry_loc_fill (cs->vol->itable, dirino, dirgen,
@@ -2862,7 +2860,6 @@ nfs3_fh_resolve_check_response (nfs3_call_state_t *cs, gf_dirent_t *candidate,
                 return ret;
 
         dirino = cs->resolvedloc.inode->ino;
-        dirgen = cs->resolvedloc.inode->generation;
 
         switch (response) {
 

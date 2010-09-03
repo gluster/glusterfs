@@ -289,7 +289,6 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		
 		local->op_ret = 0;
 		local->stbuf.ia_ino = local->ia_ino;
-                local->stbuf.ia_gen = local->loc.inode->generation;
 
                 if (local->loc.parent)
                         local->postparent.ia_ino = local->loc.parent->ino;

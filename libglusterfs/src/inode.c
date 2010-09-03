@@ -73,31 +73,13 @@ hash_dentry (inode_t *parent, const char *name, int mod)
 
 
 static int
-hash_name (ino_t par, const char *name, int mod)
+hash_gfid (uuid_t uuid, int mod)
 {
-        int hash = 0;
         int ret = 0;
 
-        hash = *name;
-        if (hash) {
-                for (name += 1; *name != '\0'; name++) {
-                        hash = (hash << 5) - hash + *name;
-                }
-        }
-        ret = (hash + par) % mod;
+        ret = uuid[15] + (uuid[14] << 8);
 
         return ret;
-}
-
-
-static int
-hash_inode (ino_t ino, int mod)
-{
-        int hash = 0;
-
-        hash = ino % mod;
-
-        return hash;
 }
 
 
@@ -173,12 +155,6 @@ __inode_unhash (inode_t *inode)
         if (!inode)
                 return;
 
-        if (!list_empty (&inode->hash)) {
-                if (inode->in_attic)
-                        inode->table->attic_size--;
-                inode->in_attic = 0;
-        }
-
         list_del_init (&inode->hash);
 }
 
@@ -203,53 +179,10 @@ __inode_hash (inode_t *inode)
                 return;
 
         table = inode->table;
-        hash = hash_inode (inode->ino, table->hashsize);
+        hash = hash_gfid (inode->gfid, 65536);
 
         list_del_init (&inode->hash);
         list_add (&inode->hash, &table->inode_hash[hash]);
-}
-
-
-static inode_t *
-__inode_search (inode_table_t *table, ino_t ino)
-{
-        int       hash = 0;
-        inode_t  *inode = NULL;
-        inode_t  *tmp = NULL;
-
-        if (!table)
-                return NULL;
-
-        hash = hash_inode (ino, table->hashsize);
-
-        list_for_each_entry (tmp, &table->inode_hash[hash], hash) {
-                if (tmp->ino == ino) {
-                        inode = tmp;
-                        break;
-                }
-        }
-
-        return inode;
-}
-
-
-static inode_t *
-__inode_search_attic (inode_table_t *table, ino_t ino, uint64_t gen)
-{
-        inode_t  *inode = NULL;
-        inode_t  *tmp = NULL;
-
-        if (!table)
-                return NULL;
-
-        list_for_each_entry (tmp, &table->attic, hash) {
-                if (tmp->ino == ino && tmp->generation == gen) {
-                        inode = tmp;
-                        break;
-                }
-        }
-
-        return inode;
 }
 
 
@@ -263,47 +196,6 @@ __dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
                 return NULL;
 
         list_for_each_entry (tmp, &inode->dentry_list, inode_list) {
-                if (tmp->parent->ino == par && !strcmp (tmp->name, name)) {
-                        dentry = tmp;
-                        break;
-                }
-        }
-
-        return dentry;
-}
-
-
-dentry_t *
-dentry_search_for_inode (inode_t *inode, ino_t par, const char *name)
-{
-        dentry_t *dentry = NULL;
-
-        if (!inode || !name)
-                return NULL;
-
-        pthread_mutex_lock (&inode->table->lock);
-        {
-                dentry = __dentry_search_for_inode (inode, par, name);
-        }
-        pthread_mutex_unlock (&inode->table->lock);
-
-        return dentry;
-}
-
-
-static dentry_t *
-__dentry_search (inode_table_t *table, ino_t par, const char *name)
-{
-        int       hash = 0;
-        dentry_t *dentry = NULL;
-        dentry_t *tmp = NULL;
-
-        if (!table || !name)
-                return NULL;
-
-        hash = hash_name (par, name, table->hashsize);
-
-        list_for_each_entry (tmp, &table->name_hash[hash], hash) {
                 if (tmp->parent->ino == par && !strcmp (tmp->name, name)) {
                         dentry = tmp;
                         break;
@@ -616,35 +508,6 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
 }
 
 
-inode_t *
-inode_search (inode_table_t *table, ino_t ino, const char *name)
-{
-        inode_t  *inode = NULL;
-        dentry_t *dentry = NULL;
-
-        if (!table)
-                return NULL;
-
-        pthread_mutex_lock (&table->lock);
-        {
-                if (!name) {
-                        inode = __inode_search (table, ino);
-                } else {
-                        dentry = __dentry_search (table, ino, name);
-
-                        if (dentry)
-                                inode = dentry->inode;
-                }
-
-                if (inode)
-                        __inode_ref (inode);
-        }
-        pthread_mutex_unlock (&table->lock);
-
-        return inode;
-}
-
-
 dentry_t *
 __dentry_grep (inode_table_t *table, inode_t *parent, const char *name)
 {
@@ -694,23 +557,46 @@ inode_grep (inode_table_t *table, inode_t *parent, const char *name)
 
 
 inode_t *
-__inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
+inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
+{
+        return NULL;
+}
+
+
+static int
+__is_root_gfid (uuid_t gfid)
+{
+        uuid_t  root;
+        int     ret;
+
+        memset (root, 0, 16);
+        root[15] = 1;
+
+        ret = uuid_compare (gfid, root);
+
+        return ret;
+}
+
+
+inode_t *
+__inode_find (inode_table_t *table, uuid_t gfid)
 {
         inode_t   *inode = NULL;
+        inode_t   *tmp = NULL;
+        int        hash = 0;
 
         if (!table)
-                return NULL;
-
-        if (ino == 1) {
-                inode = table->root;
                 goto out;
-        }
 
-        inode = __inode_search (table, ino);
+        if (__is_root_gfid (gfid) == 0)
+                return table->root;
 
-        if (gen) {
-                if (!inode || inode->generation != gen) {
-                        inode = __inode_search_attic (table, ino, gen);
+        hash = hash_gfid (gfid, 65536);
+
+        list_for_each_entry (tmp, &table->inode_hash[hash], hash) {
+                if (uuid_compare (tmp->gfid, gfid) == 0) {
+                        inode = tmp;
+                        break;
                 }
         }
 
@@ -720,7 +606,7 @@ out:
 
 
 inode_t *
-inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
+inode_find (inode_table_t *table, uuid_t gfid)
 {
         inode_t   *inode = NULL;
 
@@ -729,43 +615,13 @@ inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
 
         pthread_mutex_lock (&table->lock);
         {
-                inode = __inode_get (table, ino, gen);
+                inode = __inode_find (table, gfid);
                 if (inode)
                         __inode_ref (inode);
         }
         pthread_mutex_unlock (&table->lock);
 
         return inode;
-}
-
-
-static int
-__inode_atticize (inode_t *inode)
-{
-        inode_table_t *table = NULL;
-
-        if (!inode)
-                return -1;
-
-        table = inode->table;
-
-        __inode_unhash (inode);
-
-        list_add (&inode->hash, &table->attic);
-        inode->in_attic = 1;
-        table->attic_size++;
-
-        return 0;
-}
-
-
-uint64_t
-inode_gen_from_stat (struct iatt *iatt)
-{
-        if (!iatt)
-                return 0;
-
-        return (uint64_t) iatt->ia_gen;
 }
 
 
@@ -779,7 +635,7 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
         inode_table_t *table = NULL;
         inode_t       *link_inode = NULL;
 
-        if (!inode || !iatt)
+        if (!inode)
                 return NULL;
 
         table = inode->table;
@@ -788,31 +644,21 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
 
         link_inode = inode;
 
-        if (iatt->ia_ino == 1 && inode != table->root) {
-                gf_log (table->name, GF_LOG_ERROR,
-                        "inode_link called with iatt->ia_ino = 1. "
-                        "inode=%"PRId64"/%"PRId64 "parent=%"PRId64"/%"PRId64
-                        " name=%s",
-                        inode ? inode->generation:0 , inode ? inode->ino:0,
-                        parent ? parent->generation:0 , parent ? parent->ino:0,
-                        name);
-                return link_inode;
-        }
-
         if (!__is_inode_hashed (inode)) {
+                if (!iatt)
+                        return NULL;
+
+                if (uuid_is_null (iatt->ia_gfid))
+                        return NULL;
+
+                uuid_copy (inode->gfid, iatt->ia_gfid);
                 inode->ino        = iatt->ia_ino;
                 inode->ia_type    = iatt->ia_type;
-                inode->generation = inode_gen_from_stat (iatt);
 
-                old_inode = __inode_search (table, inode->ino);
+                old_inode = __inode_find (table, inode->gfid);
 
                 if (old_inode) {
-                        if (old_inode->generation < inode->generation) {
-                                __inode_atticize (old_inode);
-                                __inode_hash (inode);
-                        } else {
-                                link_inode = old_inode;
-                        }
+                        link_inode = old_inode;
                 } else {
                         __inode_hash (inode);
                 }
@@ -842,7 +688,7 @@ inode_link (inode_t *inode, inode_t *parent, const char *name,
         inode_table_t *table = NULL;
         inode_t       *linked_inode = NULL;
 
-        if (!inode || !iatt)
+        if (!inode)
                 return NULL;
 
         table = inode->table;
@@ -1163,14 +1009,15 @@ inode_table_prune (inode_table_t *table)
 static void
 __inode_table_init_root (inode_table_t *table)
 {
-        inode_t *root = NULL;
-        struct iatt iatt = {0, };
+        inode_t     *root = NULL;
+        struct iatt  iatt = {0, };
 
         if (!table)
                 return;
 
         root = __inode_create (table);
 
+        iatt.ia_gfid[15] = 1;
         iatt.ia_ino = 1;
         iatt.ia_type = IA_IFDIR;
 
@@ -1210,7 +1057,7 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
                 return NULL;
         }
 
-        new->inode_hash = (void *)GF_CALLOC (new->hashsize,
+        new->inode_hash = (void *)GF_CALLOC (65536,
                                              sizeof (struct list_head),
                                              gf_common_mt_list_head);
         if (!new->inode_hash) {
@@ -1234,19 +1081,18 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 		  GF_FREE (new);
 	 }
 
-        for (i=0; i<new->hashsize; i++) {
+        for (i = 0; i < 65536; i++) {
                 INIT_LIST_HEAD (&new->inode_hash[i]);
         }
 
 
-        for (i=0; i<new->hashsize; i++) {
+        for (i = 0; i < new->hashsize; i++) {
                 INIT_LIST_HEAD (&new->name_hash[i]);
         }
 
         INIT_LIST_HEAD (&new->active);
         INIT_LIST_HEAD (&new->lru);
         INIT_LIST_HEAD (&new->purge);
-        INIT_LIST_HEAD (&new->attic);
 
         ret = gf_asprintf (&new->name, "%s/inode", xl->name);
         if (-1 == ret) {
@@ -1509,6 +1355,7 @@ inode_dump (inode_t *inode, char *prefix)
         int             ret = -1;
         xlator_t        *xl = NULL;
         int             i = 0;
+        char            uuidbuf[256];
 
         if (!inode)
                 return;
@@ -1521,10 +1368,11 @@ inode_dump (inode_t *inode, char *prefix)
                 return;
         }
 
+        uuid_unparse (inode->gfid, uuidbuf);
+        gf_proc_dump_build_key(key, prefix, "gfid");
+        gf_proc_dump_write(key, "%s", uuidbuf);
         gf_proc_dump_build_key(key, prefix, "nlookup");
         gf_proc_dump_write(key, "%ld", inode->nlookup);
-        gf_proc_dump_build_key(key, prefix, "generation");
-        gf_proc_dump_write(key, "%ld", inode->generation);
         gf_proc_dump_build_key(key, prefix, "ref");
         gf_proc_dump_write(key, "%u", inode->ref);
         gf_proc_dump_build_key(key, prefix, "ino");
