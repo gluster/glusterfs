@@ -144,9 +144,10 @@ ro_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 }
 
-int32_t
+
+int
 ro_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
-            loc_t *loc)
+            loc_t *loc, dict_t *params)
 {
         STACK_UNWIND_STRICT (symlink, frame, -1, EROFS, NULL, NULL, NULL, NULL);
         return 0;

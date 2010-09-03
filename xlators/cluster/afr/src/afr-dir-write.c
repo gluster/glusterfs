@@ -1253,7 +1253,8 @@ afr_symlink_wind (call_frame_t *frame, xlator_t *this)
 					   priv->children[i], 
 					   priv->children[i]->fops->symlink,
 					   local->cont.symlink.linkpath,
-					   &local->loc);
+					   &local->loc,
+                                           local->cont.symlink.params);
 
 			if (!--call_count)
 				break;
@@ -1280,7 +1281,7 @@ afr_symlink_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_symlink (call_frame_t *frame, xlator_t *this,
-	     const char *linkpath, loc_t *loc)
+	     const char *linkpath, loc_t *loc, dict_t *params)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -1324,6 +1325,8 @@ afr_symlink (call_frame_t *frame, xlator_t *this,
         UNLOCK (&priv->read_child_lock);
 
 	local->cont.symlink.linkpath = gf_strdup (linkpath);
+        if (params)
+                local->cont.symlink.params = dict_ref (params);
 
         if (loc->parent)
                 local->cont.symlink.parent_ino = loc->parent->ino;

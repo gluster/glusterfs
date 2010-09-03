@@ -1820,9 +1820,9 @@ out:
 }
 
 
-int32_t
+int
 sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
-            loc_t *loc)
+            loc_t *loc, dict_t *params)
 {
         int32_t         ret          = -1, op_errno = -1;
         char            need_unwind  = 1;
@@ -1874,7 +1874,7 @@ out:
                                  NULL);
         } else {
                 STACK_WIND (frame, sp_new_entry_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->symlink, linkpath, loc);
+                            FIRST_CHILD(this)->fops->symlink, linkpath, loc, params);
         }
 
         return 0;

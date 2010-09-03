@@ -2901,7 +2901,7 @@ err:
 
 int
 dht_symlink (call_frame_t *frame, xlator_t *this,
-	     const char *linkname, loc_t *loc)
+	     const char *linkname, loc_t *loc, dict_t *params)
 {
 	xlator_t    *subvol = NULL;
 	int          op_errno = -1;
@@ -2942,7 +2942,7 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, dht_newfile_cbk,
 		    subvol, subvol->fops->symlink,
-		    linkname, loc);
+		    linkname, loc, params);
 
 	return 0;
 

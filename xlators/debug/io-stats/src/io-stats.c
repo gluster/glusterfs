@@ -927,14 +927,14 @@ io_stats_rmdir (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_symlink (call_frame_t *frame, xlator_t *this,
-                  const char *linkpath, loc_t *loc)
+                  const char *linkpath, loc_t *loc, dict_t *params)
 {
         BUMP_FOP (SYMLINK);
 
         STACK_WIND (frame, io_stats_symlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->symlink,
-                    linkpath, loc);
+                    linkpath, loc, params);
 
         return 0;
 }

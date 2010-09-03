@@ -581,7 +581,7 @@ quota_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 quota_symlink (call_frame_t *frame, xlator_t *this,
-	       const char *linkpath, loc_t *loc)
+	       const char *linkpath, loc_t *loc, dict_t *params)
 {
 	struct quota_priv *priv = NULL;
 
@@ -608,7 +608,7 @@ quota_symlink (call_frame_t *frame, xlator_t *this,
 	STACK_WIND (frame, quota_symlink_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->symlink,
-		    linkpath, loc);
+		    linkpath, loc, params);
 	return 0;
 }
 

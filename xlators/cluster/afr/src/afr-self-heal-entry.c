@@ -1341,7 +1341,7 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 			   (void *) (long) child_index,
 			   priv->children[child_index],
 			   priv->children[child_index]->fops->symlink,
-			   linkname, &impunge_local->loc);
+			   linkname, &impunge_local->loc, NULL);
 
 	return 0;
 }

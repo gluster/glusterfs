@@ -1195,7 +1195,7 @@ unwind:
 
 int
 client_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
-                loc_t *loc)
+                loc_t *loc, dict_t *params)
 {
         int                   ret = -1;
         gf_hdr_common_t      *hdr = NULL;
