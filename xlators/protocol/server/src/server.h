@@ -126,6 +126,8 @@ typedef struct {
         ino_t                  ino;
         uint64_t               gen;
         ino_t                  par;
+        u_char                 gfid[16];
+        u_char                 pargfid[16];
         char                  *path;
         char                  *bname;
 	char                  *resolved;

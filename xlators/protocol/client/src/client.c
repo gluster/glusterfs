@@ -374,6 +374,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         args.loc  = loc;
         args.mode = mode;
         args.rdev = rdev;
+        args.dict = params;
 
         proc = &conf->fops->proctable[GF_FOP_MKNOD];
         if (proc->fn)
@@ -400,8 +401,9 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (!conf->fops)
                 goto out;
 
-        args.loc = loc;
+        args.loc  = loc;
         args.mode = mode;
+        args.dict = params;
 
         proc = &conf->fops->proctable[GF_FOP_MKDIR];
         if (proc->fn)
@@ -483,6 +485,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 
         args.linkname = linkpath;
         args.loc      = loc;
+        args.dict     = params;
 
         proc = &conf->fops->proctable[GF_FOP_SYMLINK];
         if (proc->fn)
@@ -571,6 +574,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.flags = flags;
         args.mode = mode;
         args.fd = fd;
+        args.dict = params;
 
         proc = &conf->fops->proctable[GF_FOP_CREATE];
         if (proc->fn)

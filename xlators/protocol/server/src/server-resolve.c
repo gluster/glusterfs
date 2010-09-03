@@ -150,9 +150,9 @@ resolve_deep_continue (call_frame_t *frame)
         resolve->op_ret   = 0;
         resolve->op_errno = 0;
 
-        if (resolve->par)
+        if (resolve->pargfid)
                 ret = resolve_entry_simple (frame);
-        else if (resolve->ino)
+        else if (resolve->gfid)
                 ret = resolve_inode_simple (frame);
         else if (resolve->path)
                 ret = resolve_path_simple (frame);
