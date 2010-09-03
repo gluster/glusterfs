@@ -53,11 +53,9 @@ int
 afr_writev_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -86,15 +84,12 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postbuf)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 
 	int child_index = (long) cookie;
 	int call_count  = -1;
-	int need_unwind = 0;
         int read_child  = 0;
 
 	local = frame->local;
-	priv = this->private;
 
         read_child = afr_read_child (this, local->fd->inode);
 
@@ -118,13 +113,6 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 local->cont.writev.prebuf  = *prebuf;
                                 local->cont.writev.postbuf = *postbuf;
                         }
-
-			local->success_count++;
-
-			if ((local->success_count >= priv->wait_count)
-                            && local->read_child_returned) {
-				need_unwind = 1;
-			}
 		}
 
 		local->op_errno = op_errno;
@@ -138,7 +126,6 @@ afr_writev_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		local->transaction.resume (frame, this);
 	}
-	
 	return 0;
 }
 
@@ -334,11 +321,9 @@ int
 afr_truncate_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -420,7 +405,7 @@ afr_truncate_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	if (call_count == 0) {
 		local->transaction.resume (frame, this);
 	}
-	
+
 	return 0;
 }
 
@@ -430,7 +415,7 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
-	
+
 	int call_count = -1;
 	int i = 0;
 
@@ -446,13 +431,13 @@ afr_truncate_wind (call_frame_t *frame, xlator_t *this)
 
 	local->call_count = call_count;
 
-	for (i = 0; i < priv->child_count; i++) {				
+	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
 			STACK_WIND_COOKIE (frame, afr_truncate_wind_cbk,
-					   (void *) (long) i,	
-					   priv->children[i], 
+					   (void *) (long) i,
+					   priv->children[i],
 					   priv->children[i]->fops->truncate,
-					   &local->loc, 
+					   &local->loc,
 					   local->cont.truncate.offset);
 
 			if (!--call_count)
@@ -553,11 +538,9 @@ int
 afr_ftruncate_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -812,11 +795,9 @@ int
 afr_setattr_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -1030,11 +1011,9 @@ int
 afr_fsetattr_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -1252,11 +1231,9 @@ int
 afr_setxattr_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
@@ -1442,11 +1419,9 @@ int
 afr_removexattr_unwind (call_frame_t *frame, xlator_t *this)
 {
 	afr_local_t *   local = NULL;
-	afr_private_t * priv  = NULL;
 	call_frame_t   *main_frame = NULL;
 
 	local = frame->local;
-	priv  = this->private;
 
 	LOCK (&frame->lock);
 	{
