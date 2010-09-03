@@ -1233,7 +1233,7 @@ out:
                    be 0, and we should not point to any RPC errors, because
                    otherwise rpcsvc.c will send an error reply for the same
                    request, which causes double replies */
-                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req);
+                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL);
                 if (!ret)
                         req->rpc_err = SUCCESS;
         }
