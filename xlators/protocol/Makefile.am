@@ -1,1 +1,1 @@
-SUBDIRS = auth legacy client server
+SUBDIRS = auth client server

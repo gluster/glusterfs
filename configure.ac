@@ -75,18 +75,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/debug/io-stats/Makefile
 		xlators/debug/io-stats/src/Makefile
 		xlators/protocol/Makefile
-		xlators/protocol/legacy/Makefile
-		xlators/protocol/legacy/lib/Makefile
-		xlators/protocol/legacy/lib/src/Makefile
-		xlators/protocol/legacy/transport/Makefile
-		xlators/protocol/legacy/transport/socket/Makefile
-		xlators/protocol/legacy/transport/socket/src/Makefile
-		xlators/protocol/legacy/transport/ib-verbs/Makefile
-		xlators/protocol/legacy/transport/ib-verbs/src/Makefile
-		xlators/protocol/legacy/client/Makefile
-		xlators/protocol/legacy/client/src/Makefile
-		xlators/protocol/legacy/server/Makefile
-		xlators/protocol/legacy/server/src/Makefile
 		xlators/protocol/auth/Makefile
 		xlators/protocol/auth/addr/Makefile
 		xlators/protocol/auth/addr/src/Makefile
