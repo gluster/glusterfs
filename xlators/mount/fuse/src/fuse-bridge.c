@@ -240,8 +240,6 @@ fuse_lookup_resume (fuse_state_t *state)
         if (!state->loc.inode)
                 state->loc.inode = inode_new (state->loc.parent->table);
 
-        state->dict = dict_new ();
-
         FUSE_FOP (state, fuse_lookup_cbk, GF_FOP_LOOKUP,
                   lookup, &state->loc, state->dict);
 }
@@ -254,6 +252,8 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t       ret       = -1;
 
         GET_STATE (this, finh, state);
+
+        uuid_generate (state->gfid);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
 
@@ -459,6 +459,8 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
 
         if (finh->nodeid == 1) {
+                state->gfid[15] = 1;
+
                 ret = fuse_loc_fill (&state->loc, state, finh->nodeid, 0, NULL);
                 if (ret < 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -469,7 +471,7 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         return;
                 }
 
-                state->dict = dict_new ();
+                fuse_gfid_set (state);
 
                 FUSE_FOP (state, fuse_root_lookup_cbk, GF_FOP_LOOKUP,
                           lookup, &state->loc, state->dict);
@@ -501,6 +503,10 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         free_fuse_state (state);
                         return;
                 }
+
+                if (state->fd)
+                        fd_unref (state->fd);
+
                 state->fd = NULL;
         }
 
@@ -1019,7 +1025,7 @@ fuse_mknod_resume (fuse_state_t *state)
                 state->loc.path);
 
         FUSE_FOP (state, fuse_newentry_cbk, GF_FOP_MKNOD,
-                  mknod, &state->loc, state->mode, state->rdev, NULL);
+                  mknod, &state->loc, state->mode, state->rdev, state->dict);
 
 }
 
@@ -1040,6 +1046,9 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
 #endif
 
         GET_STATE (this, finh, state);
+
+        uuid_generate (state->gfid);
+
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
         if (ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1079,7 +1088,7 @@ fuse_mkdir_resume (fuse_state_t *state)
                 state->loc.path);
 
         FUSE_FOP (state, fuse_newentry_cbk, GF_FOP_MKDIR,
-                  mkdir, &state->loc, state->mode, NULL);
+                  mkdir, &state->loc, state->mode, state->dict);
 }
 
 static void
@@ -1092,6 +1101,9 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t ret = -1;
 
         GET_STATE (this, finh, state);
+
+        uuid_generate (state->gfid);
+
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
         if (ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1213,7 +1225,7 @@ fuse_symlink_resume (fuse_state_t *state)
                 state->loc.path, state->name);
 
         FUSE_FOP (state, fuse_newentry_cbk, GF_FOP_SYMLINK,
-                  symlink, state->name, &state->loc, NULL);
+                  symlink, state->name, &state->loc, state->dict);
 }
 
 static void
@@ -1226,6 +1238,9 @@ fuse_symlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
         int32_t       ret = -1;
 
         GET_STATE (this, finh, state);
+
+        uuid_generate (state->gfid);
+
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
         if (ret < 0) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
@@ -1520,7 +1535,7 @@ fuse_create_resume (fuse_state_t *state)
 
         FUSE_FOP (state, fuse_create_cbk, GF_FOP_CREATE,
                   create, &state->loc, state->flags, state->mode,
-                  fd, NULL);
+                  fd, state->dict);
 
 }
 
@@ -1545,6 +1560,8 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
 #endif
 
         GET_STATE (this, finh, state);
+
+        uuid_generate (state->gfid);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
         if (ret < 0) {
@@ -2915,6 +2932,7 @@ fuse_first_lookup (xlator_t *this)
         dict_t                    *dict = NULL;
         struct fuse_first_lookup   stub;
         uuid_t                     gfid;
+        int                        ret;
 
         priv = this->private;
 
@@ -2938,7 +2956,7 @@ fuse_first_lookup (xlator_t *this)
 
         memset (gfid, 0, 16);
         gfid[15] = 1;
-        
+        ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
 
         STACK_WIND (frame, fuse_first_lookup_cbk, xl, xl->fops->lookup,
                     &loc, dict);
