@@ -637,7 +637,6 @@ static void
 cleanup_and_exit (int signum)
 {
         glusterfs_ctx_t *ctx      = NULL;
-        call_pool_t     *tmp_pool = NULL;
         xlator_t        *trav     = NULL;
 
         ctx = glusterfs_ctx_get ();
@@ -666,11 +665,6 @@ cleanup_and_exit (int signum)
                 trav = trav->next;
         }
 
-        tmp_pool = ctx->pool;
-        mem_pool_destroy (tmp_pool->frame_mem_pool);
-        mem_pool_destroy (tmp_pool->stack_mem_pool);
-        tmp_pool = NULL;
-        mem_pool_destroy (ctx->stub_mem_pool);
 
         glusterfs_pidfile_cleanup (ctx);
 
