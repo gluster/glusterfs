@@ -47,6 +47,7 @@
 #define GLUSTERD_STORE_KEY_VOL_SUB_COUNT   "sub_count"
 #define GLUSTERD_STORE_KEY_VOL_BRICK  "brick"
 #define GLUSTERD_STORE_KEY_VOL_VERSION  "version"
+#define GLUSTERD_STORE_KEY_VOL_TRANSPORT "transport-type"
 
 #define GLUSTERD_STORE_KEY_BRICK_HOSTNAME "hostname"
 #define GLUSTERD_STORE_KEY_BRICK_PATH "path"

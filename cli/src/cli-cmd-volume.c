@@ -121,7 +121,8 @@ void
 cli_cmd_volume_create_usage ()
 {
         cli_out ("Usage: volume create <NEW-VOLNAME> "
-                 "[stripe <COUNT>] [replica <COUNT>] <NEW-BRICK> ...");
+                 "[stripe <COUNT>] [replica <COUNT>] [transport <tcp|rdma>] "
+                 "<NEW-BRICK> ...");
 }
 
 int

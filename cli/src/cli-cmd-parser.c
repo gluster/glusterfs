@@ -55,6 +55,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         char    *host_name = NULL;
         char    *tmp = NULL;
         char    *freeptr = NULL;
+        char    *trans_type = NULL;
+        int32_t index = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -150,6 +152,32 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         ret = dict_set_int32 (dict, "type", type);
         if (ret)
                 goto out;
+
+        if (type) 
+                index = 5;
+        else
+                index = 3;
+
+        if (strcasecmp(words[index], "transport") == 0) {
+                brick_index = index+2;
+                if ((strcasecmp (words[index+1], "tcp") == 0)) {
+                        trans_type = gf_strdup ("tcp");
+                } else if ((strcasecmp (words[index+1], "rdma") == 0)) {
+                        trans_type = gf_strdup ("rdma");
+                } else {
+                        gf_log ("", GF_LOG_ERROR, "incorrect transport"
+                                       " protocol specified");
+                        ret = -1;
+                        goto out;
+                } 
+        } else { 
+                trans_type = gf_strdup ("tcp");
+        }
+
+        ret = dict_set_str (dict, "transport", trans_type);
+        if (ret)
+                goto out;
+ 
         strcpy (brick_list, " ");
         while (brick_index < wordcount) {
                 delimiter = strchr (words[brick_index], ':');
@@ -238,6 +266,8 @@ out:
                 if (dict)
                         dict_destroy (dict);
         }
+        if (trans_type)
+                GF_FREE (trans_type);
 
         return ret;
 }

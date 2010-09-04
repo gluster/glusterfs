@@ -990,6 +990,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         char                                    *free_ptr   = NULL;
         char                                    *saveptr = NULL;
         int32_t                                 sub_count = 0;
+        char                                    *trans_type = NULL;
 
         GF_ASSERT (req);
 
@@ -1065,6 +1066,17 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
                         goto out;
         }
 
+        ret = dict_get_str (dict, "transport", &trans_type);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get transport");
+                goto out;
+        }
+
+        if (strcasecmp (trans_type, "rdma") == 0) { 
+                volinfo->transport_type = GF_TRANSPORT_RDMA;
+        } else {
+                volinfo->transport_type = GF_TRANSPORT_TCP;
+        }
         volinfo->sub_count = sub_count;
 
 
