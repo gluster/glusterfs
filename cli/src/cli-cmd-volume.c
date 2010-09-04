@@ -389,7 +389,7 @@ void
 cli_cmd_volume_add_brick_usage ()
 {
         cli_out ("Usage: volume add-brick <VOLNAME> "
-                 "[(replica <COUNT>)|(stripe <COUNT>)] <NEW-BRICK> ...");
+                 "<NEW-BRICK> ...");
 }
 
 int
@@ -434,7 +434,7 @@ void
 cli_cmd_volume_remove_brick_usage ()
 {
         cli_out ("Usage: volume remove-brick <VOLNAME> "
-                 "[(replica <COUNT>)|(stripe <COUNT>)] <BRICK> ...");
+                 "<BRICK> ...");
 }
 
 int
