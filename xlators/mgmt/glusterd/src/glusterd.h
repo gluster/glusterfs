@@ -114,6 +114,11 @@ struct glusterd_defrag_info_ {
 
 typedef struct glusterd_defrag_info_ glusterd_defrag_info_t;
 
+typedef enum gf_transport_type_ {
+        GF_TRANSPORT_TCP,       //DEFAULT
+        GF_TRANSPORT_RDMA,
+} gf_transport_type;
+
 struct glusterd_volinfo_ {
         char                    volname[GLUSTERD_MAX_VOLUME_NAME];
         int                     type;
@@ -134,6 +139,7 @@ struct glusterd_volinfo_ {
 
         int                     version;
         uint32_t                cksum;
+        gf_transport_type       transport_type;
 
         /* All xlator options */
         dict_t                  *dict;

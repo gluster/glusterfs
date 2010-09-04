@@ -235,4 +235,7 @@ glusterd_op_clear_ctx_free (glusterd_op_t op);
 
 gf_boolean_t
 glusterd_op_get_ctx_free (glusterd_op_t op);
+
+int
+set_xlator_option (dict_t *dict, char *key, char *value);
 #endif

@@ -1046,6 +1046,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         glusterd_volinfo_t              *volinfo = NULL;
         xlator_t                        *this = NULL;
         char                            *free_ptr = NULL;
+        char                            *trans_type = NULL;
+
         GF_ASSERT (req);
 
         this = THIS;
@@ -1098,6 +1100,11 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		goto out;
         }
 
+        ret = dict_get_str (dict, "transport", &trans_type);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get transport-type");
+                goto out;
+        }
         ret = dict_get_str (dict, "bricks", &bricks);
         if (ret) {
 		gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
@@ -2584,6 +2591,10 @@ glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
                 goto out;
 
         data = dict_get (dict, "bricks");
+        if (!data)
+                goto out;
+
+        data = dict_get (dict, "transport");
         if (!data)
                 goto out;
 

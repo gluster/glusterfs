@@ -38,7 +38,7 @@
 #include "glusterd-volgen.h"
 #include "glusterd-utils.h"
 
-static int
+int
 set_xlator_option (dict_t *dict, char *key,
                    char *value)
 {
@@ -1904,7 +1904,17 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 {
         int ret = -1;
 
-
+        if(volinfo->transport_type == GF_TRANSPORT_RDMA) {
+                ret = set_xlator_option (volinfo->dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
+                                        "rdma");
+                ret = set_xlator_option (volinfo->dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
+                                        "rdma");
+        } else {
+                ret = set_xlator_option (volinfo->dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
+                                 "tcp");
+                ret = set_xlator_option (volinfo->dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
+                                 "tcp");
+        }
         ret = generate_brick_volfiles (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,

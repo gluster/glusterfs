@@ -313,6 +313,12 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->transport_type);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                         GLUSTERD_STORE_KEY_VOL_TRANSPORT, buf);
+        if (ret)
+                goto out;
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_create_brick (volinfo, brickinfo);
                 if (ret)
@@ -946,6 +952,9 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_PORT,
                             strlen (GLUSTERD_STORE_KEY_VOL_PORT))) {
                         volinfo->port = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
+                            strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
+                        volinfo->transport_type = atoi (value);
                 } else {
                         gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);
@@ -1067,6 +1076,11 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        snprintf (buf, sizeof (buf), "%d", volinfo->transport_type);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                         GLUSTERD_STORE_KEY_VOL_TRANSPORT, buf);
+        if (ret)
+                goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_create_brick (volinfo, brickinfo);
