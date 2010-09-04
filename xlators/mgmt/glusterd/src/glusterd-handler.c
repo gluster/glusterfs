@@ -1631,7 +1631,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
         }
 
-        brick_list = GF_MALLOC (120000 * sizeof(brick_list),gf_common_mt_char);
+        brick_list = GF_MALLOC (120000 * sizeof(*brick_list),gf_common_mt_char);
 
         if (!brick_list) {
                 gf_log ("",GF_LOG_ERROR,"glusterd_handle_remove_brick: "
