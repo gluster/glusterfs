@@ -249,7 +249,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int                        ret   = 0;
         dict_t                     *dict = NULL;
         char                       *volname = NULL;
-        int32_t                    i = 1;
+        int32_t                    i = 0;
         char                       key[1024] = {0,};
         int32_t                    status = 0;
         int32_t                    type = 0;
@@ -309,13 +309,20 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 local = ((call_frame_t *)myframe)->local;
                 //cli_out ("Number of Volumes: %d", count);
 
-                if (!count) {
+                if (!count && (local->u.get_vol.flags ==
+                                        GF_CLI_GET_NEXT_VOLUME)) {
                         local->u.get_vol.volname = NULL;
+                        ret = 0;
+                        goto out;
+                } else if (!count && (local->u.get_vol.flags ==
+                                        GF_CLI_GET_VOLUME)) {
+                        cli_out ("Volume %s not present",
+                                  local->u.get_vol.volname);
                         ret = 0;
                         goto out;
                 }
 
-                while ( i <= count) {
+                while ( i < count) {
                         cli_out ("");
                         snprintf (key, 256, "volume%d.name", i);
                         ret = dict_get_str (dict, key, &volname);
