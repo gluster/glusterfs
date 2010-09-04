@@ -85,6 +85,14 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                                   !strcmp (words[2], "all"))) {
                 ctx.flags = GF_CLI_GET_NEXT_VOLUME;
                 proc = &cli_rpc_prog->proctable[GF1_CLI_GET_NEXT_VOLUME];
+        } else if (wordcount == 3) {
+                ctx.flags = GF_CLI_GET_VOLUME;
+                ctx.volname = (char *)words[2];
+                if (strlen (ctx.volname) > 1024) {
+                        cli_out ("Invalid volume name");
+                        goto out;
+                }
+                proc = &cli_rpc_prog->proctable[GF1_CLI_GET_VOLUME];
         }
 
         local = cli_local_get ();
@@ -93,6 +101,8 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         local->u.get_vol.flags = ctx.flags;
+        if (ctx.volname)
+                local->u.get_vol.volname = gf_strdup (ctx.volname);
 
         frame->local = local;
 
