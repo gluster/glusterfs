@@ -1213,6 +1213,7 @@ __socket_read_reply (rpc_transport_t *this)
         char               *buf          = NULL;
         int32_t             ret          = -1;
         rpc_request_info_t *request_info = NULL;
+        char                map_xid      = 0;
 
         if (!this || !this->private)
                 goto out;
@@ -1221,33 +1222,42 @@ __socket_read_reply (rpc_transport_t *this)
 
         buf = rpc_xid_addr (iobuf_ptr (priv->incoming.iobuf));
 
-        request_info = GF_CALLOC (1, sizeof (*request_info), gf_common_mt_rpc_trans_reqinfo_t);
-        if (request_info == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
-                goto out;
+        if (priv->incoming.request_info == NULL) {
+                priv->incoming.request_info = GF_CALLOC (1,
+                                                         sizeof (*request_info),
+                                                         gf_common_mt_rpc_trans_reqinfo_t);
+                if (priv->incoming.request_info == NULL) {
+                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                        goto out;
+                }
+
+                map_xid = 1;
         }
 
-        priv->incoming.request_info = request_info;
+        request_info = priv->incoming.request_info;
 
-        request_info->xid = ntoh32 (*((uint32_t *) buf));
+        if (map_xid) {
+                request_info->xid = ntoh32 (*((uint32_t *) buf));
 
-        /* release priv->lock, so as to avoid deadlock b/w conn->lock and
-         * priv->lock, since we are doing an upcall here.
-         */
-        pthread_mutex_unlock (&priv->lock);
-        {
-                ret = rpc_transport_notify (this, RPC_TRANSPORT_MAP_XID_REQUEST,
-                                            priv->incoming.request_info);
-        }
-        pthread_mutex_lock (&priv->lock);
+                /* release priv->lock, so as to avoid deadlock b/w conn->lock
+                 * and priv->lock, since we are doing an upcall here.
+                 */
+                pthread_mutex_unlock (&priv->lock);
+                {
+                        ret = rpc_transport_notify (this,
+                                                    RPC_TRANSPORT_MAP_XID_REQUEST,
+                                                    priv->incoming.request_info);
+                }
+                pthread_mutex_lock (&priv->lock);
 
-        if (ret == -1) {
-                goto out;
+                if (ret == -1) {
+                        goto out;
+                }
         }
 
         if ((request_info->prognum == GLUSTER3_1_FOP_PROGRAM)
             && (request_info->procnum == GF_FOP_READ)) {
-                if (request_info->rsp.rsp_payload_count != 0) {
+                if (map_xid && request_info->rsp.rsp_payload_count != 0) {
                         priv->incoming.iobref
                                 = iobref_ref (request_info->rsp.rsp_iobref);
                         priv->incoming.payload_vector
