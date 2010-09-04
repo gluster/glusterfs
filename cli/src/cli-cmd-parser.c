@@ -332,6 +332,9 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         int     j = 0;
         char    *tmp_list = NULL;
         char    *tmpptr = NULL;
+        char    *host_name = NULL;
+        char    *tmp = NULL;
+        char    *freeptr = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -408,6 +411,26 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                         ret = -1;
                         goto out;
                 }
+
+                host_name = gf_strdup(words[brick_index]);
+                if (!host_name) {
+                        ret = -1;
+                        gf_log ("cli", GF_LOG_ERROR, "unable to allocate "
+                                "memory");
+                        goto out;
+                }
+                freeptr = host_name;
+                strtok_r(host_name, ":", &tmp);
+                if (!(strcmp(host_name, "localhost") &&
+                      strcmp (host_name, "127.0.0.1"))) {
+                        cli_out ("Please provide a valid hostname/ip other "
+                                 "localhost or 127.0.0.1");
+                        ret = -1;
+                        GF_FREE (freeptr);
+                        goto out;
+                }
+                GF_FREE (freeptr);
+
                 tmp_list = strdup(brick_list+1);
                 j = 0;
                 while(( brick_count != 0) && (j < brick_count)) {
