@@ -2867,23 +2867,20 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 }
         } else {
                 ret = 0;
-                goto out;
+                goto respond;
         }
 
         if (flags == GF_CLI_GET_VOLUME_ALL) {
                 list_for_each_entry (entry, &priv->volumes, vol_list) {
-                        count++;
                         ret = glusterd_add_volume_detail_to_dict (entry,
                                                         volumes, count);
                         if (ret)
-                                goto out;
+                                goto respond;
+
+                        count++;
 
                 }
 
-                ret = dict_set_int32 (volumes, "count", count);
-
-                if (ret)
-                        goto out;
         } else if (flags == GF_CLI_GET_NEXT_VOLUME) {
                 ret = dict_get_str (dict, "volname", &volname);
 
@@ -2896,27 +2893,43 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
                 } else {
                         ret = glusterd_volinfo_find (volname, &entry);
                         if (ret)
-                                goto out;
-                        entry = list_entry (entry->vol_list.next, typeof (*entry),
+                                goto respond;
+                        entry = list_entry (entry->vol_list.next,
+                                            typeof (*entry),
                                             vol_list);
                 }
 
                 if (&entry->vol_list == &priv->volumes) {
-                        ret = dict_set_int32 (volumes, "count", count);
+                       goto respond;
                 } else {
-                        count++;
                         ret = glusterd_add_volume_detail_to_dict (entry,
                                                          volumes, count);
                         if (ret)
-                                goto out;
+                                goto respond;
 
-                        ret = dict_set_int32 (volumes, "count", count);
-                        if (ret)
-                                goto out;
-
+                        count++;
                 }
+        } else if (flags == GF_CLI_GET_VOLUME) {
+                ret = dict_get_str (dict, "volname", &volname);
+                if (ret)
+                        goto respond;
+
+                ret = glusterd_volinfo_find (volname, &entry);
+                if (ret)
+                        goto respond;
+
+                ret = glusterd_add_volume_detail_to_dict (entry,
+                                                 volumes, count);
+                if (ret)
+                        goto respond;
+
+                count++;
         }
 
+respond:
+        ret = dict_set_int32 (volumes, "count", count);
+        if (ret)
+                goto out;
 
         ret = dict_allocate_and_serialize (volumes, &rsp.volumes.volumes_val,
                                            (size_t *)&rsp.volumes.volumes_len);
@@ -2926,8 +2939,6 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
 
         ret = 0;
 out:
-
-
         rsp.op_ret = ret;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
