@@ -2859,13 +2859,13 @@ glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         priv = THIS->private;
         GF_ASSERT (priv);
 
-        if (!list_empty (&priv->volumes)) {
-                volumes = dict_new ();
-                if (!volumes) {
-                        gf_log ("", GF_LOG_WARNING, "Out of Memory");
-                        goto out;
-                }
-        } else {
+        volumes = dict_new ();
+        if (!volumes) {
+                gf_log ("", GF_LOG_WARNING, "Out of Memory");
+                goto out;
+        }
+
+        if (list_empty (&priv->volumes)) {
                 ret = 0;
                 goto respond;
         }
