@@ -1091,6 +1091,11 @@ gf_cli3_1_get_next_volume (call_frame_t *frame, xlator_t *this,
 
         local = frame->local;
 
+        if (!local || !local->u.get_vol.volname) {
+                cli_out ("No volumes present");
+                goto out;
+        }
+
         ctx->volname = local->u.get_vol.volname;
 
         while (ctx->volname) {
