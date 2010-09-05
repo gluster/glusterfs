@@ -1371,6 +1371,8 @@ rb_spawn_glusterfs_client (glusterd_volinfo_t *volinfo,
                 "Successfully started glusterfs: brick=%s:%s",
                 brickinfo->hostname, brickinfo->path);
 
+        memset (cmd_str, 0, sizeof (cmd_str));
+
         snprintf (cmd_str, 4096, "%s/vols/%s/%s",
                   priv->workdir, volinfo->volname,
                   RB_CLIENT_MOUNTPOINT);
@@ -1449,6 +1451,7 @@ static const char *dst_brick_volfile_str = "volume src-posix\n"
         "type protocol/server\n"
         "option auth.addr.%s.allow *\n"
         "option listen-port 34034\n"
+        "option transport-type tcp\n"
         "subvolumes %s\n"
         "end-volume\n";
 
@@ -1505,8 +1508,8 @@ rb_mountpoint_mkdir (glusterd_volinfo_t *volinfo,
                   RB_CLIENT_MOUNTPOINT);
 
         ret = mkdir (mount_point_path, 0777);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "mkdir failed");
+        if (ret && (errno != EEXIST)) {
+                gf_log ("", GF_LOG_DEBUG, "mkdir failed, errno: %d", errno);
                 goto out;
         }
 
@@ -1665,6 +1668,8 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
 {
         char start_value[8192] = {0,};
         int ret = -1;
+        gf_boolean_t    src_host = _gf_false;
+        gf_boolean_t    dst_host = _gf_false;
 
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
                 gf_log ("", GF_LOG_NORMAL,
@@ -1681,6 +1686,31 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
                           dst_brickinfo->hostname,
                           dst_brickinfo->path);
 
+                src_host = _gf_true;
+
+        }
+
+        if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "I AM THE DESTINATION HOST");
+                dst_host = _gf_true;
+                ret = rb_spawn_destination_brick (volinfo, dst_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Failed to spawn destination brick");
+                        goto out;
+                }
+
+        }
+
+        if (!src_host || !dst_host) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Not a source or destination brick");
+                ret = 0;
+                goto out;
+        }
+
+        if (src_host) {
                 ret = rb_send_xattr_command (volinfo, src_brickinfo,
                                              dst_brickinfo, RB_PUMP_START_CMD,
                                              start_value);
@@ -1697,22 +1727,6 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
                                 "client");
                         goto out;
                 }
-
-        } else if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
-                        "I AM THE DESTINATION HOST");
-                ret = rb_spawn_destination_brick (volinfo, dst_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to spawn destination brick");
-                        goto out;
-                }
-
-        } else {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Not a source or destination brick");
-                ret = 0;
-                goto out;
         }
 
         ret = 0;
