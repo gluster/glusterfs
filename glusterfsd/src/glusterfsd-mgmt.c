@@ -318,6 +318,10 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
+        ret = dict_set_str (options, "transport-type", "socket");
+        if (ret)
+                goto out;
+
         rpc = rpc_clnt_init (&rpc_cfg, options, THIS->ctx, THIS->name);
         if (!rpc) {
                 ret = -1;
