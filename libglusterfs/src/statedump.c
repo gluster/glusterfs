@@ -66,11 +66,8 @@ gf_proc_dump_open (void)
         snprintf (path, sizeof (path), "%s.%d", GF_DUMP_LOGFILE_ROOT, getpid ());
 
         dump_fd = open (path, O_CREAT|O_RDWR|O_TRUNC|O_APPEND, 0600);
-        if (dump_fd < 0) {
-                gf_log("", GF_LOG_ERROR, "Unable to open file: %s"
-                " errno: %d", path, errno);
+        if (dump_fd < 0) 
                 return -1;
-        }
 
 	gf_dump_fd = dump_fd;
         return 0;
@@ -104,8 +101,6 @@ gf_proc_dump_add_section (char *key, ...)
         snprintf (buf + strlen(buf),
                   GF_DUMP_MAX_BUF_LEN - strlen (buf),  "]\n");
         ret = write (gf_dump_fd, buf, strlen (buf));
-        if (ret < 0)
-                gf_log("", GF_LOG_ERROR, "write error: %s", strerror(errno));
 }
 
 
@@ -133,8 +128,6 @@ gf_proc_dump_write (char *key, char *value,...)
         offset = strlen (buf);
         snprintf (buf + offset, GF_DUMP_MAX_BUF_LEN - offset, "\n");
         ret = write (gf_dump_fd, buf, strlen (buf));
-        if (ret < 0)
-                gf_log("", GF_LOG_ERROR, "write error: %s", strerror(errno));
 }
 
 static void
@@ -220,8 +213,7 @@ gf_proc_dump_xlator_info (xlator_t *this_xl)
 		return;
 
 	if (ctx->master){
-		
-		gf_log ("", GF_LOG_DEBUG, "Dumping Proc for fuse Xlator");
+
 		fuse_xlator = (xlator_t *) ctx->master;
 
 		if (!fuse_xlator->dumpops)
@@ -286,7 +278,7 @@ gf_proc_dump_parse_set_option (char *key, char *value)
 {
         gf_boolean_t    *opt_key = NULL;
         gf_boolean_t    opt_value = _gf_false;
-
+	char buf[GF_DUMP_MAX_BUF_LEN];
 
         if (!strncasecmp (key, "mem", 3)) {
                 opt_key = &dump_options.dump_mem;
@@ -304,8 +296,10 @@ gf_proc_dump_parse_set_option (char *key, char *value)
 
         if (!opt_key) {
                 //None of dump options match the key, return back
-                gf_log ("", GF_LOG_WARNING, "None of the options matched key"
-                        ": %s", key);
+		snprintf (buf, sizeof (buf), "[Warning]:None of the options "
+			  "matched key : %s\n", key);
+		write (gf_dump_fd, buf, strlen (buf));
+
                 return -1;
         }
 
@@ -353,6 +347,7 @@ gf_proc_dump_options_init ()
         int     ret = -1;
         FILE    *fp = NULL;
         char    buf[256];
+	char	dumpbuf[GF_DUMP_MAX_BUF_LEN];
         char    *key = NULL, *value = NULL;
         char    *saveptr = NULL;
 	
@@ -384,8 +379,8 @@ gf_proc_dump_options_init ()
                         continue;
                 }
 
-                gf_log ("", GF_LOG_DEBUG, "key = %s, value = %s",
-                        key, value);
+		snprintf (dumpbuf, sizeof (dumpbuf), "[Debug]:key=%s, value=%s\n",key,value);
+		write (gf_dump_fd, dumpbuf, strlen (dumpbuf));
 
                 gf_proc_dump_parse_set_option (key, value);
 
