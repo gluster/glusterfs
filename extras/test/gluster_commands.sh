@@ -32,11 +32,15 @@ if [ ! -d "/mnt/client" ]; then
 fi
 
 
+set -e #exit at the first error that happens
+
 # create distribute volume and try start, mount, add-brick, replace-brick, remove-brick, stop, unmount, delete
 
+echo "Creating distribute volume........"
 gluster volume create vol `hostname`:/exports/exp1
 gluster volume info
 
+echo "Starting distribute volume........"
 gluster volume start vol
 gluster volume info
 sleep 1
@@ -44,7 +48,7 @@ mount -t glusterfs `hostname`:vol /mnt/client
 sleep 1 
 df -h
 
-
+echo "adding-brick......."
 gluster volume add-brick vol `hostname`:/exports/exp2
 gluster volume info
 sleep 1 
@@ -52,6 +56,7 @@ mount -t glusterfs `hostname`:vol /mnt/client
 df -h
 sleep 1
 
+echo "replacing brick......"
 gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 start
 gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
 gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 pause
@@ -62,12 +67,14 @@ sleep 1
 df -h
 sleep 1
 
+echo "removing brick......."
 gluster volume remove-brick vol `hostname`:/exports/exp2
 gluster volume info
 sleep 1 
 df -h
 sleep 1
 
+echo "stopping distribute volume......"
 gluster volume stop vol
 gluster volume info
 sleep 1
@@ -75,16 +82,18 @@ df -h
 umount /mnt/client
 df -h
 
+echo "deleting distribute volume......"
 gluster volume delete vol
 gluster volume info
 sleep 1
 
 # create replicate volume and try start, mount, add-brick, replace-brick, remove-brick, stop, unmount, delete
-
+echo "creating replicate volume......"
 gluster volume create mirror replica 2 `hostname`:/exports/exp1 `hostname`:/exports/exp2
 gluster volume info
 sleep 1
 
+echo "starting replicate volume......"
 gluster volume start mirror
 gluster volume info
 sleep 1 
@@ -93,12 +102,14 @@ sleep 1
 df -h
 sleep1
 
+echo "adding-brick......."
 gluster volume add-brick mirror replica 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1 
 df -h
 sleep 1
 
+echo "replacing-brick....."
 gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 start
 gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
 gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 pause
@@ -109,12 +120,14 @@ sleep 1
 df -h
 sleep 1
 
+echo "removeing-brick....."
 gluster volume remove-brick mirror replica 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1 
 df -h
 sleep 1
 
+echo "stopping replicate volume....."
 gluster volume stop mirror
 gluster volume info
 sleep 1 
@@ -122,16 +135,19 @@ df -h
 umount /mnt/client
 df -h
 
+echo "deleting replicate volume....."
 gluster volume delete mirror
 gluster volume info
 sleep 1
 
 # create stripe volume and try start, mount, add-brick, replace-brick, remove-brick, stop, unmount, delete
 
+echo "creating stripe volume....."
 gluster volume create str stripe 2 `hostname`:/exports/exp1 `hostname`:/exports/exp2
 gluster volume info
 sleep 1
 
+echo "starting stripe volume....."
 gluster volume start str
 gluster volume info
 sleep 1
@@ -140,12 +156,14 @@ sleep 1
 df -h
 sleep 1
 
+echo "adding brick...."
 gluster volume add-brick str stripe 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1 
 df -h
 sleep 1
 
+echo "replacing brick....."
 gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 start
 gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
 gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 pause
@@ -155,12 +173,14 @@ gluster volume info
 sleep 1
 df -h
 
+echo "removing-brick....."
 gluster volume remove-brick str stripe 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1
 df -h
 sleep 1
 
+echo "stopping stripe volume....."
 gluster volume stop str
 gluster volume info
 sleep 1
@@ -169,5 +189,6 @@ sleep 1
 umount /mnt/client
 df -h
 
+echo "deleting stripe volume....."
 gluster volume delete str
 gluster volume info
