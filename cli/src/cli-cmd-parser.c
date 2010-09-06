@@ -211,7 +211,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 if (!(strcmp(host_name, "localhost") &&
                       strcmp (host_name, "127.0.0.1"))) {
                         cli_out ("Please provide a valid hostname/ip other "
-                                 "localhost or 127.0.0.1");
+                                 "than localhost or 127.0.0.1");
                         ret = -1;
                         GF_FREE(freeptr);
                         goto out;
