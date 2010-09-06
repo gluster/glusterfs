@@ -849,7 +849,7 @@ is_client_rpc_init_command (dict_t *dict, xlator_t *this,
         gf_boolean_t ret      = _gf_false;
         int          dict_ret = -1;
 
-        if (strncmp (this->name, "replace-brick", 13))
+        if (!strstr (this->name, "replace-brick"))
                 goto out;
 
         dict_ret = dict_get_str (dict, CLIENT_CMD_CONNECT, value);
@@ -983,8 +983,11 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf->fops) {
+                op_errno = ENOTCONN;
+                need_unwind = 1;
                 goto out;
+        }
 
         args.loc   = loc;
         args.dict  = dict;
