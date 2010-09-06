@@ -20,7 +20,7 @@ BUILD_DEPENDS= fusefs-libs>2.6.3:${PORTSDIR}/sysutils/fusefs-libs
 LIB_DEPENDS=   fuse.2:${PORTSDIR}/sysutils/fusefs-libs
 RUN_DEPENDS=   ${LOCALBASE}/modules/fuse.ko:${PORTSDIR}/sysutils/fusefs-kmod
 
-MAN8=          glusterfs.8
+MAN8=          glusterfs.8 gluster.8
 GNU_CONFIGURE= yes
 USE_LDCONFIG=  yes
 USE_AUTOTOOLS= libtool:15

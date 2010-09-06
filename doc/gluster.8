@@ -1,0 +1,63 @@
+.\"  Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
+.\"  This file is part of GlusterFS.
+.\"
+.\"  GlusterFS is free software; you can redistribute it and/or modify
+.\"  it under the terms of the GNU General Public License as published
+.\"  by the Free Software Foundation; either version 3 of the License,
+.\"  or (at your option) any later version.
+.\"
+.\"  GlusterFS is distributed in the hope that it will be useful, but
+.\"  WITHOUT ANY WARRANTY; without even the implied warranty of
+.\"  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+.\"  General Public License for more details.
+.\"
+.\"  You should have received a copy of the GNU General Public License
+.\"  long with this program.  If not, see
+.\"  <http://www.gnu.org/licenses/>.
+.\"
+.\"
+.\"
+.TH Gluster 8 "Gluster command line tool" "9 September 2010" "Gluster Inc."
+.SH NAME
+Gluster \- Gluster command line tool.
+.SH SYNOPSYS
+.B gluster
+.PP
+To enter gluster cli
+.PP
+(or)
+.pp
+
+.B gluster
+.I [commands] [options]
+.PP
+Gluster is a command line tool for dynamic volume management for glusterfs.
+.SH DESCRIPTION
+Gluster command line tool is used for dynamic volume management. 
+The tool must be executed on any of the export servers.
+Only one instance of tool execution is permitted at a time.
+Parallel invocations will return an error to the second and further instances,
+with a description of where the first instance is running and what operation it is performing.
+
+.SH COMMANDS
+.PP
+Mandatory or optional arguments to long options are also mandatory or optional
+for any corresponding short options.
+.SS "Basic commands"
+.PP
+.TP
+
+\fB\ help \fR
+Help
+.TP
+\fB\ peer <options> \fR
+Command for peer management
+.TP
+\fB\ volume <options> \fR
+Command for volume management
+.TP
+\fB\ quit \fR
+Exit from cli.
+.TP
+
+.fi

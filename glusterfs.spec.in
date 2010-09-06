@@ -145,6 +145,7 @@ fi
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
 %{_mandir}/man8/*glusterfs.8*
+%{_mandir}/man8/*gluster.8*
 %dir /var/log/glusterfs
 %exclude %{_libdir}/glusterfs/%{version}/transport/ib-verbs*
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
