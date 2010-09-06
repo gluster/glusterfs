@@ -341,8 +341,13 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 	conf = __lock_grantable (dom, basename, type);
 	if (conf) {
 		ret = -EAGAIN;
-		if (nonblock)
-			goto out;
+		if (nonblock){
+			if (lock->basename)
+				GF_FREE ((char *)lock->basename);
+                        GF_FREE (lock);
+                        goto out;
+
+                }
 
 		list_add_tail (&lock->blocked_locks, &dom->blocked_entrylks);
 
@@ -355,8 +360,13 @@ __lock_name (pl_inode_t *pinode, const char *basename, entrylk_type type,
 
         if ( __blocked_lock_conflict (dom, basename, type) && !(__owner_has_lock (dom, lock))) {
                 ret = -EAGAIN;
-                if (nonblock)
+                if (nonblock) {
+			if (lock->basename)
+				GF_FREE ((char *) lock->basename);
+                        GF_FREE (lock);
                         goto out;
+
+                }
                 lock->frame     = frame;
                 lock->this      = this;
 
