@@ -37,7 +37,7 @@
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int      cli_op_ret;
 
-char *cli_volume_type[] = {"None",
+char *cli_volume_type[] = {"Distribute",
                            "Stripe",
                            "Replicate"
 };
