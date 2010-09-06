@@ -1,0 +1,84 @@
+.\"  Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
+.\"  This file is part of GlusterFS.
+.\"
+.\"  GlusterFS is free software; you can redistribute it and/or modify
+.\"  it under the terms of the GNU General Public License as published
+.\"  by the Free Software Foundation; either version 3 of the License,
+.\"  or (at your option) any later version.
+.\"
+.\"  GlusterFS is distributed in the hope that it will be useful, but
+.\"  WITHOUT ANY WARRANTY; without even the implied warranty of
+.\"  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+.\"  General Public License for more details.
+.\"
+.\"  You should have received a copy of the GNU General Public License
+.\"  long with this program.  If not, see
+.\"  <http://www.gnu.org/licenses/>.
+.\"
+.\"
+.\"
+.TH Glusterd 8 "Gluster dynamic volume management Daemon" "9 September 2010" "Gluster Inc." 
+.SH NAME
+Glusterd \- Gluster dynamic volume management Daemon.
+.SH SYNOPSYS
+.B glusterd
+.PP
+(or)
+.B glusterd
+.I [OPTION...]
+.PP
+Glusterd is a daemon for dynamic volume management for glusterfs.
+.SH DESCRIPTION
+Gluster daemon is used for dynamic volume management.
+The daemon must be executed on all of the export servers.
+
+.SH OPTIONS
+.PP
+Mandatory or optional arguments to long options are also mandatory or optional
+for any corresponding short options.
+.SS "Basic options"
+.PP
+.TP
+
+\fB\-l, \fB\-\-log\-file=LOGFILE\fR
+File to use for logging [default:/usr/local/var/log/glusterfs/glusterfs.log]
+.TP
+\fB\-L, \fB\-\-log\-level=LOGLEVEL\fR
+Logging severity.  Valid options are TRACE, DEBUG, NORMAL, WARNING,
+ERROR and CRITICAL [default: NORMAL]
+.TP
+\fB\-\-debug\fR
+Run in debug mode.  This option sets \fB\-\-no\-daemon\fR, \fB\-\-log\-level\fR to DEBUG
+and \fB\-\-log\-file\fR to console
+.TP
+\fB\-N, \fB\-\-no\-daemon\fR
+Run in foreground
+.TP
+
+.TP
+.SS  Miscellaneous Options:
+
+\fB\-?, \fB\-\-help\fR
+Give this help list
+.TP
+\fB\-\-usage\fR
+Give a short usage message
+.TP
+\fB\-V, \fB\-\-version\fR
+Print program version
+
+.PP
+.SH FILES
+/etc/glusterd/*
+
+.SH SEE ALSO
+.nf
+\fBfusermount\fR(1), \fBmount.glusterfs\fR(8), \fBglusterfs-volgen\fR(8)
+\fBglusterfs\fR(8), \fBgluster\fR(8)
+\fR
+.fi
+.SH COPYRIGHT
+.nf
+Copyright(c) 2006-2010  Gluster, Inc.  <http://www.gluster.com>
+\fR
+.fi
