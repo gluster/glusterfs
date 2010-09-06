@@ -319,6 +319,12 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
+        uuid_unparse (volinfo->volume_id, buf);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_ID, buf);
+        if (ret)
+                goto out;
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 ret = glusterd_store_create_brick (volinfo, brickinfo);
                 if (ret)
@@ -498,17 +504,8 @@ glusterd_store_save_value (glusterd_store_handle_t *handle,
                 goto out;
         }
 
-        handle->write = fdopen (handle->fd, "a+");
-
-        if (!handle->write) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open file %s errno: %d",
-                        handle->path, errno);
-                goto out;
-        }
-
         snprintf (buf, sizeof (buf), "%s=%s\n", key, value);
         ret = write (handle->fd, buf, strlen (buf));
-        //ret = fprintf (handle->write, "%s=%s\n", key, value);
 
         if (ret < 0) {
                 gf_log ("", GF_LOG_CRITICAL, "Unable to store key: %s,"
@@ -524,7 +521,6 @@ out:
 
         if (handle->fd > 0) {
                 close (handle->fd);
-                handle->write = NULL;
                 handle->fd = -1;
         }
 
@@ -955,6 +951,12 @@ glusterd_store_retrieve_volume (char    *volname)
                 } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_TRANSPORT,
                             strlen (GLUSTERD_STORE_KEY_VOL_TRANSPORT))) {
                         volinfo->transport_type = atoi (value);
+                } else if (!strncmp (key, GLUSTERD_STORE_KEY_VOL_ID,
+                            strlen (GLUSTERD_STORE_KEY_VOL_ID))) {
+                        ret = uuid_parse (value, volinfo->volume_id);
+                        if (ret)
+                                gf_log ("", GF_LOG_WARNING,
+                                        "failed to parse uuid");
                 } else {
                         gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);
@@ -1079,6 +1081,12 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
         snprintf (buf, sizeof (buf), "%d", volinfo->transport_type);
         ret = glusterd_store_save_value (volinfo->shandle,
                                          GLUSTERD_STORE_KEY_VOL_TRANSPORT, buf);
+        if (ret)
+                goto out;
+
+        uuid_unparse (volinfo->volume_id, buf);
+        ret = glusterd_store_save_value (volinfo->shandle,
+                                        GLUSTERD_STORE_KEY_VOL_ID, buf);
         if (ret)
                 goto out;
 

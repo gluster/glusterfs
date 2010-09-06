@@ -42,7 +42,6 @@ struct glusterd_store_handle_ {
         char    *path;
         int     fd;
         FILE    *read;
-        FILE    *write;
 };
 
 typedef struct glusterd_store_handle_  glusterd_store_handle_t;

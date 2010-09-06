@@ -38,23 +38,24 @@
 #include "rpcsvc.h"
 
 
-#define GLUSTERD_STORE_UUID_KEY  "UUID"
+#define GLUSTERD_STORE_UUID_KEY           "UUID"
 
-#define GLUSTERD_STORE_KEY_VOL_TYPE "type"
-#define GLUSTERD_STORE_KEY_VOL_COUNT "count"
-#define GLUSTERD_STORE_KEY_VOL_STATUS "status"
-#define GLUSTERD_STORE_KEY_VOL_PORT   "port"
-#define GLUSTERD_STORE_KEY_VOL_SUB_COUNT   "sub_count"
-#define GLUSTERD_STORE_KEY_VOL_BRICK  "brick"
-#define GLUSTERD_STORE_KEY_VOL_VERSION  "version"
-#define GLUSTERD_STORE_KEY_VOL_TRANSPORT "transport-type"
+#define GLUSTERD_STORE_KEY_VOL_TYPE       "type"
+#define GLUSTERD_STORE_KEY_VOL_COUNT      "count"
+#define GLUSTERD_STORE_KEY_VOL_STATUS     "status"
+#define GLUSTERD_STORE_KEY_VOL_PORT       "port"
+#define GLUSTERD_STORE_KEY_VOL_SUB_COUNT  "sub_count"
+#define GLUSTERD_STORE_KEY_VOL_BRICK      "brick"
+#define GLUSTERD_STORE_KEY_VOL_VERSION    "version"
+#define GLUSTERD_STORE_KEY_VOL_TRANSPORT  "transport-type"
+#define GLUSTERD_STORE_KEY_VOL_ID         "volume-id"
 
 #define GLUSTERD_STORE_KEY_BRICK_HOSTNAME "hostname"
-#define GLUSTERD_STORE_KEY_BRICK_PATH "path"
+#define GLUSTERD_STORE_KEY_BRICK_PATH     "path"
 
-#define GLUSTERD_STORE_KEY_PEER_UUID "uuid"
-#define GLUSTERD_STORE_KEY_PEER_HOSTNAME "hostname"
-#define GLUSTERD_STORE_KEY_PEER_STATE "state"
+#define GLUSTERD_STORE_KEY_PEER_UUID      "uuid"
+#define GLUSTERD_STORE_KEY_PEER_HOSTNAME  "hostname"
+#define GLUSTERD_STORE_KEY_PEER_STATE     "state"
 
 #define glusterd_for_each_entry(entry, dir) \
         do {\
