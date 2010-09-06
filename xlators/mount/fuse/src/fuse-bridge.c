@@ -3285,11 +3285,21 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         {
         case GF_EVENT_GRAPH_NEW:
                 graph = data;
+                /* TODO: */
+
+                break;
+
+        case GF_EVENT_CHILD_CONNECTING:
+        case GF_EVENT_CHILD_UP:
+        {
+                /* set priv->active_subvol */
+                /* set priv->first_lookup = 1 */
+                graph = data;
+                ret = fuse_graph_setup (this, graph);
+                if (ret)
+                        break;
 
                 if (!private->fuse_thread_started) {
-                        ret = fuse_graph_setup (this, graph);
-                        if (ret)
-                                break;
                         private->fuse_thread_started = 1;
 
                         ret = pthread_create (&private->fuse_thread, NULL,
@@ -3301,19 +3311,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                 break;
                         }
                 }
-
-                break;
-
-//        case GF_EVENT_CHILD_CONNECTING:
-
-        case GF_EVENT_CHILD_UP:
-        {
-                /* set priv->active_subvol */
-                /* set priv->first_lookup = 1 */
-                graph = data;
-                ret = fuse_graph_setup (this, graph);
-                if (ret)
-                        break;
 
                 pthread_mutex_lock (&private->sync_mutex);
                 {

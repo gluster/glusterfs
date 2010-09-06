@@ -1220,13 +1220,13 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
 	{
 		xlator_list_t *list = this->children;
 
-		while (list)
-		{
+		while (list) {
 			xlator_notify (list->xlator, event, this);
 			list = list->next;
 		}
 	}
 	break;
+	case GF_EVENT_CHILD_CONNECTING:
 	case GF_EVENT_CHILD_UP:
 	{
 		xlator_list_t *parent = this->parents;
