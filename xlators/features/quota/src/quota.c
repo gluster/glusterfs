@@ -179,9 +179,7 @@ quota_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			 int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
 	struct quota_local *local = NULL;
-	struct quota_priv  *priv = NULL;
 
-	priv = this->private;
 	local = frame->local;
 
 	if (op_ret >= 0) {
@@ -254,9 +252,7 @@ quota_ftruncate_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			   int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
 	struct quota_local *local = NULL;
-	struct quota_priv  *priv = NULL;
 
-	priv = this->private;
 	local = frame->local;
 
 	if (op_ret >= 0) {
@@ -620,12 +616,11 @@ quota_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   struct iatt *preparent, struct iatt *postparent)
 {
 	struct quota_priv *priv = this->private;
-	int                ret = 0;
 
 	if ((op_ret >= 0) && priv->disk_usage_limit) {
 		gf_quota_usage_add (this, buf->ia_blocks * 512);
 
-		ret = fd_ctx_set (fd, this, 1);
+		fd_ctx_set (fd, this, 1);
 	}
 
 	STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
@@ -672,10 +667,9 @@ int
 quota_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
-	int                ret = 0;
 
 	if (op_ret >= 0)
-		ret = fd_ctx_set (fd, this, 1);
+		fd_ctx_set (fd, this, 1);
 
 	STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
 	return 0;
