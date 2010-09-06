@@ -65,6 +65,12 @@ cli_cmd_volume_delete_usage ()
         cli_out ("Usage: volume delete <VOLNAME>");
 }
 
+void
+cli_cmd_volume_info_usage ()
+{
+        cli_out ("Usage: volume info [all|<VOLNAME>]");
+}
+
 int
 cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                          const char **words, int wordcount)
@@ -93,6 +99,9 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         goto out;
                 }
                 proc = &cli_rpc_prog->proctable[GF1_CLI_GET_VOLUME];
+        } else {
+                cli_cmd_volume_info_usage ();
+                return -1;
         }
 
         local = cli_local_get ();
