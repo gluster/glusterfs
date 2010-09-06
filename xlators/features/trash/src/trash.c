@@ -189,13 +189,11 @@ trash_unlink_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *prenewparent, struct iatt *postnewparent)
 {
         trash_local_t   *local      = NULL;
-        trash_private_t *priv       = NULL;
         char            *tmp_str    = NULL;
         char            *dir_name   = NULL;
         char            *tmp_cookie = NULL;
         loc_t            tmp_loc    = {0,};
 
-        priv  = this->private;
         local = frame->local;
 
         if ((op_ret == -1) && (op_errno == ENOENT)) {
@@ -1431,7 +1429,6 @@ trash_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 int32_t
 init (xlator_t *this)
 {
-        int32_t                ret   = 0;
         data_t                *data  = NULL;
         trash_private_t       *_priv = NULL;
         trash_elim_pattern_t  *trav  = NULL;
@@ -1514,7 +1511,7 @@ init (xlator_t *this)
                         GF_DEFAULT_MAX_FILE_SIZE / GF_UNIT_MB);
                 _priv->max_trash_file_size = GF_DEFAULT_MAX_FILE_SIZE;
         } else {
-                ret = gf_string2bytesize (data->data,
+                (void)gf_string2bytesize (data->data,
                                           &max_trash_file_size64);
                 if( max_trash_file_size64 > GF_ALLOWED_MAX_FILE_SIZE ) {
                         gf_log (this->name, GF_LOG_DEBUG,
