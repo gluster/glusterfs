@@ -615,6 +615,10 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i]->fops->finodelk,
                                                    this->name, local->fd,
                                                    F_SETLK, &flock);
+
+                                if (!--call_count)
+                                        break;
+
                         } else {
                                 afr_trace_inodelk_in (frame, AFR_INODELK_TRANSACTION,
                                                       AFR_UNLOCK_OP, &flock, F_SETLK, i);
@@ -625,12 +629,14 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i]->fops->inodelk,
                                                    this->name, &local->loc,
                                                    F_SETLK, &flock);
+
+                                if (!--call_count)
+                                        break;
+
                         }
 
                 }
 
-                if (!--call_count)
-                        break;
         }
 
 out:
@@ -693,10 +699,10 @@ afr_unlock_entrylk (call_frame_t *frame, xlator_t *this)
                                            this->name,
                                            loc, basename,
                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-                }
 
-                if (!--call_count)
-                        break;
+                        if (!--call_count)
+                                break;
+                }
         }
 
 out:
@@ -1267,10 +1273,11 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i]->fops->entrylk,
                                                    this->name, loc, basename,
                                                    ENTRYLK_LOCK, ENTRYLK_WRLCK);
-                        }
 
-                        if (!--call_count)
-                                break;
+                                if (!--call_count)
+                                        break;
+
+                        }
                 }
         }
 
@@ -1405,10 +1412,10 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                                                    this->name, local->fd,
                                                    F_SETLK, &flock);
 
-                        }
+                                if (!--call_count)
+                                        break;
 
-                        if (!--call_count)
-                                break;
+                        }
 
                 }
         } else {
@@ -1426,10 +1433,11 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
                                                    priv->children[i]->fops->inodelk,
                                                    this->name, &local->loc,
                                                    F_SETLK, &flock);
-                        }
 
-                        if (!--call_count)
-                                break;
+                                if (!--call_count)
+                                        break;
+
+                        }
                 }
         }
 
@@ -1525,10 +1533,11 @@ afr_unlock_lower_entrylk (call_frame_t *frame, xlator_t *this)
                                            this->name,
                                            loc, basename,
                                            ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-                }
 
-                if (!--call_count)
-                        break;
+                        if (!--call_count)
+                                break;
+
+                }
         }
 
 out:
