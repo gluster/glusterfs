@@ -1153,15 +1153,9 @@ glusterfs_sigwaiter (void *arg)
 
         for (;;) {
                 ret = sigwait (&set, &sig);
-                if (ret) {
-                        gf_log ("sigwaiter", GF_LOG_ERROR,
-                                "sigwait returned error (%s)",
-                                strerror (ret));
+                if (ret) 
                         continue;
-                }
-
-                gf_log ("sigwaiter", GF_LOG_DEBUG,
-                        "received signal %d", sig);
+                                
 
                 switch (sig) {
                 case SIGINT:
@@ -1178,8 +1172,7 @@ glusterfs_sigwaiter (void *arg)
                         gf_latency_toggle (sig);
                         break;
                 default:
-                        gf_log ("sigwaiter", GF_LOG_ERROR,
-                                "unhandled signal: %d", sig);
+                        
                         break;
                 }
         }
