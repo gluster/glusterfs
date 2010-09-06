@@ -1767,7 +1767,7 @@ out:
 }
 
 static int
-glusterfsd_write_nfs_xlator (int fd, char *subvols)
+glusterfsd_write_nfs_xlator (int fd, char *subvols, char *volume_ids)
 {
         char    *dup_subvols = NULL;
         char    *subvols_remain = NULL;
@@ -1797,6 +1797,12 @@ glusterfsd_write_nfs_xlator (int fd, char *subvols)
                 write (fd, str, strlen (str));
                 subvol = strtok_r (NULL, " \n", &subvols_remain);
         }
+        str = "option nfs.dynamic-volumes on\n";
+        write (fd, str, strlen (str));
+
+        /* Write fsids */
+        write (fd, volume_ids, strlen (volume_ids));
+
         str = "subvolumes ";
         write (fd, str, strlen (str));
         write (fd, subvols, strlen (subvols));
@@ -1810,19 +1816,23 @@ glusterfsd_write_nfs_xlator (int fd, char *subvols)
 int
 volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
 {
-        char                 *nfs_filepath      = NULL;
-        char                 *fuse_filepath     = NULL;
-        int                  nfs_fd             = -1;
-        int                  fuse_fd            = -1;
-        int                  ret                = -1;
-        char                 nfs_orig_path[PATH_MAX] = {0,};
-        char                 *pad               = NULL;
-        char                 *nfs_subvols       = NULL;
-        char                 fuse_subvols[2048] = {0,};
-        int                  subvol_len = 0;
-        glusterd_volinfo_t   *voliter = NULL;
-        glusterd_conf_t                         *priv = NULL;
-        xlator_t                                *this = NULL;
+        char               *nfs_filepath             = NULL;
+        char               *fuse_filepath            = NULL;
+        int                 nfs_fd                   = -1;
+        int                 fuse_fd                  = -1;
+        int                 ret                      = -1;
+        char                nfs_orig_path[PATH_MAX]  = {0,};
+        char               *pad                      = NULL;
+        char               *nfs_subvols              = NULL;
+        char                fuse_subvols[2048]       = {0,};
+        int                 subvol_len               = 0;
+        char               *nfs_vol_id               = NULL;
+        char                nfs_vol_id_opt[512]      = {0,};
+        char                volume_id[64]            = {0,};
+        int                 nfs_volid_len            = 0;
+        glusterd_volinfo_t *voliter                  = NULL;
+        glusterd_conf_t    *priv                     = NULL;
+        xlator_t           *this                     = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1849,23 +1859,34 @@ volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
                         continue;
-                else
+                else {
                         subvol_len += (strlen (voliter->volname) + 1); // ' '
+                        // "option nfs3.<volume>.volume-id <uuid>\n"
+                        nfs_volid_len += (7 + 4 + 11 + 40 +
+                                          strlen (voliter->volname));
+                }
         }
 
         if (subvol_len == 0) {
                 gf_log ("", GF_LOG_ERROR, "No volumes started");
                 ret = -1;
                 goto out;
-        } else {
-                subvol_len++; //null character
-                nfs_subvols = GF_CALLOC (subvol_len, sizeof(*nfs_subvols),
-                                         gf_common_mt_char);
-                if (!nfs_subvols) {
-                        gf_log ("", GF_LOG_ERROR, "Memory not available");
-                        ret = -1;
-                        goto out;
-                }
+        }
+        subvol_len++; //null character
+        nfs_subvols = GF_CALLOC (subvol_len, sizeof(*nfs_subvols),
+                                 gf_common_mt_char);
+        if (!nfs_subvols) {
+                gf_log ("", GF_LOG_ERROR, "Memory not available");
+                ret = -1;
+                goto out;
+        }
+
+        nfs_vol_id = GF_CALLOC (nfs_volid_len, sizeof (char),
+                                 gf_common_mt_char);
+        if (!nfs_vol_id) {
+                gf_log ("", GF_LOG_ERROR, "Memory not available");
+                ret = -1;
+                goto out;
         }
 
         voliter = NULL;
@@ -1906,9 +1927,13 @@ volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
                         gf_log ("", GF_LOG_ERROR, "Too many subvolumes");
                         goto out;
                 }
+                uuid_unparse (voliter->volume_id, volume_id);
+                snprintf (nfs_vol_id_opt, 512, "option nfs3.%s.volume-id %s\n",
+                          voliter->volname, volume_id);
+                strcat (nfs_vol_id, nfs_vol_id_opt);
         }
 
-        ret = glusterfsd_write_nfs_xlator (nfs_fd, nfs_subvols);
+        ret = glusterfsd_write_nfs_xlator (nfs_fd, nfs_subvols, nfs_vol_id);
         if (ret)
                 goto out;
 
