@@ -226,14 +226,20 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 		 xlator_t *this, int32_t op_ret, int32_t op_errno,
 		 fd_t *fd)
 {
-	afr_local_t * local  = NULL;
+        afr_private_t *priv              = NULL;
+	afr_local_t   *local             = NULL;
+        int32_t        up_children_count = 0;
 
 	int call_count = -1;
 
+        priv  = this->private;
+        local = frame->local;
+
+        up_children_count = afr_up_children_count (priv->child_count,
+                                                   local->child_up);
+
 	LOCK (&frame->lock);
 	{
-		local = frame->local;
-
 		if (op_ret >= 0)
 			local->op_ret = op_ret;
 
@@ -247,7 +253,8 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
                 if (local->op_ret == 0) {
                         afr_fd_ctx_set (this, local->fd);
 
-                        if (!afr_is_opendir_done (this, local->fd->inode)) {
+                        if (!afr_is_opendir_done (this, local->fd->inode) &&
+                            up_children_count > 1) {
 
                                 /*
                                  * This is the first opendir on this inode. We need
