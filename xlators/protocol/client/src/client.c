@@ -1810,8 +1810,8 @@ fini (xlator_t *this)
         this->private = NULL;
 
         if (conf) {
-                if (conf->rpc)
-                        rpc_clnt_destroy (conf->rpc);
+//                if (conf->rpc)
+//                        rpc_clnt_destroy (conf->rpc);
 
                 /* Saved Fds */
                 /* TODO: */
