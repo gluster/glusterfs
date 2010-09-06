@@ -245,6 +245,12 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
 
         /* If brick-count is not valid when replica or stripe is
            given, exit here */
+        if (!brick_count) {
+                cli_out ("No bricks specified");
+                ret = -1;
+                goto out;
+        }
+
         if (brick_count % count) {
                 ret = -1;
                 goto out;
