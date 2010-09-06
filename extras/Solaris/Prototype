@@ -9,6 +9,7 @@ d none /usr/sfw/share 0755 root bin
 d none /usr/sfw/share/man 0755 root bin
 d none /usr/sfw/share/man/man8 0755 root bin
 f none /usr/sfw/share/man/man8/glusterfs.8 0644 root root
+f none /usr/sfw/share/man/man8/gluster.8 0644 root root
 d none /usr/sfw/share/doc 0755 root bin
 d none /usr/sfw/share/doc/glusterfs 0755 root root
 d none /usr/sfw/share/doc/glusterfs/examples 0755 root root
