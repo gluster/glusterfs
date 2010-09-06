@@ -145,13 +145,23 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         if (ret)
                 goto out;
 
-        if (type) 
+        if (type)
                 index = 5;
         else
                 index = 3;
 
+        if (wordcount < (index + 1)) {
+                ret = -1;
+                goto out;
+        }
+
         if (strcasecmp(words[index], "transport") == 0) {
                 brick_index = index+2;
+                if (wordcount < (index + 2)) {
+                        ret = -1;
+                        goto out;
+                }
+
                 if ((strcasecmp (words[index+1], "tcp") == 0)) {
                         trans_type = gf_strdup ("tcp");
                 } else if ((strcasecmp (words[index+1], "rdma") == 0)) {
@@ -161,15 +171,15 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                                        " protocol specified");
                         ret = -1;
                         goto out;
-                } 
-        } else { 
+                }
+        } else {
                 trans_type = gf_strdup ("tcp");
         }
 
         ret = dict_set_str (dict, "transport", trans_type);
         if (ret)
                 goto out;
- 
+
         strcpy (brick_list, " ");
         while (brick_index < wordcount) {
                 delimiter = strchr (words[brick_index], ':');
