@@ -737,11 +737,14 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
         char       *opt_metadatachangelog = NULL;
         char       *opt_entrychangelog    = NULL;
         char       *opt_strictreaddir     = NULL;
-        char        subvol_str[8192]      = {0,};
+        char        *subvol_str           = NULL;
         char        tmp[4096]             = {0,};
         int         ret                   = -1;
         int         subvolume_count       = 0;
         int         i                     = 0;
+        int         len                   = 0;
+        int         subvol_len            = 0;
+
 
         const char *replicate_str = "volume %s-%s-%d\n"
                 "    type cluster/replicate\n"
@@ -842,6 +845,25 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
         for (i = 0; i < replicate_count; i++) {
                 snprintf (tmp, 4096, "%s-%d ", subvolume,
                           subvolume_count);
+                len = strlen (tmp);
+                subvol_len += len;
+                subvolume_count++;
+        }
+
+        subvolume_count = subvol_count;
+        subvol_len++;
+
+        subvol_str = GF_CALLOC (1, subvol_len, gf_gld_mt_char);
+        if (!subvol_str) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 0; i < replicate_count ; i++) {
+                snprintf (tmp, 4096, "%s-%d ", subvolume,
+                          subvolume_count);
                 strncat (subvol_str, tmp, strlen (tmp));
                 subvolume_count++;
         }
@@ -868,6 +890,8 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
         ret = 0;
 
 out:
+        if (subvol_str)
+                GF_FREE (subvol_str);
         return ret;
 }
 
@@ -881,11 +905,13 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
         char *volname = NULL;
         char       *opt_blocksize    = NULL;
         char       *opt_usexattr     = NULL;
-        char        subvol_str[8192] = {0,};
+        char       *subvol_str       = NULL;
         char        tmp[4096]        = {0,};
         int         subvolume_count  = 0;
         int         ret              = -1;
         int         i                = 0;
+        int         subvol_len        = 0;
+        int         len              = 0;
 
         const char *stripe_str = "volume %s-%s-%d\n"
                 "    type cluster/stripe\n"
@@ -916,6 +942,24 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
 
         for (i = 0; i < stripe_count; i++) {
                 snprintf (tmp, 4096, "%s-%d ", subvolume, subvolume_count);
+                len = strlen (tmp);
+                subvol_len += len;
+                subvolume_count++;
+        }
+
+        subvolume_count = subvol_count;
+        subvol_len++;
+
+        subvol_str = GF_CALLOC (1, subvol_len, gf_gld_mt_char);
+        if (!subvol_str) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 0; i < stripe_count; i++) {
+                snprintf (tmp, 4096, "%s-%d ", subvolume, subvolume_count);
                 strncat (subvol_str, tmp, strlen (tmp));
                 subvolume_count++;
         }
@@ -932,7 +976,10 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
         ret = 0;
 
 out:
+        if (subvol_str)
+                GF_FREE (subvol_str);
         return ret;
+        
 }
 
 static int
@@ -940,15 +987,17 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
                            char *subvolume,
                            int dist_count)
 {
-        char *volname          = NULL;
-        char        subvol_str[8192] = {0,};
-        char        tmp[4096]        = {0,};
+        char       *volname          = NULL;
+        char       *subvol_str       = NULL;
+        char       tmp[4096]         = {0,};
         char       *opt_lookupunhash = NULL;
         char       *opt_minfreedisk  = NULL;
         char       *opt_unhashsticky = NULL;
-        int         ret              = -1;
-        int         i                = 0;
-
+        int        ret               = -1;
+        int        i                 = 0;
+        int        subvol_len        = 0;
+        int        len               = 0;
+        
         const char *dht_str = "volume %s-%s\n"
                 "type cluster/distribute\n"
                 "#   option lookup-unhashed %s\n"
@@ -982,6 +1031,21 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
 
         for (i = 0; i < dist_count; i++) {
                 snprintf (tmp, 4096, "%s-%d ", subvolume, i);
+                len = strlen (tmp);
+                subvol_len += len;
+        }
+
+        subvol_len++;
+        subvol_str = GF_CALLOC (1, subvol_len, gf_gld_mt_char);
+        if (!subvol_str) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        for (i = 0; i < dist_count ; i++) {
+                snprintf (tmp, 4096, "%s-%d", subvolume, i);
                 strncat (subvol_str, tmp, strlen (tmp));
         }
 
@@ -997,6 +1061,8 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
         ret = 0;
 
 out:
+        if (subvol_str)
+                GF_FREE (subvol_str);
         return ret;
 }
 
