@@ -1034,10 +1034,9 @@ ret:
 int
 rpc_clnt_fill_request (int prognum, int progver, int procnum, int payload,
                        uint64_t xid, struct auth_glusterfs_parms *au,
-                       struct rpc_msg *request)
+                       struct rpc_msg *request, char *auth_data)
 {
         int   ret          = -1;
-        char  dest[1024]   = {0,};
 
         if (!request) {
                 goto out;
@@ -1056,14 +1055,14 @@ rpc_clnt_fill_request (int prognum, int progver, int procnum, int payload,
         /* TODO: Using AUTH_GLUSTERFS for time-being. Make it modular in
          * future so it is easy to plug-in new authentication schemes.
          */
-        ret = xdr_serialize_glusterfs_auth (dest, au);
+        ret = xdr_serialize_glusterfs_auth (auth_data, au);
         if (ret == -1) {
                 gf_log ("rpc-clnt", GF_LOG_DEBUG, "cannot encode credentials");
                 goto out;
         }
 
         request->rm_call.cb_cred.oa_flavor = AUTH_GLUSTERFS;
-        request->rm_call.cb_cred.oa_base   = dest;
+        request->rm_call.cb_cred.oa_base   = auth_data;
         request->rm_call.cb_cred.oa_length = ret;
 
         request->rm_call.cb_verf.oa_flavor = AUTH_NONE;
@@ -1116,12 +1115,13 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
                               int procnum, size_t payload, uint64_t xid,
                               struct auth_glusterfs_parms *au, struct iovec *recbuf)
 {
-        struct rpc_msg           request     = {0, };
-        struct iobuf            *request_iob = NULL;
-        char                    *record      = NULL;
-        struct iovec             recordhdr   = {0, };
-        size_t                   pagesize    = 0;
-        int                      ret         = -1;
+        struct rpc_msg           request                            = {0, };
+        struct iobuf            *request_iob                        = NULL;
+        char                    *record                             = NULL;
+        struct iovec             recordhdr                          = {0, };
+        size_t                   pagesize                           = 0;
+        int                      ret                                = -1;
+        char                     auth_data[RPC_CLNT_MAX_AUTH_BYTES] = {0, };
 
         if ((!clnt) || (!recbuf) || (!au)) {
                 goto out;
@@ -1142,7 +1142,7 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
 
         /* Fill the rpc structure and XDR it into the buffer got above. */
         ret = rpc_clnt_fill_request (prognum, progver, procnum, payload, xid,
-                                     au, &request);
+                                     au, &request, auth_data);
         if (ret == -1) {
                 gf_log ("rpc-clnt", GF_LOG_DEBUG, "cannot build a rpc-request "
                         "xid (%"PRIu64")", xid);
