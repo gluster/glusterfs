@@ -246,6 +246,8 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         int                     flags   = 0;
         gf1_cli_stop_vol_req    req = {0,};
+        char                    answer;
+        char                    flush;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -268,6 +270,17 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         cli_cmd_volume_stop_usage ();
                         goto out;
                 }
+        }
+
+        printf ("Stopping volume will make its data inaccessible. "
+                "Do you want to Continue? (y/n) ");
+        answer = getchar ();
+        flush = answer;
+        while ('\n' != flush)
+                flush = getchar ();
+        if ('y' != answer) {
+                ret = 0;
+                goto out;
         }
 
         req.flags = flags;
@@ -460,6 +473,8 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        char                    answer;
+        char                    flush;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -469,6 +484,17 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
 
         if (ret) {
                 cli_cmd_volume_remove_brick_usage ();
+                goto out;
+        }
+
+        printf ("Removing brick(s) can result in data loss. "
+                "Do you want to Continue? (y/n) ");
+        answer = getchar ();
+        flush = answer;
+        while ('\n' != flush)
+                flush = getchar ();
+        if ('y' != answer) {
+                ret = 0;
                 goto out;
         }
 
