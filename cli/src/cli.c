@@ -459,6 +459,11 @@ main (int argc, char *argv[])
         int                ret = -1;
         glusterfs_ctx_t   *ctx = NULL;
 
+        if (geteuid ()) {
+                printf ("Only super user can run this command\n");
+                return EPERM;
+        }
+
         ret = glusterfs_globals_init ();
         if (ret)
                 return ret;
