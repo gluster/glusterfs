@@ -32,6 +32,7 @@ typedef enum {
 } rpc_clnt_event_t;
 
 #define AUTH_GLUSTERFS  5
+#define RPC_CLNT_MAX_AUTH_BYTES 1024
 
 struct xptr_clnt;
 struct rpc_req;
