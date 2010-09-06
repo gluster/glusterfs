@@ -161,12 +161,6 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret) {
-                if (wordcount > 2) {
-                        char *volname = (char *) words[2];
-                        cli_out ("Creating Volume %s failed",volname );
-                }
-        }
         if (options)
                 dict_unref (options);
 
