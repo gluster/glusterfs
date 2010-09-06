@@ -975,22 +975,23 @@ out:
 static int
 glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
 {
-        int                                     ret = 0;
-        dict_t                                  *dict = NULL;
-        char                                    *volname = NULL;
-        glusterd_conf_t                         *priv = NULL;
-        glusterd_volinfo_t                      *volinfo = NULL;
-        glusterd_brickinfo_t                    *brickinfo = NULL;
-        xlator_t                                *this = NULL;
-        char                                    *brick = NULL;
-        int32_t                                 count = 0;
-        int32_t                                 i = 1;
-        char                                    *bricks    = NULL;
-        char                                    *brick_list = NULL;
-        char                                    *free_ptr   = NULL;
-        char                                    *saveptr = NULL;
-        int32_t                                 sub_count = 0;
-        char                                    *trans_type = NULL;
+        int                   ret        = 0;
+        dict_t               *dict       = NULL;
+        char                 *volname    = NULL;
+        glusterd_conf_t      *priv       = NULL;
+        glusterd_volinfo_t   *volinfo    = NULL;
+        glusterd_brickinfo_t *brickinfo  = NULL;
+        xlator_t             *this       = NULL;
+        char                 *brick      = NULL;
+        int32_t               count      = 0;
+        int32_t               i          = 1;
+        char                 *bricks     = NULL;
+        char                 *brick_list = NULL;
+        char                 *free_ptr   = NULL;
+        char                 *saveptr    = NULL;
+        int32_t               sub_count  = 0;
+        char                 *trans_type = NULL;
+        char                 *str        = NULL;
 
         GF_ASSERT (req);
 
@@ -1072,13 +1073,23 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        if (strcasecmp (trans_type, "rdma") == 0) { 
+        ret = dict_get_str (dict, "volume-id", &str);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume-id");
+                goto out;
+        }
+        ret = uuid_parse (str, volinfo->volume_id);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "unable to parse uuid %s", str);
+                goto out;
+        }
+
+        if (strcasecmp (trans_type, "rdma") == 0) {
                 volinfo->transport_type = GF_TRANSPORT_RDMA;
         } else {
                 volinfo->transport_type = GF_TRANSPORT_TCP;
         }
         volinfo->sub_count = sub_count;
-
 
         if (bricks) {
                 brick_list = gf_strdup (bricks);

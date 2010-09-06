@@ -143,6 +143,8 @@ struct glusterd_volinfo_ {
 
         /* All xlator options */
         dict_t                  *dict;
+
+        uuid_t                  volume_id;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;

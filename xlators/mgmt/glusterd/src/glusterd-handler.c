@@ -1025,28 +1025,30 @@ out:
 int
 glusterd_handle_create_volume (rpcsvc_request_t *req)
 {
-        int32_t                         ret = -1;
-        gf1_cli_create_vol_req          cli_req = {0,};
-        dict_t                          *dict = NULL;
-        glusterd_brickinfo_t            *brickinfo = NULL;
-        char				*brick = NULL;
-        char				*bricks = NULL;
-        char				*volname = NULL;
-        int				brick_count = 0;
-        char                            *tmpptr = NULL;
-        int				i = 0;
-        glusterd_peerinfo_t             *peerinfo = NULL;
-        char				*brick_list = NULL;
-        void				*cli_rsp = NULL;
-        char				err_str[1048];
-        gf1_cli_create_vol_rsp          rsp = {0,};
-        glusterd_conf_t                 *priv = NULL;
-        int                             err_ret = 0;
-        glusterd_brickinfo_t            *tmpbrkinfo = NULL;
-        glusterd_volinfo_t              *volinfo = NULL;
-        xlator_t                        *this = NULL;
-        char                            *free_ptr = NULL;
-        char                            *trans_type = NULL;
+        int32_t                 ret         = -1;
+        gf1_cli_create_vol_req  cli_req     = {0,};
+        dict_t                 *dict        = NULL;
+        glusterd_brickinfo_t   *brickinfo   = NULL;
+        char		       *brick       = NULL;
+        char		       *bricks      = NULL;
+        char		       *volname     = NULL;
+        int			brick_count = 0;
+        char                   *tmpptr      = NULL;
+        int			i           = 0;
+        glusterd_peerinfo_t    *peerinfo    = NULL;
+        char		       *brick_list  = NULL;
+        void		       *cli_rsp     = NULL;
+        char			err_str[1048];
+        gf1_cli_create_vol_rsp  rsp         = {0,};
+        glusterd_conf_t        *priv        = NULL;
+        int                     err_ret     = 0;
+        glusterd_brickinfo_t   *tmpbrkinfo  = NULL;
+        glusterd_volinfo_t     *volinfo     = NULL;
+        xlator_t               *this        = NULL;
+        char                   *free_ptr    = NULL;
+        char                   *trans_type  = NULL;
+        uuid_t                  volume_id   = {0,};
+        char                    volid[64]   = {0,};
 
         GF_ASSERT (req);
 
@@ -1110,6 +1112,16 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
 		goto out;
         }
+
+        uuid_generate (volume_id);
+        uuid_unparse (volume_id, volid);
+        free_ptr = gf_strdup (volid);
+        ret = dict_set_dynstr (dict, "volume-id", free_ptr);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "unable to set volume-id");
+                goto out;
+        }
+        free_ptr = NULL;
 
         if (bricks) {
                 brick_list = gf_strdup (bricks);
@@ -2595,6 +2607,10 @@ glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict)
                 goto out;
 
         data = dict_get (dict, "transport");
+        if (!data)
+                goto out;
+
+        data = dict_get (dict, "volume-id");
         if (!data)
                 goto out;
 
