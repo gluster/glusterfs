@@ -2000,6 +2000,7 @@ nfs_rpcsvc_handle_vectored_prep_rpc_call (rpcsvc_conn_t *conn)
         }
 
         nfs_rpcsvc_conn_ref (conn);
+        THIS = nfs_rpcsvc_request_actorxl (req);
         ret = actor->vector_sizer (req, &remfrag, &newbuf);
         nfs_rpcsvc_conn_unref (conn);
 
@@ -2142,6 +2143,7 @@ nfs_rpcsvc_handle_vectored_rpc_call (rpcsvc_conn_t *conn)
 
         req->msg.iov_len = (unsigned long)((long)rs->fragcurrent - (long)req->msg.iov_base);
         nfs_rpcsvc_conn_ref (conn);
+        THIS = nfs_rpcsvc_request_actorxl (req);
         ret = actor->vector_sizer (req, &remfrag, &newbuf);
         nfs_rpcsvc_conn_unref (conn);
         if (ret == RPCSVC_ACTOR_ERROR) {
