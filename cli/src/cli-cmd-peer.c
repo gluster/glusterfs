@@ -188,7 +188,7 @@ struct cli_cmd cli_probe_cmds[] = {
           cli_cmd_peer_status_cbk,
           "list status of peers"},
 	
-	{ "peer --help", 
+	{ "peer help", 
            cli_cmd_peer_help_cbk, 
            "Help command for peer "},
 
