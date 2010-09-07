@@ -712,7 +712,7 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
 out:
         if (ret)
-                cli_out ("getting log file location information failed");
+                cli_out ("log rotate failed");
 
         if (options)
                 dict_destroy (options);
