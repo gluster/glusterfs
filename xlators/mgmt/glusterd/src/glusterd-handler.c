@@ -519,7 +519,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("peer probe", " %s:%d", cli_req.hostname,
+        gf_cmd_log ("peer probe", " on host %s:%d", cli_req.hostname,
                     cli_req.port);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received CLI probe req %s %d",
                 cli_req.hostname, cli_req.port);
@@ -543,9 +543,9 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
 	 }
         ret = glusterd_probe_begin (req, cli_req.hostname, cli_req.port);
 
-out:
-        gf_cmd_log ("peer probe","on %s:%d %s",cli_req.hostname, cli_req.port,
+        gf_cmd_log ("peer probe","on host %s:%d %s",cli_req.hostname, cli_req.port,
                     (ret) ? "FAILED" : "SUCCESS");
+out:
         return ret;
 }
 
@@ -563,17 +563,14 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("peer deprobe", " %s:%d", cli_req.hostname,
-                    cli_req.port);
-
         gf_log ("glusterd", GF_LOG_NORMAL, "Received CLI deprobe req");
 
 
         ret = glusterd_deprobe_begin (req, cli_req.hostname, cli_req.port);
 
-out:
-        gf_cmd_log ("peer deprobe", "on %s:%d %s", cli_req.hostname,
+        gf_cmd_log ("peer deprobe", "on host %s:%d %s", cli_req.hostname,
                     cli_req.port, (ret) ? "FAILED" : "SUCCESS");
+out:
         return ret;
 }
 
@@ -888,7 +885,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 default: strcpy (operation, "unknown");
                         break;
         }
-        gf_cmd_log ("Volume rebalance","volname: %s cmd:%s", cli_req.volname, 
+        gf_cmd_log ("Volume rebalance"," on volname: %s cmd:%s attempted", cli_req.volname, 
                     operation); 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag volume on %s",
                 cli_req.volname);
@@ -972,13 +969,15 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         }
         if (ret)
                 gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed",cmd_str);
+
+        gf_cmd_log ("volume rebalance"," on volname: %s %d %s",cli_req.volname,
+                    cli_req.cmd, ((ret)?"FAILED":"SUCCESS"));
+
 out:
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gf_xdr_serialize_cli_defrag_vol_rsp);
 
-        gf_cmd_log ("volume rebalance"," on %s %d %s",cli_req.volname, 
-                    cli_req.cmd, ((ret)?"FAILED":"SUCCESS"));
         return ret;
 }
 
@@ -1086,7 +1085,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 		gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
 		goto out;
         }
-        gf_cmd_log ("Volume create", "volname: %s", volname);
+        gf_cmd_log ("Volume create", "on volname: %s attempted", volname);
 
 	 if ((ret = glusterd_check_volume_exists (volname))) {
 		snprintf(err_str, 1048, "Volname %s already exists",
@@ -1128,7 +1127,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 free_ptr = brick_list;
         }
 
-        gf_cmd_log ("Volume create", "volname: %s type:%s count:%d bricks:%s",
+        gf_cmd_log ("Volume create", "on volname: %s type:%s count:%d bricks:%s",
                     cli_req.volname, ((cli_req.type == 0)? "DEFAULT":
                     ((cli_req.type == 1)? "STRIPE":"REPLICATE")), cli_req.count,
                     bricks);
@@ -1184,6 +1183,9 @@ brick_validation:
 	 }
         ret = glusterd_create_volume (req, dict);
 
+        gf_cmd_log ("Volume create", "on volname: %s %s", volname,
+                    ((ret || err_ret) != 0) ? "FAILED": "SUCCESS");
+
 out:
         if (err_ret) {
                 rsp.op_ret = -1;
@@ -1199,8 +1201,6 @@ out:
                 ret = 0; //Client response sent, prevent second response
         }
 
-        gf_cmd_log ("Volume create", "on volname:%s %s", volname,
-                    ((ret || err_ret) != 0) ? "FAILED": "SUCCESS");
         if (free_ptr)
                 GF_FREE(free_ptr);
         if (brickinfo)
@@ -1229,7 +1229,11 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 
         ret = glusterd_start_volume (req, cli_req.volname, flags);
 
+        gf_cmd_log ("volume start","on volname: %s %s", cli_req.volname,
+                    ((ret == 0) ? "SUCCESS": "FAILED"));
+
 out:
+
         return ret;
 }
 
@@ -1248,15 +1252,15 @@ glusterd_handle_cli_stop_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("volume stop","volname:%s",cli_req.volname);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received stop vol req"
                 "for volume %s", cli_req.volname);
 
         ret = glusterd_stop_volume (req, cli_req.volname, cli_req.flags);
 
-out:
-        gf_cmd_log ("Volume stop","on %s %s", cli_req.volname,
+        gf_cmd_log ("Volume stop","on volname: %s %s", cli_req.volname,
                     ((ret)?"FAILED":"SUCCESS"));
+
+out:
         return ret;
 }
 
@@ -1274,16 +1278,17 @@ glusterd_handle_cli_delete_volume (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        gf_cmd_log ("Volume delete","volname:%s", cli_req.volname);
+        gf_cmd_log ("Volume delete","on volname: %s attempted", cli_req.volname);
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received delete vol req"
                 "for volume %s", cli_req.volname);
 
         ret = glusterd_delete_volume (req, cli_req.volname, flags);
 
-out:
-        gf_cmd_log ("Volume delete", "on volname:%s %s", cli_req.volname,
+        gf_cmd_log ("Volume delete", "on volname: %s %s", cli_req.volname,
                    ((ret) ? "FAILED" : "SUCCESS"));
+
+out:
         return ret;
 }
 
@@ -1325,7 +1330,7 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("Volume add-brick", "volname:%s",
+        gf_cmd_log ("Volume add-brick", "on volname: %s attempted",
                     cli_req.volname);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received add brick req");
 
@@ -1395,7 +1400,7 @@ brick_val:
         if (bricks)
                 brick_list = gf_strdup (bricks);
 
-        gf_cmd_log ("Volume add-brick", "volname:%s type %s count:%d bricks:%s"
+        gf_cmd_log ("Volume add-brick", "volname: %s type %s count:%d bricks:%s"
                     ,volname, ((volinfo->type == 0)? "DEFAULT" : ((volinfo->type
                     == 1)? "STRIPE": "REPLICATE")), brick_count, brick_list); 
 
@@ -1449,6 +1454,9 @@ brick_validation:
 
         ret = glusterd_add_brick (req, dict);
 
+        gf_cmd_log ("Volume add-brick","on volname: %s %s", volname,
+                   ((ret || err_ret) != 0)? "FAILED" : "SUCCESS");
+
 out:
         if (err_ret) {
                 rsp.op_ret = -1;
@@ -1464,8 +1472,6 @@ out:
 
                 ret = 0; //sent error to cli, prevent second reply
         }
-        gf_cmd_log ("Volume add-brick","on volname %s %s", volname,
-                   ((ret || err_ret) != 0)? "FAILED" : "SUCCESS");
         if (brickinfo)
                 glusterd_brickinfo_delete (brickinfo);
         return ret;
@@ -1490,7 +1496,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("Volume replace-brick","volname:%s", cli_req.volname);
+        gf_cmd_log ("Volume replace-brick","on volname: %s attempted", cli_req.volname);
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received replace brick req");
 
@@ -1550,16 +1556,17 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                         break;
         }
 
-        gf_cmd_log ("Volume replace-brick","volname:%s src_brick:%s"
+        gf_cmd_log ("Volume replace-brick","volname: %s src_brick:%s"
                     " dst_brick:%s op:%s",cli_req.volname, src_brick, dst_brick
                     ,operation);
 
 
         ret = glusterd_replace_brick (req, dict);
 
-out:
-        gf_cmd_log ("Volume replace-brick","on volname:%s %s", cli_req.volname,
+        gf_cmd_log ("Volume replace-brick","on volname: %s %s", cli_req.volname,
                    (ret) ? "FAILED" : "SUCCESS");
+
+out:
         return ret;
 }
 
@@ -1594,7 +1601,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("Volume remove-brick","volname:%s",cli_req.volname);
+        gf_cmd_log ("Volume remove-brick","on volname: %s attempted",cli_req.volname);
         gf_log ("glusterd", GF_LOG_NORMAL, "Received rem brick req");
 
         if (cli_req.bricks.bricks_len) {
@@ -1717,14 +1724,15 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                         pos++;
                 }
         }
-        gf_cmd_log ("Volume remove-brick","volname:%s count:%d bricks:%s", 
+        gf_cmd_log ("Volume remove-brick","volname: %s count:%d bricks:%s", 
                     cli_req.volname, count, brick_list);
 
         ret = glusterd_remove_brick (req, dict);
 
-out:
-        gf_cmd_log ("Volume remove-brick","on volname:%s %s",cli_req.volname,
+        gf_cmd_log ("Volume remove-brick","on volname: %s %s",cli_req.volname,
                     (ret) ? "FAILED" : "SUCCESS");
+
+out:
         if (err_ret) {
                 rsp.op_ret = -1;
                 rsp.op_errno = 0;
