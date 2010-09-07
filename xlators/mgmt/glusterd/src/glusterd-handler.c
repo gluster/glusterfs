@@ -323,6 +323,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
+        snprintf (key, 256, "volume%d.transport", count);
+        ret = dict_set_int32 (volumes, key, volinfo->transport_type);
+        if (ret)
+                goto out;
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 char    brick[1024] = {0,};
                 snprintf (key, 256, "volume%d.brick%d", count, i);
