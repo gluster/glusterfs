@@ -650,6 +650,9 @@ typedef struct {
 /* have we tried all children? */
 #define all_tried(i, count)  ((i) == (count) - 1)
 
+int32_t
+afr_set_dict_gfid (dict_t *dict, uuid_t gfid);
+
 int
 pump_command_reply (call_frame_t *frame, xlator_t *this);
 

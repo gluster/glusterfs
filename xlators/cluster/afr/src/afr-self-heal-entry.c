@@ -553,8 +553,10 @@ afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie
         afr_local_t     *expunge_local = NULL;
 	afr_self_heal_t *expunge_sh    = NULL;
         call_frame_t    *frame         = NULL;
+        dict_t          *dict          = NULL;
 
         int active_src = (long) cookie;
+        int ret = 0;
 
         inode_t *trash_inode;
         loc_t    trash_loc;
@@ -567,6 +569,18 @@ afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie
         if ((op_ret != 0) && (op_errno == ENOENT)) {
                 init_trash_loc (&trash_loc, expunge_local->loc.inode->table);
 
+                dict = dict_new ();
+                if (!dict) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        goto out;
+                }
+
+                ret = afr_set_dict_gfid (dict, buf->ia_gfid);
+                if (ret)
+                        gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
+
+
                 gf_log (this->name, GF_LOG_TRACE,
                         "creating directory " GF_REPLICATE_TRASH_DIR " on subvolume %s",
                         priv->children[active_src]->name);
@@ -575,9 +589,11 @@ afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie
                                    (void *) (long) active_src,
                                    priv->children[active_src],
                                    priv->children[active_src]->fops->mkdir,
-                                   &trash_loc, 0777, NULL);
+                                   &trash_loc, 0777, dict);
 
                 loc_wipe (&trash_loc);
+                if (dict)
+                        dict_unref (dict);
                 return 0;
         }
 
@@ -1273,6 +1289,9 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
+        dict_t          *dict = NULL;
+
+        int ret = 0;
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
@@ -1282,13 +1301,24 @@ afr_sh_entry_impunge_mknod (call_frame_t *impunge_frame, xlator_t *this,
 		impunge_local->loc.path,
 		priv->children[child_index]->name);
 
+        dict = dict_new ();
+        if (!dict)
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+
+        ret = afr_set_dict_gfid (dict, stbuf->ia_gfid);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
+
 	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_newfile_cbk,
 			   (void *) (long) child_index,
 			   priv->children[child_index],
 			   priv->children[child_index]->fops->mknod,
 			   &impunge_local->loc,
 			   st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
-                           stbuf->ia_rdev, NULL);
+                           stbuf->ia_rdev, dict);
+
+        if (dict)
+                dict_unref (dict);
 
 	return 0;
 }
@@ -1301,9 +1331,23 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *impunge_local = NULL;
+        dict_t          *dict = NULL;
+
+        int ret = 0;
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                return 0;
+        }
+
+        ret = afr_set_dict_gfid (dict, stbuf->ia_gfid);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating missing directory %s on %s",
@@ -1316,7 +1360,10 @@ afr_sh_entry_impunge_mkdir (call_frame_t *impunge_frame, xlator_t *this,
 			   priv->children[child_index]->fops->mkdir,
 			   &impunge_local->loc,
                            st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
-                           NULL);
+                           dict);
+
+        if (dict)
+                dict_unref (dict);
 
 	return 0;
 }
@@ -1326,11 +1373,29 @@ int
 afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 			      int child_index, const char *linkname)
 {
-	afr_private_t   *priv = NULL;
+	afr_private_t   *priv          = NULL;
 	afr_local_t     *impunge_local = NULL;
+        dict_t          *dict          = NULL;
+        struct iatt     *buf           = NULL;
+
+        int ret = 0;
 
 	priv = this->private;
 	impunge_local = impunge_frame->local;
+
+        buf = &impunge_local->cont.symlink.buf;
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                afr_sh_entry_impunge_entry_done (impunge_frame, this, 0);
+        }
+
+        ret = afr_set_dict_gfid (dict, buf->ia_gfid);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict set gfid failed");
 
 	gf_log (this->name, GF_LOG_DEBUG,
 		"creating missing symlink %s -> %s on %s",
@@ -1341,7 +1406,10 @@ afr_sh_entry_impunge_symlink (call_frame_t *impunge_frame, xlator_t *this,
 			   (void *) (long) child_index,
 			   priv->children[child_index],
 			   priv->children[child_index]->fops->symlink,
-			   linkname, &impunge_local->loc, NULL);
+			   linkname, &impunge_local->loc, dict);
+
+        if (dict)
+                dict_unref (dict);
 
 	return 0;
 }
@@ -1474,7 +1542,6 @@ afr_sh_entry_impunge_readlink_sink_cbk (call_frame_t *impunge_frame, void *cooki
                 /*
                  * Hah! Sneaky wolf in sheep's clothing!
                  */
-
                 afr_sh_entry_impunge_symlink_unlink (impunge_frame, this,
                                                      child_index);
                 return 0;
@@ -1552,7 +1619,6 @@ afr_sh_entry_impunge_readlink_cbk (call_frame_t *impunge_frame, void *cookie,
 	}
 
         impunge_sh->linkname = gf_strdup (linkname);
-
 	afr_sh_entry_impunge_readlink_sink (impunge_frame, this, child_index);
 
 	return 0;
@@ -1586,6 +1652,7 @@ afr_sh_entry_impunge_readlink (call_frame_t *impunge_frame, xlator_t *this,
 	impunge_local = impunge_frame->local;
 	impunge_sh = &impunge_local->self_heal;
 	active_src = impunge_sh->active_source;
+        impunge_local->cont.symlink.buf = *stbuf;
 
 	STACK_WIND_COOKIE (impunge_frame, afr_sh_entry_impunge_readlink_cbk,
 			   (void *) (long) child_index,

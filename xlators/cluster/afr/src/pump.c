@@ -528,6 +528,8 @@ build_root_loc (inode_t *inode, loc_t *loc)
         loc->inode = inode;
         loc->ino = 1;
         loc->inode->ino = 1;
+        memset (loc->inode->gfid, 0, 16);
+        loc->inode->gfid[15] = 1;
 
 }
 
