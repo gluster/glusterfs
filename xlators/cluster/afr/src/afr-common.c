@@ -60,6 +60,20 @@
 #define AFR_ICTX_SPLIT_BRAIN_MASK      0x0000000100000000ULL
 #define AFR_ICTX_READ_CHILD_MASK       0x00000000FFFFFFFFULL
 
+int32_t
+afr_set_dict_gfid (dict_t *dict, uuid_t gfid)
+{
+        int ret = 0;
+
+        GF_ASSERT (gfid);
+
+        ret = dict_set_static_bin (dict, "gfid-req", gfid, 16);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG, "gfid set failed");
+
+        return ret;
+}
+
 uint64_t
 afr_is_split_brain (xlator_t *this, inode_t *inode)
 {

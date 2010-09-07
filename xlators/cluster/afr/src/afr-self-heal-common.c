@@ -984,11 +984,12 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
 	int              i = 0;
+        int              ret = 0;
 	int              enoent_count = 0;
 	int              call_count = 0;
 	mode_t           st_mode = 0;
 	dev_t            ia_dev = 0;
-
+        dict_t          *dict = NULL;
 
 	local = frame->local;
 	sh = &local->self_heal;
@@ -1009,6 +1010,14 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 		"mknod %s mode 0%o on %d subvolumes",
 		local->loc.path, st_mode, enoent_count);
 
+        dict = dict_new ();
+        if (!dict)
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+
+        ret = afr_set_dict_gfid (dict, sh->buf[sh->source].ia_gfid);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (sh->child_errno[i] == ENOENT) {
 			STACK_WIND_COOKIE (frame,
@@ -1016,11 +1025,14 @@ sh_missing_entries_mknod (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->mknod,
-					   &local->loc, st_mode, ia_dev, NULL);
+					   &local->loc, st_mode, ia_dev, dict);
 			if (!--call_count)
 				break;
 		}
 	}
+
+        if (dict)
+                dict_unref (dict);
 
 	return 0;
 }
@@ -1032,7 +1044,9 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
+        dict_t          *dict = NULL;
 	int              i = 0;
+        int              ret = 0;
 	int              enoent_count = 0;
 	int              call_count = 0;
 	mode_t           st_mode = 0;
@@ -1052,6 +1066,20 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
 	st_mode = st_mode_from_ia (sh->buf[sh->source].ia_prot,
                                    sh->buf[sh->source].ia_type);
 
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                sh_missing_entries_finish (frame, this);
+                return 0;
+        }
+
+        ret = afr_set_dict_gfid (dict, sh->buf[sh->source].ia_gfid);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "inode gfid set failed");
+
+
 	gf_log (this->name, GF_LOG_TRACE,
 		"mkdir %s mode 0%o on %d subvolumes",
 		local->loc.path, st_mode, enoent_count);
@@ -1070,12 +1098,15 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
                                                    (void *) (long) i,
                                                    priv->children[i],
                                                    priv->children[i]->fops->mkdir,
-                                                   &local->loc, st_mode, NULL);
+                                                   &local->loc, st_mode, dict);
                                 if (!--call_count)
                                         break;
                         }
 		}
 	}
+
+        if (dict)
+                dict_unref (dict);
 
 	return 0;
 }
@@ -1083,12 +1114,14 @@ sh_missing_entries_mkdir (call_frame_t *frame, xlator_t *this)
 
 static int
 sh_missing_entries_symlink (call_frame_t *frame, xlator_t *this,
-			    const char *link)
+			    const char *link, struct iatt *buf)
 {
 	afr_local_t     *local = NULL;
 	afr_self_heal_t *sh = NULL;
 	afr_private_t   *priv = NULL;
+        dict_t          *dict = NULL;
 	int              i = 0;
+        int              ret = 0;
 	int              enoent_count = 0;
 	int              call_count = 0;
 
@@ -1104,6 +1137,19 @@ sh_missing_entries_symlink (call_frame_t *frame, xlator_t *this,
 	call_count = enoent_count;
 	local->call_count = call_count;
 
+        dict = dict_new ();
+        if (!dict) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                sh_missing_entries_finish (frame, this);
+                return 0;
+        }
+
+        ret = afr_set_dict_gfid (dict, buf->ia_gfid);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict gfid set failed");
+
 	gf_log (this->name, GF_LOG_TRACE,
 		"symlink %s -> %s on %d subvolumes",
 		local->loc.path, link, enoent_count);
@@ -1115,7 +1161,7 @@ sh_missing_entries_symlink (call_frame_t *frame, xlator_t *this,
 					   (void *) (long) i,
 					   priv->children[i],
 					   priv->children[i]->fops->symlink,
-					   link, &local->loc, NULL);
+					   link, &local->loc, dict);
 			if (!--call_count)
 				break;
 		}
@@ -1132,7 +1178,7 @@ sh_missing_entries_readlink_cbk (call_frame_t *frame, void *cookie,
 				 const char *link, struct iatt *sbuf)
 {
 	if (op_ret > 0)
-		sh_missing_entries_symlink (frame, this, link);
+		sh_missing_entries_symlink (frame, this, link, sbuf);
 	else
 		sh_missing_entries_finish (frame, this);
 

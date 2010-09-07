@@ -1444,6 +1444,9 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
+        if (!rsp.path)
+                rsp.path = "";
+
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_readlink_rsp);
 
