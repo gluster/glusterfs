@@ -1356,6 +1356,36 @@ out:
 }
 
 int32_t
+glusterd_resolve_all_bricks (xlator_t  *this)
+{
+        int32_t                 ret = 0;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+
+        GF_ASSERT (this);
+        priv = this->private;
+
+        GF_ASSERT (priv);
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        ret = glusterd_resolve_brick (brickinfo);
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "resolve brick failed in restore");
+                                goto out;
+                        }
+                }
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
+
+int32_t
 glusterd_restore ()
 {
         int             ret = -1;
@@ -1369,6 +1399,10 @@ glusterd_restore ()
                 goto out;
 
         ret = glusterd_store_retrieve_peers (this);
+        if (ret)
+                goto out;
+
+        ret = glusterd_resolve_all_bricks (this);
         if (ret)
                 goto out;
 
