@@ -174,33 +174,35 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         ctx = frame->this->ctx;
 
         if (-1 == req->rpc_status) {
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                ret = -1;
                 goto out;
         }
 
         ret = xdr_to_getspec_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log (frame->this->name, GF_LOG_ERROR, "error");
-                rsp.op_ret   = -1;
-                rsp.op_errno = EINVAL;
+                ret   = -1;
                 goto out;
         }
 
         if (-1 == rsp.op_ret) {
                 gf_log (frame->this->name, GF_LOG_ERROR,
                         "failed to get the 'volume file' from server");
+                ret = -1;
                 goto out;
         }
 
+        ret = 0;
         size = rsp.op_ret;
 
         if (size == oldvollen && (memcmp (oldvolfile, rsp.spec, size) == 0))
                 goto out;
 
         tmpfp = tmpfile ();
-        if (!tmpfp)
+        if (!tmpfp) {
+                ret = -1;
                 goto out;
+        }
 
         fwrite (rsp.spec, size, 1, tmpfp);
         fflush (tmpfp);
@@ -222,6 +224,12 @@ out:
         if (rsp.spec)
                 free (rsp.spec);
 
+        if (ret && ctx && ctx->master) {
+                /* Failed to get the volume file, start fuse anyways */
+                xlator_notify (ctx->master,
+                               GF_EVENT_CHILD_CONNECTING, NULL);
+
+        }
         return 0;
 }
 
@@ -263,12 +271,25 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         case RPC_CLNT_CONNECT:
                 rpc_clnt_set_connected (ctx->mgmt);
 
-                ret =  glusterfs_volfile_fetch (ctx);
+                ret = glusterfs_volfile_fetch (ctx);
+                if (ret && ctx && ctx->master) {
+                        /* Failed to get the volume file, start fuse anyways */
+                        xlator_notify (ctx->master,
+                                       GF_EVENT_CHILD_CONNECTING, NULL);
+
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to fetch volume file");
+                }
 
                 if (is_mgmt_rpc_reconnect)
                         glusterfs_mgmt_pmap_signin (ctx);
                 break;
         default:
+                if (ctx->master)
+                        ret = xlator_notify (ctx->master,
+                                             GF_EVENT_CHILD_CONNECTING, NULL);
+                gf_log ("", GF_LOG_WARNING,
+                        "failed to establish mgmt rpc connection (%d)", ret);
                 break;
         }
 
