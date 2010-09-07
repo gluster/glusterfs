@@ -4253,10 +4253,10 @@ rdma_handshake_pollerr (rpc_transport_t *this)
         }
         pthread_mutex_unlock (&priv->write_mutex);
 
+        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
+
         if (need_unref)
                 rpc_transport_unref (this);
-
-        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
 
         return 0;
 }
@@ -4520,6 +4520,8 @@ rdma_server_event_handler (int fd, int idx, void *data,
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 return -1;
         }
+
+        this->listener = trans;
 
         priv = GF_CALLOC (1, sizeof (rdma_private_t),
                           gf_common_mt_rdma_private_t);
