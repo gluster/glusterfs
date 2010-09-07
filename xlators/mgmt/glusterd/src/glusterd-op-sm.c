@@ -933,7 +933,9 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
         int                                     ret = 0;
         dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
-        gf_boolean_t                            exists = _gf_false;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        dict_t                                  *ctx     = NULL;
+        char                                    *errstr  = NULL;
 
         GF_ASSERT (req);
 
@@ -955,15 +957,39 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        exists = glusterd_check_volume_exists (volname);
+        ret = glusterd_volinfo_find (volname, &volinfo);
 
-        if (!exists) {
-                gf_log ("", GF_LOG_ERROR, "Volume with name: %s exists",
-                        volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Volume %s does not exist", volname);
+                goto out;
+        }
+
+        if (volinfo->brick_count == 1) {
+                ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
+                if (!ctx) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Operation Context is not present");
+                        ret = -1;
+                        goto out;
+                }
+                errstr = gf_strdup ("Deleting the last brick of the "
+                                    "volume is not allowed");
+                if (!errstr) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_dynstr (ctx, "errstr", errstr);
+                if (ret) {
+                        GF_FREE (errstr);
+                        gf_log ("", GF_LOG_DEBUG,
+                                "failed to set pump status in ctx");
+                        goto out;
+                }
+
                 ret = -1;
                 goto out;
-        } else {
-                ret = 0;
         }
 
 out:
@@ -2006,8 +2032,7 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                 }
                 status_reply = gf_strdup (status);
                 if (!status_reply) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Out of memory");
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
                         ret = -1;
                         goto out;
                 }
@@ -2985,10 +3010,13 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                 case GD_MGMT_CLI_REMOVE_BRICK:
                         {
                                 gf1_cli_remove_brick_rsp rsp = {0,};
+                                ctx = op_ctx;
+                                if (ctx &&
+                                    dict_get_str (ctx, "errstr", &rsp.op_errstr))
+                                        rsp.op_errstr = "";
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.volname = "";
-                                rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_remove_brick_rsp;
                                 break;
