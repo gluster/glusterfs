@@ -145,6 +145,8 @@ fuse_resolve_newfd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_DESTROY (frame->root);
 
         if (op_ret == -1) {
+                resolve->op_ret   = -1;
+                resolve->op_errno = op_errno;
                 goto out;
         }
 
@@ -631,7 +633,7 @@ gf_resolve (fuse_state_t *state)
 
         } else  {
 
-                resolve->op_ret = -1;
+                resolve->op_ret = 0;
                 resolve->op_errno = EINVAL;
 
                 gf_resolve_all (state);
@@ -646,10 +648,17 @@ gf_resolve_done (fuse_state_t *state)
 {
         fuse_resume_fn_t fn = NULL;
 
+        if (state->resolve.op_ret || state->resolve2.op_ret) {
+                send_fuse_err (state->this, state->finh,
+                               state->resolve.op_errno);
+                free_fuse_state (state);
+                goto out;
+        }
         fn = state->resume_fn;
         if (fn)
                 fn (state);
 
+out:
         return 0;
 }
 
