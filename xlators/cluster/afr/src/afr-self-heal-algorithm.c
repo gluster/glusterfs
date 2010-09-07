@@ -54,12 +54,10 @@
 static void
 sh_full_private_cleanup (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t *             priv    = NULL;
         afr_local_t *               local   = NULL;
         afr_self_heal_t *           sh      = NULL;
         afr_sh_algo_full_private_t *sh_priv = NULL;
 
-        priv  = this->private;
         local = frame->local;
         sh    = &local->self_heal;
 
@@ -76,7 +74,6 @@ sh_full_loop_driver (call_frame_t *frame, xlator_t *this);
 static int
 sh_full_loop_return (call_frame_t *rw_frame, xlator_t *this, off_t offset)
 {
-        afr_private_t *             priv       = NULL;
         afr_local_t *               rw_local   = NULL;
         afr_self_heal_t *           rw_sh      = NULL;
 
@@ -84,8 +81,6 @@ sh_full_loop_return (call_frame_t *rw_frame, xlator_t *this, off_t offset)
 	afr_local_t * sh_local              = NULL;
 	afr_self_heal_t *sh                 = NULL;
         afr_sh_algo_full_private_t *sh_priv = NULL;
-
-        priv  = this->private;
 
         rw_local = rw_frame->local;
         rw_sh    = &rw_local->self_heal;
@@ -375,12 +370,10 @@ out:
 int
 afr_sh_algo_full (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t *             priv    = NULL;
         afr_local_t *               local   = NULL;
         afr_self_heal_t *           sh      = NULL;
         afr_sh_algo_full_private_t *sh_priv = NULL;
 
-        priv  = this->private;
         local = frame->local;
         sh    = &local->self_heal;
 
