@@ -1309,10 +1309,16 @@ __socket_read_frag (rpc_transport_t *this)
                         ret = __socket_read_request (this);
                 } else if (priv->incoming.msg_type == REPLY) {
                         ret = __socket_read_reply (this);
+                } else if (priv->incoming.msg_type == GF_UNIVERSAL_ANSWER) {
+                        gf_log ("rpc", GF_LOG_ERROR,
+                                "older version of protocol/process trying to "
+                                "connect from %s. use newer verison on that node",
+                                this->peerinfo.identifier);
                 } else {
                         gf_log ("rpc", GF_LOG_ERROR,
-                                "wrong MSG-TYPE (%d) received",
-                                priv->incoming.msg_type);
+                                "wrong MSG-TYPE (%d) received from %s",
+                                priv->incoming.msg_type,
+                                this->peerinfo.identifier);
                         ret = -1;
                 }
 
