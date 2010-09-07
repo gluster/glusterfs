@@ -4405,7 +4405,7 @@ rdma_connect (struct rpc_transport *this, int port)
 
         ret = gf_rdma_client_get_remote_sockaddr (this,
                                                   (struct sockaddr *)&sockaddr,
-                                                  &sockaddr_len);
+                                                  &sockaddr_len, port);
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "cannot get remote address to connect");
