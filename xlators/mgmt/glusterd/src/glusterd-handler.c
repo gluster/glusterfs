@@ -765,16 +765,17 @@ glusterd_defrag_start (void *data)
         char                    cmd_str[1024] = {0,};
         int                     ret     = -1;
         struct stat             stbuf   = {0,};
+        char                    value[128] = {0,};
 
         defrag = volinfo->defrag;
         if (!defrag)
                 goto out;
 
-        sleep (5);
+        sleep (1);
         ret = stat (defrag->mount, &stbuf);
         if ((ret == -1) && (errno == ENOTCONN)) {
                 /* Wait for some more time before starting rebalance */
-                sleep (7);
+                sleep (2);
                 ret = stat (defrag->mount, &stbuf);
                 if (ret == -1) {
                         volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
@@ -784,6 +785,9 @@ glusterd_defrag_start (void *data)
                         goto out;
                 }
         }
+
+        /* Fix the root ('/') first */
+        getxattr (defrag->mount, "trusted.distribute.fix.layout", &value, 128);
 
         ret = glusterd_check_and_rebalance (volinfo, defrag->mount);
 
@@ -869,7 +873,6 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         glusterd_volinfo_t      *volinfo = NULL;
         glusterd_defrag_info_t *defrag =  NULL;
         gf1_cli_defrag_vol_rsp rsp = {0,};
-        char                   operation[8];
 
         GF_ASSERT (req);
 
@@ -881,17 +884,17 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         }
 
         switch (cli_req.cmd) {
-                case GF_DEFRAG_CMD_START: strcpy (operation, "start");
+                case GF_DEFRAG_CMD_START:
+                        gf_cmd_log ("Volume rebalance"," on volname: %s "
+                                    "cmd: start, attempted", cli_req.volname);
                         break;
-                case GF_DEFRAG_CMD_STOP: strcpy (operation, "stop");
+                case GF_DEFRAG_CMD_STOP:
+                        gf_cmd_log ("Volume rebalance"," on volname: %s "
+                                    "cmd: stop, attempted", cli_req.volname);
                         break;
-                case GF_DEFRAG_CMD_STATUS: strcpy (operation, "status");
-                        break;
-                default: strcpy (operation, "unknown");
+                default:
                         break;
         }
-        gf_cmd_log ("Volume rebalance"," on volname: %s cmd:%s attempted", cli_req.volname, 
-                    operation); 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag volume on %s",
                 cli_req.volname);
 
@@ -975,8 +978,11 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         if (ret)
                 gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed",cmd_str);
 
-        gf_cmd_log ("volume rebalance"," on volname: %s %d %s",cli_req.volname,
-                    cli_req.cmd, ((ret)?"FAILED":"SUCCESS"));
+        if (cli_req.cmd != GF_DEFRAG_CMD_STATUS) {
+                gf_cmd_log ("volume rebalance"," on volname: %s %d %s",
+                            cli_req.volname,
+                            cli_req.cmd, ((ret)?"FAILED":"SUCCESS"));
+        }
 
 out:
 

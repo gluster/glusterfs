@@ -1136,6 +1136,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
         }
         list_add_tail (&volinfo->vol_list, &priv->volumes);
         volinfo->version++;
+        volinfo->defrag_status = 0;
 
         ret = glusterd_store_create_volume (volinfo);
 
@@ -1290,7 +1291,7 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
         }
 
         volinfo->version++;
-
+        volinfo->defrag_status = 0;
 
         ret = glusterd_store_update_volume (volinfo);
 
@@ -2283,7 +2284,7 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
 
         volinfo->version++;
-
+        volinfo->defrag_status = 0;
 
         ret = glusterd_store_update_volume (volinfo);
 
