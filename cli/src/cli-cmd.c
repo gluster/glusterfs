@@ -95,7 +95,7 @@ cli_cmd_process (struct cli_state *state, int argc, char **argv)
                 return -1;
         }
 
-	if ( strcmp (word->word,"--help")==0 )
+	if ( strcmp (word->word,"help")==0 )
 		goto callback;
 
         await_conn = cli_cmd_needs_connection (word);

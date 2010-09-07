@@ -778,7 +778,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_set_cbk,
          "set options for volume <VOLNAME>"},
 
-        { "volume --help",
+        { "volume help",
           cli_cmd_volume_help_cbk,
           "display help for the volume command"},
 
