@@ -78,7 +78,6 @@ echo "stopping distribute volume......"
 gluster volume stop vol
 gluster volume info
 sleep 1
-df -h
 umount /mnt/client
 df -h
 
@@ -100,7 +99,7 @@ sleep 1
 mount -t glusterfs `hostname`:mirror /mnt/client
 sleep 1
 df -h
-sleep1
+sleep 1
 
 echo "adding-brick......."
 gluster volume add-brick mirror replica 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
@@ -131,7 +130,6 @@ echo "stopping replicate volume....."
 gluster volume stop mirror
 gluster volume info
 sleep 1 
-df -h
 umount /mnt/client
 df -h
 
@@ -184,8 +182,6 @@ echo "stopping stripe volume....."
 gluster volume stop str
 gluster volume info
 sleep 1
-df -h
-sleep 1 
 umount /mnt/client
 df -h
 
