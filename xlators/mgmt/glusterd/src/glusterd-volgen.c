@@ -1045,7 +1045,7 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
         }
 
         for (i = 0; i < dist_count ; i++) {
-                snprintf (tmp, 4096, "%s-%d", subvolume, i);
+                snprintf (tmp, 4096, "%s-%d ", subvolume, i);
                 strncat (subvol_str, tmp, strlen (tmp));
         }
 
