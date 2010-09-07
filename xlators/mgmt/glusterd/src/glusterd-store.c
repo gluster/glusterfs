@@ -87,10 +87,10 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
         char                    path[PATH_MAX] = {0,};
         char                    brickpath[PATH_MAX] = {0,};
         struct  stat            stbuf = {0,};
-        int                     fd = -1;
         char                    buf[4096] = {0,};
         char                    *tmppath = NULL;
         char                    *ptr = NULL;
+        glusterd_store_handle_t *shandle = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -122,10 +122,15 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
                   path, brickinfo->hostname, tmppath);
 
         GF_FREE (tmppath);
+        ret = glusterd_store_handle_new (brickpath, &brickinfo->shandle);
 
-        fd = open (brickpath, O_RDWR | O_CREAT | O_APPEND, 0666);
+        if (ret)
+                goto out;
 
-        if (fd < 0) {
+        shandle = brickinfo->shandle;
+        shandle->fd = open (brickpath, O_RDWR | O_CREAT | O_APPEND, 0666);
+
+        if (shandle->fd < 0) {
                 gf_log ("", GF_LOG_ERROR, "Open failed on %s",
                         brickpath);
                 ret = -1;
@@ -134,15 +139,15 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
 
 
         snprintf (buf, sizeof(buf), "hostname=%s\n", brickinfo->hostname);
-        ret = write (fd, buf, strlen(buf));
+        ret = write (shandle->fd, buf, strlen(buf));
         snprintf (buf, sizeof(buf), "path=%s\n", brickinfo->path);
-        ret = write (fd, buf, strlen(buf));
+        ret = write (shandle->fd, buf, strlen(buf));
 
         ret = 0;
 
 out:
-        if (fd > 0) {
-                close (fd);
+        if (shandle->fd > 0) {
+                close (shandle->fd);
         }
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
