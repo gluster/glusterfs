@@ -179,13 +179,13 @@ client_fill_address_family (rpc_transport_t *this, struct sockaddr *sockaddr)
 static int32_t
 af_inet_client_get_remote_sockaddr (rpc_transport_t *this, 
                                     struct sockaddr *sockaddr, 
-                                    socklen_t *sockaddr_len)
+                                    socklen_t *sockaddr_len,
+                                    int16_t remote_port)
 {
         dict_t *options = this->options;
         data_t *remote_host_data = NULL;
         data_t *remote_port_data = NULL;
         char *remote_host = NULL;
-        uint16_t remote_port = 0;
         struct addrinfo *addr_info = NULL;
         int32_t ret = 0;
 
@@ -209,22 +209,24 @@ af_inet_client_get_remote_sockaddr (rpc_transport_t *this,
                 goto err;
         }
 
-        remote_port_data = dict_get (options, "remote-port");
-        if (remote_port_data == NULL)
-        {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "option remote-port missing in volume %s. "
-                        "Defaulting to %d",
-                        this->name, GF_DEFAULT_RDMA_LISTEN_PORT);
+        if (remote_port == 0) {
+                remote_port_data = dict_get (options, "remote-port");
+                if (remote_port_data == NULL)
+                {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "option remote-port missing in volume %s. "
+                                "Defaulting to %d",
+                                this->name, GF_DEFAULT_RDMA_LISTEN_PORT);
 
-                remote_port = GF_DEFAULT_RDMA_LISTEN_PORT;
-        }
-        else
-        {
-                remote_port = data_to_uint16 (remote_port_data);
+                        remote_port = GF_DEFAULT_RDMA_LISTEN_PORT;
+                }
+                else
+                {
+                        remote_port = data_to_uint16 (remote_port_data);
+                }
         }
 
-        if (remote_port == (uint16_t)-1)
+        if (remote_port == -1)
         {
                 gf_log (this->name, GF_LOG_ERROR,
                         "option remote-port has invalid port in volume %s",
@@ -459,8 +461,9 @@ gf_rdma_client_bind (rpc_transport_t *this,
 
 int32_t
 gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,
-                                       struct sockaddr *sockaddr,
-                                       socklen_t *sockaddr_len)
+                                    struct sockaddr *sockaddr,
+                                    socklen_t *sockaddr_len,
+                                    int16_t remote_port)
 {
         int32_t ret = 0;
         char is_inet_sdp = 0;
@@ -481,8 +484,9 @@ gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,
         case AF_INET6:
         case AF_UNSPEC:
                 ret = af_inet_client_get_remote_sockaddr (this, 
-                                                          sockaddr, 
-                                                          sockaddr_len);
+                                                          sockaddr,
+                                                          sockaddr_len,
+                                                          remote_port);
 
                 if (is_inet_sdp) {
                         sockaddr->sa_family = AF_INET_SDP;
