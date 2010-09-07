@@ -39,6 +39,9 @@ enum argp_option_keys {
 	ARGP_PORT_KEY = 'p',
 };
 
+enum gluster_mode {
+        GLUSTER_MODE_SCRIPT = 1
+};
 struct cli_state;
 struct cli_cmd_word;
 struct cli_cmd_tree;
@@ -96,6 +99,7 @@ struct cli_state {
         char                **matchesp;
 
         int                   remote_port;
+        int                   mode;
 };
 
 struct cli_local {
