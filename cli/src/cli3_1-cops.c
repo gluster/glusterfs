@@ -257,7 +257,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         char                       *brick = NULL;
         int32_t                    j = 1;
         cli_local_t                *local = NULL;
-
+        int32_t                    transport = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -344,11 +344,17 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
+                        snprintf (key, 256, "volume%d.transport", i);
+                        ret = dict_get_int32 (dict, key, &transport);
+                        if (ret)
+                                goto out;
 
                         cli_out ("Volume Name: %s", volname);
                         cli_out ("Type: %s", cli_volume_type[type]);
                         cli_out ("Status: %s", cli_volume_status[status], brick_count);
                         cli_out ("Number of Bricks: %d", brick_count);
+                        cli_out ("Transport-type: %s", ((transport == 0)?
+                                 "tcp" : "rdma"));
                         j = 1;
 
 
