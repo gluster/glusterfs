@@ -27,6 +27,11 @@
 
 #include "cli.h"
 
+typedef enum {
+        GF_ANSWER_YES = 1,
+        GF_ANSWER_NO  = 2
+} gf_answer_t;
+
 struct cli_cmd {
         const char     *pattern;
         cli_cmd_cbk_t  *cbk;

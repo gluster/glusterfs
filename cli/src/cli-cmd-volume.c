@@ -236,6 +236,24 @@ out:
         return ret;
 }
 
+gf_answer_t
+cli_cmd_get_confirmation (struct cli_state *state, const char *question)
+{
+        char                    answer = '\0';
+        char                    flush = '\0';
+
+        if (GLUSTER_MODE_SCRIPT == state->mode)
+                return GF_ANSWER_YES;
+        printf ("%s (y/n) ", question);
+        answer = getchar ();
+        flush = answer;
+        while ('\n' != flush)
+                flush = getchar ();
+        if ('y' != answer) {
+                return GF_ANSWER_NO;
+        }
+        return GF_ANSWER_YES;
+}
 
 int
 cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
@@ -246,8 +264,10 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         int                     flags   = 0;
         gf1_cli_stop_vol_req    req = {0,};
-        char                    answer;
-        char                    flush;
+        gf_answer_t             answer = GF_ANSWER_NO;
+
+        const char *question = "Stopping volume will make its data inaccessible. "
+                               "Do you want to Continue?";
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -272,13 +292,9 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 }
         }
 
-        printf ("Stopping volume will make its data inaccessible. "
-                "Do you want to Continue? (y/n) ");
-        answer = getchar ();
-        flush = answer;
-        while ('\n' != flush)
-                flush = getchar ();
-        if ('y' != answer) {
+        answer = cli_cmd_get_confirmation (state, question);
+
+        if (GF_ANSWER_NO == answer) {
                 ret = 0;
                 goto out;
         }
@@ -473,8 +489,10 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
-        char                    answer;
-        char                    flush;
+        gf_answer_t             answer = GF_ANSWER_NO;
+
+        const char *question = "Removing brick(s) can result in data loss. "
+                               "Do you want to Continue?";
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -487,13 +505,9 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
                 goto out;
         }
 
-        printf ("Removing brick(s) can result in data loss. "
-                "Do you want to Continue? (y/n) ");
-        answer = getchar ();
-        flush = answer;
-        while ('\n' != flush)
-                flush = getchar ();
-        if ('y' != answer) {
+        answer = cli_cmd_get_confirmation (state, question);
+
+        if (GF_ANSWER_NO == answer) {
                 ret = 0;
                 goto out;
         }
