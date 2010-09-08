@@ -1096,6 +1096,8 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         char                    key[512] = {0,};
         glusterd_brickinfo_t    *brickinfo = NULL;
         int32_t                 i = 1;
+        char                    uuid_str[50] = {0,};
+        char                    *volume_id_str = NULL;
 
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
@@ -1138,6 +1140,17 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         memset (&key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
         ret = dict_set_int64 (dict, key, volinfo->cksum);
+        if (ret)
+                goto out;
+
+        uuid_unparse (volinfo->volume_id, uuid_str);
+        volume_id_str = gf_strdup (uuid_str);
+        if (!volume_id_str)
+                goto out;
+
+        memset (&key, 0, sizeof (key));
+        snprintf (key, 256, "volume%d.volume_id", count);
+        ret = dict_set_dynstr (dict, key, volume_id_str);
         if (ret)
                 goto out;
 
@@ -1289,6 +1302,7 @@ glusterd_import_friend_volume (dict_t *vols, int count)
         glusterd_brickinfo_t    *tmp = NULL;
         int                     new_volinfo = 0;
         int                     i = 1;
+        char                    *volume_id_str = NULL;
 
         GF_ASSERT (vols);
 
@@ -1345,6 +1359,13 @@ glusterd_import_friend_volume (dict_t *vols, int count)
         ret = dict_get_uint32 (vols, key, &volinfo->cksum);
         if (ret)
                 goto out;
+
+        memset (&key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.volume_id", count);
+        ret = dict_get_str (vols, key, &volume_id_str);
+        if (ret)
+                goto out;
+        uuid_parse (volume_id_str, volinfo->volume_id);
 
         list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
                                    brick_list) {
