@@ -270,7 +270,8 @@ inject:
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
 
         if (ret) {
-                GF_ASSERT (0);
+                //can happen as part of rpc clnt connection cleanup
+                //when the frame timeout happens after 30 minutes
                 goto respond;
         }
 
@@ -292,8 +293,6 @@ inject:
 
         glusterd_friend_sm ();
         glusterd_op_sm ();
-        if (ctx)
-                glusterd_destroy_probe_ctx (ctx);
 
         op_ret = 0;
 
@@ -305,6 +304,9 @@ respond:
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
         }
+
+        if (ctx)
+                glusterd_destroy_probe_ctx (ctx);
 
         return ret;
 }
