@@ -469,9 +469,20 @@ gf_pump_traverse_directory (loc_t *loc)
 
                         entry_loc.ino = iatt.ia_ino;
                         entry_loc.inode->ino = iatt.ia_ino;
+                        memcpy (entry_loc.inode->gfid, iatt.ia_gfid, 16);
 
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "lookup %s => %"PRId64,
+                                entry_loc.path,
+                                iatt.ia_ino);
+
+                        ret = syncop_lookup (this, &entry_loc, NULL,
+                                             &iatt, &xattr_rsp, &parent);
+
+
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "second lookup ret=%d: %s => %"PRId64,
+                                ret,
                                 entry_loc.path,
                                 iatt.ia_ino);
 

@@ -860,7 +860,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
-                snprintf (cmd_str, 4096, "gluster volume remove-brick %s %s >/dev/null",
+                snprintf (cmd_str, 4096, "gluster mode script volume remove-brick %s %s >/dev/null",
                           local->u.replace_brick.volname, src_brick);
 
                 ret = system (cmd_str);
