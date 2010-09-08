@@ -1386,6 +1386,12 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                         goto brick_val;
                 if (!brick_count || !volinfo->sub_count)
                         goto brick_val;
+
+                if (volinfo->brick_count < volinfo->sub_count) {
+                        if ((volinfo->sub_count - volinfo->brick_count) == brick_count)
+                                goto brick_val;
+                }
+
                 if ((brick_count % volinfo->sub_count) != 0) {
                         snprintf(err_str, 2048, "Incorrect number of bricks"
                                 " supplied %d for type %s with count %d",

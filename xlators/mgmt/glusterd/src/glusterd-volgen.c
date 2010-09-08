@@ -1477,16 +1477,34 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
                 num_bricks++;
 
         if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Volfile is distributed-replicated");
-                replicate_count = volinfo->sub_count;
-                dist_count = num_bricks / replicate_count;
+                if (volinfo->brick_count <= volinfo->sub_count) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Volfile is plain replicated");
+                        replicate_count = volinfo->sub_count;
+                        dist_count = num_bricks / replicate_count;
+                        if (!dist_count) {
+                                replicate_count = num_bricks;
+                                dist_count = num_bricks / replicate_count;
+                        }
+                } else {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Volfile is distributed-replicated");
+                        replicate_count = volinfo->sub_count;
+                        dist_count = num_bricks / replicate_count;
+                }
 
         } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Volfile is distributed-striped");
-                stripe_count = volinfo->sub_count;
-                dist_count = num_bricks / stripe_count;
+                if (volinfo->brick_count == volinfo->sub_count) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Volfile is plain striped");
+                        stripe_count = volinfo->sub_count;
+                        dist_count = num_bricks / stripe_count;
+                } else {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Volfile is distributed-striped");
+                        stripe_count = volinfo->sub_count;
+                        dist_count = num_bricks / stripe_count;
+                }
         } else {
                 gf_log ("", GF_LOG_DEBUG,
                         "Volfile is plain distributed");
