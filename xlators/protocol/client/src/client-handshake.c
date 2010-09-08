@@ -364,8 +364,15 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
                         protocol_client_reopen (this, fdctx);
         }
 
-        parent = this->parents;
+        /* As fuse is not 'parent' of any translator now, triggering its
+           CHILD_UP event is hacky in case client has only client protocol */
+        if (!this->parents && this->ctx && this->ctx->master) {
+                /* send notify to 'ctx->master' if it exists */
+                xlator_notify (this->ctx->master, GF_EVENT_CHILD_UP,
+                               this->graph);
+        }
 
+        parent = this->parents;
         while (parent) {
                 xlator_notify (parent->xlator, GF_EVENT_CHILD_UP,
                                this);
