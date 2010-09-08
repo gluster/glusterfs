@@ -1443,11 +1443,15 @@ out:
         return ret;
 }
 
-static const char *client_volfile_str =  "volume client/protocol\n"
-        "type protocol/client\n"
-        "option remote-host %s\n"
-        "option remote-subvolume %s\n"
-        "option remote-port %d\n"
+static const char *client_volfile_str =  "volume mnt-client\n"
+        " type protocol/client\n"
+        " option remote-host %s\n"
+        " option remote-subvolume %s\n"
+        " option remote-port %d\n"
+        "end-volume\n"
+        "volume mnt-wb\n"
+        " type performance/write-behind\n"
+        " subvolumes mnt-client\n"
         "end-volume\n";
 
 static int
@@ -1740,20 +1744,7 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
 
         }
 
-        if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
-                        "I AM THE DESTINATION HOST");
-                dst_host = _gf_true;
-                ret = rb_spawn_destination_brick (volinfo, dst_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to spawn destination brick");
-                        goto out;
-                }
-
-        }
-
-        if (!src_host || !dst_host) {
+        if (!src_host && !dst_host) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Not a source or destination brick");
                 ret = 0;
@@ -1886,7 +1877,7 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
         int ret = -1;
 
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
+                gf_log ("", GF_LOG_DEBUG,
                         "I AM THE SOURCE HOST");
                 ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
                 if (ret) {
@@ -1910,16 +1901,6 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
                         gf_log ("", GF_LOG_DEBUG,
                                 "Failed to destroy maintainence "
                                 "client");
-                        goto out;
-                }
-        }
-        else if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
-                        "I AM THE DESTINATION HOST");
-                ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to kill destination brick");
                         goto out;
                 }
         }
@@ -1993,8 +1974,7 @@ out:
 static int
 rb_do_operation_status (glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *src_brickinfo,
-                        glusterd_brickinfo_t *dst_brickinfo,
-                        dict_t *dict)
+                        glusterd_brickinfo_t *dst_brickinfo)
 {
         const char *status       = NULL;
         char       *status_reply = NULL;
@@ -2144,21 +2124,56 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
 
         switch (replace_op) {
         case GF_REPLACE_OP_START:
-                ret = rb_do_operation_start (volinfo, src_brickinfo, dst_brickinfo);
+        {
+                if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                        gf_log ("", GF_LOG_NORMAL,
+                                "I AM THE DESTINATION HOST");
+                        ret = rb_spawn_destination_brick (volinfo, dst_brickinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_DEBUG,
+                                        "Failed to spawn destination brick");
+                                goto out;
+                        }
+                }
+        }
                 break;
+
         case GF_REPLACE_OP_COMMIT:
-                ret = rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
+        {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Received commit - doing nothing");
+        }
                 break;
+
         case GF_REPLACE_OP_PAUSE:
-                ret = rb_do_operation_pause (volinfo, src_brickinfo, dst_brickinfo);
+        {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Recieved pause - doing nothing");
+        }
                 break;
+
         case GF_REPLACE_OP_ABORT:
-                ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
+        {
+                if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                        gf_log ("", GF_LOG_NORMAL,
+                                "I AM THE DESTINATION HOST");
+                        ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_DEBUG,
+                                        "Failed to kill destination brick");
+                                goto out;
+                        }
+                }
+        }
                 break;
+
         case GF_REPLACE_OP_STATUS:
-                ret = rb_do_operation_status (volinfo, src_brickinfo, dst_brickinfo,
-                                              dict);
+        {
+                gf_log ("", GF_LOG_DEBUG,
+                        "received status - doing nothing");
+        }
                 break;
+
         default:
                 ret = -1;
                 goto out;
@@ -2891,7 +2906,15 @@ out:
 static int
 glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                     ret = 0;
+        glusterd_volinfo_t     *volinfo = NULL;
+        int32_t                 op      = 0;
+        dict_t                 *dict    = NULL;
+        char                   *src_brick = NULL;
+        char                   *dst_brick = NULL;
+        char                   *volname   = NULL;
+        glusterd_brickinfo_t   *src_brickinfo = NULL;
+        glusterd_brickinfo_t   *dst_brickinfo = NULL;
+        int                     ret     = 0;
 
         GF_ASSERT (event);
 
@@ -2900,7 +2923,87 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
         if (opinfo.pending_count)
                 goto out;
 
-        ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
+        dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+        if (dict) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Replace brick operation detected");
+
+                ret = dict_get_int32 (dict, "operation", &op);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "dict_get on operation failed");
+                        goto out;
+                }
+                ret = dict_get_str (dict, "src-brick", &src_brick);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get src brick");
+                        goto out;
+                }
+
+                gf_log ("", GF_LOG_DEBUG,
+                        "src brick=%s", src_brick);
+
+                ret = dict_get_str (dict, "dst-brick", &dst_brick);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get dst brick");
+                        goto out;
+                }
+
+                gf_log ("", GF_LOG_DEBUG,
+                        "dst brick=%s", dst_brick);
+
+                ret = dict_get_str (dict, "volname", &volname);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                        goto out;
+                }
+
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                        goto out;
+                }
+
+                ret = glusterd_brickinfo_get (src_brick, volinfo, &src_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
+                        goto out;
+                }
+
+                ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG, "Unable to get dst-brickinfo");
+                        goto out;
+                }
+
+                switch (op) {
+                case GF_REPLACE_OP_START:
+                        ret = rb_do_operation_start (volinfo, src_brickinfo, dst_brickinfo);
+                        break;
+                case GF_REPLACE_OP_COMMIT:
+                        ret = rb_do_operation_commit (volinfo, src_brickinfo, dst_brickinfo);
+                        break;
+                case GF_REPLACE_OP_PAUSE:
+                        ret = rb_do_operation_pause (volinfo, src_brickinfo, dst_brickinfo);
+                        break;
+                case GF_REPLACE_OP_ABORT:
+                        ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
+                        break;
+                case GF_REPLACE_OP_STATUS:
+                        ret = rb_do_operation_status (volinfo, src_brickinfo, dst_brickinfo);
+                        break;
+                default:
+                        ret = -1;
+                        goto out;
+                }
+
+        }
+
+        if (ret)
+                ret = glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
+        else
+                ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
