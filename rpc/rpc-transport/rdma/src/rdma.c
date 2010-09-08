@@ -3129,10 +3129,10 @@ rdma_recv_reply (rdma_peer_t *peer, rdma_post_t *post)
         }
 
         ctx = rpc_req->conn_private;
-        if ((post->ctx.iobref != NULL) && (ctx->iobref != NULL)) {
-                iobref_merge (post->ctx.iobref, ctx->iobref);
+        if ((post->ctx.iobref != NULL) && (ctx->rsp_iobref != NULL)) {
+                iobref_merge (post->ctx.iobref, ctx->rsp_iobref);
         } else if (post->ctx.iobref == NULL) {
-                post->ctx.iobref = iobref_ref (ctx->iobref);
+                post->ctx.iobref = iobref_ref (ctx->rsp_iobref);
         }
 
         ret = 0;
