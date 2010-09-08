@@ -40,7 +40,7 @@
 #include <infiniband/verbs.h>
 
 /* FIXME: give appropriate values to these macros */
-#define GF_DEFAULT_RDMA_LISTEN_PORT 6997
+#define GF_DEFAULT_RDMA_LISTEN_PORT 6968
 #define RDMA_MAX_SEGMENTS           8   
 #define RDMA_MAX_HEADER_SIZE        (sizeof (rdma_header_t)                 \
                                      + RDMA_MAX_SEGMENTS                    \
