@@ -218,8 +218,13 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
-                        cli_out ("hostname:%s, port:%d, uuid:%s, state:%d",
-                                 hostname_buf, port, uuid_buf, state);
+                        if (!port) {
+                                cli_out ("hostname:%s, uuid:%s, state:%d",
+                                         hostname_buf, uuid_buf, state);
+                        } else {
+                                cli_out ("hostname:%s, port:%d, uuid:%s, state:%d",
+                                         hostname_buf, port, uuid_buf, state);
+                        }
                         i++;
                 }
         } else {
