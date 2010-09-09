@@ -300,8 +300,8 @@ dict_set (dict_t *this,
 	int32_t ret;
 
 	if (!this || !value) {
-		gf_log ("dict", GF_LOG_CRITICAL,
-			"@this=%p @value=%p", this, value);
+		gf_log ("dict", GF_LOG_ERROR,
+			"@this=%p @value=%p, key=%s", this, value, key);
 		return -1;
 	}
 
