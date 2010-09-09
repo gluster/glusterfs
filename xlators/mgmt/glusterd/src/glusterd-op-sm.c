@@ -3219,6 +3219,7 @@ glusterd_op_txn_complete ()
                 glusterd_op_clear_op (op);
                 ctx = glusterd_op_get_ctx (op);
                 ctx_free = glusterd_op_get_ctx_free (op);
+                glusterd_op_set_ctx (op, NULL);
                 glusterd_op_clear_ctx_free (op);
         }
 
@@ -3227,7 +3228,7 @@ out:
         ret = glusterd_op_send_cli_response (cli_op, op_ret,
                                              op_errno, req, ctx);
         if (ctx_free && ctx && (op != -1))
-                glusterd_op_clear_ctx (op);
+                glusterd_op_free_ctx (op, ctx, ctx_free);
         gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
         return ret;
 }
@@ -3824,19 +3825,13 @@ glusterd_op_set_ctx (glusterd_op_t op, void *ctx)
 }
 
 int32_t
-glusterd_op_clear_ctx (glusterd_op_t op)
+glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
 {
-
-        void    *ctx = NULL;
 
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
 
-        ctx = opinfo.op_ctx[op];
-
-        opinfo.op_ctx[op] = NULL;
-
-        if (ctx && glusterd_op_get_ctx_free(op)) {
+        if (ctx && ctx_free) {
                 switch (op) {
                 case GD_OP_CREATE_VOLUME:
                 case GD_OP_STOP_VOLUME:
