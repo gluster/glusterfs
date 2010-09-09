@@ -1722,52 +1722,38 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
 {
         char start_value[8192] = {0,};
         int ret = -1;
-        gf_boolean_t    src_host = _gf_false;
-        gf_boolean_t    dst_host = _gf_false;
 
-        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
-                        "I AM THE SOURCE HOST");
-                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not spawn maintainence "
-                                "client");
-                        goto out;
-                }
+        gf_log ("", GF_LOG_NORMAL,
+                "replace-brick sending start xattr");
 
-                snprintf (start_value, 8192, "%s:%s:",
-                          dst_brickinfo->hostname,
-                          dst_brickinfo->path);
-
-                src_host = _gf_true;
-
-        }
-
-        if (!src_host && !dst_host) {
+        ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+        if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Not a source or destination brick");
-                ret = 0;
+                        "Could not spawn maintainence "
+                        "client");
                 goto out;
         }
 
-        if (src_host) {
-                ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                             dst_brickinfo, RB_PUMP_START_CMD,
-                                             start_value);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to send command to pump");
-                        goto out;
-                }
+        snprintf (start_value, 8192, "%s:%s:",
+                  dst_brickinfo->hostname,
+                  dst_brickinfo->path);
 
-                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to destroy maintainence "
-                                "client");
-                        goto out;
-                }
+
+        ret = rb_send_xattr_command (volinfo, src_brickinfo,
+                                     dst_brickinfo, RB_PUMP_START_CMD,
+                                     start_value);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to send command to pump");
+                goto out;
+        }
+
+        ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to destroy maintainence "
+                        "client");
+                goto out;
         }
 
         ret = 0;
@@ -1783,33 +1769,32 @@ rb_do_operation_pause (glusterd_volinfo_t *volinfo,
 {
         int ret = -1;
 
-        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
-                gf_log ("", GF_LOG_NORMAL,
-                        "I AM THE SOURCE HOST");
-                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not spawn maintainence "
-                                "client");
-                        goto out;
-                }
+        gf_log ("", GF_LOG_NORMAL,
+                "replace-brick send pause xattr");
 
-                ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                             dst_brickinfo, RB_PUMP_PAUSE_CMD,
-                                             "jargon");
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to send command to pump");
-                        goto out;
-                }
+        ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not spawn maintainence "
+                        "client");
+                goto out;
+        }
 
-                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to destroy maintainence "
-                                "client");
-                        goto out;
-                }
+        ret = rb_send_xattr_command (volinfo, src_brickinfo,
+                                     dst_brickinfo, RB_PUMP_PAUSE_CMD,
+                                     "jargon");
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to send command to pump");
+                goto out;
+        }
+
+        ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to destroy maintainence "
+                        "client");
+                goto out;
         }
 
         ret = 0;
@@ -1876,33 +1861,32 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
 {
         int ret = -1;
 
-        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+        gf_log ("", GF_LOG_DEBUG,
+                "replace-brick sending abort xattr");
+
+        ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
+        if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "I AM THE SOURCE HOST");
-                ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not spawn maintainence "
-                                "client");
-                        goto out;
-                }
+                        "Could not spawn maintainence "
+                        "client");
+                goto out;
+        }
 
-                ret = rb_send_xattr_command (volinfo, src_brickinfo,
-                                             dst_brickinfo, RB_PUMP_ABORT_CMD,
-                                             "jargon");
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to send command to pump");
-                        goto out;
-                }
+        ret = rb_send_xattr_command (volinfo, src_brickinfo,
+                                     dst_brickinfo, RB_PUMP_ABORT_CMD,
+                                     "jargon");
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to send command to pump");
+                goto out;
+        }
 
-                ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Failed to destroy maintainence "
-                                "client");
-                        goto out;
-                }
+        ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Failed to destroy maintainence "
+                        "client");
+                goto out;
         }
 
         ret = 0;
