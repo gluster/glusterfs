@@ -1183,7 +1183,8 @@ out:
 }
 
 void
-pl_dump_lock (char *str, int size, struct flock *flock, uint64_t owner)
+pl_dump_lock (char *str, int size, struct flock *flock,
+              uint64_t owner, void *trans)
 {
         char *type_str = NULL;
 
@@ -1202,11 +1203,12 @@ pl_dump_lock (char *str, int size, struct flock *flock, uint64_t owner)
                 break;
         }
 
-        snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu",
+        snprintf (str, size, "type=%s, start=%llu, len=%llu, pid=%llu, lk-owner=%llu, transport=%p",
                   type_str, (unsigned long long) flock->l_start,
                   (unsigned long long) flock->l_len,
                   (unsigned long long) flock->l_pid,
-                  (unsigned long long) owner);
+                  (unsigned long long) owner,
+                  trans);
 
 
 }
@@ -1235,9 +1237,11 @@ __dump_entrylks (pl_inode_t *pl_inode)
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
                                                "entrylk[%d](ACTIVE)",count );
-                        snprintf (tmp, 256," %s on %s",
+                        snprintf (tmp, 256," %s on %s owner=%llu, transport=%p",
                                   lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : 
-                                  "ENTRYLK_WRLCK", lock->basename);
+                                  "ENTRYLK_WRLCK", lock->basename,
+                                  (unsigned long long) lock->owner,
+                                  lock->trans);
 
                         gf_proc_dump_write(key, tmp);
 
@@ -1298,7 +1302,8 @@ __dump_inodelks (pl_inode_t *pl_inode)
                                                "xlator.feature.locks.lock-dump.domain.inodelk",
                                                "inodelk[%d](ACTIVE)",count );
 
-                        pl_dump_lock (tmp, 256, &lock->user_flock, lock->owner);
+                        pl_dump_lock (tmp, 256, &lock->user_flock,
+                                      lock->owner, lock->transport);
                         gf_proc_dump_write(key, tmp);
 
                         count++;
@@ -1309,7 +1314,8 @@ __dump_inodelks (pl_inode_t *pl_inode)
                         gf_proc_dump_build_key(key,
                                                "xlator.feature.locks.lock-dump.domain.inodelk",
                                                "inodelk[%d](BLOCKED)",count );
-                        pl_dump_lock (tmp, 256, &lock->user_flock, lock->owner);
+                        pl_dump_lock (tmp, 256, &lock->user_flock,
+                                      lock->owner, lock->transport);
                         gf_proc_dump_write(key, tmp);
 
                         count++;
@@ -1346,7 +1352,8 @@ __dump_posixlks (pl_inode_t *pl_inode)
                                      "posixlk[%d](%s)",
                                      count,
                                      lock->blocked ? "BLOCKED" : "ACTIVE");
-              pl_dump_lock (tmp, 256, &lock->user_flock, lock->owner);
+              pl_dump_lock (tmp, 256, &lock->user_flock,
+                            lock->owner, lock->transport);
               gf_proc_dump_write(key, tmp);
 
               count++;
