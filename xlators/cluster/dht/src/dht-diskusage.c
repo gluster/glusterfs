@@ -229,7 +229,6 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
 	dht_conf_t *conf = NULL;
 
         conf = this->private;
-        avail_subvol = subvol;
 
         LOCK (&conf->subvolume_lock);
         {
@@ -249,13 +248,16 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
         }
         UNLOCK (&conf->subvolume_lock);
 
-        if (max < conf->min_free_disk)
-                avail_subvol = subvol;
-
-        if (avail_subvol == subvol) {
+        if (!avail_subvol) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "no subvolume has enough free space to create");
         }
-                
+
+        if (max < conf->min_free_disk)
+                avail_subvol = subvol;
+
+        if (!avail_subvol)
+                avail_subvol = subvol;                
+
         return avail_subvol;
 }
