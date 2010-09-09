@@ -70,23 +70,24 @@ glusterd_opinfo_init ()
 }
 
 static int
-glusterd_uuid_init ()
+glusterd_uuid_init (int flag)
 {
         int             ret = -1;
         char            str[50] = {0,};
         glusterd_conf_t *priv = NULL;
 
         priv = THIS->private;
-        ret = glusterd_retrieve_uuid ();
 
-        if (!ret) {
-                uuid_unparse (priv->uuid, str);
-                uuid_copy (glusterd_uuid, priv->uuid);
-                gf_log ("glusterd", GF_LOG_NORMAL,
+        if (!flag) {
+                ret = glusterd_retrieve_uuid ();
+                if (!ret) {
+                        uuid_unparse (priv->uuid, str);
+                        uuid_copy (glusterd_uuid, priv->uuid);
+                        gf_log ("glusterd", GF_LOG_NORMAL,
                                 "retrieved UUID: %s", str);
-                return 0;
+                        return 0;
+                }
         }
-
 
         uuid_generate (glusterd_uuid);
         uuid_unparse (glusterd_uuid, str);
@@ -233,6 +234,7 @@ init (xlator_t *this)
         char               voldir [PATH_MAX] = {0,};
         char               dirname [PATH_MAX];
         char               cmd_log_filename [PATH_MAX] = {0,};
+        int                first_time        = 0;
 
         dir_data = dict_get (this->options, "working-directory");
 
@@ -268,6 +270,7 @@ init (xlator_t *this)
                                 " ,errno = %d", dirname, errno);
                         exit (1);
                 }
+                first_time = 1;
         }
 
         gf_log (this->name, GF_LOG_NORMAL, "Using %s as working directory",
@@ -390,7 +393,7 @@ init (xlator_t *this)
         this->private = conf;
         //this->ctx->top = this;
 
-        ret = glusterd_uuid_init ();
+        ret = glusterd_uuid_init (first_time);
         if (ret < 0)
                 goto out;
 
@@ -481,8 +484,17 @@ struct xlator_dumpops dumpops = {
 
 
 struct volume_options options[] = {
-        { .key   = {"working-dir"},
+        { .key   = {"working-directory"},
           .type  = GF_OPTION_TYPE_PATH,
+        },
+        { .key   = {"transport-type"},
+          .type  = GF_OPTION_TYPE_ANY,
+        },
+        { .key   = {"transport.*"},
+          .type  = GF_OPTION_TYPE_ANY,
+        },
+        { .key   = {"rpc-auth.*"},
+          .type  = GF_OPTION_TYPE_ANY,
         },
 
         { .key   = {NULL} },
