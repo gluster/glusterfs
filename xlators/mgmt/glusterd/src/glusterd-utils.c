@@ -628,14 +628,20 @@ glusterd_brickinfo_from_brick (char *brick,
         char                    *hostname = NULL;
         char                    *path = NULL;
         char                    *tmp = NULL;
+        char                    *tmpstr = NULL;
 
         GF_ASSERT (brick);
         GF_ASSERT (brickinfo);
 
-        tmp = strdup (brick);
+        tmp = gf_strdup (brick);
+        if (!tmp) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Out of memory");
+                goto out;
+        }
 
-        hostname = strtok (tmp, ":");
-        path = strtok (NULL, ":");
+        hostname = strtok_r (tmp, ":", &tmpstr);
+        path = strtok_r (NULL, ":", &tmpstr);
 
         GF_ASSERT (hostname);
         GF_ASSERT (path);
@@ -652,6 +658,8 @@ glusterd_brickinfo_from_brick (char *brick,
 
         ret = 0;
 out:
+        if (tmp)
+                GF_FREE (tmp);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
