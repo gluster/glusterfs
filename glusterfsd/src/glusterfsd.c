@@ -1313,6 +1313,12 @@ glusterfs_process_volfp (glusterfs_ctx_t *ctx, FILE *fp)
 out:
         if (fp)
                 fclose (fp);
+
+        if (ret && !ctx->active) {
+                /* there is some error in setting up the first graph itself */
+                cleanup_and_exit (0);
+        }
+
         return ret;
 }
 
