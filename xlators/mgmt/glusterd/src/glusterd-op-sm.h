@@ -222,7 +222,7 @@ int32_t
 glusterd_op_clear_op (glusterd_op_t op);
 
 int32_t
-glusterd_op_clear_ctx (glusterd_op_t op);
+glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free);
 
 int32_t
 glusterd_opinfo_unlock();
