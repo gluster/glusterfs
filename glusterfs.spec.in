@@ -57,12 +57,12 @@ This package includes the glusterfs binary, the glusterd daemon and the gluster
 command line, libglusterfs and glusterfs translator modules common to both
 GlusterFS server and client framework.
 
-%package ibverbs
-Summary: GlusterFS ibverbs
+%package rdma
+Summary: GlusterFS rdma
 Group: Applications/File
 Requires: libibverbs-devel
 
-%description ibverbs
+%description rdma
 GlusterFS is a clustered file-system capable of scaling to several
 peta-bytes. It aggregates various storage bricks over Infiniband RDMA
 or TCP/IP interconnect into one large parallel network file
@@ -147,7 +147,7 @@ fi
 %{_mandir}/man8/*glusterfs.8*
 %{_mandir}/man8/*gluster.8*
 %dir /var/log/glusterfs
-%exclude %{_libdir}/glusterfs/%{version}/transport/ib-verbs*
+%exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
 %config %{_sysconfdir}/glusterfs
 %{_sysconfdir}/init.d/glusterfsd
@@ -156,9 +156,9 @@ fi
 %{_libdir}/*.so
 /sbin/mount.glusterfs
 
-%files ibverbs
+%files rdma
 %defattr(-,root,root)
-%{_libdir}/glusterfs/%{version}/transport/ib-verbs*
+%{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 
 %files fuse
 %defattr(-,root,root)
