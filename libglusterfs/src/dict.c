@@ -322,8 +322,8 @@ dict_get (dict_t *this,
 	data_pair_t *pair;
 
 	if (!this || !key) {
-		gf_log ("dict", GF_LOG_DEBUG,
-			"@this=%p @key=%p", this, key);
+		gf_log ("dict", GF_LOG_TRACE,
+			"@this=%p key=%s", this, (key) ? key : "()");
 		return NULL;
 	}
 
