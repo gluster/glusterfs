@@ -1860,12 +1860,12 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
         int32_t  ret            = -1, count = 0;
         data_t  *data           = NULL;
         char    *str            = NULL, *ptr = NULL, *transport_name = NULL;
-        char    *transport_type = NULL, *saveptr = NULL;
+        char    *transport_type = NULL, *saveptr = NULL, *tmp = NULL;
 
         if ((svc == NULL) || (options == NULL) || (name == NULL)) {
                 goto out;
         }
-         
+
         data = dict_get (options, "transport-type");
         if (data == NULL) {
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG,
@@ -1896,22 +1896,23 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
         ptr = strtok_r (str, ",", &saveptr);
 
         while (ptr != NULL) {
-                ptr = gf_strdup (ptr);
-                if (ptr == NULL) {
+                tmp = gf_strdup (ptr);
+                if (tmp == NULL) {
                         gf_log (GF_RPCSVC, GF_LOG_ERROR, "out of memory");
                         goto out;
                 }
 
-                ret = asprintf (&transport_name, "%s.%s", ptr, name);
+                ret = asprintf (&transport_name, "%s.%s", tmp, name);
                 if (ret == -1) {
                         goto out;
                 }
 
-                ret = dict_set_dynstr (options, "transport-type", ptr);
+                ret = dict_set_dynstr (options, "transport-type", tmp);
                 if (ret == -1) {
                         goto out;
                 }
 
+                tmp = NULL;
                 ptr = strtok_r (NULL, ",", &saveptr);
 
                 ret = rpcsvc_create_listener (svc, options, transport_name);
@@ -1921,8 +1922,6 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
 
                 count++;
         }
-
-        ptr = NULL;
 
         ret = dict_set_dynstr (options, "transport-type", transport_type);
         if (ret == -1) {
@@ -1940,8 +1939,8 @@ out:
                 GF_FREE (transport_type);
         }
 
-        if (ptr != NULL) {
-                GF_FREE (ptr);
+        if (tmp != NULL) {
+                GF_FREE (tmp);
         }
 
         return count;
