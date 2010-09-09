@@ -149,6 +149,8 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
         call_frame_t     *rframe = NULL;
         stripe_local_t   *rlocal = NULL;
         stripe_private_t *priv   = NULL;
+        dict_t           *dict   = NULL;
+        int               ret    = 0;
 
         if (!local || !this || !frame) {
                 gf_log ("stripe", GF_LOG_DEBUG, "possible NULL deref");
@@ -175,6 +177,15 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
         loc_copy (&rlocal->loc, &local->loc);
         memcpy (&rlocal->stbuf, &local->stbuf, sizeof (struct iatt));
 
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        ret = dict_set_static_bin (dict, "gfid-req", local->stbuf.ia_gfid, 16);
+        if (ret)
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to set gfid-req");
+
         while (trav) {
                 if (IA_ISREG (local->stbuf.ia_type)) {
                         STACK_WIND (rframe, stripe_sh_make_entry_cbk,
@@ -182,19 +193,22 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
                                     &local->loc,
                                     st_mode_from_ia (local->stbuf.ia_prot,
                                                      local->stbuf.ia_type), 0,
-                                    NULL);
+                                    dict);
                 }
                 if (IA_ISDIR (local->stbuf.ia_type)) {
                         STACK_WIND (rframe, stripe_sh_make_entry_cbk,
                                     trav->xlator, trav->xlator->fops->mkdir,
                                     &local->loc, st_mode_from_ia (local->stbuf.ia_prot,
                                                                   local->stbuf.ia_type),
-                                    NULL);
+                                    dict);
                 }
                 trav = trav->next;
         }
 
 out:
+        if (dict)
+                dict_unref (dict);
+
         return 0;
 }
 
@@ -1365,7 +1379,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  "trusted.%s.stripe-index", this->name);
 
                         local->call_count = priv->child_count;
-
+                        memcpy (local->loc.inode->gfid, local->stbuf.ia_gfid, 16);
                         for (i = 0; i < priv->child_count; i++) {
                                 dict = get_new_dict ();
                                 if (!dict) {
@@ -1989,7 +2003,7 @@ stripe_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                  "trusted.%s.stripe-index", this->name);
 
                         local->call_count = priv->child_count;
-
+                        memcpy (local->loc.inode->gfid, local->stbuf.ia_gfid, 16);
                         for (i = 0; i < priv->child_count; i++) {
                                 dict = get_new_dict ();
                                 if (!dict) {
