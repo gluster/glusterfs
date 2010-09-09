@@ -1052,7 +1052,7 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        strncpy (volinfo->volname, volname, 1024);
+        strncpy (volinfo->volname, volname, GLUSTERD_MAX_VOLUME_NAME);
         GF_ASSERT (volinfo->volname);
 
         ret = dict_get_int32 (dict, "type", &volinfo->type);
