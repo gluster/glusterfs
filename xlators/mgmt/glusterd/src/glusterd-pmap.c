@@ -226,8 +226,12 @@ pmap_registry_remove (xlator_t *this, int port,
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
+        glusterd_conf_t      *priv = NULL;
 
-        pmap = pmap_registry_get (this);
+        priv = this->private;
+        pmap = priv->pmap;
+        if (!pmap)
+                goto out;
 
         if (port) {
                 if (port > 65535)
