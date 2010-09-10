@@ -80,6 +80,6 @@ enum argp_option_keys {
 int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);
 int glusterfs_mgmt_pmap_signin (glusterfs_ctx_t *ctx);
 int glusterfs_volfile_fetch (glusterfs_ctx_t *ctx);
-
+void cleanup_and_exit (int signum);
 
 #endif /* __GLUSTERFSD_H__ */

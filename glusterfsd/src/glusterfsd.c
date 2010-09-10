@@ -633,7 +633,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
 }
 
 
-static void
+void
 cleanup_and_exit (int signum)
 {
         glusterfs_ctx_t *ctx      = NULL;

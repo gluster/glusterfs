@@ -38,6 +38,8 @@
 #include "glusterfs3.h"
 #include "portmap.h"
 
+#include "glusterfsd.h"
+
 static char is_mgmt_rpc_reconnect;
 
 typedef ssize_t (*mgmt_serialize_t) (struct iovec outmsg, void *args);
@@ -224,11 +226,14 @@ out:
         if (rsp.spec)
                 free (rsp.spec);
 
-        if (ret && ctx && ctx->master) {
-                /* Failed to get the volume file, start fuse anyways */
-                xlator_notify (ctx->master,
-                               GF_EVENT_CHILD_CONNECTING, NULL);
-
+        if (ret && ctx && !ctx->active) {
+                /* Do it only for the first time */
+                /* Failed to get the volume file, something wrong,
+                   restart the process */
+                gf_log ("mgmt", GF_LOG_ERROR,
+                        "failed to fetch volume file (key:%s)",
+                        ctx->cmd_args.volfile_id);
+                cleanup_and_exit (0);
         }
         return 0;
 }
@@ -272,24 +277,19 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 rpc_clnt_set_connected (ctx->mgmt);
 
                 ret = glusterfs_volfile_fetch (ctx);
-                if (ret && ctx && ctx->master) {
-                        /* Failed to get the volume file, start fuse anyways */
-                        xlator_notify (ctx->master,
-                                       GF_EVENT_CHILD_CONNECTING, NULL);
-
-                        gf_log ("", GF_LOG_WARNING,
-                                "failed to fetch volume file");
+                if (ret && ctx && (ctx->active == NULL)) {
+                        /* Do it only for the first time */
+                        /* Exit the process.. there is some wrong options */
+                        gf_log ("mgmt", GF_LOG_ERROR,
+                                "failed to fetch volume file (key:%s)",
+                                ctx->cmd_args.volfile_id);
+                        cleanup_and_exit (0);
                 }
 
                 if (is_mgmt_rpc_reconnect)
                         glusterfs_mgmt_pmap_signin (ctx);
                 break;
         default:
-                if (ctx->master)
-                        ret = xlator_notify (ctx->master,
-                                             GF_EVENT_CHILD_CONNECTING, NULL);
-                gf_log ("", GF_LOG_WARNING,
-                        "failed to establish mgmt rpc connection (%d)", ret);
                 break;
         }
 
