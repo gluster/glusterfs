@@ -82,6 +82,13 @@ extern char gf_log_xl_log_set;
                          levl, ##fmt);                                  \
         } while (0)
 
+#define gf_log_callingfn(dom, levl, fmt...) do {                        \
+                if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
+                        break;                                          \
+                _gf_log_callingfn (dom, __FILE__, __FUNCTION__, __LINE__, \
+                                   levl, ##fmt);                        \
+        } while (0)
+
 /* Log once in GF_UNIVERSAL_ANSWER times */
 #define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \
                 gf_log (args);                                                \
@@ -97,6 +104,9 @@ void gf_log_cleanup (void);
 int
 _gf_log (const char *domain, const char *file, const char *function,
 	 int32_t line, gf_loglevel_t level, const char *fmt, ...);
+int
+_gf_log_callingfn (const char *domain, const char *file, const char *function,
+                   int32_t line, gf_loglevel_t level, const char *fmt, ...);
 
 int
 gf_log_from_client (const char *msg, char *identifier);
