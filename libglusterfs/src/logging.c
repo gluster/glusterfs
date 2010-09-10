@@ -39,6 +39,10 @@
 #include <syslog.h>
 #endif
 
+#ifdef HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
+
 
 static pthread_mutex_t  logfile_mutex;
 static char            *filename = NULL;
@@ -188,6 +192,142 @@ gf_log_cleanup (void)
 	pthread_mutex_destroy (&logfile_mutex);
 }
 
+int
+_gf_log_callingfn (const char *domain, const char *file, const char *function,
+                   int line, gf_loglevel_t level, const char *fmt, ...)
+{
+	const char     *basename        = NULL;
+	struct tm      *tm              = NULL;
+        xlator_t       *this            = NULL;
+        char           *str1            = NULL;
+        char           *str2            = NULL;
+        char           *msg             = NULL;
+	char            timestr[256]    = {0,};
+	char            callstr[1024]   = {0,};
+        struct timeval  tv              = {0,};
+        size_t          len             = 0;
+        int             ret             = 0;
+        gf_loglevel_t   xlator_loglevel = 0;
+	va_list         ap;
+
+	if (!logfile)
+		return -1;
+
+        this = THIS;
+
+        xlator_loglevel = this->loglevel;
+        if (xlator_loglevel == 0)
+                xlator_loglevel = loglevel;
+
+        if (level > xlator_loglevel)
+                goto out;
+
+	static char *level_strings[] = {"",  /* NONE */
+                                        "M", /* EMERGENCY */
+                                        "A", /* ALERT */
+					"C", /* CRITICAL */
+					"E", /* ERROR */
+					"W", /* WARNING */
+					"N", /* NOTICE */
+                                        "I", /* INFO/NORMAL */
+					"D", /* DEBUG */
+                                        "T", /* TRACE */
+					""};
+
+	if (!domain || !file || !function || !fmt) {
+		fprintf (stderr,
+			 "logging: %s:%s():%d: invalid argument\n",
+			 __FILE__, __PRETTY_FUNCTION__, __LINE__);
+		return -1;
+	}
+
+#if HAVE_BACKTRACE
+	/* Print 'calling function' */
+	do {
+		void *array[5];
+                char **callingfn = NULL;
+		size_t size = 0;
+
+		size = backtrace (array, 5);
+                if (size)
+                        callingfn = backtrace_symbols (&array[2], size-2);
+                if (!callingfn)
+                        break;
+
+		snprintf (callstr, 1024, "(-->%s (-->%s (-->%s)))", callingfn[2],
+                          callingfn[1], callingfn[0]);
+                free (callingfn);
+	} while (0);
+#endif /* HAVE_BACKTRACE */
+
+        ret = gettimeofday (&tv, NULL);
+        if (-1 == ret)
+                goto out;
+
+	tm    = localtime (&tv.tv_sec);
+
+	pthread_mutex_lock (&logfile_mutex);
+	{
+		va_start (ap, fmt);
+
+		strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+
+		basename = strrchr (file, '/');
+		if (basename)
+			basename++;
+		else
+			basename = file;
+
+                ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s %s: ",
+                                   timestr, level_strings[level],
+                                   basename, line, function, callstr,
+                                   domain);
+                if (-1 == ret) {
+                        goto unlock;
+                }
+
+                ret = vasprintf (&str2, fmt, ap);
+                if (-1 == ret) {
+                        goto unlock;
+                }
+
+		va_end (ap);
+
+                len = strlen (str1);
+                msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
+
+                strcpy (msg, str1);
+                strcpy (msg + len, str2);
+
+		fprintf (logfile, "%s\n", msg);
+		fflush (logfile);
+
+#ifdef GF_LINUX_HOST_OS
+                /* We want only serious log in 'syslog', not our debug
+                   and trace logs */
+                if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
+                        syslog ((level-1), "%s\n", msg);
+#endif
+	}
+
+unlock:
+	pthread_mutex_unlock (&logfile_mutex);
+
+        if (msg) {
+                GF_FREE (msg);
+        }
+
+        if (str1)
+                GF_FREE (str1);
+
+        if (str2)
+                FREE (str2);
+
+out:
+        return ret;
+}
 
 int
 _gf_log (const char *domain, const char *file, const char *function, int line,
