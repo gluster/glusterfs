@@ -2008,17 +2008,80 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
         return ret;
 }
 
+static int
+glusterd_fill_rb_commit_rsp (dict_t *rsp_dict)
+{
+        dict_t *dict    = NULL;
+        int32_t port_no = 0;
+        int     ret     = 0;
+
+        dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+        if (!dict) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Operation Context is not present");
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "src-brick-port", &port_no);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not get src-brick-port => this must "
+                        "be a non-source glusterd process");
+                ret = 0;
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG,
+                "This is the source glusterd => fill the src port");
+
+        ret = dict_set_int32 (rsp_dict, "src-brick-port", port_no);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not set commit rsp dict");
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
                                int32_t op, int32_t status)
 {
-        gd1_mgmt_commit_op_rsp          rsp = {{0}, };
-        int                             ret = -1;
+        dict_t                         *rsp_dict = NULL;
+        gd1_mgmt_commit_op_rsp          rsp      = {{0}, };
+        int                             ret      = -1;
 
         GF_ASSERT (req);
         rsp.op_ret = status;
         glusterd_get_uuid (&rsp.uuid);
         rsp.op = op;
+
+        rsp_dict = dict_new ();
+        if (!rsp_dict) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        if (op == GD_OP_REPLACE_BRICK) {
+                ret = glusterd_fill_rb_commit_rsp (rsp_dict);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_allocate_and_serialize (rsp_dict,
+                                           &rsp.dict.dict_val,
+                                           (size_t *)&rsp.dict.dict_len);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "failed to get serialized length of dict");
+                goto out;
+        }
+
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_commit_op_rsp);
@@ -2026,6 +2089,9 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Responded to commit, ret: %d", ret);
 
+out:
+        if (rsp_dict)
+                dict_unref (rsp_dict);
         return ret;
 }
 

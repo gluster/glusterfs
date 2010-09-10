@@ -148,6 +148,10 @@ struct gd1_mgmt_commit_op_rsp {
 	int op;
 	int op_ret;
 	int op_errno;
+        struct {
+                u_int dict_len;
+                char *dict_val;
+        } dict;
 };
 typedef struct gd1_mgmt_commit_op_rsp gd1_mgmt_commit_op_rsp;
 

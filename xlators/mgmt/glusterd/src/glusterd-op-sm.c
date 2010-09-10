@@ -2028,6 +2028,7 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
 {
         int                                      ret = 0;
         dict_t                                  *dict = NULL;
+        dict_t                                  *ctx  = NULL;
         gf1_cli_replace_op                       replace_op;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    *volname = NULL;
@@ -2104,6 +2105,30 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req)
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get dst-brickinfo");
                 goto out;
+        }
+
+        /* Set src-brick's port number to be used in the maintainance mount
+         * after all commit acks are received.
+         */
+        if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+                gf_log ("", GF_LOG_NORMAL,
+                        "adding src-brick port no");
+
+                ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                if (!ctx) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Operation Context is not present");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_int32 (ctx, "src-brick-port",
+                                      src_brickinfo->port);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not set src-brick port no");
+                        goto out;
+                }
         }
 
         switch (replace_op) {
@@ -2892,6 +2917,7 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
 {
         glusterd_volinfo_t     *volinfo = NULL;
         int32_t                 op      = 0;
+        int32_t                 src_port = 0;
         dict_t                 *dict    = NULL;
         char                   *src_brick = NULL;
         char                   *dst_brick = NULL;
@@ -2960,6 +2986,14 @@ glusterd_op_ac_rcvd_commit_op_acc (glusterd_op_sm_event_t *event, void *ctx)
                         gf_log ("", GF_LOG_DEBUG, "Unable to get dst-brickinfo");
                         goto out;
                 }
+
+                ret = dict_get_int32 (dict, "src-brick-port", &src_port);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get src-brick port");
+                        goto out;
+                }
+
+                src_brickinfo->port = src_port;
 
                 switch (op) {
                 case GF_REPLACE_OP_START:
