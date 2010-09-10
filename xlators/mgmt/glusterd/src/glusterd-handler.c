@@ -2838,6 +2838,7 @@ glusterd_replace_brick (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_ctx (GD_OP_REPLACE_BRICK, dict);
 
         glusterd_op_set_ctx_free (GD_OP_REPLACE_BRICK, _gf_true);
+        glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
 
