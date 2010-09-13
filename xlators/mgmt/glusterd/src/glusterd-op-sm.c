@@ -2490,6 +2490,9 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_compare (brickinfo->uuid, priv->uuid))
+                        continue;
+
                 if (brick && strcmp (brickinfo->path, brick))
                         continue;
 
@@ -2571,6 +2574,9 @@ glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (uuid_compare (brickinfo->uuid, priv->uuid))
+                        continue;
+
                 if (brick && strcmp (brickinfo->path, brick))
                         continue;
 
