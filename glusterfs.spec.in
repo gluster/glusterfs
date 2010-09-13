@@ -119,14 +119,14 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 
 %post core
 /sbin/ldconfig -n %{_libdir}
-/sbin/chkconfig --add glusterfsd
+/sbin/chkconfig --add glusterd
 
 %postun core
 /sbin/ldconfig -n %{_libdir}
 
 %preun core
 if [ $1 -eq 0 ]; then 
-    /sbin/chkconfig --del glusterfsd
+    /sbin/chkconfig --del glusterd
 fi
 
 %files core
@@ -152,7 +152,7 @@ fi
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
 %config %{_sysconfdir}/glusterfs
-%{_sysconfdir}/init.d/glusterfsd
+%{_sysconfdir}/init.d/glusterd
 %{_includedir}/glusterfs
 %exclude %{_includedir}/glusterfs/y.tab.h
 %{_libdir}/*.so
