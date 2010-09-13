@@ -345,7 +345,7 @@ out:
 }
 
 static int
-glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                                     ret = 0;
         dict_t                                  *dict = NULL;
@@ -362,6 +362,7 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
         char                                    cmd_str[1024];
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *priv = NULL;
+        char                                    msg[2048] = {0,};
 
         GF_ASSERT (req);
 
@@ -439,9 +440,11 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req)
                 if (!uuid_compare (brick_info->uuid, priv->uuid)) {
                         ret = stat (cmd_str, &st_buf);
                         if (ret == -1) {
-                                gf_log ("glusterd", GF_LOG_ERROR, "Volname %s, brick"
+                                snprintf (msg, 2048,"Volname %s, brick"
                                         ":%s path %s not present", volname,
                                         brick, brick_info->path);
+                                gf_log ("glusterd",GF_LOG_ERROR, "%s", msg); 
+                                *op_errstr = gf_strdup (msg);
                                 goto out;
                         }
                         brick_list = tmpptr;
@@ -999,7 +1002,7 @@ out:
 }
 
 static int
-glusterd_op_create_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                   ret        = 0;
         dict_t               *dict       = NULL;
@@ -3073,7 +3076,10 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.volname = "";
-				 rsp.op_errstr = "";
+                                if (op_errstr)
+                                        rsp.op_errstr = op_errstr;
+                                else
+                                        rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_create_vol_rsp;
                                 break;
@@ -3386,7 +3392,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
         switch (req->op) {
                 case GD_OP_CREATE_VOLUME:
-                        ret = glusterd_op_stage_create_volume (req);
+                        ret = glusterd_op_stage_create_volume (req, op_errstr);
                         break;
 
                 case GD_OP_START_VOLUME:
@@ -3441,7 +3447,7 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
         switch (req->op) {
                 case GD_OP_CREATE_VOLUME:
-                        ret = glusterd_op_create_volume (req);
+                        ret = glusterd_op_create_volume (req, op_errstr);
                         break;
 
                 case GD_OP_START_VOLUME:
