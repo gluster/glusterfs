@@ -278,7 +278,7 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
         ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname,
                                                 ev_ctx->port);
 
-        //rpc_clnt_destroy (peerinfo->rpc);
+        rpc_clnt_destroy (peerinfo->rpc);
         peerinfo->rpc = NULL;
 
         ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
