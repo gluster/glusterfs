@@ -123,6 +123,7 @@ struct glusterd_op_info_ {
         pthread_mutex_t                 lock;
         int32_t                         cli_op;
         gf_boolean_t                    ctx_free[GD_OP_MAX];
+        char                            *op_errstr;
 };
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
@@ -191,10 +192,10 @@ int
 glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req);
 
 int32_t
-glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req);
+glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr);
 
 int32_t
-glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req);
+glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr);
 
 void *
 glusterd_op_get_ctx (glusterd_op_t op);
@@ -208,7 +209,7 @@ glusterd_op_set_cli_op (gf_mgmt_procnum op);
 int32_t
 glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                int32_t op_errno, rpcsvc_request_t *req,
-                               void *ctx);
+                               void *ctx, char *op_errstr);
 int32_t
 glusterd_op_get_op ();
 

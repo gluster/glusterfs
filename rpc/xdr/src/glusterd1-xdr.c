@@ -201,6 +201,8 @@ xdr_gd1_mgmt_stage_op_rsp (XDR *xdrs, gd1_mgmt_stage_op_rsp *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -235,6 +237,8 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 				 return FALSE;
 			 if (!xdr_int (xdrs, &objp->op_errno))
 				 return FALSE;
+			 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+				 return FALSE;
 
 		} else {
 		IXDR_PUT_LONG(buf, objp->op);
@@ -255,6 +259,8 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 			 if (!xdr_int (xdrs, &objp->op_ret))
 				 return FALSE;
 			 if (!xdr_int (xdrs, &objp->op_errno))
+				 return FALSE;
+			 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 				 return FALSE;
 
 		} else {
@@ -278,6 +284,9 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
 		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+
 	return TRUE;
 }
 

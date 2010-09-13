@@ -1988,7 +1988,7 @@ out:
 
 int
 glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
-                             int32_t op, int32_t status)
+                             int32_t op, int32_t status, char *op_errstr)
 {
 
         gd1_mgmt_stage_op_rsp           rsp = {{0},};
@@ -1998,6 +1998,10 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
         rsp.op_ret = status;
         glusterd_get_uuid (&rsp.uuid);
         rsp.op = op;
+        if (op_errstr)
+                rsp.op_errstr = op_errstr;
+        else
+                rsp.op_errstr = "";
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_stage_op_rsp);
@@ -2048,7 +2052,7 @@ out:
 
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
-                               int32_t op, int32_t status)
+                               int32_t op, int32_t status, char *op_errstr)
 {
         dict_t                         *rsp_dict = NULL;
         gd1_mgmt_commit_op_rsp          rsp      = {{0}, };
@@ -2058,6 +2062,11 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
         rsp.op_ret = status;
         glusterd_get_uuid (&rsp.uuid);
         rsp.op = op;
+
+        if (op_errstr)
+                rsp.op_errstr = op_errstr;
+        else
+                rsp.op_errstr = "";
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
