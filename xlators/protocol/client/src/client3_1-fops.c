@@ -3769,10 +3769,14 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
 
         args = data;
 
-        if (!(args->loc && args->loc->inode))
+        if (!args->loc)
                 goto unwind;
 
-        memcpy (req.gfid,  args->loc->inode->gfid, 16);
+        if (args->loc->inode)
+	        memcpy (req.gfid,  args->loc->inode->gfid, 16);
+        else
+		req.gfid[15] = 1;
+
         req.path = (char *)args->loc->path;
         req.gfs_id = GFS3_OP_STATFS;
 
