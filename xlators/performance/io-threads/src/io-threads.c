@@ -2089,7 +2089,7 @@ init (xlator_t *this)
         dict_t          *options = this->options;
         int              thread_count = IOT_DEFAULT_THREADS;
         int              idle_time = IOT_DEFAULT_IDLE;
-        int              ret = 0;
+        int              ret = -1;
 
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads", GF_LOG_ERROR,
