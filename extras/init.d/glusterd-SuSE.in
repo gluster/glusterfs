@@ -1,31 +1,30 @@
 #!/bin/bash
 #
 ### BEGIN INIT INFO
-# Provides:       glusterfsd
+# Provides:       glusterd
 # Required-Start: $local_fs $network
 # Required-Stop:
 # Default-Start:  3 5
 # Default-Stop:
-# Short-Description: GlusterFS server daemon
-# Description:    All necessary services for GlusterFS clients
+# Short-Description: Gluster File System service for volume management
+# Description:    Gluster File System service for volume management
 ### END INIT INFO
 
 # Get function from functions library
 
 . /etc/rc.status
 
-BASE=glusterfsd
-GLUSTERFSD_BIN=@prefix@/sbin/$BASE
-CONFIGFILE=/etc/glusterfs/glusterfsd.vol
-GLUSTERFSD_OPTS="-f $CONFIGFILE"
-GSERVER="$GLUSTERFSD_BIN $GLUSTERFSD_OPTS"
+BASE=glusterd
+GLUSTERD_BIN=@prefix@/sbin/$BASE
+GLUSTERD_OPTS=""
+GLUSTERD="$GLUSTERD_BIN $GLUSTERD_OPTS"
 RETVAL=0
 
 # Start the service $BASE
 start()
 {
        echo -n $"Starting $BASE:"
-       startproc $GSERVER 
+       startproc $GLUSTERD
        return $?
 }
 
@@ -33,7 +32,7 @@ start()
 stop()
 {
        echo $"Stopping $BASE:"
-       killproc $BASE 
+       killproc $BASE
        return $?
 }
 
@@ -55,7 +54,7 @@ case $1 in
        rc_status -v
        ;;
  status)
-	echo -n " glusterfsd"
+	echo -n " glusterd"
 	if ! checkproc $BASE ;then
 	    echo " not running"
 	    rc_failed 3

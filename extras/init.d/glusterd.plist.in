@@ -3,13 +3,11 @@
 <plist version="1.0">
 <dict>
         <key>Label</key>
-        <string>com.gluster.glusterfs</string>
+        <string>com.gluster.glusterd</string>
         <key>ProgramArguments</key>
         <array>
-                <string>@prefix@/sbin/glusterfsd</string>
+                <string>@prefix@/sbin/glusterd</string>
                 <string>-N</string>
-                <string>-f</string>
-                <string>@prefix@/etc/glusterfs/server.vol</string>
         </array>
 </dict>
 </plist>

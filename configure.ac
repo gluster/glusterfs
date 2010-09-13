@@ -106,10 +106,10 @@ AC_CONFIG_FILES([Makefile
 		extras/Makefile
                 extras/glusterfs-defrag
 		extras/init.d/Makefile
-		extras/init.d/glusterfs-server.plist
-                extras/init.d/glusterfsd-Debian
-                extras/init.d/glusterfsd-Redhat
-                extras/init.d/glusterfsd-SuSE
+		extras/init.d/glusterd.plist
+                extras/init.d/glusterd-Debian
+                extras/init.d/glusterd-Redhat
+                extras/init.d/glusterd-SuSE
 		extras/benchmarking/Makefile
                 extras/volgen/Makefile
                 extras/volgen/glusterfs-volgen

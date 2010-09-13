@@ -1,24 +1,23 @@
 #!/bin/bash
 #
 # chkconfig: 35 90 12
-# description: Glusterfsd server
+# description: Gluster File System service for volume management
 #
 
 # Get function from functions library
 . /etc/rc.d/init.d/functions
 
-BASE=glusterfsd
-GLUSTERFSD_BIN=@exec_prefix@/sbin/$BASE
-CONFIGFILE=/etc/glusterfs/glusterfsd.vol
-GLUSTERFSD_OPTS="-f $CONFIGFILE"
-GSERVER="$GLUSTERFSD_BIN $GLUSTERFSD_OPTS"
+BASE=glusterd
+GLUSTERD_BIN=@exec_prefix@/sbin/$BASE
+GLUSTERD_OPTS=""
+GLUSTERD="$GLUSTERD_BIN $GLUSTERD_OPTS"
 RETVAL=0
 
 # Start the service $BASE
 start()
 {
        echo $"Starting $BASE:"
-       daemon $GSERVER
+       daemon $GLUSTERD
        RETVAL=$?
        [ $RETVAL -ne 0 ] && exit $RETVAL
 }
@@ -27,7 +26,7 @@ start()
 stop()
 {
        echo $"Stopping $BASE:"
-       killproc $BASE 
+       killproc $BASE
 }
 
 
