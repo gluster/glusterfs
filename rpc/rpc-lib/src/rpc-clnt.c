@@ -798,6 +798,8 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
                 goto out;
         }
         clnt = conn->rpc_clnt;
+        if (!clnt)
+                goto out;
 
         switch (event) {
         case RPC_TRANSPORT_DISCONNECT:
@@ -1386,6 +1388,10 @@ out:
 void
 rpc_clnt_destroy (struct rpc_clnt *rpc)
 {
+        if (!rpc)
+                return;
+
+        rpc_transport_destroy (rpc->conn.trans);
         rpc_clnt_connection_cleanup (&rpc->conn);
         rpc_clnt_reconnect_cleanup (&rpc->conn);
         pthread_mutex_destroy (&rpc->lock);
