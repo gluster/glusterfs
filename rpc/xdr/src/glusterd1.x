@@ -77,6 +77,7 @@ struct gd1_mgmt_stage_op_rsp {
         int     op;
         int     op_ret;
         int     op_errno;
+        string  op_errstr<>;
 }  ;
 
 struct gd1_mgmt_commit_op_req {
@@ -91,6 +92,7 @@ struct gd1_mgmt_commit_op_rsp {
         int     op;
         int     op_ret;
         int     op_errno;
+        string  op_errstr<>;
 }  ;
 
 struct gd1_mgmt_friend_update {

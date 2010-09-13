@@ -3059,7 +3059,7 @@ out:
 int32_t
 glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                int32_t op_errno, rpcsvc_request_t *req,
-                               void *op_ctx)
+                               void *op_ctx, char *op_errstr)
 {
         int32_t         ret = -1;
         gd_serialize_t  sfunc = NULL;
@@ -3199,6 +3199,11 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_op_clear_errstr() {
+        opinfo.op_errstr = NULL;
+        return 0;
+}
 
 int32_t
 glusterd_op_txn_complete ()
@@ -3212,6 +3217,8 @@ glusterd_op_txn_complete ()
         rpcsvc_request_t        *req = NULL;
         void                    *ctx = NULL;
         gf_boolean_t            ctx_free = _gf_false;
+        char                    *op_errstr = NULL;
+
 
         priv = THIS->private;
         GF_ASSERT (priv);
@@ -3230,6 +3237,8 @@ glusterd_op_txn_complete ()
         op_errno = opinfo.op_errno;
         cli_op = opinfo.cli_op;
         req = opinfo.req;
+        if (opinfo.op_errstr)
+                op_errstr = opinfo.op_errstr;
 
 
         opinfo.op_ret = 0;
@@ -3245,14 +3254,18 @@ glusterd_op_txn_complete ()
                 ctx_free = glusterd_op_get_ctx_free (op);
                 glusterd_op_set_ctx (op, NULL);
                 glusterd_op_clear_ctx_free (op);
+                glusterd_op_clear_errstr ();
         }
 
 out:
         pthread_mutex_unlock (&opinfo.lock);
         ret = glusterd_op_send_cli_response (cli_op, op_ret,
-                                             op_errno, req, ctx);
+                                             op_errno, req, ctx, op_errstr);
         if (ctx_free && ctx && (op != -1))
                 glusterd_op_free_ctx (op, ctx, ctx_free);
+        if (op_errstr)
+                GF_FREE (op_errstr);
+
         gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
         return ret;
 }
@@ -3292,6 +3305,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         gd1_mgmt_stage_op_req   *req = NULL;
         glusterd_op_stage_ctx_t *stage_ctx = NULL;
         int32_t                 status = 0;
+        char                    *op_errstr = NULL;
 
         GF_ASSERT (ctx);
 
@@ -3299,13 +3313,16 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         req = &stage_ctx->stage_req;
 
-        status = glusterd_op_stage_validate (req);
+        status = glusterd_op_stage_validate (req, &op_errstr);
 
         if (status) {
                 gf_log ("", GF_LOG_ERROR, "Validate failed: %d", status);
         }
 
-        ret = glusterd_op_stage_send_resp (stage_ctx->req, req->op, status);
+        ret = glusterd_op_stage_send_resp (stage_ctx->req, req->op, status, op_errstr);
+
+        if (op_errstr)
+                GF_FREE (op_errstr);
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
@@ -3319,6 +3336,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         gd1_mgmt_stage_op_req           *req = NULL;
         glusterd_op_commit_ctx_t        *commit_ctx = NULL;
         int32_t                         status = 0;
+        char                            *op_errstr = NULL;
 
         GF_ASSERT (ctx);
 
@@ -3326,13 +3344,16 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         req = &commit_ctx->stage_req;
 
-        status = glusterd_op_commit_perform (req);
+        status = glusterd_op_commit_perform (req, &op_errstr);
 
         if (status) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed: %d", status);
         }
 
-        ret = glusterd_op_commit_send_resp (commit_ctx->req, req->op, status);
+        ret = glusterd_op_commit_send_resp (commit_ctx->req, req->op, status, op_errstr);
+
+        if (op_errstr)
+                GF_FREE (op_errstr);
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
@@ -3357,7 +3378,7 @@ glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
 }
 
 int32_t
-glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req)
+glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int     ret = -1;
 
@@ -3412,7 +3433,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req)
 
 
 int32_t
-glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req)
+glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int     ret = -1;
 
@@ -3935,3 +3956,4 @@ int32_t
 glusterd_opinfo_unlock(){
         return (pthread_mutex_unlock(&opinfo.lock));
 }
+

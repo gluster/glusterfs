@@ -130,6 +130,7 @@ struct gd1_mgmt_stage_op_rsp {
 	int op;
 	int op_ret;
 	int op_errno;
+	char *op_errstr;
 };
 typedef struct gd1_mgmt_stage_op_rsp gd1_mgmt_stage_op_rsp;
 
@@ -152,6 +153,7 @@ struct gd1_mgmt_commit_op_rsp {
                 u_int dict_len;
                 char *dict_val;
         } dict;
+        char *op_errstr;
 };
 typedef struct gd1_mgmt_commit_op_rsp gd1_mgmt_commit_op_rsp;
 

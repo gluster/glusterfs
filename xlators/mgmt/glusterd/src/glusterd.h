@@ -247,7 +247,7 @@ glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status);
 
 int
 glusterd_op_stage_send_resp (rpcsvc_request_t *req,
-                             int32_t op, int32_t status);
+                             int32_t op, int32_t status, char *op_errstr);
 
 int
 glusterd_op_commmit_send_resp (rpcsvc_request_t *req,
@@ -293,7 +293,7 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
 
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
-                               int32_t op, int32_t status);
+                               int32_t op, int32_t status, char *op_errstr);
 
 int
 glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int port);

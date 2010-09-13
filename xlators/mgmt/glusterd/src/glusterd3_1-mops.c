@@ -479,6 +479,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                rsp.op_errstr = "";
                 goto out;
         }
 
@@ -487,6 +488,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                rsp.op_errstr = "";
                 goto out;
         }
         uuid_unparse (rsp.uuid, str);
@@ -506,6 +508,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
                 opinfo.op_ret = op_ret;
+                opinfo.op_errstr = rsp.op_errstr; 
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
@@ -581,6 +584,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                rsp.op_errstr = "";
                 goto out;
         }
 
@@ -589,6 +593,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
+                rsp.op_errstr = "";
                 goto out;
         }
         uuid_unparse (rsp.uuid, str);
@@ -623,6 +628,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
                 opinfo.op_ret = op_ret;
+                opinfo.op_errstr = rsp.op_errstr;
         } else {
                 if (rsp.op == GD_OP_REPLACE_BRICK) {
                         ret = glusterd_rb_use_rsp_dict (dict);
@@ -1003,6 +1009,7 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         int32_t                         pending_peer = 0;
         int                             i = 0;
         call_frame_t                    *dummy_frame = NULL;
+        char                            *op_errstr = NULL;
 
         if (!this) {
                 ret = -1;
@@ -1036,10 +1043,11 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = glusterd_op_stage_validate (req);
+        ret = glusterd_op_stage_validate (req, &op_errstr);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Staging failed");
+                opinfo.op_errstr = op_errstr;
                 goto out;
         }
 
@@ -1093,6 +1101,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         int32_t                         pending_peer = 0;
         int                             i = 0;
         call_frame_t                    *dummy_frame = NULL;
+        char                            *op_errstr = NULL;
 
         if (!this) {
                 ret = -1;
@@ -1125,10 +1134,11 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = glusterd_op_commit_perform ((gd1_mgmt_stage_op_req *)req);
+        ret = glusterd_op_commit_perform ((gd1_mgmt_stage_op_req *)req, &op_errstr);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed");
+                opinfo.op_errstr = op_errstr;
                 goto out;
         }
 
@@ -1177,6 +1187,7 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
 {
         int             ret = -1;
         gf_boolean_t    is_cli_req = _gf_false;
+        char            *op_errstr = NULL;
 
         GF_ASSERT (req);
 
@@ -1300,10 +1311,12 @@ out:
                    be 0, and we should not point to any RPC errors, because
                    otherwise rpcsvc.c will send an error reply for the same
                    request, which causes double replies */
-                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL);
+                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL, op_errstr);
                 if (!ret)
                         req->rpc_err = SUCCESS;
         }
+        if (op_errstr)
+                GF_FREE (op_errstr);
         if (!ret)
                 gf_log ("", GF_LOG_WARNING, "Returning %d", ret);
 
