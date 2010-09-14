@@ -198,6 +198,9 @@ struct rpc_transport {
 	peer_info_t                peerinfo;
 	peer_info_t                myinfo;
 
+        uint64_t                   total_bytes_read;
+        uint64_t                   total_bytes_write;
+
         struct list_head           list;
 };
 

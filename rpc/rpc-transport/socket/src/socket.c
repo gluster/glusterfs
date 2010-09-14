@@ -176,12 +176,14 @@ __socket_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                                 /* done for now */
                                 break;
                         }
+                        this->total_bytes_write += ret;
                 } else {
                         ret = readv (sock, opvector, opcount);
                         if (ret == -1 && errno == EAGAIN) {
                                 /* done for now */
                                 break;
                         }
+                        this->total_bytes_read += ret;
                 }
 
                 if (ret == 0) {

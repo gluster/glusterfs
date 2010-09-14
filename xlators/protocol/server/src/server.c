@@ -232,6 +232,27 @@ server_fd (xlator_t *this)
 int
 server_priv (xlator_t *this)
 {
+        server_conf_t    *conf = NULL;
+        rpc_transport_t  *xprt = NULL;
+        char              key[GF_DUMP_MAX_BUF_LEN] = {0,};
+        uint64_t          total_read = 0;
+        uint64_t          total_write = 0;
+
+        conf = this->private;
+        if (!conf)
+                return 0;
+
+        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                total_read  += xprt->total_bytes_read;
+                total_write += xprt->total_bytes_write;
+        }
+
+        gf_proc_dump_build_key(key, "server", "total-bytes-read");
+        gf_proc_dump_write(key, "%"PRIu64, total_read);
+
+        gf_proc_dump_build_key(key, "server", "total-bytes-write");
+        gf_proc_dump_write(key, "%"PRIu64, total_write);
+
         return 0;
 }
 
