@@ -173,6 +173,7 @@ struct gf1_cli_start_vol_rsp {
 	int op_ret;
 	int op_errno;
 	char *volname;
+	char *op_errstr;
 };
 typedef struct gf1_cli_start_vol_rsp gf1_cli_start_vol_rsp;
 

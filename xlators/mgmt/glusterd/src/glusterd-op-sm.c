@@ -449,11 +449,22 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 if (!uuid_compare (brick_info->uuid, priv->uuid)) {
                         ret = stat (cmd_str, &st_buf);
                         if (ret == -1) {
-                                snprintf (msg, 2048,"Volname %s, brick"
-                                        ":%s path %s not present", volname,
-                                        brick, brick_info->path);
+                                snprintf (msg, 2048,"Volume name %s, brick"
+                                        ": %s:%s, path %s not present", volname,
+                                          brick_info->hostname, brick_info->path, brick_info->path);
                                 gf_log ("glusterd",GF_LOG_ERROR, "%s", msg); 
                                 *op_errstr = gf_strdup (msg);
+                                goto out;
+                        }
+
+                        if (!S_ISDIR (st_buf.st_mode)) {
+                                snprintf (msg, 2048, "Volume name %s, brick"
+                                          ": %s, path %s is not a directory", volname,
+                                          brick, brick_info->path);
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "%s", msg);
+                                *op_errstr = gf_strdup (msg);
+                                ret = -1;
                                 goto out;
                         }
                         brick_list = tmpptr;
@@ -471,15 +482,26 @@ out:
 }
 
 static int
-glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                                     ret = 0;
         char                                    volname [1024] = {0,};
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
+        struct stat                             statbuf = {0,};
+        char                                    msg[2048];
+        glusterd_conf_t                         *priv = NULL;
 
         GF_ASSERT (req);
+
+        priv = THIS->private;
+        if (!priv) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "priv is NULL");
+                ret = -1;
+                goto out;
+        }
 
         strncpy (volname, req->buf.buf_val, req->buf.buf_len);
         //volname = req->buf.buf_val;
@@ -487,8 +509,10 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req)
         exists = glusterd_check_volume_exists (volname);
 
         if (!exists) {
-                gf_log ("", GF_LOG_ERROR, "Volume with name %s does not exist",
-                        volname);
+                snprintf (msg, 2048, "Volume with name %s does not exist", volname);
+                gf_log ("", GF_LOG_ERROR, "%s",
+                        msg);
+                *op_errstr = gf_strdup (msg);
                 ret = -1;
         } else {
                 ret = 0;
@@ -507,14 +531,29 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req)
                                 brickinfo->hostname,brickinfo->path);
                         goto out;
                 }
-        }
 
-        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "volume already started");
-                ret = -1;
-        }
+                if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
+                        ret = stat (brickinfo->path, &statbuf);
+                        if (ret == -1) {
+                                snprintf (msg, 2048, "Volume name %s, brick"
+                                          ": %s:%s, path %s is not present",
+                                          volname, brickinfo->hostname, brickinfo->path, brickinfo->path);
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "%s", msg);
+                                *op_errstr = gf_strdup (msg);
+                                goto out;
+                        }
+                }
 
+                if (GLUSTERD_STATUS_STARTED == volinfo->status) {
+                        snprintf (msg, 2048, "Volume %s already started",
+                                  volname);
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                }
+        }
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -652,7 +691,7 @@ out:
 }
 
 static int
-glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
+glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                                     ret = 0;
         dict_t                                  *dict = NULL;
@@ -669,6 +708,7 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
         struct stat                             st_buf = {0,};
         char                                    cmd_str[1024];
         glusterd_conf_t                         *priv = NULL;
+        char                                    msg[2048];
 
         GF_ASSERT (req);
 
@@ -746,9 +786,23 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req)
                 if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
                         ret = stat (cmd_str, &st_buf);
                         if (ret == -1) {
-                                gf_log ("glusterd", GF_LOG_ERROR, "Volname %s, brick"
-                                        ":%s path %s not present", volname,
-                                        brick, brickinfo->path);
+                                snprintf (msg, 2048, "Volume name %s, brick"
+                                          ": %s, path %s not present", volname,
+                                          brick, brickinfo->path);
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "%s", msg);
+                                *op_errstr = gf_strdup (msg);
+                                goto out;
+                        }
+
+                        if (!S_ISDIR (st_buf.st_mode)) {
+                                snprintf (msg, 2048, "Volume name %s, brick"
+                                          ": %s, path %s is not a directory", volname,
+                                          brick, brickinfo->path);
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "%s", msg);
+                                *op_errstr = gf_strdup (msg);
+                                ret = -1;
                                 goto out;
                         }
                 }
@@ -1174,7 +1228,7 @@ out:
 }
 
 static int
-glusterd_op_add_brick (gd1_mgmt_stage_op_req *req)
+glusterd_op_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                                     ret = 0;
         dict_t                                  *dict = NULL;
@@ -2383,7 +2437,7 @@ out:
 }
 
 static int
-glusterd_op_start_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                                     ret = 0;
         char                                    volname[1024] = {0,};
@@ -3102,6 +3156,10 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.volname = "";
+                                if (op_errstr)
+                                        rsp.op_errstr = op_errstr;
+                                else
+                                        rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_start_vol_rsp;
                                 break;
@@ -3146,7 +3204,10 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.volname = "";
-                                rsp.op_errstr = "";
+                                if (op_errstr)
+                                        rsp.op_errstr = op_errstr;
+                                else
+                                        rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_add_brick_rsp;
                                 break;
@@ -3407,7 +3468,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         break;
 
                 case GD_OP_START_VOLUME:
-                        ret = glusterd_op_stage_start_volume (req);
+                        ret = glusterd_op_stage_start_volume (req, op_errstr);
                         break;
 
                 case GD_OP_STOP_VOLUME:
@@ -3419,7 +3480,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         break;
 
                 case GD_OP_ADD_BRICK:
-                        ret = glusterd_op_stage_add_brick (req);
+                        ret = glusterd_op_stage_add_brick (req, op_errstr);
                         break;
 
                 case GD_OP_REPLACE_BRICK:
@@ -3462,7 +3523,7 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         break;
 
                 case GD_OP_START_VOLUME:
-                        ret = glusterd_op_start_volume (req);
+                        ret = glusterd_op_start_volume (req, op_errstr);
                         break;
 
                 case GD_OP_STOP_VOLUME:
@@ -3474,7 +3535,7 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         break;
 
                 case GD_OP_ADD_BRICK:
-                        ret = glusterd_op_add_brick (req);
+                        ret = glusterd_op_add_brick (req, op_errstr);
                         break;
 
                 case GD_OP_REPLACE_BRICK:
