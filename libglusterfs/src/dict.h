@@ -38,6 +38,7 @@ typedef struct _data_pair data_pair_t;
 struct _data {
   unsigned char is_static:1;
   unsigned char is_const:1;
+  unsigned char is_stdalloc:1;
   int32_t len;
   struct iovec *vec;
   char *data;
@@ -61,6 +62,7 @@ struct _dict {
   data_pair_t **members;
   data_pair_t *members_list;
   char *extra_free;
+  char *extra_stdfree;
   gf_lock_t lock;
 };
 
@@ -179,6 +181,7 @@ GF_MUST_CHECK int dict_set_bin (dict_t *this, char *key, void *ptr, size_t size)
 GF_MUST_CHECK int dict_set_static_bin (dict_t *this, char *key, void *ptr, size_t size);
 
 GF_MUST_CHECK int dict_set_str (dict_t *this, char *key, char *str);
+GF_MUST_CHECK int dict_set_dynmstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
 

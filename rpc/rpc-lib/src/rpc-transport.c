@@ -902,6 +902,10 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		goto fail;
 	}
 
+        if (name) {
+                GF_FREE (name);
+        }
+
 	trans->ops = dlsym (handle, "tops");
 	if (trans->ops == NULL) {
 		gf_log ("rpc-transport", GF_LOG_ERROR,
@@ -968,10 +972,6 @@ fail:
                 }
 
                 GF_FREE (trans);
-        }
-
-        if (name) {
-                GF_FREE (name);
         }
 
         if (vol_opt) {

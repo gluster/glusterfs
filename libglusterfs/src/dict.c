@@ -140,8 +140,12 @@ data_destroy (data_t *data)
 		LOCK_DESTROY (&data->lock);
 
 		if (!data->is_static) {
-			if (data->data)
-				GF_FREE (data->data);
+			if (data->data) {
+                                if (data->is_stdalloc)
+                                        free (data->data);
+				else
+                                        GF_FREE (data->data);
+                        }
 			if (data->vec)
 				GF_FREE (data->vec);
 		}
@@ -413,6 +417,8 @@ dict_destroy (dict_t *this)
 
 	if (this->extra_free)
 		GF_FREE (this->extra_free);
+        if (this->extra_stdfree)
+                free (this->extra_stdfree);
 
 	if (!this->is_static)
 		GF_FREE (this);
@@ -1027,6 +1033,24 @@ data_from_dynstr (char *value)
 
 	data->len = strlen (value) + 1;
 	data->data = value;
+
+	return data;
+}
+
+data_t *
+data_from_dynmstr (char *value)
+{
+	if (!value) {
+		gf_log ("dict", GF_LOG_CRITICAL,
+			"@value=%p", value);
+		return NULL;
+	}
+
+	data_t *data = get_new_data ();
+
+	data->len = strlen (value) + 1;
+	data->data = value;
+        data->is_stdalloc = 1;
 
 	return data;
 }
@@ -2030,6 +2054,27 @@ dict_set_dynstr (dict_t *this, char *key, char *str)
 	int      ret  = 0;
 
 	data = data_from_dynstr (str);
+	if (!data) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ret = dict_set (this, key, data);
+
+err:
+	return ret;
+}
+
+/*
+        for malloced strings we should do a free instead of GF_FREE
+*/
+int
+dict_set_dynmstr (dict_t *this, char *key, char *str)
+{
+	data_t * data = NULL;
+	int      ret  = 0;
+
+	data = data_from_dynmstr (str);
 	if (!data) {
 		ret = -EINVAL;
 		goto err;

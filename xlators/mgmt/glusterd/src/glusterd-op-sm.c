@@ -353,6 +353,7 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         gf_boolean_t                            exists = _gf_false;
         char                                    *bricks = NULL;
         char                                    *brick_list = NULL;
+        char                                    *free_ptr = NULL;
         glusterd_brickinfo_t                    *brick_info = NULL;
         int32_t                                 brick_count = 0;
         int32_t                                 i = 0;
@@ -419,8 +420,16 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 goto out;
         }
 
-        if (bricks)
+        if (bricks) {
                 brick_list = gf_strdup (bricks);
+                if (!brick_list) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        goto out;
+                } else {
+                        free_ptr = brick_list;
+                }
+        }
 
         while ( i < brick_count) {
                 i++;
@@ -454,6 +463,8 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 out:
         if (dict)
                 dict_unref (dict);
+        if (free_ptr)
+                GF_FREE (free_ptr);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;

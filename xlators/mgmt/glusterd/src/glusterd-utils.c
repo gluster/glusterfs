@@ -183,8 +183,8 @@ glusterd_is_local_addr (char *hostname)
 
 
 out:
-        //if (result)
-          //      freeaddrinfo (result);
+        if (result)
+                freeaddrinfo (result);
 
         if (buf.ifc_req)
                 GF_FREE (buf.ifc_req);
@@ -520,6 +520,8 @@ glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo)
 
         list_del_init (&brickinfo->brick_list);
 
+        if (brickinfo->logfile)
+                GF_FREE (brickinfo->logfile);
         GF_FREE (brickinfo);
 
         ret = 0;
