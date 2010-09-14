@@ -341,39 +341,17 @@ mem_pool_new_fn (unsigned long sizeof_type,
 void*
 mem_get0 (struct mem_pool *mem_pool)
 {
-        struct list_head *list = NULL;
         void             *ptr = NULL;
-        int              *in_use = NULL;
 
         if (!mem_pool) {
                 gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
-        LOCK (&mem_pool->lock);
-        {
-                if (mem_pool->cold_count) {
-                        list = mem_pool->list.next;
-                        list_del (list);
+        ptr = mem_get(mem_pool);
 
-                        mem_pool->hot_count++;
-                        mem_pool->cold_count--;
-
-                        ptr = list;
-                        in_use = (ptr + GF_MEM_POOL_LIST_BOUNDARY);
-                        *in_use = 1;
-
-                        goto fwd_addr_out;
-                }
-                ptr = MALLOC (mem_pool->real_sizeof_type);
-                goto unlocked_out;
-        }
-fwd_addr_out:
-        ptr = mem_pool_chunkhead2ptr (ptr);
-unlocked_out:
-
-         memset(ptr, 0, mem_pool->real_sizeof_type);
-        UNLOCK (&mem_pool->lock);
+        if (ptr)
+                memset(ptr, 0, mem_pool->real_sizeof_type);
 
         return ptr;
 }
