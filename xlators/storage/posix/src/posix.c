@@ -3962,11 +3962,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                /* Device spanning requires that we have a stat buf for the
-                 * file so we need to perform a stat on the two conditions
-                 * below.
-                 */
-                if ((whichop == GF_FOP_READDIRP) || (priv->span_devices)) {
+                if (whichop == GF_FOP_READDIRP) {
                         strcpy (entry_path + real_path_len + 1, entry->d_name);
                         /* Don't check for return value of below function.
                          * because, if there is some data already existing,
@@ -4197,7 +4193,6 @@ init (xlator_t *this)
 	data_t                *tmp_data      = NULL;
         struct stat            buf           = {0,};
 	gf_boolean_t           tmp_bool      = 0;
-        uint64_t               time64        = 0;
         int                    dict_ret      = 0;
         int                    ret           = 0;
         int                    op_ret        = -1;
@@ -4364,34 +4359,6 @@ init (xlator_t *this)
 				"for every open)");
         }
 
-        _private->num_devices_to_span = 1;
-
-        tmp_data = dict_get (this->options, "span-devices");
-        if (tmp_data) {
-		if (gf_string2int32 (tmp_data->data,
-                                     &_private->num_devices_to_span) == -1) {
-			ret = -1;
-			gf_log (this->name, GF_LOG_ERROR,
-				"wrong option provided for 'span-devices'");
-			goto out;
-		}
-		if (_private->num_devices_to_span > 1) {
-                        gf_log (this->name, GF_LOG_NORMAL,
-                                "spanning enabled accross %d mounts", 
-                                _private->num_devices_to_span);
-                        _private->span_devices = 1;
-                }
-                if (_private->num_devices_to_span < 1)
-                        _private->num_devices_to_span = 1;
-        }
-
-        _private->st_device = GF_CALLOC (1, (sizeof (dev_t) *
-                                         _private->num_devices_to_span),
-                                         gf_posix_mt_posix_dev_t);
-        
-        /* Start with the base */
-        _private->st_device[0] = buf.st_dev;
-
         _private->janitor_sleep_duration = 600;
 
 	dict_ret = dict_get_int32 (this->options, "janitor-sleep-duration",
@@ -4403,10 +4370,6 @@ init (xlator_t *this)
 
 		_private->janitor_sleep_duration = janitor_sleep;
 	}
-
-        LOCK_INIT (&_private->gen_lock);
-        time64 = time (NULL);
-        _private->gen_seq = (time64 << 32);
 
 #ifndef GF_DARWIN_HOST_OS
         {
@@ -4520,8 +4483,6 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL },
 	{ .key  = {"mandate-attribute"},
 	  .type = GF_OPTION_TYPE_BOOL },
-	{ .key  = {"span-devices"},
-	  .type = GF_OPTION_TYPE_INT },
         { .key  = {"background-unlink"},
           .type = GF_OPTION_TYPE_BOOL },
         { .key  = {"janitor-sleep-duration"},
