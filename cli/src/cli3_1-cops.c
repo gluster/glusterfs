@@ -512,6 +512,9 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
         cli_out ("Starting volume %s has been %s", volname,
                 (rsp.op_ret) ? "unsuccessful": "successful");
 
+        if (rsp.op_ret && rsp.op_errstr)
+                cli_out ("%s", rsp.op_errstr);
+
         ret = rsp.op_ret;
 
 out:
