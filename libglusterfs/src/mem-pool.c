@@ -23,10 +23,11 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-
-#define GF_MEM_POOL_PAD_BOUNDARY         (sizeof(struct list_head))
+#define GF_MEM_POOL_LIST_BOUNDARY        (sizeof(struct list_head))
+#define GF_MEM_POOL_PAD_BOUNDARY         (GF_MEM_POOL_LIST_BOUNDARY + sizeof(int))
 #define mem_pool_chunkhead2ptr(head)     ((head) + GF_MEM_POOL_PAD_BOUNDARY)
 #define mem_pool_ptr2chunkhead(ptr)      ((ptr) - GF_MEM_POOL_PAD_BOUNDARY)
+#define is_mem_chunk_in_use(ptr)         (*ptr == 1)
 
 #define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4)
 #define GF_MEM_TRAILER_SIZE 4
@@ -342,6 +343,7 @@ mem_get0 (struct mem_pool *mem_pool)
 {
         struct list_head *list = NULL;
         void             *ptr = NULL;
+        int              *in_use = NULL;
 
         if (!mem_pool) {
                 gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
@@ -358,6 +360,9 @@ mem_get0 (struct mem_pool *mem_pool)
                         mem_pool->cold_count--;
 
                         ptr = list;
+                        in_use = (ptr + GF_MEM_POOL_LIST_BOUNDARY);
+                        *in_use = 1;
+
                         goto fwd_addr_out;
                 }
                 ptr = MALLOC (mem_pool->real_sizeof_type);
@@ -378,6 +383,7 @@ mem_get (struct mem_pool *mem_pool)
 {
 	struct list_head *list = NULL;
 	void             *ptr = NULL;
+        int             *in_use = NULL;
 
 	if (!mem_pool) {
 		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
@@ -394,6 +400,9 @@ mem_get (struct mem_pool *mem_pool)
 			mem_pool->cold_count--;
 
 			ptr = list;
+                        in_use = (ptr + GF_MEM_POOL_LIST_BOUNDARY);
+                        *in_use = 1;
+
                         goto fwd_addr_out;
 		}
 
@@ -457,6 +466,8 @@ void
 mem_put (struct mem_pool *pool, void *ptr)
 {
 	struct list_head *list = NULL;
+	int    *in_use = NULL;
+	void   *head = NULL;
 
 	if (!pool || !ptr) {
 		gf_log ("mem-pool", GF_LOG_ERROR, "invalid argument");
@@ -469,9 +480,12 @@ mem_put (struct mem_pool *pool, void *ptr)
 		switch (__is_member (pool, ptr))
 		{
 		case 1:
-	                list = mem_pool_ptr2chunkhead (ptr);
+	                list = head = mem_pool_ptr2chunkhead (ptr);
+			in_use = (head + GF_MEM_POOL_LIST_BOUNDARY);
+			GF_ASSERT (is_mem_chunk_in_use(in_use));
 		        pool->hot_count--;
 			pool->cold_count++;
+			*in_use = 0;
 			list_add (list, &pool->list);
 			break;
 		case -1:
