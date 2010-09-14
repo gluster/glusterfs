@@ -46,7 +46,8 @@ nfs3_errno_to_nfsstat3 (int errnum);
 
 extern void
 nfs3_fill_lookup3res (lookup3res *res, nfsstat3 stat, struct nfs3_fh *newfh,
-                      struct iatt *stbuf, struct iatt *postparent);
+                      struct iatt *stbuf, struct iatt *postparent,
+                      uint64_t deviceid);
 
 extern post_op_attr
 nfs3_stat_to_post_op_attr (struct iatt *buf);
@@ -56,14 +57,14 @@ nfs3_extract_getattr_fh (getattr3args *args);
 
 extern void
 nfs3_fill_getattr3res (getattr3res *res, nfsstat3 stat, struct iatt *buf,
-                       uint16_t xlid);
+                       uint64_t deviceid);
 
 extern struct nfs3_fh
 nfs3_extract_fsinfo_fh (fsinfo3args *args);
 
 extern void
 nfs3_fill_fsinfo3res (struct nfs3_state *nfs3, fsinfo3res *res,
-                      nfsstat3 status, struct iatt *fsroot, uint16_t xlid);
+                      nfsstat3 status, struct iatt *fsroot,uint64_t deviceid);
 
 /* Functions containing _prep_ are used specifically to work around
  * the memory allocations that happen inside Sun RPC library.
@@ -99,7 +100,8 @@ nfs3_prep_access3args (access3args *args, struct nfs3_fh *fh);
 
 extern void
 nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
-                      uint32_t accbits, uid_t uid, gid_t gid, uint16_t xlid);
+                      uint32_t accbits, uid_t uid, gid_t gid,
+                      uint64_t deviceid);
 
 extern char *
 nfs3_fhcache_getpath (struct nfs3_state *nfs3, struct nfs3_fh *fh);
@@ -113,16 +115,18 @@ nfs3_prep_readdir3args (readdir3args *ra, struct nfs3_fh *fh);
 extern void
 nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, struct nfs3_fh *dfh,
                        uint64_t cverf, struct iatt *dirstat,
-                       gf_dirent_t *entries, count3 count, int is_eof);
+                       gf_dirent_t *entries, count3 count, int is_eof,
+                       uint64_t deviceid);
 
 extern void
 nfs3_prep_readdirp3args (readdirp3args *ra, struct nfs3_fh *fh);
 
 extern void
-nfs3_fill_readdirp3res (readdirp3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
-                        uint64_t cverf, struct iatt *dirstat,
-                        gf_dirent_t *entries, count3 dircount, count3 maxcount,
-                        int is_eof);
+nfs3_fill_readdirp3res (readdirp3res *res, nfsstat3 stat,
+                        struct nfs3_fh *dirfh, uint64_t cverf,
+                        struct iatt *dirstat, gf_dirent_t *entries,
+                        count3 dircount, count3 maxcount, int is_eof,
+                        uint64_t deviceid);
 
 extern void
 nfs3_free_readdirp3res (readdirp3res *res);
@@ -135,14 +139,14 @@ nfs3_prep_fsstat3args (fsstat3args *args, struct nfs3_fh *fh);
 
 extern void
 nfs3_fill_fsstat3res (fsstat3res *res, nfsstat3 stat, struct statvfs *fsbuf,
-                      struct iatt *postbuf, uint16_t xlid);
+                      struct iatt *postbuf, uint64_t deviceid);
 
 extern int32_t
 nfs3_sattr3_to_setattr_valid (sattr3 *sattr, struct iatt *buf, mode_t *omode);
 extern void
 nfs3_fill_create3res (create3res *res, nfsstat3 stat, struct nfs3_fh *newfh,
                       struct iatt *newbuf, struct iatt *preparent,
-                      struct iatt *postparent);
+                      struct iatt *postparent, uint64_t deviceid);
 
 extern void
 nfs3_prep_create3args (create3args *args, struct nfs3_fh *fh, char *name);
@@ -152,7 +156,7 @@ nfs3_prep_setattr3args (setattr3args *args, struct nfs3_fh *fh);
 
 extern void
 nfs3_fill_setattr3res (setattr3res *res, nfsstat3 stat, struct iatt *preop,
-                       struct iatt *postop, uint16_t xlid);
+                       struct iatt *postop, uint64_t deviceid);
 
 extern void
 nfs3_prep_mkdir3args (mkdir3args *args, struct nfs3_fh *dirfh, char *name);
@@ -160,7 +164,7 @@ nfs3_prep_mkdir3args (mkdir3args *args, struct nfs3_fh *dirfh, char *name);
 extern void
 nfs3_fill_mkdir3res (mkdir3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                      struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent);
+                     struct iatt *postparent, uint64_t deviceid);
 
 extern void
 nfs3_prep_symlink3args (symlink3args *args, struct nfs3_fh *dirfh, char *name,
@@ -169,14 +173,14 @@ nfs3_prep_symlink3args (symlink3args *args, struct nfs3_fh *dirfh, char *name,
 extern void
 nfs3_fill_symlink3res (symlink3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                        struct iatt *buf, struct iatt *preparent,
-                       struct iatt *postparent);
+                       struct iatt *postparent, uint64_t deviceid);
 
 extern void
 nfs3_prep_readlink3args (readlink3args *args, struct nfs3_fh *fh);
 
 extern void
 nfs3_fill_readlink3res (readlink3res *res, nfsstat3 stat, char *path,
-                        struct iatt *buf, uint16_t xlid);
+                        struct iatt *buf, uint64_t deviceid);
 
 extern void
 nfs3_prep_mknod3args (mknod3args *args, struct nfs3_fh *fh, char *name);
@@ -184,17 +188,17 @@ nfs3_prep_mknod3args (mknod3args *args, struct nfs3_fh *fh, char *name);
 extern void
 nfs3_fill_mknod3res (mknod3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                      struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent);
+                     struct iatt *postparent, uint64_t deviceid);
 
 extern void
 nfs3_fill_remove3res (remove3res *res, nfsstat3 stat, struct iatt *preparent,
-                      struct iatt *postparent, uint16_t xlid);
+                      struct iatt *postparent, uint64_t deviceid);
 extern void
 nfs3_prep_remove3args (remove3args *args, struct nfs3_fh *fh, char *name);
 
 extern void
 nfs3_fill_rmdir3res (rmdir3res *res, nfsstat3 stat, struct iatt *preparent,
-                     struct iatt *postparent, uint16_t xlid);
+                     struct iatt *postparent, uint64_t deviceid);
 
 extern void
 nfs3_prep_rmdir3args (rmdir3args *args, struct nfs3_fh *fh, char *name);
@@ -202,7 +206,7 @@ nfs3_prep_rmdir3args (rmdir3args *args, struct nfs3_fh *fh, char *name);
 extern void
 nfs3_fill_link3res (link3res *res, nfsstat3 stat, struct iatt *buf,
                     struct iatt *preparent, struct iatt *postparent,
-                    uint16_t xlid);
+                    uint64_t deviceid);
 
 extern void
 nfs3_prep_link3args (link3args *args, struct nfs3_fh *target,
@@ -217,7 +221,7 @@ extern void
 nfs3_fill_rename3res (rename3res *res, nfsstat3 stat, struct iatt *buf,
                       struct iatt *preoldparent, struct iatt *postoldparent,
                       struct iatt *prenewparent, struct iatt *postnewparent,
-                      uint16_t xlid);
+                      uint64_t deviceid);
 
 extern void
 nfs3_prep_write3args (write3args *args, struct nfs3_fh *fh);
@@ -225,7 +229,7 @@ nfs3_prep_write3args (write3args *args, struct nfs3_fh *fh);
 extern void
 nfs3_fill_write3res (write3res *res, nfsstat3 stat, count3 count,
                      stable_how stable, uint64_t wverf, struct iatt *prestat,
-                     struct iatt *poststat, uint16_t xlid);
+                     struct iatt *poststat, uint64_t deviceid);
 
 extern void
 nfs3_prep_commit3args (commit3args *args, struct nfs3_fh *fh);
@@ -233,11 +237,11 @@ nfs3_prep_commit3args (commit3args *args, struct nfs3_fh *fh);
 extern void
 nfs3_fill_commit3res (commit3res *res, nfsstat3 stat, uint64_t wverf,
                       struct iatt *prestat, struct iatt *poststat,
-                      uint16_t xlid);
+                      uint64_t deviceid);
 
 extern void
 nfs3_fill_read3res (read3res *res, nfsstat3 stat, count3 count,
-                    struct iatt *poststat, int is_eof, uint16_t xlid);
+                    struct iatt *poststat, int is_eof, uint64_t deviceid);
 
 extern void
 nfs3_prep_read3args (read3args *args, struct nfs3_fh *fh);
@@ -247,7 +251,7 @@ nfs3_prep_pathconf3args (pathconf3args *args, struct nfs3_fh *fh);
 
 extern void
 nfs3_fill_pathconf3res (pathconf3res *res, nfsstat3 stat, struct iatt *buf,
-                        uint16_t xlid);
+                        uint64_t deviceid);
 
 extern int
 nfs3_cached_inode_opened (xlator_t *nfsxl, inode_t *inode);

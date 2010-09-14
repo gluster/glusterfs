@@ -264,9 +264,8 @@ err:
         return ret;
 }
 
-
 int
-nfs_ino_loc_fill (inode_table_t *itable, uint64_t ino, uint64_t gen, loc_t *loc)
+nfs_gfid_loc_fill (inode_table_t *itable, uuid_t gfid, loc_t *loc)
 {
         int             ret = -EFAULT;
         inode_t         *inode = NULL;
@@ -274,7 +273,7 @@ nfs_ino_loc_fill (inode_table_t *itable, uint64_t ino, uint64_t gen, loc_t *loc)
         if (!loc)
                 return ret;
 
-        inode = inode_get (itable, ino, gen);
+        inode = inode_find (itable, gfid);
         if (!inode) {
                 ret = -ENOENT;
                 goto err;
@@ -287,6 +286,17 @@ err:
                 inode_unref (inode);
         return ret;
 }
+
+
+int
+nfs_root_loc_fill (inode_table_t *itable, loc_t *loc)
+{
+        uuid_t  rootgfid = {0, };
+
+        rootgfid[15] = 1;
+        return nfs_gfid_loc_fill (itable, rootgfid, loc);
+}
+
 
 
 int
@@ -317,7 +327,7 @@ err:
  * On other errors, return -3. 0 on success.
  */
 int
-nfs_entry_loc_fill (inode_table_t *itable, ino_t ino, uint64_t gen, char *entry,
+nfs_entry_loc_fill (inode_table_t *itable, uuid_t pargfid, char *entry,
                     loc_t *loc, int how)
 {
         inode_t         *parent = NULL;
@@ -329,7 +339,7 @@ nfs_entry_loc_fill (inode_table_t *itable, ino_t ino, uint64_t gen, char *entry,
         if ((!itable) || (!entry) || (!loc))
                 return ret;
 
-        parent = inode_get (itable, ino, gen);
+        parent = inode_find (itable, pargfid);
 
         ret = -1;
         /* Will need hard resolution now */

@@ -29,13 +29,14 @@
 #include "xdr-nfs3.h"
 #include "iatt.h"
 #include <sys/types.h>
+#include "uuid.h"
 
 /* BIG FAT WARNING: The file handle code is tightly coupled to NFSv3 file
  * handles for now. This will change if and when we need v4. */
 #define GF_NFSFH_IDENT0         ':'
 #define GF_NFSFH_IDENT1         'O'
 #define GF_NFSFH_IDENT_SIZE     (sizeof(char) * 2)
-#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + sizeof (uint16_t) + sizeof (uint16_t) + sizeof (uint64_t) + sizeof(uint64_t))
+#define GF_NFSFH_STATIC_SIZE    (GF_NFSFH_IDENT_SIZE + (2*sizeof (uuid_t)) + sizeof (uint16_t))
 #define GF_NFSFH_MAX_HASH_BYTES (NFS3_FHSIZE - GF_NFSFH_STATIC_SIZE)
 
 /* Each hash element in the file handle is of 2 bytes thus giving
@@ -46,6 +47,7 @@ typedef uint16_t                nfs3_hash_entry_t;
 #define GF_NFSFH_MAXHASHES      ((int)(GF_NFSFH_MAX_HASH_BYTES / GF_NFSFH_ENTRYHASH_SIZE))
 #define nfs3_fh_hashcounted_size(hcount) (GF_NFSFH_STATIC_SIZE + (hcount * GF_NFSFH_ENTRYHASH_SIZE))
 
+#define nfs3_fh_exportid_to_index(exprtid)      ((uint16_t)exprtid[15])
 /* ATTENTION: Change in size of the structure below should be reflected in the
  * GF_NFSFH_STATIC_SIZE.
  */
@@ -56,18 +58,28 @@ struct nfs3_fh {
          */
         char                    ident[2];
 
+        /* UUID that identifies an export. The value stored in exportid
+         * depends on the usage of gluster nfs. If the DVM is enabled using
+         * the nfs.dynamic-volumes option then exportid will contain the UUID
+         * of the volume so that gnfs is able to identify volumes uniquely
+         * through volume additions,deletions,migrations, etc.
+         *
+         * When not using dvm, exportid contains the index of the volume
+         * based on the position of the volume in the list of subvolumes
+         * for gnfs.
+         */
+        uuid_t              exportid;
+
+        /* File/dir gfid. */
+        uuid_t                  gfid;
+
         /* Number of file/ino hash elements that follow the ino. */
         uint16_t                hashcount;
 
-        /* Basically, the position/index of an xlator among the children of
-         * the NFS xlator.
-         */
-        uint16_t                xlatorid;
-        uint64_t                gen;
-        uint64_t                ino;
         nfs3_hash_entry_t       entryhash[GF_NFSFH_MAXHASHES];
 } __attribute__((__packed__));
 
+#define GF_NFS3FH_STATIC_INITIALIZER    {{0},}
 
 extern uint32_t
 nfs3_fh_compute_size (struct nfs3_fh *fh);
@@ -76,16 +88,13 @@ extern int
 nfs3_fh_hash_index_is_beyond (struct nfs3_fh *fh, int hashidx);
 
 extern uint16_t
-nfs3_fh_hash_entry (ino_t ino, uint64_t gen);
+nfs3_fh_hash_entry (uuid_t gfid);
 
 extern int
 nfs3_fh_validate (struct nfs3_fh *fh);
 
-extern xlator_t *
-nfs3_fh_to_xlator (xlator_list_t *cl, struct nfs3_fh *fh);
-
 extern struct nfs3_fh
-nfs3_fh_build_root_fh (xlator_list_t *cl, xlator_t *xl);
+nfs3_fh_build_indexed_root_fh (xlator_list_t *cl, xlator_t *xl);
 
 extern int
 nfs3_fh_is_root_fh (struct nfs3_fh *fh);
@@ -103,4 +112,7 @@ nfs3_fh_to_str (struct nfs3_fh *fh, char *str);
 extern int
 nfs3_fh_build_parent_fh (struct nfs3_fh *child, struct iatt *newstat,
                          struct nfs3_fh *newfh);
+
+extern struct nfs3_fh
+nfs3_fh_build_uuid_root_fh (uuid_t volumeid);
 #endif

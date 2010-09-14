@@ -99,6 +99,7 @@ struct nfs_fop_local {
         char            path[NFS_NAME_MAX];
         char            newpath[NFS_NAME_MAX];
         xlator_t        *nfsx;
+        dict_t          *dictgfid;
 };
 
 extern struct nfs_fop_local *

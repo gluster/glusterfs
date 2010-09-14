@@ -67,11 +67,86 @@
                 }                                                       \
         } while (0);                                                    \
 
-#define nfs3_export_access(nfs3state, xlid) ((nfs3state)->exports[xlid]).access
 
-#define nfs3_check_rw_volaccess(nfs3state, xlid, status, label)          \
-        do {                                                             \
-                if (nfs3_export_access (nfs3state,xlid)!=GF_NFS3_VOLACCESS_RW){\
+struct nfs3_export *
+__nfs3_get_export_by_index (struct nfs3_state *nfs3, uuid_t exportid)
+{
+        struct nfs3_export      *exp = NULL;
+        int                     index = 0;
+        int                     searchindex = 0;
+
+        searchindex = nfs3_fh_exportid_to_index (exportid);
+        list_for_each_entry (exp, &nfs3->exports, explist) {
+                if (searchindex == index)
+                        goto found;
+
+                ++index;
+        }
+
+        exp = NULL;
+found:
+        return exp;
+}
+
+
+struct nfs3_export *
+__nfs3_get_export_by_volumeid (struct nfs3_state *nfs3, uuid_t exportid)
+{
+        struct nfs3_export      *exp = NULL;
+
+        list_for_each_entry (exp, &nfs3->exports, explist) {
+                if (!uuid_compare (exportid, exp->volumeid))
+                        goto found;
+        }
+
+        exp = NULL;
+found:
+        return exp;
+}
+
+
+struct nfs3_export *
+__nfs3_get_export_by_exportid (struct nfs3_state *nfs3, uuid_t exportid)
+{
+        struct nfs3_export      *exp = NULL;
+
+        if (!nfs3)
+                return exp;
+
+        if (gf_nfs_dvm_off (nfs_state(nfs3->nfsx)))
+                exp = __nfs3_get_export_by_index (nfs3, exportid);
+        else
+                exp = __nfs3_get_export_by_volumeid (nfs3, exportid);
+
+        return exp;
+}
+
+
+int
+nfs3_export_access (struct nfs3_state *nfs3, uuid_t exportid)
+{
+        int                     ret = GF_NFS3_VOLACCESS_RO;
+        struct nfs3_export      *exp = NULL;
+
+        if (!nfs3)
+                return ret;
+
+        exp = __nfs3_get_export_by_exportid (nfs3, exportid);
+
+        if (!exp) {
+                gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to get export by ID");
+                goto err;
+        }
+
+        ret = exp->access;
+
+err:
+        return ret;
+}
+
+#define nfs3_check_rw_volaccess(nfs3state, exid, status, label)         \
+        do {                                                            \
+                if (nfs3_export_access (nfs3state,exid)!=GF_NFS3_VOLACCESS_RW){\
                         gf_log (GF_NFS3, GF_LOG_TRACE, "No read-write access");\
                         status = NFS3ERR_ROFS;                          \
                         goto label;                                     \
@@ -80,9 +155,28 @@
 
 
 
+xlator_t *
+nfs3_fh_to_xlator (struct nfs3_state *nfs3, struct nfs3_fh *fh)
+{
+        xlator_t                *vol = NULL;
+        struct nfs3_export      *exp = NULL;
+
+        if ((!nfs3) || (!fh))
+                return vol;
+
+        exp = __nfs3_get_export_by_exportid (nfs3, fh->exportid);
+        if (!exp)
+                goto out;
+
+        vol = exp->subvol;
+out:
+        return vol;
+}
+
+
 #define nfs3_map_fh_to_volume(nfs3state, handle, rqst, volume, status, label) \
         do {                                                            \
-                volume = nfs3_fh_to_xlator ((nfs3state)->exportslist, handle); \
+                volume = nfs3_fh_to_xlator ((nfs3state), handle);       \
                 if (!volume) {                                          \
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to map " \
                                 "FH to vol");                           \
@@ -124,6 +218,29 @@
         } while (0)                                                     \
 
 
+int
+__nfs3_get_volume_id (struct nfs3_state *nfs3, xlator_t *xl,
+                      uuid_t volumeid)
+{
+        int                     ret = -1;
+        struct nfs3_export      *exp = NULL;
+
+        if ((!nfs3) || (!xl))
+                return ret;
+
+        list_for_each_entry (exp, &nfs3->exports, explist) {
+                if (exp->subvol == xl) {
+                        uuid_copy (volumeid, exp->volumeid);
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
+}
+
+
 #define nfs3_funge_solaris_zerolen_fh(nfs3st, fhd, enam, nfsst, erl)    \
         do {                                                            \
                 xlator_t        *fungexl = NULL;                        \
@@ -133,16 +250,56 @@
                         goto erl;                                       \
                 }                                                       \
                                                                         \
-                (fhd)->xlatorid = nfs_xlator_to_xlid ((nfs3st)->exportslist, \
-                                                      fungexl);         \
-                (fhd)->gen = 0;                                         \
-                (fhd)->ino = 1;                                         \
-                (enam) = NULL;                                          \
+                if ((gf_nfs_dvm_off (nfs_state (nfs3st->nfsx)))) {      \
+                        (fhd)->exportid[15] = nfs_xlator_to_xlid ((nfs3st)->exportslist, fungexl);                                                 \
+                        (fhd)->gfid[15] = 1;                            \
+                        (enam) = NULL;                                  \
+                } else {                                                \
+                        if(!__nfs3_get_volume_id ((nfs3st), fungexl, (fhd)->exportid)) { \
+                                (nfsst) = NFS3ERR_STALE;                \
+                                goto erl;                               \
+                        }                                               \
+                }                                                       \
         } while (0)                                                     \
 
 
-#define nfs3_export_sync_trusted(nf3stt, xlid) ((nf3stt)->exports[xlid]).trusted_sync
-#define nfs3_export_write_trusted(nf3stt, xlid) ((nf3stt)->exports[xlid]).trusted_write
+
+int
+nfs3_export_sync_trusted (struct nfs3_state *nfs3, uuid_t exportid)
+{
+        struct nfs3_export      *exp = NULL;
+        int                     ret = 0;
+
+        if (!nfs3)
+                return ret;
+
+        exp = __nfs3_get_export_by_exportid (nfs3, exportid);
+        if (!exp)
+                goto err;
+
+        ret = exp->trusted_sync;
+err:
+        return ret;
+}
+
+
+int
+nfs3_export_write_trusted (struct nfs3_state *nfs3, uuid_t exportid)
+{
+        struct nfs3_export      *exp = NULL;
+        int                     ret = 0;
+
+        if (!nfs3)
+                return ret;
+
+        exp = __nfs3_get_export_by_exportid (nfs3, exportid);
+        if (!exp)
+                goto err;
+
+        ret = exp->trusted_write;
+err:
+        return ret;
+}
 
 int
 nfs3_solaris_zerolen_fh (struct nfs3_fh *fh, int fhlen)
@@ -355,18 +512,27 @@ err:
 }
 
 
-uint16_t
-nfs3_request_xlator_id (rpcsvc_request_t *rq)
+uint64_t
+nfs3_request_xlator_deviceid (rpcsvc_request_t *rq)
 {
         struct nfs3_state       *nfs3 = NULL;
         xlator_t                *xl = NULL;
+        uint64_t                devid = 0;
+        uuid_t                  volumeid = {0, };
 
         if (!rq)
                 return 0;
 
         xl = nfs_rpcsvc_request_private (rq);
         nfs3 = nfs_rpcsvc_request_program_private (rq);
-        return nfs_xlator_to_xlid (nfs3->exportslist, xl);
+        if (gf_nfs_dvm_off (nfs_state (nfs3->nfsx)))
+                devid = (uint64_t)nfs_xlator_to_xlid (nfs3->exportslist, xl);
+        else {
+                __nfs3_get_volume_id (nfs3, xl, volumeid);
+                memcpy (&devid, &volumeid[15], sizeof (devid));
+        }
+
+        return devid;
 }
 
 
@@ -386,10 +552,10 @@ int
 nfs3_getattr_reply (rpcsvc_request_t *req, nfsstat3 status, struct iatt *buf)
 {
         getattr3res     res;
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_getattr3res (&res, status, buf, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_getattr3res (&res, status, buf, deviceid);
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_getattr3res);
 
@@ -558,10 +724,10 @@ nfs3_setattr_reply (rpcsvc_request_t *req, nfsstat3 stat, struct iatt *preop,
                     struct iatt *postop)
 {
         setattr3res     res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_setattr3res (&res, stat, preop, postop, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_setattr3res (&res, stat, preop, postop, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer) xdr_serialize_setattr3res);
         return 0;
@@ -761,7 +927,7 @@ nfs3_setattr (rpcsvc_request_t *req, struct nfs3_fh *fh, sattr3 *sattr,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, fh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->setattr_valid = nfs3_sattr3_to_setattr_valid (sattr, &cs->stbuf,
@@ -837,8 +1003,10 @@ nfs3_lookup_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *newfh,
                    struct iatt *stbuf, struct iatt *postparent)
 {
         lookup3res      res = {0, };
+        uint64_t        deviceid = 0;
 
-        nfs3_fill_lookup3res (&res, stat, newfh, stbuf, postparent);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_lookup3res (&res, stat, newfh, stbuf, postparent, deviceid);
         return nfs3svc_submit_reply (req, &res,
                                      (nfs3_serializer)xdr_serialize_lookup3res);
 }
@@ -880,6 +1048,8 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct nfs3_fh                  newfh = {{0}, };
         nfsstat3                        status = NFS3_OK;
         nfs3_call_state_t               *cs = NULL;
+        uuid_t                          volumeid = {0, };
+        struct nfs3_state               *nfs3 = NULL;
 
         cs = frame->local;
         if (op_ret == -1) {
@@ -887,15 +1057,23 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto xmit_res;
         }
 
+        nfs3 = cs->nfs3state;
         /* If the buf inode shows that this is a root dir's buf, then the file
          * handle needs to be specially crafted, in all other cases, we'll just
          * create the handle normally using the buffer of the parent dir.
          */
-        if (buf->ia_ino != 1)
+        if (buf->ia_ino != 1) {
                 nfs3_fh_build_parent_fh (&cs->fh, buf, &newfh);
-        else
-                newfh = nfs3_fh_build_root_fh (cs->nfs3state->exportslist,
-                                               cs->vol);
+                goto xmit_res;
+        }
+
+        if (gf_nfs_dvm_off (nfs_state (nfs3->nfsx)))
+                newfh = nfs3_fh_build_indexed_root_fh (nfs3->exportslist,
+                                                       cs->vol);
+        else {
+                __nfs3_get_volume_id (nfs3, cs->vol, volumeid);
+                newfh = nfs3_fh_build_uuid_root_fh (volumeid);
+        }
 
 xmit_res:
         nfs3_log_newfh_res (nfs_rpcsvc_request_xid (cs->req), "LOOKUP", status,
@@ -1095,13 +1273,12 @@ nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, struct iatt *buf,
                    uint32_t accbits)
 {
         access3res      res;
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
+        deviceid = nfs3_request_xlator_deviceid (req);
         nfs3_fill_access3res (&res, status, buf, accbits,
                               nfs_rpcsvc_request_uid (req),
-                              nfs_rpcsvc_request_gid (req)
-                              , xlid);
+                              nfs_rpcsvc_request_gid (req), deviceid);
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_access3res);
         return 0;
@@ -1231,10 +1408,10 @@ nfs3_readlink_reply (rpcsvc_request_t *req, nfsstat3 stat, char *path,
                      struct iatt *buf)
 {
         readlink3res    res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_readlink3res (&res, stat, path, buf, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_readlink3res (&res, stat, path, buf, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_readlink3res);
 
@@ -1374,10 +1551,10 @@ nfs3_read_reply (rpcsvc_request_t *req, nfsstat3 stat, count3 count,
                  struct iatt *poststat, int is_eof)
 {
         read3res                res = {0, };
-        uint16_t                xlid = 0;
+        uint64_t                deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_read3res (&res, stat, count, poststat, is_eof, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_read3res (&res, stat, count, poststat, is_eof, deviceid);
         if (stat == NFS3_OK) {
                 nfs_xdr_vector_round_up (vec, vcount, count);
                 /* iob can be zero if the file size was zero. If so, op_ret
@@ -1564,11 +1741,11 @@ nfs3_write_reply (rpcsvc_request_t *req, nfsstat3 stat, count3 count,
                   struct iatt *poststat)
 {
         write3res       res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
+        deviceid = nfs3_request_xlator_deviceid (req);
         nfs3_fill_write3res (&res, stat, count, stable, wverf, prestat,
-                             poststat, xlid);
+                             poststat, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_write3res);
 
@@ -1692,9 +1869,9 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs->maxcount = op_ret;
 
         write_trusted = nfs3_export_write_trusted (cs->nfs3state,
-                                                   cs->resolvefh.xlatorid);
+                                                   cs->resolvefh.exportid);
         sync_trusted = nfs3_export_sync_trusted (cs->nfs3state,
-                                                 cs->resolvefh.xlatorid);
+                                                 cs->resolvefh.exportid);
         ret = nfs3_write_how (&cs->writetype, write_trusted, sync_trusted);
         if (ret == -1)
                 goto err;
@@ -1831,7 +2008,7 @@ nfs3_write (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, fh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
         cs->datacount = count;
         cs->dataoffset = offset;
@@ -1983,8 +2160,11 @@ nfs3_create_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *newfh,
                    struct iatt *postparent)
 {
         create3res      res = {0, };
+        uint64_t        deviceid = 0;
 
-        nfs3_fill_create3res (&res, stat, newfh, newbuf, preparent, postparent);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_create3res (&res, stat, newfh, newbuf, preparent, postparent,
+                              deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_create3res);
         return 0;
@@ -2219,7 +2399,7 @@ nfs3_create (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, dirfh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->cookieverf = cverf;
@@ -2284,8 +2464,11 @@ nfs3_mkdir_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *fh,
                   struct iatt *postparent)
 {
         mkdir3res       res = {0, };
+        uint64_t        deviceid = 0;
 
-        nfs3_fill_mkdir3res (&res, stat, fh, buf, preparent, postparent);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_mkdir3res (&res, stat, fh, buf, preparent, postparent,
+                             deviceid);
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_mkdir3res);
         return 0;
@@ -2423,7 +2606,7 @@ nfs3_mkdir (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, dirfh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->parent = *dirfh;
@@ -2481,8 +2664,11 @@ nfs3_symlink_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *fh,
                     struct iatt *postparent)
 {
         symlink3res     res = {0, };
+        uint64_t        deviceid = 0;
 
-        nfs3_fill_symlink3res (&res, stat, fh, buf, preparent, postparent);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_symlink3res (&res, stat, fh, buf, preparent, postparent,
+                               deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_symlink3res);
 
@@ -2570,7 +2756,7 @@ nfs3_symlink (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, dirfh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->parent = *dirfh;
@@ -2638,7 +2824,11 @@ nfs3_mknod_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *fh,
                   struct iatt *postparent)
 {
         mknod3res       res = {0, };
-        nfs3_fill_mknod3res (&res, stat, fh, buf, preparent, postparent);
+        uint64_t        deviceid = 0;
+
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_mknod3res (&res, stat, fh, buf, preparent, postparent,
+                             deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_mknod3res);
 
@@ -2838,7 +3028,7 @@ nfs3_mknod (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, fh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->mknodtype = nodedata->type;
@@ -2915,10 +3105,10 @@ nfs3_remove_reply (rpcsvc_request_t *req, nfsstat3 stat, struct iatt *preparent
                    , struct iatt *postparent)
 {
         remove3res      res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_remove3res (&res, stat, preparent, postparent, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_remove3res (&res, stat, preparent, postparent, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_remove3res);
         return 0;
@@ -3037,7 +3227,7 @@ nfs3_remove (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, fh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, name, nfs3_remove_resume);
@@ -3094,10 +3284,10 @@ nfs3_rmdir_reply (rpcsvc_request_t *req, nfsstat3 stat, struct iatt *preparent,
                   struct iatt *postparent)
 {
         rmdir3res       res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_rmdir3res (&res, stat, preparent, postparent, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_rmdir3res (&res, stat, preparent, postparent, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_rmdir3res);
         return 0;
@@ -3180,7 +3370,7 @@ nfs3_rmdir (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, fh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, name, nfs3_rmdir_resume);
@@ -3238,11 +3428,11 @@ nfs3_rename_reply (rpcsvc_request_t *req, nfsstat3 stat, struct iatt *buf,
                    struct iatt *prenewparent, struct iatt *postnewparent)
 {
         rename3res      res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
+        deviceid = nfs3_request_xlator_deviceid (req);
         nfs3_fill_rename3res (&res, stat, buf, preoldparent, postoldparent,
-                              prenewparent, postnewparent, xlid);
+                              prenewparent, postnewparent, deviceid);
 
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer) xdr_serialize_rename3res);
@@ -3383,7 +3573,7 @@ nfs3_rename (rpcsvc_request_t *req, struct nfs3_fh *olddirfh, char *oldname,
         nfs3_validate_strlen_or_goto(oldname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_validate_strlen_or_goto(newname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, olddirfh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, olddirfh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, olddirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         /* While we resolve the source (fh, name) pair, we need to keep a copy
@@ -3454,10 +3644,10 @@ nfs3_link_reply (rpcsvc_request_t *req, nfsstat3 stat, struct iatt *buf,
                  struct iatt *preparent, struct iatt *postparent)
 {
         link3res        res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_link3res (&res, stat, buf, preparent, postparent, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_link3res (&res, stat, buf, preparent, postparent, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_link3res);
 
@@ -3572,7 +3762,7 @@ nfs3_link (rpcsvc_request_t *req, struct nfs3_fh *targetfh,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto(newname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, dirfh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->fh = *dirfh;
@@ -3638,10 +3828,12 @@ nfs3_readdirp_reply (rpcsvc_request_t *req, nfsstat3 stat,struct nfs3_fh *dirfh,
                      uint64_t cverf, struct iatt *dirstat, gf_dirent_t *entries,
                      count3 dircount, count3 maxcount, int is_eof)
 {
-        readdirp3res     res = {0, };
+        readdirp3res    res = {0, };
+        uint64_t        deviceid = 0;
 
+        deviceid = nfs3_request_xlator_deviceid (req);
         nfs3_fill_readdirp3res (&res, stat, dirfh, cverf, dirstat, entries,
-                                dircount, maxcount, is_eof);
+                                dircount, maxcount, is_eof, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer) xdr_serialize_readdirp3res);
         nfs3_free_readdirp3res (&res);
@@ -3656,9 +3848,11 @@ nfs3_readdir_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *dirfh,
                     count3 count, int is_eof)
 {
         readdir3res     res = {0, };
+        uint64_t        deviceid = 0;
 
+        deviceid = nfs3_request_xlator_deviceid (req);
         nfs3_fill_readdir3res (&res, stat, dirfh, cverf, dirstat, entries, count
-                               , is_eof);
+                               , is_eof, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer) xdr_serialize_readdir3res);
         nfs3_free_readdir3res (&res);
@@ -3987,10 +4181,10 @@ nfs3_fsstat_reply (rpcsvc_request_t *req, nfsstat3 stat, struct statvfs *fsbuf,
                    struct iatt *postbuf)
 {
         fsstat3res      res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_fsstat3res (&res, stat, fsbuf, postbuf, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_fsstat3res (&res, stat, fsbuf, postbuf, deviceid);
         return nfs3svc_submit_reply (req, &res,
                                      (nfs3_serializer)xdr_serialize_fsstat3res);
 
@@ -4162,11 +4356,11 @@ nfs3_fsinfo_reply (rpcsvc_request_t *req, nfsstat3 status, struct iatt *fsroot)
 {
         fsinfo3res              res;
         struct nfs3_state       *nfs3 = NULL;
-        uint16_t                xlid = 0;
+        uint64_t                deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
+        deviceid = nfs3_request_xlator_deviceid (req);
         nfs3 = nfs_rpcsvc_request_program_private (req);
-        nfs3_fill_fsinfo3res (nfs3, &res, status, fsroot, xlid);
+        nfs3_fill_fsinfo3res (nfs3, &res, status, fsroot, deviceid);
 
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_fsinfo3res);
@@ -4301,10 +4495,10 @@ int
 nfs3_pathconf_reply (rpcsvc_request_t *req, nfsstat3 stat, struct iatt *buf)
 {
         pathconf3res    res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_pathconf3res (&res, stat, buf, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_pathconf3res (&res, stat, buf, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_pathconf3res);
         return 0;
@@ -4440,10 +4634,10 @@ nfs3_commit_reply (rpcsvc_request_t *req, nfsstat3 stat, uint64_t wverf,
                    struct iatt *prestat, struct iatt *poststat)
 {
         commit3res      res = {0, };
-        uint16_t        xlid = 0;
+        uint64_t        deviceid = 0;
 
-        xlid = nfs3_request_xlator_id (req);
-        nfs3_fill_commit3res (&res, stat, wverf, prestat, poststat, xlid);
+        deviceid = nfs3_request_xlator_deviceid (req);
+        nfs3_fill_commit3res (&res, stat, wverf, prestat, poststat, deviceid);
         nfs3svc_submit_reply (req, (void *)&res,
                               (nfs3_serializer)xdr_serialize_commit3res);
 
@@ -4489,7 +4683,7 @@ nfs3_commit_resume (void *carg)
         cs = (nfs3_call_state_t *)carg;
         nfs3_check_fh_resolve_status (cs, stat, nfs3err);
 
-        if (nfs3_export_sync_trusted (cs->nfs3state, cs->resolvefh.xlatorid)) {
+        if (nfs3_export_sync_trusted (cs->nfs3state, cs->resolvefh.exportid)) {
                 ret = -1;
                 stat = NFS3_OK;
                 goto nfs3err;
@@ -4564,7 +4758,7 @@ nfs3_commit (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
-        nfs3_check_rw_volaccess (nfs3, fh->xlatorid, stat, nfs3err);
+        nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->datacount = count;
@@ -4753,18 +4947,60 @@ err:
         return ret;
 }
 
+
 int
-nfs3_init_subvolume_options (struct nfs3_export *exp, dict_t *options)
+nfs3_init_subvolume_options (struct nfs3_state *nfs3, struct nfs3_export *exp)
 {
         int             ret = -1;
         char            *optstr = NULL;
         char            searchkey[1024];
         char            *name = NULL;
         gf_boolean_t    boolt = _gf_false;
+        uuid_t          volumeid = {0, };
+        dict_t          *options = NULL;
 
-        if ((!exp) || (!options))
+        if ((!exp) || (!nfs3))
                 return -1;
 
+        options = nfs3->nfsx->options;
+        uuid_clear (volumeid);
+        if (gf_nfs_dvm_off (nfs_state (nfs3->nfsx)))
+                goto no_dvm;
+
+        ret = snprintf (searchkey, 1024, "nfs3.%s.volume-id",exp->subvol->name);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "snprintf failed");
+                ret = -1;
+                goto err;
+        }
+
+        if (dict_get (options, searchkey)) {
+                ret = dict_get_str (options, searchkey, &optstr);
+                if (ret < 0) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option"
+                                ": %s", searchkey);
+                        ret = -1;
+                        goto err;
+                }
+        } else {
+                gf_log (GF_MNT, GF_LOG_ERROR, "DVM is on but volume-id not "
+                        "given for volume: %s", exp->subvol->name);
+                ret = -1;
+                goto err;
+        }
+
+        if (optstr) {
+                ret = uuid_parse (optstr, volumeid);
+                if (ret < 0) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to parse volume "
+                                "UUID");
+                        ret = -1;
+                        goto err;
+                }
+                uuid_copy (exp->volumeid, volumeid);
+        }
+
+no_dvm:
         /* Volume Access */
         name = exp->subvol->name;
         ret = snprintf (searchkey, 1024, "nfs3.%s.volume-access", name);
@@ -4880,64 +5116,58 @@ err:
 }
 
 
-int
-nfs3_init_subvolume (struct nfs3_state *nfs3, xlator_t *nfsx, xlator_t *subvol,
-                     int xlid)
+struct nfs3_export *
+nfs3_init_subvolume (struct nfs3_state *nfs3, xlator_t *subvol)
 {
         int                     ret = -1;
         struct nfs3_export      *exp = NULL;
 
-        if ((!nfs3) || (!nfsx) || (!subvol))
-                return -1;
+        if ((!nfs3) || (!subvol))
+                return NULL;
 
-        exp = &nfs3->exports[xlid];
+        exp = GF_CALLOC (1, sizeof (*exp), gf_nfs_mt_nfs3_export);
         exp->subvol = subvol;
-
+        INIT_LIST_HEAD (&exp->explist);
         gf_log (GF_NFS3, GF_LOG_TRACE, "Initing state: %s", exp->subvol->name);
 
-        ret = nfs3_init_subvolume_options (exp, nfsx->options);
-        if (ret == -1)
+        ret = nfs3_init_subvolume_options (nfs3, exp);
+        if (ret == -1) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to init subvol");
+                goto exp_free;
+        }
 
-        return ret;
+        ret = 0;
+exp_free:
+        if (ret < 0) {
+                GF_FREE (exp);
+                exp = NULL;
+        }
+
+        return exp;
 }
 
 
 int
-nfs3_init_subvolumes (struct nfs3_state *nfs3, xlator_t *nfsx)
+nfs3_init_subvolumes (struct nfs3_state *nfs3)
 {
-        int                     xl_count = 0;
         int                     ret = -1;
         struct xlator_list      *xl_list = NULL;
+        struct nfs3_export      *exp = NULL;
 
-        if ((!nfs3) || (!nfsx))
+        if (!nfs3)
                 return -1;
 
-        xl_list = nfsx->children;
-        while (xl_list) {
-                ++xl_count;
-                xl_list = xl_list->next;
-        }
+        xl_list = nfs3->nfsx->children;
 
-        nfs3->exports = GF_CALLOC (xl_count, sizeof (struct nfs3_export),
-                                   gf_nfs_mt_nfs3_export);
-        if (!nfs3->exports) {
-                gf_log (GF_NFS3, GF_LOG_ERROR, "Memory allocation failed");
-                goto err;
-        }
-
-        xl_list = nfsx->children;
-        xl_count = 0;           /* Re-using xl_count. */
         while (xl_list) {
-                ret = nfs3_init_subvolume (nfs3, nfsx, xl_list->xlator,
-                                           xl_count);
-                if (ret == -1) {
+                exp = nfs3_init_subvolume (nfs3, xl_list->xlator);
+                if (!exp) {
                         gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to init subvol: "
                                 "%s", xl_list->xlator->name);
                         goto err;
                 }
+                list_add_tail (&exp->explist, &nfs3->exports);
                 xl_list = xl_list->next;
-                ++xl_count;
         }
 
         ret = 0;
@@ -4983,7 +5213,8 @@ nfs3_init_state (xlator_t *nfsx)
 
         nfs3->nfsx = nfsx;
         nfs3->exportslist = nfsx->children;
-        ret = nfs3_init_subvolumes (nfs3, nfsx);
+        INIT_LIST_HEAD (&nfs3->exports);
+        ret = nfs3_init_subvolumes (nfs3);
         if (ret == -1) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "Failed to init per-subvolume "
                         "state");

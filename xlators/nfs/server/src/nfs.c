@@ -457,29 +457,33 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
-int
-init (xlator_t *this) {
 
+struct nfs_state *
+nfs_init_state (xlator_t *this)
+{
         struct nfs_state        *nfs = NULL;
         int                     ret = -1;
         unsigned int            fopspoolsize = 0;
+        char                    *optstr = NULL;
+        gf_boolean_t            boolt = _gf_false;
 
         if (!this)
-                return -1;
+                return NULL;
 
         if ((!this->children) || (!this->children->xlator)) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "nfs must have at least one"
                         " child subvolume");
-                return -1;
+                return NULL;
         }
 
         nfs = GF_CALLOC (1, sizeof (*nfs), gf_nfs_mt_nfs_state);
         if (!nfs) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "memory allocation failed");
-                return -1;
+                return NULL;
         }
 
-        /* RPC service needs to be started before NFS versions can be inited. */
+        /* RPC service needs to be started before NFS versions can be
+         * inited. */
         nfs->rpcsvc =  nfs_rpcsvc_init (this->ctx, this->options);
         if (!nfs->rpcsvc) {
                 gf_log (GF_NFS, GF_LOG_ERROR, "RPC service init failed");
@@ -491,33 +495,86 @@ init (xlator_t *this) {
         /* FIXME: Really saddens me to see this as xlator wide. */
         nfs->foppool = mem_pool_new (struct nfs_fop_local, fopspoolsize);
         if (!nfs->foppool) {
-                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to allocate fops local"
-                        " pool");
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to allocate fops "
+                        "local pool");
                 goto free_rpcsvc;
+        }
+
+        nfs->dynamicvolumes = GF_NFS_DVM_OFF;
+        if (dict_get (this->options, "nfs.dynamic-volumes")) {
+                ret = dict_get_str (this->options, "nfs.dynamic-volumes",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto free_foppool;
+                }
+
+                if (boolt == _gf_true)
+                        nfs->dynamicvolumes = GF_NFS_DVM_ON;
         }
 
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
-        ret = nfs_add_all_initiators (nfs);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add initiators");
-                goto free_nfs;
-        }
 
-        ret = nfs_init_subvolumes (nfs, this->children);
-        if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NFS exports");
-                goto free_rpcsvc;
-        }
+        ret = 0;
+
+free_foppool:
+        if (ret < 0)
+                mem_pool_destroy (nfs->foppool);
 
 free_rpcsvc:
         /*
          * rpcsvc_deinit */
 free_nfs:
-        if (ret == -1)
+        if (ret < 0) {
                 GF_FREE (nfs);
+                nfs = NULL;
+        }
 
-        gf_log (GF_NFS, GF_LOG_DEBUG, "NFS service started");
+        return nfs;
+}
+
+
+int
+init (xlator_t *this) {
+
+        struct nfs_state        *nfs = NULL;
+        int                     ret = -1;
+
+        if (!this)
+                return -1;
+
+        nfs = nfs_init_state (this);
+        if (!nfs) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to init nfs option");
+                return -1;
+        }
+
+        ret = nfs_add_all_initiators (nfs);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to add initiators");
+                goto err;
+        }
+
+        ret = nfs_init_subvolumes (nfs, this->children);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init NFS "
+                        "exports");
+                goto err;
+        }
+
+        ret = 0;
+err:
+        if (ret == 0)
+                gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
+
         return ret;
 }
 
@@ -730,6 +787,20 @@ struct volume_options options[] = {
                   "authentication. Note, turning this off will prevent you from"
                   " using hostnames in rpc-auth.addr.* filters. By default, "
                   " name lookup is on."
+        },
+        { .key  = {"nfs.dynamic-volumes"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "Internal option set to tell gnfs to use a different"
+                         " scheme for encoding file handles when DVM is being"
+                         " used."
+        },
+        { .key  = {"nfs3.%s.volume-id"},
+          .type = GF_OPTION_TYPE_STR,
+          .description = "When nfs.dynamic-volumes is set, gnfs expects every "
+                         "subvolume to have this option set for it, so that "
+                         "gnfs can use this option to identify the volume. "
+                         "If all subvolumes do not have this option set, an "
+                         "error is reported."
         },
 	{ .key  = {NULL} },
 };
