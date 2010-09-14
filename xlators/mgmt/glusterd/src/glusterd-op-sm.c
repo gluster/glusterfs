@@ -3341,7 +3341,7 @@ out:
                                              op_errno, req, ctx, op_errstr);
         if (ctx_free && ctx && (op != -1))
                 glusterd_op_free_ctx (op, ctx, ctx_free);
-        if (op_errstr)
+        if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
@@ -3399,7 +3399,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_stage_send_resp (stage_ctx->req, req->op, status, op_errstr);
 
-        if (op_errstr)
+        if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
@@ -3430,7 +3430,7 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         ret = glusterd_op_commit_send_resp (commit_ctx->req, req->op, status, op_errstr);
 
-        if (op_errstr)
+        if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
