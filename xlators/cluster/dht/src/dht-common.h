@@ -87,7 +87,6 @@ struct dht_local {
 	dht_layout_t            *layout;
 	size_t                   size;
 	ino_t                    ia_ino;
-        ino_t                    ia_gen;
 	xlator_t                *src_hashed, *src_cached;
 	xlator_t                *dst_hashed, *dst_cached;
 	xlator_t                *cached_subvol;

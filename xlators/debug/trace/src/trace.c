@@ -82,11 +82,11 @@ trace_stat_to_str (struct iatt *stbuf)
                   localtime ((time_t *)&ia_time));
 
         asprint_ret_value = gf_asprintf (&statstr,
-                                      "ia_ino=%"PRIu64", ia_gen=%"PRIu64
+                                      "ia_ino=%"PRIu64
                                       ", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
                                       "ia_uid=%d, ia_gid=%d, ia_size=%"PRId64", ia_blocks=%"PRId64
                                       ", ia_atime=%s, ia_mtime=%s, ia_ctime=%s",
-                                      stbuf->ia_ino, stbuf->ia_gen,
+                                      stbuf->ia_ino,
                                       st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type),
                                       stbuf->ia_nlink, stbuf->ia_uid,
                                       stbuf->ia_gid, stbuf->ia_size,
@@ -182,12 +182,12 @@ trace_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                   localtime ((time_t *)&ia_time));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, buf {ia_gen=%"PRIu64", "
+                                "%"PRId64": (op_ret=%d, buf {"
                                 "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
                                 "ia_uid=%d, ia_gid=%d, ia_rdev=%"PRIu64", ia_size=%"PRId64
                                 ", ia_blksize=%"GF_PRI_BLKSIZE", ia_blocks=%"PRId64", "
                                 "ia_atime=%s, ia_mtime=%s, ia_ctime=%s})",
-                                frame->root->unique, op_ret, buf->ia_gen, buf->ia_ino,
+                                frame->root->unique, op_ret, buf->ia_ino,
                                 st_mode_from_ia (buf->ia_prot, buf->ia_type),
                                 buf->ia_nlink, buf->ia_uid, buf->ia_gid,
                                 buf->ia_rdev, buf->ia_size, buf->ia_blksize,
@@ -229,12 +229,12 @@ trace_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                   localtime ((time_t *)&ia_time));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, op_errno=%d, *buf {ia_gen=%"PRIu64", "
+                                "%"PRId64": (op_ret=%d, op_errno=%d, *buf {"
                                 "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
                                 "ia_uid=%d, ia_gid=%d, ia_rdev=%"PRIu64", "
                                 "ia_size=%"PRId64", ia_blksize=%"GF_PRI_BLKSIZE", "
                                 "ia_blocks=%"PRId64", ia_atime=%s, ia_mtime=%s, ia_ctime=%s})",
-                                frame->root->unique, op_ret, op_errno, buf->ia_gen, buf->ia_ino,
+                                frame->root->unique, op_ret, op_errno, buf->ia_ino,
                                 st_mode_from_ia (buf->ia_prot, buf->ia_type),
                                 buf->ia_nlink, buf->ia_uid, buf->ia_gid,
                                 buf->ia_rdev, buf->ia_size, buf->ia_blksize, buf->ia_blocks,
@@ -1097,12 +1097,12 @@ trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                   localtime ((time_t *)&ia_time));
 
                         gf_log (this->name, GF_LOG_NORMAL,
-                                "%"PRId64": (op_ret=%d, *buf {ia_gen=%"PRIu64", "
+                                "%"PRId64": (op_ret=%d, *buf {"
                                 "ia_ino=%"PRIu64", st_mode=%o, ia_nlink=%"GF_PRI_NLINK", "
                                 "ia_uid=%d, ia_gid=%d, ia_rdev=%"PRIu64", ia_size=%"PRId64", "
                                 "ia_blksize=%"GF_PRI_BLKSIZE", ia_blocks=%"PRId64", ia_atime=%s, "
                                 "ia_mtime=%s, ia_ctime=%s})",
-                                frame->root->unique, op_ret, buf->ia_gen, buf->ia_ino,
+                                frame->root->unique, op_ret, buf->ia_ino,
                                 st_mode_from_ia (buf->ia_prot, buf->ia_type),
                                 buf->ia_nlink, buf->ia_uid, buf->ia_gid,
                                 buf->ia_rdev, buf->ia_size, buf->ia_blksize,

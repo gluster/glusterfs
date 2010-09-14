@@ -25,7 +25,6 @@ struct gf_flock {
 struct gf_iatt {
         opaque             ia_gfid[16];
         unsigned hyper     ia_ino;        /* inode number */
-        unsigned hyper     ia_gen;        /* generation number */
         unsigned hyper     ia_dev;        /* backing device ID */
         unsigned int       mode;          /* mode (type + protection )*/
         unsigned int       ia_nlink;      /* Link count */
@@ -47,7 +46,6 @@ struct gfs3_stat_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
         string         path<>;     /* NULL terminated */
 
 };
@@ -63,7 +61,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned int   size;
 	string         path<>;     /* NULL terminated */
 }  ;
@@ -80,7 +77,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque  pargfid[16];
 	unsigned hyper par;
-        unsigned hyper gen;
 	unsigned hyper dev;
 	unsigned int mode;
 	string     path<>;     /* NULL terminated */
@@ -101,7 +97,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque  pargfid[16];
 	unsigned hyper par;
-        unsigned hyper gen;
 	unsigned int mode;
 	string     path<>;     /* NULL terminated */
 	string     bname<>; /* NULL terminated */
@@ -121,7 +116,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque  pargfid[16];
 	unsigned hyper par;
-        unsigned hyper gen;
 	string     path<>;     /* NULL terminated */
 	string     bname<>; /* NULL terminated */
 };
@@ -138,7 +132,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque  pargfid[16];
 	unsigned hyper par;
-        unsigned hyper gen;
 	string     path<>;
 	string     bname<>; /* NULL terminated */
 };
@@ -155,7 +148,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque  pargfid[16];
 	unsigned hyper par;
-        unsigned hyper gen;
 	string     path<>;
 	string     bname<>;
 	string     linkname<>;
@@ -176,9 +168,7 @@ struct gfs3_readlink_req {
         opaque  oldgfid[16];
         opaque  newgfid[16];
 	unsigned hyper   oldpar;
-        unsigned hyper   oldgen;
 	unsigned hyper   newpar;
-        unsigned hyper   newgen;
 	string       oldpath<>;
 	string       oldbname<>; /* NULL terminated */
 	string       newpath<>;
@@ -201,9 +191,7 @@ struct gfs3_readlink_req {
         opaque  oldgfid[16];
         opaque  newgfid[16];
 	unsigned hyper   oldino;
-        unsigned hyper   oldgen;
 	unsigned hyper   newpar;
-        unsigned hyper   newgen;
 	string       oldpath<>;
 	string       newpath<>;
 	string       newbname<>;
@@ -221,7 +209,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned hyper offset;
 	string     path<>;
 };
@@ -238,7 +225,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned int flags;
         unsigned int wbflags;
 	string     path<>;
@@ -255,7 +241,6 @@ struct gfs3_readlink_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
@@ -274,7 +259,6 @@ struct   gfs3_lookup_req {
         opaque  pargfid[16];
 	unsigned hyper ino; /* NOTE: used only in case of 'root' lookup */
 	unsigned hyper par;
-        unsigned hyper gen;
 	unsigned int flags;
 	string     path<>;
 	string     bname<>;
@@ -295,7 +279,6 @@ struct   gfs3_lookup_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
@@ -313,7 +296,6 @@ struct   gfs3_lookup_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	string     path<>;
 }  ;
  struct gfs3_statfs_rsp {
@@ -327,7 +309,6 @@ struct   gfs3_lookup_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper        ino;
-        unsigned hyper        gen;
 	hyper         fd;
 	unsigned int        cmd;
 	unsigned int        type;
@@ -344,7 +325,6 @@ struct   gfs3_lookup_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned int cmd;
 	unsigned int type;
 	struct gf_flock flock;
@@ -356,7 +336,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned int cmd;
 	unsigned int type;
@@ -369,7 +348,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 }  ;
 
@@ -378,7 +356,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned int data;
 }  ;
@@ -395,7 +372,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned int flags;
         opaque     dict<>;
 	string     path<>;
@@ -407,7 +383,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
         unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned int flags;
         opaque     dict<>;
@@ -419,7 +394,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned int flags;
         opaque     dict<>;
 	string     path<>;
@@ -437,7 +411,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned int flags;
 	opaque     dict<>;
@@ -455,7 +428,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned int namelen;
 	string     path<>;
 	string     name<>;
@@ -472,7 +444,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
         unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
         unsigned int namelen;
 	string     name<>;
@@ -489,7 +460,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	string     path<>;
 	string     name<>;
 }  ;
@@ -500,7 +470,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	string     path<>;
 }  ;
  struct gfs3_opendir_rsp {
@@ -515,7 +484,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	int  data;
 }  ;
@@ -524,7 +492,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
@@ -534,7 +501,6 @@ struct   gfs3_finodelk_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned hyper offset;
 	unsigned int size;
@@ -556,7 +522,6 @@ struct gfs3_access_req  {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	unsigned int mask;
 	string     path<>;
 } ;
@@ -566,7 +531,6 @@ struct gfs3_create_req {
         unsigned hyper gfs_id;
         opaque  pargfid[16];
 	unsigned hyper par;
-        unsigned hyper gen;
 	unsigned int flags;
 	unsigned int mode;
 	string     path<>;
@@ -589,7 +553,6 @@ struct   gfs3_ftruncate_req  {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 	unsigned hyper offset;
 } ;
@@ -606,7 +569,6 @@ struct gfs3_fstat_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 }  ;
  struct gfs3_fstat_rsp {
@@ -622,7 +584,6 @@ struct gfs3_fstat_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper  ino;
-        unsigned hyper  gen;
 	unsigned int  cmd;
 	unsigned int  type;
 	unsigned hyper  namelen;
@@ -635,7 +596,6 @@ struct gfs3_fstat_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper  ino;
-        unsigned hyper  gen;
 	hyper   fd;
 	unsigned int  cmd;
 	unsigned int  type;
@@ -649,7 +609,6 @@ struct gfs3_fstat_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
         unsigned hyper       ino;
-        unsigned hyper       gen;
         struct gf_iatt stbuf;
         int        valid;
         string           path<>;
@@ -726,7 +685,6 @@ struct gfs3_releasedir_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 }  ;
 
@@ -734,7 +692,6 @@ struct gfs3_release_req {
         unsigned hyper gfs_id;
         opaque gfid[16];
 	unsigned hyper ino;
-        unsigned hyper gen;
 	hyper  fd;
 }  ;
 

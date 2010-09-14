@@ -59,7 +59,6 @@ typedef struct {
 
 struct iatt {
         uint64_t     ia_ino;        /* inode number */
-        uint64_t     ia_gen;        /* generation number */
         uuid_t       ia_gfid;
         uint64_t     ia_dev;        /* backing device ID */
         ia_type_t    ia_type;       /* type of file */
@@ -259,8 +258,6 @@ iatt_from_stat (struct iatt *iatt, struct stat *stat)
         iatt->ia_dev        = stat->st_dev;
         iatt->ia_ino        = stat->st_ino;
 
-        (void) iatt->ia_gen;
-
         iatt->ia_type       = ia_type_from_st_mode (stat->st_mode);
         iatt->ia_prot       = ia_prot_from_st_mode (stat->st_mode);
 
@@ -293,8 +290,6 @@ iatt_to_stat (struct iatt *iatt, struct stat *stat)
 {
         stat->st_dev        = iatt->ia_dev;
         stat->st_ino        = iatt->ia_ino;
-
-        (void) iatt->ia_gen;
 
         stat->st_mode       = st_mode_from_ia (iatt->ia_prot, iatt->ia_type);
 
