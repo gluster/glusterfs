@@ -3994,6 +3994,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                 this_entry->d_off = telldir (dir);
                 this_entry->d_ino = entry->d_ino;
                 this_entry->d_stat = stbuf;
+                uuid_copy (this_entry->d_stat.ia_gfid, stbuf.ia_gfid);
 
                 list_add_tail (&this_entry->list, &entries.list);
 
