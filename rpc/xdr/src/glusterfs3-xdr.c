@@ -77,9 +77,8 @@ xdr_gf_iatt (XDR *xdrs, gf_iatt *objp)
 	register int32_t *buf;
 
 	if (xdrs->x_op == XDR_ENCODE) {
-                if (!xdr_vector (xdrs, (char *)objp->ia_gfid, 16,
-                                 sizeof (u_char), (xdrproc_t) xdr_u_char))
-                        return FALSE;
+		 if (!xdr_opaque (xdrs, objp->ia_gfid, 16))
+			 return FALSE;
 		 if (!xdr_u_quad_t (xdrs, &objp->ia_ino))
 			 return FALSE;
 		 if (!xdr_u_quad_t (xdrs, &objp->ia_gen))
@@ -135,8 +134,7 @@ xdr_gf_iatt (XDR *xdrs, gf_iatt *objp)
 		}
 		return TRUE;
 	} else if (xdrs->x_op == XDR_DECODE) {
-                if (!xdr_vector (xdrs, (char *)objp->ia_gfid, 16,
-                                 sizeof (u_char), (xdrproc_t) xdr_u_char))
+		 if (!xdr_opaque (xdrs, objp->ia_gfid, 16))
                         return FALSE;
 		 if (!xdr_u_quad_t (xdrs, &objp->ia_ino))
 			 return FALSE;
@@ -194,10 +192,8 @@ xdr_gf_iatt (XDR *xdrs, gf_iatt *objp)
 	 return TRUE;
 	}
 
-	 if (!xdr_vector (xdrs, (char *)objp->ia_gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+         if (!xdr_opaque (xdrs, objp->ia_gfid, 16))
 		 return FALSE;
-
 	 if (!xdr_u_quad_t (xdrs, &objp->ia_ino))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ia_gen))
@@ -241,8 +237,7 @@ xdr_gfs3_stat_req (XDR *xdrs, gfs3_stat_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -274,9 +269,8 @@ xdr_gfs3_readlink_req (XDR *xdrs, gfs3_readlink_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
-		 return FALSE;
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
+                 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->gen))
@@ -311,8 +305,7 @@ xdr_gfs3_mknod_req (XDR *xdrs, gfs3_mknod_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-         if (!xdr_vector (xdrs, (char *)objp->pargfid, 16,
-                          sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->par))
 		 return FALSE;
@@ -357,8 +350,7 @@ xdr_gfs3_mkdir_req (XDR *xdrs, gfs3_mkdir_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-         if (!xdr_vector (xdrs, (char *)objp->pargfid, 16,
-                          sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->par))
 		 return FALSE;
@@ -401,8 +393,7 @@ xdr_gfs3_unlink_req (XDR *xdrs, gfs3_unlink_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-         if (!xdr_vector (xdrs, (char *)objp->pargfid, 16,
-                          sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->par))
 		 return FALSE;
@@ -438,8 +429,7 @@ xdr_gfs3_rmdir_req (XDR *xdrs, gfs3_rmdir_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-         if (!xdr_vector (xdrs, (char *)objp->pargfid, 16,
-                          sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->par))
 		 return FALSE;
@@ -475,8 +465,7 @@ xdr_gfs3_symlink_req (XDR *xdrs, gfs3_symlink_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-         if (!xdr_vector (xdrs, (char *)objp->pargfid, 16,
-                          sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->par))
 		 return FALSE;
@@ -519,12 +508,10 @@ xdr_gfs3_rename_req (XDR *xdrs, gfs3_rename_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->oldgfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
-		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->newgfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
-		 return FALSE;
+	 if (!xdr_opaque (xdrs, objp->oldgfid, 16))
+                 return FALSE;
+	 if (!xdr_opaque (xdrs, objp->newgfid, 16))
+                 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->oldpar))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->oldgen))
@@ -573,12 +560,10 @@ xdr_gfs3_link_req (XDR *xdrs, gfs3_link_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->oldgfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
-		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->newgfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
-		 return FALSE;
+	 if (!xdr_opaque (xdrs, objp->oldgfid, 16))
+                 return FALSE;
+	 if (!xdr_opaque (xdrs, objp->newgfid, 16))
+                 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->oldino))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->oldgen))
@@ -621,8 +606,7 @@ xdr_gfs3_truncate_req (XDR *xdrs, gfs3_truncate_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -658,8 +642,7 @@ xdr_gfs3_open_req (XDR *xdrs, gfs3_open_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -695,8 +678,7 @@ xdr_gfs3_read_req (XDR *xdrs, gfs3_read_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -735,11 +717,9 @@ xdr_gfs3_lookup_req (XDR *xdrs, gfs3_lookup_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
-         if (!xdr_vector (xdrs, (char *)objp->pargfid, 16,
-                          sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -785,8 +765,7 @@ xdr_gfs3_write_req (XDR *xdrs, gfs3_write_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -824,8 +803,7 @@ xdr_gfs3_statfs_req (XDR *xdrs, gfs3_statfs_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -857,8 +835,7 @@ xdr_gfs3_lk_req (XDR *xdrs, gfs3_lk_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -896,8 +873,7 @@ xdr_gfs3_inodelk_req (XDR *xdrs, gfs3_inodelk_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -922,8 +898,7 @@ xdr_gfs3_finodelk_req (XDR *xdrs, gfs3_finodelk_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -948,8 +923,7 @@ xdr_gfs3_flush_req (XDR *xdrs, gfs3_flush_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -966,8 +940,7 @@ xdr_gfs3_fsync_req (XDR *xdrs, gfs3_fsync_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1003,8 +976,7 @@ xdr_gfs3_setxattr_req (XDR *xdrs, gfs3_setxattr_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1025,8 +997,7 @@ xdr_gfs3_fsetxattr_req (XDR *xdrs, gfs3_fsetxattr_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1047,8 +1018,7 @@ xdr_gfs3_xattrop_req (XDR *xdrs, gfs3_xattrop_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1084,8 +1054,7 @@ xdr_gfs3_fxattrop_req (XDR *xdrs, gfs3_fxattrop_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1121,8 +1090,7 @@ xdr_gfs3_getxattr_req (XDR *xdrs, gfs3_getxattr_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1158,8 +1126,7 @@ xdr_gfs3_fgetxattr_req (XDR *xdrs, gfs3_fgetxattr_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1195,8 +1162,7 @@ xdr_gfs3_removexattr_req (XDR *xdrs, gfs3_removexattr_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1215,8 +1181,7 @@ xdr_gfs3_opendir_req (XDR *xdrs, gfs3_opendir_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1248,8 +1213,7 @@ xdr_gfs3_fsyncdir_req (XDR *xdrs, gfs3_fsyncdir_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1268,8 +1232,7 @@ xdr_gfs3_readdir_req (XDR *xdrs, gfs3_readdir_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1290,8 +1253,7 @@ xdr_gfs3_readdirp_req (XDR *xdrs, gfs3_readdirp_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1338,8 +1300,7 @@ xdr_gfs3_access_req (XDR *xdrs, gfs3_access_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1358,8 +1319,7 @@ xdr_gfs3_create_req (XDR *xdrs, gfs3_create_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-         if (!xdr_vector (xdrs, (char *)objp->pargfid, 16,
-                          sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->par))
 		 return FALSE;
@@ -1406,8 +1366,7 @@ xdr_gfs3_ftruncate_req (XDR *xdrs, gfs3_ftruncate_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1443,8 +1402,7 @@ xdr_gfs3_fstat_req (XDR *xdrs, gfs3_fstat_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1476,8 +1434,7 @@ xdr_gfs3_entrylk_req (XDR *xdrs, gfs3_entrylk_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1504,8 +1461,7 @@ xdr_gfs3_fentrylk_req (XDR *xdrs, gfs3_fentrylk_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1533,8 +1489,7 @@ xdr_gfs3_setattr_req (XDR *xdrs, gfs3_setattr_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1792,8 +1747,7 @@ xdr_gfs3_releasedir_req (XDR *xdrs, gfs3_releasedir_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
@@ -1810,8 +1764,7 @@ xdr_gfs3_release_req (XDR *xdrs, gfs3_release_req *objp)
 
 	 if (!xdr_u_quad_t (xdrs, &objp->gfs_id))
 		 return FALSE;
-	 if (!xdr_vector (xdrs, (char *)objp->gfid, 16,
-		sizeof (u_char), (xdrproc_t) xdr_u_char))
+	 if (!xdr_opaque (xdrs, objp->gfid, 16))
 		 return FALSE;
 	 if (!xdr_u_quad_t (xdrs, &objp->ino))
 		 return FALSE;
