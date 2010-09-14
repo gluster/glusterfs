@@ -1324,7 +1324,7 @@ out:
                 if (!ret)
                         req->rpc_err = SUCCESS;
         }
-        if (op_errstr)
+        if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
         if (!ret)
                 gf_log ("", GF_LOG_WARNING, "Returning %d", ret);
