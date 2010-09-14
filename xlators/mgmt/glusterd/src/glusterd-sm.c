@@ -67,6 +67,8 @@ glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx)
                 dict_unref (ctx->vols);
         if (ctx->hostname)
                 GF_FREE (ctx->hostname);
+        if (ctx->remote_hostname)
+                GF_FREE (ctx->remote_hostname);
         GF_FREE (ctx);
 }
 
@@ -90,6 +92,22 @@ glusterd_ac_error (glusterd_friend_sm_event_t *event, void *ctx)
 
         gf_log ("", GF_LOG_ERROR, "Received event %d ", event->event);
 
+        return ret;
+}
+
+static int
+glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
+{
+        int ret = 0;
+        glusterd_friend_update_ctx_t    *ev_ctx = NULL;
+
+        GF_ASSERT (event);
+        GF_ASSERT (ctx);
+
+        ev_ctx = ctx;
+        ret = glusterd_probe_begin (NULL, ev_ctx->remote_hostname, 0);
+
+        gf_log ("", GF_LOG_DEBUG, "returning with %d", ret);
         return ret;
 }
 
@@ -322,6 +340,31 @@ glusterd_ac_none (void *ctx)
         return ret;
 }*/
 
+int
+glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
+{
+        GF_ASSERT (req);
+        GF_ASSERT (remote_host);
+        GF_ASSERT (req->trans);
+
+        char *name = NULL;
+        char *delimiter = NULL;
+
+        name = req->trans->peerinfo.identifier;
+        strncpy (remote_host, name, len);
+        delimiter = strchr (remote_host, ':');
+
+        GF_ASSERT (delimiter);
+        if (!delimiter) {
+                memset (remote_host, 0, len);
+                return -1;
+        }
+
+        *delimiter = '\0';
+
+        return 0;
+}
+
 static int
 glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
 {
@@ -334,6 +377,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
         int                             status = 0;
         int32_t                         op_ret = -1;
+        char                            remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
         GF_ASSERT (ctx);
         ev_ctx = ctx;
@@ -374,6 +418,14 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         uuid_copy (new_ev_ctx->uuid, ev_ctx->uuid);
         new_ev_ctx->hostname = gf_strdup (ev_ctx->hostname);
 
+        ret = glusterd_remote_hostname_get (ev_ctx->req, remote_hostname,
+                                            sizeof (remote_hostname));
+        if (ret) {
+                ret = -1;
+                goto out;
+        }
+
+        new_ev_ctx->remote_hostname = gf_strdup (remote_hostname);
         new_event->ctx = new_ev_ctx;
 
         glusterd_friend_sm_inject_event (new_event);
@@ -441,7 +493,7 @@ glusterd_sm_t  glusterd_state_req_rcvd [] = {
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_friend_probe}, //EVENT_PROBE,
         {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_friend_add}, //EVENT_INIT_FRIEND_REQ,
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_ACC
-        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_reverse_probe_begin}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCV_FRIEND_REQ
@@ -603,6 +655,7 @@ glusterd_friend_sm ()
         glusterd_peerinfo_t             *peerinfo   = NULL;
         glusterd_friend_sm_event_type_t  event_type = 0;
         int                              port       = 6969; //TODO, use standard
+        gf_boolean_t                     is_await_conn = _gf_false;
 
         while (!list_empty (&gd_friend_sm_queue)) {
                 list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
@@ -638,6 +691,10 @@ glusterd_friend_sm ()
                         GF_ASSERT (handler);
 
                         ret = handler (event, event->ctx);
+                        if (ret == GLUSTERD_CONNECTION_AWAITED) {
+                                is_await_conn = _gf_true;
+                                ret = 0;
+                        }
 
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR, "handler returned: "
@@ -667,7 +724,11 @@ glusterd_friend_sm ()
 
                         glusterd_destroy_friend_event_context (event);
                         GF_FREE (event);
+                        if (is_await_conn)
+                                break;
                 }
+                if (is_await_conn)
+                        break;
         }
 
 

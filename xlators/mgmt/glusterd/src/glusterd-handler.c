@@ -518,7 +518,7 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_probe_req               cli_req = {0,};
-	 glusterd_peerinfo_t		*peerinfo = NULL;
+        glusterd_peerinfo_t             *peerinfo = NULL;
         GF_ASSERT (req);
 
         if (!gf_xdr_to_cli_probe_req (req->msg[0], &cli_req)) {
@@ -533,23 +533,23 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL, "Received CLI probe req %s %d",
                 cli_req.hostname, cli_req.port);
 
-	 if (!(ret = glusterd_is_local_addr(cli_req.hostname))) {
-		 glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST,
-					       cli_req.hostname, cli_req.port);
-		 goto out;
-	 }
-	 if (!(ret = glusterd_friend_find_by_hostname(cli_req.hostname,
-					  &peerinfo))) {
-                 if ((peerinfo->state.state != GD_FRIEND_STATE_REQ_RCVD)
+        if (!(ret = glusterd_is_local_addr(cli_req.hostname))) {
+                glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_LOCALHOST,
+                                              cli_req.hostname, cli_req.port);
+                goto out;
+        }
+        if (!(ret = glusterd_friend_find_by_hostname(cli_req.hostname,
+                                         &peerinfo))) {
+                if ((peerinfo->state.state != GD_FRIEND_STATE_REQ_RCVD)
                     || (peerinfo->state.state != GD_FRIEND_STATE_DEFAULT)) {
 
-		        gf_log ("glusterd", GF_LOG_NORMAL, "Probe host %s port %d"
-			       "already a friend", cli_req.hostname, cli_req.port);
-		        glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND,
-					              cli_req.hostname, cli_req.port);
-		        goto out;
-                 }
-	 }
+                        gf_log ("glusterd", GF_LOG_NORMAL, "Probe host %s port %d"
+                               "already a friend", cli_req.hostname, cli_req.port);
+                        glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND,
+                                                      cli_req.hostname, cli_req.port);
+                        goto out;
+                }
+        }
         ret = glusterd_probe_begin (req, cli_req.hostname, cli_req.port);
 
         gf_cmd_log ("peer probe","on host %s:%d %s",cli_req.hostname, cli_req.port,
@@ -1052,16 +1052,16 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         gf1_cli_create_vol_req  cli_req     = {0,};
         dict_t                 *dict        = NULL;
         glusterd_brickinfo_t   *brickinfo   = NULL;
-        char		       *brick       = NULL;
-        char		       *bricks      = NULL;
-        char		       *volname     = NULL;
-        int			brick_count = 0;
+        char                   *brick       = NULL;
+        char                   *bricks      = NULL;
+        char                   *volname     = NULL;
+        int                    brick_count = 0;
         char                   *tmpptr      = NULL;
-        int			i           = 0;
+        int                    i           = 0;
         glusterd_peerinfo_t    *peerinfo    = NULL;
-        char		       *brick_list  = NULL;
-        void		       *cli_rsp     = NULL;
-        char			err_str[1048];
+        char                   *brick_list  = NULL;
+        void                   *cli_rsp     = NULL;
+        char                    err_str[1048];
         gf1_cli_create_vol_rsp  rsp         = {0,};
         glusterd_conf_t        *priv        = NULL;
         int                     err_ret     = 0;
@@ -1108,23 +1108,23 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         ret = dict_get_str (dict, "volname", &volname);
 
         if (ret) {
-		gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
-		goto out;
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
         }
         gf_cmd_log ("Volume create", "on volname: %s attempted", volname);
 
-	 if ((ret = glusterd_check_volume_exists (volname))) {
-		snprintf(err_str, 1048, "Volname %s already exists",
-			 volname);
-		gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
-		err_ret = 1;
-		goto out;
-	 }
+        if ((ret = glusterd_check_volume_exists (volname))) {
+                snprintf(err_str, 1048, "Volname %s already exists",
+                         volname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                err_ret = 1;
+                goto out;
+        }
 
         ret = dict_get_int32 (dict, "count", &brick_count);
         if (ret) {
-		gf_log ("", GF_LOG_ERROR, "Unable to get count");
-		goto out;
+                gf_log ("", GF_LOG_ERROR, "Unable to get count");
+                goto out;
         }
 
         ret = dict_get_str (dict, "transport", &trans_type);
@@ -1134,8 +1134,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         }
         ret = dict_get_str (dict, "bricks", &bricks);
         if (ret) {
-		gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
-		goto out;
+                gf_log ("", GF_LOG_ERROR, "Unable to get bricks");
+                goto out;
         }
 
         uuid_generate (volume_id);
@@ -1159,37 +1159,37 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                     bricks);
 
         while ( i < brick_count) {
-		i++;
-		brick= strtok_r (brick_list, " \n", &tmpptr);
-		brick_list = tmpptr;
+                i++;
+                brick= strtok_r (brick_list, " \n", &tmpptr);
+                brick_list = tmpptr;
                 if (brickinfo)
                         glusterd_brickinfo_delete (brickinfo);
-		ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
-		if (ret)
-			goto out;
+                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                if (ret)
+                        goto out;
 
-		if(!(ret = glusterd_is_local_addr (brickinfo->hostname)))
-			goto brick_validation;	//localhost, continue without validation
+                if(!(ret = glusterd_is_local_addr (brickinfo->hostname)))
+                        goto brick_validation;        //localhost, continue without validation
 
-		ret = glusterd_friend_find_by_hostname (brickinfo->hostname,
-							&peerinfo);
-		if (ret) {
+                ret = glusterd_friend_find_by_hostname (brickinfo->hostname,
+                                                        &peerinfo);
+                if (ret) {
                         snprintf (err_str, 1048, "Host %s not a friend",
-			          brickinfo->hostname);
-			gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
-			err_ret = 1;
-			goto out;
-		}
-		if ((!peerinfo->connected) &&
-		    (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                        snprintf(err_str, 1048, "Host %s not connected",
-				 brickinfo->hostname);
+                                  brickinfo->hostname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
                         goto out;
-		}
+                }
+                if ((!peerinfo->connected) &&
+                    (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
+                        snprintf(err_str, 1048, "Host %s not connected",
+                                 brickinfo->hostname);
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                        err_ret = 1;
+                        goto out;
+                }
 brick_validation:
-		list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                list_for_each_entry (volinfo, &priv->volumes, vol_list) {
 
                         list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
                                              brick_list) {
@@ -1204,9 +1204,9 @@ brick_validation:
                                         err_ret = 1;
                                         goto out;
                                 }
-			}
-		}
-	 }
+                        }
+                }
+        }
         ret = glusterd_create_volume (req, dict);
 
         gf_cmd_log ("Volume create", "on volname: %s %s", volname,
@@ -2425,7 +2425,7 @@ glusterd_friend_add (const char *hoststr, int port,
                         goto out;
                 list_add_tail (&peerinfo->hostnames, &name->hostname_list);
                 rpc_cfg.remote_host = gf_strdup (hoststr);
-		peerinfo->hostname = gf_strdup (hoststr);
+                peerinfo->hostname = gf_strdup (hoststr);
         }
         INIT_LIST_HEAD (&peerinfo->uuid_list);
 
@@ -2503,7 +2503,6 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
         glusterd_probe_ctx_t            *ctx = NULL;
 
         GF_ASSERT (hoststr);
-        GF_ASSERT (req);
 
         ret = glusterd_friend_find (NULL, (char *)hoststr, &peerinfo);
 
