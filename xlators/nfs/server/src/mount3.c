@@ -211,6 +211,29 @@ free_err:
 }
 
 
+int
+__mnt3_get_volume_id (struct mount3_state *ms, xlator_t *mntxl,
+                      uuid_t volumeid)
+{
+        int                     ret = -1;
+        struct mnt3_export      *exp = NULL;
+
+        if ((!ms) || (!mntxl))
+                return ret;
+
+        list_for_each_entry (exp, &ms->exportlist, explist) {
+                if (exp->vol == mntxl) {
+                        uuid_copy (volumeid, exp->volumeid);
+                        ret = 0;
+                        goto out;
+                }
+        }
+
+out:
+        return ret;
+}
+
+
 int32_t
 mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
                           xlator_t *this, int32_t op_ret, int32_t op_errno,
@@ -226,6 +249,8 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         int                     autharrlen = 0;
         rpcsvc_t                *svc = NULL;
         xlator_t                *mntxl = NULL;
+        uuid_t                  volumeid = {0, };
+        char                    fhstr[1024];
 
         req = (rpcsvc_request_t *)frame->local;
 
@@ -246,10 +271,19 @@ mnt3svc_lookup_mount_cbk (call_frame_t *frame, void  *cookie,
         if (status != MNT3_OK)
                 goto xmit_res;
 
-        fh = nfs3_fh_build_root_fh (ms->nfsx->children, mntxl);
         mnt3svc_update_mountlist (ms, req, mntxl->name);
+        if (gf_nfs_dvm_off (nfs_state (ms->nfsx))) {
+                fh = nfs3_fh_build_indexed_root_fh (ms->nfsx->children, mntxl);
+                goto xmit_res;
+        }
+
+        __mnt3_get_volume_id (ms, mntxl, volumeid);
+        fh = nfs3_fh_build_uuid_root_fh (volumeid);
+
 xmit_res:
-        gf_log (GF_MNT, GF_LOG_DEBUG, "Mount reply status: %d", status);
+        nfs3_fh_to_str (&fh, fhstr);
+        gf_log (GF_MNT, GF_LOG_DEBUG, "MNT reply: fh %s, status: %d", fhstr,
+                status);
         if (op_ret == 0) {
                 svc = nfs_rpcsvc_request_service (req);
                 autharrlen = nfs_rpcsvc_auth_array (svc, mntxl->name, autharr,
@@ -336,11 +370,13 @@ mnt3svc_volume_mount (rpcsvc_request_t *req, struct mount3_state *ms,
 {
         inode_t         *exportinode = NULL;
         int             ret = -EFAULT;
+        uuid_t          rootgfid = {0, };
 
         if ((!req) || (!exp) || (!ms))
                 return ret;
 
-        exportinode = inode_get (exp->vol->itable, 1, 0);
+        rootgfid[15] = 1;
+        exportinode = inode_find (exp->vol->itable, rootgfid);
         if (!exportinode) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Faild to get root inode");
                 ret = -ENOENT;
@@ -434,9 +470,8 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         char            dupsubdir[MNTPATHLEN];
         char            *nextcomp = NULL;
         int             ret = -EFAULT;
-        uint64_t        parino = 0;
-        uint64_t        pargen = 0;
         nfs_user_t      nfu = {0, };
+        char            gfidstr[512];
 
         if (!mres)
                 return ret;
@@ -445,17 +480,15 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         if (!nextcomp)
                 goto err;
 
-        parino = mres->resolveloc.inode->ino;
-
         /* Wipe the contents of the previous component */
         nfs_loc_wipe (&mres->resolveloc);
-        ret = nfs_entry_loc_fill (mres->exp->vol->itable, parino, pargen,
-                                  nextcomp, &mres->resolveloc,
-                                  NFS_RESOLVE_CREATE);
+        ret = nfs_entry_loc_fill (mres->exp->vol->itable,
+                                  mres->resolveloc.inode->gfid, nextcomp,
+                                  &mres->resolveloc, NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
+                uuid_unparse (mres->resolveloc.inode->gfid, gfidstr);
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
-                        "inode: parent %"PRIu64", gen: %"PRIu64", entry %s",
-                        parino, pargen, nextcomp);
+                        "inode: parent gfid %s, entry %s", gfidstr, nextcomp);
                 ret = -EFAULT;
                 goto err;
         }
@@ -544,6 +577,7 @@ __mnt3_resolve_export_subdir (mnt3_resolve_t *mres)
         char            *firstcomp = NULL;
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
+        uuid_t          rootgfid = {0, };
 
         if (!mres)
                 return ret;
@@ -552,7 +586,8 @@ __mnt3_resolve_export_subdir (mnt3_resolve_t *mres)
         if (!firstcomp)
                 goto err;
 
-        ret = nfs_entry_loc_fill (mres->exp->vol->itable, 1, 0, firstcomp,
+        rootgfid[15] = 1;
+        ret = nfs_entry_loc_fill (mres->exp->vol->itable, rootgfid, firstcomp,
                                   &mres->resolveloc, NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
@@ -577,6 +612,7 @@ mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         mnt3_resolve_t  *mres = NULL;
         char            *volume_subdir = NULL;
         int             ret = -EFAULT;
+        struct nfs3_fh  pfh = GF_NFS3FH_STATIC_INITIALIZER;
 
         if ((!req) || (!ms) || (!exp))
                 return ret;
@@ -595,9 +631,12 @@ mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         mres->mstate = ms;
         mres->req = req;
         strcpy (mres->remainingdir, volume_subdir);
-        mres->parentfh = nfs3_fh_build_root_fh (mres->mstate->nfsx->children,
-                                                mres->exp->vol);
+        if (gf_nfs_dvm_off (nfs_state (ms->nfsx)))
+                pfh = nfs3_fh_build_indexed_root_fh (mres->mstate->nfsx->children, mres->exp->vol);
+        else
+                pfh = nfs3_fh_build_uuid_root_fh (exp->volumeid);
 
+        mres->parentfh = pfh;
         ret = __mnt3_resolve_export_subdir (mres);
         if (ret < 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve export dir: %s"
@@ -1205,7 +1244,8 @@ err:
 
 
 struct mnt3_export *
-mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath)
+mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath,
+                      uuid_t volumeid)
 {
         struct mnt3_export      *exp = NULL;
         int                     alloclen = 0;
@@ -1247,6 +1287,11 @@ mnt3_init_export_ent (struct mount3_state *ms, xlator_t *xl, char *exportpath)
                 ret = snprintf (exp->expname, alloclen, "/%s", xl->name);
         }
 
+        /* Just copy without discrimination, we'll determine whether to
+         * actually use it when a mount request comes in and a file handle
+         * needs to be built.
+         */
+        uuid_copy (exp->volumeid, volumeid);
         exp->vol = xl;
 err:
         return exp;
@@ -1255,7 +1300,7 @@ err:
 
 int
 __mnt3_init_volume_direxports (struct mount3_state *ms, xlator_t *xlator,
-                               char *optstr)
+                               char *optstr, uuid_t volumeid)
 {
         struct mnt3_export      *newexp = NULL;
         int                     ret = -1;
@@ -1274,7 +1319,7 @@ __mnt3_init_volume_direxports (struct mount3_state *ms, xlator_t *xlator,
 
         token = strtok_r (dupopt, ",", &savptr);
         while (token) {
-                newexp = mnt3_init_export_ent (ms, xlator, token);
+                newexp = mnt3_init_export_ent (ms, xlator, token, volumeid);
                 if (!newexp) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Failed to init dir "
                                 "export: %s", token);
@@ -1302,10 +1347,48 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
         int                     ret = -1;
         char                    searchstr[1024];
         char                    *optstr  = NULL;
+        uuid_t                  volumeid = {0, };
 
         if ((!ms) || (!xlator) || (!opts))
                 return -1;
 
+        uuid_clear (volumeid);
+        if (gf_nfs_dvm_off (nfs_state (ms->nfsx)))
+                goto no_dvm;
+
+        ret = snprintf (searchstr, 1024, "nfs3.%s.volume-id", xlator->name);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "snprintf failed");
+                ret = -1;
+                goto err;
+        }
+
+        if (dict_get (opts, searchstr)) {
+                ret = dict_get_str (opts, searchstr, &optstr);
+                if (ret < 0) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option"
+                                ": %s", searchstr);
+                        ret = -1;
+                        goto err;
+                }
+        } else {
+                gf_log (GF_MNT, GF_LOG_ERROR, "DVM is on but volume-id not "
+                        "given for volume: %s", xlator->name);
+                ret = -1;
+                goto err;
+        }
+
+        if (optstr) {
+                ret = uuid_parse (optstr, volumeid);
+                if (ret < 0) {
+                        gf_log (GF_MNT, GF_LOG_ERROR, "Failed to parse volume "
+                                "UUID");
+                        ret = -1;
+                        goto err;
+                }
+        }
+
+no_dvm:
         ret = snprintf (searchstr, 1024, "nfs3.%s.export-dir", xlator->name);
         if (ret < 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "snprintf failed");
@@ -1322,17 +1405,17 @@ __mnt3_init_volume (struct mount3_state *ms, dict_t *opts, xlator_t *xlator)
                         goto err;
                 }
 
-                ret = __mnt3_init_volume_direxports (ms, xlator, optstr);
+                ret = __mnt3_init_volume_direxports (ms, xlator, optstr,
+                                                     volumeid);
                 if (ret == -1) {
                         gf_log (GF_MNT, GF_LOG_ERROR, "Dir export setup failed"
                                 " for volume: %s", xlator->name);
                         goto err;
                 }
-
         }
 
         if (ms->export_volumes) {
-                newexp = mnt3_init_export_ent (ms, xlator, NULL);
+                newexp = mnt3_init_export_ent (ms, xlator, NULL, volumeid);
                 if (!newexp) {
                         ret = -1;
                         goto err;

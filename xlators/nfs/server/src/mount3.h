@@ -34,6 +34,7 @@
 #include "xdr-nfs3.h"
 #include "locking.h"
 #include "nfs3-fh.h"
+#include "uuid.h"
 
 /* Registered with portmap */
 #define GF_MOUNTV3_PORT         38465
@@ -73,6 +74,10 @@ struct mnt3_export {
         char                    *expname;
         xlator_t                *vol;
         int                     exptype;
+
+        /* Extracted from nfs volume options if nfs.dynamicvolumes is on.
+         */
+        uuid_t                  volumeid;
 };
 
 struct mount3_state {

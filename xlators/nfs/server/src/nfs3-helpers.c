@@ -92,12 +92,12 @@ struct nfs3stat_strerror nfs3stat_strerror_table[] = {
 
 
 void
-nfs3_map_xlid_to_statdev (struct iatt *ia, uint16_t xlid)
+nfs3_map_deviceid_to_statdev (struct iatt *ia, uint64_t deviceid)
 {
         if (!ia)
                 return;
 
-        ia->ia_dev = xlid;
+        ia->ia_dev = deviceid;
 }
 
 
@@ -395,15 +395,11 @@ nfs3_fill_lookup3res_success (lookup3res *res, nfsstat3 stat,
 
         obj.attributes_follow = FALSE;
         dir.attributes_follow = FALSE;
-        if (buf && fh) {
-                nfs3_map_xlid_to_statdev (buf, fh->xlatorid);
+        if (buf)
                 obj = nfs3_stat_to_post_op_attr (buf);
-        }
 
-        if (postparent && fh) {
-                nfs3_map_xlid_to_statdev (postparent, fh->xlatorid);
+        if (postparent)
                 dir = nfs3_stat_to_post_op_attr (postparent);
-        }
 
         res->lookup3res_u.resok.obj_attributes = obj;
         res->lookup3res_u.resok.dir_attributes = dir;
@@ -412,10 +408,13 @@ nfs3_fill_lookup3res_success (lookup3res *res, nfsstat3 stat,
 
 void
 nfs3_fill_lookup3res (lookup3res *res, nfsstat3 stat, struct nfs3_fh *newfh,
-                      struct iatt *buf, struct iatt *postparent)
+                      struct iatt *buf, struct iatt *postparent,
+                      uint64_t deviceid)
 {
 
         memset (res, 0, sizeof (*res));
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
         if (stat != NFS3_OK)
                 nfs3_fill_lookup3res_error (res, stat, postparent);
         else
@@ -432,7 +431,7 @@ nfs3_extract_getattr_fh (getattr3args *args)
 
 void
 nfs3_fill_getattr3res (getattr3res *res, nfsstat3 stat, struct iatt *buf,
-                       uint16_t xlid)
+                       uint64_t deviceid)
 {
 
         memset (res, 0, sizeof (*res));
@@ -440,7 +439,7 @@ nfs3_fill_getattr3res (getattr3res *res, nfsstat3 stat, struct iatt *buf,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (buf, xlid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         res->getattr3res_u.resok.obj_attributes = nfs3_stat_to_fattr3 (buf);
 
 }
@@ -455,7 +454,7 @@ nfs3_extract_fsinfo_fh (fsinfo3args *args)
 
 void
 nfs3_fill_fsinfo3res (struct nfs3_state *nfs3, fsinfo3res *res,
-                      nfsstat3 status, struct iatt *fsroot, uint16_t xlid)
+                      nfsstat3 status, struct iatt *fsroot, uint64_t deviceid)
 {
         fsinfo3resok    resok = {{0}, };
         nfstime3        tdelta = GF_NFS3_TIMEDELTA_SECS;
@@ -465,7 +464,7 @@ nfs3_fill_fsinfo3res (struct nfs3_state *nfs3, fsinfo3res *res,
         if (status != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (fsroot, xlid);
+        nfs3_map_deviceid_to_statdev (fsroot, deviceid);
         resok.obj_attributes = nfs3_stat_to_post_op_attr (fsroot);
         resok.rtmax = nfs3->readsize;
         resok.rtpref = nfs3->readsize;
@@ -677,7 +676,8 @@ nfs3_stat_to_accessbits (struct iatt *buf, uint32_t request, uid_t uid,
 
 void
 nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
-                      uint32_t accbits, uid_t uid, gid_t gid, uint16_t xlid)
+                      uint32_t accbits, uid_t uid, gid_t gid,
+                      uint64_t deviceid)
 {
         post_op_attr    objattr;
         uint32_t        accres = 0;
@@ -687,7 +687,7 @@ nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
         if (status != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (buf, xlid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         objattr = nfs3_stat_to_post_op_attr (buf);
         accres = nfs3_stat_to_accessbits (buf, accbits, uid, gid);
 
@@ -829,7 +829,7 @@ nfs3_fh_to_post_op_fh3 (struct nfs3_fh *fh)
 
 
 entryp3 *
-nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh)
+nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh, uint64_t devid)
 {
         entryp3         *ent = NULL;
         struct nfs3_fh  newfh = {{0}, };
@@ -862,7 +862,7 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh)
         strcpy (ent->name, entry->d_name);
 
         nfs3_fh_build_child_fh (dirfh, &entry->d_stat, &newfh);
-        nfs3_map_xlid_to_statdev (&entry->d_stat, dirfh->xlatorid);
+        nfs3_map_deviceid_to_statdev (&entry->d_stat, devid);
         ent->name_attributes = nfs3_stat_to_post_op_attr (&entry->d_stat);
         ent->name_handle = nfs3_fh_to_post_op_fh3 (&newfh);
 err:
@@ -873,7 +873,8 @@ err:
 void
 nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
                        uint64_t cverf, struct iatt *dirstat,
-                       gf_dirent_t *entries, count3 count, int is_eof)
+                       gf_dirent_t *entries, count3 count, int is_eof,
+                       uint64_t deviceid)
 {
         post_op_attr    dirattr;
         entry3          *ent = NULL;
@@ -887,7 +888,7 @@ nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (dirstat, dirfh->xlatorid);
+        nfs3_map_deviceid_to_statdev (dirstat, deviceid);
         dirattr = nfs3_stat_to_post_op_attr (dirstat);
         res->readdir3res_u.resok.dir_attributes = dirattr;
         res->readdir3res_u.resok.reply.eof = (bool_t)is_eof;
@@ -928,10 +929,11 @@ nfs3_fill_readdir3res (readdir3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
 
 
 void
-nfs3_fill_readdirp3res (readdirp3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
-                        uint64_t cverf, struct iatt *dirstat,
-                        gf_dirent_t *entries, count3 dircount, count3 maxcount,
-                        int is_eof)
+nfs3_fill_readdirp3res (readdirp3res *res, nfsstat3 stat,
+                        struct nfs3_fh *dirfh, uint64_t cverf,
+                        struct iatt *dirstat, gf_dirent_t *entries,
+                        count3 dircount, count3 maxcount, int is_eof,
+                        uint64_t deviceid)
 {
         post_op_attr    dirattr;
         entryp3         *ent = NULL;
@@ -946,7 +948,7 @@ nfs3_fill_readdirp3res (readdirp3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (dirstat, dirfh->xlatorid);
+        nfs3_map_deviceid_to_statdev (dirstat, deviceid);
         dirattr = nfs3_stat_to_post_op_attr (dirstat);
         res->readdirp3res_u.resok.dir_attributes = dirattr;
         res->readdirp3res_u.resok.reply.eof = (bool_t)is_eof;
@@ -964,7 +966,7 @@ nfs3_fill_readdirp3res (readdirp3res *res, nfsstat3 stat, struct nfs3_fh *dirfh,
                     (strcmp (entries->d_name, "..") == 0))
                         goto nextentry;
                         */
-                ent = nfs3_fill_entryp3 (entries, dirfh);
+                ent = nfs3_fill_entryp3 (entries, dirfh, deviceid);
                 if (!ent)
                         break;
 
@@ -1050,7 +1052,7 @@ nfs3_prep_fsstat3args (fsstat3args *args, struct nfs3_fh *fh)
 
 void
 nfs3_fill_fsstat3res (fsstat3res *res, nfsstat3 stat, struct statvfs *fsbuf,
-                      struct iatt *postbuf, uint16_t xlid)
+                      struct iatt *postbuf, uint64_t deviceid)
 {
         post_op_attr    poa;
         fsstat3resok    resok;
@@ -1060,7 +1062,7 @@ nfs3_fill_fsstat3res (fsstat3res *res, nfsstat3 stat, struct statvfs *fsbuf,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (postbuf, xlid);
+        nfs3_map_deviceid_to_statdev (postbuf, deviceid);
         poa = nfs3_stat_to_post_op_attr (postbuf);
         resok.tbytes = (size3)(fsbuf->f_frsize * fsbuf->f_blocks);
         resok.fbytes = (size3)(fsbuf->f_bsize * fsbuf->f_bfree);
@@ -1209,7 +1211,7 @@ nfs3_stat_to_wcc_data (struct iatt *pre, struct iatt *post)
 void
 nfs3_fill_create3res (create3res *res, nfsstat3 stat, struct nfs3_fh *newfh,
                       struct iatt *newbuf, struct iatt *preparent,
-                      struct iatt *postparent)
+                      struct iatt *postparent, uint64_t deviceid)
 {
         post_op_attr    poa = {0, };
         wcc_data        dirwcc = {{0}, };
@@ -1220,14 +1222,12 @@ nfs3_fill_create3res (create3res *res, nfsstat3 stat, struct nfs3_fh *newfh,
                 return;
 
         nfs3_fill_post_op_fh3 (newfh, &res->create3res_u.resok.obj);
-        nfs3_map_xlid_to_statdev (newbuf, newfh->xlatorid);
+        nfs3_map_deviceid_to_statdev (newbuf, deviceid);
         poa = nfs3_stat_to_post_op_attr (newbuf);
         res->create3res_u.resok.obj_attributes = poa;
-        if (preparent) {
-                nfs3_map_xlid_to_statdev (preparent, newfh->xlatorid);
-                nfs3_map_xlid_to_statdev (postparent, newfh->xlatorid);
-                dirwcc = nfs3_stat_to_wcc_data (preparent, postparent);
-        }
+        nfs3_map_deviceid_to_statdev (preparent, deviceid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
+        dirwcc = nfs3_stat_to_wcc_data (preparent, postparent);
 
         res->create3res_u.resok.dir_wcc = dirwcc;
 }
@@ -1251,7 +1251,7 @@ nfs3_prep_setattr3args (setattr3args *args, struct nfs3_fh *fh)
 
 void
 nfs3_fill_setattr3res (setattr3res *res, nfsstat3 stat, struct iatt *preop,
-                       struct iatt *postop, uint16_t xlid)
+                       struct iatt *postop, uint64_t deviceid)
 {
         wcc_data        wcc;
         memset (res, 0, sizeof (*res));
@@ -1259,8 +1259,8 @@ nfs3_fill_setattr3res (setattr3res *res, nfsstat3 stat, struct iatt *preop,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (preop, xlid);
-        nfs3_map_xlid_to_statdev (postop, xlid);
+        nfs3_map_deviceid_to_statdev (preop, deviceid);
+        nfs3_map_deviceid_to_statdev (postop, deviceid);
         wcc = nfs3_stat_to_wcc_data (preop, postop);
         res->setattr3res_u.resok.obj_wcc = wcc;
 }
@@ -1279,7 +1279,7 @@ nfs3_prep_mkdir3args (mkdir3args *args, struct nfs3_fh *dirfh, char *name)
 void
 nfs3_fill_mkdir3res (mkdir3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                      struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent)
+                     struct iatt *postparent, uint64_t deviceid)
 {
         wcc_data        dirwcc;
         post_op_attr    poa;
@@ -1290,10 +1290,10 @@ nfs3_fill_mkdir3res (mkdir3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                 return;
 
         nfs3_fill_post_op_fh3 (fh, &res->mkdir3res_u.resok.obj);
-        nfs3_map_xlid_to_statdev (buf, fh->xlatorid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         poa = nfs3_stat_to_post_op_attr (buf);
-        nfs3_map_xlid_to_statdev (preparent, fh->xlatorid);
-        nfs3_map_xlid_to_statdev (postparent, fh->xlatorid);
+        nfs3_map_deviceid_to_statdev (preparent, deviceid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
         dirwcc = nfs3_stat_to_wcc_data (preparent, postparent);
         res->mkdir3res_u.resok.obj_attributes = poa;
         res->mkdir3res_u.resok.dir_wcc = dirwcc;
@@ -1315,7 +1315,7 @@ nfs3_prep_symlink3args (symlink3args *args, struct nfs3_fh *dirfh, char *name,
 void
 nfs3_fill_symlink3res (symlink3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                        struct iatt *buf, struct iatt *preparent,
-                       struct iatt *postparent)
+                       struct iatt *postparent, uint64_t deviceid)
 {
         wcc_data        dirwcc;
         post_op_attr    poa;
@@ -1326,10 +1326,10 @@ nfs3_fill_symlink3res (symlink3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                 return;
 
         nfs3_fill_post_op_fh3 (fh, &res->symlink3res_u.resok.obj);
-        nfs3_map_xlid_to_statdev (buf, fh->xlatorid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         poa = nfs3_stat_to_post_op_attr (buf);
-        nfs3_map_xlid_to_statdev (postparent, fh->xlatorid);
-        nfs3_map_xlid_to_statdev (preparent, fh->xlatorid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
+        nfs3_map_deviceid_to_statdev (preparent, deviceid);
         dirwcc = nfs3_stat_to_wcc_data (preparent, postparent);
         res->symlink3res_u.resok.obj_attributes = poa;
         res->symlink3res_u.resok.dir_wcc = dirwcc;
@@ -1348,7 +1348,7 @@ nfs3_prep_readlink3args (readlink3args *args, struct nfs3_fh *fh)
 
 void
 nfs3_fill_readlink3res (readlink3res *res, nfsstat3 stat, char *path,
-                        struct iatt *buf, uint16_t xlid)
+                        struct iatt *buf, uint64_t deviceid)
 {
         post_op_attr    poa;
 
@@ -1358,7 +1358,7 @@ nfs3_fill_readlink3res (readlink3res *res, nfsstat3 stat, char *path,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (buf, xlid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         poa = nfs3_stat_to_post_op_attr (buf);
         res->readlink3res_u.resok.data = (void *)path;
         res->readlink3res_u.resok.symlink_attributes = poa;
@@ -1377,7 +1377,7 @@ nfs3_prep_mknod3args (mknod3args *args, struct nfs3_fh *fh, char *name)
 void
 nfs3_fill_mknod3res (mknod3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                      struct iatt *buf, struct iatt *preparent,
-                     struct iatt *postparent)
+                     struct iatt *postparent, uint64_t deviceid)
 {
         post_op_attr    poa;
         wcc_data        wccdir;
@@ -1388,10 +1388,10 @@ nfs3_fill_mknod3res (mknod3res *res, nfsstat3 stat, struct nfs3_fh *fh,
                 return;
 
         nfs3_fill_post_op_fh3 (fh, &res->mknod3res_u.resok.obj);
-        nfs3_map_xlid_to_statdev (buf, fh->xlatorid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         poa = nfs3_stat_to_post_op_attr (buf);
-        nfs3_map_xlid_to_statdev (preparent, fh->xlatorid);
-        nfs3_map_xlid_to_statdev (postparent, fh->xlatorid);
+        nfs3_map_deviceid_to_statdev (preparent, deviceid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
         wccdir = nfs3_stat_to_wcc_data (preparent, postparent);
         res->mknod3res_u.resok.obj_attributes = poa;
         res->mknod3res_u.resok.dir_wcc = wccdir;
@@ -1401,7 +1401,7 @@ nfs3_fill_mknod3res (mknod3res *res, nfsstat3 stat, struct nfs3_fh *fh,
 
 void
 nfs3_fill_remove3res (remove3res *res, nfsstat3 stat, struct iatt *preparent,
-                      struct iatt *postparent, uint16_t xlid)
+                      struct iatt *postparent, uint64_t deviceid)
 {
         wcc_data        dirwcc;
 
@@ -1410,8 +1410,8 @@ nfs3_fill_remove3res (remove3res *res, nfsstat3 stat, struct iatt *preparent,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (preparent, xlid);
-        nfs3_map_xlid_to_statdev (postparent, xlid);
+        nfs3_map_deviceid_to_statdev (preparent, deviceid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
         dirwcc = nfs3_stat_to_wcc_data (preparent, postparent);
         res->remove3res_u.resok.dir_wcc = dirwcc;
 }
@@ -1437,7 +1437,7 @@ nfs3_prep_rmdir3args (rmdir3args *args, struct nfs3_fh *fh, char *name)
 
 void
 nfs3_fill_rmdir3res (rmdir3res *res, nfsstat3 stat, struct iatt *preparent,
-                     struct iatt *postparent, uint16_t xlid)
+                     struct iatt *postparent, uint64_t deviceid)
 {
         wcc_data        dirwcc;
         memset (res, 0, sizeof (*res));
@@ -1446,8 +1446,8 @@ nfs3_fill_rmdir3res (rmdir3res *res, nfsstat3 stat, struct iatt *preparent,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (postparent, xlid);
-        nfs3_map_xlid_to_statdev (preparent, xlid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
+        nfs3_map_deviceid_to_statdev (preparent, deviceid);
         dirwcc = nfs3_stat_to_wcc_data (preparent, postparent);
         res->rmdir3res_u.resok.dir_wcc = dirwcc;
 }
@@ -1467,7 +1467,7 @@ nfs3_prep_link3args (link3args *args, struct nfs3_fh *target,
 void
 nfs3_fill_link3res (link3res *res, nfsstat3 stat, struct iatt *buf,
                     struct iatt *preparent, struct iatt *postparent,
-                    uint16_t xlid)
+                    uint64_t deviceid)
 {
         post_op_attr    poa;
         wcc_data        dirwcc;
@@ -1477,9 +1477,9 @@ nfs3_fill_link3res (link3res *res, nfsstat3 stat, struct iatt *buf,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (preparent, xlid);
-        nfs3_map_xlid_to_statdev (postparent, xlid);
-        nfs3_map_xlid_to_statdev (buf, xlid);
+        nfs3_map_deviceid_to_statdev (preparent, deviceid);
+        nfs3_map_deviceid_to_statdev (postparent, deviceid);
+        nfs3_map_deviceid_to_statdev (buf,deviceid);
         poa = nfs3_stat_to_post_op_attr (buf);
         dirwcc = nfs3_stat_to_wcc_data (preparent, postparent);
         res->link3res_u.resok.file_attributes = poa;
@@ -1506,7 +1506,7 @@ void
 nfs3_fill_rename3res (rename3res *res, nfsstat3 stat, struct iatt *buf,
                       struct iatt *preoldparent, struct iatt *postoldparent,
                       struct iatt *prenewparent, struct iatt *postnewparent,
-                      uint16_t xlid)
+                      uint64_t deviceid)
 
 {
         wcc_data        dirwcc;
@@ -1516,11 +1516,11 @@ nfs3_fill_rename3res (rename3res *res, nfsstat3 stat, struct iatt *buf,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (preoldparent, xlid);
-        nfs3_map_xlid_to_statdev (postoldparent, xlid);
-        nfs3_map_xlid_to_statdev (prenewparent, xlid);
-        nfs3_map_xlid_to_statdev (postnewparent, xlid);
-        nfs3_map_xlid_to_statdev (buf, xlid);
+        nfs3_map_deviceid_to_statdev (preoldparent, deviceid);
+        nfs3_map_deviceid_to_statdev (postoldparent, deviceid);
+        nfs3_map_deviceid_to_statdev (prenewparent, deviceid);
+        nfs3_map_deviceid_to_statdev (postnewparent, deviceid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         dirwcc = nfs3_stat_to_wcc_data (preoldparent, postoldparent);
         res->rename3res_u.resok.fromdir_wcc = dirwcc;
         dirwcc = nfs3_stat_to_wcc_data (prenewparent, postnewparent);
@@ -1539,7 +1539,7 @@ nfs3_prep_write3args (write3args *args, struct nfs3_fh *fh)
 void
 nfs3_fill_write3res (write3res *res, nfsstat3 stat, count3 count,
                      stable_how stable, uint64_t wverf, struct iatt *prestat,
-                     struct iatt *poststat, uint16_t xlid)
+                     struct iatt *poststat, uint64_t deviceid)
 {
         write3resok     resok;
         memset (res, 0, sizeof (*res));
@@ -1547,8 +1547,8 @@ nfs3_fill_write3res (write3res *res, nfsstat3 stat, count3 count,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (prestat, xlid);
-        nfs3_map_xlid_to_statdev (poststat, xlid);
+        nfs3_map_deviceid_to_statdev (prestat, deviceid);
+        nfs3_map_deviceid_to_statdev (poststat, deviceid);
         resok.file_wcc = nfs3_stat_to_wcc_data (prestat, poststat);
         resok.count = count;
         resok.committed = stable;
@@ -1568,15 +1568,16 @@ nfs3_prep_commit3args (commit3args *args, struct nfs3_fh *fh)
 
 void
 nfs3_fill_commit3res (commit3res *res, nfsstat3 stat, uint64_t wverf,
-                      struct iatt *prestat, struct iatt *poststat,uint16_t xlid)
+                      struct iatt *prestat, struct iatt *poststat,
+                      uint64_t deviceid)
 {
         memset (res, 0, sizeof (*res));
         res->status = stat;
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (poststat, xlid);
-        nfs3_map_xlid_to_statdev (prestat, xlid);
+        nfs3_map_deviceid_to_statdev (poststat, deviceid);
+        nfs3_map_deviceid_to_statdev (prestat, deviceid);
         res->commit3res_u.resok.file_wcc = nfs3_stat_to_wcc_data (prestat,
                                                                   poststat);
         memcpy (res->commit3res_u.resok.verf, &wverf, sizeof (wverf));
@@ -1584,7 +1585,7 @@ nfs3_fill_commit3res (commit3res *res, nfsstat3 stat, uint64_t wverf,
 
 void
 nfs3_fill_read3res (read3res *res, nfsstat3 stat, count3 count,
-                    struct iatt *poststat, int is_eof, uint16_t xlid)
+                    struct iatt *poststat, int is_eof, uint64_t deviceid)
 {
         post_op_attr    poa;
 
@@ -1593,7 +1594,7 @@ nfs3_fill_read3res (read3res *res, nfsstat3 stat, count3 count,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (poststat, xlid);
+        nfs3_map_deviceid_to_statdev (poststat, deviceid);
         poa = nfs3_stat_to_post_op_attr (poststat);
         res->read3res_u.resok.file_attributes = poa;
         res->read3res_u.resok.count = count;
@@ -1612,7 +1613,7 @@ nfs3_prep_read3args (read3args *args, struct nfs3_fh *fh)
 
 void
 nfs3_fill_pathconf3res (pathconf3res *res, nfsstat3 stat, struct iatt *buf,
-                        uint16_t xlid)
+                        uint64_t deviceid)
 {
         pathconf3resok  resok;
 
@@ -1621,7 +1622,7 @@ nfs3_fill_pathconf3res (pathconf3res *res, nfsstat3 stat, struct iatt *buf,
         if (stat != NFS3_OK)
                 return;
 
-        nfs3_map_xlid_to_statdev (buf, xlid);
+        nfs3_map_deviceid_to_statdev (buf, deviceid);
         resok.obj_attributes = nfs3_stat_to_post_op_attr (buf);
         resok.linkmax = 256;
         resok.name_max = NFS_NAME_MAX;
@@ -2496,6 +2497,7 @@ nfs3_fh_resolve_check_entry (struct nfs3_fh *fh, gf_dirent_t *candidate,
         struct iatt             *ia = NULL;
         int                     ret = GF_NFS3_FHRESOLVE_NOTFOUND;
         nfs3_hash_entry_t       entryhash = 0;
+        char                    gfidstr[512];
 
         if ((!fh) || (!candidate))
                 return ret;
@@ -2505,10 +2507,11 @@ nfs3_fh_resolve_check_entry (struct nfs3_fh *fh, gf_dirent_t *candidate,
                 goto found_entry;
 
         ia = &candidate->d_stat;
-        if ((ia->ia_gen == fh->gen) && (ia->ia_ino == fh->ino)) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Found entry: gen: %"PRId64
-                        " ino: %"PRId64", name: %s, hashcount %d", ia->ia_gen,
-                        ia->ia_ino, candidate->d_name, hashidx);
+        if ((uuid_compare (candidate->d_stat.ia_gfid, fh->gfid)) == 0) {
+                uuid_unparse (candidate->d_stat.ia_gfid, gfidstr);
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Found entry: gfid: %s, "
+                        "name: %s, hashcount %d", gfidstr, candidate->d_name,
+                        hashidx);
                 ret = GF_NFS3_FHRESOLVE_FOUND;
                 goto found_entry;
         }
@@ -2521,7 +2524,7 @@ nfs3_fh_resolve_check_entry (struct nfs3_fh *fh, gf_dirent_t *candidate,
         if (!IA_ISDIR (candidate->d_stat.ia_type))
                 goto found_entry;
         entryhash = fh->entryhash[hashidx];
-        if (entryhash == nfs3_fh_hash_entry (ia->ia_ino, ia->ia_gen)) {
+        if (entryhash == nfs3_fh_hash_entry (ia->ia_gfid)) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Found hash match: %s: %d, "
                         "hashidx: %d", candidate->d_name, entryhash, hashidx);
                 ret = GF_NFS3_FHRESOLVE_DIRFOUND;
@@ -2571,20 +2574,17 @@ nfs3_fh_resolve_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 nfs3_fh_resolve_found_entry (nfs3_call_state_t *cs, gf_dirent_t *candidate)
 {
-        uint64_t        dirino = 0;
-        uint64_t        dirgen = 0;
         int             ret = 0;
         nfs_user_t      nfu = {0, };
+        uuid_t          gfid = {0, };
 
         if ((!cs) || (!candidate))
                 return -EFAULT;
 
-        dirino = cs->resolvedloc.inode->ino;
-
+        uuid_copy (gfid, cs->resolvedloc.inode->gfid);
         nfs_loc_wipe (&cs->resolvedloc);
-        ret = nfs_entry_loc_fill (cs->vol->itable, dirino, dirgen,
-                                  candidate->d_name, &cs->resolvedloc,
-                                  NFS_RESOLVE_CREATE);
+        ret = nfs_entry_loc_fill (cs->vol->itable, gfid, candidate->d_name,
+                                  &cs->resolvedloc, NFS_RESOLVE_CREATE);
         if (ret == -ENOENT) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry not in itable, needs"
                         " lookup");
@@ -2634,20 +2634,17 @@ err:
 int
 nfs3_fh_resolve_found_parent (nfs3_call_state_t *cs, gf_dirent_t *candidate)
 {
-        uint64_t        dirino = 0;
-        uint64_t        dirgen = 0;
         int             ret = 0;
         nfs_user_t      nfu = {0, };
+        uuid_t          gfid = {0, };
 
         if ((!cs) || (!candidate))
                 return -EFAULT;
 
-        dirino = cs->resolvedloc.inode->ino;
-
+        uuid_copy (gfid, cs->resolvedloc.inode->gfid);
         nfs_loc_wipe (&cs->resolvedloc);
-        ret = nfs_entry_loc_fill (cs->vol->itable, dirino, dirgen,
-                                  candidate->d_name, &cs->resolvedloc,
-                                  NFS_RESOLVE_CREATE);
+        ret = nfs_entry_loc_fill (cs->vol->itable, gfid, candidate->d_name,
+                                  &cs->resolvedloc, NFS_RESOLVE_CREATE);
         if (ret == -ENOENT) {
                 nfs_user_root_create (&nfu);
                 ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
@@ -2789,11 +2786,11 @@ out:
 
 
 int
-nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uint64_t ino, uint64_t gen,
-                          char *entry)
+nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uuid_t dirgfid, char *entry)
 {
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
+        char            gfidstr[512];
 
         if (!cs)
                 return ret;
@@ -2808,10 +2805,10 @@ nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uint64_t ino, uint64_t gen,
         }
 
         nfs_user_root_create (&nfu);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard dir resolution: ino:"
-                " %"PRIu64", gen: %"PRIu64", entry: %s, next hashcount: %d",
-                ino, gen, entry, cs->hashidx);
-        ret = nfs_entry_loc_fill (cs->vol->itable, ino, gen, entry,
+        uuid_unparse (dirgfid, gfidstr);
+        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard dir resolution: gfid: %s, "
+                "entry: %s, next hashcount: %d", gfidstr, entry, cs->hashidx);
+        ret = nfs_entry_loc_fill (cs->vol->itable, dirgfid, entry,
                                   &cs->resolvedloc, NFS_RESOLVE_CREATE);
 
         if (ret == 0) {
@@ -2851,21 +2848,17 @@ int
 nfs3_fh_resolve_check_response (nfs3_call_state_t *cs, gf_dirent_t *candidate,
                                 int response, off_t last_offt)
 {
-        uint64_t        dirino = 0;
-        uint64_t        dirgen = 0;
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
 
         if (!cs)
                 return ret;
 
-        dirino = cs->resolvedloc.inode->ino;
-
         switch (response) {
 
         case GF_NFS3_FHRESOLVE_DIRFOUND:
                 nfs3_fh_resolve_close_cwd (cs);
-                nfs3_fh_resolve_dir_hard (cs, dirino, dirgen,
+                nfs3_fh_resolve_dir_hard (cs, cs->resolvedloc.inode->gfid,
                                           candidate->d_name);
                 break;
 
@@ -2891,6 +2884,7 @@ nfs3_fh_resolve_search_dir (nfs3_call_state_t *cs, gf_dirent_t *entries)
         gf_dirent_t     *candidate = NULL;
         int             ret = GF_NFS3_FHRESOLVE_NOTFOUND;
         off_t           lastoff = 0;
+        char            gfidstr[512];
 
         if ((!cs) || (!entries))
                 return -EFAULT;
@@ -2900,9 +2894,9 @@ nfs3_fh_resolve_search_dir (nfs3_call_state_t *cs, gf_dirent_t *entries)
 
         list_for_each_entry (candidate, &entries->list, list) {
                 lastoff = candidate->d_off;
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Candidate: %s, ino: %"PRIu64
-                        ", gen: %"PRIu64, candidate->d_name, candidate->d_ino,
-                        candidate->d_stat.ia_gen);
+                uuid_unparse (candidate->d_stat.ia_gfid, gfidstr);
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Candidate: %s, gfid: %s",
+                        PRIu64, candidate->d_name, gfidstr);
                 ret = nfs3_fh_resolve_check_entry (&cs->resolvefh, candidate,
                                                    cs->hashidx);
                 if (ret != GF_NFS3_FHRESOLVE_NOTFOUND)
@@ -2946,6 +2940,7 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
 {
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
+        char            gfidstr[512];
 
         if (!cs)
                 return ret;
@@ -2960,11 +2955,11 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
         }
 
         nfs_user_root_create (&nfu);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution for: ino:"
-                " %"PRIu64", gen: %"PRIu64", hashcount: %d, current hashidx "
-                "%d", cs->resolvefh.ino, cs->resolvefh.gen,
+        uuid_unparse (cs->resolvefh.gfid, gfidstr);
+        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution for: gfid 0x%s",
+                ", hashcount: %d, current hashidx %d", gfidstr,
                 cs->resolvefh.hashcount, cs->hashidx);
-        ret = nfs_ino_loc_fill (cs->vol->itable, 1, 0, &cs->resolvedloc);
+        ret = nfs_root_loc_fill (cs->vol->itable, &cs->resolvedloc);
 
         if (ret == 0) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Dir will be opened: %s",
@@ -2988,20 +2983,21 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 {
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
+        char            gfidstr[512];
 
         if (!cs)
                 return ret;
 
         nfs_loc_wipe (&cs->resolvedloc);
         nfs_user_root_create (&nfu);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution: ino:"
-                " %"PRIu64", gen: %"PRIu64", entry: %s, hashidx: %d",
-                cs->resolvefh.ino, cs->resolvefh.gen, cs->resolventry,
+        uuid_unparse (cs->resolvefh.gfid, gfidstr);
+        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution: gfid: %s "
+                ", entry: %s, hashidx: %d", gfidstr, cs->resolventry,
                 cs->hashidx);
 
-        ret = nfs_entry_loc_fill (cs->vol->itable, cs->resolvefh.ino,
-                                  cs->resolvefh.gen, cs->resolventry,
-                                  &cs->resolvedloc, NFS_RESOLVE_CREATE);
+        ret = nfs_entry_loc_fill (cs->vol->itable, cs->resolvefh.gfid,
+                                  cs->resolventry, &cs->resolvedloc,
+                                  NFS_RESOLVE_CREATE);
 
         if (ret == -2) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs lookup: %s",
@@ -3031,8 +3027,7 @@ nfs3_fh_resolve_inode (nfs3_call_state_t *cs)
                 return ret;
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "FH needs inode resolution");
-        inode = inode_get (cs->vol->itable, cs->resolvefh.ino,
-                           cs->resolvefh.gen);
+        inode = inode_find (cs->vol->itable, cs->resolvefh.gfid);
         if (!inode)
                 ret = nfs3_fh_resolve_inode_hard (cs);
         else

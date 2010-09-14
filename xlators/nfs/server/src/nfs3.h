@@ -82,7 +82,9 @@ struct nfs3_fd_entry {
 
 /* Per subvolume nfs3 specific state */
 struct nfs3_export {
+        struct list_head        explist;
         xlator_t                *subvol;
+        uuid_t                  volumeid;
         int                     access;
         int                     trusted_sync;
         int                     trusted_write;
@@ -108,7 +110,7 @@ struct nfs3_state {
          */
         xlator_list_t           *exportslist;
 
-        struct nfs3_export      *exports;
+        struct list_head        exports;
         /* Mempool for allocations of struct nfs3_local */
         struct mem_pool         *localpool;
 

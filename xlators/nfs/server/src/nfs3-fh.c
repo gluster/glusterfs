@@ -49,15 +49,6 @@ nfs3_fh_validate (struct nfs3_fh *fh)
 }
 
 
-xlator_t *
-nfs3_fh_to_xlator (xlator_list_t *cl, struct nfs3_fh *fh)
-{
-	if ((!cl) || (!fh))
-		return NULL;
-
-	return nfs_xlid_to_xlator (cl, fh->xlatorid);
-}
-
 void
 nfs3_fh_init (struct nfs3_fh *fh, struct iatt *buf)
 {
@@ -68,24 +59,35 @@ nfs3_fh_init (struct nfs3_fh *fh, struct iatt *buf)
         fh->ident[1] = GF_NFSFH_IDENT1;
 
         fh->hashcount = 0;
-        fh->gen = buf->ia_gen;
-        fh->ino = buf->ia_ino;
-
+        uuid_copy (fh->gfid, buf->ia_gfid);
 }
 
 
 struct nfs3_fh
-nfs3_fh_build_root_fh (xlator_list_t *cl, xlator_t *xl)
+nfs3_fh_build_indexed_root_fh (xlator_list_t *cl, xlator_t *xl)
 {
         struct nfs3_fh  fh = {{0}, };
         struct iatt     buf = {0, };
         if ((!cl) || (!xl))
                 return fh;
 
+        buf.ia_gfid[15] = 1;
         nfs3_fh_init (&fh, &buf);
-        fh.xlatorid = nfs_xlator_to_xlid (cl, xl);
-        fh.ino = 1;
-        fh.gen = 0;
+        fh.exportid [15] = nfs_xlator_to_xlid (cl, xl);
+
+        return fh;
+}
+
+
+struct nfs3_fh
+nfs3_fh_build_uuid_root_fh (uuid_t volumeid)
+{
+        struct nfs3_fh  fh = {{0}, };
+        struct iatt     buf = {0, };
+
+        nfs3_fh_init (&fh, &buf);
+        uuid_copy (fh.exportid, volumeid);
+
         return fh;
 }
 
@@ -93,10 +95,13 @@ nfs3_fh_build_root_fh (xlator_list_t *cl, xlator_t *xl)
 int
 nfs3_fh_is_root_fh (struct nfs3_fh *fh)
 {
+        uuid_t  rootgfid = {0, 1};
+
         if (!fh)
                 return 0;
 
-        if (fh->hashcount == 0)
+        rootgfid[15] = 1;
+        if (uuid_compare (fh->gfid, rootgfid) == 0)
                 return 1;
 
         return 0;
@@ -104,10 +109,12 @@ nfs3_fh_is_root_fh (struct nfs3_fh *fh)
 
 
 nfs3_hash_entry_t
-nfs3_fh_hash_entry (ino_t ino, uint64_t gen)
+nfs3_fh_hash_entry (uuid_t gfid)
 {
         nfs3_hash_entry_t       hash = 0;
         int                     shiftsize = 48;
+        uint64_t                ino = 0;
+        uint64_t                gen = 0;
         nfs3_hash_entry_t       inomsb = 0;
         nfs3_hash_entry_t       inolsb = 0;
         nfs3_hash_entry_t       inols23b = 0;
@@ -116,6 +123,7 @@ nfs3_fh_hash_entry (ino_t ino, uint64_t gen)
         nfs3_hash_entry_t       genlsb = 0;
         nfs3_hash_entry_t       genls23b = 0;
 
+        memcpy (&ino, &gfid[8], 8);
         hash = ino;
         while (shiftsize != 0) {
                 hash ^= (ino >> shiftsize);
@@ -139,6 +147,7 @@ nfs3_fh_hash_entry (ino_t ino, uint64_t gen)
         inols23b = (inols23b << 8);
 //        gf_log ("FILEHDNALE", GF_LOG_TRACE, "inols23b  %d", inols23b);
 
+        memcpy (&gen, &gfid[0], 8);
         genmsb = (gen >> 56);
 //        gf_log ("FILEHANDLE", GF_LOG_TRACE, "inomsb %d", inomsb);
 
@@ -163,11 +172,16 @@ nfs3_fh_hash_entry (ino_t ino, uint64_t gen)
 void
 nfs3_fh_to_str (struct nfs3_fh *fh, char *str)
 {
+        char            gfid[512];
+        char            exportid[512];
+
         if ((!fh) || (!str))
                 return;
 
-        sprintf (str, "FH: hashcount %d, xlid %d, gen %"PRIu64", ino %"PRIu64,
-                 fh->hashcount, fh->xlatorid, fh->gen, fh->ino);
+        uuid_unparse (fh->gfid, gfid);
+        uuid_unparse (fh->exportid, exportid);
+        sprintf (str, "FH: hashcount %d, exportid %s, gfid %s",
+                 fh->hashcount, exportid, gfid);
 }
 
 
@@ -175,12 +189,16 @@ void
 nfs3_log_fh (struct nfs3_fh *fh)
 {
 //        int     x = 0;
+        char    gfidstr[512];
+        char    exportidstr[512];
+
         if (!fh)
                 return;
 
-        gf_log ("nfs3-fh", GF_LOG_TRACE, "filehandle: hashcount %d, xlid %d, "
-                "gen %"PRIu64", ino %"PRIu64, fh->hashcount, fh->xlatorid,
-                fh->gen, fh->ino);
+        uuid_unparse (fh->gfid, gfidstr);
+        uuid_unparse (fh->exportid, exportidstr);
+        gf_log ("nfs3-fh", GF_LOG_TRACE, "filehandle: hashcount %d, exportid %d"
+                ", gfid 0x%s", fh->hashcount, exportidstr, gfidstr);
 /*
         for (; x < fh->hashcount; ++x)
                 gf_log ("FILEHANDLE", GF_LOG_TRACE, "Hash %d: %d", x,
@@ -197,12 +215,9 @@ nfs3_fh_build_parent_fh (struct nfs3_fh *child, struct iatt *newstat,
                 return -1;
 
         nfs3_fh_init (newfh, newstat);
-        newfh->xlatorid = child->xlatorid;
-        if ((newstat->ia_ino == 1) && (newstat->ia_gen == 0)) {
-                newfh->ino = 1;
-                newfh->gen = 0;
+        uuid_copy (newfh->exportid, child->exportid);
+        if (newstat->ia_ino == 1)
                 goto done;
-        }
 
         newfh->hashcount = child->hashcount - 1;
         memcpy (newfh->entryhash, child->entryhash,
@@ -213,7 +228,6 @@ done:
 
         return 0;
 }
-
 
 
 int
@@ -227,12 +241,7 @@ nfs3_fh_build_child_fh (struct nfs3_fh *parent, struct iatt *newstat,
                 return -1;
 
         nfs3_fh_init (newfh, newstat);
-        newfh->xlatorid = parent->xlatorid;
-        if ((newstat->ia_ino == 1) && (newstat->ia_gen == 0)) {
-                newfh->ino = 1;
-                newfh->gen = 0;
-                goto done;
-        }
+        uuid_copy (newfh->exportid, parent->exportid);
 
         newfh->hashcount = parent->hashcount + 1;
         /* Only copy the hashes that are available in the parent file
@@ -249,11 +258,9 @@ nfs3_fh_build_child_fh (struct nfs3_fh *parent, struct iatt *newstat,
          * array of the child entry. */
         if (newfh->hashcount <= GF_NFSFH_MAXHASHES) {
                 entry = newfh->hashcount - 1;
-                newfh->entryhash[entry] = nfs3_fh_hash_entry (parent->ino,
-                                                              parent->gen);
+                newfh->entryhash[entry] = nfs3_fh_hash_entry (parent->gfid);
         }
 
-done:
 //        nfs3_log_fh (newfh);
 
         return 0;

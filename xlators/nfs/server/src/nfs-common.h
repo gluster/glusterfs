@@ -30,6 +30,7 @@
 #include "xlator.h"
 #include "rpcsvc.h"
 #include "iatt.h"
+#include "uuid.h"
 
 #define NFS_PATH_MAX    PATH_MAX
 #define NFS_NAME_MAX    NAME_MAX
@@ -67,10 +68,12 @@ extern int
 nfs_inode_loc_fill (inode_t *inode, loc_t *loc);
 
 extern int
-nfs_ino_loc_fill (inode_table_t *itable, uint64_t ino, uint64_t gen, loc_t *l);
+nfs_ino_loc_fill (inode_table_t *itable, uuid_t gfid, loc_t *l);
 
 extern int
-nfs_entry_loc_fill (inode_table_t *itable, ino_t ino, uint64_t gen, char *entry,
+nfs_entry_loc_fill (inode_table_t *itable, uuid_t pargfid, char *entry,
                     loc_t *loc, int how);
 
+extern int
+nfs_root_loc_fill (inode_table_t *itable, loc_t *loc);
 #endif

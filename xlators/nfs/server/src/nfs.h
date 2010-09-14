@@ -42,6 +42,9 @@
 #define GF_NFS_MIN_MEMFACTOR            1
 #define GF_NFS_MAX_MEMFACTOR            30
 
+#define GF_NFS_DVM_ON                   1
+#define GF_NFS_DVM_OFF                  2
+
 /* Callback into a version-specific NFS protocol.
  * The return type is used by the nfs.c code to register the protocol.
  * with the RPC service.
@@ -68,8 +71,11 @@ struct nfs_state {
         int                     upsubvols;
         xlator_t                **initedxl;
         int                     subvols_started;
+        int                     dynamicvolumes;
 };
 
+#define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)
+#define gf_nfs_dvm_off(nfsstt)  (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_OFF)
 
 /* We have one gid more than the glusterfs maximum since we pass the primary
  * gid as the first element of the array.
