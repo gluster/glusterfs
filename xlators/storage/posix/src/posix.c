@@ -258,7 +258,7 @@ posix_lstat_with_gfid (xlator_t *this, const char *path, struct iatt *stbuf_p)
 
         ret = posix_fill_gfid_path (this, path, &stbuf);
         if (ret)
-                gf_log (this->name, GF_LOG_DEBUG, "failed to set gfid");
+                gf_log (this->name, GF_LOG_DEBUG, "failed to get gfid");
 
         if (stbuf_p)
                 *stbuf_p = stbuf;
@@ -3968,9 +3968,12 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                  */
                 if ((whichop == GF_FOP_READDIRP) || (priv->span_devices)) {
                         strcpy (entry_path + real_path_len + 1, entry->d_name);
-                        op_ret = posix_lstat_with_gfid (this, entry_path, &stbuf);
-                        if (-1 == op_ret)
-                                continue;
+                        /* Don't check for return value of below function.
+                         * because, if there is some data already existing,
+                         * (before gfid changes), this function fails to fill
+                         * gfid info (but gets the 'struct iatt' properly).
+                         */
+                        posix_lstat_with_gfid (this, entry_path, &stbuf);
                 } else
                         stbuf.ia_ino = entry->d_ino;
 
