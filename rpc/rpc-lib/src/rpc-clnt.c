@@ -186,13 +186,13 @@ call_bail (void *data)
                 strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
 
 		gf_log (conn->trans->name, GF_LOG_ERROR,
-			"bailing out frame type(%s) op(%s(%d)) sent = %s. "
-                        "timeout = %d",
+			"bailing out frame type(%s) op(%s(%d)) xid = %u "
+                        "sent = %s. timeout = %d",
 			trav->rpcreq->prog->progname,
                         (trav->rpcreq->prog->procnames) ?
                         trav->rpcreq->prog->procnames[trav->rpcreq->procnum] :
                         "--",
-                        trav->rpcreq->procnum, frame_sent,
+                        trav->rpcreq->procnum, trav->rpcreq->xid, frame_sent,
                         conn->frame_timeout);
 
                 trav->rpcreq->rpc_status = -1;
