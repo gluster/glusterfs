@@ -211,8 +211,9 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
 
         GF_ASSERT (ctx);
 
-        ret = glusterd_xfer_cli_probe_resp (ctx->req, op_ret, op_errno,
-                                            ctx->hostname, ctx->port);
+        if (ctx->req)//reverse probe doesnt have req
+                ret = glusterd_xfer_cli_probe_resp (ctx->req, op_ret, op_errno,
+                                                    ctx->hostname, ctx->port);
         if (!ret) {
                 glusterd_friend_sm ();
                 glusterd_op_sm ();

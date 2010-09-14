@@ -121,6 +121,7 @@ typedef struct glusterd_sm_ {
 typedef struct glusterd_friend_req_ctx_ {
         uuid_t                  uuid;
         char                    *hostname;
+        char                    *remote_hostname;
         rpcsvc_request_t        *req;
         int                      port;
         dict_t                  *vols;
