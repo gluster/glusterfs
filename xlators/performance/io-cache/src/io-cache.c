@@ -690,6 +690,8 @@ ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
   
 	frame->local = NULL;
+
+        loc_wipe (&local->file_loc);
 	GF_FREE (local);
 
 	STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
@@ -729,6 +731,11 @@ ioc_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         return 0;
 
 unwind:
+        if (local != NULL) {
+                loc_wipe (&local->file_loc);
+                GF_FREE (local);
+        }
+
 	STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL,
                              NULL, NULL);
 
