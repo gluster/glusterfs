@@ -1868,6 +1868,14 @@ client_priv_dump (xlator_t *this)
         gf_proc_dump_build_key(key, key_prefix, "last_received");
         gf_proc_dump_write(key, "%s", ctime(&conf->last_received.tv_sec));
 
+        gf_proc_dump_build_key(key, key_prefix, "total_bytes_read");
+        gf_proc_dump_write(key, "%"PRIu64,
+                           conf->rpc->conn.trans->total_bytes_read);
+
+        gf_proc_dump_build_key(key, key_prefix, "total_bytes_written");
+        gf_proc_dump_write(key, "%"PRIu64,
+                           conf->rpc->conn.trans->total_bytes_write);
+
         pthread_mutex_unlock(&conf->lock);
 
         return 0;
