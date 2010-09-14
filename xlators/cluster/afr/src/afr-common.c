@@ -641,7 +641,6 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
 
         if (local->cont.lookup.ino) {
                 local->cont.lookup.buf.ia_ino = local->cont.lookup.ino;
-                local->cont.lookup.buf.ia_gen = local->cont.lookup.gen;
         }
 
         up_count = afr_up_children_count (priv->child_count, priv->child_up);
@@ -812,7 +811,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                 afr_itransform (buf->ia_ino,
                                                 priv->child_count,
                                                 first_up_child);
-                        local->cont.lookup.gen = buf->ia_gen;
                 }
 
 		if (local->success_count == 0) {
@@ -937,7 +935,6 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                 afr_itransform (buf->ia_ino,
                                                 priv->child_count,
                                                 first_up_child);
-                        local->cont.lookup.gen = buf->ia_gen;
                 }
 
 		/* in case of revalidate, we need to send stat of the

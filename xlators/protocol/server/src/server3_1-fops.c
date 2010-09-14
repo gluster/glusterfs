@@ -5021,7 +5021,6 @@ server_statfs (rpcsvc_request_t *req)
 
         state->resolve.type   = RESOLVE_MUST;
         memcpy (state->resolve.gfid, args.gfid, 16);
-        state->resolve.gen    = args.gen;
         state->resolve.path   = gf_strdup (args.path);
 
         resolve_and_resume (frame, server_statfs_resume);

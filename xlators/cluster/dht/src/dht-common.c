@@ -142,7 +142,6 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (prev->this == dht_first_up_subvol (this)) {
 			local->ia_ino = local->stbuf.ia_ino;
-                        local->ia_gen = local->stbuf.ia_gen;
                 }
 
         }
@@ -173,7 +172,6 @@ unlock:
 
 			if (local->ia_ino) {
 				local->stbuf.ia_ino = local->ia_ino;
-                                local->stbuf.ia_gen = local->ia_gen;
 			} else {
 				gf_log (this->name, GF_LOG_DEBUG,
 					"could not find hashed subvol for %s",
@@ -3367,7 +3365,6 @@ dht_mkdir_selfheal_cbk (call_frame_t *frame, void *cookie,
 	if (op_ret == 0) {
                 dht_layout_set (this, local->inode, layout);
 		local->stbuf.ia_ino = local->ia_ino;
-                local->stbuf.ia_gen = local->ia_gen;
                 if (local->loc.parent) {
                         local->preparent.ia_ino = local->loc.parent->ino;
                         local->postparent.ia_ino = local->loc.parent->ino;
@@ -3425,7 +3422,6 @@ dht_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (prev->this == dht_first_up_subvol (this)) {
                         local->ia_ino = local->stbuf.ia_ino;
-                        local->ia_gen = local->stbuf.ia_gen;
                 }
 
 	}
@@ -3479,7 +3475,6 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
         dht_iatt_merge (this, &local->postparent, postparent, prev->this);
 
 	local->ia_ino = local->stbuf.ia_ino;
-        local->ia_gen = local->stbuf.ia_gen;
 
 	local->call_cnt = conf->subvolume_cnt - 1;
 	

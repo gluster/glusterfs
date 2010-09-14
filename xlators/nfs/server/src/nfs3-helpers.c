@@ -743,14 +743,12 @@ nfs3_funge_root_dotdot_dirent (gf_dirent_t *ent, struct nfs3_fh *dfh)
             nfs3_is_parentdir_entry (ent->d_name)) {
                 ent->d_ino = 1;
                 ent->d_stat.ia_ino = 1;
-                ent->d_stat.ia_gen = 0;
         }
 
         if (nfs3_fh_is_root_fh (dfh) &&
             nfs3_is_dot_entry (ent->d_name)) {
                 ent->d_ino = 1;
                 ent->d_stat.ia_ino = 1;
-                ent->d_stat.ia_gen = 0;
         }
 
 }
