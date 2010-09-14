@@ -101,7 +101,6 @@ struct posix_private {
 
 	gf_boolean_t    o_direct;     /* always open files in O_DIRECT mode */
 
-        gf_boolean_t    span_devices;
 
 /* 
    decide whether posix_unlink does open (file), unlink (file), close (fd)
@@ -110,15 +109,6 @@ struct posix_private {
    entire duration of freeing of data blocks.
 */ 
         gf_boolean_t    background_unlink;
-
-        int             num_devices_to_span;
-        dev_t          *st_device;
-
-/* a global generation number sequence is used to assign generation numbers in 
-   sequence.
-*/
-        uint64_t        gen_seq;
-        gf_lock_t       gen_lock;
 
 /* janitor thread which cleans up /.trash (created by replicate) */
         pthread_t       janitor;
