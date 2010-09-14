@@ -328,6 +328,7 @@ glusterd_default_xlator_options (glusterd_volinfo_t *volinfo)
         ret = set_default_options (volinfo->dict,
                                    volinfo->volname);
         if (ret) {
+                dict_unref (volinfo->dict);
                 goto out;
         }
 
@@ -1971,6 +1972,8 @@ out:
                 GF_FREE (fuse_filepath);
         if (nfs_filepath)
                 GF_FREE (nfs_filepath);
+        if (nfs_vol_id)
+                GF_FREE (nfs_vol_id);
         if (nfs_subvols)
                 GF_FREE (nfs_subvols);
         if (fuse_fd > 0)

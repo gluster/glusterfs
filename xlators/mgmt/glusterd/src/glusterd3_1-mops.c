@@ -121,9 +121,13 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received resp to probe req");
 
+        if (rsp.hostname)
+                free (rsp.hostname);//malloced by xdr
         return ret;
 
 out:
+        if (rsp.hostname)
+                free (rsp.hostname);//malloced by xdr
         return ret;
 }
 
@@ -216,6 +220,8 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         if (ctx)
                 glusterd_destroy_probe_ctx (ctx);
 out:
+        if (rsp.hostname)
+                free (rsp.hostname);//malloced by xdr
         return ret;
 }
 
@@ -308,6 +314,8 @@ respond:
         if (ctx)
                 glusterd_destroy_probe_ctx (ctx);
 
+        if (rsp.hostname)
+                free (rsp.hostname);//malloced by xdr
         return ret;
 }
 
@@ -850,7 +858,7 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
                 uuid_unparse (peerinfo->uuid, uuid_buf);
                 snprintf (key, sizeof (key), "friend%d.uuid", count);
                 dup_buf = gf_strdup (uuid_buf);
-                ret = dict_set_str (friends, key, dup_buf);
+                ret = dict_set_dynstr (friends, key, dup_buf);
                 if (ret)
                         goto out;
                 snprintf (key, sizeof (key), "friend%d.hostname", count);

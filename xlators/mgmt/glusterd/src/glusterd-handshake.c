@@ -179,6 +179,10 @@ fail:
 
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (gd_serialize_t)xdr_serialize_getspec_rsp);
+        if (args.key)
+                free (args.key);//malloced by xdr
+        if (rsp.spec)
+                free (rsp.spec);
 
         return 0;
 }
