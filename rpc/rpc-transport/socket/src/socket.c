@@ -2484,9 +2484,6 @@ fini (rpc_transport_t *this)
                 GF_FREE (priv);
         }
 
-        if (this->name)
-                GF_FREE (this->name);
-
         this->private = NULL;
 }
 
