@@ -128,6 +128,7 @@ enum gf_cli_procnum {
         GF1_CLI_LOG_LOCATE,
         GF1_CLI_LOG_ROTATE,
         GF1_CLI_GETSPEC,
+        GF1_CLI_PMAP_PORTBYBRICK,
         GF1_CLI_MAXVALUE,
 };
 
