@@ -530,7 +530,12 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
                 opinfo.op_ret = op_ret;
-                opinfo.op_errstr = rsp.op_errstr; 
+                opinfo.op_errstr = gf_strdup(rsp.op_errstr);
+                if (!opinfo.op_errstr) {
+                        gf_log ("", GF_LOG_ERROR, "memory allocation failed");
+                        ret = -1;
+                        goto out;
+                }
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
@@ -543,6 +548,8 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
+        if (rsp.op_errstr && strcmp (rsp.op_errstr, ""))
+                free (rsp.op_errstr); //malloced by xdr
         return ret;
 }
 
@@ -650,7 +657,12 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
                 opinfo.op_ret = op_ret;
-                opinfo.op_errstr = rsp.op_errstr;
+                opinfo.op_errstr = gf_strdup(rsp.op_errstr);
+                if (!opinfo.op_errstr) {
+                        gf_log ("", GF_LOG_ERROR, "memory allocation failed");
+                        ret = -1;
+                        goto out;
+                }
         } else {
                 if (rsp.op == GD_OP_REPLACE_BRICK) {
                         ret = glusterd_rb_use_rsp_dict (dict);
@@ -673,6 +685,8 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         if (dict)
                 dict_unref (dict);
+        if (rsp.op_errstr && strcmp (rsp.op_errstr, ""))
+                free (rsp.op_errstr); //malloced by xdr
         return ret;
 }
 
