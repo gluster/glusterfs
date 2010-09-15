@@ -71,6 +71,8 @@ cli_input (void *d)
                 if (len > 0 && cmd[len - 1] == '\n') //strip trailing \n
                         cmd[len - 1] = '\0';
                 ret = cli_cmd_process_line (state, cmd);
+                if (ret == -1 && state->mode & GLUSTER_MODE_ERR_FATAL)
+                        break;
         }
 
         exit (ret);
@@ -89,9 +91,14 @@ cli_input_init (struct cli_state *state)
                 return ret;
         }
 
-        state->prompt = "gluster> ";
+        if (isatty (STDIN_FILENO)) {
+                state->prompt = "gluster> ";
 
-        cli_rl_enable (state);
+                cli_rl_enable (state);
+        } else {
+                state->prompt = "";
+                state->mode = GLUSTER_MODE_SCRIPT | GLUSTER_MODE_ERR_FATAL;
+        }
 
         if (!state->rl_enabled)
                 ret = pthread_create (&state->input, NULL, cli_input, state);
