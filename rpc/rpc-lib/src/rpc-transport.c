@@ -1063,8 +1063,12 @@ rpc_transport_destroy (rpc_transport_t *this)
 
 	if (this->fini)
 		this->fini (this);
+
 	pthread_mutex_destroy (&this->lock);
-        GF_FREE (this->name);
+
+        if (this->name)
+                GF_FREE (this->name);
+
 	GF_FREE (this);
 fail:
 	return ret;
