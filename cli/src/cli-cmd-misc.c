@@ -61,10 +61,8 @@ cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
         for (cmd = cli_probe_cmds; cmd->pattern; cmd++)
                 cli_out ("%s - %s", cmd->pattern, cmd->desc);
 
-        for (cmd = cli_misc_cmds; cmd->pattern; cmd++) {
-                if (cmd->cbk)
-                        cli_out ("%s - %s", cmd->pattern, cmd->desc);
-        }
+        for (cmd = cli_misc_cmds; cmd->pattern; cmd++)
+                cli_out ("%s - %s", cmd->pattern, cmd->desc);
 
         if (!state->rl_enabled)
                 exit (0);
@@ -80,10 +78,6 @@ struct cli_cmd cli_misc_cmds[] = {
         { "help",
            cli_cmd_display_help,
            "display command options"},
-
-        { "mode script",
-           NULL,
-           "assign gluster execution mode"},
 
         { NULL, NULL, NULL }
 };

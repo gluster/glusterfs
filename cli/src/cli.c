@@ -325,12 +325,48 @@ cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 }
 
 int
+cli_opt_parse (char *opt, struct cli_state *state)
+{
+        char *oarg;
+
+        oarg = strtail (opt, "mode=");
+        if (oarg) {
+                if (strcmp (oarg, "script") == 0) {
+                        state->mode |= GLUSTER_MODE_SCRIPT;
+                        return 0;
+                }
+                if (strcmp (oarg, "interactive") == 0)
+                        return 0;
+                return -1;
+        }
+
+        return -1;
+}
+
+int
 parse_cmdline (int argc, char *argv[], struct cli_state *state)
 {
         int         ret = 0;
+        int         i = 0;
+        int         j = 0;
+        char        *opt = NULL;
 
-	state->argc=argc-1;
+        state->argc=argc-1;
         state->argv=&argv[1];
+
+        for (i = 0; i < state->argc; i++) {
+                opt = strtail (state->argv[i], "--");
+                if (opt) {
+                        ret = cli_opt_parse (opt, state);
+                        if (ret == -1) {
+                                cli_out ("unrecognized option --%s", opt);
+                                return ret;
+                        }
+                        for (j = i; j < state->argc - 1; j++)
+                                state->argv[j] = state->argv[j + 1];
+                        state->argc--;
+                }
+        }
 
         return ret;
 }

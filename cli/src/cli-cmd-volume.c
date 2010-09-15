@@ -242,7 +242,7 @@ cli_cmd_get_confirmation (struct cli_state *state, const char *question)
         char                    answer = '\0';
         char                    flush = '\0';
 
-        if (GLUSTER_MODE_SCRIPT == state->mode)
+        if (state->mode & GLUSTER_MODE_SCRIPT)
                 return GF_ANSWER_YES;
         printf ("%s (y/n) ", question);
         answer = getchar ();

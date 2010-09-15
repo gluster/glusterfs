@@ -41,10 +41,7 @@ cli_batch (void *d)
 
         state = d;
 
-        if (state->mode == GLUSTER_MODE_SCRIPT)
-                ret = cli_cmd_process (state, state->argc - 2, state->argv + 2);
-        else
-                ret = cli_cmd_process (state, state->argc, state->argv);
+        ret = cli_cmd_process (state, state->argc, state->argv);
 
         gf_log ("", GF_LOG_NORMAL, "Exiting with: %d", ret);
         exit (ret);
@@ -86,22 +83,8 @@ int
 cli_input_init (struct cli_state *state)
 {
         int  ret = 0;
-        gf_boolean_t  is_batch = _gf_false;
 
-        if (1 < state->argc) {
-                if (!strcmp ("mode", state->argv[0]) &&
-                    !strcmp ("script", state->argv[1])) {
-                        state->mode = GLUSTER_MODE_SCRIPT;
-                        if (2 < state->argc)
-                                is_batch = _gf_true;
-                } else {
-                        is_batch = _gf_true;
-                }
-        } else if (1 == state->argc) {
-                is_batch = _gf_true;
-        }
-
-        if (is_batch) {
+        if (state->argc) {
                 ret = pthread_create (&state->input, NULL, cli_batch, state);
                 return ret;
         }
