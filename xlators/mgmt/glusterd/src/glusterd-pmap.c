@@ -105,27 +105,43 @@ pmap_registry_get (xlator_t *this)
 }
 
 
+static char*
+nextword (char *str)
+{
+        while (*str && !isspace (*str))
+                str++;
+        while (*str && isspace (*str))
+                str++;
+
+        return str;
+}
+
 int
 pmap_registry_search (xlator_t *this, const char *brickname,
                       gf_pmap_port_type_t type)
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
-        int                   port = 0;
+        char                 *brck = NULL;
+        char                 *nbrck = NULL;
 
         pmap = pmap_registry_get (this);
 
         for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
-                if (!pmap->ports[p].brickname)
+                if (!pmap->ports[p].brickname || pmap->ports[p].type != type)
                         continue;
-                if (strcmp (pmap->ports[p].brickname, brickname) == 0 &&
-                    pmap->ports[p].type == type) {
-                        port = p;
-                        break;
+
+                for (brck = pmap->ports[p].brickname;;) {
+                        nbrck = strtail (brck, brickname);
+                        if (nbrck && (!*nbrck || isspace (*nbrck)))
+                                return p;
+                        brck = nextword (brck);
+                        if (!*brck)
+                                break;
                 }
         }
 
-        return port;
+        return 0;
 }
 
 int
