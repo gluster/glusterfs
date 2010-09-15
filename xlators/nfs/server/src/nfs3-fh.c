@@ -85,6 +85,7 @@ nfs3_fh_build_uuid_root_fh (uuid_t volumeid)
         struct nfs3_fh  fh = {{0}, };
         struct iatt     buf = {0, };
 
+        buf.ia_gfid[15] = 1;
         nfs3_fh_init (&fh, &buf);
         uuid_copy (fh.exportid, volumeid);
 
