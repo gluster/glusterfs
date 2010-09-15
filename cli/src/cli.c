@@ -340,6 +340,12 @@ cli_opt_parse (char *opt, struct cli_state *state)
                 return -1;
         }
 
+        oarg = strtail (opt, "remote-host=");
+        if (oarg) {
+                state->remote_host = oarg;
+                return 0;
+        }
+
         return -1;
 }
 
@@ -391,6 +397,9 @@ cli_state_init (struct cli_state *state)
         struct cli_cmd_tree  *tree = NULL;
         int                   ret = 0;
 
+
+        state->remote_host = "localhost";
+
         tree = &state->tree;
         tree->state = state;
 
@@ -439,14 +448,14 @@ cli_rpc_init (struct cli_state *state)
         if (!options)
                 goto out;
 
-        ret = dict_set_str (options, "remote-host", "localhost");
+        ret = dict_set_str (options, "remote-host", state->remote_host);
         if (ret)
                 goto out;
 
         if (state->remote_port)
                 port = state->remote_port;
 
-        rpc_cfg.remote_host = "localhost";
+        rpc_cfg.remote_host = state->remote_host;
         rpc_cfg.remote_port = port;
 
         ret = dict_set_int32 (options, "remote-port", port);
@@ -516,15 +525,15 @@ main (int argc, char *argv[])
         if (ret)
                 goto out;
 
-        global_rpc = cli_rpc_init (&state);
-        if (!global_rpc)
-                goto out;
-
         state.ctx = ctx;
         global_state = &state;
 
         ret = parse_cmdline (argc, argv, &state);
         if (ret)
+                goto out;
+
+        global_rpc = cli_rpc_init (&state);
+        if (!global_rpc)
                 goto out;
 
         ret = logging_init (ctx);
