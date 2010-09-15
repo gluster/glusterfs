@@ -888,6 +888,8 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         uuid_copy (req.uuid, priv->uuid);
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                if (!peerinfo->connected)
+                        continue;
                 dummy_frame = create_frame (this, this->ctx->pool);
                 ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
                                                priv->mgmt,
