@@ -43,6 +43,7 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd1-xdr.h"
+#include "protocol-common.h"
 #include "glusterd-pmap.h"
 
 

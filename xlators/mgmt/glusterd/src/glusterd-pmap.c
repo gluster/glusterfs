@@ -72,9 +72,10 @@ pmap_registry_new (void)
                 return NULL;
 
         for (i = 0; i < 65536; i++) {
-                if (!pmap_port_isfree (i)) {
-                        pmap->ports[i].used = 1;
-                }
+                if (pmap_port_isfree (i))
+                        pmap->ports[i].type = GF_PMAP_PORT_FREE;
+                else
+                        pmap->ports[i].type = GF_PMAP_PORT_FOREIGN;
         }
 
         pmap->base_port = 6971; /* 6969 default for tcp, 6970 for IB */
@@ -105,7 +106,8 @@ pmap_registry_get (xlator_t *this)
 
 
 int
-pmap_registry_search (xlator_t *this, const char *brickname)
+pmap_registry_search (xlator_t *this, const char *brickname,
+                      gf_pmap_port_type_t type)
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
@@ -116,7 +118,8 @@ pmap_registry_search (xlator_t *this, const char *brickname)
         for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
                 if (!pmap->ports[p].brickname)
                         continue;
-                if (strcmp (pmap->ports[p].brickname, brickname) == 0) {
+                if (strcmp (pmap->ports[p].brickname, brickname) == 0 &&
+                    pmap->ports[p].type == type) {
                         port = p;
                         break;
                 }
@@ -126,7 +129,8 @@ pmap_registry_search (xlator_t *this, const char *brickname)
 }
 
 int
-pmap_registry_search_by_xprt (xlator_t *this, void *xprt)
+pmap_registry_search_by_xprt (xlator_t *this, void *xprt,
+                              gf_pmap_port_type_t type)
 {
         struct pmap_registry *pmap = NULL;
         int                   p    = 0;
@@ -137,7 +141,8 @@ pmap_registry_search_by_xprt (xlator_t *this, void *xprt)
         for (p = pmap->base_port; p <= pmap->last_alloc; p++) {
                 if (!pmap->ports[p].xprt)
                         continue;
-                if (pmap->ports[p].xprt == xprt) {
+                if (pmap->ports[p].xprt == xprt &&
+                    pmap->ports[p].type == type) {
                         port = p;
                         break;
                 }
@@ -158,7 +163,7 @@ pmap_registry_search_by_port (xlator_t *this, int port)
 
         pmap = pmap_registry_get (this);
 
-        if (pmap->ports[port].used)
+        if (pmap->ports[port].type == GF_PMAP_PORT_BRICKSERVER)
                 brickname = pmap->ports[port].brickname;
 
 out:
@@ -176,11 +181,11 @@ pmap_registry_alloc (xlator_t *this)
         pmap = pmap_registry_get (this);
 
         for (p = pmap->last_alloc; p < 65535; p++) {
-                if (pmap->ports[p].used)
+                if (pmap->ports[p].type != GF_PMAP_PORT_FREE)
                         continue;
 
                 if (pmap_port_isfree (p)) {
-                        pmap->ports[p].used = 1;
+                        pmap->ports[p].type = GF_PMAP_PORT_LEASED;
                         port = p;
                         break;
                 }
@@ -193,8 +198,8 @@ pmap_registry_alloc (xlator_t *this)
 }
 
 int
-pmap_registry_bind (xlator_t *this, int port,
-                    const char *brickname, void *xprt)
+pmap_registry_bind (xlator_t *this, int port, const char *brickname,
+                    gf_pmap_port_type_t type, void *xprt)
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
@@ -205,10 +210,11 @@ pmap_registry_bind (xlator_t *this, int port,
                 goto out;
 
         p = port;
-        pmap->ports[p].used = 1;
+        pmap->ports[p].type = type;
         if (pmap->ports[p].brickname)
                 free (pmap->ports[p].brickname);
         pmap->ports[p].brickname = strdup (brickname);
+        pmap->ports[p].type = type;
         pmap->ports[p].xprt = xprt;
 
         gf_log ("pmap", GF_LOG_INFO, "adding brick %s on port %d",
@@ -221,8 +227,8 @@ out:
 }
 
 int
-pmap_registry_remove (xlator_t *this, int port,
-                      const char *brickname, void *xprt)
+pmap_registry_remove (xlator_t *this, int port, const char *brickname,
+                      gf_pmap_port_type_t type, void *xprt)
 {
         struct pmap_registry *pmap = NULL;
         int                   p = 0;
@@ -242,13 +248,13 @@ pmap_registry_remove (xlator_t *this, int port,
         }
 
         if (brickname && strchr (brickname, '/')) {
-                p = pmap_registry_search (this, brickname);
+                p = pmap_registry_search (this, brickname, type);
                 if (p)
                         goto remove;
         }
 
         if (xprt) {
-                p = pmap_registry_search_by_xprt (this, xprt);
+                p = pmap_registry_search_by_xprt (this, xprt, type);
                 if (p)
                         goto remove;
         }
@@ -304,7 +310,7 @@ gluster_pmap_portbybrick (rpcsvc_request_t *req)
 
         brick = args.brick;
 
-        port = pmap_registry_search (THIS, brick);
+        port = pmap_registry_search (THIS, brick, GF_PMAP_PORT_BRICKSERVER);
 
         if (!port)
                 rsp.op_ret = -1;
@@ -359,7 +365,8 @@ gluster_pmap_signup (rpcsvc_request_t *req)
                 goto fail;
         }
 
-        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick, req->trans);
+        rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick,
+                                         GF_PMAP_PORT_BRICKSERVER, req->trans);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -383,7 +390,7 @@ gluster_pmap_signin (rpcsvc_request_t *req)
         }
 
         rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick,
-                                         req->trans);
+                                         GF_PMAP_PORT_BRICKSERVER, req->trans);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -410,7 +417,7 @@ gluster_pmap_signout (rpcsvc_request_t *req)
         }
 
         rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick,
-                                           req->trans);
+                                           GF_PMAP_PORT_BRICKSERVER, req->trans);
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
