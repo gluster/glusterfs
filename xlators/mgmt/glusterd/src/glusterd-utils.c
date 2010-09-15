@@ -866,6 +866,11 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         if (!file) {
                 gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
                                 pidfile);
+                if (errno == ENOENT) {
+                        gf_log ("",GF_LOG_TRACE, "volume may not be running");
+                        ret = 0;
+                        goto out;
+                }
                 ret = -1;
                 goto out;
         }
