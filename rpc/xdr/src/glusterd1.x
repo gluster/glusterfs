@@ -14,6 +14,8 @@
         unsigned char  uuid[16];
         string  hostname<>;
         int     port;
+        int     op_ret;
+        int     op_errno;
 }  ;
 
 struct gd1_mgmt_friend_req {
@@ -92,6 +94,7 @@ struct gd1_mgmt_commit_op_rsp {
         int     op;
         int     op_ret;
         int     op_errno;
+        opaque  dict<>;
         string  op_errstr<>;
 }  ;
 

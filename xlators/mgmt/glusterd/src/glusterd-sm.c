@@ -296,7 +296,7 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
         ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname,
                                                 ev_ctx->port);
 
-        rpc_clnt_destroy (peerinfo->rpc);
+        peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
         peerinfo->rpc = NULL;
 
         ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
@@ -340,31 +340,6 @@ glusterd_ac_none (void *ctx)
         return ret;
 }*/
 
-int
-glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
-{
-        GF_ASSERT (req);
-        GF_ASSERT (remote_host);
-        GF_ASSERT (req->trans);
-
-        char *name = NULL;
-        char *delimiter = NULL;
-
-        name = req->trans->peerinfo.identifier;
-        strncpy (remote_host, name, len);
-        delimiter = strchr (remote_host, ':');
-
-        GF_ASSERT (delimiter);
-        if (!delimiter) {
-                memset (remote_host, 0, len);
-                return -1;
-        }
-
-        *delimiter = '\0';
-
-        return 0;
-}
-
 static int
 glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
 {
@@ -377,7 +352,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
         int                             status = 0;
         int32_t                         op_ret = -1;
-        char                            remote_hostname[UNIX_PATH_MAX + 1] = {0,};
+        char               remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
         GF_ASSERT (ctx);
         ev_ctx = ctx;

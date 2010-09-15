@@ -1697,7 +1697,7 @@ client_destroy_rpc (xlator_t *this)
         conf = this->private;
 
         if (conf->rpc) {
-                rpc_clnt_destroy (conf->rpc);
+                conf->rpc = rpc_clnt_unref (conf->rpc);
                 ret = 0;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Client rpc conn destroyed");

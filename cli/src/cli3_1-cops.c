@@ -90,11 +90,22 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 		      		break;
 	 	}
 	 }
-	 if (rsp.op_ret) {
-		 cli_out ("Probe unsuccessfull"); 		
-		 gf_log ("glusterd",GF_LOG_ERROR,"Probe failed with op_ret %d"
-			 " and op_errno %d", rsp.op_ret, rsp.op_errno);
-	 }
+
+        if (rsp.op_ret) {
+                switch (rsp.op_errno) {
+                        case GF_PROBE_ANOTHER_CLUSTER:
+                                cli_out ("%s is already part of "
+                                         "another cluster", rsp.hostname);
+                                break;
+                        default:
+                                cli_out ("Probe returned with unknown errno %d",
+                                        rsp.op_errno);
+                                break;
+                }
+                cli_out ("Probe unsuccessful");
+                gf_log ("glusterd",GF_LOG_ERROR,"Probe failed with op_ret %d"
+                        " and op_errno %d", rsp.op_ret, rsp.op_errno);
+        }
         ret = rsp.op_ret;
 
 out:
@@ -145,6 +156,8 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         char                       key[256] = {0,};
         int32_t                    state = 0;
         int32_t                    port = 0;
+        int32_t                    connected = 0;
+        char                       *connected_str = NULL;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -208,6 +221,15 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
+                        snprintf (key, 256, "friend%d.connected", i);
+                        ret = dict_get_int32 (dict, key, &connected);
+                        if (ret)
+                                goto out;
+                        if (connected)
+                                connected_str = "connected";
+                        else
+                                connected_str = "disconnected";
+
                         snprintf (key, 256, "friend%d.port", i);
                         ret = dict_get_int32 (dict, key, &port);
                         if (ret)
@@ -219,11 +241,13 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                                 goto out;
 
                         if (!port) {
-                                cli_out ("hostname:%s, uuid:%s, state:%d",
-                                         hostname_buf, uuid_buf, state);
+                                cli_out ("hostname:%s, uuid:%s, state:%d (%s)",
+                                         hostname_buf, uuid_buf, state,
+                                         connected_str);
                         } else {
-                                cli_out ("hostname:%s, port:%d, uuid:%s, state:%d",
-                                         hostname_buf, port, uuid_buf, state);
+                                cli_out ("hostname:%s, port:%d, uuid:%s, "
+                                         "state:%d, (%s)", hostname_buf, port,
+                                         uuid_buf, state, connected_str);
                         }
                         i++;
                 }

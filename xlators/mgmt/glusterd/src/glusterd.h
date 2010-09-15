@@ -238,6 +238,8 @@ glusterd_friend_add (const char *hoststr, int port,
                      glusterd_peerinfo_t **friend,
                      gf_boolean_t restore);
 
+int
+glusterd_friend_remove (uuid_t uuid, char *hostname);
 
 int
 glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status);
