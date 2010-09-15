@@ -2383,7 +2383,7 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
                 GF_ASSERT (0);
                 goto out;
         }
-        ret = glusterd_friend_find (NULL, remote_hostname, &peerinfo);
+        ret = glusterd_friend_find (probe_req.uuid, remote_hostname, &peerinfo);
         if ((ret == 0 ) || list_empty (&conf->peers)) {
                 ret = glusterd_peer_hostname_new (probe_req.hostname, &name);
 
@@ -2392,11 +2392,13 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
                 } else {
                         list_add_tail (&name->hostname_list, &conf->hostnames);
                 }
-                uuid_copy (rsp.uuid, conf->uuid);
+
         } else {
                 rsp.op_ret = -1;
                 rsp.op_errno = GF_PROBE_ANOTHER_CLUSTER;
         }
+
+        uuid_copy (rsp.uuid, conf->uuid);
 
         rsp.hostname = probe_req.hostname;
 
