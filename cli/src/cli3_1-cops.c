@@ -35,6 +35,7 @@
 #include "compat.h"
 
 #include "glusterfs3.h"
+#include "portmap.h"
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int      cli_op_ret;
@@ -59,6 +60,12 @@ rpc_clnt_prog_t cli_handshake_prog = {
         .progname  = "cli handshake",
         .prognum   = GLUSTER_HNDSK_PROGRAM,
         .progver   = GLUSTER_HNDSK_VERSION,
+};
+
+rpc_clnt_prog_t cli_pmap_prog = {
+        .progname   = "cli portmap",
+        .prognum    = GLUSTER_PMAP_PROGRAM,
+        .progver    = GLUSTER_PMAP_VERSION,
 };
 
 
@@ -1062,6 +1069,36 @@ out:
         return ret;
 }
 
+int
+gf_cli3_1_pmap_b2p_cbk (struct rpc_req *req, struct iovec *iov,
+                        int count, void *myframe)
+{
+        pmap_port_by_brick_rsp rsp = {0,};
+        int                     ret   = 0;
+        char                   *spec  = NULL;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_pmap_port_by_brick_rsp (*iov, &rsp);
+        if (ret < 0 || rsp.op_ret == -1) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_NORMAL, "Received resp to pmap b2p");
+
+        cli_out ("%d", rsp.port);
+        GF_FREE (spec);
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
 
 int32_t
 gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
@@ -1873,6 +1910,35 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_pmap_b2p (call_frame_t *frame, xlator_t *this, void *data)
+{
+        pmap_port_by_brick_req  req = {0,};
+        int                     ret = 0;
+        dict_t                  *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "brick", &req.brick);
+        if (ret)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, &cli_pmap_prog,
+                              GF_PMAP_PORTBYBRICK, NULL,
+                              xdr_from_pmap_port_by_brick_req,
+                              this, gf_cli3_1_pmap_b2p_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
 
 struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
@@ -1895,6 +1961,7 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_LOG_LOCATE] = {"LOG LOCATE", gf_cli3_1_log_locate},
         [GF1_CLI_LOG_ROTATE] = {"LOG ROTATE", gf_cli3_1_log_rotate},
         [GF1_CLI_GETSPEC] = {"GETSPEC", gf_cli3_1_getspec},
+        [GF1_CLI_PMAP_PORTBYBRICK] = {"PMAP PORTBYBRICK", gf_cli3_1_pmap_b2p},
 };
 
 struct rpc_clnt_program cli3_1_prog = {

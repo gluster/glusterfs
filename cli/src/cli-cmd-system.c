@@ -34,6 +34,7 @@
 #include "protocol-common.h"
 
 #define GETSPEC_SYNTAX "system:: getspec <VOLID>"
+#define BRICKTOPORT_SYNTAX "system:: portmap brick2port <BRICK>"
 
 extern struct rpc_clnt *global_rpc;
 
@@ -85,10 +86,57 @@ out:
         return ret;
 }
 
+int
+cli_cmd_pmap_b2p_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                 const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *dict = NULL;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount != 4) {
+                cli_out ("Usage: " BRICKTOPORT_SYNTAX);
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "brick", (char *)words[3]);
+        if (ret)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_PMAP_PORTBYBRICK];
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, dict);
+        }
+
+out:
+        if (!proc && ret) {
+                if (dict)
+                        dict_destroy (dict);
+                if (wordcount > 1)
+                        cli_out ("Fetching spec for volume %s failed",
+                                 (char *)words[3]);
+        }
+
+        return ret;
+}
+
 struct cli_cmd cli_system_cmds[] = {
         { GETSPEC_SYNTAX,
           cli_cmd_getspec_cbk,
           "fetch spec for volume <VOLID>"},
+
+        { BRICKTOPORT_SYNTAX,
+          cli_cmd_pmap_b2p_cbk,
+          "query which port <BRICK> listens on"},
 
         { "system:: help",
            cli_cmd_system_help_cbk,
