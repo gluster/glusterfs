@@ -2392,8 +2392,15 @@ socket_init (rpc_transport_t *this)
         priv->sock = -1;
         priv->idx = -1;
         priv->connected = -1;
+        priv->nodelay = 1;
+        priv->bio = 0;
+        priv->windowsize = GF_DEFAULT_SOCKET_WINDOW_SIZE;
 
         INIT_LIST_HEAD (&priv->ioq);
+
+        /* All the below section needs 'this->options' to be present */
+        if (!this->options)
+                goto out;
 
         if (dict_get (this->options, "non-blocking-io")) {
                 optstr = data_to_str (dict_get (this->options,
@@ -2405,7 +2412,6 @@ socket_init (rpc_transport_t *this)
 				" not taking any action");
                         tmp_bool = 1;
                 }
-                priv->bio = 0;
                 if (!tmp_bool) {
                         priv->bio = 1;
                         gf_log (this->name, GF_LOG_WARNING,
@@ -2416,7 +2422,6 @@ socket_init (rpc_transport_t *this)
         optstr = NULL;
 
         // By default, we enable NODELAY
-        priv->nodelay = 1;
         if (dict_get (this->options, "transport.socket.nodelay")) {
                 optstr = data_to_str (dict_get (this->options,
                                                 "transport.socket.nodelay"));
@@ -2453,6 +2458,7 @@ socket_init (rpc_transport_t *this)
         }
 
         priv->windowsize = (int)windowsize;
+out:
         this->private = priv;
 
         return 0;
