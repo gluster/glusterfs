@@ -529,7 +529,7 @@ nfs3_request_xlator_deviceid (rpcsvc_request_t *rq)
                 devid = (uint64_t)nfs_xlator_to_xlid (nfs3->exportslist, xl);
         else {
                 __nfs3_get_volume_id (nfs3, xl, volumeid);
-                memcpy (&devid, &volumeid[15], sizeof (devid));
+                memcpy (&devid, &volumeid[8], sizeof (devid));
         }
 
         return devid;
