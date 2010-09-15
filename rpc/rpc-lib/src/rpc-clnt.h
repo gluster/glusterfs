@@ -183,6 +183,7 @@ struct rpc_clnt {
         struct mem_pool       *saved_frames_pool;
 
         glusterfs_ctx_t       *ctx;
+        int                   refcount;
 };
 
 
@@ -215,6 +216,12 @@ int rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                      struct iobref *iobref, void *frame, struct iovec *rsphdr,
                      int rsphdr_count, struct iovec *rsp_payload,
                      int rsp_payload_count, struct iobref *rsp_iobref);
+
+struct rpc_clnt *
+rpc_clnt_ref (struct rpc_clnt *rpc);
+
+struct rpc_clnt *
+rpc_clnt_unref (struct rpc_clnt *rpc);
 
 void rpc_clnt_destroy (struct rpc_clnt *rpc);
 
