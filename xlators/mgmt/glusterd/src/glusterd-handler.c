@@ -1482,7 +1482,7 @@ brick_val:
                         err_ret = 1;
                         goto out;
                 }
-                if ((!peerinfo->connected) &&
+                if ((!peerinfo->connected) ||
                     (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
                         snprintf(err_str, 1048, "Host %s not connected",
                                  brickinfo->hostname);
