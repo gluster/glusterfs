@@ -669,6 +669,7 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         msgbuf = msg->vector[0].iov_base;
         msglen = msg->vector[0].iov_len;
 
+        clnt = rpc_clnt_ref (clnt);
         ret = xdr_to_rpc_call (msgbuf, msglen, &rpcmsg, &progmsg, NULL,NULL);
         if (ret == -1) {
                 gf_log ("rpc-clnt", GF_LOG_ERROR, "RPC call decoding failed");
@@ -695,6 +696,7 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         }
 
 out:
+        clnt = rpc_clnt_unref (clnt);
         return ret;
 }
 
@@ -707,6 +709,7 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
         struct rpc_req        *req          = NULL;
         uint32_t               xid          = 0;
 
+        clnt = rpc_clnt_ref (clnt);
         conn = &clnt->conn;
 
         xid = ntoh32 (*((uint32_t *)pollin->vector[0].iov_base));
@@ -723,7 +726,7 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
                         "saved_frame for reply with xid (%d)", xid);
                 goto out;
         }
- 
+
         ret = rpc_clnt_reply_init (conn, pollin, req, saved_frame);
         if (ret != 0) {
                 req->rpc_status = -1;
@@ -732,7 +735,7 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
         }
 
         req->cbkfn (req, req->rsp, req->rspcnt, saved_frame->frame);
-         
+
         if (req) {
                 rpc_clnt_reply_deinit (req, conn->rpc_clnt->reqpool);
         }
@@ -742,6 +745,7 @@ out:
                 mem_put (conn->rpc_clnt->saved_frames_pool, saved_frame);
         }
 
+        clnt = rpc_clnt_unref (clnt);
         return ret;
 }
 
@@ -992,6 +996,7 @@ rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
                 goto out;
         }
 
+        rpc = rpc_clnt_ref (rpc);
         INIT_LIST_HEAD (&rpc->programs);
 
 out:
@@ -1384,6 +1389,38 @@ out:
         return ret;
 }
 
+
+struct rpc_clnt *
+rpc_clnt_ref (struct rpc_clnt *rpc)
+{
+        if (!rpc)
+                return NULL;
+        pthread_mutex_lock (&rpc->lock);
+        {
+                rpc->refcount++;
+        }
+        pthread_mutex_unlock (&rpc->lock);
+        return rpc;
+}
+
+struct rpc_clnt *
+rpc_clnt_unref (struct rpc_clnt *rpc)
+{
+        int     count = 0;
+
+        if (!rpc)
+                return NULL;
+        pthread_mutex_lock (&rpc->lock);
+        {
+                count = --rpc->refcount;
+        }
+        pthread_mutex_unlock (&rpc->lock);
+        if (!count) {
+                rpc_clnt_destroy (rpc);
+                return NULL;
+        }
+        return rpc;
+}
 
 void
 rpc_clnt_destroy (struct rpc_clnt *rpc)
