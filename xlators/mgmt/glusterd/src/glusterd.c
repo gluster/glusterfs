@@ -431,9 +431,15 @@ out:
 void
 fini (xlator_t *this)
 {
-        glusterd_conf_t *conf = this->private;
+        glusterd_conf_t *conf = NULL;
+        if (!this || !this->private)
+                goto out;
 
-        GF_VALIDATE_OR_GOTO(this->name, conf, out);
+        conf = this->private;
+        if (conf->pmap)
+                FREE (conf->pmap);
+        if (conf->handle)
+                glusterd_store_handle_destroy (conf->handle);
         GF_FREE (conf);
         this->private = NULL;
 out:
