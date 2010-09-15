@@ -97,6 +97,7 @@ struct cli_state {
         char                **matches;
         char                **matchesp;
 
+        char                 *remote_host;
         int                   remote_port;
         int                   mode;
 };
