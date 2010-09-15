@@ -1180,7 +1180,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                         err_ret = 1;
                         goto out;
                 }
-                if ((!peerinfo->connected) &&
+                if ((!peerinfo->connected) ||
                     (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
                         snprintf(err_str, 1048, "Host %s not connected",
                                  brickinfo->hostname);
