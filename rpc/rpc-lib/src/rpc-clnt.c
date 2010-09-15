@@ -1394,6 +1394,7 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
         rpc_transport_destroy (rpc->conn.trans);
         rpc_clnt_connection_cleanup (&rpc->conn);
         rpc_clnt_reconnect_cleanup (&rpc->conn);
+        saved_frames_destroy (rpc->conn.saved_frames);
         pthread_mutex_destroy (&rpc->lock);
         pthread_mutex_destroy (&rpc->conn.lock);
         GF_FREE (rpc);

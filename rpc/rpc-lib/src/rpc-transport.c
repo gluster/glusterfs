@@ -902,10 +902,6 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		goto fail;
 	}
 
-        if (name) {
-                GF_FREE (name);
-        }
-
 	trans->ops = dlsym (handle, "tops");
 	if (trans->ops == NULL) {
 		gf_log ("rpc-transport", GF_LOG_ERROR,
@@ -962,6 +958,11 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	pthread_mutex_init (&trans->lock, NULL);
         trans->xl = THIS;
 	return_trans = trans;
+
+        if (name) {
+                GF_FREE (name);
+        }
+
         GF_FREE (vol_opt);
 	return return_trans;
 
@@ -976,6 +977,10 @@ fail:
 
         if (vol_opt) {
                 GF_FREE (vol_opt);
+        }
+
+        if (name) {
+                GF_FREE (name);
         }
 
         return NULL;
@@ -1059,6 +1064,7 @@ rpc_transport_destroy (rpc_transport_t *this)
 	if (this->fini)
 		this->fini (this);
 	pthread_mutex_destroy (&this->lock);
+        GF_FREE (this->name);
 	GF_FREE (this);
 fail:
 	return ret;
