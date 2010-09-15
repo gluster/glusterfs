@@ -39,7 +39,8 @@ enum argp_option_keys {
 	ARGP_PORT_KEY = 'p',
 };
 
-#define GLUSTER_MODE_SCRIPT (1 << 0)
+#define GLUSTER_MODE_SCRIPT    (1 << 0)
+#define GLUSTER_MODE_ERR_FATAL (1 << 1)
 
 struct cli_state;
 struct cli_cmd_word;
