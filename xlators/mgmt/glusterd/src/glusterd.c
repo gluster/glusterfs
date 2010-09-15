@@ -183,7 +183,7 @@ glusterd_rpcsvc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         case RPCSVC_EVENT_DISCONNECT:
         {
                 list_del (&xprt->list);
-                pmap_registry_remove (this, 0, NULL, xprt);
+                pmap_registry_remove (this, 0, NULL, GF_PMAP_PORT_NONE, xprt);
                 break;
         }
 

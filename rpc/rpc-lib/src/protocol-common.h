@@ -143,6 +143,15 @@ enum gf_pmap_procnum {
         GF_PMAP_MAXVALUE,
 };
 
+enum gf_pmap_port_type {
+        GF_PMAP_PORT_FREE = 0,
+        GF_PMAP_PORT_FOREIGN,
+        GF_PMAP_PORT_LEASED,
+        GF_PMAP_PORT_NONE,
+        GF_PMAP_PORT_BRICKSERVER,
+};
+typedef enum gf_pmap_port_type gf_pmap_port_type_t;
+
 enum gf_probe_resp {
 	GF_PROBE_SUCCESS,
 	GF_PROBE_LOCALHOST,
