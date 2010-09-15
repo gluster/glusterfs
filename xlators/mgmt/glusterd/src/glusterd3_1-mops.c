@@ -86,9 +86,12 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 
                 GF_ASSERT (ctx);
 
-                glusterd_xfer_cli_probe_resp (ctx->req, rsp.op_ret,
-                                              rsp.op_errno,
-                                              ctx->hostname, ctx->port);
+                if (ctx->req) {
+                        glusterd_xfer_cli_probe_resp (ctx->req, rsp.op_ret,
+                                                      rsp.op_errno,
+                                                      ctx->hostname, ctx->port);
+                }
+
                 ret = rsp.op_ret;
                 (void) glusterd_friend_remove (rsp.uuid, rsp.hostname);
                 goto out;
