@@ -103,6 +103,9 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
 
         GF_ASSERT (priv);
 
+        if (uuid_is_null (uuid))
+                return -1;
+
         list_for_each_entry (entry, &priv->peers, uuid_list) {
                 if (!uuid_compare (entry->uuid, uuid)) {
 
@@ -282,6 +285,11 @@ glusterd_add_peer_detail_to_dict (glusterd_peerinfo_t   *peerinfo,
 
         snprintf (key, 256, "friend%d.state", count);
         ret = dict_set_int32 (friends, key, (int32_t)peerinfo->state.state);
+        if (ret)
+                goto out;
+
+        snprintf (key, 256, "friend%d.connected", count);
+        ret = dict_set_int32 (friends, key, (int32_t)peerinfo->connected);
         if (ret)
                 goto out;
 
@@ -2349,6 +2357,8 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         gd1_mgmt_probe_req  probe_req = {{0},};
         gd1_mgmt_probe_rsp  rsp = {{0},};
         glusterd_peer_hostname_t        *name = NULL;
+        glusterd_peerinfo_t             *peerinfo = NULL;
+        char               remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
         GF_ASSERT (req);
 
@@ -2367,27 +2377,55 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received probe from uuid: %s", str);
 
-        ret = glusterd_peer_hostname_new (probe_req.hostname, &name);
-
+        ret = glusterd_remote_hostname_get (req, remote_hostname,
+                                            sizeof (remote_hostname));
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get new peer_hostname");
+                GF_ASSERT (0);
+                goto out;
+        }
+        ret = glusterd_friend_find (NULL, remote_hostname, &peerinfo);
+        if ((ret == 0 ) || list_empty (&conf->peers)) {
+                ret = glusterd_peer_hostname_new (probe_req.hostname, &name);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to get new peer_hostname");
+                } else {
+                        list_add_tail (&name->hostname_list, &conf->hostnames);
+                }
+                uuid_copy (rsp.uuid, conf->uuid);
         } else {
-                list_add_tail (&name->hostname_list, &conf->hostnames);
+                rsp.op_ret = -1;
+                rsp.op_errno = GF_PROBE_ANOTHER_CLUSTER;
         }
 
-
-        uuid_copy (rsp.uuid, conf->uuid);
         rsp.hostname = probe_req.hostname;
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_probe_rsp);
 
-        gf_log ("glusterd", GF_LOG_NORMAL,
-                "Responded to %s, ret: %d", probe_req.hostname, ret);
+        gf_log ("glusterd", GF_LOG_NORMAL, "Responded to %s, op_ret: %d, "
+                "op_errno: %d, ret: %d", probe_req.hostname,
+                rsp.op_ret, rsp.op_errno, ret);
 
 out:
         if (probe_req.hostname)
                 free (probe_req.hostname);//malloced by xdr
+        return ret;
+}
+
+int
+glusterd_friend_remove (uuid_t uuid, char *hostname)
+{
+        int                           ret = 0;
+        glusterd_peerinfo_t           *peerinfo = NULL;
+
+        ret = glusterd_friend_find (uuid, hostname, &peerinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_friend_cleanup (peerinfo);
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d");
         return ret;
 }
 
@@ -2665,6 +2703,8 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Responded to %s (%d), ret: %d", hostname, port, ret);
+        if (rsp.hostname)
+                GF_FREE (rsp.hostname)
         return ret;
 }
 
@@ -3169,7 +3209,7 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         case RPC_CLNT_CONNECT:
         {
 
-                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_CONNECT");
+                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
@@ -3188,7 +3228,7 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 //Inject friend disconnected here
 
-                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
+                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_DISCONNECT");
                 peerinfo->connected = 0;
 
                 //default_notify (this, GF_EVENT_CHILD_DOWN, NULL);

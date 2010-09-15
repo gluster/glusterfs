@@ -60,6 +60,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_peerinfo_t           *dup_peerinfo = NULL;
         glusterd_friend_sm_event_t    *event = NULL;
         glusterd_peer_hostname_t      *name = NULL;
+        glusterd_probe_ctx_t          *ctx = NULL;
 
         conf  = THIS->private;
 
@@ -79,9 +80,20 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received probe resp from uuid: %s, host: %s",
                 str, rsp.hostname);
+        if (rsp.op_ret != 0) {
+                ctx = ((call_frame_t *)myframe)->local;
+                ((call_frame_t *)myframe)->local = NULL;
 
+                GF_ASSERT (ctx);
+
+                glusterd_xfer_cli_probe_resp (ctx->req, rsp.op_ret,
+                                              rsp.op_errno,
+                                              ctx->hostname, ctx->port);
+                ret = rsp.op_ret;
+                (void) glusterd_friend_remove (rsp.uuid, rsp.hostname);
+                goto out;
+        }
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
-
         if (ret) {
                 GF_ASSERT (0);
         }
@@ -93,6 +105,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_peer_hostname_new (rsp.hostname, &name);
                 list_add_tail (&name->hostname_list, &peerinfo->hostnames);
                 peerinfo->rpc = dup_peerinfo->rpc;
+                peerinfo->connected = dup_peerinfo->connected;
                 glusterd_peer_destroy  (dup_peerinfo);
         }
         if (!peerinfo->hostname)

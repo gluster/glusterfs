@@ -27,6 +27,7 @@
 bool_t
 xdr_glusterd_volume_status (XDR *xdrs, glusterd_volume_status *objp)
 {
+
 	 if (!xdr_enum (xdrs, (enum_t *) objp))
 		 return FALSE;
 	return TRUE;
@@ -56,6 +57,10 @@ xdr_gd1_mgmt_probe_rsp (XDR *xdrs, gd1_mgmt_probe_rsp *objp)
 	 if (!xdr_string (xdrs, &objp->hostname, ~0))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->port))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
 	return TRUE;
 }
@@ -192,6 +197,52 @@ bool_t
 xdr_gd1_mgmt_stage_op_rsp (XDR *xdrs, gd1_mgmt_stage_op_rsp *objp)
 {
 
+        register int32_t *buf;
+
+	if (xdrs->x_op == XDR_ENCODE) {
+		 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
+			sizeof (u_char), (xdrproc_t) xdr_u_char))
+			 return FALSE;
+		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
+		if (buf == NULL) {
+			 if (!xdr_int (xdrs, &objp->op))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->op_ret))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->op_errno))
+				 return FALSE;
+
+		} else {
+		IXDR_PUT_LONG(buf, objp->op);
+		IXDR_PUT_LONG(buf, objp->op_ret);
+		IXDR_PUT_LONG(buf, objp->op_errno);
+		}
+		 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+			 return FALSE;
+		return TRUE;
+	} else if (xdrs->x_op == XDR_DECODE) {
+		 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
+			sizeof (u_char), (xdrproc_t) xdr_u_char))
+			 return FALSE;
+		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
+		if (buf == NULL) {
+			 if (!xdr_int (xdrs, &objp->op))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->op_ret))
+				 return FALSE;
+			 if (!xdr_int (xdrs, &objp->op_errno))
+				 return FALSE;
+
+		} else {
+		objp->op = IXDR_GET_LONG(buf);
+		objp->op_ret = IXDR_GET_LONG(buf);
+		objp->op_errno = IXDR_GET_LONG(buf);
+		}
+		 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+			 return FALSE;
+	 return TRUE;
+	}
+
 	 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
 		sizeof (u_char), (xdrproc_t) xdr_u_char))
 		 return FALSE;
@@ -225,6 +276,7 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 {
 	register int32_t *buf;
 
+
 	if (xdrs->x_op == XDR_ENCODE) {
 		 if (!xdr_vector (xdrs, (char *)objp->uuid, 16,
 			sizeof (u_char), (xdrproc_t) xdr_u_char))
@@ -237,8 +289,6 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 				 return FALSE;
 			 if (!xdr_int (xdrs, &objp->op_errno))
 				 return FALSE;
-			 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-				 return FALSE;
 
 		} else {
 		IXDR_PUT_LONG(buf, objp->op);
@@ -246,6 +296,8 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 		IXDR_PUT_LONG(buf, objp->op_errno);
 		}
 		 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+			 return FALSE;
+		 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 			 return FALSE;
 		return TRUE;
 	} else if (xdrs->x_op == XDR_DECODE) {
@@ -260,8 +312,6 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 				 return FALSE;
 			 if (!xdr_int (xdrs, &objp->op_errno))
 				 return FALSE;
-			 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-				 return FALSE;
 
 		} else {
 		objp->op = IXDR_GET_LONG(buf);
@@ -269,6 +319,8 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 		objp->op_errno = IXDR_GET_LONG(buf);
 		}
 		 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+			 return FALSE;
+		 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 			 return FALSE;
 	 return TRUE;
 	}
@@ -286,7 +338,6 @@ xdr_gd1_mgmt_commit_op_rsp (XDR *xdrs, gd1_mgmt_commit_op_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 		 return FALSE;
-
 	return TRUE;
 }
 

@@ -729,7 +729,7 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
         if (peerinfo->rpc) {
-                rpc_clnt_destroy (peerinfo->rpc);
+                peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
                 peerinfo->rpc = NULL;
         }
         glusterd_peer_destroy (peerinfo);
@@ -1694,5 +1694,30 @@ glusterd_are_all_volumes_stopped ()
 
         return _gf_true;
 
+}
+
+int
+glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
+{
+        GF_ASSERT (req);
+        GF_ASSERT (remote_host);
+        GF_ASSERT (req->trans);
+
+        char *name = NULL;
+        char *delimiter = NULL;
+
+        name = req->trans->peerinfo.identifier;
+        strncpy (remote_host, name, len);
+        delimiter = strchr (remote_host, ':');
+
+        GF_ASSERT (delimiter);
+        if (!delimiter) {
+                memset (remote_host, 0, len);
+                return -1;
+        }
+
+        *delimiter = '\0';
+
+        return 0;
 }
 

@@ -52,6 +52,8 @@ struct gd1_mgmt_probe_rsp {
 	u_char uuid[16];
 	char *hostname;
 	int port;
+	int op_ret;
+	int op_errno;
 };
 typedef struct gd1_mgmt_probe_rsp gd1_mgmt_probe_rsp;
 
@@ -149,11 +151,11 @@ struct gd1_mgmt_commit_op_rsp {
 	int op;
 	int op_ret;
 	int op_errno;
-        struct {
-                u_int dict_len;
-                char *dict_val;
-        } dict;
-        char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+	char *op_errstr;
 };
 typedef struct gd1_mgmt_commit_op_rsp gd1_mgmt_commit_op_rsp;
 

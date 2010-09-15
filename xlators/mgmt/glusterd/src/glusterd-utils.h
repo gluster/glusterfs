@@ -142,4 +142,7 @@ glusterd_file_copy (int out, int in);
 gf_boolean_t
 glusterd_are_all_volumes_stopped ();
 
+int
+glusterd_remote_hostname_get (rpcsvc_request_t *req,
+                              char *remote_host, int len);
 #endif

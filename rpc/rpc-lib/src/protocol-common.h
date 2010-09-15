@@ -145,6 +145,7 @@ enum gf_probe_resp {
 	GF_PROBE_SUCCESS,
 	GF_PROBE_LOCALHOST,
 	GF_PROBE_FRIEND,
+        GF_PROBE_ANOTHER_CLUSTER
 };
 
 enum gf_cbk_procnum {
