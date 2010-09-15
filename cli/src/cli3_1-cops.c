@@ -34,6 +34,8 @@
 #include "cli-mem-types.h"
 #include "compat.h"
 
+#include "glusterfs3.h"
+
 extern rpc_clnt_prog_t *cli_rpc_prog;
 extern int      cli_op_ret;
 
@@ -51,6 +53,14 @@ char *cli_volume_status[] = {"Created",
 int32_t
 gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
                       void *data);
+
+
+rpc_clnt_prog_t cli_handshake_prog = {
+        .progname  = "cli handshake",
+        .prognum   = GLUSTER_HNDSK_PROGRAM,
+        .progver   = GLUSTER_HNDSK_VERSION,
+};
+
 
 int
 gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
@@ -1015,6 +1025,42 @@ out:
         return ret;
 }
 
+int
+gf_cli3_1_getspec_cbk (struct rpc_req *req, struct iovec *iov,
+                       int count, void *myframe)
+{
+        gf_getspec_rsp          rsp   = {0,};
+        int                     ret   = 0;
+        char                   *spec  = NULL;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = xdr_to_getspec_rsp (*iov, &rsp);
+        if (ret < 0 || rsp.op_ret == -1) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_NORMAL, "Received resp to getspec");
+
+        spec = GF_MALLOC (rsp.op_ret + 1, cli_mt_char);
+        if (!spec) {
+                gf_log("", GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+        memcpy (spec, rsp.spec, rsp.op_ret);
+        spec[rsp.op_ret] = '\0';
+        cli_out ("%s", spec);
+        GF_FREE (spec);
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
 
 
 int32_t
@@ -1797,6 +1843,36 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_getspec (call_frame_t *frame, xlator_t *this,
+                         void *data)
+{
+        gf_getspec_req          req = {0,};
+        int                     ret = 0;
+        dict_t                  *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volid", &req.key);
+        if (ret)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, &cli_handshake_prog,
+                              GF_HNDSK_GETSPEC, NULL,
+                              xdr_from_getspec_req,
+                              this, gf_cli3_1_getspec_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
 
 struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
@@ -1818,6 +1894,7 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_LOG_FILENAME] = {"LOG FILENAME", gf_cli3_1_log_filename},
         [GF1_CLI_LOG_LOCATE] = {"LOG LOCATE", gf_cli3_1_log_locate},
         [GF1_CLI_LOG_ROTATE] = {"LOG ROTATE", gf_cli3_1_log_rotate},
+        [GF1_CLI_GETSPEC] = {"GETSPEC", gf_cli3_1_getspec},
 };
 
 struct rpc_clnt_program cli3_1_prog = {

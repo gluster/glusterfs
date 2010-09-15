@@ -33,6 +33,8 @@
 #include "cli-mem-types.h"
 #include "protocol-common.h"
 
+#define GETSPEC_SYNTAX "system:: getspec <VOLID>"
+
 extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
@@ -40,7 +42,54 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 int cli_cmd_system_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
                              const char **words, int wordcount);
 
+int
+cli_cmd_getspec_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                     const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *dict = NULL;
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount != 3) {
+                cli_out ("Usage: " GETSPEC_SYNTAX);
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "volid", (char *)words[2]);
+        if (ret)
+                goto out;
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_GETSPEC];
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, dict);
+        }
+
+out:
+        if (!proc && ret) {
+                if (dict)
+                        dict_destroy (dict);
+                if (wordcount > 1)
+                        cli_out ("Fetching spec for volume %s failed",
+                                 (char *)words[2]);
+        }
+
+        return ret;
+}
+
 struct cli_cmd cli_system_cmds[] = {
+        { GETSPEC_SYNTAX,
+          cli_cmd_getspec_cbk,
+          "fetch spec for volume <VOLID>"},
+
         { "system:: help",
            cli_cmd_system_help_cbk,
            "display help for system commands"},
