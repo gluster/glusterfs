@@ -355,6 +355,7 @@ server_setvolume (rpcsvc_request_t *req)
         int32_t              op_errno      = EINVAL;
         int32_t              fop_version   = 0;
         int32_t              mgmt_version  = 0;
+        char                *buf           = NULL;
 
         params = dict_new ();
         reply  = dict_new ();
@@ -369,7 +370,15 @@ server_setvolume (rpcsvc_request_t *req)
         config_params = dict_copy_with_ref (this->options, NULL);
         conf          = this->private;
 
-        ret = dict_unserialize (args.dict.dict_val, args.dict.dict_len, &params);
+        buf = memdup (args.dict.dict_val, args.dict.dict_len);
+        if (buf == NULL) {
+                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto fail;
+        }
+                        
+        ret = dict_unserialize (buf, args.dict.dict_len, &params);
         if (ret < 0) {
                 ret = dict_set_str (reply, "ERROR",
                                     "Internal error: failed to unserialize "
@@ -384,6 +393,9 @@ server_setvolume (rpcsvc_request_t *req)
                 op_errno = EINVAL;
                 goto fail;
         }
+
+        params->extra_free = buf;
+        buf = NULL;
 
         ret = dict_get_str (params, "process-uuid", &process_uuid);
         if (ret < 0) {
@@ -621,6 +633,10 @@ fail:
         dict_unref (params);
         dict_unref (reply);
         dict_unref (config_params);
+
+        if (buf) {
+                GF_FREE (buf);
+        }
 
         return 0;
 }

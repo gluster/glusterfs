@@ -1902,7 +1902,7 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
                         goto out;
                 }
 
-                ret = asprintf (&transport_name, "%s.%s", tmp, name);
+                ret = gf_asprintf (&transport_name, "%s.%s", tmp, name);
                 if (ret == -1) {
                         goto out;
                 }
@@ -1920,6 +1920,7 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
                         goto out;
                 }
 
+                GF_FREE (transport_name);
                 count++;
         }
 

@@ -2904,6 +2904,12 @@ server_create (rpcsvc_request_t *req)
         memcpy (state->resolve.pargfid, args.pargfid, 16);
 
         resolve_and_resume (frame, server_create_resume);
+
+        /* memory allocated by libc, don't use GF_FREE */
+        if (args.dict.dict_val != NULL) {
+                free (args.dict.dict_val);
+        }
+
         return 0;
 out:
         if (params)
@@ -2912,8 +2918,13 @@ out:
         if (buf) {
                 GF_FREE (buf);
         }
-        return 0;
 
+        /* memory allocated by libc, don't use GF_FREE */
+        if (args.dict.dict_val != NULL) {
+                free (args.dict.dict_val);
+        }
+
+        return 0;
 }
 
 
@@ -4109,6 +4120,12 @@ server_mknod (rpcsvc_request_t *req)
         state->dev  = args.dev;
 
         resolve_and_resume (frame, server_mknod_resume);
+
+        /* memory allocated by libc, don't use GF_FREE */
+        if (args.dict.dict_val != NULL) {
+                free (args.dict.dict_val);
+        }
+
         return 0;
 out:
         if (params)
@@ -4117,6 +4134,12 @@ out:
         if (buf) {
                 GF_FREE (buf);
         }
+
+        /* memory allocated by libc, don't use GF_FREE */
+        if (args.dict.dict_val != NULL) {
+                free (args.dict.dict_val);
+        }
+
         return 0;
 
 }
@@ -4197,6 +4220,12 @@ server_mkdir (rpcsvc_request_t *req)
         state->mode = args.mode;
 
         resolve_and_resume (frame, server_mkdir_resume);
+
+        if (args.dict.dict_val != NULL) {
+                /* memory allocated by libc, don't use GF_FREE */
+                free (args.dict.dict_val);
+        }
+
         return 0;
 out:
         if (params)
@@ -4205,8 +4234,13 @@ out:
         if (buf) {
                 GF_FREE (buf);
         }
-        return 0;
 
+        if (args.dict.dict_val != NULL) {
+                /* memory allocated by libc, don't use GF_FREE */
+                free (args.dict.dict_val);
+        }
+
+        return 0;
 }
 
 
@@ -4631,6 +4665,11 @@ server_symlink (rpcsvc_request_t *req)
         state->name           = gf_strdup (args.linkname);
 
         resolve_and_resume (frame, server_symlink_resume);
+
+        /* memory allocated by libc, don't use GF_FREE */
+        if (args.dict.dict_val != NULL) {
+                free (args.dict.dict_val);
+        }
         return 0;
 out:
         if (params)
@@ -4639,6 +4678,12 @@ out:
         if (buf) {
                 GF_FREE (buf);
         }
+
+        /* memory allocated by libc, don't use GF_FREE */
+        if (args.dict.dict_val != NULL) {
+                free (args.dict.dict_val);
+        }
+
         return 0;
 }
 

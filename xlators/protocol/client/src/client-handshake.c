@@ -837,6 +837,7 @@ out:
                 trav = rsp.prog;
                 while (trav) {
                         next = trav->next;
+                        free (trav->progname);
                         free (trav);
                         trav = next;
                 }
