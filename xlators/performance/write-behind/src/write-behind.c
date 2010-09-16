@@ -66,14 +66,15 @@ typedef struct wb_file {
 
 
 typedef struct wb_request {
-        list_head_t  list;
-        list_head_t  winds;
-        list_head_t  unwinds;
-        list_head_t  other_requests;
-        call_stub_t *stub;
-        size_t       write_size;
-        int32_t      refcount;
-        wb_file_t   *file;
+        list_head_t     list;
+        list_head_t     winds;
+        list_head_t     unwinds;
+        list_head_t     other_requests;
+        call_stub_t    *stub;
+        size_t          write_size;
+        int32_t         refcount;
+        wb_file_t      *file;
+        glusterfs_fop_t fop;
         union {
                 struct  {
                         char write_behind;
@@ -241,6 +242,7 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
 
         request->stub = stub;
         request->file = file;
+        request->fop  = stub->fop;
 
         frame = stub->frame;
         local = frame->local;
@@ -2563,6 +2565,149 @@ wb_priv_dump (xlator_t *this)
         return 0;
 }
 
+
+void
+__wb_dump_requests (struct list_head *head, char *prefix, char passive)
+{
+        char          key[GF_DUMP_MAX_BUF_LEN];
+        char          key_prefix[GF_DUMP_MAX_BUF_LEN];
+        wb_request_t *request = NULL;
+
+        list_for_each_entry (request, head, list) {
+                gf_proc_dump_build_key (key, prefix,
+                                        passive ? "passive-request"
+                                        : "active-request");
+                gf_proc_dump_build_key (key_prefix, key,
+                                        gf_fop_list[request->fop]);
+
+                gf_proc_dump_add_section(key_prefix);
+
+                gf_proc_dump_build_key (key, key_prefix, "request-ptr");
+                gf_proc_dump_write (key, "%p", request);
+
+                gf_proc_dump_build_key (key, key_prefix, "refcount");
+                gf_proc_dump_write (key, "%d", request->refcount);
+
+                if (request->fop == GF_FOP_WRITE) {
+                        gf_proc_dump_build_key (key, key_prefix, "stack_wound");
+                        gf_proc_dump_write (key, "%d",
+                                            request->flags.write_request.stack_wound);
+
+                        gf_proc_dump_build_key (key, key_prefix, "size");
+                        gf_proc_dump_write (key, "%"GF_PRI_SIZET,
+                                            request->write_size);
+
+                        gf_proc_dump_build_key (key, key_prefix, "offset");
+                        gf_proc_dump_write (key, "%"PRId64,
+                                            request->stub->args.writev.off);
+
+                        gf_proc_dump_build_key (key, key_prefix,
+                                                "write_behind");
+                        gf_proc_dump_write (key, "%d",
+                                            request->flags.write_request.write_behind);
+
+                        gf_proc_dump_build_key (key, key_prefix, "got_reply");
+                        gf_proc_dump_write (key, "%d",
+                                            request->flags.write_request.got_reply);
+
+                        gf_proc_dump_build_key (key, key_prefix, "virgin");
+                        gf_proc_dump_write (key, "%d",
+                                            request->flags.write_request.virgin);
+
+                        gf_proc_dump_build_key (key, key_prefix, "flush_all");
+                        gf_proc_dump_write (key, "%d",
+                                            request->flags.write_request.flush_all);
+                } else {
+                        gf_proc_dump_build_key (key, key_prefix,
+                                                "marked_for_resume");
+                        gf_proc_dump_write (key, "%d",
+                                            request->flags.other_requests.marked_for_resume);
+                }
+        }
+}
+
+
+int
+wb_file_dump (xlator_t *this, fd_t *fd)
+{
+        wb_file_t *file = NULL;
+        uint64_t   tmp_file = 0;
+        int32_t    ret  = -1;
+        char       key[GF_DUMP_MAX_BUF_LEN];
+        char       key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+        if ((fd == NULL) || (this == NULL)) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = fd_ctx_get (fd, this, &tmp_file);
+        if (ret == -1) {
+                ret = 0;
+                goto out;
+        }
+
+	file = (wb_file_t *)(long)tmp_file;
+        if (file == NULL) {
+                ret = 0;
+                goto out;
+        }
+
+        gf_proc_dump_build_key (key_prefix,
+                                "xlator.performance.write-behind",
+                                "file");
+
+        gf_proc_dump_add_section (key_prefix);
+
+        gf_proc_dump_build_key (key, key_prefix, "fd");
+        gf_proc_dump_write (key, "%p", fd);
+
+        gf_proc_dump_build_key (key, key_prefix, "disabled");
+        gf_proc_dump_write (key, "%d", file->disabled);
+
+        gf_proc_dump_build_key (key, key_prefix, "disable_till");
+        gf_proc_dump_write (key, "%lu", file->disable_till);
+
+        gf_proc_dump_build_key (key, key_prefix, "window_conf");
+        gf_proc_dump_write (key, "%"GF_PRI_SIZET, file->window_conf);
+
+        gf_proc_dump_build_key (key, key_prefix, "window_current");
+        gf_proc_dump_write (key, "%"GF_PRI_SIZET, file->window_current);
+
+        gf_proc_dump_build_key (key, key_prefix, "flags");
+        gf_proc_dump_write (key, "%s", (file->flags & O_APPEND) ? "O_APPEND"
+                            : "!O_APPEND");
+
+        gf_proc_dump_build_key (key, key_prefix, "aggregate_current");
+        gf_proc_dump_write (key, "%"GF_PRI_SIZET, file->aggregate_current);
+
+        gf_proc_dump_build_key (key, key_prefix, "refcount");
+        gf_proc_dump_write (key, "%d", file->refcount);
+
+        gf_proc_dump_build_key (key, key_prefix, "op_ret");
+        gf_proc_dump_write (key, "%d", file->op_ret);
+
+        gf_proc_dump_build_key (key, key_prefix, "op_errno");
+        gf_proc_dump_write (key, "%d", file->op_errno);
+
+        LOCK (&file->lock);
+        {
+                if (!list_empty (&file->request)) {
+                        __wb_dump_requests (&file->request, key_prefix, 0);
+                }
+
+                if (!list_empty (&file->passive_requests)) {
+                        __wb_dump_requests (&file->passive_requests, key_prefix,
+                                            1);
+                }
+        }
+        UNLOCK (&file->lock);
+        
+out:
+        return ret;
+}
+
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -2750,6 +2895,7 @@ struct xlator_cbks cbks = {
 
 struct xlator_dumpops dumpops = {
         .priv      =  wb_priv_dump,
+        .fdctx     =  wb_file_dump,
 };
 
 struct volume_options options[] = {

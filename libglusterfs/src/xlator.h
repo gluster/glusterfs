@@ -732,12 +732,14 @@ typedef int32_t (*dumpop_fd_t)  (xlator_t   *this);
 
 typedef int32_t (*dumpop_inodectx_t) (xlator_t *this, inode_t *ino);
 
+typedef int32_t (*dumpop_fdctx_t) (xlator_t *this, fd_t *fd);
 
 struct xlator_dumpops {
 	dumpop_priv_t            priv;
 	dumpop_inode_t           inode;
         dumpop_fd_t              fd;
 	dumpop_inodectx_t        inodectx;
+        dumpop_fdctx_t           fdctx;
 };
 
 typedef struct xlator_list {

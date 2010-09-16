@@ -164,5 +164,10 @@ __fd_ctx_get (fd_t *fd, xlator_t *xlator, uint64_t *value);
 int
 __fd_ctx_del (fd_t *fd, xlator_t *xlator, uint64_t *value);
 
+fd_t *
+_fd_ref (fd_t *fd);
+
+void
+fd_ctx_dump (fd_t *fd, char *prefix);
 
 #endif /* _FD_H */
