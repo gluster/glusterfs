@@ -685,6 +685,12 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         loc   = &local->loc;
 
+        /* This is required for handling stale linkfile deletion,
+         * or any more call which happens from this 'loc'.
+         */
+        if (uuid_is_null (loc->inode->gfid) && !op_ret)
+                memcpy (loc->inode->gfid, stbuf->ia_gfid, 16);
+
 	if (ENTRY_MISSING (op_ret, op_errno)) {
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
 			local->op_errno = ENOENT;
@@ -3456,6 +3462,9 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	layout = local->layout;
 	conf = this->private;
 	hashed_subvol = local->hashed_subvol;
+
+        if (uuid_is_null (local->loc.inode->gfid) && !op_ret)
+                memcpy (local->loc.inode->gfid, stbuf->ia_gfid, 16);
 
         if (dht_is_subvol_filled (this, hashed_subvol))
                 ret = dht_layout_merge (this, layout, prev->this,
