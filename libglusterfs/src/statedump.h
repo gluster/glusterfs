@@ -35,6 +35,8 @@ typedef struct gf_dump_xl_options_ {
         gf_boolean_t    dump_priv;
         gf_boolean_t    dump_inode;
         gf_boolean_t    dump_fd;
+        gf_boolean_t    dump_inodectx;
+        gf_boolean_t    dump_fdctx;
 } gf_dump_xl_options_t;
 
 typedef struct gf_dump_options_ {
@@ -43,6 +45,8 @@ typedef struct gf_dump_options_ {
         gf_boolean_t            dump_callpool;
         gf_dump_xl_options_t    xl_options; //options for all xlators
 } gf_dump_options_t;
+
+extern gf_dump_options_t dump_options;
 
 static inline
 void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)

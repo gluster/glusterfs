@@ -39,7 +39,7 @@ extern xlator_t global_xlator;
 
 static pthread_mutex_t  gf_proc_dump_mutex;
 static int gf_dump_fd = -1;
-static gf_dump_options_t dump_options;
+gf_dump_options_t dump_options;
 
 
 static void
@@ -292,6 +292,10 @@ gf_proc_dump_parse_set_option (char *key, char *value)
                 opt_key = &dump_options.xl_options.dump_fd;
         } else if (!strncasecmp (key, "inode", 5)) {
                 opt_key = &dump_options.xl_options.dump_inode;
+        } else if (!strncasecmp (key, "inodectx", strlen ("inodectx"))) {
+                opt_key = &dump_options.xl_options.dump_inodectx;
+        } else if (!strncasecmp (key, "fdctx", strlen ("fdctx"))) {
+                opt_key = &dump_options.xl_options.dump_fdctx;
         }
 
         if (!opt_key) {
@@ -322,6 +326,9 @@ gf_proc_dump_enable_all_options ()
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_priv, _gf_true);
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_inode, _gf_true);
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fd, _gf_true);
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_inodectx,
+                                 _gf_true);
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fdctx, _gf_true);
 
         return 0;
 }
@@ -337,6 +344,9 @@ gf_proc_dump_disable_all_options ()
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_inode,
                                                                 _gf_false);
         GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fd, _gf_false);
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_inodectx,
+                                 _gf_false);
+        GF_PROC_DUMP_SET_OPTION (dump_options.xl_options.dump_fdctx, _gf_false);
 
         return 0;
 }

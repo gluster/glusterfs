@@ -806,3 +806,56 @@ fdtable_dump (fdtable_t *fdtable, char *prefix)
 
         pthread_mutex_unlock(&fdtable->lock);
 }
+
+
+void
+fd_ctx_dump (fd_t *fd, char *prefix)
+{
+        struct _fd_ctx *fd_ctx = NULL;
+        xlator_t       *xl     = NULL;
+        int    i               = 0;
+        
+
+        if ((fd == NULL) || (fd->_ctx == NULL)) {
+                goto out;
+        }
+
+        LOCK (&fd->lock);
+        {
+                if (fd->_ctx != NULL) {
+                        fd_ctx = GF_CALLOC (fd->inode->table->xl->graph->xl_count,
+                                            sizeof (*fd_ctx),
+                                            gf_common_mt_fd_ctx);
+                        if (fd_ctx == NULL) {
+                                gf_log ("fd", GF_LOG_ERROR, "out of memory");
+                                goto unlock;
+                        }
+
+                        for (i = 0; i < fd->inode->table->xl->graph->xl_count;
+                             i++) {
+                                fd_ctx[i] = fd->_ctx[i];
+                        }
+                }
+        }
+unlock:
+        UNLOCK (&fd->lock);
+        
+        if (fd_ctx == NULL) {
+                goto out;
+        }
+
+        for (i = 0; i < fd->inode->table->xl->graph->xl_count; i++) {
+                if (fd_ctx[i].xl_key) {
+                        xl = (xlator_t *)(long)fd_ctx[i].xl_key;
+                        if (xl->dumpops && xl->dumpops->fdctx)
+                                xl->dumpops->fdctx (xl, fd);
+                }
+        }
+
+out:
+        if (fd_ctx != NULL) {
+                GF_FREE (fd_ctx);
+        }
+
+        return;
+}

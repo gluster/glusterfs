@@ -23,6 +23,7 @@
 #endif
 
 #include "inode.h"
+#include "fd.h"
 #include "common-utils.h"
 #include "statedump.h"
 #include <pthread.h>
@@ -36,7 +37,7 @@
    move latest accessed dentry to list_head of inode
 */
 
-#define INODE_DUMP_LIST(head, key_buf, key_prefix, list_type)           \
+#define INODE_DUMP_LIST(head, key_buf, key_prefix, list_type) \
         {                                                               \
                 int i = 1;                                              \
                 inode_t *inode = NULL;                                  \
@@ -53,6 +54,9 @@ __inode_unref (inode_t *inode);
 
 static int
 inode_table_prune (inode_table_t *table);
+
+void
+fd_dump (struct list_head *head, char *prefix);
 
 static int
 hash_dentry (inode_t *parent, const char *name, int mod)
@@ -1351,47 +1355,105 @@ inode_ctx_del (inode_t *inode, xlator_t *key, uint64_t *value)
 void
 inode_dump (inode_t *inode, char *prefix)
 {
-        char            key[GF_DUMP_MAX_BUF_LEN];
-        int             ret = -1;
-        xlator_t        *xl = NULL;
-        int             i = 0;
-        char            uuidbuf[256];
+        char               key[GF_DUMP_MAX_BUF_LEN];
+        int                ret       = -1;
+        xlator_t          *xl        = NULL;
+        int                i         = 0;
+        char               uuidbuf[256];
+        fd_t              *fd        = NULL;
+        struct _inode_ctx *inode_ctx = NULL;
+        struct  fd_wrapper {
+                fd_t *fd;
+                struct list_head next;
+        } *fd_wrapper, *tmp;
+        struct list_head fd_list;
 
         if (!inode)
                 return;
 
+        INIT_LIST_HEAD (&fd_list);
+
         ret = TRY_LOCK(&inode->lock);
 
         if (ret != 0) {
-                gf_log("", GF_LOG_WARNING, "Unable to dump inode"
-                       " errno: %d", errno);
+                gf_log ("", GF_LOG_WARNING, "Unable to dump inode"
+                        " errno: %d", errno);
                 return;
         }
 
-        uuid_unparse (inode->gfid, uuidbuf);
-        gf_proc_dump_build_key(key, prefix, "gfid");
-        gf_proc_dump_write(key, "%s", uuidbuf);
-        gf_proc_dump_build_key(key, prefix, "nlookup");
-        gf_proc_dump_write(key, "%ld", inode->nlookup);
-        gf_proc_dump_build_key(key, prefix, "ref");
-        gf_proc_dump_write(key, "%u", inode->ref);
-        gf_proc_dump_build_key(key, prefix, "ino");
-        gf_proc_dump_write(key, "%ld", inode->ino);
-        gf_proc_dump_build_key(key, prefix, "ia_type");
-        gf_proc_dump_write(key, "%d", inode->ia_type);
-        UNLOCK(&inode->lock);
-        if (!inode->_ctx)
-                goto out;
+        {
+                uuid_unparse (inode->gfid, uuidbuf);
+                gf_proc_dump_build_key(key, prefix, "gfid");
+                gf_proc_dump_write(key, "%s", uuidbuf);
+                gf_proc_dump_build_key(key, prefix, "nlookup");
+                gf_proc_dump_write(key, "%ld", inode->nlookup);
+                gf_proc_dump_build_key(key, prefix, "ref");
+                gf_proc_dump_write(key, "%u", inode->ref);
+                gf_proc_dump_build_key(key, prefix, "ino");
+                gf_proc_dump_write(key, "%ld", inode->ino);
+                gf_proc_dump_build_key(key, prefix, "ia_type");
+                gf_proc_dump_write(key, "%d", inode->ia_type);
+                if (inode->_ctx) {
+                        inode_ctx = GF_CALLOC (inode->table->xl->graph->xl_count,
+                                               sizeof (*inode_ctx),
+                                               gf_common_mt_inode_ctx);
+                        if (inode_ctx == NULL) {
+                                gf_log ("", GF_LOG_ERROR, "out of memory");
+                                goto unlock;
+                        }
 
-        for (i = 0; i < inode->table->xl->graph->xl_count; i++) {
-                if (inode->_ctx[i].xl_key) {
-                        xl = (xlator_t *)(long)inode->_ctx[i].xl_key;
-                        if (xl->dumpops && xl->dumpops->inodectx)
-                                xl->dumpops->inodectx (xl, inode);
+                        for (i = 0; i < inode->table->xl->graph->xl_count; i++) {
+                                inode_ctx[i] = inode->_ctx[i];
+                        }
+                }
+
+                if (list_empty (&inode->fd_list)) {
+                        goto unlock;
+                }
+
+                list_for_each_entry (fd, &inode->fd_list, inode_list) {
+                        fd_wrapper = GF_CALLOC (1, sizeof (*fd_wrapper),
+                                                gf_common_mt_char);
+                        if (fd_wrapper == NULL) {
+                                gf_log ("", GF_LOG_ERROR, "out of memory");
+                                goto unlock;
+                        }
+
+                        INIT_LIST_HEAD (&fd_wrapper->next);
+                        list_add_tail (&fd_wrapper->next, &fd_list);
+
+                        fd_wrapper->fd = _fd_ref (fd);
+                }
+        }
+unlock:
+        UNLOCK(&inode->lock);
+
+        if (inode_ctx && (dump_options.xl_options.dump_inodectx == _gf_true)) {
+                for (i = 0; i < inode->table->xl->graph->xl_count; i++) {
+                        if (inode_ctx[i].xl_key) {
+                                xl = (xlator_t *)(long)inode_ctx[i].xl_key;
+                                if (xl->dumpops && xl->dumpops->inodectx)
+                                        xl->dumpops->inodectx (xl, inode);
+                        }
                 }
         }
 
-out:
+        if (!list_empty (&fd_list)
+            && (dump_options.xl_options.dump_fdctx == _gf_true)) {
+                list_for_each_entry_safe (fd_wrapper, tmp, &fd_list,
+                                          next) {
+                        list_del (&fd_wrapper->next);
+                        fd_ctx_dump (fd_wrapper->fd, prefix);
+
+                        fd_unref (fd_wrapper->fd);
+                        GF_FREE (fd_wrapper);
+                }
+        }
+
+        if (inode_ctx != NULL) {
+                GF_FREE (inode_ctx);
+        }
+
         return;
 }
 
