@@ -203,7 +203,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         char           *str2            = NULL;
         char           *msg             = NULL;
 	char            timestr[256]    = {0,};
-	char            callstr[1024]   = {0,};
+	char            callstr[4096]   = {0,};
         struct timeval  tv              = {0,};
         size_t          len             = 0;
         int             ret             = 0;
@@ -254,8 +254,15 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                 if (!callingfn)
                         break;
 
-		snprintf (callstr, 1024, "(-->%s (-->%s (-->%s)))", callingfn[2],
-                          callingfn[1], callingfn[0]);
+                if (size == 5)
+                        snprintf (callstr, 4096, "(-->%s (-->%s (-->%s)))",
+                                  callingfn[2], callingfn[1], callingfn[0]);
+                if (size == 4)
+                        snprintf (callstr, 4096, "(-->%s (-->%s))",
+                                  callingfn[1], callingfn[0]);
+                if (size == 3)
+                        snprintf (callstr, 4096, "(-->%s)", callingfn[0]);
+
                 free (callingfn);
 	} while (0);
 #endif /* HAVE_BACKTRACE */
