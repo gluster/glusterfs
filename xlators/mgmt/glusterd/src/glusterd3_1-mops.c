@@ -137,10 +137,6 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Received resp to probe req");
 
-        if (rsp.hostname)
-                free (rsp.hostname);//malloced by xdr
-        return ret;
-
 out:
         if (rsp.hostname)
                 free (rsp.hostname);//malloced by xdr
