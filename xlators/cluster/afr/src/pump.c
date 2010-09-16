@@ -27,6 +27,7 @@
 #endif
 
 #include "afr-common.c"
+#include "defaults.c"
 
 static int
 pump_mark_start_pending (xlator_t *this)
@@ -700,16 +701,18 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
 
 	ret = synctask_new (pump_priv->env, pump_task, pump_task_completion,
                             pump_frame);
-
-        if (ret != -1) {
-                gf_log (this->name, GF_LOG_TRACE,
-                        "setting pump as started");
-        } else {
+        if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "starting pump failed");
                 pump_change_state (this, PUMP_STATE_ABORT);
+                goto out;
         }
 
+        gf_log (this->name, GF_LOG_TRACE,
+                "setting pump as started");
+
+        priv->use_afr_in_pump = 1;
+out:
 	return ret;
 }
 
@@ -1281,6 +1284,14 @@ pump_getxattr (call_frame_t *frame, xlator_t *this,
                 }
         }
 
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame, default_getxattr_cbk,
+                            FIRST_CHILD (this),
+                            (FIRST_CHILD (this))->fops->getxattr,
+                            loc, name);
+                return 0;
+        }
+
         read_child = afr_read_child (this, loc->inode);
 
         if (read_child >= 0) {
@@ -1532,6 +1543,14 @@ pump_setxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame, default_setxattr_cbk,
+                            FIRST_CHILD (this),
+                            (FIRST_CHILD (this))->fops->setxattr,
+                            loc, dict, flags);
+                return 0;
+        }
+
 	transaction_frame = copy_frame (frame);
 	if (!transaction_frame) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1568,6 +1587,577 @@ out:
 
 	return 0;
 }
+
+/* Defaults */
+static int32_t
+pump_lookup (call_frame_t *frame,
+             xlator_t *this,
+             loc_t *loc,
+             dict_t *xattr_req)
+{
+	afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_lookup_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->lookup,
+                            loc,
+                            xattr_req);
+                return 0;
+        }
+
+        afr_lookup (frame, this, loc, xattr_req);
+        return 0;
+}
+
+
+static int32_t
+pump_truncate (call_frame_t *frame,
+               xlator_t *this,
+               loc_t *loc,
+               off_t offset)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_truncate_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->truncate,
+                            loc,
+                            offset);
+                return 0;
+        }
+
+        afr_truncate (frame, this, loc, offset);
+        return 0;
+}
+
+
+static int32_t
+pump_ftruncate (call_frame_t *frame,
+                xlator_t *this,
+                fd_t *fd,
+                off_t offset)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_ftruncate_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->ftruncate,
+                            fd,
+                            offset);
+                return 0;
+        }
+
+        afr_ftruncate (frame, this, fd, offset);
+        return 0;
+}
+
+
+
+
+int
+pump_mknod (call_frame_t *frame, xlator_t *this,
+            loc_t *loc, mode_t mode, dev_t rdev, dict_t *parms)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame, default_mknod_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->mknod,
+                            loc, mode, rdev, parms);
+                return 0;
+        }
+        afr_mknod (frame, this, loc, mode, rdev, parms);
+        return 0;
+
+}
+
+
+
+int
+pump_mkdir (call_frame_t *frame, xlator_t *this,
+            loc_t *loc, mode_t mode, dict_t *params)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame, default_mkdir_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->mkdir,
+                            loc, mode, params);
+                return 0;
+        }
+        afr_mkdir (frame, this, loc, mode, params);
+        return 0;
+
+}
+
+
+static int32_t
+pump_unlink (call_frame_t *frame,
+             xlator_t *this,
+             loc_t *loc)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_unlink_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->unlink,
+                            loc);
+                return 0;
+        }
+        afr_unlink (frame, this, loc);
+        return 0;
+
+}
+
+
+static int32_t
+pump_rmdir (call_frame_t *frame,
+            xlator_t *this,
+            loc_t *loc)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_rmdir_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->rmdir,
+                            loc);
+                return 0;
+        }
+        afr_rmdir (frame, this, loc);
+        return 0;
+
+}
+
+
+
+int
+pump_symlink (call_frame_t *frame, xlator_t *this,
+              const char *linkpath, loc_t *loc, dict_t *params)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame, default_symlink_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->symlink,
+                            linkpath, loc, params);
+                return 0;
+        }
+        afr_symlink (frame, this, linkpath, loc, params);
+        return 0;
+
+}
+
+
+static int32_t
+pump_rename (call_frame_t *frame,
+             xlator_t *this,
+             loc_t *oldloc,
+             loc_t *newloc)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_rename_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->rename,
+                            oldloc, newloc);
+                return 0;
+        }
+        afr_rename (frame, this, oldloc, newloc);
+        return 0;
+
+}
+
+
+static int32_t
+pump_link (call_frame_t *frame,
+           xlator_t *this,
+           loc_t *oldloc,
+           loc_t *newloc)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_link_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->link,
+                            oldloc, newloc);
+                return 0;
+        }
+        afr_link (frame, this, oldloc, newloc);
+        return 0;
+
+}
+
+
+static int32_t
+pump_create (call_frame_t *frame, xlator_t *this,
+             loc_t *loc, int32_t flags, mode_t mode,
+             fd_t *fd, dict_t *params)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame, default_create_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->create,
+                            loc, flags, mode, fd, params);
+                return 0;
+        }
+        afr_create (frame, this, loc, flags, mode, fd, params);
+        return 0;
+
+}
+
+
+static int32_t
+pump_open (call_frame_t *frame,
+           xlator_t *this,
+           loc_t *loc,
+           int32_t flags, fd_t *fd,
+           int32_t wbflags)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_open_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->open,
+                            loc, flags, fd, wbflags);
+                return 0;
+        }
+        afr_open (frame, this, loc, flags, fd, wbflags);
+        return 0;
+
+}
+
+
+static int32_t
+pump_writev (call_frame_t *frame,
+             xlator_t *this,
+             fd_t *fd,
+             struct iovec *vector,
+             int32_t count,
+             off_t off,
+             struct iobref *iobref)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_writev_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->writev,
+                            fd,
+                            vector,
+                            count,
+                            off,
+                            iobref);
+                return 0;
+        }
+        afr_writev (frame, this, fd, vector, count, off, iobref);
+        return 0;
+
+}
+
+
+static int32_t
+pump_flush (call_frame_t *frame,
+            xlator_t *this,
+            fd_t *fd)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_flush_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->flush,
+                            fd);
+                return 0;
+        }
+        afr_flush (frame, this, fd);
+        return 0;
+
+}
+
+
+static int32_t
+pump_fsync (call_frame_t *frame,
+            xlator_t *this,
+            fd_t *fd,
+            int32_t flags)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_fsync_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsync,
+                            fd,
+                            flags);
+                return 0;
+        }
+        afr_fsync (frame, this, fd, flags);
+        return 0;
+
+}
+
+
+static int32_t
+pump_opendir (call_frame_t *frame,
+              xlator_t *this,
+              loc_t *loc, fd_t *fd)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_opendir_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->opendir,
+                            loc, fd);
+                return 0;
+        }
+        afr_opendir (frame, this, loc, fd);
+        return 0;
+
+}
+
+
+static int32_t
+pump_fsyncdir (call_frame_t *frame,
+               xlator_t *this,
+               fd_t *fd,
+               int32_t flags)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_fsyncdir_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsyncdir,
+                            fd,
+                            flags);
+                return 0;
+        }
+        afr_fsyncdir (frame, this, fd, flags);
+        return 0;
+
+}
+
+
+static int32_t
+pump_xattrop (call_frame_t *frame,
+              xlator_t *this,
+              loc_t *loc,
+              gf_xattrop_flags_t flags,
+              dict_t *dict)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_xattrop_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->xattrop,
+                            loc,
+                            flags,
+                            dict);
+                return 0;
+        }
+        afr_xattrop (frame, this, loc, flags, dict);
+        return 0;
+
+}
+
+static int32_t
+pump_fxattrop (call_frame_t *frame,
+               xlator_t *this,
+               fd_t *fd,
+               gf_xattrop_flags_t flags,
+               dict_t *dict)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_fxattrop_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fxattrop,
+                            fd,
+                            flags,
+                            dict);
+                return 0;
+        }
+        afr_fxattrop (frame, this, fd, flags, dict);
+        return 0;
+
+}
+
+
+static int32_t
+pump_removexattr (call_frame_t *frame,
+                  xlator_t *this,
+                  loc_t *loc,
+                  const char *name)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_removexattr_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->removexattr,
+                            loc,
+                            name);
+                return 0;
+        }
+        afr_removexattr (frame, this, loc, name);
+        return 0;
+
+}
+
+
+
+static int32_t
+pump_readdir (call_frame_t *frame,
+              xlator_t *this,
+              fd_t *fd,
+              size_t size,
+              off_t off)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_readdir_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->readdir,
+                            fd, size, off);
+                return 0;
+        }
+        afr_readdir (frame, this, fd, size, off);
+        return 0;
+
+}
+
+
+static int32_t
+pump_readdirp (call_frame_t *frame,
+               xlator_t *this,
+               fd_t *fd,
+               size_t size,
+               off_t off)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_readdirp_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->readdirp,
+                            fd, size, off);
+                return 0;
+        }
+        afr_readdirp (frame, this, fd, size, off);
+        return 0;
+
+}
+
+
+
+static int32_t
+pump_releasedir (xlator_t *this,
+                 fd_t *fd)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (priv->use_afr_in_pump)
+                afr_releasedir (this, fd);
+	return 0;
+
+}
+
+static int32_t
+pump_release (xlator_t *this,
+              fd_t *fd)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (priv->use_afr_in_pump)
+                afr_release (this, fd);
+	return 0;
+
+}
+
+
+static int32_t
+pump_setattr (call_frame_t *frame,
+              xlator_t *this,
+              loc_t *loc,
+              struct iatt *stbuf,
+              int32_t valid)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_setattr_cbk,
+                            FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->setattr,
+                            loc, stbuf, valid);
+                return 0;
+        }
+        afr_setattr (frame, this, loc, stbuf, valid);
+        return 0;
+
+}
+
+
+static int32_t
+pump_fsetattr (call_frame_t *frame,
+               xlator_t *this,
+               fd_t *fd,
+               struct iatt *stbuf,
+               int32_t valid)
+{
+        afr_private_t *priv  = NULL;
+	priv = this->private;
+        if (!priv->use_afr_in_pump) {
+                STACK_WIND (frame,
+                            default_fsetattr_cbk,
+                            FIRST_CHILD (this),
+                            FIRST_CHILD (this)->fops->fsetattr,
+                            fd, stbuf, valid);
+                return 0;
+        }
+        afr_fsetattr (frame, this, fd, stbuf, valid);
+        return 0;
+
+}
+
+
+/* End of defaults */
+
 
 int32_t
 mem_acct_init (xlator_t *this)
@@ -1805,51 +2395,37 @@ fini (xlator_t *this)
 
 
 struct xlator_fops fops = {
-	.lookup      = afr_lookup,
-	.open        = afr_open,
-	.lk          = afr_lk,
-	.flush       = afr_flush,
-	.statfs      = afr_statfs,
-	.fsync       = afr_fsync,
-	.fsyncdir    = afr_fsyncdir,
-	.xattrop     = afr_xattrop,
-	.fxattrop    = afr_fxattrop,
-	.inodelk     = afr_inodelk,
-	.finodelk    = afr_finodelk,
-	.entrylk     = afr_entrylk,
-	.fentrylk    = afr_fentrylk,
-
-	/* inode read */
-	.access      = afr_access,
-	.stat        = afr_stat,
-	.fstat       = afr_fstat,
-	.readlink    = afr_readlink,
-	.getxattr    = pump_getxattr,
-	.readv       = afr_readv,
+	.lookup      = pump_lookup,
+	.open        = pump_open,
+	.flush       = pump_flush,
+	.fsync       = pump_fsync,
+	.fsyncdir    = pump_fsyncdir,
+	.xattrop     = pump_xattrop,
+	.fxattrop    = pump_fxattrop,
 
 	/* inode write */
-	.writev      = afr_writev,
-	.truncate    = afr_truncate,
-	.ftruncate   = afr_ftruncate,
+	.writev      = pump_writev,
+	.truncate    = pump_truncate,
+	.ftruncate   = pump_ftruncate,
 	.setxattr    = pump_setxattr,
-        .setattr     = afr_setattr,
-	.fsetattr    = afr_fsetattr,
-	.removexattr = afr_removexattr,
+        .setattr     = pump_setattr,
+	.fsetattr    = pump_fsetattr,
+	.removexattr = pump_removexattr,
 
 	/* dir read */
-	.opendir     = afr_opendir,
-	.readdir     = afr_readdir,
-	.readdirp    = afr_readdirp,
+	.opendir     = pump_opendir,
+	.readdir     = pump_readdir,
+	.readdirp    = pump_readdirp,
 
 	/* dir write */
-	.create      = afr_create,
-	.mknod       = afr_mknod,
-	.mkdir       = afr_mkdir,
-	.unlink      = afr_unlink,
-	.rmdir       = afr_rmdir,
-	.link        = afr_link,
-	.symlink     = afr_symlink,
-	.rename      = afr_rename,
+	.create      = pump_create,
+	.mknod       = pump_mknod,
+	.mkdir       = pump_mkdir,
+	.unlink      = pump_unlink,
+	.rmdir       = pump_rmdir,
+	.link        = pump_link,
+	.symlink     = pump_symlink,
+	.rename      = pump_rename,
 };
 
 struct xlator_dumpops dumpops = {
@@ -1858,8 +2434,8 @@ struct xlator_dumpops dumpops = {
 
 
 struct xlator_cbks cbks = {
-	.release     = afr_release,
-	.releasedir  = afr_releasedir,
+	.release     = pump_release,
+	.releasedir  = pump_releasedir,
 };
 
 struct volume_options options[] = {
