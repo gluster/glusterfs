@@ -1876,10 +1876,7 @@ rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
                            glusterd_brickinfo_t *dst_brickinfo)
 {
         glusterd_conf_t  *priv               = NULL;
-        int               ret                = -1;
         char              pidfile[PATH_MAX]  = {0,};
-        pid_t             pid                = -1;
-        FILE             *file               = NULL;
 
         priv = THIS->private;
 
@@ -1887,39 +1884,7 @@ rb_kill_destination_brick (glusterd_volinfo_t *volinfo,
                   priv->workdir, volinfo->volname,
                   RB_DSTBRICK_PIDFILE);
 
-        file = fopen (pidfile, "r+");
-        if (!file) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
-                                pidfile);
-                ret = -1;
-                goto out;
-        }
-
-        ret = fscanf (file, "%d", &pid);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
-                                pidfile);
-                ret = -1;
-                goto out;
-        }
-
-        fclose (file);
-        file = NULL;
-
-        gf_log ("", GF_LOG_NORMAL, "Stopping glusterfs running in pid: %d",
-                pid);
-
-        ret = kill (pid, SIGQUIT);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
-                goto out;
-        }
-
-        ret = 0;
-
-out:
-        return ret;
+        return glusterd_service_stop ("brick", pidfile, SIGQUIT, _gf_true);
 }
 
 static int

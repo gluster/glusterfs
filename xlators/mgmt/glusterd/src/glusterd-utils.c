@@ -767,6 +767,66 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 }
 
 
+int32_t
+glusterd_service_stop(const char *service, char *pidfile, int sig,
+                      gf_boolean_t keep_pidfile)
+{
+        int32_t  ret = -1;
+        pid_t    pid = -1;
+        FILE    *file = NULL;
+
+        file = fopen (pidfile, "r+");
+
+        if (!file) {
+                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
+                                pidfile);
+                if (errno == ENOENT) {
+                        gf_log ("",GF_LOG_TRACE, "%s may not be running",
+                                service);
+                        ret = 0;
+                        goto out;
+                }
+                ret = -1;
+                goto out;
+        }
+
+        ret = fscanf (file, "%d", &pid);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
+                                pidfile);
+                ret = -1;
+                goto out;
+        }
+        fclose (file);
+        file = NULL;
+
+        gf_log ("", GF_LOG_NORMAL, "Stopping gluster %s running in pid: %d",
+                service, pid);
+
+        ret = kill (pid, sig);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
+                goto out;
+        }
+
+        if (keep_pidfile)
+                goto out;
+
+        ret = unlink (pidfile);
+
+        if (ret && (ENOENT != errno)) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unlink pidfile: %s",
+                                pidfile);
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (file)
+                fclose (file);
+        return ret;
+}
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
@@ -841,13 +901,10 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                                 glusterd_brickinfo_t   *brickinfo,
                                 int32_t count)
 {
-        int32_t                 ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
         char                    pidfile[PATH_MAX] = {0,};
         char                    path[PATH_MAX] = {0,};
-        pid_t                   pid = -1;
-        FILE                    *file = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -861,55 +918,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
 
-        file = fopen (pidfile, "r+");
-
-        if (!file) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
-                                pidfile);
-                if (errno == ENOENT) {
-                        gf_log ("",GF_LOG_TRACE, "volume may not be running");
-                        ret = 0;
-                        goto out;
-                }
-                ret = -1;
-                goto out;
-        }
-
-        ret = fscanf (file, "%d", &pid);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
-                                pidfile);
-                ret = -1;
-                goto out;
-        }
-        fclose (file);
-        file = NULL;
-
-        gf_log ("", GF_LOG_NORMAL, "Stopping glusterfs running in pid: %d",
-                pid);
-
-        ret = kill (pid, SIGTERM);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
-                goto out;
-        }
-
-        //pmap_registry_remove (THIS, brickinfo->port, brickinfo->path);
-
-        ret = unlink (pidfile);
-
-        if (ret && (ENOENT != errno)) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unlink pidfile: %s",
-                                pidfile);
-                goto out;
-        }
-
-        ret = 0;
-out:
-        if (file)
-                fclose (file);
-        return ret;
+        return glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
 }
 
 int32_t
@@ -1618,13 +1627,10 @@ out:
 int32_t
 glusterd_nfs_server_stop ()
 {
-        int32_t                 ret = -1;
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
         char                    pidfile[PATH_MAX] = {0,};
         char                    path[PATH_MAX] = {0,};
-        pid_t                   pid = -1;
-        FILE                    *file = NULL;
 
         this = THIS;
         GF_ASSERT(this);
@@ -1634,48 +1640,7 @@ glusterd_nfs_server_stop ()
         GLUSTERD_GET_NFS_DIR(path, priv);
         GLUSTERD_GET_NFS_PIDFILE(pidfile);
 
-        file = fopen (pidfile, "r+");
-
-        if (!file) {
-                gf_log ("", GF_LOG_ERROR, "Unable to open pidfile: %s",
-                                pidfile);
-                ret = -1;
-                goto out;
-        }
-
-        ret = fscanf (file, "%d", &pid);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_ERROR, "Unable to read pidfile: %s",
-                                pidfile);
-                ret = -1;
-                goto out;
-        }
-        fclose (file);
-        file = NULL;
-
-        gf_log ("", GF_LOG_NORMAL, "Stopping glusterfs running in pid: %d",
-                pid);
-
-        ret = kill (pid, SIGTERM);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
-                goto out;
-        }
-
-        ret = unlink (pidfile);
-
-        if (ret && (ENOENT != errno)) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unlink pidfile: %s",
-                                pidfile);
-                goto out;
-        }
-
-        ret = 0;
-out:
-        if (file)
-                fclose (file);
-        return ret;
+        return glusterd_service_stop ("nfsd", pidfile, SIGTERM, _gf_false);
 }
 
 gf_boolean_t
