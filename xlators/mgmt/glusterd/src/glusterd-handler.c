@@ -2168,6 +2168,8 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
 out:
         if (rsp_dict)
                 dict_unref (rsp_dict);
+        if (rsp.dict.dict_val)
+                GF_FREE (rsp.dict.dict_val);
         return ret;
 }
 
