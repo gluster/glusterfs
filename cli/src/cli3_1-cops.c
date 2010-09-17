@@ -1062,7 +1062,7 @@ gf_cli3_1_getspec_cbk (struct rpc_req *req, struct iovec *iov,
         cli_out ("%s", spec);
         GF_FREE (spec);
 
-        ret = rsp.op_ret;
+        ret = 0;
 
 out:
         cli_cmd_broadcast_response (ret);
