@@ -3885,6 +3885,17 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         stat = NFS3_OK;
 nfs3err:
+
+        /* On end-of-directory, unref the fd to have it removed from the cache
+         * and also unbind it from the fd so that any subsequent request on the
+         * on the directory do not get this fd when fd_lookup is called in
+         * dir open resume path.
+         */
+        if (is_eof) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "EOF REF: %d", cs->fd->refcount);
+                fd_unref_unbind (cs->fd);
+        }
+
         if (cs->maxcount == 0) {
                 nfs3_log_readdir_res (nfs_rpcsvc_request_xid (cs->req), stat,
                                       op_errno, (uintptr_t)cs->fd,
@@ -3900,11 +3911,6 @@ nfs3err:
                                      (uintptr_t)cs->fd, buf,
                                      &cs->entries, cs->dircount,
                                      cs->maxcount, is_eof);
-        }
-
-        if (is_eof) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "EOF REF: %d", cs->fd->refcount);
-                fd_unref (cs->fd);
         }
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "CS WIPE REF: %d", cs->fd->refcount);
@@ -3958,7 +3964,7 @@ err:
          * so that next time the dir is read, we'll get any changed directory
          * entries.
          */
-        fd_unref (cs->fd);
+        fd_unref_unbind (cs->fd);
         nfs3_call_state_wipe (cs);
 ret:
         return 0;
