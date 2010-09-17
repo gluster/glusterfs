@@ -654,8 +654,8 @@ __write_access_control_xlator (FILE *file, dict_t *dict,
         int    ret           = -1;
 
         const char *ac_str = "volume %s-access-control\n"
-                             "type features/access-control\n"
-                             "subvolumes %s\n"
+                             "    type features/access-control\n"
+                             "    subvolumes %s\n"
                              "end-volume\n";
 
         ret = dict_get_str (dict, "volname", &volname);
