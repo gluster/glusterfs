@@ -1596,12 +1596,19 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (local->pathinfo)
                 strcat (local->pathinfo, " Link: ");
+        if (local->hashed_subvol) {
+                /* This will happen if there pending */
+                STACK_WIND (frame, dht_pathinfo_getxattr_cbk, local->hashed_subvol,
+                            local->hashed_subvol->fops->getxattr,
+                            &local->loc, local->key);
 
-        /* This will happen if there pending */
-        STACK_WIND (frame, dht_pathinfo_getxattr_cbk, local->hashed_subvol,
-                    local->hashed_subvol->fops->getxattr,
-                    &local->loc, local->key);
+                return 0;
+        }
 
+        gf_log ("this->name", GF_LOG_ERROR, "Unable to find hashed_subvol for path"
+                " %s", local->pathinfo);
+      
+        DHT_STACK_UNWIND (getxattr, frame, -1, op_errno, dict);
         return 0;
 }
 
