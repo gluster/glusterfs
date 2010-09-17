@@ -215,10 +215,12 @@ resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve->deep_loc.inode  = inode_new (state->itable);
         resolve->deep_loc.name   = components[i].basename;
 
-        STACK_WIND_COOKIE (frame, resolve_deep_cbk, (void *) (long) i,
-                           BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
-                           &resolve->deep_loc, NULL);
-        return 0;
+        if (frame && frame->root->state && BOUND_XL (frame)) {
+                STACK_WIND_COOKIE (frame, resolve_deep_cbk, (void *) (long) i,
+                                   BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
+                                   &resolve->deep_loc, NULL);
+                return 0;
+        }
 
 get_out_of_here:
         resolve_deep_continue (frame);
@@ -247,9 +249,14 @@ resolve_path_deep (call_frame_t *frame)
         resolve->deep_loc.path  = gf_strdup ("/");
         resolve->deep_loc.name  = "";
 
-        STACK_WIND_COOKIE (frame, resolve_deep_cbk, (void *) (long) i,
-                           BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
-                           &resolve->deep_loc, NULL);
+        if (frame && frame->root->state && BOUND_XL (frame)) {
+                STACK_WIND_COOKIE (frame, resolve_deep_cbk, (void *) (long) i,
+                                   BOUND_XL (frame), BOUND_XL (frame)->fops->lookup,
+                                   &resolve->deep_loc, NULL);
+                return 0;
+        }
+
+        resolve_deep_continue (frame);
         return 0;
 }
 
