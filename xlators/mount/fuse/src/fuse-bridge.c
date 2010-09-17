@@ -3579,7 +3579,7 @@ init (xlator_t *this_xl)
                 if (cmd_args->volfile_id) {
                         fsname = GF_MALLOC (
                                    strlen (cmd_args->volfile_server) + 1 +
-                                   strlen (cmd_args->volfile_server) + 1,
+                                   strlen (cmd_args->volfile_id) + 1,
                                    gf_fuse_mt_fuse_private_t);
                         if (!fsname) {
                                 gf_log ("glusterfs-fuse", GF_LOG_ERROR,
