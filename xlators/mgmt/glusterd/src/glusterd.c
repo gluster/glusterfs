@@ -316,6 +316,15 @@ init (xlator_t *this)
                 exit (1);
         }
 
+        snprintf (voldir, PATH_MAX, "%s/logs/bricks", dirname);
+        ret = mkdir (voldir, 0777);
+        if ((-1 == ret) && (errno != EEXIST)) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Unable to create logs directory %s"
+                        " ,errno = %d", voldir, errno);
+                exit (1);
+        }
+
         snprintf (voldir, PATH_MAX, "%s/nfs", dirname);
         ret = mkdir (voldir, 0777);
         if ((-1 == ret) && (errno != EEXIST)) {

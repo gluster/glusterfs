@@ -1912,7 +1912,8 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
                         strcpy (tmp_str, brickinfo->logfile);
                         rsp.path = dirname (tmp_str);
                 } else {
-                        snprintf (tmp_str, PATH_MAX, "%s/logs/", priv->workdir);
+                        snprintf (tmp_str, PATH_MAX, "%s/logs/bricks/",
+                                  priv->workdir);
                         rsp.path = tmp_str;
                 }
                 break;
