@@ -815,7 +815,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                   brickinfo->hostname, exp_path);
 
         if (!brickinfo->logfile) {
-                snprintf (logfile, PATH_MAX, "%s/logs/%s.log",
+                snprintf (logfile, PATH_MAX, "%s/logs/bricks/%s.log",
                           priv->workdir, exp_path);
                 brickinfo->logfile = gf_strdup (logfile);
         }
@@ -1567,6 +1567,7 @@ glusterd_nfs_server_start ()
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
         char                    pidfile[PATH_MAX] = {0,};
+        char                    logfile[PATH_MAX] = {0,};
         char                    *volfile = NULL;
         char                    path[PATH_MAX] = {0,};
         char                    cmd_str[8192] = {0,};
@@ -1601,9 +1602,11 @@ glusterd_nfs_server_start ()
                 goto out;
         }
 
+        snprintf (logfile, PATH_MAX, "%s/logs/nfs.log", priv->workdir);
+
         snprintf (cmd_str, 8192,
-                  "%s/sbin/glusterfs  -f %s -p %s",
-                  GFS_PREFIX, volfile, pidfile);
+                  "%s/sbin/glusterfs -f %s -p %s -l %s",
+                  GFS_PREFIX, volfile, pidfile, logfile);
         ret = gf_system (cmd_str);
 
 out:
