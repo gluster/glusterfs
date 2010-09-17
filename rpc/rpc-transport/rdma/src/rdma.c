@@ -4713,6 +4713,8 @@ init (rpc_transport_t *this)
         rdma_private_t *priv = NULL;
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_common_mt_rdma_private_t);
+        if (!priv)
+                return -1;
 
         this->private = priv;
         priv->sock = -1;
@@ -4726,27 +4728,32 @@ init (rpc_transport_t *this)
         return 0;
 }
 
-void  
+void
 fini (struct rpc_transport *this)
 {
         /* TODO: verify this function does graceful finish */
         rdma_private_t *priv = this->private;
         this->private = NULL;
 
-        pthread_mutex_destroy (&priv->recv_mutex);
-        pthread_mutex_destroy (&priv->write_mutex);
-        pthread_mutex_destroy (&priv->read_mutex);
+        if (priv) {
+                pthread_mutex_destroy (&priv->recv_mutex);
+                pthread_mutex_destroy (&priv->write_mutex);
+                pthread_mutex_destroy (&priv->read_mutex);
 
-        mem_pool_destroy (priv->request_ctx_pool);
-        mem_pool_destroy (priv->ioq_pool);
-        mem_pool_destroy (priv->reply_info_pool);
+                mem_pool_destroy (priv->request_ctx_pool);
+                mem_pool_destroy (priv->ioq_pool);
+                mem_pool_destroy (priv->reply_info_pool);
 
-        /*  pthread_cond_destroy (&priv->recv_cond); */
+                /*  pthread_cond_destroy (&priv->recv_cond); */
+                if (priv->sock != -1) {
+                        event_unregister (this->ctx->event_pool,
+                                          priv->sock, priv->idx);
+                }
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "called fini on transport: %p",
-                this);
-        GF_FREE (priv);
+                gf_log (this->name, GF_LOG_TRACE,
+                        "called fini on transport: %p", this);
+                GF_FREE (priv);
+        }
         return;
 }
 

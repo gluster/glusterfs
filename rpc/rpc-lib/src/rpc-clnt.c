@@ -457,6 +457,7 @@ rpc_clnt_reconnect_cleanup (rpc_clnt_connection_t *conn)
                 }
 
         }
+        pthread_mutex_unlock (&conn->lock);
 
 out:
         return 0;
