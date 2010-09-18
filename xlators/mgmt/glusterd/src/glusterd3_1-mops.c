@@ -286,7 +286,7 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
                 goto respond;
 
 inject:
-        ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
+        ret = glusterd_friend_find (rsp.uuid, ctx->hostname, &peerinfo);
 
         if (ret) {
                 //can happen as part of rpc clnt connection cleanup
