@@ -484,8 +484,8 @@ fd_bind (fd_t *fd)
 {
         inode_t *inode = NULL;
 
-        if (!fd) {
-                gf_log ("fd.c", GF_LOG_ERROR, "fd is NULL");
+        if (!fd || !fd->inode) {
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "!fd || !fd->inode");
                 return NULL;
         }
         inode = fd->inode;

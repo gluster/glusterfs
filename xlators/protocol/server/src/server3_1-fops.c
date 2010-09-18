@@ -1368,6 +1368,12 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 link_inode = inode_link (inode, state->loc.parent,
                                          state->loc.name, stbuf);
 
+                if (!link_inode) {
+                        op_ret = -1;
+                        op_errno = ENOENT;
+                        goto out;
+                }
+
                 if (link_inode != inode) {
                         /*
                            VERY racy code (if used anywhere else)
@@ -1402,6 +1408,7 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 
+out:
         req           = frame->local;
 
         rsp.fd        = fd_no;
