@@ -1648,8 +1648,8 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
         sh->completion_cbk = afr_self_heal_completion_cbk;
 
 
-	sh->buf = GF_CALLOC (priv->child_count, sizeof (struct stat),
-                             gf_afr_mt_stat);
+	sh->buf = GF_CALLOC (priv->child_count, sizeof (struct iatt),
+                             gf_afr_mt_iatt);
 	sh->child_errno = GF_CALLOC (priv->child_count, sizeof (int),
                                      gf_afr_mt_int);
 	sh->success = GF_CALLOC (priv->child_count, sizeof (int),
