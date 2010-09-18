@@ -3304,6 +3304,14 @@ out:
         pthread_mutex_unlock (&opinfo.lock);
         ret = glusterd_op_send_cli_response (cli_op, op_ret,
                                              op_errno, req, ctx, op_errstr);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Responding to cli failed, ret: %d",
+                        ret);
+                //Ignore this error, else state machine blocks
+                ret = 0;
+        }
+
         if (ctx_free && ctx && (op != -1))
                 glusterd_op_free_ctx (op, ctx, ctx_free);
         if (op_errstr && (strcmp (op_errstr, "")))
