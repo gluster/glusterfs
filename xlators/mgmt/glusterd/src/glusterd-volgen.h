@@ -141,4 +141,7 @@ glusterd_get_nfs_filepath ();
 
 int
 volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo);
+
+int
+uncomment_option( char *opt_str,char *comment_str);
 #endif

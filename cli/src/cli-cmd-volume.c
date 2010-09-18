@@ -71,6 +71,11 @@ cli_cmd_volume_info_usage ()
         cli_out ("Usage: volume info [all|<VOLNAME>]");
 }
 
+void 
+cli_cmd_volume_set_usage ()
+{
+	cli_out ("Usage: volume set <VOLNAME> <KEY> <VALUE>");
+}
 int
 cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                          const char **words, int wordcount)
@@ -424,8 +429,35 @@ int
 cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         const char **words, int wordcount)
 {
-        cli_cmd_broadcast_response (0);
-        return 0;
+
+	int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_SET_VOLUME];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_volume_set_parse (words, wordcount, &options);
+
+        if (ret) {
+                cli_cmd_volume_set_usage ();
+                goto out;
+        }
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (options)
+                dict_unref (options);
+
+        return ret;
+
 }
 
 void

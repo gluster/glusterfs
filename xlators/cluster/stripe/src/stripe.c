@@ -3674,8 +3674,7 @@ set_stripe_block_size (xlator_t *this, stripe_private_t *priv, char *data)
         stripe_str = strtok_r (data, ",", &tmp_str);
         while (stripe_str) {
                 dup_str = gf_strdup (stripe_str);
-                stripe_opt = GF_CALLOC (1, sizeof (struct stripe_options),
-                                        gf_stripe_mt_stripe_options);
+                stripe_opt = CALLOC (1, sizeof (struct stripe_options));
                 if (!stripe_opt) {
                         GF_FREE (dup_str);
                         goto out;
@@ -3733,6 +3732,37 @@ mem_acct_init (xlator_t *this)
 
 out:
         return ret;
+}
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+
+	stripe_private_t *priv = NULL;
+	data_t           *data = NULL;
+	int 		  ret = 0;
+
+
+	priv = this->private;
+
+	data = dict_get (options, "block-size");
+        if (data) {
+		gf_log (this->name, GF_LOG_TRACE,"Reconfiguring Stripe"
+			" Block-size");
+                ret = set_stripe_block_size (this, priv, data->data);
+                if (ret) {
+			gf_log (this->name, GF_LOG_ERROR,
+                        "Reconfigue: Block-Size reconfiguration failed");
+                        ret = -1;
+			goto out;
+		}
+		gf_log (this->name, GF_LOG_TRACE,
+                        "Reconfigue: Block-Size reconfigured Successfully");
+	}
+
+out:
+	return ret;
+
 }
 
 /**
@@ -3873,7 +3903,7 @@ fini (xlator_t *this)
                 while (trav) {
                         prev = trav;
                         trav = trav->next;
-                        GF_FREE (prev);
+                        FREE (prev);
                 }
                 LOCK_DESTROY (&priv->lock);
                 GF_FREE (priv);

@@ -61,6 +61,231 @@ mem_acct_init (xlator_t *this)
 }
 
 
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+
+	gf_boolean_t metadata_self_heal;   /* on/off */
+	gf_boolean_t entry_self_heal;
+	gf_boolean_t data_self_heal;
+	gf_boolean_t data_change_log;       /* on/off */
+	gf_boolean_t metadata_change_log;   /* on/off */
+	gf_boolean_t entry_change_log;      /* on/off */
+	gf_boolean_t strict_readdir;
+
+	afr_private_t * priv        = NULL;
+	xlator_list_t * trav        = NULL;
+	
+	char * read_subvol     = NULL;
+	char * self_heal       = NULL;
+	char * change_log      = NULL;
+	char * str_readdir     = NULL;
+
+        int32_t background_count  = 0;
+        int32_t window_size       = 0;
+
+	int    read_ret      = -1;
+	int    dict_ret      = -1;
+	int    flag	     = 1;
+	int    ret           = 0;
+	int    temp_ret	     = -1;
+	
+	priv = this->private;
+	
+	dict_ret = dict_get_int32 (options, "background-self-heal-count",
+				   &background_count);
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring background self-heal count to %d",
+			background_count);
+
+		priv->background_self_heal_count = background_count;
+	}
+
+	dict_ret = dict_get_str (options, "metadata-self-heal",
+				 &self_heal);
+	if (dict_ret == 0) {
+		temp_ret = gf_string2boolean (self_heal, &metadata_self_heal);
+		if (temp_ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Reconfiguration Invalid 'option metadata"
+				"-self-heal %s'. Defaulting to old value.", 
+				self_heal);
+			ret = -1;
+			goto out;
+		} 
+	
+		priv->metadata_self_heal = metadata_self_heal;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring 'option metadata"
+			"-self-heal %s'.", 
+			self_heal);
+	}
+
+	dict_ret = dict_get_str (options, "data-self-heal",
+				 &self_heal);
+	if (dict_ret == 0) {
+		temp_ret = gf_string2boolean (self_heal, &data_self_heal);
+		if (temp_ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Reconfiguration Invalid 'option data"
+				"-self-heal %s'. Defaulting to old value.", 
+				self_heal);
+			ret = -1;
+			goto out;
+		} 
+	
+		priv->data_self_heal = data_self_heal;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring 'option data"
+			"-self-heal %s'.", self_heal);
+	}
+
+	dict_ret = dict_get_str (options, "entry-self-heal",
+				 &self_heal);
+	if (dict_ret == 0) {
+		temp_ret = gf_string2boolean (self_heal, &entry_self_heal);
+		if (temp_ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Reconfiguration Invalid 'option data"
+				"-self-heal %s'. Defaulting to old value.", 
+				self_heal);
+			ret = -1;
+			goto out;
+		} 
+	
+		priv->entry_self_heal = entry_self_heal;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring 'option entry"
+			"-self-heal %s'.", self_heal);
+	}
+
+
+	dict_ret = dict_get_str (options, "strict-readdir",
+				 &str_readdir);
+	if (dict_ret == 0) {
+		temp_ret = gf_string2boolean (str_readdir, &strict_readdir);
+		if (temp_ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Invalid 'option strict-readdir %s'. "
+				"Defaulting to old value.",
+				str_readdir);
+			ret = -1;
+			goto out;
+		}
+		
+		priv->strict_readdir = strict_readdir;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring 'option strict"
+			"-readdir %s'.", str_readdir);
+	}
+
+	dict_ret = dict_get_int32 (options, "data-self-heal-window-size",
+				   &window_size);
+	if (dict_ret == 0) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring, Setting data self-heal window size to %d",
+			window_size);
+
+		priv->data_self_heal_window_size = window_size;
+	}
+
+	dict_ret = dict_get_str (options, "data-change-log",
+				 &change_log);
+	if (dict_ret == 0) {
+		temp_ret = gf_string2boolean (change_log, &data_change_log);
+		if (temp_ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Reconfiguration Invalid 'option data-"
+				"change-log %s'. Defaulting to old value.", 
+				change_log);
+			ret = -1;
+			goto out;
+		}
+ 
+		priv->data_change_log = data_change_log;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring 'option data-"
+			"change-log %s'.", change_log);
+	}
+
+	dict_ret = dict_get_str (options, "metadata-change-log",
+				 &change_log);
+	if (dict_ret == 0) {
+		temp_ret = gf_string2boolean (change_log,
+					 &metadata_change_log);
+		if (temp_ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Invalid 'option metadata-change-log %s'. "
+				"Defaulting to metadata-change-log as 'off'.",
+				change_log);
+			ret = -1;
+			goto out;
+		} 
+		
+		priv->metadata_change_log = metadata_change_log;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring 'option metadata-"
+			"change-log %s'.", change_log);
+	}
+
+	dict_ret = dict_get_str (options, "entry-change-log",
+				 &change_log);
+	if (dict_ret == 0) {
+		temp_ret = gf_string2boolean (change_log, &entry_change_log);
+		if (temp_ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Invalid 'option entry-change-log %s'. "
+				"Defaulting to entry-change-log as 'on'.", 
+				change_log);
+			ret = -1;
+			goto out;
+		} 
+
+		priv->entry_change_log = entry_change_log;
+		gf_log (this->name, GF_LOG_DEBUG,
+			"Reconfiguring 'option entry-"
+			"change-log %s'.", change_log);
+	}
+
+	read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
+
+	if (read_ret == -1) 
+		goto next;// No need to traverse, hence set the next option
+	
+	trav = this->children;
+	flag = 0;
+	while (trav) {
+		if (!read_ret && !strcmp (read_subvol, trav->xlator->name)) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"Subvolume '%s' specified as read child.",
+				trav->xlator->name);
+
+			flag = 1;
+			ret = -1; 
+			goto out;
+		}
+
+		
+		trav = trav->next;
+	}
+
+	if (flag == 0 ) {
+
+		gf_log (this->name, GF_LOG_ERROR,
+			"Invalid 'option read-subvolume %s', no such subvolume"
+			, read_subvol);
+		ret = -1;
+		goto out;
+	}
+
+next:
+out:
+	return ret;
+
+}
+
+
 static const char *favorite_child_warning_str = "You have specified subvolume '%s' "
 	"as the 'favorite child'. This means that if a discrepancy in the content "
 	"or attributes (ownership, permission, etc.) of a file is detected among "

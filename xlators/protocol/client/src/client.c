@@ -1751,6 +1751,80 @@ out:
 }
 
 int
+reconfigure (xlator_t *this, dict_t *options)
+{
+	int	ret = 0;
+	int	timeout_ret=0;
+	int	ping_timeout;
+	int	frame_timeout;
+	clnt_conf_t *conf = NULL;
+
+	
+	conf = this->private;
+	
+        timeout_ret = dict_get_int32 (options, "frame-timeout",
+				      &frame_timeout);
+        if (timeout_ret == 0) {
+		if (frame_timeout < 5 ) {
+			gf_log (this->name, GF_LOG_ERROR, "Reconfiguration"
+			      "'option frame-timeout %d failed , Min value"
+			      " can be 5, Defaulting to old value (%d)"
+			      , frame_timeout, conf->rpc_conf.rpc_timeout);
+			ret = -1;
+			goto out;
+		}
+
+		if (frame_timeout > 3600 ) {
+			gf_log (this->name, GF_LOG_ERROR, "Reconfiguration"
+			      "'option frame-timeout %d failed , Max value"
+			      "can be 3600, Defaulting to old value (%d)"
+			      , frame_timeout, conf->rpc_conf.rpc_timeout);
+			ret = -1;
+			goto out;
+		}
+
+		
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Reconfiguring otion frame-timeout to %d",
+                        frame_timeout);
+
+		conf->rpc_conf.rpc_timeout = frame_timeout;
+        }
+
+	timeout_ret = dict_get_int32 (options, "ping-timeout",
+			              &ping_timeout);
+        if (timeout_ret == 0) {
+
+		if (frame_timeout < 5 ) {
+			gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
+			      "'option ping-timeout %d failed , Min value"
+			      " can be 5, Defaulting to old value (%d)"
+			      , ping_timeout, conf->opt.ping_timeout);
+			ret = -1;
+			goto out;
+		}
+
+		if (frame_timeout > 1013 ) {
+			gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
+			      "'option frame-timeout %d failed , Max value"
+			      "can be 1013, Defaulting to old value (%d)"
+			      , frame_timeout, conf->opt.ping_timeout);
+			ret = -1;
+			goto out;
+		}
+		
+                gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
+			"'option ping-timeout' to %d", ping_timeout);
+		conf->opt.ping_timeout = ping_timeout;
+        }
+
+out:
+	return ret;
+	
+
+}
+
+int
 init (xlator_t *this)
 {
         int          ret = -1;

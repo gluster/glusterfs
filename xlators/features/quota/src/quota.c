@@ -1042,6 +1042,57 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+
+	struct quota_priv *_private = NULL;
+	uint64_t	   disk_usage_limit;	
+	uint32_t   	   min_free_disk_limit;
+	data_t 		  *data = NULL;
+	int		   ret = 0;
+	
+	_private = this->private;
+
+	data = dict_get (options, "disk-usage-limit");
+	if (data) {
+		if (gf_string2bytesize (data->data, &disk_usage_limit) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR, 
+                                "Reconfigure: Invalid number '%s' "
+				"for disk-usage limit", data->data);
+			//return -1;
+			ret = -1;
+			goto out;
+                }
+		_private->disk_usage_limit = disk_usage_limit;
+		gf_log (this->name, GF_LOG_TRACE,
+                        "Reconfiguring disk-usage-limit %"PRIu64"",
+			disk_usage_limit);
+
+	}
+	
+    
+        data = dict_get (options, "min-free-disk-limit");
+        if (data) {
+		if (gf_string2percent (data->data, &min_free_disk_limit) != 0){
+                        gf_log (this->name, GF_LOG_ERROR, 
+                                "Reconfigure : Invalid percent '%s'  for"
+				" min-free-disk-limit", data->data);
+			ret = -1;
+			goto out;
+		}
+
+		_private->min_free_disk_limit = min_free_disk_limit;
+		gf_log (this->name, GF_LOG_TRACE,
+                        "Reconfiguring min-free-disk-limit %d \%",
+			min_free_disk_limit);
+		
+        }
+out:	
+	return ret;
+
+}
+
 int32_t 
 init (xlator_t *this)
 {
@@ -1105,6 +1156,8 @@ init (xlator_t *this)
  out:
 	return ret;
 }
+
+
 
 void 
 fini (xlator_t *this)

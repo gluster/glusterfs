@@ -161,6 +161,152 @@ out:
 static char oldvolfile[131072];
 static int oldvollen = 0;
 
+static int
+xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
+{
+	xlator_list_t *trav1 = NULL;
+        xlator_list_t *trav2 = NULL;
+        int            ret   = 0;
+
+	if (xl1 == NULL || xl2 == NULL)	{
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+		return -1;
+	}
+
+	trav1 = xl1->children;
+        trav2 = xl2->children;
+
+	while (trav1 && trav2) {
+		ret = xlator_equal_rec (trav1->xlator, trav2->xlator);
+                if (ret) {
+                        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                                "xlators children not equal");
+                        goto out;
+                }
+
+		trav1 = trav1->next;
+                trav2 = trav2->next;
+	}
+
+	if (trav1 || trav2) {
+		ret = -1;
+    		goto out;
+	}
+
+	if (strcmp (xl1->name, xl2->name)) {
+                ret = -1;
+		goto out;
+	}
+out :
+        return ret;
+}
+
+static gf_boolean_t
+is_graph_topology_equal (glusterfs_graph_t *graph1,
+                                glusterfs_graph_t *graph2)
+{
+        xlator_t    *trav1    = NULL;
+        xlator_t    *trav2    = NULL;
+        gf_boolean_t ret      = _gf_true;
+
+        trav1 = graph1->first;
+        trav2 = graph2->first;
+
+        ret = xlator_equal_rec (trav1, trav2);
+
+        if (ret) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                        "graphs are not equal");
+                ret = _gf_false;
+                goto out;
+        }
+
+	ret = _gf_true;
+        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                "graphs are equal");
+
+out:
+        return ret;
+}
+
+static int
+glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
+{
+        glusterfs_graph_t *oldvolfile_graph = NULL;
+        glusterfs_graph_t *newvolfile_graph = NULL;
+        FILE              *oldvolfile_fp    = NULL;
+	glusterfs_ctx_t   *ctx              = NULL;
+
+        int ret = 0;
+
+        oldvolfile_fp = tmpfile ();
+        if (!oldvolfile_fp)
+                goto out;
+
+	if (!oldvollen)
+		goto out;
+
+        fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
+        fflush (oldvolfile_fp);
+
+
+        oldvolfile_graph = glusterfs_graph_construct (oldvolfile_fp);
+        if (!oldvolfile_graph) {
+                ret = -1;
+                goto out;
+        }
+
+        newvolfile_graph = glusterfs_graph_construct (newvolfile_fp);
+        if (!oldvolfile_graph) {
+                ret = -1;
+                goto out;
+        }
+
+        if (!is_graph_topology_equal (oldvolfile_graph,
+                                      newvolfile_graph)) {
+
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                        "Graph topology not equal");
+                ret = 0;
+                goto out;
+        }
+
+        gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                "Only options have changed in the new "
+                "graph");
+
+	ctx = glusterfs_ctx_get ();
+
+	if (!ctx) {
+		gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+			"glusterfs_ctx_get() returned NULL");
+		ret = -1;
+		goto out;
+	}
+
+	oldvolfile_graph = ctx->active;
+
+	if (!oldvolfile_graph) {
+		gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+			"glsuterfs_ctx->active is NULL");
+		ret = -1;
+		goto out;
+	}
+
+	
+
+        ret = glusterfs_graph_reconfigure (oldvolfile_graph,
+                                           newvolfile_graph);
+        if (ret) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                        "Could not reconfigure new options in old "
+                                "graph");
+        }
+
+out:
+        return ret;
+}
+
 int
 mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                   void *myframe)
@@ -208,6 +354,17 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         fwrite (rsp.spec, size, 1, tmpfp);
         fflush (tmpfp);
+
+        /* Check if only options have changed. No need to reload the
+           volfile if topology hasn't changed.
+        */
+
+        ret = glusterfs_volfile_reconfigure (tmpfp);
+        if (ret) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
+                        "No need to re-load volfile");
+                goto out;
+        }
 
         ret = glusterfs_process_volfp (ctx, tmpfp);
         if (ret)

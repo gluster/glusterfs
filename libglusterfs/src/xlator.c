@@ -749,6 +749,12 @@ xlator_set_type (xlator_t *xl,
                         dlerror ());
         }
 
+	if (!(xl->reconfigure = dlsym (handle, "reconfigure"))) {
+		gf_log ("xlator", GF_LOG_ERROR,
+			"dlsym(reconfigure) on %s -- neglecting",
+			dlerror());
+	}
+
 	INIT_LIST_HEAD (&xl->volume_options);
 
 	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
@@ -910,6 +916,35 @@ xlator_fini_rec (xlator_t *xl)
 	}
 }
 
+static void
+xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
+{
+	xlator_list_t *trav1 = NULL;
+        xlator_list_t *trav2 = NULL;
+
+	if (old_xl == NULL || new_xl == NULL)	{
+		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+		return;
+	}
+
+	trav1 = old_xl->children;
+        trav2 = new_xl->children;
+
+	while (trav1 && trav2) {
+		xlator_reconfigure_rec (trav1->xlator, trav2->xlator);
+
+		gf_log (trav1->xlator->name, GF_LOG_DEBUG, "reconfigured");
+
+		trav1 = trav1->next;
+                trav2 = trav2->next;
+	}
+
+        if (old_xl->reconfigure)
+                old_xl->reconfigure (old_xl, new_xl->options);
+        else
+                gf_log (old_xl->name, GF_LOG_DEBUG, "No reconfigure() found");
+
+}
 
 int
 xlator_notify (xlator_t *xl, int event, void *data, ...)
@@ -974,6 +1009,23 @@ xlator_tree_fini (xlator_t *xl)
 
 	top = xl;
 	xlator_fini_rec (top);
+}
+
+int
+xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl)
+{
+        xlator_t *new_top = NULL;
+        xlator_t *old_top = NULL;
+
+        GF_ASSERT (old_xl);
+        GF_ASSERT (new_xl);
+
+        old_top = old_xl;
+        new_top = new_xl;
+
+	xlator_reconfigure_rec (old_top, new_top);
+
+        return 0;
 }
 
 

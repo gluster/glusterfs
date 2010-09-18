@@ -2727,6 +2727,57 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+	char	     *str=NULL;
+	uint64_t     window_size;
+	wb_conf_t    *conf = NULL;
+	int	     ret = 0;
+
+	conf = this->private;
+
+	ret = dict_get_str (options, "cache-size", 
+                            &str);
+        if (ret == 0) {
+                ret = gf_string2bytesize (str, &window_size);
+                if (ret != 0) {
+                        gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
+			      "'option cache-size %s failed , Invalid"
+			      " number format, Defaulting to old value (%d)"
+			      , str, conf->window_size);
+			ret = -1;
+			goto out;
+                }
+
+		if (window_size < (2^19)) {
+                        gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
+			      "'option cache-size %s' failed , Max value"
+			      "can be 512KiB, Defaulting to old value (%d)"
+			      , str, conf->window_size);
+			ret = -1;
+			goto out;
+                }
+
+		if (window_size > (2^30)) {
+                        gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
+			      "'option cache-size %s' failed , Max value"
+			      "can be 1 GiB, Defaulting to old value (%d)"
+			      , str, conf->window_size);
+			ret = -1;
+			goto out;
+                }
+
+		conf->window_size = window_size;
+		gf_log(this->name, GF_LOG_DEBUG, "Reconfiguring "
+			      "'option cache-size %s ' to %d"
+			      , str, conf->window_size);
+        }
+out:
+	return 0;
+
+}
+
 int32_t 
 init (xlator_t *this)
 {

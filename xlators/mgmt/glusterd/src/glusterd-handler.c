@@ -1641,6 +1641,42 @@ out:
 }
 
 int
+glusterd_handle_set_volume (rpcsvc_request_t *req)
+{
+        int32_t                           ret = -1;
+        gf1_cli_set_vol_req           cli_req = {0,};
+        dict_t                          *dict = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_set_vol_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                }
+        }
+
+        ret = glusterd_set_volume (req, dict);
+
+out:
+        return ret;
+}
+
+int
 glusterd_handle_remove_brick (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
@@ -2963,6 +2999,29 @@ glusterd_replace_brick (rpcsvc_request_t *req, dict_t *dict)
 
         glusterd_op_set_ctx_free (GD_OP_REPLACE_BRICK, _gf_true);
         glusterd_op_set_req (req);
+
+        ret = glusterd_op_txn_begin ();
+
+        return ret;
+}
+
+int32_t
+glusterd_set_volume (rpcsvc_request_t *req, dict_t *dict)
+{
+        int32_t      ret       = -1;
+
+        GF_ASSERT (req);
+        GF_ASSERT (dict);
+
+        glusterd_op_set_op (GD_OP_SET_VOLUME);
+
+        glusterd_op_set_ctx (GD_OP_SET_VOLUME, dict);
+
+        glusterd_op_set_ctx_free (GD_OP_SET_VOLUME, _gf_true);
+
+	glusterd_op_set_cli_op (GD_MGMT_CLI_SET_VOLUME);
+
+	glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
 

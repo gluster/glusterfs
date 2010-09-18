@@ -252,6 +252,68 @@ mem_acct_init (xlator_t *this)
 }
 
 int
+reconfigure (xlator_t *this, dict_t *options)
+{
+	dht_conf_t	*conf = NULL;
+	char		*temp_str = NULL;
+	gf_boolean_t     search_unhashed;
+	uint32_t         temp_free_disk = 0;
+	int		 ret = 0;
+
+
+	conf = this->private;
+
+	if (dict_get_str (options, "lookup-unhashed", &temp_str) == 0) {
+                /* If option is not "auto", other options _should_ be boolean*/
+                if (strcasecmp (temp_str, "auto")) {
+                        if (!gf_string2boolean (temp_str, &search_unhashed)) {
+				gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
+				       " lookup-unahashed reconfigured (%s)",
+				       temp_str);
+				conf->search_unhashed = search_unhashed;
+			}
+			else {
+				gf_log(this->name, GF_LOG_ERROR, "Reconfigure:"
+				       " lookup-unahashed should be boolean,"
+				        " not (%s), defaulting to (%d)",
+				       temp_str, conf->search_unhashed);
+				//return -1;
+				ret = -1;
+				goto out;
+			}
+		
+		}
+                else {
+			gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
+			       " lookup-unahashed reconfigured auto ");
+                        conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
+		}
+	}
+
+	if (dict_get_str (options, "min-free-disk", &temp_str) == 0) {
+		if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
+                        if (temp_free_disk > 100) {
+                                gf_string2bytesize (temp_str, 
+                                                    &conf->min_free_disk);
+                                conf->disk_unit = 'b';
+                        } else {
+                                conf->min_free_disk = (uint64_t)temp_free_disk;
+                        }
+                } else {
+                        gf_string2bytesize (temp_str, &conf->min_free_disk);
+                        conf->disk_unit = 'b';
+                }
+
+		gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
+			       " min-free-disk reconfigured to ",
+			       temp_str);
+	}
+
+out:
+	return ret;
+}
+
+int
 init (xlator_t *this)
 {
         dht_conf_t    *conf = NULL;

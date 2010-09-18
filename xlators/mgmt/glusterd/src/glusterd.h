@@ -373,6 +373,12 @@ glusterd_log_rotate (rpcsvc_request_t *req, dict_t *dict);
 int32_t
 glusterd_remove_brick (rpcsvc_request_t *req, dict_t *dict);
 
+int32_t
+glusterd_set_volume (rpcsvc_request_t *req, dict_t *dict);
+
+int
+glusterd_handle_set_volume (rpcsvc_request_t *req);
+
 int
 glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
                                 int32_t op_errno, char *hostname);
