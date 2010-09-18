@@ -468,13 +468,18 @@ __write_client_xlator (FILE *file, dict_t *dict,
         char       *opt_transtype         = NULL;
         char       *opt_nodelay           = NULL;
         int         ret                   = 0;
-
+	char	   *ping                  = NULL;
+	char	   *frame                 = NULL;
+	char	    ping_timeout[100]	  = {0, };
+	char 	    frame_timeout[100]	  = {0, };
 
         const char *client_str = "volume %s-%s-%d\n"
                 "    type protocol/client\n"
                 "    option transport-type %s\n"
                 "    option remote-host %s\n"
                 "    option transport.socket.nodelay %s\n"
+		"%s" //for frame-timeout
+		"%s" //for ping-timeout
                 "    option remote-subvolume %s\n"
                 "end-volume\n\n";
 
@@ -495,6 +500,26 @@ __write_client_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
+	if (dict_get (dict, "frame-timeout")) {
+		ret = dict_get_str (dict, "frame-timeout", &frame);
+		if (ret) {
+                	goto out;
+        	}
+		gf_log ("", GF_LOG_DEBUG, "Reconfiguring frame-timeout %s",
+			frame);
+		sprintf(frame_timeout, "    option frame-timeout %s\n",frame);
+	} 
+
+	if (dict_get (dict, "ping-timeout")) {
+		ret = dict_get_str (dict, "ping-timeout", &ping);
+		if (ret) {
+                	goto out;
+        	}
+		gf_log ("", GF_LOG_DEBUG, "Reconfiguring ping-timeout %s",
+			ping);
+		sprintf(ping_timeout, "    option ping-timeout %s\n",ping);
+	} 
+
         fprintf (file, client_str,
                  volname,
                  "client",
@@ -502,6 +527,8 @@ __write_client_xlator (FILE *file, dict_t *dict,
                  opt_transtype,
                  remote_host,
                  opt_nodelay,
+		 frame_timeout,
+		 ping_timeout,
                  remote_subvol);
 
         ret = 0;
@@ -608,8 +635,14 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_IOT_OPTION_THREADCOUNT,
-                            &opt_threadcount);
+	if (dict_get (dict, "thread-count")) {
+		gf_log("", GF_LOG_DEBUG, "Resetting the thread-count value");
+        	ret = dict_get_str (dict, "thread-count", &opt_threadcount);
+	}
+	else 
+		ret = dict_get_str (dict, VOLGEN_IOT_OPTION_THREADCOUNT,
+                	            &opt_threadcount);
+	
         if (ret) {
                 goto out;
         }
@@ -675,16 +708,19 @@ static int
 __write_server_xlator (FILE *file, dict_t *dict,
                        char *subvolume)
 {
-        char  *volname       = NULL;
-        char  *opt_transtype = NULL;
-        char  *opt_nodelay   = NULL;
-        int    ret           = -1;
+        char  *volname              = NULL;
+        char  *opt_transtype        = NULL;
+        char  *opt_nodelay          = NULL;
+        int    ret                  = -1;
+	char  *lru_count            = NULL;
+	char   inode_lru_count[100] = {0,}; 
 
         const char *server_str = "volume %s-%s\n"
                 "    type protocol/server\n"
                 "    option transport-type %s\n"
                 "    option auth.addr.%s.allow *\n"
                 "    option transport.socket.nodelay %s\n"
+		"%s"//for inode-lru-limit
                 "    subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -705,12 +741,25 @@ __write_server_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
+	if (dict_get (dict, "inode-lru-limit")) {
+		ret = dict_get_str (dict, "inode-lru-limit", &lru_count);
+		if (ret) {
+                	goto out;
+        	}
+		gf_log ("", GF_LOG_DEBUG, "Reconfiguring inode-lru-limit %s",
+			lru_count);
+		sprintf (inode_lru_count, "    option inode-lru-limit %s\n", 
+			 lru_count);
+	} 
+
         fprintf (file, server_str,
                  volname, "server",
                  opt_transtype,
                  subvolume,
                  opt_nodelay,
-                 subvolume);
+		 inode_lru_count,
+                 subvolume
+		 );
 
         ret = 0;
 
@@ -747,7 +796,7 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
         int         subvol_len            = 0;
 
 
-        const char *replicate_str = "volume %s-%s-%d\n"
+        char replicate_str[] = "volume %s-%s-%d\n"
                 "    type cluster/replicate\n"
                 "#   option read-subvolume %s\n"
                 "#   option favorite-child %s\n"
@@ -771,7 +820,15 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_READSUBVOL,
+	if (dict_get (dict, "read-subvolume")) {
+		ret = dict_get_str (dict, "read-subvolume", &opt_readsubvol);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring read-subvolume: %s", 
+		       &opt_readsubvol);
+		uncomment_option (replicate_str,
+				  (char *) "#   option read-subvolume %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_READSUBVOL,
                             &opt_readsubvol);
         if (ret) {
                 goto out;
@@ -783,14 +840,32 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_BCKSHCOUNT,
+	if (dict_get (dict, "background-self-heal-count")) {
+		ret = dict_get_str (dict,"background-self-heal-count", 
+				    &opt_bckshcount);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring background-self-heal-"
+					 "count: %s", &opt_bckshcount);
+		uncomment_option (replicate_str,
+				  (char *) "#   option background-self-heal-count %s\n");
+	}
+	else
+	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_BCKSHCOUNT,
                             &opt_bckshcount);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_DATASH,
-                            &opt_datash);
+	if (dict_get (dict, "data-self-heal")) {
+		ret = dict_get_str (dict,"data-self-heal", 
+				    &opt_datash);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring data-self-heal"
+					 "count: %s", &opt_datash);
+		uncomment_option (replicate_str,
+				  (char *) "#   option data-self-heal %s\n");
+	}
+	else
+	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_DATASH,
+                                    &opt_datash);
         if (ret) {
                 goto out;
         }
@@ -801,35 +876,89 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_SHWINDOWSIZE,
+	if (dict_get (dict, "data-self-heal-window-size")) {
+		ret = dict_get_str (dict,"data-self-heal-window-size", 
+				    &opt_shwindowsize);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring data-self-heal"
+					 "window-size: %s", &opt_shwindowsize);
+		uncomment_option (replicate_str,
+				  (char *) "#   option data-self-heal-window-size %s\n");
+	}
+	else
+	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_SHWINDOWSIZE,
                             &opt_shwindowsize);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_METASH,
+	if (dict_get (dict, "metadata-self-heal")) {
+		ret = dict_get_str (dict,"metadata-self-heal", 
+				    &opt_metash);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring metadata-self-heal"
+					 "count: %s", &opt_metash);
+		uncomment_option (replicate_str,
+				  (char *) "#   option metadata-self-heal %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_METASH,
                             &opt_metash);
         if (ret) {
                 goto out;
         }
-
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_ENTRYSH,
+	
+	if (dict_get (dict, "entry-self-heal")) {
+		ret = dict_get_str (dict,"entry-self-heal", 
+				    &opt_entrysh);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring entry-self-heal"
+					 "count: %s", &opt_entrysh);
+		uncomment_option (replicate_str,
+				  (char *) "#   option entry-self-heal %s\n");
+	}
+	else
+	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_ENTRYSH,
                             &opt_entrysh);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_DATACHANGELOG,
+	if (dict_get (dict, "data-change-log")) {
+		ret = dict_get_str (dict,"data-change-log", 
+				    &opt_datachangelog);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring data-change-log"
+					 "count: %s", &opt_datachangelog);
+		uncomment_option (replicate_str,
+				  (char *) "#   option data-change-log %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_DATACHANGELOG,
                             &opt_datachangelog);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_METADATACHANGELOG,
+	if (dict_get (dict, "metadata-change-log")) {
+		ret = dict_get_str (dict,"metadata-change-log", 
+				    &opt_metadatachangelog);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring metadata-change-log"
+					 "count: %s", &opt_metadatachangelog);
+		uncomment_option (replicate_str,
+				  (char *) "#   option metadata-change-log %s\n");
+	}
+	else
+	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_METADATACHANGELOG,
                             &opt_metadatachangelog);
         if (ret) {
                 goto out;
         }
+
+	if (dict_get (dict, "entry-change-log")) {
+		ret = dict_get_str (dict, "entry-change-log", &opt_entrychangelog);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring entry-change-log: %s", 
+		       &opt_entrychangelog);
+		uncomment_option (replicate_str,
+				  (char *) "#   option entry-change-log %s\n");
+	}
+	else
 
         ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_ENTRYCHANGELOG,
                             &opt_entrychangelog);
@@ -837,7 +966,16 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_STRICTREADDIR,
+	if (dict_get (dict, "strict-readdir")) {
+		ret = dict_get_str (dict,"strict-readdir", 
+				    &opt_strictreaddir);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring sstrict-readdir"
+					 "count: %s", &opt_strictreaddir);
+		uncomment_option (replicate_str,
+				  (char *) "#   option strict-readdir %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_STRICTREADDIR,
                             &opt_strictreaddir);
         if (ret) {
                 goto out;
@@ -914,7 +1052,7 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
         int         subvol_len        = 0;
         int         len              = 0;
 
-        const char *stripe_str = "volume %s-%s-%d\n"
+        char stripe_str[] = "volume %s-%s-%d\n"
                 "    type cluster/stripe\n"
                 "#   option block-size %s\n"
                 "#   option use-xattr %s\n"
@@ -928,7 +1066,15 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_STRIPE_OPTION_BLOCKSIZE,
+	if (dict_get (dict, "block-size")) {
+		ret = dict_get_str (dict, "block-size", &opt_blocksize);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring Stripe Count %s", 
+		       opt_blocksize);
+		uncomment_option (stripe_str,
+				  (char *) "#   option block-size %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_STRIPE_OPTION_BLOCKSIZE,
                             &opt_blocksize);
         if (ret) {
                 goto out;
@@ -999,7 +1145,7 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
         int        subvol_len        = 0;
         int        len               = 0;
         
-        const char *dht_str = "volume %s-%s\n"
+        char       dht_str[] = "volume %s-%s\n"
                 "type cluster/distribute\n"
                 "#   option lookup-unhashed %s\n"
                 "#   option min-free-disk %s\n"
@@ -1012,12 +1158,28 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_DHT_OPTION_LOOKUPUNHASH,
+	if (dict_get (dict, "lookup-unhashed")) {
+		ret = dict_get_str (dict, "lookup-unhashed", &opt_lookupunhash);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring lookup-unhashed %s",
+		       opt_lookupunhash);
+		uncomment_option (dht_str, 
+				  (char *) "#   option lookup-unhashed %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_DHT_OPTION_LOOKUPUNHASH,
                             &opt_lookupunhash);
         if (ret) {
                 goto out;
         }
 
+	if (dict_get (dict, "min-free-disk")) {
+		ret = dict_get_str (dict, "min-free-disk", &opt_minfreedisk);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring min-free-disk",
+		       opt_minfreedisk);
+		uncomment_option (dht_str, 
+				  (char *) "#   option min-free-disk %s\n");
+	}
+	else
         ret = dict_get_str (dict, VOLGEN_DHT_OPTION_MINFREEDISK,
                             &opt_minfreedisk);
         if (ret) {
@@ -1067,6 +1229,24 @@ out:
         return ret;
 }
 
+
+int
+uncomment_option( char *opt_str,char *comment_str)
+{
+	char *ptr;
+
+	ptr = strstr (opt_str,comment_str);
+	if (!ptr)
+		return -1;
+	
+	if (*ptr != '#')
+		return -1;
+
+	*ptr = ' ';
+
+	return 0;
+} 
+
 static int
 __write_wb_xlator (FILE *file, dict_t *dict,
                    char *subvolume)
@@ -1079,7 +1259,7 @@ __write_wb_xlator (FILE *file, dict_t *dict,
         char        *opt_tricklingwrites = NULL;
         int          ret                 = -1;
 
-        const char *dht_str = "volume %s-%s\n"
+        char dht_str[] = "volume %s-%s\n"
                 "    type performance/write-behind\n"
                 "#   option flush-behind %s\n"
                 "#   option cache-size %s\n"
@@ -1100,7 +1280,13 @@ __write_wb_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_WB_OPTION_CACHESIZE,
+	if (dict_get (dict, "cache-size")) {
+		gf_log("",GF_LOG_DEBUG, "Uncommenting option cache-size");
+		uncomment_option (dht_str,(char *) "#   option cache-size %s\n");
+		ret = dict_get_str (dict, "cache-size", &opt_cachesize);
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_WB_OPTION_CACHESIZE,
                             &opt_cachesize);
         if (ret) {
                 goto out;
@@ -1200,7 +1386,7 @@ __write_iocache_xlator (FILE *file, dict_t *dict,
         char       *opt_maxfilesize = NULL;
         int         ret             = -1;
 
-        const char *iocache_str = "volume %s-%s\n"
+        char        iocache_str[] = "volume %s-%s\n"
                 "    type performance/io-cache\n"
                 "#   option priority %s\n"
                 "#   option cache-timeout %s\n"
@@ -1215,31 +1401,71 @@ __write_iocache_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_PRIORITY,
+	if (dict_get (dict, "priority")) {
+		ret = dict_get_str (dict, "priority", &opt_priority);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring priority",
+		       opt_priority);
+		uncomment_option (iocache_str, 
+				  (char *) "#   option priority %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_PRIORITY,
                             &opt_priority);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_TIMEOUT,
+	if (dict_get (dict, "cache-timeout")) {
+		ret = dict_get_str (dict, "cache-timeout", &opt_timeout);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring cache-timeout",
+		       opt_timeout);
+		uncomment_option (iocache_str, 
+				  (char *) "#   option cache-timeout %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_TIMEOUT,
                             &opt_timeout);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_CACHESIZE,
+	if (dict_get (dict, "cache-size")) {
+		ret = dict_get_str (dict, "cache-size", &opt_cachesize);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring cache-size :%s",
+		       opt_cachesize);
+		uncomment_option (iocache_str, 
+				  (char *) "#   option cache-size %s\n");
+	}
+	else
+	        ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_CACHESIZE,
                             &opt_cachesize);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_MINFILESIZE,
+	if (dict_get (dict, "min-file-size")) {
+		ret = dict_get_str (dict, "min-file-size", &opt_minfilesize);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring min-file-size: %s",
+		       opt_minfilesize);
+		uncomment_option (iocache_str, 
+				  (char *) "#   option min-file-size %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_MINFILESIZE,
                             &opt_minfilesize);
         if (ret) {
                 goto out;
         }
 
-        ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_MAXFILESIZE,
+	if (dict_get (dict, "max-file-size")) {
+		ret = dict_get_str (dict, "max-file-size", &opt_maxfilesize);
+		gf_log("", GF_LOG_DEBUG, "Reconfiguring max-file-size: %s",
+		       opt_maxfilesize);
+		uncomment_option (iocache_str, 
+				  (char *) "#   option max-file-size %s\n");
+	}
+	else
+        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_MAXFILESIZE,
                             &opt_maxfilesize);
         if (ret) {
                 goto out;
@@ -2015,6 +2241,8 @@ int
 glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 {
         int ret = -1;
+
+	gf_log ("", GF_LOG_DEBUG, "Inside Create Volfiles");
 
         if(volinfo->transport_type == GF_TRANSPORT_RDMA) {
                 ret = set_xlator_option (volinfo->dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,

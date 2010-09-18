@@ -457,6 +457,43 @@ mem_acct_init (xlator_t *this)
 }
 
 int
+reconfigure (xlator_t *this, dict_t *options)
+{
+
+	server_conf_t	 *conf =NULL;
+	int		  inode_lru_limit;
+	gf_boolean_t	  trace;
+	data_t		 *data;
+	int		  ret;
+
+	conf = this->private;
+
+	if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
+		conf->inode_lru_limit = inode_lru_limit;
+		gf_log (this->name, GF_LOG_TRACE, "Reconfigured inode-lru-limit"
+			" to %d", conf->inode_lru_limit);
+	}
+
+	data = dict_get (options, "trace");
+	if (data) {
+                ret = gf_string2boolean (data->data, &trace);
+                if (ret != 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"'trace' takes on only boolean values. "
+                                "Neglecting option");
+			return -1;			
+		}
+		conf->trace = trace;
+		gf_log (this->name, GF_LOG_TRACE, "Reconfigured trace"
+			" to %d", conf->trace);
+		
+	}
+
+	return 0;
+
+}
+
+int
 init (xlator_t *this)
 {
         int32_t            ret      = -1;

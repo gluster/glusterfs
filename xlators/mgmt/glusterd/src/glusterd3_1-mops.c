@@ -1335,7 +1335,13 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         ret = glusterd_handle_log_rotate (req);
                         break;
 
+                case GD_MGMT_CLI_SET_VOLUME:
+                        ret = glusterd_handle_set_volume (req);
+			break;
+
                 default:
+			gf_log("", GF_LOG_ERROR, "Recieved Invalid procnum:%d",
+			       req->procnum);
                         GF_ASSERT (0);
         }
 
@@ -1386,6 +1392,8 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_LOG_FILENAME] = { "LOG FILENAME", GD_MGMT_CLI_LOG_FILENAME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_LOG_LOCATE] = { "LOG LOCATE", GD_MGMT_CLI_LOG_LOCATE, glusterd_handle_log_locate, NULL, NULL},
         [GD_MGMT_CLI_LOG_ROTATE] = { "LOG FILENAME", GD_MGMT_CLI_LOG_ROTATE, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_SET_VOLUME] = { "SET_VOLUME", GD_MGMT_CLI_SET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
+
 };
 
 /*rpcsvc_actor_t glusterd1_mgmt_actors[] = {

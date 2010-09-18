@@ -2079,7 +2079,48 @@ mem_acct_init (xlator_t *this)
                 return ret;
         }
 
+	
+
         return ret;
+}
+
+int
+reconfigure ( xlator_t *this, dict_t *options)
+{
+	iot_conf_t      *conf = NULL;
+	int		 ret = 0;
+	int		 thread_count;
+	
+
+	if (dict_get (options, "thread-count")) {
+                thread_count = data_to_int32 (dict_get (options,
+                                                        "thread-count"));
+
+                if (thread_count < IOT_MIN_THREADS) {
+                        gf_log ("io-threads", GF_LOG_WARNING,
+                                "Number of threads opted is less then min rest"
+                                "oring it to previous value",conf->max_count);
+                        ret = -1;
+			goto out;
+                }
+
+                if (thread_count > IOT_MAX_THREADS) {
+                        gf_log ("io-threads", GF_LOG_WARNING,
+                                "Number of threads opted is greater than max "
+                                "restoring it to previous value",conf->max_count);
+                        ret = -1;
+			goto out;
+                }
+
+		conf->max_count = thread_count;
+        }
+
+	ret = 0;
+
+out:
+	return ret;
+
+	
 }
 
 int

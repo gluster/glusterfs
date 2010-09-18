@@ -96,6 +96,7 @@ typedef enum glusterd_op_ {
         GD_OP_ADD_BRICK,
         GD_OP_REMOVE_BRICK,
         GD_OP_REPLACE_BRICK,
+        GD_OP_SET_VOLUME,
         GD_OP_SYNC_VOLUME,
         GD_OP_LOG_FILENAME,
         GD_OP_LOG_LOCATE,
@@ -236,6 +237,9 @@ glusterd_op_clear_ctx_free (glusterd_op_t op);
 
 gf_boolean_t
 glusterd_op_get_ctx_free (glusterd_op_t op);
+
+gf_boolean_t
+glusterd_check_option_exists(char *optstring);
 
 int
 set_xlator_option (dict_t *dict, char *key, char *value);

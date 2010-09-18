@@ -118,6 +118,7 @@ glusterd_op_get_len (glusterd_op_t op)
                 case GD_OP_START_BRICK:
                         break;
 
+                case GD_OP_SET_VOLUME:
                 case GD_OP_REPLACE_BRICK:
                 case GD_OP_ADD_BRICK:
                         {
@@ -125,7 +126,6 @@ glusterd_op_get_len (glusterd_op_t op)
                                 ret = dict_serialized_length (dict);
                                 return ret;
                         }
-
                  case GD_OP_REMOVE_BRICK:
                         {
                                 dict_t *dict = glusterd_op_get_ctx (op);
@@ -253,6 +253,20 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                         break;
 
                 case GD_OP_REPLACE_BRICK:
+                        {
+                                dict_t  *dict = NULL;
+                                dict = glusterd_op_get_ctx (op);
+                                GF_ASSERT (dict);
+                                ret = dict_allocate_and_serialize (dict,
+                                                &stage_req->buf.buf_val,
+                                        (size_t *)&stage_req->buf.buf_len);
+                                if (ret) {
+                                        goto out;
+                                }
+                        }
+                        break;
+
+                case GD_OP_SET_VOLUME:
                         {
                                 dict_t  *dict = NULL;
                                 dict = glusterd_op_get_ctx (op);
@@ -993,6 +1007,128 @@ out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
+}
+
+static int
+glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req)
+{
+        int                                      ret           = 0;
+        dict_t                                  *dict          = NULL;
+        char                                    *volname       = NULL;
+	gf_boolean_t                             exists        = _gf_false;
+	char					*key	       = NULL;
+	char					 str[100]      = {0, };
+	int					 count	       = 0;
+
+        GF_ASSERT (req);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+	ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+
+        if (!exists) {
+                gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
+                        "does not exist",
+                        volname);
+                ret = -1;
+                goto out;
+        }
+	
+
+	for ( count = 1; ret != -1 ; count++ ) {
+
+		sprintf (str, "key%d", count);
+		ret = dict_get_str (dict, str, &key);
+
+		
+		if (ret) 
+			break;
+		
+		exists = glusterd_check_option_exists(key);
+
+		if (!exists) {
+                	gf_log ("", GF_LOG_ERROR, "Option with name: %s "
+                        	"does not exist", key);
+			ret = -1;
+			goto out;
+        	}
+
+
+	}
+
+	if ( count == 1 ) {
+		gf_log ("", GF_LOG_ERROR, "No options received ");
+		ret = -1;
+		goto out;
+	}
+
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+
+char *set_option_list[] = {
+	"max-file-size",
+	"min-file-size",
+	"cache-timeout",
+	"priority",
+	"entry-change-log",
+	"read-subvolume",
+	"background-self-heal-count",
+	"metadata-self-heal",
+	"data-self-heal",
+	"entry-self-heal",
+	"strict-readdir",
+	"data-self-heal-window-size",
+	"data-change-log",
+	"metadata-change-log",
+	"frame-timeout",
+	"ping-timeout",
+	"cache-size",
+	"disk-usage-limit",
+	"min-free-disk-limit",
+	"block-size",
+	"inode-lru-limit",
+	"thread-count"	,
+	"lookup-unhashed",
+	"min-free-disk"
+};
+
+
+gf_boolean_t
+glusterd_check_option_exists(char *optstring)
+{
+	//struct set_option_list		       *list;
+	char 				      **list = NULL; 
+	
+
+	for (list = &set_option_list[0]; *list ;list++) 
+		if (!strcmp (optstring, *list))
+			return _gf_true;
+	
+
+	return _gf_false;
+
 }
 
 static int
@@ -2231,6 +2367,106 @@ out:
 }
 
 static int
+glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
+{
+        int                                      ret = 0;
+        dict_t                                  *dict = NULL;
+        glusterd_volinfo_t                      *volinfo = NULL;
+        char                                    *volname = NULL;
+        xlator_t                                *this = NULL;
+        glusterd_conf_t                         *priv = NULL;
+	int					 count = 1;
+	char					*key = NULL;
+	char					*value = NULL;
+	char					 str[50] = {0, };
+        GF_ASSERT (req);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+	
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+
+	for ( count = 1; ret != -1 ; count++ ) {
+
+		sprintf (str, "key%d", count);
+		ret = dict_get_str (dict, str, &key);
+
+		
+		if (ret) 
+			break;
+
+		sprintf (str, "value%d", count);
+		ret = dict_get_str (dict, str, &value);
+
+		if (ret) {
+                	gf_log ("", GF_LOG_ERROR, "invalid key,value pair"
+						  "in 'volume set'");
+			ret = -1;
+			goto out;
+        	}
+
+		ret = set_xlator_option (volinfo->dict, key, value);
+		
+		if (ret) {
+                	gf_log ("", GF_LOG_ERROR, "Unable to set the options"
+						  "in 'volume set'");
+			ret = -1;
+			goto out;
+        	}
+	}
+
+	if ( count == 1 ) {
+		gf_log ("", GF_LOG_ERROR, "No options received ");
+		ret = -1;
+		goto out;
+	}
+
+	ret = glusterd_create_volfiles (volinfo);
+
+	if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to create volfile for"
+					  " 'volume set'");
+		ret = -1;
+		goto out;
+        }
+	
+
+	
+
+        gf_log ("", GF_LOG_DEBUG, "Received set volume command");
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
 {
         int                                     ret = 0;
@@ -3208,6 +3444,17 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 break;
                         }
 
+                case GD_MGMT_CLI_SET_VOLUME:
+                        {
+                                gf1_cli_set_vol_rsp rsp = {0,};
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.volname = "";
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_serialize_cli_set_vol_rsp;
+                                break;
+                        }
+
                 case GD_MGMT_CLI_LOG_FILENAME:
                         {
                                 gf1_cli_log_filename_rsp rsp = {0,};
@@ -3460,6 +3707,10 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         ret = glusterd_op_stage_replace_brick (req);
                         break;
 
+                case GD_OP_SET_VOLUME:
+                        ret = glusterd_op_stage_set_volume (req);
+                        break;
+
                 case GD_OP_REMOVE_BRICK:
                         ret = glusterd_op_stage_remove_brick (req);
                         break;
@@ -3513,6 +3764,10 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
                 case GD_OP_REPLACE_BRICK:
                         ret = glusterd_op_replace_brick (req);
+                        break;
+
+                case GD_OP_SET_VOLUME:
+                        ret = glusterd_op_set_volume (req);
                         break;
 
                 case GD_OP_REMOVE_BRICK:

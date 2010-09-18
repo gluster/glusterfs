@@ -806,6 +806,7 @@ struct _xlator {
 
 	void              (*fini) (xlator_t *this);
 	int32_t           (*init) (xlator_t *this);
+        int32_t           (*reconfigure) (xlator_t *this, dict_t *options);
 	int32_t           (*mem_acct_init) (xlator_t *this);
 	event_notify_fn_t notify;
 
@@ -854,6 +855,7 @@ int loc_copy (loc_t *dst, loc_t *src);
 #define loc_dup(src, dst) loc_copy(dst, src)
 void loc_wipe (loc_t *loc);
 int xlator_mem_acct_init (xlator_t *xl, int num_types);
+int xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl);
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 

@@ -886,6 +886,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                   "--brick-port %d -l %s", GFS_PREFIX, volinfo->volname,
                   port, volfile, pidfile, brickinfo->path, port,
                   brickinfo->logfile);
+
+	gf_log ("",GF_LOG_DEBUG,"Starting GlusterFS Command Executed: \n %s \n", cmd_str);
         ret = gf_system (cmd_str);
 
         if (ret == 0) {

@@ -322,12 +322,16 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        for (i = 3; i < wordcount; i++) {
-                key = strtok ((char *)words[i], "=");
-                value = strtok (NULL, "=");
+        for (i = 3; i < wordcount; i+=2) {
 
-                GF_ASSERT (key);
-                GF_ASSERT (value);
+		key = (char *) words[i];
+		value = (char *) words[i+1];
+                
+		if ( !key || !value) {
+			ret = -1;
+			cli_out ("Usage: volume set <VOLNAME> <KEY> <VALUE>");
+			goto out;
+        	}
 
                 count++;
 
