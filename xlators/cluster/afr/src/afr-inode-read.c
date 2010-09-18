@@ -138,7 +138,7 @@ afr_access (call_frame_t *frame, xlator_t *this,
 
         read_child = afr_read_child (this, loc->inode);
 
-        if (read_child >= 0) {
+        if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
 
                 local->cont.access.last_tried = -1;
@@ -260,7 +260,7 @@ afr_stat (call_frame_t *frame, xlator_t *this,
 
         read_child = afr_read_child (this, loc->inode);
 
-        if (read_child >= 0) {
+        if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
 
                 local->cont.stat.last_tried = -1;
@@ -387,7 +387,7 @@ afr_fstat (call_frame_t *frame, xlator_t *this,
 
         read_child = afr_read_child (this, fd->inode);
 
-        if (read_child >= 0) {
+        if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
 
                 local->cont.fstat.last_tried = -1;
@@ -509,7 +509,7 @@ afr_readlink (call_frame_t *frame, xlator_t *this,
 
         read_child = afr_read_child (this, loc->inode);
 
-        if (read_child >= 0) {
+        if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
 
                 local->cont.readlink.last_tried = -1;
@@ -695,7 +695,7 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 
         read_child = afr_read_child (this, loc->inode);
 
-        if (read_child >= 0) {
+        if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
 
                 local->cont.getxattr.last_tried = -1;
@@ -842,7 +842,7 @@ afr_readv (call_frame_t *frame, xlator_t *this,
 
         read_child = afr_read_child (this, fd->inode);
 
-        if (read_child >= 0) {
+        if ((read_child >= 0) && (priv->child_up[read_child])) {
                 call_child = read_child;
 
 		/*
