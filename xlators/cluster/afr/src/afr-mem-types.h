@@ -33,7 +33,7 @@ enum gf_afr_mem_types_ {
         gf_afr_mt_xattr_key,
         gf_afr_mt_dict_t,
         gf_afr_mt_xlator_t,
-        gf_afr_mt_stat,
+        gf_afr_mt_iatt,
         gf_afr_mt_int,
         gf_afr_mt_afr_node_character,
         gf_afr_mt_sh_diff_loop_state,
