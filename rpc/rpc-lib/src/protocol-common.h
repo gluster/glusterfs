@@ -102,6 +102,7 @@ enum gf_mgmt_procnum_ {
         GD_MGMT_CLI_LOG_FILENAME,
         GD_MGMT_CLI_LOG_LOCATE,
         GD_MGMT_CLI_LOG_ROTATE,
+        GD_MGMT_CLI_SYNC_VOLUME,
         GD_MGMT_MAXVALUE,
 };
 
@@ -129,6 +130,7 @@ enum gf_cli_procnum {
         GF1_CLI_LOG_ROTATE,
         GF1_CLI_GETSPEC,
         GF1_CLI_PMAP_PORTBYBRICK,
+        GF1_CLI_SYNC_VOLUME,
         GF1_CLI_MAXVALUE,
 };
 

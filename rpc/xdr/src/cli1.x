@@ -23,6 +23,10 @@ enum gf1_cli_get_volume {
         GF_CLI_GET_NEXT_VOLUME
 } ;
 
+enum gf1_cli_sync_volume {
+        GF_CLI_SYNC_ALL = 1
+} ;
+
 enum gf1_cli_op_flags {
         GF_CLI_FLAG_OP_FORCE = 1
 };
@@ -218,6 +222,12 @@ struct gf1_cli_log_locate_req {
         string brick<>;
 };
 
+struct gf1_cli_sync_volume_req {
+        int    flags;
+        string volname<>;
+        string hostname<>;
+};
+
 struct gf1_cli_log_locate_rsp {
 	int op_ret;
 	int op_errno;
@@ -230,7 +240,13 @@ struct gf1_cli_log_rotate_req {
 };
 
 struct gf1_cli_log_rotate_rsp {
+        int op_ret;
+        int op_errno;
+        string errstr<>;
+};
+
+struct gf1_cli_sync_volume_rsp {
 	int op_ret;
 	int op_errno;
-        string errstr<>;
+        string op_errstr<>;
 };

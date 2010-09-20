@@ -620,6 +620,60 @@ glusterd_destroy_friend_event_context (glusterd_friend_sm_event_t *event)
 }
 
 int
+glusterd_check_and_add_friend (glusterd_friend_sm_event_t *event)
+{
+        rpcsvc_request_t                *req = NULL;
+        glusterd_peerinfo_t             *peerinfo   = NULL;
+        glusterd_friend_sm_event_type_t  event_type = 0;
+        glusterd_friend_req_ctx_t       *fr_ctx = NULL;
+        glusterd_probe_ctx_t            *pb_ctx = NULL;
+        gf_boolean_t                    add_friend = _gf_false;
+        char                            rhost[UNIX_PATH_MAX + 1] = {0};
+        char                            *host_str = NULL;
+        int                             port       = 6969; //TODO, use standard
+        int                             ret = 0;
+
+        peerinfo = event->peerinfo;
+        event_type = event->event;
+
+        if (!peerinfo &&
+           (GD_FRIEND_EVENT_PROBE == event_type)) {
+                add_friend = _gf_true;
+                pb_ctx = event->ctx;
+                req = pb_ctx->req;
+        }
+        if (!peerinfo &&
+            (GD_FRIEND_EVENT_RCVD_FRIEND_REQ == event_type)) {
+                add_friend = _gf_true;
+                fr_ctx = event->ctx;
+                req = fr_ctx->req;
+        }
+        if (add_friend) {
+                if (req) {
+                        ret = glusterd_remote_hostname_get (req, rhost,
+                                                            sizeof (rhost));
+                        if (!ret)
+                                host_str = rhost;
+                }
+                ret = glusterd_friend_add ((const char*)host_str, port,
+                                          GD_FRIEND_STATE_DEFAULT,
+                                          NULL, NULL, &peerinfo, 0);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to add peer, "
+                                "ret = %d", ret);
+                        ret = 1;
+                        goto out;
+                }
+                GF_ASSERT (peerinfo);
+                event->peerinfo = peerinfo;
+        }
+        ret = 0;
+
+out:
+        return ret;
+}
+
+int
 glusterd_friend_sm ()
 {
         glusterd_friend_sm_event_t      *event      = NULL;
@@ -629,32 +683,21 @@ glusterd_friend_sm ()
         glusterd_sm_t                   *state      = NULL;
         glusterd_peerinfo_t             *peerinfo   = NULL;
         glusterd_friend_sm_event_type_t  event_type = 0;
-        int                              port       = 6969; //TODO, use standard
         gf_boolean_t                     is_await_conn = _gf_false;
+        int                              loop       = 0;
 
         while (!list_empty (&gd_friend_sm_queue)) {
                 list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
 
                         list_del_init (&event->list);
-                        peerinfo = event->peerinfo;
                         event_type = event->event;
 
-                        if (!peerinfo &&
-                           (GD_FRIEND_EVENT_PROBE == event_type ||
-                            GD_FRIEND_EVENT_RCVD_FRIEND_REQ == event_type)) {
-                                ret = glusterd_friend_add (NULL, port,
-                                                          GD_FRIEND_STATE_DEFAULT,
-                                                          NULL, NULL, &peerinfo, 0);
 
-                                if (ret) {
-                                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to add peer, "
-                                                "ret = %d", ret);
-                                        continue;
-                                }
-                                GF_ASSERT (peerinfo);
-                                event->peerinfo = peerinfo;
-                        }
+                        loop = glusterd_check_and_add_friend (event);
+                        if (loop)
+                                continue;
 
+                        peerinfo = event->peerinfo;
                         if (!peerinfo)
                                 goto out;
 

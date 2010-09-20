@@ -553,6 +553,23 @@ out:
 }
 
 static int32_t
+glusterd_sync_use_rsp_dict (dict_t *rsp_dict)
+{
+        int      ret      = 0;
+
+        GF_ASSERT (rsp_dict);
+
+        if (!rsp_dict) {
+                goto out;
+        }
+
+        ret = glusterd_import_friend_volumes (rsp_dict);
+out:
+        return ret;
+
+}
+
+static int32_t
 glusterd_rb_use_rsp_dict (dict_t *rsp_dict)
 {
         int32_t  src_port = 0;
@@ -663,10 +680,19 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
         } else {
-                if (rsp.op == GD_OP_REPLACE_BRICK) {
+                switch (rsp.op) {
+                case GD_OP_REPLACE_BRICK:
                         ret = glusterd_rb_use_rsp_dict (dict);
                         if (ret)
                                 goto out;
+                        break;
+                case GD_OP_SYNC_VOLUME:
+                        ret = glusterd_sync_use_rsp_dict (dict);
+                        if (ret)
+                                goto out;
+                        break;
+                default:
+                        break;
                 }
                 event_type = GD_OP_EVENT_RCVD_ACC;
         }
@@ -956,7 +982,8 @@ glusterd3_1_cluster_lock (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
                 dummy_frame = create_frame (this, this->ctx->pool);
@@ -1007,7 +1034,8 @@ glusterd3_1_cluster_unlock (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
                 dummy_frame = create_frame (this, this->ctx->pool);
@@ -1091,7 +1119,8 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
                 dummy_frame = create_frame (this, this->ctx->pool);
@@ -1171,7 +1200,8 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = glusterd_op_commit_perform ((gd1_mgmt_stage_op_req *)req, &op_errstr);
+        ret = glusterd_op_commit_perform ((gd1_mgmt_stage_op_req *)req, &op_errstr,
+                                          NULL);//rsp_dict invalid for source
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed");
@@ -1182,7 +1212,8 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
-                if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
                 dummy_frame = create_frame (this, this->ctx->pool);
@@ -1339,6 +1370,10 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         ret = glusterd_handle_set_volume (req);
 			break;
 
+                case GD_MGMT_CLI_SYNC_VOLUME:
+                        ret = glusterd_handle_sync_volume (req);
+                        break;
+
                 default:
 			gf_log("", GF_LOG_ERROR, "Recieved Invalid procnum:%d",
 			       req->procnum);
@@ -1393,7 +1428,7 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_LOG_LOCATE] = { "LOG LOCATE", GD_MGMT_CLI_LOG_LOCATE, glusterd_handle_log_locate, NULL, NULL},
         [GD_MGMT_CLI_LOG_ROTATE] = { "LOG FILENAME", GD_MGMT_CLI_LOG_ROTATE, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_SET_VOLUME] = { "SET_VOLUME", GD_MGMT_CLI_SET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-
+        [GD_MGMT_CLI_SYNC_VOLUME] = { "SYNC_VOLUME", GD_MGMT_CLI_SYNC_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
 };
 
 /*rpcsvc_actor_t glusterd1_mgmt_actors[] = {

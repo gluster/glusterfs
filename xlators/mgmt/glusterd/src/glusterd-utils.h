@@ -143,10 +143,19 @@ glusterd_nfs_server_stop ();
 int
 glusterd_file_copy (int out, int in);
 
-gf_boolean_t
-glusterd_are_all_volumes_stopped ();
-
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,
                               char *remote_host, int len);
+int32_t
+glusterd_import_friend_volumes (dict_t  *vols);
+void
+glusterd_set_volume_status (glusterd_volinfo_t  *volinfo,
+                            glusterd_volume_status status);
+int
+glusterd_check_generate_start_nfs (glusterd_volinfo_t *volinfo);
+int32_t
+glusterd_volume_count_get (void);
+int32_t
+glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
+                             dict_t  *dict, int32_t count);
 #endif
