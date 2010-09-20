@@ -62,6 +62,12 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         glusterd_conf_t         *priv = NULL;
         glusterd_peerinfo_t     *entry = NULL;
         glusterd_peer_hostname_t *name = NULL;
+        struct addrinfo         *addr, *p;
+        char                    *host = NULL;
+        struct sockaddr_in6     *s6 = NULL;
+        struct sockaddr_in      *s4 = NULL;
+        struct in_addr          *in_addr = NULL;
+        char                    hname[1024] = {0,};
 
         GF_ASSERT (hoststr);
         GF_ASSERT (peerinfo);
@@ -85,7 +91,54 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                 }
         }
 
-        return ret;
+        ret = getaddrinfo(hoststr, NULL, NULL, &addr);
+        if (ret != 0) {
+                gf_log ("", GF_LOG_ERROR, "error in getaddrinfo: %s\n",
+                        gai_strerror(ret));
+                goto out;
+        }
+
+        for (p = addr; p != NULL; p = p->ai_next) {
+                switch (p->ai_family) {
+                        case AF_INET:
+                                s4 = (struct sockaddr_in *) p->ai_addr;
+                                in_addr = &s4->sin_addr;
+                                break;
+                        case AF_INET6:
+                                s6 = (struct sockaddr_in6 *) p->ai_addr;
+                                in_addr =(struct in_addr *) &s6->sin6_addr;
+                                break;
+                       default: ret = -1;
+                                goto out;
+                }
+                host = inet_ntoa(*in_addr);
+
+                ret = getnameinfo (p->ai_addr, p->ai_addrlen, hname,
+                                   1024, NULL, 0, 0);
+                if (ret)
+                        goto out;
+
+                list_for_each_entry (entry, &priv->peers, uuid_list) {
+                        list_for_each_entry (name, &entry->hostnames,
+                                             hostname_list) {
+                                if (!strncmp (name->hostname, host,
+                                    1024) || !strncmp (name->hostname,hname,
+                                    1024)) {
+                                        gf_log ("glusterd", GF_LOG_NORMAL,
+                                                "Friend %s found.. state: %d", 
+                                                hoststr, entry->state.state);
+                                        *peerinfo = entry;
+                                        freeaddrinfo (addr);
+                                        return 0;
+                                }
+                        } 
+                } 
+        }
+
+out:
+        if (addr)
+                freeaddrinfo (addr); 
+        return -1;
 }
 
 static int
