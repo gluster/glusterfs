@@ -265,7 +265,7 @@ sh_full_read_write (call_frame_t *frame, xlator_t *this, off_t offset)
         rw_frame->local = rw_local;
 	rw_sh           = &rw_local->self_heal;
 
-        rw_sh->offset       = sh->offset;
+        rw_sh->offset       = offset;
         rw_sh->sh_frame     = frame;
 
 	STACK_WIND_COOKIE (rw_frame, sh_full_read_cbk,
@@ -637,7 +637,7 @@ sh_diff_read_cbk (call_frame_t *rw_frame, void *cookie,
 
 	gf_log (this->name, GF_LOG_TRACE,
 		"read %d bytes of data from %s, offset %"PRId64"",
-		op_ret, sh_local->loc.path, sh->offset);
+		op_ret, sh_local->loc.path, loop_state->offset);
 
 	if ((op_ret <= 0) ||
             (call_count == 0)) {
