@@ -131,6 +131,52 @@ out:
 
 }
 
+
+void
+cli_cmd_sync_volume_usage ()
+{
+        cli_out ("Usage: volume sync <HOSTNAME> [all|<VOLNAME>]");
+}
+
+int
+cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                         const char **words, int wordcount)
+{
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        gf1_cli_sync_volume_req req = {0,};
+
+        if ((wordcount < 3) || (wordcount > 4)) {
+               cli_cmd_sync_volume_usage ();
+               goto out;
+        }
+
+        if ((wordcount == 3) || !strcmp(words[3], "all")) {
+                req.flags = GF_CLI_SYNC_ALL;
+                req.volname = "";
+        } else {
+                req.volname = (char *)words[3];
+        }
+
+        req.hostname = (char *)words[2];
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_SYNC_VOLUME];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, &req);
+        }
+
+out:
+        if (ret)
+                cli_out ("Volume sync failed");
+
+        return ret;
+}
 void
 cli_cmd_volume_create_usage ()
 {
@@ -825,6 +871,10 @@ struct cli_cmd volume_cmds[] = {
         { "volume log rotate <VOLNAME> [BRICK]",
           cli_cmd_log_rotate_cbk,
          "rotate the log file for corresponding volume/brick"},
+
+        { "volume sync <HOSTNAME> [all|<VOLNAME>]",
+          cli_cmd_sync_volume_cbk,
+         "sync the volume information from a peer"},
 
         { NULL, NULL, NULL }
 };

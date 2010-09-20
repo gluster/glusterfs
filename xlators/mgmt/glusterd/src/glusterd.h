@@ -296,7 +296,8 @@ glusterd_xfer_cli_probe_resp (rpcsvc_request_t *req, int32_t op_ret,
 
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
-                               int32_t op, int32_t status, char *op_errstr);
+                              int32_t op, int32_t status, char *op_errstr,
+                              dict_t *rsp_dict);
 
 int
 glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int port);
@@ -365,8 +366,12 @@ glusterd_handle_log_locate (rpcsvc_request_t *req);
 int
 glusterd_handle_log_rotate (rpcsvc_request_t *req);
 
+int
+glusterd_handle_sync_volume (rpcsvc_request_t *req);
+
 int32_t
 glusterd_log_filename (rpcsvc_request_t *req, dict_t *dict);
+
 int32_t
 glusterd_log_rotate (rpcsvc_request_t *req, dict_t *dict);
 
@@ -386,4 +391,9 @@ glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
 int
 glusterd_fetchspec_notify (xlator_t *this);
 
+int32_t
+glusterd_sync_volume (rpcsvc_request_t *req, dict_t *ctx);
+int
+glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
+                                    dict_t  *volumes, int   count);
 #endif

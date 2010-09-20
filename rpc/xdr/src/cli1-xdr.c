@@ -62,6 +62,15 @@ xdr_gf1_cli_get_volume (XDR *xdrs, gf1_cli_get_volume *objp)
 }
 
 bool_t
+xdr_gf1_cli_sync_volume (XDR *xdrs, gf1_cli_sync_volume *objp)
+{
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_op_flags (XDR *xdrs, gf1_cli_op_flags *objp)
 {
 
@@ -279,8 +288,8 @@ xdr_gf1_cli_start_vol_rsp (XDR *xdrs, gf1_cli_start_vol_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
-         if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-                 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -512,6 +521,19 @@ xdr_gf1_cli_log_locate_req (XDR *xdrs, gf1_cli_log_locate_req *objp)
 }
 
 bool_t
+xdr_gf1_cli_sync_volume_req (XDR *xdrs, gf1_cli_sync_volume_req *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->flags))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->hostname, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_log_locate_rsp (XDR *xdrs, gf1_cli_log_locate_rsp *objp)
 {
 
@@ -544,6 +566,19 @@ xdr_gf1_cli_log_rotate_rsp (XDR *xdrs, gf1_cli_log_rotate_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->errstr, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_sync_volume_rsp (XDR *xdrs, gf1_cli_sync_volume_rsp *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 		 return FALSE;
 	return TRUE;
 }

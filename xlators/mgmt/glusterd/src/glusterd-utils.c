@@ -1000,6 +1000,7 @@ glusterd_is_cli_op_req (int32_t op)
                 case GD_MGMT_CLI_LOG_FILENAME:
                 case GD_MGMT_CLI_LOG_LOCATE:
                 case GD_MGMT_CLI_LOG_ROTATE:
+                case GD_MGMT_CLI_SYNC_VOLUME:
                         return _gf_true;
                         break;
         }
@@ -1452,7 +1453,6 @@ out:
         return ret;
 }
 
-
 int32_t
 glusterd_import_friend_volumes (dict_t  *vols)
 {
@@ -1470,7 +1470,6 @@ glusterd_import_friend_volumes (dict_t  *vols)
                 ret = glusterd_import_friend_volume (vols, i);
                 if (ret)
                         goto out;
-
                 i++;
         }
 
@@ -1645,27 +1644,6 @@ glusterd_nfs_server_stop ()
         return glusterd_service_stop ("nfsd", pidfile, SIGTERM, _gf_false);
 }
 
-gf_boolean_t
-glusterd_are_all_volumes_stopped ()
-{
-        glusterd_conf_t                         *priv = NULL;
-        xlator_t                                *this = NULL;
-        glusterd_volinfo_t                      *voliter = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (voliter->status == GLUSTERD_STATUS_STARTED)
-                        return _gf_false;
-        }
-
-        return _gf_true;
-
-}
-
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
 {
@@ -1691,3 +1669,50 @@ glusterd_remote_hostname_get (rpcsvc_request_t *req, char *remote_host, int len)
         return 0;
 }
 
+int
+glusterd_check_generate_start_nfs (glusterd_volinfo_t *volinfo)
+{
+        int ret = -1;
+
+        if (!volinfo) {
+                gf_log ("", GF_LOG_ERROR, "Invalid Arguments");
+                goto out;
+        }
+
+        ret = volgen_generate_nfs_volfile (volinfo);
+        if (ret)
+                goto out;
+
+        if (glusterd_is_nfs_started ()) {
+                ret = glusterd_nfs_server_stop ();
+                if (ret)
+                        goto out;
+        }
+
+        ret = glusterd_nfs_server_start ();
+out:
+        return ret;
+}
+
+int
+glusterd_volume_count_get (void)
+{
+        glusterd_volinfo_t      *tmp_volinfo = NULL;
+        int32_t                 ret = 0;
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+
+        list_for_each_entry (tmp_volinfo, &priv->volumes, vol_list) {
+                ret++;
+        }
+
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+
+}

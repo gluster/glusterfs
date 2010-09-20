@@ -234,6 +234,16 @@ gf_xdr_to_cli_log_rotate_rsp (struct iovec inmsg, void *args);
 ssize_t
 gf_xdr_from_cli_log_rotate_req (struct iovec outmsg, void *req);
 
+ssize_t
+gf_xdr_to_cli_sync_volume_req (struct iovec inmsg, void *args);
 
+ssize_t
+gf_xdr_from_cli_sync_volume_req (struct iovec outmsg, void *args);
+
+ssize_t
+gf_xdr_to_cli_sync_volume_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_from_cli_sync_volume_rsp (struct iovec outmsg, void *args);
 
 #endif /* !_CLI1_H */

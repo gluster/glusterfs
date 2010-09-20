@@ -196,7 +196,8 @@ int32_t
 glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr);
 
 int32_t
-glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr);
+glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr,
+                            dict_t* dict);
 
 void *
 glusterd_op_get_ctx (glusterd_op_t op);

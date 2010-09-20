@@ -63,6 +63,11 @@ enum gf1_cli_get_volume {
 };
 typedef enum gf1_cli_get_volume gf1_cli_get_volume;
 
+enum gf1_cli_sync_volume {
+	GF_CLI_SYNC_ALL = 1,
+};
+typedef enum gf1_cli_sync_volume gf1_cli_sync_volume;
+
 enum gf1_cli_op_flags {
 	GF_CLI_FLAG_OP_FORCE = 1,
 };
@@ -311,6 +316,13 @@ struct gf1_cli_log_locate_req {
 };
 typedef struct gf1_cli_log_locate_req gf1_cli_log_locate_req;
 
+struct gf1_cli_sync_volume_req {
+	int flags;
+	char *volname;
+	char *hostname;
+};
+typedef struct gf1_cli_sync_volume_req gf1_cli_sync_volume_req;
+
 struct gf1_cli_log_locate_rsp {
 	int op_ret;
 	int op_errno;
@@ -331,6 +343,13 @@ struct gf1_cli_log_rotate_rsp {
 };
 typedef struct gf1_cli_log_rotate_rsp gf1_cli_log_rotate_rsp;
 
+struct gf1_cli_sync_volume_rsp {
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+};
+typedef struct gf1_cli_sync_volume_rsp gf1_cli_sync_volume_rsp;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -338,6 +357,7 @@ extern  bool_t xdr_gf1_cluster_type (XDR *, gf1_cluster_type*);
 extern  bool_t xdr_gf1_cli_replace_op (XDR *, gf1_cli_replace_op*);
 extern  bool_t xdr_gf1_cli_friends_list (XDR *, gf1_cli_friends_list*);
 extern  bool_t xdr_gf1_cli_get_volume (XDR *, gf1_cli_get_volume*);
+extern  bool_t xdr_gf1_cli_sync_volume (XDR *, gf1_cli_sync_volume*);
 extern  bool_t xdr_gf1_cli_op_flags (XDR *, gf1_cli_op_flags*);
 extern  bool_t xdr_gf1_cli_probe_req (XDR *, gf1_cli_probe_req*);
 extern  bool_t xdr_gf1_cli_probe_rsp (XDR *, gf1_cli_probe_rsp*);
@@ -370,15 +390,18 @@ extern  bool_t xdr_gf1_cli_set_vol_rsp (XDR *, gf1_cli_set_vol_rsp*);
 extern  bool_t xdr_gf1_cli_log_filename_req (XDR *, gf1_cli_log_filename_req*);
 extern  bool_t xdr_gf1_cli_log_filename_rsp (XDR *, gf1_cli_log_filename_rsp*);
 extern  bool_t xdr_gf1_cli_log_locate_req (XDR *, gf1_cli_log_locate_req*);
+extern  bool_t xdr_gf1_cli_sync_volume_req (XDR *, gf1_cli_sync_volume_req*);
 extern  bool_t xdr_gf1_cli_log_locate_rsp (XDR *, gf1_cli_log_locate_rsp*);
 extern  bool_t xdr_gf1_cli_log_rotate_req (XDR *, gf1_cli_log_rotate_req*);
 extern  bool_t xdr_gf1_cli_log_rotate_rsp (XDR *, gf1_cli_log_rotate_rsp*);
+extern  bool_t xdr_gf1_cli_sync_volume_rsp (XDR *, gf1_cli_sync_volume_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf1_cluster_type ();
 extern bool_t xdr_gf1_cli_replace_op ();
 extern bool_t xdr_gf1_cli_friends_list ();
 extern bool_t xdr_gf1_cli_get_volume ();
+extern bool_t xdr_gf1_cli_sync_volume ();
 extern bool_t xdr_gf1_cli_op_flags ();
 extern bool_t xdr_gf1_cli_probe_req ();
 extern bool_t xdr_gf1_cli_probe_rsp ();
@@ -411,9 +434,11 @@ extern bool_t xdr_gf1_cli_set_vol_rsp ();
 extern bool_t xdr_gf1_cli_log_filename_req ();
 extern bool_t xdr_gf1_cli_log_filename_rsp ();
 extern bool_t xdr_gf1_cli_log_locate_req ();
+extern bool_t xdr_gf1_cli_sync_volume_req ();
 extern bool_t xdr_gf1_cli_log_locate_rsp ();
 extern bool_t xdr_gf1_cli_log_rotate_req ();
 extern bool_t xdr_gf1_cli_log_rotate_rsp ();
+extern bool_t xdr_gf1_cli_sync_volume_rsp ();
 
 #endif /* K&R C */
 

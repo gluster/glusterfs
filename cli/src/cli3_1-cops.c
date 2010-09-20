@@ -1032,6 +1032,36 @@ out:
         return ret;
 }
 
+static int
+gf_cli3_1_sync_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                           int count, void *myframe)
+{
+        gf1_cli_sync_volume_rsp        rsp   = {0,};
+        int                            ret   = -1;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_sync_volume_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to sync");
+        cli_out ("volume sync: %s",
+                 (rsp.op_ret) ? "unsuccessful": "successful");
+
+        if (rsp.op_ret && rsp.op_errstr)
+                cli_out (rsp.op_errstr);
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
 int
 gf_cli3_1_getspec_cbk (struct rpc_req *req, struct iovec *iov,
                        int count, void *myframe)
@@ -1881,6 +1911,28 @@ out:
 }
 
 int32_t
+gf_cli3_1_sync_volume (call_frame_t *frame, xlator_t *this,
+                       void *data)
+{
+        int               ret = 0;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_submit ((gf1_cli_sync_volume_req*)data, frame,
+                              cli_rpc_prog, GD_MGMT_CLI_SYNC_VOLUME,
+                              NULL, gf_xdr_from_cli_sync_volume_req,
+                              this, gf_cli3_1_sync_volume_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int32_t
 gf_cli3_1_getspec (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
@@ -1939,7 +1991,6 @@ out:
         return ret;
 }
 
-
 struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
         [GF1_CLI_PROBE]  = { "PROBE_QUERY",  gf_cli3_1_probe},
@@ -1962,6 +2013,7 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_LOG_ROTATE] = {"LOG ROTATE", gf_cli3_1_log_rotate},
         [GF1_CLI_GETSPEC] = {"GETSPEC", gf_cli3_1_getspec},
         [GF1_CLI_PMAP_PORTBYBRICK] = {"PMAP PORTBYBRICK", gf_cli3_1_pmap_b2p},
+        [GF1_CLI_SYNC_VOLUME] = {"SYNC_VOLUME", gf_cli3_1_sync_volume},
 };
 
 struct rpc_clnt_program cli3_1_prog = {

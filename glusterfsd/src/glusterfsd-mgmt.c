@@ -603,20 +603,20 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_pmap_signout_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log (frame->this->name, GF_LOG_ERROR, "error");
+                gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
         if (-1 == rsp.op_ret) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
+                gf_log ("", GF_LOG_ERROR,
                         "failed to register the port with glusterd");
                 goto out;
         }
 out:
-        if (frame)
-                STACK_DESTROY (frame->root);
+//        if (frame)
+//                STACK_DESTROY (frame->root);
         return 0;
 }
 

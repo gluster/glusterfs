@@ -297,7 +297,7 @@ out:
         return ret;
 }
 
-static int
+int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count)
 {
@@ -2013,6 +2013,108 @@ out:
         return ret;
 }
 
+int
+glusterd_handle_sync_volume (rpcsvc_request_t *req)
+{
+        int32_t                          ret     = -1;
+        gf1_cli_sync_volume_req          cli_req = {0,};
+        dict_t                           *dict = NULL;
+        gf1_cli_sync_volume_rsp          cli_rsp = {0.};
+        char                             msg[2048] = {0,};
+        gf_boolean_t                     free_hostname = _gf_true;
+        gf_boolean_t                     free_volname = _gf_true;
+        glusterd_volinfo_t               *volinfo = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_sync_volume_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received volume sync req "
+                "for volume %s",
+                (cli_req.flags & GF_CLI_SYNC_ALL) ? "all" : cli_req.volname);
+
+        dict = dict_new ();
+        if (!dict) {
+                gf_log ("", GF_LOG_ERROR, "Can't allocate sync vol dict");
+                goto out;
+        }
+
+        if (!glusterd_is_local_addr (cli_req.hostname)) {
+                ret = -1;
+                snprintf (msg, sizeof (msg), "sync from localhost"
+                          " not allowed");
+                goto out;
+        }
+
+        ret = dict_set_dynmstr (dict, "hostname", cli_req.hostname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "hostname set failed");
+                snprintf (msg, sizeof (msg), "hostname set failed");
+                goto out;
+        } else {
+                free_hostname = _gf_false;
+        }
+
+        ret = dict_set_int32 (dict, "flags", cli_req.flags);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "volume flags set failed");
+                snprintf (msg, sizeof (msg), "volume flags set failed");
+                goto out;
+        }
+
+        if (!cli_req.flags) {
+                ret = glusterd_volinfo_find (cli_req.volname, &volinfo);
+                if (!ret) {
+                        snprintf (msg, sizeof (msg), "please delete the "
+                                 "volume: %s before sync", cli_req.volname);
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_set_dynmstr (dict, "volname", cli_req.volname);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "volume name set failed");
+                        snprintf (msg, sizeof (msg), "volume name set failed");
+                        goto out;
+                } else {
+                        free_volname = _gf_false;
+                }
+        } else {
+                free_volname = _gf_false;
+                if (glusterd_volume_count_get ()) {
+                        snprintf (msg, sizeof (msg), "please delete all the "
+                                 "volumes before full sync");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        ret = glusterd_sync_volume (req, dict);
+
+out:
+        if (ret) {
+                cli_rsp.op_ret = -1;
+                cli_rsp.op_errstr = msg;
+                glusterd_submit_reply(req, &cli_rsp, NULL, 0, NULL,
+                                      gf_xdr_from_cli_sync_volume_rsp);
+                if (free_hostname && cli_req.hostname)
+                        free (cli_req.hostname);
+                if (free_volname && cli_req.volname)
+                        free (cli_req.volname);
+                if (dict)
+                        dict_unref (dict);
+                if (!glusterd_opinfo_unlock())
+                        gf_log ("glusterd", GF_LOG_ERROR, "Unlock on "
+                               "opinfo failed");
+
+                ret = 0; //sent error to cli, prevent second reply
+        }
+
+        return ret;
+}
 
 int
 glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status)
@@ -2156,9 +2258,9 @@ out:
 
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
-                               int32_t op, int32_t status, char *op_errstr)
+                               int32_t op, int32_t status, char *op_errstr,
+                               dict_t *rsp_dict)
 {
-        dict_t                         *rsp_dict = NULL;
         gd1_mgmt_commit_op_rsp          rsp      = {{0}, };
         int                             ret      = -1;
 
@@ -2172,18 +2274,14 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
         else
                 rsp.op_errstr = "";
 
-        rsp_dict = dict_new ();
-        if (!rsp_dict) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        if (op == GD_OP_REPLACE_BRICK) {
+        switch (op) {
+        case GD_OP_REPLACE_BRICK:
                 ret = glusterd_fill_rb_commit_rsp (rsp_dict);
                 if (ret)
                         goto out;
+                break;
+        default:
+                break;
         }
 
         ret = dict_allocate_and_serialize (rsp_dict,
@@ -2203,8 +2301,6 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
                 "Responded to commit, ret: %d", ret);
 
 out:
-        if (rsp_dict)
-                dict_unref (rsp_dict);
         if (rsp.dict.dict_val)
                 GF_FREE (rsp.dict.dict_val);
         return ret;
@@ -3077,6 +3173,24 @@ glusterd_log_rotate (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_op (GD_OP_LOG_ROTATE);
         glusterd_op_set_ctx (GD_OP_LOG_ROTATE, dict);
         glusterd_op_set_ctx_free (GD_OP_LOG_ROTATE, _gf_true);
+        glusterd_op_set_req (req);
+
+        ret = glusterd_op_txn_begin ();
+
+        return ret;
+}
+
+int32_t
+glusterd_sync_volume (rpcsvc_request_t *req, dict_t *ctx)
+{
+        int32_t      ret       = -1;
+
+        GF_ASSERT (req);
+        GF_ASSERT (ctx);
+
+        glusterd_op_set_op (GD_OP_SYNC_VOLUME);
+        glusterd_op_set_ctx (GD_OP_SYNC_VOLUME, ctx);
+        glusterd_op_set_ctx_free (GD_OP_SYNC_VOLUME, _gf_true);
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
