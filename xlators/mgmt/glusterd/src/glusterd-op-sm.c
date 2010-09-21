@@ -2104,7 +2104,7 @@ rb_get_xattr_command (glusterd_volinfo_t *volinfo,
 
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "setxattr failed");
+                        "getxattr failed");
                 goto out;
         }
 
