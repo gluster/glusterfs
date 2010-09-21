@@ -1928,6 +1928,9 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+	gf_log ("", GF_LOG_DEBUG,
+		"mounted the replace brick client");
+
         snprintf (start_value, 8192, "%s:%s:",
                   dst_brickinfo->hostname,
                   dst_brickinfo->path);
@@ -1939,7 +1942,6 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Failed to send command to pump");
-                goto out;
         }
 
         ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
@@ -1950,6 +1952,8 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+        gf_log ("", GF_LOG_DEBUG,
+		"unmounted the replace brick client");
         ret = 0;
 
 out:
@@ -1974,13 +1978,16 @@ rb_do_operation_pause (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+	gf_log ("", GF_LOG_DEBUG,
+		"mounted the replace brick client");
+
         ret = rb_send_xattr_command (volinfo, src_brickinfo,
                                      dst_brickinfo, RB_PUMP_PAUSE_CMD,
                                      "jargon");
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Failed to send command to pump");
-                goto out;
+
         }
 
         ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
@@ -1990,6 +1997,9 @@ rb_do_operation_pause (glusterd_volinfo_t *volinfo,
                         "client");
                 goto out;
         }
+
+	gf_log ("", GF_LOG_DEBUG,
+		"unmounted the replace brick client");
 
         ret = 0;
 
@@ -2031,14 +2041,16 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+	gf_log ("", GF_LOG_DEBUG,
+		"mounted the replace brick client");
+
         ret = rb_send_xattr_command (volinfo, src_brickinfo,
                                      dst_brickinfo, RB_PUMP_ABORT_CMD,
                                      "jargon");
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Failed to send command to pump");
-                goto out;
-        }
+	}
 
         ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
         if (ret) {
@@ -2047,6 +2059,9 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
                         "client");
                 goto out;
         }
+
+	gf_log ("", GF_LOG_DEBUG,
+		"unmounted the replace brick client");
 
         ret = 0;
 
@@ -2135,13 +2150,16 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                         goto out;
                 }
 
+		gf_log ("", GF_LOG_DEBUG,
+			"mounted the replace brick client");
+
                 ret = rb_get_xattr_command (volinfo, src_brickinfo,
                                             dst_brickinfo, RB_PUMP_STATUS_CMD,
                                             &status);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
                                 "Failed to get status from pump");
-                        goto out;
+                        goto umount;
                 }
 
                 gf_log ("", GF_LOG_DEBUG,
@@ -2152,13 +2170,13 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                         gf_log ("", GF_LOG_ERROR,
                                 "Operation Context is not present");
                         ret = -1;
-                        goto out;
+                        goto umount;
                 }
                 status_reply = gf_strdup (status);
                 if (!status_reply) {
                         gf_log ("", GF_LOG_ERROR, "Out of memory");
                         ret = -1;
-                        goto out;
+                        goto umount;
                 }
 
                 ret = dict_set_dynstr (ctx, "status-reply",
@@ -2166,18 +2184,21 @@ rb_do_operation_status (glusterd_volinfo_t *volinfo,
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
                                 "failed to set pump status in ctx");
-                        goto out;
+
                 }
 
+	umount:
                 ret = rb_destroy_maintainence_client (volinfo, src_brickinfo);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
                                 "Failed to destroy maintainence "
                                 "client");
-                        goto out;
-                }
+			goto out;
+		}
         }
 
+	gf_log ("", GF_LOG_DEBUG,
+		"unmounted the replace brick client");
 out:
         return ret;
 }
