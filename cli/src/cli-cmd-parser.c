@@ -189,6 +189,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
                 }
                 if ((brick_list_size + strlen (words[brick_index]) + 1) > 120000) {
                         gf_log ("cli", GF_LOG_ERROR,
@@ -451,7 +453,10 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
                 }
+
                 if ((brick_list_size + strlen (words[brick_index]) + 1) > 120000) {
                         gf_log ("cli", GF_LOG_ERROR,
                                 "total brick list is larger than a request "
@@ -635,7 +640,10 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                                  "<export-dir-abs-path>", words[brick_index]);
                         ret = -1;
                         goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
                 }
+
                 j = tmp_index;
                 strcpy(tmp_brick, words[brick_index]);
                 while ( j < brick_index) {
@@ -723,6 +731,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         delimiter = strchr ((char *)words[3], ':');
         if (delimiter && delimiter != words[3]
             && *(delimiter+1) == '/') {
+                cli_path_strip_trailing_slashes (delimiter + 1);
                 ret = dict_set_str (dict, "src-brick", (char *)words[3]);
 
                 if (ret)
@@ -740,7 +749,10 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                                 "<HOSTNAME>:<export-dir-abs-path>", words[4]);
                         ret = -1;
                         goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
                 }
+
 
                 ret = dict_set_str (dict, "dst-brick", (char *)words[4]);
 
@@ -800,6 +812,7 @@ cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options)
         char    *volname = NULL;
         char    *str = NULL;
         int     ret = -1;
+        char    *delimiter = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -821,6 +834,16 @@ cli_cmd_log_filename_parse (const char **words, int wordcount, dict_t **options)
 
         str = (char *)words[4];
         if (strchr (str, ':')) {
+                delimiter = strchr (words[4], ':');
+                if (!delimiter || delimiter == words[4]
+                    || *(delimiter+1) != '/') {
+                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                                 "<export-dir-abs-path>", words[4]);
+                        ret = -1;
+                        goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
+                }
                 ret = dict_set_str (dict, "brick", str);
                 if (ret)
                         goto out;
@@ -851,6 +874,7 @@ cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
         char    *volname = NULL;
         char    *str = NULL;
         int     ret = -1;
+        char    *delimiter = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -870,12 +894,20 @@ cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        str = (char *)words[4];
-        if (str && strchr (str, ':')) {
-                ret = dict_set_str (dict, "brick", str);
-                if (ret)
-                        goto out;
+        delimiter = strchr (words[4], ':');
+        if (!delimiter || delimiter == words[4]
+            || *(delimiter+1) != '/') {
+                cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                         "<export-dir-abs-path>", words[4]);
+                ret = -1;
+                goto out;
+        } else {
+                cli_path_strip_trailing_slashes (delimiter + 1);
         }
+        str = (char *)words[4];
+        ret = dict_set_str (dict, "brick", str);
+        if (ret)
+                goto out;
 
         *options = dict;
 
@@ -893,6 +925,7 @@ cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options)
         char    *volname = NULL;
         char    *str = NULL;
         int     ret = -1;
+        char    *delimiter = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -912,12 +945,20 @@ cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        str = (char *)words[4];
-        if (str && strchr (str, ':')) {
-                ret = dict_set_str (dict, "brick", str);
-                if (ret)
-                        goto out;
+        delimiter = strchr (words[4], ':');
+        if (!delimiter || delimiter == words[4]
+            || *(delimiter+1) != '/') {
+                cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                         "<export-dir-abs-path>", words[4]);
+                ret = -1;
+                goto out;
+        } else {
+                cli_path_strip_trailing_slashes (delimiter + 1);
         }
+        str = (char *)words[4];
+        ret = dict_set_str (dict, "brick", str);
+        if (ret)
+                goto out;
 
         *options = dict;
 
