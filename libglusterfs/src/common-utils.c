@@ -1510,11 +1510,16 @@ gf_system (const char *command)
 
                 /* Code will not come here at all */
                 gf_log ("", GF_LOG_ERROR, "execv of (%s) failed", command);
+
+                kill (getpid(), SIGKILL);
         }
         if (pid > 0) {
                 /* Current, ie, parent process */
                 pid = waitpid (pid, &status, 0);
-                ret = status;
+                if (WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS)
+                        ret = 0;
+                else
+                        ret = -1;
         }
 out:
         if (dupcmd)
