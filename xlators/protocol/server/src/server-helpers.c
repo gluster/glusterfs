@@ -1108,7 +1108,7 @@ server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
         this = frame->this;
         conf = this->private;
 
-        if (!conf->trace)
+        if (!conf || !conf->trace)
                 return;
 
         state = CALL_STATE (frame);
@@ -1153,10 +1153,10 @@ server_print_request (call_frame_t *frame)
         this = frame->this;
         conf = this->private;
 
-        state = CALL_STATE (frame);
-
-        if (!conf->trace)
+        if (!conf || !conf->trace)
                 return;
+
+        state = CALL_STATE (frame);
 
         memset (resolve_vars, '\0', 256);
         memset (resolve2_vars, '\0', 256);
