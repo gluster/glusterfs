@@ -114,6 +114,11 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                                 cli_out ("%s is already part of "
                                          "another cluster", rsp.hostname);
                                 break;
+                        case GF_PROBE_VOLUME_CONFLICT:
+                                cli_out ("Atleast one volume on %s conflicts "
+                                         "with existing volumes in the "
+                                         "cluster", rsp.hostname);
+                                break;
                         default:
                                 cli_out ("Probe returned with unknown errno %d",
                                         rsp.op_errno);

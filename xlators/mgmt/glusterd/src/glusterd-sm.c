@@ -352,6 +352,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
         int                             status = 0;
         int32_t                         op_ret = -1;
+        int32_t                         op_errno = 0;
         char               remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
         GF_ASSERT (ctx);
@@ -372,6 +373,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         }
         else {
                 event_type = GD_FRIEND_EVENT_LOCAL_RJT;
+                op_errno = GF_PROBE_VOLUME_CONFLICT;
                 op_ret = -1;
         }
 
@@ -406,7 +408,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_friend_sm_inject_event (new_event);
 
         ret = glusterd_xfer_friend_add_resp (ev_ctx->req, ev_ctx->hostname,
-                                             ev_ctx->port, op_ret);
+                                             ev_ctx->port, op_ret, op_errno);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);

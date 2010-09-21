@@ -2869,7 +2869,7 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
 
 int
 glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
-                               int32_t op_ret)
+                               int32_t op_ret, int32_t op_errno)
 {
         gd1_mgmt_friend_rsp  rsp = {{0}, };
         int32_t              ret = -1;
@@ -2878,13 +2878,14 @@ glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
 
         GF_ASSERT (hostname);
 
-        rsp.op_ret = op_ret;
         this = THIS;
         GF_ASSERT (this);
 
         conf = this->private;
 
         uuid_copy (rsp.uuid, conf->uuid);
+        rsp.op_ret = op_ret;
+        rsp.op_errno = op_errno;
         rsp.hostname = gf_strdup (hostname);
         rsp.port = port;
 
