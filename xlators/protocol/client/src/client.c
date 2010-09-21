@@ -1531,6 +1531,13 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         int ret = 0;
 
         this = mydata;
+        if (!this || !this->private) {
+                gf_log ("client", GF_LOG_ERROR,
+                        (this != NULL)?"private structure of the xlator this is NULL":
+                        "xlator this is NULL");
+                goto out;
+        }
+
         conf = this->private;
 
         switch (event) {
@@ -1572,6 +1579,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 break;
         }
 
+out:
         return 0;
 }
 
