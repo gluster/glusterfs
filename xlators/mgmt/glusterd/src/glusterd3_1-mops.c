@@ -404,7 +404,8 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
-                GF_ASSERT (0);
+                gf_log ("", GF_LOG_CRITICAL, "Lock response received from "
+                        "unknown peer: %s", str);
         }
 
         if (op_ret) {
@@ -463,7 +464,8 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
-                GF_ASSERT (0);
+                gf_log ("", GF_LOG_CRITICAL, "Unlock response received from "
+                        "unknown peer %s", str);
         }
 
         if (op_ret) {
@@ -523,7 +525,8 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
-                GF_ASSERT (0);
+                gf_log ("", GF_LOG_CRITICAL, "Stage response received from "
+                        "unknown peer: %s", str);
         }
 
         if (op_ret) {
@@ -667,7 +670,8 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
-                GF_ASSERT (0);
+                gf_log ("", GF_LOG_CRITICAL, "Commit response received from "
+                        "unknown peer: %s", str);
         }
 
         if (op_ret) {
