@@ -207,4 +207,6 @@ cli_cmd_broadcast_connected ();
 int
 cli_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 void *data);
+void
+cli_path_strip_trailing_slashes (char *path);
 #endif /* __CLI_H__ */
