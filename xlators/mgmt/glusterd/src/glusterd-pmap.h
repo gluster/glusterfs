@@ -55,5 +55,7 @@ int pmap_registry_bind (xlator_t *this, int port, const char *brickname,
                         gf_pmap_port_type_t type, void *xprt);
 int pmap_registry_remove (xlator_t *this, int port, const char *brickname,
                           gf_pmap_port_type_t type, void *xprt);
-
+int
+pmap_registry_search (xlator_t *this, const char *brickname,
+                      gf_pmap_port_type_t type);
 #endif

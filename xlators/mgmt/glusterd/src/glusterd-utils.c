@@ -41,6 +41,7 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 #include "glusterd-volgen.h"
+#include "glusterd-pmap.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -1750,3 +1751,111 @@ glusterd_is_exisiting_brick (char *hostname, char *path)
 out:
         return ret;
 }
+
+int
+glusterd_restart_bricks (glusterd_conf_t *conf, xlator_t *this)
+{
+        glusterd_volinfo_t       *volinfo = NULL;
+        glusterd_brickinfo_t     *brickinfo = NULL;
+        char                     pidfile[PATH_MAX] = {0,};
+        char                     path[PATH_MAX] = {0,};
+        int                      ret = -1;
+        struct stat              stbuf = {0,};
+        struct                   timespec timeout;
+        sigset_t                 mask;
+
+        if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
+                perror ("sigprocmask");
+                return -1;
+        }
+
+        sigemptyset (&mask);
+
+        timeout.tv_sec = 5;
+        timeout.tv_nsec = 0;
+
+        sigtimedwait(&mask, NULL, &timeout);
+        GF_ASSERT (conf);
+        GF_ASSERT (this);
+
+        list_for_each_entry (volinfo, &conf->volumes, vol_list) {
+                //If volume status is not started, do not proceed
+                if (volinfo->status == GLUSTERD_STATUS_STARTED) {
+                        list_for_each_entry (brickinfo, &volinfo->bricks,
+                                             brick_list) {
+                               //Only bricks on localhost to started
+                                if (glusterd_is_local_addr (brickinfo->hostname))
+                                        continue;
+                               //if started, implies already registered with pmap
+                                if (!glusterd_is_brick_started(brickinfo))
+                                        continue;
+                                GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
+                               GLUSTERD_GET_BRICK_PIDFILE (pidfile, path,
+                                        brickinfo->hostname, brickinfo->path);
+                                ret = stat (pidfile, &stbuf);
+                                //pid file not found, proceed to start
+                                if (ret && errno == ENOENT) {
+                                        glusterd_volume_start_glusterfs (
+                                                     volinfo, brickinfo, 0);
+                                } else if (!ret) {
+                                        ret = pmap_registry_search (this,
+                                                      brickinfo->path,
+                                                      GF_PMAP_PORT_BRICKSERVER);
+                                        if (ret)
+                                                continue;
+                                       //might be a stale pid file 
+                                        ret = unlink (pidfile);
+                                        //goto out;
+                                        glusterd_volume_start_glusterfs (
+                                                        volinfo, brickinfo, 0);
+                                }
+                        }
+                        glusterd_check_generate_start_nfs (volinfo);
+                }
+        }
+        return ret;
+}
+
+int
+glusterd_get_brickinfo (xlator_t *this, const char *brickname, int port, 
+                        gf_boolean_t localhost, glusterd_brickinfo_t **brickinfo)
+{
+        glusterd_conf_t         *priv = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_brickinfo_t    *tmpbrkinfo = NULL;
+        int                     ret = -1;
+
+        GF_ASSERT (brickname);
+        GF_ASSERT (this);
+
+        priv = this->private;
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
+                                     brick_list) {
+                        if (localhost && glusterd_is_local_addr (tmpbrkinfo->hostname))
+                                continue;
+                        if (!strcmp(tmpbrkinfo->path, brickname) &&
+                            (tmpbrkinfo->port == port)) {
+                                *brickinfo = tmpbrkinfo;
+                                return 0;
+                        }
+                }
+        }
+        return ret;
+}
+
+void
+glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
+                            gf_brick_status_t status)
+{
+        GF_ASSERT (brickinfo);
+        brickinfo->status = status;
+}
+
+int
+glusterd_is_brick_started (glusterd_brickinfo_t  *brickinfo)
+{       
+        GF_ASSERT (brickinfo);
+        return (!(brickinfo->status == GF_BRICK_STARTED));
+}
+
