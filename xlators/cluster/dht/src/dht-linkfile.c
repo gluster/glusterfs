@@ -123,20 +123,20 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
 	local->linkfile.srcvol = tovol;
 	loc_copy (&local->linkfile.loc, loc);
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_set_static_bin (dict, "gfid-req", loc->inode->gfid, 16);
-        if (ret)
-                gf_log ("dht-linkfile", GF_LOG_DEBUG, "gfid set failed");
+        if (!uuid_is_null (loc->inode->gfid)) {
+                dict = dict_new ();
+                if (!dict)
+                        goto out;
+                ret = dict_set_static_bin (dict, "gfid-req", loc->inode->gfid, 16);
+                if (ret)
+                        gf_log ("dht-linkfile", GF_LOG_DEBUG, "gfid set failed");
+        } else if (local->params) {
+                dict = dict_ref (local->params);
+        }
 
 	STACK_WIND (frame, dht_linkfile_create_cbk,
 		    fromvol, fromvol->fops->mknod, loc,
 		    S_IFREG | DHT_LINKFILE_MODE, 0, dict);
-
-        if (dict)
-                dict_unref (dict);
 
         return 0;
 out:
