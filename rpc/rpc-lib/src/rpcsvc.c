@@ -879,10 +879,12 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
         ret = -1;
         rpcsvc_request_init (svc, trans, &rpcmsg, progmsg, msg, req);
 
-        gf_log (GF_RPCSVC, GF_LOG_TRACE, "RPC XID: %lx, Ver: %ld, Program: %ld,"
-                " ProgVers: %ld, Proc: %ld", rpc_call_xid (&rpcmsg),
+        gf_log (GF_RPCSVC, GF_LOG_TRACE, "recieved rpc-message (XID: 0x%lx, "
+                "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) from"
+                " rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
-                rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg));
+                rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
+                trans->name);
 
         if (rpc_call_rpcvers (&rpcmsg) != 2) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC version not supported");
@@ -1527,7 +1529,16 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
                                        req->trans_private);
 
         if (ret == -1) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to submit message");
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "failed to submit message "
+                        "(XID: 0x%lx, Program: %s, ProgVers: %d, Proc: %d) to "
+                        "rpc-transport (%s)", req->xid, req->prog->progname,
+                        req->prog->progver, req->procnum, trans->name);
+        } else {
+                gf_log (GF_RPCSVC, GF_LOG_TRACE,
+                        "submitted reply for rpc-message (XID: 0x%lx, "
+                        "Program: %s, ProgVers: %d, Proc: %d) to rpc-transport "
+                        "(%s)", req->xid, req->prog->progname,
+                        req->prog->progver, req->procnum, trans->name);
         }
 
 disconnect_exit:
