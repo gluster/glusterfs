@@ -1751,6 +1751,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
         char                            *err_str = NULL;
         gf1_cli_remove_brick_rsp        rsp = {0,};
         void                            *cli_rsp = NULL;
+        char                            vol_type[256] = {0,};
 
         GF_ASSERT (req);
 
@@ -1804,12 +1805,20 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                  goto out;
         }
 
-        if ((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) &&
+        if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)
+                strcpy (vol_type, "replica");
+        else if (volinfo->type == GF_CLUSTER_TYPE_STRIPE)
+                strcpy (vol_type, "stripe");
+        else
+                strcpy (vol_type, "distribute");
+
+        if ((volinfo->type == (GF_CLUSTER_TYPE_REPLICATE ||
+             GF_CLUSTER_TYPE_STRIPE)) &&
             !(volinfo->brick_count <= volinfo->sub_count)) {
                 if (volinfo->sub_count && (count % volinfo->sub_count != 0)) {
                         snprintf (err_str, 2048, "Remove brick incorrect"
-                                  " brick count of %d for replica %d",
-                                   count, volinfo->sub_count);
+                                  " brick count of %d for %s %d",
+                                   count, vol_type, volinfo->sub_count);
                         gf_log ("", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
                         ret = -1;
@@ -1850,7 +1859,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 strcat(brick_list, " ");
 
                 i++;
-                if ((volinfo->type != GF_CLUSTER_TYPE_REPLICATE) ||
+                if ((volinfo->type == GF_CLUSTER_TYPE_NONE) ||
                     (volinfo->brick_count <= volinfo->sub_count))
                         continue;
  
@@ -1873,7 +1882,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                                                 ret = -1;
                                                 snprintf(err_str, 2048,"Bricks"
                                                          " not from same subvol"
-                                                         " for replica");
+                                                         " for %s", vol_type);
                                                 gf_log ("",GF_LOG_ERROR,
                                                         "%s", err_str);
                                                 err_ret = 1;
