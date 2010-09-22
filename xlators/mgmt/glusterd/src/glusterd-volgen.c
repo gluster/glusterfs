@@ -462,7 +462,8 @@ static int
 __write_client_xlator (FILE *file, dict_t *dict,
                        char *remote_subvol,
                        char *remote_host,
-                       int count)
+                       int count,
+                       char *last_xlator)
 {
         char       *volname               = NULL;
         char       *opt_transtype         = NULL;
@@ -532,6 +533,9 @@ __write_client_xlator (FILE *file, dict_t *dict,
                  remote_subvol);
 
         ret = 0;
+
+        snprintf (last_xlator, 1024, "%s-%s-%d",
+                  volname, "client", count);
 
 out:
         return ret;
@@ -772,7 +776,8 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
                           char *subvolume,
                           int replicate_count,
                           int subvol_count,
-                          int count)
+                          int count,
+                          char *last_xlator)
 {
         char *volname               = NULL;
         char       *opt_readsubvol        = NULL;
@@ -1028,6 +1033,9 @@ __write_replicate_xlator (FILE *file, dict_t *dict,
 
         ret = 0;
 
+        snprintf (last_xlator, 1024, "%s-%s-%d",
+                  volname, "replicate", count);
+
 out:
         if (subvol_str)
                 GF_FREE (subvol_str);
@@ -1039,7 +1047,8 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
                        char *subvolume,
                        int stripe_count,
                        int subvol_count,
-                       int count)
+                       int count,
+                       char *last_xlator)
 {
         char *volname = NULL;
         char       *opt_blocksize    = NULL;
@@ -1122,6 +1131,9 @@ __write_stripe_xlator (FILE *file, dict_t *dict,
 
         ret = 0;
 
+        snprintf (last_xlator, 1024, "%s-%s-%d",
+                  volname, "stripe", count);
+
 out:
         if (subvol_str)
                 GF_FREE (subvol_str);
@@ -1132,7 +1144,8 @@ out:
 static int
 __write_distribute_xlator (FILE *file, dict_t *dict,
                            char *subvolume,
-                           int dist_count)
+                           int dist_count,
+                           char *last_xlator)
 {
         char       *volname          = NULL;
         char       *subvol_str       = NULL;
@@ -1222,6 +1235,9 @@ __write_distribute_xlator (FILE *file, dict_t *dict,
 
 
         ret = 0;
+
+        snprintf (last_xlator, 1024, "%s-%s",
+                  volname, "dht");
 
 out:
         if (subvol_str)
@@ -1581,6 +1597,33 @@ out:
 }
 
 static int
+__write_iostats_xlator (FILE *file, dict_t *dict,
+                        char *subvolume)
+{
+        char *volname = NULL;
+        int ret       = -1;
+
+        const char *iostats_str = "volume %s\n"
+                "    type debug/io-stats\n"
+                "    subvolumes %s\n"
+                "end-volume\n\n";
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                goto out;
+        }
+
+        fprintf (file, iostats_str,
+                 volname,
+                 subvolume);
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
 generate_server_volfile (glusterd_brickinfo_t *brickinfo,
                          dict_t *dict,
                          const char *filename)
@@ -1863,11 +1906,12 @@ destroy_perf_xlator_list (char *perf_xlator_list[])
 static int
 write_perf_xlators (glusterd_volinfo_t *volinfo, FILE *file,
                     int32_t dist_count, int32_t replicate_count,
-                    int32_t stripe_count)
+                    int32_t stripe_count, char *last_xlator)
 {
         char *perf_xlator_list[256]     = {0,};
         char  subvol[2048]              = {0,};
-        int    i                        = 0;
+        int   i                         = 0;
+        int   last_idx                  = 0;
         int  ret                        = 0;
         char  *volname                  = NULL;
         dict_t *dict                    = NULL;
@@ -1882,6 +1926,19 @@ write_perf_xlators (glusterd_volinfo_t *volinfo, FILE *file,
                         "Could not generate perf xlator list");
                 goto out;
         }
+
+        while (perf_xlator_list[i]) {
+                i++;
+        }
+
+        if (i == 0) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "No perf xlators enabled");
+                ret = 0;
+                goto out;
+        }
+
+        i = 0;
 
         if (dist_count > 1) {
                 VOLGEN_GENERATE_VOLNAME (subvol, volname, "dht");
@@ -1929,6 +1986,17 @@ write_perf_xlators (glusterd_volinfo_t *volinfo, FILE *file,
                 }
         }
 
+        if (i >= 1) {
+                last_idx = i - 1;
+
+                if (perf_xlator_list[last_idx] && last_idx >= 0) {
+                        VOLGEN_GENERATE_VOLNAME (last_xlator, volname,
+                                                 perf_xlator_list[last_idx]);
+                        gf_log ("", GF_LOG_DEBUG,
+                                "last xlator copied to %s", last_xlator);
+                }
+        }
+
 
 out:
         destroy_perf_xlator_list (perf_xlator_list);
@@ -1943,6 +2011,7 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         dict_t  *dict               = NULL;
         char    *volname            = NULL;
         glusterd_brickinfo_t *brick = NULL;
+        char     last_xlator[1024]  = {0,};
         char     subvol[2048]       = {0,};
         int32_t  replicate_count    = 0;
         int32_t  stripe_count       = 0;
@@ -2015,7 +2084,8 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
 
                 ret = __write_client_xlator (file, dict, brick->path,
-                                             brick->hostname, count);
+                                             brick->hostname, count,
+                                             last_xlator);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
                                 "Could not write xlator");
@@ -2041,7 +2111,8 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
                         ret = __write_replicate_xlator (file, dict, subvol,
                                                         replicate_count,
                                                         subvol_count,
-                                                        i);
+                                                        i,
+                                                        last_xlator);
                         if (ret) {
                                 gf_log ("", GF_LOG_DEBUG,
                                         "Count not write xlator");
@@ -2062,7 +2133,8 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
                         ret = __write_stripe_xlator (file, dict, subvol,
                                                      stripe_count,
                                                      subvol_count,
-                                                     i);
+                                                     i,
+                                                     last_xlator);
                         if (ret) {
                                 gf_log ("", GF_LOG_DEBUG,
                                         "Count not write xlator");
@@ -2090,7 +2162,8 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
                 ret = __write_distribute_xlator (file,
                                                  dict,
                                                  subvol,
-                                                 dist_count);
+                                                 dist_count,
+                                                 last_xlator);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,
                                 "Count not write xlator");
@@ -2099,13 +2172,29 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         }
 
 
-        write_perf_xlators (volinfo, file, dist_count,
-                            replicate_count, stripe_count);
+        ret = write_perf_xlators (volinfo, file, dist_count,
+                                  replicate_count, stripe_count,
+                                  last_xlator);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not write performance xlators");
+                goto out;
+        }
 
-        fclose (file);
-        file = NULL;
+        ret = __write_iostats_xlator (file,
+                                      dict,
+                                      last_xlator);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not write io-stats xlator");
+                goto out;
+        }
 
 out:
+        if (file)
+                fclose (file);
+        file = NULL;
+
         return ret;
 }
 
