@@ -225,7 +225,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			if ((op_errno != ENOTCONN) 
                             && (op_errno != ENOENT)
                             && (op_errno != ESTALE)) {
-				gf_log (this->name, GF_LOG_DEBUG,
+				gf_log (this->name, GF_LOG_INFO,
 					"subvolume %s returned -1 (%s)",
 					prev->this->name, strerror (op_errno));
 			}
@@ -241,7 +241,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 
 		if (stbuf->ia_type != local->inode->ia_type) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_INFO,
 				"mismatching filetypes 0%o v/s 0%o for %s",
 				(stbuf->ia_type), (local->inode->ia_type),
 				local->loc.path);
@@ -258,7 +258,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		is_linkfile = check_is_linkfile (inode, stbuf, xattr);
 		
 		if (is_linkfile) {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_INFO,
 				"linkfile found in revalidate for %s",
 				local->loc.path);
 			local->layout_mismatch = 1;
@@ -271,7 +271,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 						       prev->this, &local->loc,
 						       xattr);
 			if (ret != 0) {
-				gf_log (this->name, GF_LOG_DEBUG,
+				gf_log (this->name, GF_LOG_INFO,
 					"mismatching layouts for %s", 
 					local->loc.path);
 			
@@ -1755,6 +1755,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                                 goto err;
                         }
                         local->layout = layout;
+                        //layout = dht_layout_new (this, conf->subvolume_cnt);
 
                         dht_selfheal_new_directory (frame, dht_fix_layout_cbk,
                                                     layout);

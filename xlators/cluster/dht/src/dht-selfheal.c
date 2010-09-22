@@ -247,10 +247,11 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 			dht_layout_t *layout, int force)
 {
 	int           missing_dirs = 0;
-	int           i = 0;
+	int           i     = 0;
+	int           ret   = -1;
 	dht_local_t  *local = NULL;
 	xlator_t     *this = NULL;
-
+        dict_t       *dict = NULL;
 
 	local = frame->local;
 	this = frame->this;
@@ -266,6 +267,15 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 	}
 
 	local->call_cnt = missing_dirs;
+        dict = dict_new ();
+        if (!dict)
+                return -1;
+
+        ret = dict_set_static_bin (dict, "gfid-req", loc->inode->gfid, 16);
+        if (ret)
+                gf_log (this->name, GF_LOG_INFO,
+                        "failed to set gfid in dict");
+
 	for (i = 0; i < layout->cnt; i++) {
 		if (layout->list[i].err == ENOENT || force) {
 			gf_log (this->name, GF_LOG_TRACE,
@@ -278,9 +288,12 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 				    loc,
                                     st_mode_from_ia (local->stbuf.ia_prot,
                                                      local->stbuf.ia_type),
-                                    NULL);
+                                    dict);
 		}
 	}
+
+        if (dict)
+                dict_unref (dict);
 
 	return 0;
 }
