@@ -3716,7 +3716,6 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                 goto out;
 
 out:
-        pthread_mutex_unlock (&opinfo.lock);
         gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
         return ret;
 }
