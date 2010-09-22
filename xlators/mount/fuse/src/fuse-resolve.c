@@ -741,8 +741,12 @@ fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn)
 
         /* If the resolve is for 'fd' and its open with 'write' flag
            set, don't switch to new graph yet */
-        if (state->fd && ((state->fd->flags & O_RDWR) ||
+
+        /* TODO: fix it later */
+        /* if (state->fd && ((state->fd->flags & O_RDWR) ||
                           (state->fd->flags & O_WRONLY)))
+        */
+        if (state->fd)
                 goto resume;
 
         if (state->loc.path) {
