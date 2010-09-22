@@ -186,7 +186,7 @@ call_bail (void *data)
                 strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
 
 		gf_log (conn->trans->name, GF_LOG_ERROR,
-			"bailing out frame type(%s) op(%s(%d)) xid = %u "
+			"bailing out frame type(%s) op(%s(%d)) xid = 0x%lx "
                         "sent = %s. timeout = %d",
 			trav->rpcreq->prog->progname,
                         (trav->rpcreq->prog->procnames) ?
@@ -618,11 +618,12 @@ rpc_clnt_reply_init (rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
                 goto out;
         }
 
-        gf_log ("rpc-clnt", GF_LOG_TRACE, "RPC XID: %d Program: %s,"
-                " ProgVers: %d, Proc: %d", saved_frame->rpcreq->xid,
+        gf_log ("rpc-clnt", GF_LOG_TRACE, "recieved rpc message (RPC XID: 0x%lx"
+                " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
+                saved_frame->rpcreq->xid,
                 saved_frame->rpcreq->prog->progname,
                 saved_frame->rpcreq->prog->progver,
-                saved_frame->rpcreq->procnum);
+                saved_frame->rpcreq->procnum, conn->trans->name);
 /* TODO: */
         /* TODO: AUTH */
         /* The verifier that is sent in a reply is a string that can be used as
@@ -677,10 +678,12 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
                 goto out;
         }
 
-        gf_log ("rpc-clnt", GF_LOG_INFO, "RPC XID: %lx, Ver: %ld, Program: %ld,"
-                " ProgVers: %ld, Proc: %ld", rpc_call_xid (&rpcmsg),
+        gf_log ("rpc-clnt", GF_LOG_INFO, "recieved rpc message (XID: 0x%lx, "
+                "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) "
+                "from rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
-                rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg));
+                rpc_call_progver (&rpcmsg), rpc_call_progproc (&rpcmsg),
+                clnt->conn.trans->name);
 
         procnum = rpc_call_progproc (&rpcmsg);
 
@@ -1356,14 +1359,24 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 ret = rpc_transport_submit_request (rpc->conn.trans,
                                                     &req);
                 if (ret == -1) {
-                        gf_log ("rpc-clnt", GF_LOG_DEBUG,
-                                "transmission of rpc-request failed");
+                        gf_log ("rpc-clnt", GF_LOG_TRACE, "failed to "
+                                "submit rpc-request "
+                                "(XID: 0x%lx Program: %s, ProgVers: %d, "
+                                "Proc: %d) to rpc-transport (%s)", rpcreq->xid,
+                                rpcreq->prog->progname, rpcreq->prog->progver,
+                                rpcreq->procnum, rpc->conn.trans->name);
                 }
 
                 if ((ret >= 0) && frame) {
                         gettimeofday (&conn->last_sent, NULL);
                         /* Save the frame in queue */
                         __save_frame (rpc, frame, rpcreq);
+
+                        gf_log ("rpc-clnt", GF_LOG_TRACE, "submitted request "
+                                "(XID: 0x%lx Program: %s, ProgVers: %d, "
+                                "Proc: %d) to rpc-transport (%s)", rpcreq->xid,
+                                rpcreq->prog->progname, rpcreq->prog->progver,
+                                rpcreq->procnum, rpc->conn.trans->name);
                 }
         }
 unlock:
