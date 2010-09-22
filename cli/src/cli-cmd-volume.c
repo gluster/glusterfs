@@ -848,9 +848,9 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_replace_brick_cbk,
           "replace-brick operations"},
 
-        { "volume set-transport <VOLNAME> <TRANSPORT-TYPE> [<TRANSPORT-TYPE>] ...",
+        /*{ "volume set-transport <VOLNAME> <TRANSPORT-TYPE> [<TRANSPORT-TYPE>] ...",
           cli_cmd_volume_set_transport_cbk,
-          "set transport type for volume <VOLNAME>"},
+          "set transport type for volume <VOLNAME>"},*/
 
         { "volume set <VOLNAME> <KEY> <VALUE>",
           cli_cmd_volume_set_cbk,
