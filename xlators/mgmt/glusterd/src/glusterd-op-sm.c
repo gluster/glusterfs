@@ -1027,7 +1027,12 @@ char *set_option_list[] = {
 	"inode-lru-limit",
 	"thread-count"	,
 	"lookup-unhashed",
-	"min-free-disk"
+	"min-free-disk",
+        "write-behind",
+        "read-ahead",
+        "io-cache",
+        "quick-read",
+        "stat-prefetch",
 };
 
 

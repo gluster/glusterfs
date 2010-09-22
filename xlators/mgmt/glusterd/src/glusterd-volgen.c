@@ -1559,7 +1559,7 @@ __write_statprefetch_xlator (FILE *file, dict_t *dict,
         char *volname = NULL;
         int   ret     = -1;
 
-        const char *statprefetch_str = "volume %s\n"
+        const char *statprefetch_str = "volume %s-%s\n"
                 "    type performance/stat-prefetch\n"
                 "    subvolumes %s\n"
                 "end-volume\n\n";
@@ -1571,6 +1571,7 @@ __write_statprefetch_xlator (FILE *file, dict_t *dict,
 
         fprintf (file, statprefetch_str,
                  volname,
+                 "stat-prefetch",
                  subvolume);
 
         ret = 0;
@@ -1676,6 +1677,249 @@ generate_server_volfile (glusterd_brickinfo_t *brickinfo,
 
 out:
         return ret;
+}
+
+static int
+__write_perf_xlator (char *xlator_name, FILE *file,
+                     dict_t *dict, char *subvol)
+{
+        int ret = 0;
+
+        if (strcmp (xlator_name, "write-behind") == 0) {
+
+                ret = __write_wb_xlator (file, dict, subvol);
+
+        } else if (strcmp (xlator_name, "read-ahead") == 0) {
+
+                ret = __write_ra_xlator (file, dict, subvol);
+
+        } else if (strcmp (xlator_name, "io-cache") == 0) {
+
+                ret = __write_iocache_xlator (file, dict, subvol);
+
+        } else if (strcmp (xlator_name, "quick-read") == 0) {
+
+                ret = __write_qr_xlator (file, dict, subvol);
+
+        } else if (strcmp (xlator_name, "stat-prefetch") == 0) {
+
+                ret = __write_statprefetch_xlator (file, dict, subvol);
+
+        }
+
+        return ret;
+
+}
+
+static gf_boolean_t
+is_perf_xlator_enabled (char *status)
+{
+        gf_boolean_t ret = _gf_false;
+
+        if (strcmp (status, "enable") == 0)
+                ret = _gf_true;
+
+        return ret;
+}
+
+static int
+generate_perf_xlator_list (dict_t *dict, char *perf_xlator_list[])
+{
+        char *status = NULL;
+        int i        = 0;
+        int dict_ret = 0;
+        int ret      = 0;
+
+        GF_ASSERT (dict);
+
+        dict_ret = dict_get_str (dict, "write-behind", &status);
+        if (dict_ret || is_perf_xlator_enabled (status)) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Write behind is enabled");
+                perf_xlator_list[i] = gf_strdup ("write-behind");
+                if (!perf_xlator_list[i]) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                i++;
+
+        } else {
+                gf_log ("", GF_LOG_DEBUG,
+                        "write-behind option is disabled");
+        }
+
+
+        dict_ret = dict_get_str (dict, "read-ahead", &status);
+        if (dict_ret || is_perf_xlator_enabled (status)) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "read-ahead is enabled");
+                perf_xlator_list[i] = gf_strdup ("read-ahead");
+                if (!perf_xlator_list[i]) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                i++;
+
+        } else {
+                gf_log ("", GF_LOG_DEBUG,
+                        "read-ahead option is disabled");
+        }
+
+        dict_ret = dict_get_str (dict, "io-cache", &status);
+        if (dict_ret || is_perf_xlator_enabled (status)) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "io-cache is enabled");
+                perf_xlator_list[i] = gf_strdup ("io-cache");
+                if (!perf_xlator_list[i]) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                i++;
+
+        } else {
+                gf_log ("", GF_LOG_DEBUG,
+                        "io-cache option is disabled");
+        }
+
+        dict_ret = dict_get_str (dict, "quick-read", &status);
+        if (dict_ret || is_perf_xlator_enabled (status)) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "quick-read is enabled");
+                perf_xlator_list[i] = gf_strdup ("quick-read");
+                if (!perf_xlator_list[i]) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                i++;
+
+        } else {
+                gf_log ("", GF_LOG_DEBUG,
+                        "quick-read option is disabled");
+        }
+
+        dict_ret = dict_get_str (dict, "stat-prefetch", &status);
+        if (dict_ret || is_perf_xlator_enabled (status)) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "stat-prefetch is enabled");
+                perf_xlator_list[i] = gf_strdup ("stat-prefetch");
+                if (!perf_xlator_list[i]) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Out of memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                i++;
+
+        } else {
+                gf_log ("", GF_LOG_DEBUG,
+                        "stat-prefetch option is disabled");
+        }
+
+out:
+        return ret;
+
+}
+
+static int
+destroy_perf_xlator_list (char *perf_xlator_list[])
+{
+        int i = 0;
+
+        while (perf_xlator_list[i]) {
+                GF_FREE (perf_xlator_list[i]);
+                i++;
+        }
+
+        return 0;
+}
+
+static int
+write_perf_xlators (glusterd_volinfo_t *volinfo, FILE *file,
+                    int32_t dist_count, int32_t replicate_count,
+                    int32_t stripe_count)
+{
+        char *perf_xlator_list[256]     = {0,};
+        char  subvol[2048]              = {0,};
+        int    i                        = 0;
+        int  ret                        = 0;
+        char  *volname                  = NULL;
+        dict_t *dict                    = NULL;
+
+        dict    = volinfo->dict;
+        volname = volinfo->volname;
+
+        ret = generate_perf_xlator_list (
+                dict, perf_xlator_list);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not generate perf xlator list");
+                goto out;
+        }
+
+        if (dist_count > 1) {
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, "dht");
+                ret = __write_perf_xlator (perf_xlator_list[i], file,
+                                           dict, subvol);
+                i++;
+        }
+        else if (replicate_count > 1) {
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, "replicate-0");
+                ret = __write_perf_xlator (perf_xlator_list[i], file,
+                                           dict, subvol);
+                i++;
+
+        }
+        else if (stripe_count > 1) {
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, "stripe-0");
+                ret = __write_perf_xlator (perf_xlator_list[i], file,
+                                           dict, subvol);
+                i++;
+
+        }
+        else {
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, "client-0");
+                ret = __write_perf_xlator (perf_xlator_list[i], file,
+                                           dict, subvol);
+                i++;
+
+        }
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not write xlator");
+                goto out;
+        }
+
+        while (perf_xlator_list[i]) {
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, perf_xlator_list[i-1]);
+                ret = __write_perf_xlator (perf_xlator_list[i], file,
+                                           dict, subvol);
+                i++;
+
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not write xlator");
+                        goto out;
+                }
+        }
+
+
+out:
+        destroy_perf_xlator_list (perf_xlator_list);
+        return ret;
+
 }
 
 static int
@@ -1841,60 +2085,8 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         }
 
 
-        if (dist_count > 1) {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "dht");
-                ret = __write_wb_xlator (file, dict, subvol);
-        }
-        else if (replicate_count > 1) {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "replicate-0");
-                ret = __write_wb_xlator (file, dict, subvol);
-        }
-        else if (stripe_count > 1) {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "stripe-0");
-                ret = __write_wb_xlator (file, dict, subvol);
-        }
-        else {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "client-0");
-                ret = __write_wb_xlator (file, dict, subvol);
-        }
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "write-behind");
-        ret = __write_ra_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "read-ahead");
-        ret = __write_iocache_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "io-cache");
-        ret = __write_qr_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "quick-read");
-        ret = __write_statprefetch_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
+        write_perf_xlators (volinfo, file, dist_count,
+                            replicate_count, stripe_count);
 
         fclose (file);
         file = NULL;
@@ -2237,12 +2429,12 @@ out:
         return ret;
 }
 
-int
-glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
+static int
+glusterd_volgen_set_transport (glusterd_volinfo_t *volinfo)
 {
-        int ret = -1;
+        int ret = 0;
 
-	gf_log ("", GF_LOG_DEBUG, "Inside Create Volfiles");
+        GF_ASSERT (volinfo->dict);
 
         if(volinfo->transport_type == GF_TRANSPORT_RDMA) {
                 ret = set_xlator_option (volinfo->dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
@@ -2255,6 +2447,17 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
                 ret = set_xlator_option (volinfo->dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
                                  "tcp");
         }
+
+        return 0;
+}
+
+int
+glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
+{
+        int ret = -1;
+
+        glusterd_volgen_set_transport (volinfo);
+
         ret = generate_brick_volfiles (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
