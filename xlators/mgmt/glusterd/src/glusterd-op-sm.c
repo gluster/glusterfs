@@ -1515,6 +1515,81 @@ out:
 }
 
 static int
+rb_regenerate_volfiles (glusterd_volinfo_t *volinfo, int32_t pump_needed)
+{
+        dict_t *dict = NULL;
+        int ret = 0;
+
+        dict = volinfo->dict;
+
+        gf_log ("", GF_LOG_DEBUG,
+                "attempting to set pump value=%d", pump_needed);
+
+        ret = dict_set_int32 (dict, "enable-pump", pump_needed);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "could not dict_set enable-pump");
+                goto out;
+        }
+
+        ret = glusterd_create_volfiles (volinfo);
+
+out:
+        return ret;
+}
+
+static int
+rb_src_brick_restart (glusterd_volinfo_t *volinfo,
+                      glusterd_brickinfo_t *src_brickinfo,
+                      int activate_pump)
+{
+        int ret = 0;
+
+        gf_log ("", GF_LOG_DEBUG,
+                "Attempting to kill src");
+
+        ret = glusterd_volume_stop_glusterfs
+                (volinfo, src_brickinfo, 0);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to stop "
+                        "glusterfs, ret: %d", ret);
+                goto out;
+        }
+
+        glusterd_delete_volfile (volinfo, src_brickinfo);
+        glusterd_store_delete_brick (volinfo, src_brickinfo);
+
+        if (activate_pump) {
+                ret = rb_regenerate_volfiles (volinfo, 1);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not regenerate volfiles with pump");
+                        goto out;
+                }
+        } else {
+                ret = rb_regenerate_volfiles (volinfo, 0);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not regenerate volfiles without pump");
+                        goto out;
+                }
+
+        }
+
+        ret = glusterd_volume_start_glusterfs
+                (volinfo, src_brickinfo, 0);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to start "
+                        "glusterfs, ret: %d", ret);
+                goto out;
+        }
+
+
+out:
+        return ret;
+}
+
+static int
 rb_send_xattr_command (glusterd_volinfo_t *volinfo,
                        glusterd_brickinfo_t *src_brickinfo,
                        glusterd_brickinfo_t *dst_brickinfo,
@@ -1922,7 +1997,15 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
         char start_value[8192] = {0,};
         int ret = -1;
 
-        gf_log ("", GF_LOG_NORMAL,
+        ret = rb_src_brick_restart (volinfo, src_brickinfo,
+                                    1);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not restart src-brick");
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_DEBUG,
                 "replace-brick sending start xattr");
 
         ret = rb_spawn_maintainence_client (volinfo, src_brickinfo);
@@ -2035,6 +2118,14 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
 {
         int ret = -1;
 
+        ret = rb_src_brick_restart (volinfo, src_brickinfo,
+                                    0);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not restart src-brick");
+                goto out;
+        }
+
         gf_log ("", GF_LOG_DEBUG,
                 "replace-brick sending abort xattr");
 
@@ -2079,6 +2170,15 @@ rb_do_operation_commit (glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *src_brickinfo,
                         glusterd_brickinfo_t *dst_brickinfo)
 {
+        int ret = 0;
+
+        ret = rb_src_brick_restart (volinfo, src_brickinfo,
+                                    0);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not restart src-brick");
+                goto out;
+        }
 
         gf_log ("", GF_LOG_DEBUG,
                 "received commit on %s:%s to %s:%s "
@@ -2088,8 +2188,8 @@ rb_do_operation_commit (glusterd_volinfo_t *volinfo,
                 dst_brickinfo->hostname,
                 dst_brickinfo->path,
                 volinfo->volname);
-
-        return 0;
+out:
+        return ret;
 }
 
 static int

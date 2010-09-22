@@ -689,7 +689,7 @@ __write_access_control_xlator (FILE *file, dict_t *dict,
         const char *ac_str = "volume %s-access-control\n"
                              "    type features/access-control\n"
                              "    subvolumes %s\n"
-                             "end-volume\n";
+                             "end-volume\n\n";
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -1589,6 +1589,7 @@ generate_server_volfile (glusterd_brickinfo_t *brickinfo,
         char  subvol[2048]  = {0,};
         char *volname       = NULL;
         int   ret           = -1;
+        int   activate_pump = 0;
 
         GF_ASSERT (filename);
 
@@ -1635,23 +1636,36 @@ generate_server_volfile (glusterd_brickinfo_t *brickinfo,
                 goto out;
         }
 
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "locks");
-
-        ret = __write_replace_brick_xlator (file, dict);
+        ret = dict_get_int32 (dict, "enable-pump", &activate_pump);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
+                        "Pump is disabled");
         }
 
-        ret = __write_pump_xlator (file, dict, subvol);
-        if (ret) {
+        if (activate_pump) {
                 gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
+                        "Pump is enabled");
 
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "pump");
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, "locks");
+
+                ret = __write_replace_brick_xlator (file, dict);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not write xlator");
+                        goto out;
+                }
+
+                ret = __write_pump_xlator (file, dict, subvol);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not write xlator");
+                        goto out;
+                }
+
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, "pump");
+        } else
+                VOLGEN_GENERATE_VOLNAME (subvol, volname, "locks");
+
 
         ret = dict_set_str (dict, "export-path", brickinfo->path);
         if (ret) {
