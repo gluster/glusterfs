@@ -1716,3 +1716,37 @@ glusterd_volume_count_get (void)
         return ret;
 
 }
+
+int
+glusterd_is_exisiting_brick (char *hostname, char *path)
+{
+        glusterd_brickinfo_t            *tmpbrkinfo = NULL;
+        glusterd_volinfo_t              *volinfo     = NULL;
+        glusterd_conf_t                 *priv = NULL;
+        xlator_t                        *this = NULL;
+        int                             ret = 0;
+
+        GF_ASSERT (hostname);
+        GF_ASSERT (path);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+
+                list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
+                                     brick_list) {
+
+                        if ((!strcmp(hostname, tmpbrkinfo-> hostname)
+                            && !strcmp(path, tmpbrkinfo->path))) {
+                                gf_log ("glusterd", GF_LOG_ERROR, "Brick %s:%s"
+                                        " already in use", hostname, path);
+                                ret = 1;
+                                goto out;
+                        }
+                }
+        }
+out:
+        return ret;
+}

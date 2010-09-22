@@ -1126,8 +1126,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         gf1_cli_create_vol_rsp  rsp         = {0,};
         glusterd_conf_t        *priv        = NULL;
         int                     err_ret     = 0;
-        glusterd_brickinfo_t   *tmpbrkinfo  = NULL;
-        glusterd_volinfo_t     *volinfo     = NULL;
         xlator_t               *this        = NULL;
         char                   *free_ptr    = NULL;
         char                   *trans_type  = NULL;
@@ -1137,9 +1135,9 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         GF_ASSERT (req);
 
         this = THIS;
-        priv = this->private;
-
         GF_ASSERT(this);
+
+        priv = this->private;
 
         if (!gf_xdr_to_cli_create_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
@@ -1250,22 +1248,12 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                         goto out;
                 }
 brick_validation:
-                list_for_each_entry (volinfo, &priv->volumes, vol_list) {
-
-                        list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
-                                             brick_list) {
-
-                                if ((!strcmp(brickinfo->hostname, tmpbrkinfo->
-                                    hostname) && !strcmp(brickinfo->path,
-                                    tmpbrkinfo->path))) {
-                                        snprintf(err_str, 1048, "Brick %s already"
-                                                " in use", brick);
-                                        gf_log ("glusterd", GF_LOG_ERROR, "%s",
-                                                err_str);
-                                        err_ret = 1;
-                                        goto out;
-                                }
-                        }
+                err_ret = glusterd_is_exisiting_brick (brickinfo->hostname,
+                                                       brickinfo->path);
+                if (err_ret) {
+                        snprintf(err_str, 1048, "Brick: %s already in use",
+                                 brick);
+                        goto out;
                 }
         }
         ret = glusterd_create_volume (req, dict);
@@ -1406,17 +1394,15 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         char                            err_str[1048];
         gf1_cli_add_brick_rsp           rsp = {0,};
         glusterd_volinfo_t              *volinfo = NULL;
-        glusterd_brickinfo_t            *tmpbrkinfo = NULL;
         int32_t                         err_ret = 0;
-        glusterd_volinfo_t              *tmpvolinfo = NULL;
         glusterd_conf_t                 *priv = NULL;
         xlator_t                        *this = NULL;
         char                            *free_ptr = NULL;
 
         this = THIS;
-        priv = this->private;
-
         GF_ASSERT(this);
+
+        priv = this->private;
 
         GF_ASSERT (req);
 
@@ -1544,22 +1530,12 @@ brick_val:
                         goto out;
                 }
 brick_validation:
-                list_for_each_entry (tmpvolinfo, &priv->volumes, vol_list) {
-
-                        list_for_each_entry (tmpbrkinfo, &tmpvolinfo->bricks,
-                                             brick_list) {
-
-                                if ((!strcmp(brickinfo->hostname, tmpbrkinfo->
-                                    hostname) && !strcmp(brickinfo->path,
-                                    tmpbrkinfo->path))) {
-                                        snprintf(err_str, 1048, "Brick %s already"
-                                                "in use", brick);
-                                        gf_log ("glusterd", GF_LOG_ERROR, "%s",
-                                                err_str);
-                                        err_ret = 1;
-                                        goto out;
-                                }
-                        }
+                err_ret = glusterd_is_exisiting_brick (brickinfo->hostname,
+                                                       brickinfo->path);
+                if (err_ret) {
+                        snprintf(err_str, 1048, "Brick: %s already in use",
+                                 brick);
+                        goto out;
                 }
         }
 

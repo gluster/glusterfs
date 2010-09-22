@@ -753,16 +753,22 @@ out:
 }
 
 static int
-glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
+glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                                      ret           = 0;
         dict_t                                  *dict          = NULL;
         char                                    *src_brick     = NULL;
         char                                    *dst_brick     = NULL;
         char                                    *volname       = NULL;
+        gf1_cli_replace_op                       replace_op    = 0;
         glusterd_volinfo_t                      *volinfo       = NULL;
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
-        gf_boolean_t                             exists        = _gf_false;
+        char                                    *host          = NULL;
+        char                                    *path          = NULL;
+        char                                    msg[2048]      = {0};
+        char                                    *dup_dstbrick  = NULL;
+        glusterd_peerinfo_t                     *peerinfo = NULL;
+        struct stat                             st_buf = {0,};
 
         GF_ASSERT (req);
 
@@ -804,36 +810,116 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
+        ret = dict_get_int32 (dict, "operation", (int32_t *)&replace_op);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "dict get on replace-brick operation failed");
+                goto out;
+        }
+
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                snprintf (msg, sizeof (msg), "volume: %s does not exist",
+                          volname);
+                *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        if (GLUSTERD_STATUS_STARTED != volinfo->status) {
+                ret = -1;
+                snprintf (msg, sizeof (msg), "volume: %s is not started",
+                          volname);
+                *op_errstr = gf_strdup (msg);
                 goto out;
         }
 
         ret = glusterd_brickinfo_get (src_brick, volinfo,
                                       &src_brickinfo);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
+                snprintf (msg, sizeof (msg), "brick: %s does not exist in "
+                          "volume: %s", src_brick, volname);
+                *op_errstr = gf_strdup (msg);
                 goto out;
         }
 
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
                 gf_log ("", GF_LOG_DEBUG,
                         "I AM THE SOURCE HOST");
-                exists = glusterd_check_volume_exists (volname);
+        }
 
-                if (!exists) {
-                        gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
-                                "does not exist",
-                                volname);
+        dup_dstbrick = gf_strdup (dst_brick);
+        if (!dup_dstbrick) {
+                ret = -1;
+                gf_log ("", GF_LOG_ERROR, "Memory allocation failed");
+                goto out;
+        }
+        host = strtok (dup_dstbrick, ":");
+        path = strtok (NULL, ":");
+
+        if (!host || !path) {
+                gf_log ("", GF_LOG_ERROR,
+                        "dst brick %s is not of form <HOSTNAME>:<export-dir>",
+                        dst_brick);
+                ret = -1;
+                goto out;
+        }
+        if (glusterd_is_exisiting_brick (host, path)) {
+                snprintf(msg, sizeof(msg), "Brick: %s:%s already in use",
+                         host, path);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
+
+        if (!glusterd_is_local_addr (host)) {
+                ret = stat (path, &st_buf);
+                if (ret == -1) {
+                        snprintf (msg, sizeof (msg) ,"path: %s for brick: %s"
+                        " does not exist", path, dst_brick);
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+                if (!S_ISDIR (st_buf.st_mode)) {
+                        snprintf (msg, sizeof (msg), "Volume name %s, brick"
+                                  ": %s, path %s is not a directory", volname,
+                                  dst_brick, path);
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+        } else {
+                ret = glusterd_friend_find (NULL, host, &peerinfo);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "%s, is not a friend",
+                                  host);
+                        *op_errstr = gf_strdup (msg);
+                        goto out;
+                }
+
+                if (!peerinfo->connected) {
+                        snprintf (msg, sizeof (msg), "%s, is not connected at "
+                                  "the moment", host);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (GD_FRIEND_STATE_BEFRIENDED != peerinfo->state.state) {
+                        snprintf (msg, sizeof (msg), "%s, is not befriended "
+                                  "at the moment", host);
+                        *op_errstr = gf_strdup (msg);
                         ret = -1;
                         goto out;
                 }
         }
-
         ret = 0;
 
 out:
+        if (dup_dstbrick)
+                GF_FREE (dup_dstbrick);
         if (dict)
                 dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -3657,6 +3743,10 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                         rsp.status = "";
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
+                                if (op_errstr)
+                                        rsp.op_errstr = op_errstr;
+                                else
+                                        rsp.op_errstr = "";
                                 rsp.volname = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_replace_brick_rsp;
@@ -3949,7 +4039,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         break;
 
                 case GD_OP_REPLACE_BRICK:
-                        ret = glusterd_op_stage_replace_brick (req);
+                        ret = glusterd_op_stage_replace_brick (req, op_errstr);
                         break;
 
                 case GD_OP_SET_VOLUME:

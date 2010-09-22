@@ -611,7 +611,7 @@ void
 cli_cmd_volume_replace_brick_usage ()
 {
         cli_out("Usage: volume replace-brick <VOLNAME> "
-                "(<BRICK> <NEW-BRICK>) start|pause|abort|status");
+                "<BRICK> <NEW-BRICK> start|pause|abort|status");
 }
 
 

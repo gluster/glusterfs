@@ -94,7 +94,7 @@ bool_t
 xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 {
 
-        register int32_t *buf;
+	register int32_t *buf;
 
 	if (xdrs->x_op == XDR_ENCODE) {
 		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
@@ -451,6 +451,8 @@ xdr_gf1_cli_replace_brick_rsp (XDR *xdrs, gf1_cli_replace_brick_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;

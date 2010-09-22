@@ -937,6 +937,9 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
         }
 
+        if (rsp.op_ret && (strcmp (rsp.op_errstr, ""))) {
+                rb_operation_str = rsp.op_errstr;
+        }
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to replace brick");
         cli_out ("%s",
