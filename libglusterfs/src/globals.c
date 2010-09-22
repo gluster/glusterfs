@@ -334,3 +334,26 @@ glusterfs_globals_init ()
 out:
         return ret;
 }
+
+
+char eventstring[GF_EVENT_MAXVAL][64] = {
+        "Invalid event",
+        "Parent Up",
+        "Poll In",
+        "Poll Out",
+        "Poll Err",
+        "Child Up",
+        "Child Down",
+        "Child Connecting",
+        "Transport Cleanup",
+        "Transport Connected",
+        "Volfile Modified",
+};
+
+/* Copy the string ptr contents if needed for yourself */
+char *
+glusterfs_strevent (glusterfs_event_t ev)
+{
+        return eventstring[ev];
+}
+
