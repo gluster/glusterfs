@@ -558,7 +558,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 				    &holes, &overlaps,
 				    &missing, &down, &misc);
 	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
+		gf_log (this->name, GF_LOG_WARNING,
 			"error while finding anomalies in %s -- not good news",
 			loc->path);
 		goto out;
@@ -570,7 +570,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 				"directory %s looked up first time",
 				loc->path);
 		} else {
-			gf_log (this->name, GF_LOG_DEBUG,
+			gf_log (this->name, GF_LOG_INFO,
 				"found anomalies in %s. holes=%d overlaps=%d",
 				loc->path, holes, overlaps);
 		}
@@ -665,12 +665,12 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
 	start_off = ntoh32 (disk_layout[2]);
 	stop_off  = ntoh32 (disk_layout[3]);
-	
+
 	if ((layout->list[pos].start != start_off)
 	    || (layout->list[pos].stop != stop_off)) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"subvol: %s; inode layout - %"PRId32" - %"PRId32"; "
-			"disk layout - %"PRId32" - %"PRId32,
+		gf_log (this->name, GF_LOG_INFO,
+			"subvol: %s; inode layout - %"PRIu32" - %"PRIu32"; "
+			"disk layout - %"PRIu32" - %"PRIu32,
 			layout->list[pos].xlator->name,
 			layout->list[pos].start, layout->list[pos].stop,
 			start_off, stop_off);
