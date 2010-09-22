@@ -169,7 +169,7 @@ ret:
 
 
 int
-nfs_subvolume_started (struct nfs_state *nfs, xlator_t *xl)
+__is_nfs_subvolume_lookup_sent (struct nfs_state *nfs, xlator_t *xl)
 {
         int     x = 0;
         int     started = 0;
@@ -177,16 +177,32 @@ nfs_subvolume_started (struct nfs_state *nfs, xlator_t *xl)
         if ((!nfs) || (!xl))
                 return 1;
 
+        for (;x < nfs->allsubvols; ++x) {
+                if (!((&nfs->subvols[x])->subvol == xl))
+                        continue;
+
+                if (gf_nfs_subvolume_lookupsent (&nfs->subvols[x])) {
+                        started = 1;
+                        goto out;
+                }
+        }
+out:
+        return started;
+}
+
+
+int
+is_nfs_subvolume_lookup_sent (struct nfs_state *nfs, xlator_t *xl)
+{
+        int     started = 0;
+
+        if ((!nfs) || (!xl))
+                return 1;
+
         LOCK (&nfs->svinitlock);
         {
-                for (;x < nfs->allsubvols; ++x) {
-                        if (nfs->initedxl[x] == xl) {
-                                started = 1;
-                                goto unlock;
-                       }
-               }
+                started = __is_nfs_subvolume_lookup_sent (nfs, xl);
         }
-unlock:
         UNLOCK (&nfs->svinitlock);
 
         return started;
@@ -194,27 +210,187 @@ unlock:
 
 
 int
-nfs_subvolume_set_started (struct nfs_state *nfs, xlator_t *xl)
+__is_nfs_subvolume_started (struct nfs_state *nfs, xlator_t *xl)
 {
         int     x = 0;
+        int     started = 0;
+
+        if ((!nfs) || (!xl))
+                return 1;
+
+        for (;x < nfs->allsubvols; ++x) {
+                if (!((&nfs->subvols[x])->subvol == xl))
+                        continue;
+
+                if (gf_nfs_subvolume_started (&nfs->subvols[x])) {
+                        started = 1;
+                        goto out;
+                }
+        }
+out:
+        return started;
+}
+
+
+int
+is_nfs_subvolume_started (struct nfs_state *nfs, xlator_t *xl)
+{
+        int     started = 0;
 
         if ((!nfs) || (!xl))
                 return 1;
 
         LOCK (&nfs->svinitlock);
         {
-                for (;x < nfs->allsubvols; ++x) {
-                        if (nfs->initedxl[x] == NULL) {
-                                nfs->initedxl[x] = xl;
-                                ++nfs->upsubvols;
-                                gf_log (GF_NFS, GF_LOG_DEBUG, "Starting up: %s "
-                                        ", vols started till now: %d", xl->name,
-                                        nfs->upsubvols);
-                                goto unlock;
-                        }
-               }
+                started = __is_nfs_subvolume_started (nfs, xl);
         }
-unlock:
+        UNLOCK (&nfs->svinitlock);
+
+        return started;
+}
+
+
+int
+__nfs_subvolume_lookup_again_later (struct nfs_state *nfs, xlator_t *xl)
+{
+        int                     x = 0;
+        struct nfs_subvolume    *sv = NULL;
+
+        if ((!nfs) || (!xl))
+                return -1;
+
+        for (;x < nfs->allsubvols; ++x) {
+                if (((&nfs->subvols[x])->subvol == xl)) {
+                        sv = &nfs->subvols[x];
+                        break;
+                }
+        }
+
+        if (!sv)
+                goto err;
+        gf_log (GF_NFS, GF_LOG_TRACE, "Will lookup subvol later: %s",
+                xl->name);
+        sv->status = GF_NFS_SUBVOLUME_NOTSTARTED;
+err:
+        return 0;
+}
+
+
+int
+__nfs_subvolume_start (struct nfs_state *nfs, xlator_t *xl)
+{
+        int                     x = 0;
+        int                     ret = 0;
+        struct nfs_subvolume    *sv = NULL;
+
+        if ((!nfs) || (!xl))
+                return -1;
+
+        for (;x < nfs->allsubvols; ++x) {
+                if (((&nfs->subvols[x])->subvol == xl)) {
+                        sv = &nfs->subvols[x];
+                        break;
+                }
+        }
+
+        if (!sv) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Could not find subvol slot");
+                goto err;
+        }
+
+        /* If the subvolume got disconnected or sent a CHILD-DOWN between the
+         * lookup fop and the lookup callback.
+         */
+        if (gf_nfs_subvolume_notstarted (sv)) {
+                goto err;
+        }
+
+        sv->status = GF_NFS_SUBVOLUME_STARTED;
+        ++nfs->upsubvols;
+        gf_log (GF_NFS, GF_LOG_DEBUG, "Starting up: %s, vols started till now: "
+                "%d", xl->name, nfs->upsubvols);
+
+        if (gf_nfs_all_subvolumes_started (nfs)) {
+                nfs->subvols_started = 1;
+                gf_log (GF_NFS, GF_LOG_INFO, "All exports up");
+                ret = nfs_init_versions (nfs, nfs->nfsx);
+                if (ret == -1)
+                        gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to initialize "
+                                "protocols");
+        }
+err:
+        return 0;
+}
+
+
+int
+nfs_subvolume_start (struct nfs_state *nfs, xlator_t *xl)
+{
+        if ((!nfs) || (!xl))
+                return 1;
+
+        LOCK (&nfs->svinitlock);
+        {
+                __nfs_subvolume_start (nfs, xl);
+        }
+        UNLOCK (&nfs->svinitlock);
+
+        return 0;
+}
+
+
+int
+__nfs_subvolume_lookup_sent (struct nfs_state *nfs, xlator_t *xl)
+{
+        struct nfs_subvolume    *sv = NULL;
+        int                     x = 0;
+
+        if ((!nfs) || (!xl))
+                return -1;
+
+        for (;x < nfs->allsubvols; ++x) {
+                if (((&nfs->subvols[x])->subvol == xl)) {
+                        sv = &nfs->subvols[x];
+                        break;
+                }
+        }
+
+        if (sv) {
+                sv->status = GF_NFS_SUBVOLUME_LOOKUPSENT;
+        } else
+                gf_log (GF_NFS, GF_LOG_ERROR, "Could not find subvol slot: %s",
+                        xl->name);
+
+        return 0;
+}
+
+
+int
+nfs_subvolume_lookup_sent (struct nfs_state *nfs, xlator_t *xl)
+{
+        if ((!nfs) || (!xl))
+                return 1;
+
+        LOCK (&nfs->svinitlock);
+        {
+                __nfs_subvolume_lookup_sent (nfs, xl);
+        }
+        UNLOCK (&nfs->svinitlock);
+
+        return 0;
+}
+
+
+int
+nfs_subvolume_lookup_again_later (struct nfs_state *nfs, xlator_t *xl)
+{
+        if ((!nfs) || (!xl))
+                return 1;
+
+        LOCK (&nfs->svinitlock);
+        {
+                __nfs_subvolume_lookup_again_later (nfs, xl);
+        }
         UNLOCK (&nfs->svinitlock);
 
         return 0;
@@ -227,36 +403,71 @@ nfs_start_subvol_lookup_cbk (call_frame_t *frame, void *cookie,
                              inode_t *inode, struct iatt *buf, dict_t *xattr,
                              struct iatt *postparent)
 {
+        struct nfs_state	*nfs = frame->local;
+
         if (op_ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to lookup root: %s",
                         strerror (op_errno));
+                nfs_subvolume_lookup_again_later (nfs, (xlator_t *)cookie);
                 goto err;
         }
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Started %s", ((xlator_t *)cookie)->name);
+        nfs_subvolume_start (nfs, (xlator_t *)cookie);
 err:
         return 0;
 }
 
 
 int
+__nfs_startup_subvolume_check (struct nfs_state *nfs, xlator_t *xl)
+{
+        int     ret = 0;
+
+        if (__is_nfs_subvolume_started (nfs, xl)) {
+                gf_log (GF_NFS,GF_LOG_TRACE, "Subvolume already started: %s",
+                        xl->name);
+                ret = 1;
+                goto out;
+        }
+
+        if (__is_nfs_subvolume_lookup_sent (nfs, xl)) {
+                gf_log (GF_NFS,GF_LOG_TRACE,"Subvolume lookup already sent: %s",
+                        xl->name);
+                ret = 1;
+                goto out;
+        }
+
+out:
+        return ret;
+}
+
+
+int
 nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
 {
-        int             ret = -1;
-        loc_t           rootloc = {0, };
-        nfs_user_t      nfu = {0, };
+        int                     ret = -1;
+        loc_t                   rootloc = {0, };
+        nfs_user_t              nfu = {0, };
+        struct nfs_state        *nfs = NULL;
 
         if ((!nfsx) || (!xl))
                 return -1;
 
-        if (nfs_subvolume_started (nfsx->private, xl)) {
-                gf_log (GF_NFS,GF_LOG_TRACE, "Subvolume already started: %s",
-                        xl->name);
-                ret = 0;
-                goto err;
-        }
+        nfs = nfsx->private;
+        LOCK (&nfs->svinitlock);
+        {
+                ret = __nfs_startup_subvolume_check (nfsx->private, xl);
+                if (ret)
+                        goto unlock;
 
-        nfs_subvolume_set_started (nfsx->private, xl);
+                __nfs_subvolume_lookup_sent (nfs, xl);
+        }
+unlock:
+        UNLOCK (&nfs->svinitlock);
+
+        if (ret)
+                goto err;
+
         ret = nfs_inode_loc_fill (xl->itable->root, &rootloc);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init root loc");
@@ -275,35 +486,6 @@ nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
 
         nfs_loc_wipe (&rootloc);
 
-err:
-        return ret;
-}
-
-int
-nfs_startup_subvolumes (xlator_t *nfsx)
-{
-        int                     ret = -1;
-        xlator_list_t           *cl = NULL;
-        struct nfs_state        *nfs = NULL;
-
-        if (!nfsx)
-                return -1;
-
-        nfs = nfsx->private;
-        cl = nfs->subvols;
-        while (cl) {
-                gf_log (GF_NFS, GF_LOG_DEBUG, "Starting subvolume: %s",
-                        cl->xlator->name);
-                ret = nfs_startup_subvolume (nfsx, cl->xlator);
-                if (ret == -1) {
-                        gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to start-up "
-                                "xlator: %s", cl->xlator->name);
-                        goto err;
-                }
-                cl = cl->next;
-        }
-
-        ret = 0;
 err:
         return ret;
 }
@@ -333,17 +515,19 @@ err:
 int
 nfs_init_subvolumes (struct nfs_state *nfs, xlator_list_t *cl)
 {
-        int             ret = -1;
-        unsigned int    lrusize = 0;
-        int             svcount = 0;
+        int                     ret = -1;
+        unsigned int            lrusize = 0;
+        int                     svcount = 0;
+        int                     x = 0;
+        xlator_list_t           *tmpcl = NULL;
+        struct nfs_subvolume    *sv = NULL;
 
         if ((!nfs) || (!cl))
                 return -1;
 
         lrusize = nfs->memfactor * GF_NFS_INODE_LRU_MULT;
-        nfs->subvols = cl;
         gf_log (GF_NFS, GF_LOG_TRACE, "inode table lru: %d", lrusize);
-
+        tmpcl = cl;
         while (cl) {
                 gf_log (GF_NFS, GF_LOG_DEBUG, "Initing subvolume: %s",
                         cl->xlator->name);
@@ -358,16 +542,23 @@ nfs_init_subvolumes (struct nfs_state *nfs, xlator_list_t *cl)
         }
 
         LOCK_INIT (&nfs->svinitlock);
-        nfs->initedxl = GF_CALLOC (svcount, sizeof (xlator_t *), 
-                                   gf_nfs_mt_xlator_t );
-        if (!nfs->initedxl) {
-                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to allocated inited xls");
+        nfs->subvols = GF_CALLOC (svcount, sizeof (struct nfs_subvolume),
+                                  gf_nfs_mt_subvolumes);
+        if (!nfs->subvols) {
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to allocate subvol list");
                 ret = -1;
                 goto err;
         }
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Inited volumes: %d", svcount);
+        cl = tmpcl;
         nfs->allsubvols = svcount;
+        for (;x < nfs->allsubvols; x++) {
+                sv = &nfs->subvols[x];
+                sv->subvol = cl->xlator;
+                sv->status = GF_NFS_SUBVOLUME_NOTSTARTED;
+        }
+
+        gf_log (GF_NFS, GF_LOG_TRACE, "inited volumes: %d", svcount);
         ret = 0;
 err:
         return ret;
@@ -482,6 +673,7 @@ nfs_init_state (xlator_t *this)
                 return NULL;
         }
 
+        nfs->nfsx = this;
         /* RPC service needs to be started before NFS versions can be
          * inited. */
         nfs->rpcsvc =  nfs_rpcsvc_init (this->ctx, this->options);
@@ -580,39 +772,60 @@ err:
 
 
 int
+nfs_disable_subvolume (xlator_t *nfsx, xlator_t *xl)
+{
+        struct nfs_state *nfs = NULL;
+
+        if ((!nfsx) || (!xl))
+                return -1;
+
+        nfs = nfsx->private;
+        gf_log (GF_NFS, GF_LOG_TRACE, "Disabling subvolume: %s", xl->name);
+        LOCK (&nfs->svinitlock);
+        {
+                if (!__is_nfs_subvolume_started (nfsx->private, xl)) {
+                        gf_log (GF_NFS,GF_LOG_TRACE, "Subvolume not started, "
+                                "no point disabling: %s", xl->name);
+                        goto unlock;
+                }
+                --nfs->upsubvols;
+                __nfs_subvolume_lookup_again_later (nfs, xl);
+        }
+unlock:
+        UNLOCK (&nfs->svinitlock);
+
+        return 0;
+}
+
+
+int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         struct nfs_state        *nfs = NULL;
         xlator_t                *subvol = NULL;
-        int                     ret = -1;
 
         nfs = (struct nfs_state *)this->private;
         subvol = (xlator_t *)data;
 
-        gf_log (GF_NFS, GF_LOG_TRACE, "Notification received: %d",
-                event);
+        gf_log (GF_NFS, GF_LOG_TRACE, "Notification received: %s",
+                glusterfs_strevent (event));
         switch (event)
         {
                 case GF_EVENT_CHILD_UP:
                 {
                         nfs_startup_subvolume (this, subvol);
-                        if ((nfs->upsubvols == nfs->allsubvols) &&
-                            (!nfs->subvols_started)) {
-                                nfs->subvols_started = 1;
-                                gf_log (GF_NFS, GF_LOG_TRACE, "All children up,"
-                                " starting RPC");
-                                ret = nfs_init_versions (nfs, this);
-                                if (ret == -1)
-                                        gf_log (GF_NFS, GF_LOG_CRITICAL,
-                                                "Failed to initialize "
-                                                "protocols");
-                        }
                         break;
                 }
 
                 case GF_EVENT_PARENT_UP:
                 {
                         default_notify (this, GF_EVENT_PARENT_UP, data);
+                        break;
+                }
+
+                case GF_EVENT_CHILD_DOWN:
+                {
+                        nfs_disable_subvolume (this, subvol);
                         break;
                 }
         }
