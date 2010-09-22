@@ -3,6 +3,10 @@
 # e.g. release_version 2.MSW
 %define release 1%{?dist}
 
+# if you wish to compile an rpm without rdma support, compile like this...
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
+%{?_without_rdma:%define _without_rdma --disable-ibverbs}
+
 # if you wish to compile an rpm without epoll...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without epoll
 %{?_without_epoll:%define _without_epoll --disable-epoll}
@@ -57,6 +61,7 @@ This package includes the glusterfs binary, the glusterd daemon and the gluster
 command line, libglusterfs and glusterfs translator modules common to both
 GlusterFS server and client framework.
 
+%if 0%{!?_without_rdma:1}
 %package rdma
 Summary: GlusterFS rdma
 Group: Applications/File
@@ -72,6 +77,7 @@ called Translators from GNU Hurd kernel. Much of the code in GlusterFS
 is in userspace and easily manageable.
 
 This package provides support to ib-verbs library.
+%endif
 
 %package fuse
 Summary: GlusterFS Fuse
@@ -94,7 +100,7 @@ This package provides support to FUSE based clients.
 
 %build
 
-%configure %{?_without_epoll} %{?_with_fusermount}
+%configure %{?_without_rdma} %{?_without_epoll} %{?_with_fusermount}
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -149,7 +155,9 @@ fi
 %{_mandir}/man8/*glusterd.8*
 %{_mandir}/man8/*glusterfs-volgen.8*
 %dir /var/log/glusterfs
+%if 0%{!?_without_rdma:1}
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
+%endif
 %exclude %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
 %config %{_sysconfdir}/glusterfs
 %{_sysconfdir}/init.d/glusterd
@@ -158,9 +166,11 @@ fi
 %{_libdir}/*.so
 /sbin/mount.glusterfs
 
+%if 0%{!?_without_rdma:1}
 %files rdma
 %defattr(-,root,root)
 %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
+%endif
 
 %files fuse
 %defattr(-,root,root)
@@ -177,6 +187,3 @@ fi
   fully restructured to adhere to Fedora rpm standards. 
   Older changelog removed as there were warnings when 
   tried with 'rpmlint'. 
-
-
-
