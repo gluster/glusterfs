@@ -158,4 +158,6 @@ glusterd_volume_count_get (void);
 int32_t
 glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
                              dict_t  *dict, int32_t count);
+int
+glusterd_is_exisiting_brick (char *hostname, char *path);
 #endif

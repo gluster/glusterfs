@@ -275,6 +275,7 @@ typedef struct gf1_cli_replace_brick_req gf1_cli_replace_brick_req;
 struct gf1_cli_replace_brick_rsp {
 	int op_ret;
 	int op_errno;
+	char *op_errstr;
 	char *volname;
 	char *status;
 };

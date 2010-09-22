@@ -188,6 +188,7 @@ struct gf1_cli_get_vol_rsp {
  struct gf1_cli_replace_brick_rsp {
         int     op_ret;
         int     op_errno;
+        string  op_errstr<>;
         string  volname<>;
         string  status<>;
 }  ;

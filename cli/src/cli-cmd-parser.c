@@ -729,42 +729,45 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
         }
 
         delimiter = strchr ((char *)words[3], ':');
-        if (delimiter && delimiter != words[3]
-            && *(delimiter+1) == '/') {
-                cli_path_strip_trailing_slashes (delimiter + 1);
-                ret = dict_set_str (dict, "src-brick", (char *)words[3]);
-
-                if (ret)
-                        goto out;
-
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
-
-                delimiter = strchr ((char *)words[4], ':');
-                if (!delimiter || delimiter == words[4]
-                    || *(delimiter+1) != '/') {
-                        cli_out ("wrong brick type: %s, use "
-                                "<HOSTNAME>:<export-dir-abs-path>", words[4]);
-                        ret = -1;
-                        goto out;
-                } else {
-                        cli_path_strip_trailing_slashes (delimiter + 1);
-                }
-
-
-                ret = dict_set_str (dict, "dst-brick", (char *)words[4]);
-
-                if (ret)
-                        goto out;
-
-                op_index = 5;
+        if (!delimiter || delimiter == words[3]
+            || *(delimiter+1) != '/') {
+                cli_out ("wrong brick type: %s, use "
+                        "<HOSTNAME>:<export-dir-abs-path>", words[3]);
+                ret = -1;
+                goto out;
         } else {
-                op_index = 3;
+                cli_path_strip_trailing_slashes (delimiter + 1);
+        }
+        ret = dict_set_str (dict, "src-brick", (char *)words[3]);
+
+        if (ret)
+                goto out;
+
+        if (wordcount < 5) {
+                ret = -1;
+                goto out;
         }
 
-        if (wordcount < (op_index + 1)) {
+        delimiter = strchr ((char *)words[4], ':');
+        if (!delimiter || delimiter == words[4]
+            || *(delimiter+1) != '/') {
+                cli_out ("wrong brick type: %s, use "
+                        "<HOSTNAME>:<export-dir-abs-path>", words[4]);
+                ret = -1;
+                goto out;
+        } else {
+                cli_path_strip_trailing_slashes (delimiter + 1);
+        }
+
+
+        ret = dict_set_str (dict, "dst-brick", (char *)words[4]);
+
+        if (ret)
+                goto out;
+
+        op_index = 5;
+        if ((wordcount < (op_index + 1)) ||
+            (wordcount > (op_index + 1))) {
                 ret = -1;
                 goto out;
         }
