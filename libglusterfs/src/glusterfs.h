@@ -288,6 +288,9 @@ struct _glusterfs_ctx {
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
 
+/* If you edit this structure then, make a corresponding change in
+ * globals.c in the eventstring.
+ */
 typedef enum {
         GF_EVENT_PARENT_UP = 1,
         GF_EVENT_POLLIN,
@@ -300,8 +303,11 @@ typedef enum {
         GF_EVENT_TRANSPORT_CONNECTED,
         GF_EVENT_VOLFILE_MODIFIED,
         GF_EVENT_GRAPH_NEW,
+        GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
+extern char *
+glusterfs_strevent (glusterfs_event_t ev);
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
 
@@ -312,4 +318,5 @@ glusterfs_graph_t *glusterfs_graph_construct (FILE *fp);
 glusterfs_graph_t *glusterfs_graph_new ();
 int glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
                                   glusterfs_graph_t *newgraph);
+
 #endif /* _GLUSTERFS_H */
