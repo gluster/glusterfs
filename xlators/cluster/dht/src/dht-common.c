@@ -4555,6 +4555,10 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 	dht_conf_t *conf   = NULL;
 	int         ret    = -1;
 
+        /* Notify is on by default for all events except CHILD_UP. Do not
+         * notify parent for CHILD_UP till all distribute children have come up.
+         */
+        int         notify = 1;
 
 	conf = this->private;
 
@@ -4580,7 +4584,13 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
 		LOCK (&conf->subvolume_lock);
 		{
-			conf->subvolume_status[cnt] = 1;
+                        if (!conf->subvolume_status[cnt]) {
+                                conf->subvolume_status[cnt] = 1;
+                                ++conf->upsubvols;
+                        }
+
+                        if (conf->upsubvols != conf->subvolume_cnt)
+                                notify = 0;
 		}
 		UNLOCK (&conf->subvolume_lock);
 
@@ -4608,14 +4618,18 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
 		LOCK (&conf->subvolume_lock);
 		{
-			conf->subvolume_status[cnt] = 0;
+                        if (conf->subvolume_status[cnt]) {
+                                conf->subvolume_status[cnt] = 0;
+                                --conf->upsubvols;
+                        }
 		}
 		UNLOCK (&conf->subvolume_lock);
 
 		break;
 	}
 
-	ret = default_notify (this, event, data);
+        if (notify)
+                ret = default_notify (this, event, data);
 
 	return ret;
 }
