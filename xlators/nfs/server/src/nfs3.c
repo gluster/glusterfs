@@ -37,6 +37,7 @@
 #include "nfs-generics.h"
 #include "nfs3-helpers.h"
 #include "nfs-mem-types.h"
+#include "nfs-common.h"
 
 
 #include <sys/socket.h>
@@ -66,6 +67,16 @@
                         goto label;                                     \
                 }                                                       \
         } while (0);                                                    \
+
+#define nfs3_volume_disabled_check(nf3stt, vlm, rtval, erlbl)           \
+        do {                                                            \
+              if ((is_nfs_subvolume_disabled (nfs_state (nf3stt->nfsx), vlm))){\
+                      gf_log (GF_NFS3, GF_LOG_ERROR, "Volume is disabled: %s",\
+                              vlm->name);                               \
+                      rtval = RPCSVC_ACTOR_SUCCESS;                     \
+                      goto erlbl;                                       \
+              }                                                         \
+        } while (0)                                                     \
 
 
 struct nfs3_export *
@@ -671,6 +682,7 @@ nfs3_getattr (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cstate, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cstate, fh, NULL,nfs3_getattr_resume);
@@ -685,7 +697,7 @@ nfs3err:
                 ret = 0;
                 nfs3_call_state_wipe (cstate);
         }
-
+out:
         return ret;
 }
 
@@ -927,6 +939,7 @@ nfs3_setattr (rpcsvc_request_t *req, struct nfs3_fh *fh, sattr3 *sattr,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -962,7 +975,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1209,6 +1222,7 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
                 nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         if (!nfs3_is_parentdir_entry (name))
@@ -1233,7 +1247,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1354,6 +1368,7 @@ nfs3_access (rpcsvc_request_t *req, struct nfs3_fh *fh, uint32_t accbits)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
         cs->accessbits = accbits;
 
@@ -1369,7 +1384,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1494,6 +1509,7 @@ nfs3_readlink (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_readlink_resume);
@@ -1511,7 +1527,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1685,6 +1701,7 @@ nfs3_read (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->datacount = count;
@@ -1701,7 +1718,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2008,6 +2025,7 @@ nfs3_write (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
         cs->datacount = count;
@@ -2029,7 +2047,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2399,6 +2417,7 @@ nfs3_create (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -2420,7 +2439,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2606,6 +2625,7 @@ nfs3_mkdir (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -2624,7 +2644,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2756,6 +2776,7 @@ nfs3_symlink (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -2782,7 +2803,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3028,6 +3049,7 @@ nfs3_mknod (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3067,7 +3089,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3227,6 +3249,7 @@ nfs3_remove (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3245,7 +3268,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3370,6 +3393,7 @@ nfs3_rmdir (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3388,7 +3412,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3573,6 +3597,7 @@ nfs3_rename (rpcsvc_request_t *req, struct nfs3_fh *olddirfh, char *oldname,
         nfs3_validate_strlen_or_goto(oldname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_validate_strlen_or_goto(newname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, olddirfh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, olddirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3603,7 +3628,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3762,6 +3787,7 @@ nfs3_link (rpcsvc_request_t *req, struct nfs3_fh *targetfh,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto(newname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3789,7 +3815,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4085,6 +4111,7 @@ nfs3_readdir (rpcsvc_request_t *req, struct nfs3_fh *fh, cookie3 cookie,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->cookieverf = cverf;
@@ -4116,7 +4143,7 @@ nfs3err:
                 ret = 0;
                 nfs3_call_state_wipe (cs);
         }
-
+out:
         return ret;
 }
 
@@ -4307,6 +4334,7 @@ nfs3_fsstat (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_fsstat_resume);
@@ -4324,7 +4352,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4449,6 +4477,7 @@ nfs3_fsinfo (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_fsinfo_resume);
@@ -4463,7 +4492,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4586,6 +4615,7 @@ nfs3_pathconf (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_pathconf_resume);
@@ -4603,7 +4633,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4764,6 +4794,7 @@ nfs3_commit (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_disabled_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -4782,7 +4813,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 

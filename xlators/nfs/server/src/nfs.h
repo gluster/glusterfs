@@ -58,20 +58,37 @@ struct nfs_initer_list {
         rpcsvc_program_t        *program;
 };
 
+typedef enum {
+        GF_NFS_SUBVOLUME_NOTSTARTED = 1,
+        GF_NFS_SUBVOLUME_LOOKUPSENT,
+        GF_NFS_SUBVOLUME_STARTED,
+} nfs_subvolume_status_t;
+
+struct nfs_subvolume {
+        xlator_t                *subvol;
+        nfs_subvolume_status_t  status;
+};
+
+#define gf_nfs_subvolume_started(svl)   ((svl)->status == GF_NFS_SUBVOLUME_STARTED)
+#define gf_nfs_subvolume_lookupsent(svl)   ((svl)->status == GF_NFS_SUBVOLUME_LOOKUPSENT)
+#define gf_nfs_subvolume_notstarted(svl) ((svl)->status == GF_NFS_SUBVOLUME_NOTSTARTED)
+
+#define gf_nfs_subvolume_unused_slot(svl) ((svl)->subvol == NULL)
+#define gf_nfs_all_subvolumes_started(nf) ((nf->upsubvols == nf->allsubvols) && (!nf->subvols_started))
 
 struct nfs_state {
         rpcsvc_t                *rpcsvc;
         struct list_head        versions;
         struct mem_pool         *foppool;
         unsigned int            memfactor;
-        xlator_list_t           *subvols;
 
         gf_lock_t               svinitlock;
         int                     allsubvols;
         int                     upsubvols;
-        xlator_t                **initedxl;
+        struct nfs_subvolume    *subvols;
         int                     subvols_started;
         int                     dynamicvolumes;
+        xlator_t                *nfsx;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)

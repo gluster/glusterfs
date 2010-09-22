@@ -766,6 +766,14 @@ mnt3svc_mnt (rpcsvc_request_t *req)
                 goto mnterr;
         }
 
+        if ((is_nfs_subvolume_disabled (nfs_state (ms->nfsx), exp->vol))) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Volume is disabled: %s",
+                        exp->vol->name);
+                ret = RPCSVC_ACTOR_ERROR;
+                mntstat = MNT3ERR_INVAL;
+                goto mnterr;
+        }
+
         ret = mnt3_check_client_net (ms, req, exp->vol);
         if (ret == -1) {
                 mntstat = MNT3ERR_ACCES;
