@@ -986,6 +986,8 @@ glusterd3_1_cluster_lock (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
+                if (!peerinfo->connected)
+                        continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
@@ -1038,6 +1040,8 @@ glusterd3_1_cluster_unlock (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
+                if (!peerinfo->connected)
+                        continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
@@ -1123,6 +1127,8 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
+                if (!peerinfo->connected)
+                        continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
@@ -1216,6 +1222,8 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
 
+                if (!peerinfo->connected)
+                        continue;
                 if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
