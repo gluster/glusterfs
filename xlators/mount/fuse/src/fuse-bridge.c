@@ -253,8 +253,6 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
 
-        uuid_generate (state->gfid);
-
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
 
         if (ret < 0) {
@@ -275,6 +273,7 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": LOOKUP %s", finh->unique,
                         state->loc.path);
+                uuid_generate (state->gfid);
         }
 
         fuse_resolve_and_resume (state, fuse_lookup_resume);
