@@ -75,6 +75,11 @@ typedef struct {
         glusterd_store_handle_t *handle;
 } glusterd_conf_t;
 
+typedef enum gf_brick_status {
+        GF_BRICK_STOPPED,
+        GF_BRICK_STARTED,
+} gf_brick_status_t;
+
 struct glusterd_brickinfo {
         char    hostname[1024];
         char    path[PATH_MAX];
@@ -83,6 +88,7 @@ struct glusterd_brickinfo {
         int     port;
         char   *logfile;
         glusterd_store_handle_t *shandle;
+        gf_brick_status_t status; 
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
@@ -393,7 +399,11 @@ glusterd_fetchspec_notify (xlator_t *this);
 
 int32_t
 glusterd_sync_volume (rpcsvc_request_t *req, dict_t *ctx);
+
 int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count);
+
+int
+glusterd_restart_bricks(glusterd_conf_t *conf, xlator_t *this);
 #endif

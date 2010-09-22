@@ -399,6 +399,8 @@ gluster_pmap_signin (rpcsvc_request_t *req)
 {
         pmap_signin_req    args = {0,};
         pmap_signin_rsp    rsp  = {0,};
+        glusterd_brickinfo_t *brickinfo = NULL;
+        int                ret = -1;
 
         if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_signin_req)) {
                 req->rpc_err = GARBAGE_ARGS;
@@ -407,6 +409,11 @@ gluster_pmap_signin (rpcsvc_request_t *req)
 
         rsp.op_ret = pmap_registry_bind (THIS, args.port, args.brick,
                                          GF_PMAP_PORT_BRICKSERVER, req->trans);
+
+        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true,
+                                      &brickinfo);
+        if (!ret)
+                glusterd_set_brick_status (brickinfo, GF_BRICK_STARTED); 
 
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
@@ -424,7 +431,8 @@ gluster_pmap_signout (rpcsvc_request_t *req)
 {
         pmap_signout_req    args = {0,};
         pmap_signout_rsp    rsp  = {0,};
-
+        int                 ret = -1;
+        glusterd_brickinfo_t *brickinfo = NULL;
 
         if (xdr_to_glusterfs_req (req, &args, xdr_to_pmap_signout_req)) {
                 //failed to decode msg;
@@ -435,6 +443,11 @@ gluster_pmap_signout (rpcsvc_request_t *req)
         rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick,
                                            GF_PMAP_PORT_BRICKSERVER, req->trans);
 
+        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true, 
+                                      &brickinfo);
+        if (!ret)
+                glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
+
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (gd_serialize_t)xdr_from_pmap_signout_rsp);
@@ -443,7 +456,6 @@ fail:
 
         return 0;
 }
-
 
 rpcsvc_actor_t gluster_pmap_actors[] = {
         [GF_PMAP_NULL] = {"NULL", GF_HNDSK_NULL, NULL, NULL, NULL },

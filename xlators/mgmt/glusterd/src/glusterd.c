@@ -44,7 +44,6 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 
-
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
 extern struct rpcsvc_program gluster_handshake_prog;
@@ -414,7 +413,7 @@ init (xlator_t *this)
         glusterd_op_sm_init ();
         glusterd_opinfo_init ();
 
-
+        glusterd_restart_bricks(conf, this);
         ret = 0;
 out:
         if (ret == -1) {
