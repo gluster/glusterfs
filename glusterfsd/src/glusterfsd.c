@@ -73,6 +73,7 @@
 #include "syscall.h"
 #include "call-stub.h"
 #include <fnmatch.h>
+#include "rpc-clnt.h"
 
 #ifdef GF_DARWIN_HOST_OS
 #include "daemon.h"
@@ -644,6 +645,8 @@ cleanup_and_exit (int signum)
 
         /* TODO: is this the right place? */
         glusterfs_mgmt_pmap_signout (ctx);
+        if (ctx && ctx->mgmt)
+                rpc_clnt_destroy (ctx->mgmt);
 
         gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
 
