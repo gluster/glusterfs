@@ -2065,8 +2065,6 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        frame->local = NULL;
-
         LOCK (&table->lock);
         {
                 ret = inode_ctx_get (local->fd->inode, this, &value);
@@ -2087,7 +2085,7 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 out:
         QR_STACK_UNWIND (ftruncate, frame, op_ret, op_errno, prebuf,
-                             postbuf);
+                         postbuf);
         return 0;
 }
 
