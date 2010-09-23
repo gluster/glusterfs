@@ -897,20 +897,22 @@ cli_cmd_log_locate_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        delimiter = strchr (words[4], ':');
-        if (!delimiter || delimiter == words[4]
-            || *(delimiter+1) != '/') {
-                cli_out ("wrong brick type: %s, use <HOSTNAME>:"
-                         "<export-dir-abs-path>", words[4]);
-                ret = -1;
-                goto out;
-        } else {
-                cli_path_strip_trailing_slashes (delimiter + 1);
+        if (words[4]) {
+                delimiter = strchr (words[4], ':');
+                if (!delimiter || delimiter == words[4]
+                    || *(delimiter+1) != '/') {
+                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                                 "<export-dir-abs-path>", words[4]);
+                        ret = -1;
+                        goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
+                }
+                str = (char *)words[4];
+                ret = dict_set_str (dict, "brick", str);
+                if (ret)
+                        goto out;
         }
-        str = (char *)words[4];
-        ret = dict_set_str (dict, "brick", str);
-        if (ret)
-                goto out;
 
         *options = dict;
 
@@ -948,20 +950,22 @@ cli_cmd_log_rotate_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
-        delimiter = strchr (words[4], ':');
-        if (!delimiter || delimiter == words[4]
-            || *(delimiter+1) != '/') {
-                cli_out ("wrong brick type: %s, use <HOSTNAME>:"
-                         "<export-dir-abs-path>", words[4]);
-                ret = -1;
-                goto out;
-        } else {
-                cli_path_strip_trailing_slashes (delimiter + 1);
+        if (words[4]) {
+                delimiter = strchr (words[4], ':');
+                if (!delimiter || delimiter == words[4]
+                    || *(delimiter+1) != '/') {
+                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                                 "<export-dir-abs-path>", words[4]);
+                        ret = -1;
+                        goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
+                }
+                str = (char *)words[4];
+                ret = dict_set_str (dict, "brick", str);
+                if (ret)
+                        goto out;
         }
-        str = (char *)words[4];
-        ret = dict_set_str (dict, "brick", str);
-        if (ret)
-                goto out;
 
         *options = dict;
 
