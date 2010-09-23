@@ -267,14 +267,23 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 	}
 
 	local->call_cnt = missing_dirs;
-        dict = dict_new ();
-        if (!dict)
-                return -1;
+        if (!uuid_is_null (local->gfid)) {
+                dict = dict_new ();
+                if (!dict)
+                        return -1;
 
-        ret = dict_set_static_bin (dict, "gfid-req", loc->inode->gfid, 16);
-        if (ret)
-                gf_log (this->name, GF_LOG_INFO,
-                        "failed to set gfid in dict");
+                ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
+                if (ret)
+                        gf_log (this->name, GF_LOG_INFO,
+                                "failed to set gfid in dict");
+        } else if (local->params) {
+                /* Send the dictionary from higher layers directly */
+                dict = dict_ref (local->params);
+        }
+
+        if (!dict)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "dict is NULL, need to make sure gfid's are same");
 
 	for (i = 0; i < layout->cnt; i++) {
 		if (layout->list[i].err == ENOENT || force) {

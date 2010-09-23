@@ -100,6 +100,10 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	layout = local->layout;
 
+        if (!op_ret && uuid_is_null (local->gfid) &&
+            uuid_is_null (local->inode->gfid))
+                memcpy (local->gfid, stbuf->ia_gfid, 16);
+
         LOCK (&frame->lock);
         {
                 /* TODO: assert equal mode on stbuf->st_mode and
@@ -544,6 +548,8 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 				local->op_errno = op_errno;
 			goto unlock;
 		}
+                if (uuid_is_null (local->gfid))
+                        memcpy (local->gfid, buf->ia_gfid, 16);
 
 		is_linkfile = check_is_linkfile (inode, buf, xattr);
 		is_dir = check_is_dir (inode, buf, xattr);
@@ -830,8 +836,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         /* This is required for handling stale linkfile deletion,
          * or any more call which happens from this 'loc'.
          */
-        if (uuid_is_null (loc->inode->gfid) && !op_ret)
-                memcpy (loc->inode->gfid, stbuf->ia_gfid, 16);
+        if (uuid_is_null (local->gfid) && !op_ret)
+                memcpy (local->gfid, stbuf->ia_gfid, 16);
 
 	if (ENTRY_MISSING (op_ret, op_errno)) {
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
@@ -3314,6 +3320,7 @@ dht_link (call_frame_t *frame, xlator_t *this,
 	}
 
 	if (hashed_subvol != cached_subvol) {
+                memcpy (local->gfid, oldloc->inode->gfid, 16);
 		dht_linkfile_create (frame, dht_link_linkfile_cbk,
 				     cached_subvol, hashed_subvol, newloc);
 	} else {

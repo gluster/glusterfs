@@ -125,6 +125,9 @@ struct dht_local {
         char   *key;
 
         char   *newpath;
+
+        /* gfid related */
+        uuid_t  gfid;
 };
 typedef struct dht_local dht_local_t;
 
