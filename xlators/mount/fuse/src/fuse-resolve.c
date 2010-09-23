@@ -27,10 +27,6 @@
 static int
 gf_resolve_all (fuse_state_t *state);
 static int
-resolve_entry_simple (fuse_state_t *state);
-static int
-resolve_inode_simple (fuse_state_t *state);
-static int
 resolve_path_simple (fuse_state_t *state);
 
 static int
@@ -203,11 +199,7 @@ resolve_deep_continue (fuse_state_t *state)
         resolve->op_ret   = 0;
         resolve->op_errno = 0;
 
-        if (resolve->par)
-                ret = resolve_entry_simple (state);
-        else if (resolve->ino)
-                ret = resolve_inode_simple (state);
-        else if (resolve->path)
+        if (resolve->path)
                 ret = resolve_path_simple (state);
         if (ret)
                 gf_log ("resolve", GF_LOG_TRACE,
@@ -396,176 +388,6 @@ out:
 */
 
 static int
-resolve_entry_simple (fuse_state_t *state)
-{
-        xlator_t     *this    = NULL;
-        xlator_t     *active_xl = NULL;
-        gf_resolve_t *resolve = NULL;
-        inode_t      *parent  = NULL;
-        inode_t      *inode   = NULL;
-        int           ret     = 0;
-
-        this  = state->this;
-        resolve = state->resolve_now;
-
-        active_xl = fuse_active_subvol (this);
-
-        parent = inode_get (active_xl->itable, resolve->par, 0);
-        if (!parent) {
-                /* simple resolution is indecisive. need to perform
-                   deep resolution */
-                resolve->op_ret   = -1;
-                resolve->op_errno = ENOENT;
-                ret = 1;
-
-                inode = inode_grep (active_xl->itable, parent, resolve->bname);
-                if (inode != NULL) {
-                        gf_log (this->name, GF_LOG_DEBUG, "%"PRId64": inode "
-                                "(pointer:%p ino: %"PRIu64") present but parent"
-                                " is NULL for path (%s)", 0L,
-                                inode, inode->ino, resolve->path);
-                        inode_unref (inode);
-                }
-                goto out;
-        }
-
-        /* expected @parent was found from the inode cache */
-        state->loc_now->parent = inode_ref (parent);
-
-        inode = inode_grep (active_xl->itable, parent, resolve->bname);
-        if (!inode) {
-                switch (resolve->type) {
-                case RESOLVE_DONTCARE:
-                case RESOLVE_NOT:
-                        ret = 0;
-                        break;
-                case RESOLVE_MAY:
-                        ret = 1;
-                        break;
-                default:
-                        resolve->op_ret   = -1;
-                        resolve->op_errno = ENOENT;
-                        ret = 1;
-                        break;
-                }
-
-                goto out;
-        }
-
-        if (resolve->type == RESOLVE_NOT) {
-                gf_log (this->name, GF_LOG_DEBUG, "inode (pointer: %p ino:%"
-                        PRIu64") found for path (%s) while type is RESOLVE_NOT",
-                        inode, inode->ino, resolve->path);
-                resolve->op_ret   = -1;
-                resolve->op_errno = EEXIST;
-                ret = -1;
-                goto out;
-        }
-
-        ret = 0;
-
-        state->loc_now->inode  = inode_ref (inode);
-
-out:
-        if (parent)
-                inode_unref (parent);
-
-        if (inode)
-                inode_unref (inode);
-
-        return ret;
-}
-
-
-static int
-gf_resolve_entry (fuse_state_t *state)
-{
-        int                 ret = 0;
-        loc_t              *loc = NULL;
-
-        loc  = state->loc_now;
-
-        ret = resolve_entry_simple (state);
-
-        if (ret > 0) {
-                loc_wipe (loc);
-                resolve_path_deep (state);
-                return 0;
-        }
-
-        if (ret == 0)
-                resolve_loc_touchup (state);
-
-        gf_resolve_all (state);
-
-        return 0;
-}
-
-
-static int
-resolve_inode_simple (fuse_state_t *state)
-{
-        xlator_t     *active_xl = NULL;
-        gf_resolve_t *resolve = NULL;
-        inode_t      *inode   = NULL;
-        int           ret     = 0;
-
-        resolve = state->resolve_now;
-
-        active_xl = fuse_active_subvol (state->this);
-
-        if (resolve->type == RESOLVE_EXACT) {
-                inode = inode_get (active_xl->itable, resolve->ino,
-                                   resolve->gen);
-        } else {
-                inode = inode_get (active_xl->itable, resolve->ino, 0);
-        }
-
-        if (!inode) {
-                resolve->op_ret   = -1;
-                resolve->op_errno = ENOENT;
-                ret = 1;
-                goto out;
-        }
-
-        ret = 0;
-
-        state->loc_now->inode = inode_ref (inode);
-
-out:
-        if (inode)
-                inode_unref (inode);
-
-        return ret;
-}
-
-
-static int
-gf_resolve_inode (fuse_state_t *state)
-{
-        int                 ret = 0;
-        loc_t              *loc = NULL;
-
-        loc  = state->loc_now;
-
-        ret = resolve_inode_simple (state);
-
-        if (ret > 0) {
-                loc_wipe (loc);
-                resolve_path_deep (state);
-                return 0;
-        }
-
-        if (ret == 0)
-                resolve_loc_touchup (state);
-
-        gf_resolve_all (state);
-
-        return 0;
-}
-
-
-static int
 gf_resolve_fd (fuse_state_t *state)
 {
         gf_resolve_t  *resolve    = NULL;
@@ -615,23 +437,15 @@ gf_resolve (fuse_state_t *state)
 
         resolve = state->resolve_now;
 
-        if (resolve->fd) {
-
-                gf_resolve_fd (state);
-
-        } else if (resolve->par) {
-
-                gf_resolve_entry (state);
-
-        } else if (resolve->ino) {
-
-                gf_resolve_inode (state);
-
-        } else if (resolve->path) {
+        if (resolve->path) {
 
                 resolve_path_deep (state);
 
-        } else  {
+        } else if (resolve->fd) {
+
+                gf_resolve_fd (state);
+
+        } else {
 
                 resolve->op_ret = 0;
                 resolve->op_errno = EINVAL;
