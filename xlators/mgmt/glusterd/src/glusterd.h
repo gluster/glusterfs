@@ -73,6 +73,7 @@ typedef struct {
         struct list_head  hostnames;
         struct list_head  xprt_list;
         glusterd_store_handle_t *handle;
+        gf_timer_t *timer;
 } glusterd_conf_t;
 
 typedef enum gf_brick_status {
@@ -87,6 +88,7 @@ struct glusterd_brickinfo {
         uuid_t  uuid;
         int     port;
         char   *logfile;
+        gf_boolean_t signed_in;
         glusterd_store_handle_t *shandle;
         gf_brick_status_t status; 
 };

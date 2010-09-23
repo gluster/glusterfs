@@ -2267,6 +2267,7 @@ init (xlator_t *this)
 	priv->data_change_log     = 1;
 	priv->metadata_change_log = 1;
 	priv->entry_change_log    = 1;
+        priv->use_afr_in_pump = 1;
 
 	/* Locking options */
 
@@ -2402,6 +2403,7 @@ struct xlator_fops fops = {
 	.fsyncdir    = pump_fsyncdir,
 	.xattrop     = pump_xattrop,
 	.fxattrop    = pump_fxattrop,
+        .getxattr    = pump_getxattr,
 
 	/* inode write */
 	.writev      = pump_writev,

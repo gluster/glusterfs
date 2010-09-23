@@ -367,7 +367,14 @@ fail:
         return 0;
 }
 
+static int
+glusterd_brick_update_signin (glusterd_brickinfo_t *brickinfo,
+                              gf_boolean_t value)
+{
+        brickinfo->signed_in = value;
 
+        return 0;
+}
 
 int
 gluster_pmap_signup (rpcsvc_request_t *req)
@@ -392,7 +399,6 @@ fail:
 
         return 0;
 }
-
 
 int
 gluster_pmap_signin (rpcsvc_request_t *req)
@@ -420,6 +426,9 @@ fail:
                                (gd_serialize_t)xdr_from_pmap_signin_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
+
+        if (!ret)
+                glusterd_brick_update_signin (brickinfo, _gf_true);
 
         return 0;
 }
@@ -453,6 +462,9 @@ fail:
                                (gd_serialize_t)xdr_from_pmap_signout_rsp);
         if (args.brick)
                 free (args.brick);//malloced by xdr
+
+        if (!ret)
+                glusterd_brick_update_signin (brickinfo, _gf_false);
 
         return 0;
 }
