@@ -1768,126 +1768,78 @@ __write_perf_xlator (char *xlator_name, FILE *file,
 
 }
 
-static gf_boolean_t
-is_perf_xlator_enabled (char *status)
+static
+int
+add_perf_xlator_list_item (dict_t *dict, char **perf_xlator_list,
+                           char *xlator_name, int *idx)
 {
-        gf_boolean_t ret = _gf_false;
+        int ret = 0;
 
-        if (strcmp (status, "enable") == 0)
-                ret = _gf_true;
+        ret = dict_get_str_boolean (dict, xlator_name, 1);
+        switch (ret) {
+        case -1:
+                goto out;
+        case 1:
+                gf_log ("", GF_LOG_DEBUG,
+                        "%s is enabled", xlator_name);
+                perf_xlator_list[*idx] = gf_strdup (xlator_name);
+                if (!perf_xlator_list[*idx]) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
 
+                        return -1;
+                }
+
+                (*idx)++;
+
+                break;
+        case 0:
+                gf_log ("", GF_LOG_DEBUG, "%s option is disabled", xlator_name);
+                break;
+        default:
+                GF_ASSERT (!"Biohazard!");
+        }
+
+        ret = 0;
+
+out:
         return ret;
 }
 
 static int
 generate_perf_xlator_list (dict_t *dict, char *perf_xlator_list[])
 {
-        char *status = NULL;
-        int i        = 0;
-        int dict_ret = 0;
-        int ret      = 0;
+        int i   = 0;
+        int ret = 0;
 
         GF_ASSERT (dict);
 
-        dict_ret = dict_get_str (dict, "write-behind", &status);
-        if (dict_ret || is_perf_xlator_enabled (status)) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Write behind is enabled");
-                perf_xlator_list[i] = gf_strdup ("write-behind");
-                if (!perf_xlator_list[i]) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Out of memory");
-                        ret = -1;
-                        goto out;
-                }
+        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
+                                         "write-behind", &i);
+        if (ret == -1)
+                goto out;
 
-                i++;
+        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
+                                         "read-ahead", &i);
+        if (ret == -1)
+                goto out;
 
-        } else {
-                gf_log ("", GF_LOG_DEBUG,
-                        "write-behind option is disabled");
-        }
+        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
+                                         "io-cache", &i);
+        if (ret == -1)
+                goto out;
 
+        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
+                                         "quick-read", &i);
+        if (ret == -1)
+                goto out;
 
-        dict_ret = dict_get_str (dict, "read-ahead", &status);
-        if (dict_ret || is_perf_xlator_enabled (status)) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "read-ahead is enabled");
-                perf_xlator_list[i] = gf_strdup ("read-ahead");
-                if (!perf_xlator_list[i]) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Out of memory");
-                        ret = -1;
-                        goto out;
-                }
-
-                i++;
-
-        } else {
-                gf_log ("", GF_LOG_DEBUG,
-                        "read-ahead option is disabled");
-        }
-
-        dict_ret = dict_get_str (dict, "io-cache", &status);
-        if (dict_ret || is_perf_xlator_enabled (status)) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "io-cache is enabled");
-                perf_xlator_list[i] = gf_strdup ("io-cache");
-                if (!perf_xlator_list[i]) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Out of memory");
-                        ret = -1;
-                        goto out;
-                }
-
-                i++;
-
-        } else {
-                gf_log ("", GF_LOG_DEBUG,
-                        "io-cache option is disabled");
-        }
-
-        dict_ret = dict_get_str (dict, "quick-read", &status);
-        if (dict_ret || is_perf_xlator_enabled (status)) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "quick-read is enabled");
-                perf_xlator_list[i] = gf_strdup ("quick-read");
-                if (!perf_xlator_list[i]) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Out of memory");
-                        ret = -1;
-                        goto out;
-                }
-
-                i++;
-
-        } else {
-                gf_log ("", GF_LOG_DEBUG,
-                        "quick-read option is disabled");
-        }
-
-        dict_ret = dict_get_str (dict, "stat-prefetch", &status);
-        if (dict_ret || is_perf_xlator_enabled (status)) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "stat-prefetch is enabled");
-                perf_xlator_list[i] = gf_strdup ("stat-prefetch");
-                if (!perf_xlator_list[i]) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Out of memory");
-                        ret = -1;
-                        goto out;
-                }
-
-                i++;
-
-        } else {
-                gf_log ("", GF_LOG_DEBUG,
-                        "stat-prefetch option is disabled");
-        }
+        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
+                                         "stat-prefetch", &i);
+        if (ret == -1)
+                goto out;
 
 out:
         return ret;
-
 }
 
 static int
