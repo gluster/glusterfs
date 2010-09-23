@@ -199,6 +199,137 @@ selfheal:
 }
 
 int
+dht_lookup_root_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                         int op_ret, int op_errno,
+                         inode_t *inode, struct iatt *stbuf, dict_t *xattr,
+                         struct iatt *postparent)
+{
+	dht_conf_t   *conf                    = NULL;
+        dht_local_t  *local                   = NULL;
+        int           this_call_cnt           = 0;
+        call_frame_t *prev                    = NULL;
+	dht_layout_t *layout                  = NULL;
+	int           ret                     = 0;
+	int           is_dir                  = 0;
+
+	conf  = this->private;
+        local = frame->local;
+        prev  = cookie;
+
+	layout = local->layout;
+
+        LOCK (&frame->lock);
+        {
+		ret = dht_layout_merge (this, layout, prev->this,
+					op_ret, op_errno, xattr);
+
+		if (op_ret == -1) {
+			local->op_errno = op_errno;
+			gf_log (this->name, GF_LOG_ERROR,
+				"lookup of %s on %s returned error (%s)",
+				local->loc.path, prev->this->name,
+				strerror (op_errno));
+			goto unlock;
+		}
+
+                is_dir = check_is_dir (inode, stbuf, xattr);
+                if (!is_dir) {
+                        gf_log (this->name, GF_LOG_CRITICAL,
+                                "lookup of %s on %s returned non dir 0%o",
+                                local->loc.path, prev->this->name,
+                                stbuf->ia_type);
+                        goto unlock;
+                }
+
+                local->op_ret = 0;
+                if (local->xattr == NULL)
+                        local->xattr = dict_ref (xattr);
+                if (local->inode == NULL)
+                        local->inode = inode_ref (inode);
+
+		dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+
+                if (prev->this == dht_first_up_subvol (this)) {
+			local->ia_ino = local->stbuf.ia_ino;
+                }
+
+        }
+unlock:
+        UNLOCK (&frame->lock);
+
+
+        this_call_cnt = dht_frame_return (frame);
+
+        if (is_last_call (this_call_cnt)) {
+		if (local->op_ret == 0) {
+			ret = dht_layout_normalize (this, &local->loc, layout);
+			if (ret != 0) {
+				gf_log (this->name, GF_LOG_INFO,
+					"fixing assignment on %s",
+					local->loc.path);
+			}
+
+			dht_layout_set (this, local->inode, layout);
+		}
+
+		DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
+				  local->inode, &local->stbuf, local->xattr,
+                                  &local->postparent);
+        }
+
+	return 0;
+}
+
+static int
+dht_do_fresh_lookup_on_root (xlator_t *this, call_frame_t *frame)
+{
+        dht_local_t  *local    = NULL;
+	dht_conf_t   *conf     = NULL;
+	int           ret      = -1;
+        int           call_cnt = 0;
+        int           i        = 0;
+
+        local = frame->local;
+        conf = this->private;
+
+        if (local->layout) {
+                dht_layout_unref (this, local->layout);
+                local->layout = NULL;
+        }
+
+        ret = dict_set_uint32 (local->xattr_req,
+                               "trusted.glusterfs.dht", 4 * 4);
+        if (ret)
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to set the dict entry for dht");
+
+        call_cnt = local->call_cnt = conf->subvolume_cnt;
+
+        local->layout = dht_layout_new (this,
+                                        conf->subvolume_cnt);
+        if (!local->layout) {
+                local->op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto err;
+        }
+
+        for (i = 0; i < call_cnt; i++) {
+                STACK_WIND (frame, dht_lookup_root_dir_cbk,
+                            conf->subvolumes[i],
+                            conf->subvolumes[i]->fops->lookup,
+                            &local->loc, local->xattr_req);
+        }
+
+        return 0;
+err:
+        DHT_STACK_UNWIND (lookup, frame, -1, local->op_errno,
+                          local->inode, &local->stbuf, local->xattr,
+                          &local->postparent);
+        return 0;
+}
+
+int
 dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno,
                     inode_t *inode, struct iatt *stbuf, dict_t *xattr,
@@ -212,6 +343,7 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	int           ret  = -1;
 	int           is_dir = 0;
 	int           is_linkfile = 0;
+        unsigned char root_gfid[16] = {0,};
 
         local = frame->local;
         prev  = cookie;
@@ -310,11 +442,21 @@ unlock:
 		if (local->layout_mismatch) {
 			local->op_ret = -1;
 			local->op_errno = ESTALE;
+
+                        /* Because for 'root' inode, there is no FRESH lookup
+                         * sent from FUSE layer upon ESTALE, we need to handle
+                         * that one case here */
+                        root_gfid[15] = 1;
+                        if (!local->loc.parent &&
+                            !uuid_compare (local->loc.inode->gfid, root_gfid)) {
+                                dht_do_fresh_lookup_on_root (this, frame);
+                                return 0;
+                        }
 		}
 
                 WIPE (&local->postparent);
 
-		DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
+                DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
 				  local->inode, &local->stbuf, local->xattr,
                                   &local->postparent);
 	}
