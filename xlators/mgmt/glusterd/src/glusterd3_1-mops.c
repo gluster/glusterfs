@@ -579,7 +579,6 @@ glusterd_rb_use_rsp_dict (dict_t *rsp_dict)
         int      ret      = 0;
         dict_t  *ctx      = NULL;
 
-        GF_ASSERT (rsp_dict);
 
         if (rsp_dict) {
                 ret = dict_get_int32 (rsp_dict, "src-brick-port", &src_port);

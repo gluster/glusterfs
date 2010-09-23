@@ -2256,44 +2256,6 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
         return ret;
 }
 
-static int
-glusterd_fill_rb_commit_rsp (dict_t *rsp_dict)
-{
-        dict_t *dict    = NULL;
-        int32_t port_no = 0;
-        int     ret     = 0;
-
-        dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-        if (!dict) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Operation Context is not present");
-                ret = 0;
-                goto out;
-        }
-
-        ret = dict_get_int32 (dict, "src-brick-port", &port_no);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not get src-brick-port => this must "
-                        "be a non-source glusterd process");
-                ret = 0;
-                goto out;
-        }
-
-        gf_log ("", GF_LOG_DEBUG,
-                "This is the source glusterd => fill the src port");
-
-        ret = dict_set_int32 (rsp_dict, "src-brick-port", port_no);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not set commit rsp dict");
-                goto out;
-        }
-
-out:
-        return ret;
-}
-
 int
 glusterd_op_commit_send_resp (rpcsvc_request_t *req,
                                int32_t op, int32_t status, char *op_errstr,
@@ -2311,16 +2273,6 @@ glusterd_op_commit_send_resp (rpcsvc_request_t *req,
                 rsp.op_errstr = op_errstr;
         else
                 rsp.op_errstr = "";
-
-        switch (op) {
-        case GD_OP_REPLACE_BRICK:
-                ret = glusterd_fill_rb_commit_rsp (rsp_dict);
-                if (ret)
-                        goto out;
-                break;
-        default:
-                break;
-        }
 
         ret = dict_allocate_and_serialize (rsp_dict,
                                            &rsp.dict.dict_val,

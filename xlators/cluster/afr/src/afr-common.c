@@ -823,7 +823,7 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                         local->cont.lookup.postparent          = *postparent;
 
                         if (priv->first_lookup && inode->ino == 1) {
-                                gf_log (this->name, GF_LOG_TRACE,
+                                gf_log (this->name, GF_LOG_NORMAL,
                                         "added root inode");
                                 priv->root_inode = inode_ref (inode);
                                 priv->first_lookup = 0;

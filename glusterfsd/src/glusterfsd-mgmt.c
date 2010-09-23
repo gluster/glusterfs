@@ -592,6 +592,7 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
         pmap_signout_rsp  rsp   = {0,};
         call_frame_t    *frame = NULL;
         int              ret   = 0;
+	glusterfs_ctx_t	 *ctx = NULL;
 
         frame = myframe;
 
@@ -601,6 +602,7 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
+        ctx = glusterfs_ctx_get ();
         ret = xdr_to_pmap_signout_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
