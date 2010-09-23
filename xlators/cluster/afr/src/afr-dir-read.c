@@ -229,6 +229,7 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
         afr_private_t *priv              = NULL;
 	afr_local_t   *local             = NULL;
         int32_t        up_children_count = 0;
+        int           ret                = -1;
 
 	int call_count = -1;
 
@@ -251,8 +252,16 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
 
 	if (call_count == 0) {
                 if (local->op_ret == 0) {
-                        afr_fd_ctx_set (this, local->fd);
 
+                        ret = afr_fd_ctx_set (this, local->fd);
+
+                        if (ret) {
+                                local->op_ret = -1;
+                                local->op_errno = -1;
+                                gf_log (this->name, GF_LOG_ERROR, " failed to "
+                                        "set fd ctx for fd %d", local->fd);
+                                goto out;
+                        }
                         if (!afr_is_opendir_done (this, local->fd->inode) &&
                             up_children_count > 1) {
 
@@ -277,6 +286,7 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
                                                   local->op_errno, local->fd);
                         }
                 } else {
+out:
                         AFR_STACK_UNWIND (opendir, frame, local->op_ret,
                                           local->op_errno, local->fd);
                 }
