@@ -185,4 +185,5 @@ GF_MUST_CHECK int dict_set_dynmstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_set_dynstr (dict_t *this, char *key, char *str);
 GF_MUST_CHECK int dict_get_str (dict_t *this, char *key, char **str);
 
+GF_MUST_CHECK int dict_get_str_boolean (dict_t *this, char *key, int default_val);
 #endif
