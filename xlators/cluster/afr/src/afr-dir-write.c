@@ -148,20 +148,22 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         ret = afr_fd_ctx_set (this, fd);
 
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_ERROR,
                                         "could not set ctx on fd=%p", fd);
 
                                 local->op_ret   = -1;
                                 local->op_errno = -ret;
+                                goto unlock;
                         }
 
                         ret = fd_ctx_get (fd, this, &ctx);
 
                         if (ret < 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_ERROR,
                                         "could not get fd ctx for fd=%p", fd);
                                 local->op_ret   = -1;
                                 local->op_errno = -ret;
+                                goto unlock;
                         }
 
                         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
@@ -206,6 +208,8 @@ afr_create_wind_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		local->op_errno = op_errno;
 	}
+
+unlock:
 	UNLOCK (&frame->lock);
 
 	call_count = afr_frame_return (frame);
