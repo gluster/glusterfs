@@ -2939,6 +2939,8 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
         char                  logfile[PATH_MAX]  = {0,};
         char                  exp_path[PATH_MAX] = {0,};
         struct stat           stbuf              = {0,};
+        char                 *brick_path         = NULL;
+
 
         GF_ASSERT (req);
 
@@ -2989,9 +2991,21 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+
+                if (uuid_is_null (brickinfo->uuid)) {
+                        ret = glusterd_resolve_brick (brickinfo);
+                }
+
                 if (uuid_compare (brickinfo->uuid, priv->uuid))
                         continue;
 
+                brick_path = strchr (brick, ':');
+                brick_path++;
+
+                if (brick_path  && strcmp (brickinfo->path, brick_path))
+                         continue;
+
+                GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
                 if (brick && strcmp (brickinfo->path, brick))
                         continue;
 
