@@ -43,6 +43,11 @@
 #include "xlator.h"
 #include "io-stats-mem-types.h"
 
+struct ios_lat {
+        double  min;
+        double  max;
+        double  avg;
+};
 
 struct ios_global_stats {
         uint64_t        data_written;
@@ -51,6 +56,7 @@ struct ios_global_stats {
         uint64_t        block_count_read[32];
         uint64_t        fop_hits[GF_FOP_MAXVALUE];
         struct timeval  started_at;
+        struct ios_lat  latency[GF_FOP_MAXVALUE];
 };
 
 
@@ -60,6 +66,7 @@ struct ios_conf {
         uint64_t                  increment;
         struct ios_global_stats   incremental;
         gf_boolean_t              dump_fd_stats;
+        int                       measure_latency;
 };
 
 
@@ -77,6 +84,27 @@ struct ios_local {
         struct timeval  wind_at;
         struct timeval  unwind_at;
 };
+
+#define END_FOP_LATENCY(frame, op)                                      \
+        do {                                                            \
+                struct ios_conf  *conf = NULL;                          \
+                                                                        \
+                conf = this->private;                                   \
+                if (conf->measure_latency) {                            \
+                        gettimeofday (&frame->end, NULL);        \
+                        update_ios_latency (conf, frame, GF_FOP_##op);  \
+                }                                                       \
+        } while (0)
+
+#define START_FOP_LATENCY(frame)                                        \
+        do {                                                            \
+                struct ios_conf  *conf = NULL;                          \
+                                                                        \
+                conf = this->private;                                   \
+                if (conf->measure_latency) {                            \
+                        gettimeofday (&frame->begin, NULL);      \
+                }                                                       \
+        } while (0)
 
 
 #define BUMP_FOP(op)                                                    \
@@ -217,8 +245,11 @@ io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
 
         for (i = 0; i < GF_FOP_MAXVALUE; i++)
                 if (stats->fop_hits[i])
-                        ios_log (this, logfp, "%14s : %"PRId64,
-                                 gf_fop_list[i], stats->fop_hits[i]);
+                        ios_log (this, logfp, "%14s : %"PRId64 ", latency"
+                                 "(avg: %f, min: %f, max: %f)",
+                                 gf_fop_list[i], stats->fop_hits[i],
+                                 stats->latency[i].avg, stats->latency[i].min,
+                                 stats->latency[i].max);
 
 
         return 0;
@@ -326,6 +357,48 @@ io_stats_dump_fd (xlator_t *this, struct ios_fd *iosfd)
         return 0;
 }
 
+int
+update_ios_latency (struct ios_conf *conf, call_frame_t *frame,
+                    glusterfs_fop_t op)
+{
+        double elapsed;
+        struct timeval *begin, *end;
+        double avg;
+
+        begin = &frame->begin;
+        end   = &frame->end;
+
+        elapsed = (end->tv_sec - begin->tv_sec) * 1e6
+                + (end->tv_usec - begin->tv_usec);
+
+        /* Cumulative */
+        if (!conf->cumulative.latency[op].min)
+                conf->cumulative.latency[op].min = elapsed;
+        if (conf->cumulative.latency[op].min > elapsed)
+                conf->cumulative.latency[op].min = elapsed;
+        if (conf->cumulative.latency[op].max < elapsed)
+                conf->cumulative.latency[op].max = elapsed;
+
+        avg = conf->cumulative.latency[op].avg;
+
+        conf->cumulative.latency[op].avg =
+                avg + (elapsed - avg) / conf->cumulative.fop_hits[op];
+
+        /* Incremental */
+        if (!conf->incremental.latency[op].min)
+                conf->incremental.latency[op].min = elapsed;
+        if (conf->incremental.latency[op].min > elapsed)
+                conf->incremental.latency[op].min = elapsed;
+        if (conf->incremental.latency[op].max < elapsed)
+                conf->incremental.latency[op].max = elapsed;
+
+        avg = conf->incremental.latency[op].avg;
+
+        conf->incremental.latency[op].avg =
+                avg + (elapsed - avg) / conf->incremental.fop_hits[op];
+
+        return 0;
+}
 
 int
 io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -359,6 +432,7 @@ io_stats_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ios_fd_ctx_set (fd, this, iosfd);
 
 unwind:
+        END_FOP_LATENCY (frame, CREATE);
         STACK_UNWIND_STRICT (create, frame, op_ret, op_errno, fd, inode, buf,
                              preparent, postparent);
         return 0;
@@ -395,6 +469,7 @@ io_stats_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         ios_fd_ctx_set (fd, this, iosfd);
 
 unwind:
+        END_FOP_LATENCY (frame, OPEN);
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
         return 0;
 }
@@ -404,6 +479,7 @@ int
 io_stats_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
+        END_FOP_LATENCY (frame, STAT);
         STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
         return 0;
 }
@@ -418,7 +494,6 @@ io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int              len = 0;
         fd_t            *fd = NULL;
 
-
         fd = frame->local;
         frame->local = NULL;
 
@@ -427,6 +502,7 @@ io_stats_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 BUMP_READ (fd, len);
         }
 
+        END_FOP_LATENCY (frame, READ);
         STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno,
                              vector, count, buf, iobref);
         return 0;
@@ -438,6 +514,7 @@ io_stats_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *prebuf, struct iatt *postbuf)
 {
+        END_FOP_LATENCY (frame, WRITE);
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
@@ -449,6 +526,7 @@ int
 io_stats_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
 {
+        END_FOP_LATENCY (frame, READDIRP);
         STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, buf);
         return 0;
 }
@@ -458,6 +536,7 @@ int
 io_stats_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, gf_dirent_t *buf)
 {
+        END_FOP_LATENCY (frame, READDIR);
         STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, buf);
         return 0;
 }
@@ -468,6 +547,7 @@ io_stats_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *prebuf, struct iatt *postbuf)
 {
+        END_FOP_LATENCY (frame, FSYNC);
         STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
@@ -478,6 +558,7 @@ io_stats_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno,
                       struct iatt *preop, struct iatt *postop)
 {
+        END_FOP_LATENCY (frame, SETATTR);
         STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, preop, postop);
         return 0;
 }
@@ -488,6 +569,7 @@ io_stats_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno,
                      struct iatt *preparent, struct iatt *postparent)
 {
+        END_FOP_LATENCY (frame, UNLINK);
         STACK_UNWIND_STRICT (unlink, frame, op_ret, op_errno,
                              preparent, postparent);
         return 0;
@@ -500,6 +582,7 @@ io_stats_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *preoldparent, struct iatt *postoldparent,
                      struct iatt *prenewparent, struct iatt *postnewparent)
 {
+        END_FOP_LATENCY (frame, RENAME);
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf,
                              preoldparent, postoldparent,
                              prenewparent, postnewparent);
@@ -512,6 +595,7 @@ io_stats_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, const char *buf,
                        struct iatt *sbuf)
 {
+        END_FOP_LATENCY (frame, READLINK);
         STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, buf, sbuf);
         return 0;
 }
@@ -523,6 +607,7 @@ io_stats_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      inode_t *inode, struct iatt *buf,
                      dict_t *xattr, struct iatt *postparent)
 {
+        END_FOP_LATENCY (frame, LOOKUP);
         STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf, xattr,
                              postparent);
         return 0;
@@ -535,6 +620,7 @@ io_stats_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       inode_t *inode, struct iatt *buf,
                       struct iatt *preparent, struct iatt *postparent)
 {
+        END_FOP_LATENCY (frame, SYMLINK);
         STACK_UNWIND_STRICT (symlink, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
         return 0;
@@ -547,6 +633,7 @@ io_stats_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     inode_t *inode, struct iatt *buf,
                     struct iatt *preparent, struct iatt *postparent)
 {
+        END_FOP_LATENCY (frame, MKNOD);
         STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
         return 0;
@@ -559,6 +646,7 @@ io_stats_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     inode_t *inode, struct iatt *buf,
                     struct iatt *preparent, struct iatt *postparent)
 {
+        END_FOP_LATENCY (frame, MKDIR);
         STACK_UNWIND_STRICT (mkdir, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
         return 0;
@@ -571,6 +659,7 @@ io_stats_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                    inode_t *inode, struct iatt *buf,
                    struct iatt *preparent, struct iatt *postparent)
 {
+        END_FOP_LATENCY (frame, LINK);
         STACK_UNWIND_STRICT (link, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
         return 0;
@@ -581,6 +670,7 @@ int
 io_stats_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno)
 {
+        END_FOP_LATENCY (frame, FLUSH);
         STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
         return 0;
 }
@@ -593,6 +683,7 @@ io_stats_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret >= 0)
                 ios_fd_ctx_set (fd, this, 0);
 
+        END_FOP_LATENCY (frame, OPENDIR);
         STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
         return 0;
 }
@@ -603,6 +694,7 @@ io_stats_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno,
                     struct iatt *preparent, struct iatt *postparent)
 {
+        END_FOP_LATENCY (frame, RMDIR);
         STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno,
                              preparent, postparent);
         return 0;
@@ -614,6 +706,7 @@ io_stats_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
                        struct iatt *prebuf, struct iatt *postbuf)
 {
+        END_FOP_LATENCY (frame, TRUNCATE);
         STACK_UNWIND_STRICT (truncate, frame, op_ret, op_errno,
                              prebuf, postbuf);
         return 0;
@@ -624,6 +717,7 @@ int
 io_stats_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct statvfs *buf)
 {
+        END_FOP_LATENCY (frame, STATFS);
         STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf);
         return 0;
 }
@@ -633,6 +727,7 @@ int
 io_stats_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno)
 {
+        END_FOP_LATENCY (frame, SETXATTR);
         STACK_UNWIND_STRICT (setxattr, frame, op_ret, op_errno);
         return 0;
 }
@@ -642,6 +737,7 @@ int
 io_stats_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
+        END_FOP_LATENCY (frame, GETXATTR);
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -651,6 +747,7 @@ int
 io_stats_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno)
 {
+        END_FOP_LATENCY (frame, REMOVEXATTR);
         STACK_UNWIND_STRICT (removexattr, frame, op_ret, op_errno);
         return 0;
 }
@@ -660,6 +757,7 @@ int
 io_stats_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno)
 {
+        END_FOP_LATENCY (frame, FSYNCDIR);
         STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno);
         return 0;
 }
@@ -669,6 +767,7 @@ int
 io_stats_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno)
 {
+        END_FOP_LATENCY (frame, ACCESS);
         STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
         return 0;
 }
@@ -679,6 +778,7 @@ io_stats_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno,
                         struct iatt *prebuf, struct iatt *postbuf)
 {
+        END_FOP_LATENCY (frame, FTRUNCATE);
         STACK_UNWIND_STRICT (ftruncate, frame, op_ret, op_errno,
                              prebuf, postbuf);
         return 0;
@@ -689,6 +789,7 @@ int
 io_stats_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *buf)
 {
+        END_FOP_LATENCY (frame, FSTAT);
         STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
         return 0;
 }
@@ -698,6 +799,7 @@ int
 io_stats_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
+        END_FOP_LATENCY (frame, LK);
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
         return 0;
 }
@@ -707,6 +809,7 @@ int
 io_stats_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno)
 {
+        END_FOP_LATENCY (frame, ENTRYLK);
         STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
         return 0;
 }
@@ -716,6 +819,7 @@ int
 io_stats_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
+        END_FOP_LATENCY (frame, XATTROP);
         STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -725,6 +829,7 @@ int
 io_stats_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
+        END_FOP_LATENCY (frame, FXATTROP);
         STACK_UNWIND_STRICT (fxattrop, frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -734,6 +839,7 @@ int
 io_stats_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno)
 {
+        END_FOP_LATENCY (frame, INODELK);
         STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
         return 0;
 }
@@ -745,6 +851,8 @@ io_stats_entrylk (call_frame_t *frame, xlator_t *this,
                   entrylk_cmd cmd, entrylk_type type)
 {
         BUMP_FOP (ENTRYLK);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_entrylk_cbk,
                     FIRST_CHILD (this),
@@ -761,6 +869,8 @@ io_stats_inodelk (call_frame_t *frame, xlator_t *this,
 
         BUMP_FOP (INODELK);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_inodelk_cbk,
                     FIRST_CHILD (this),
                     FIRST_CHILD (this)->fops->inodelk,
@@ -774,6 +884,7 @@ io_stats_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno)
 {
 
+        END_FOP_LATENCY (frame, FINODELK);
         STACK_UNWIND_STRICT (finodelk, frame, op_ret, op_errno);
         return 0;
 }
@@ -784,6 +895,8 @@ io_stats_finodelk (call_frame_t *frame, xlator_t *this,
                    const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
 {
         BUMP_FOP (FINODELK);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_finodelk_cbk,
                     FIRST_CHILD (this),
@@ -798,6 +911,8 @@ io_stats_xattrop (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, gf_xattrop_flags_t flags, dict_t *dict)
 {
         BUMP_FOP (XATTROP);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_xattrop_cbk,
                     FIRST_CHILD(this),
@@ -814,6 +929,8 @@ io_stats_fxattrop (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (FXATTROP);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_fxattrop_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fxattrop,
@@ -829,6 +946,8 @@ io_stats_lookup (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (LOOKUP);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_lookup_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lookup,
@@ -842,6 +961,8 @@ int
 io_stats_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         BUMP_FOP (STAT);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_stat_cbk,
                     FIRST_CHILD(this),
@@ -858,6 +979,8 @@ io_stats_readlink (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (READLINK);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_readlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readlink,
@@ -872,6 +995,8 @@ io_stats_mknod (call_frame_t *frame, xlator_t *this,
                 loc_t *loc, mode_t mode, dev_t dev, dict_t *params)
 {
         BUMP_FOP (MKNOD);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_mknod_cbk,
                     FIRST_CHILD(this),
@@ -888,6 +1013,8 @@ io_stats_mkdir (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (MKDIR);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_mkdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->mkdir,
@@ -902,6 +1029,8 @@ io_stats_unlink (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (UNLINK);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_unlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->unlink,
@@ -915,6 +1044,8 @@ io_stats_rmdir (call_frame_t *frame, xlator_t *this,
                 loc_t *loc)
 {
         BUMP_FOP (RMDIR);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_rmdir_cbk,
                     FIRST_CHILD(this),
@@ -931,6 +1062,8 @@ io_stats_symlink (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (SYMLINK);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_symlink_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->symlink,
@@ -945,6 +1078,8 @@ io_stats_rename (call_frame_t *frame, xlator_t *this,
                  loc_t *oldloc, loc_t *newloc)
 {
         BUMP_FOP (RENAME);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_rename_cbk,
                     FIRST_CHILD(this),
@@ -961,6 +1096,8 @@ io_stats_link (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (LINK);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_link_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->link,
@@ -974,6 +1111,8 @@ io_stats_setattr (call_frame_t *frame, xlator_t *this,
                   loc_t *loc, struct iatt *stbuf, int32_t valid)
 {
         BUMP_FOP (SETATTR);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_setattr_cbk,
                     FIRST_CHILD(this),
@@ -989,6 +1128,8 @@ io_stats_truncate (call_frame_t *frame, xlator_t *this,
                    loc_t *loc, off_t offset)
 {
         BUMP_FOP (TRUNCATE);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_truncate_cbk,
                     FIRST_CHILD(this),
@@ -1007,6 +1148,8 @@ io_stats_open (call_frame_t *frame, xlator_t *this,
 
         frame->local = gf_strdup (loc->path);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_open_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open,
@@ -1024,6 +1167,8 @@ io_stats_create (call_frame_t *frame, xlator_t *this,
 
         frame->local = gf_strdup (loc->path);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_create_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
@@ -1039,6 +1184,8 @@ io_stats_readv (call_frame_t *frame, xlator_t *this,
         BUMP_FOP (READ);
 
         frame->local = fd;
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_readv_cbk,
                     FIRST_CHILD(this),
@@ -1062,6 +1209,8 @@ io_stats_writev (call_frame_t *frame, xlator_t *this,
         BUMP_FOP (WRITE);
         BUMP_WRITE (fd, len);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_writev_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->writev,
@@ -1075,6 +1224,8 @@ io_stats_statfs (call_frame_t *frame, xlator_t *this,
                  loc_t *loc)
 {
         BUMP_FOP (STATFS);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_statfs_cbk,
                     FIRST_CHILD(this),
@@ -1090,6 +1241,8 @@ io_stats_flush (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (FLUSH);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_flush_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->flush,
@@ -1103,6 +1256,8 @@ io_stats_fsync (call_frame_t *frame, xlator_t *this,
                 fd_t *fd, int32_t flags)
 {
         BUMP_FOP (FSYNC);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_fsync_cbk,
                     FIRST_CHILD(this),
@@ -1159,6 +1314,8 @@ io_stats_setxattr (call_frame_t *frame, xlator_t *this,
 
         dict_foreach (dict, conditional_dump, &stub);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_setxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setxattr,
@@ -1173,6 +1330,8 @@ io_stats_getxattr (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (GETXATTR);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_getxattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->getxattr,
@@ -1186,6 +1345,8 @@ io_stats_removexattr (call_frame_t *frame, xlator_t *this,
                       loc_t *loc, const char *name)
 {
         BUMP_FOP (REMOVEXATTR);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_removexattr_cbk,
                     FIRST_CHILD(this),
@@ -1202,6 +1363,8 @@ io_stats_opendir (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (OPENDIR);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_opendir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->opendir,
@@ -1214,6 +1377,8 @@ io_stats_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                    off_t offset)
 {
         BUMP_FOP (READDIRP);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_readdirp_cbk,
                     FIRST_CHILD(this),
@@ -1230,6 +1395,8 @@ io_stats_readdir (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (READDIR);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_readdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->readdir,
@@ -1245,6 +1412,8 @@ io_stats_fsyncdir (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (FSYNCDIR);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_fsyncdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsyncdir,
@@ -1259,6 +1428,8 @@ io_stats_access (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (ACCESS);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_access_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->access,
@@ -1272,6 +1443,8 @@ io_stats_ftruncate (call_frame_t *frame, xlator_t *this,
                     fd_t *fd, off_t offset)
 {
         BUMP_FOP (FTRUNCATE);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_ftruncate_cbk,
                     FIRST_CHILD(this),
@@ -1288,6 +1461,8 @@ io_stats_fsetattr (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (FSETATTR);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_setattr_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fsetattr,
@@ -1302,6 +1477,8 @@ io_stats_fstat (call_frame_t *frame, xlator_t *this,
 {
         BUMP_FOP (FSTAT);
 
+        START_FOP_LATENCY (frame);
+
         STACK_WIND (frame, io_stats_fstat_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fstat,
@@ -1315,6 +1492,8 @@ io_stats_lk (call_frame_t *frame, xlator_t *this,
              fd_t *fd, int32_t cmd, struct flock *lock)
 {
         BUMP_FOP (LK);
+
+        START_FOP_LATENCY (frame);
 
         STACK_WIND (frame, io_stats_lk_cbk,
                     FIRST_CHILD(this),
@@ -1358,6 +1537,45 @@ io_stats_forget (xlator_t *this, inode_t *inode)
 {
         BUMP_FOP (FORGET);
 
+        return 0;
+}
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+        struct ios_conf    *conf = NULL;
+        char               *str = NULL;
+        int                 ret = 0;
+
+        if (!this || !this->private)
+                return -1;
+
+        conf = this->private;
+
+        ret = dict_get_str (options, "dump-fd-stats", &str);
+        if (ret == 0) {
+                ret = gf_string2boolean (str, &conf->dump_fd_stats);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "'dump-fd-stats' takes only boolean arguments");
+                        return -1;
+                }
+
+                if (conf->dump_fd_stats) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"enabling dump-fd-stats");
+                }
+        }
+
+        ret = dict_get_str_boolean (options, "latency-measurement", 0);
+        if (ret != -1) {
+                if (conf->measure_latency != ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "changing latency measurement from %d to %d",
+                                conf->measure_latency, ret);
+                }
+                conf->measure_latency = ret;
+        }
         return 0;
 }
 
@@ -1432,6 +1650,14 @@ init (xlator_t *this)
                 }
         }
 
+        ret = dict_get_str_boolean (options, "latency-measurement", 0);
+        if (ret != -1) {
+                conf->measure_latency = ret;
+                if (conf->measure_latency)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "enabling latency measurement");
+        }
+
         this->private = conf;
 
         return 0;
@@ -1503,6 +1729,9 @@ struct xlator_cbks cbks = {
 
 struct volume_options options[] = {
         { .key  = {"dump-fd-stats"},
+          .type = GF_OPTION_TYPE_BOOL,
+        },
+        { .key  = { "latency-measurement" },
           .type = GF_OPTION_TYPE_BOOL,
         },
         { .key  = {NULL} },
