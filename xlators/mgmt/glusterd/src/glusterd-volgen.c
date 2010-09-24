@@ -308,6 +308,16 @@ set_default_options (dict_t *dict, char *volname)
         if (ret)
                 goto out;
 
+        ret = set_xlator_option (dict, VOLGEN_IOS_OPTION_DUMP_FD_STATS,
+                                 "no");
+        if (ret)
+                goto out;
+
+        ret = set_xlator_option (dict, VOLGEN_IOS_OPTION_MEASURE_LATENCY,
+                                 "no");
+        if (ret)
+                goto out;
+
         ret = 0;
 
 out:
@@ -1600,12 +1610,14 @@ __write_iostats_xlator (FILE *file, dict_t *dict,
                         char *subvolume)
 {
         char *volname = NULL;
+        char *dumpfd  = NULL;
+        char *latency = NULL;
         int ret       = -1;
 
         const char *iostats_str = "volume %s\n"
                 "    type debug/io-stats\n"
-                "    # option dump-fd-stats enable\n"
-                "    # option latency-measurement enable\n"
+                "    option dump-fd-stats %s\n"
+                "    option latency-measurement %s\n"
                 "    subvolumes %s\n"
                 "end-volume\n\n";
 
@@ -1614,9 +1626,15 @@ __write_iostats_xlator (FILE *file, dict_t *dict,
                 goto out;
         }
 
-        fprintf (file, iostats_str,
-                 volname,
-                 subvolume);
+        ret = dict_get_str (dict, VOLGEN_IOS_OPTION_DUMP_FD_STATS, &dumpfd);
+        if (ret)
+                goto out;
+
+        ret = dict_get_str (dict, VOLGEN_IOS_OPTION_MEASURE_LATENCY, &latency);
+        if (ret)
+                goto out;
+
+        fprintf (file, iostats_str, volname, dumpfd, latency, subvolume);
 
         ret = 0;
 
