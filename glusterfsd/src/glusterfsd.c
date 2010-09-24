@@ -410,10 +410,12 @@ out:
 static error_t
 parse_opts (int key, char *arg, struct argp_state *state)
 {
-        cmd_args_t *cmd_args = NULL;
-        uint32_t    n = 0;
-        double      d = 0.0;
-        gf_boolean_t b = _gf_false;
+        cmd_args_t   *cmd_args      = NULL;
+        uint32_t      n             = 0;
+        double        d             = 0.0;
+        gf_boolean_t  b             = _gf_false;
+        char         *pwd           = NULL;
+        char          tmp_buf[2048] = {0,};
 
         cmd_args = state->input;
 
@@ -456,7 +458,15 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 if (cmd_args->volfile)
                         GF_FREE (cmd_args->volfile);
 
-                cmd_args->volfile = gf_strdup (arg);
+                if (arg[0] != '/') {
+                        pwd = get_current_dir_name ();
+                        snprintf (tmp_buf, 1024, "%s/%s", pwd, arg);
+                        cmd_args->volfile = gf_strdup (tmp_buf);
+                        free (pwd);
+                } else {
+                        cmd_args->volfile = gf_strdup (arg);
+                }
+
                 break;
 
         case ARGP_LOG_SERVER_KEY:
