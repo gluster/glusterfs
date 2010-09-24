@@ -625,7 +625,7 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
         char       *opt_maxthreads    = NULL;
         int         ret               = -1;
 
-        const char *iot_str = "volume %s\n"
+        const char *iot_str = "volume %s-iot\n"
                 "    type performance/io-threads\n"
                 "    option thread-count %s\n"
                 "#   option autoscaling %s\n"
@@ -634,7 +634,7 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
                 "    subvolumes %s\n"
                 "end-volume\n\n";
 
-        ret = dict_get_str (dict, "export-path", &volname);
+        ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
                 goto out;
         }
@@ -642,11 +642,10 @@ __write_iothreads_xlator (FILE *file, dict_t *dict,
 	if (dict_get (dict, "thread-count")) {
 		gf_log("", GF_LOG_DEBUG, "Resetting the thread-count value");
         	ret = dict_get_str (dict, "thread-count", &opt_threadcount);
-	}
-	else 
+	} else
 		ret = dict_get_str (dict, VOLGEN_IOT_OPTION_THREADCOUNT,
                 	            &opt_threadcount);
-	
+
         if (ret) {
                 goto out;
         }
@@ -1605,10 +1604,12 @@ __write_iostats_xlator (FILE *file, dict_t *dict,
 
         const char *iostats_str = "volume %s\n"
                 "    type debug/io-stats\n"
+                "    # option dump-fd-stats enable\n"
+                "    # option latency-measurement enable\n"
                 "    subvolumes %s\n"
                 "end-volume\n\n";
 
-        ret = dict_get_str (dict, "volname", &volname);
+        ret = dict_get_str (dict, "iostat-volname", &volname);
         if (ret) {
                 goto out;
         }
@@ -1709,16 +1710,24 @@ generate_server_volfile (glusterd_brickinfo_t *brickinfo,
         } else
                 VOLGEN_GENERATE_VOLNAME (subvol, volname, "locks");
 
-
-        ret = dict_set_str (dict, "export-path", brickinfo->path);
-        if (ret) {
-                goto out;
-        }
-
         ret = __write_iothreads_xlator (file, dict, subvol);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not write xlator");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "iostat-volname", brickinfo->path);
+        if (ret) {
+                goto out;
+        }
+
+        VOLGEN_GENERATE_VOLNAME (subvol, volname, "iot");
+
+        ret = __write_iostats_xlator (file, dict, subvol);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not write io-stats xlator");
                 goto out;
         }
 
@@ -2130,6 +2139,11 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Could not write performance xlators");
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "iostat-volname", volname);
+        if (ret) {
                 goto out;
         }
 
