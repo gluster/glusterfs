@@ -2921,6 +2921,15 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
                 size += readch[i].rc_target.rs_length;
         }
 
+        if (i == 0) {
+                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                        "message type specified as rdma-read but there are no "
+                        "rdma read-chunks present");
+                goto out;
+        }
+
+        post->ctx.rdma_reads = i;
+
         if (size > peer->trans->ctx->page_size) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                         "total size of rdma-read (%lu) is greater than "
@@ -3388,7 +3397,7 @@ void
 rdma_handle_successful_send_completion (rdma_peer_t *peer, struct ibv_wc *wc)
 {
         rdma_post_t            *post     = NULL;
-        int                     refcount = 0, ret = 0;
+        int                     reads    = 0, ret = 0;
 
         if (wc->opcode != IBV_WC_RDMA_READ) {
                 goto out;
@@ -3396,8 +3405,13 @@ rdma_handle_successful_send_completion (rdma_peer_t *peer, struct ibv_wc *wc)
 
         post = (rdma_post_t *)(long) wc->wr_id;
 
-        refcount = rdma_post_get_refcount (post);
-        if (refcount != 1) {
+        pthread_mutex_lock (&post->lock);
+        {
+                reads = --post->ctx.rdma_reads;
+        }
+        pthread_mutex_unlock (&post->lock);
+
+        if (reads != 0) {
                 /* if it is not the last rdma read, we've got nothing to do */
                 goto out;
         }

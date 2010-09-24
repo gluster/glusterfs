@@ -257,6 +257,7 @@ struct __rdma_post_context {
         int                count;
         struct iobref     *iobref;
         char               is_request;
+        int                rdma_reads;
         rdma_reply_info_t *reply_info;
 };
 typedef struct __rdma_post_context rdma_post_context_t;
