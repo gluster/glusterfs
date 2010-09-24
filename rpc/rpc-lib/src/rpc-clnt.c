@@ -136,7 +136,7 @@ call_bail (void *data)
         struct saved_frame    *trav = NULL;
         struct saved_frame    *tmp = NULL;
         struct tm              frame_sent_tm;
-        char                   frame_sent[32] = {0,};
+        char                   frame_sent[256] = {0,};
         struct timeval         timeout = {0,};
         struct iovec           iov = {0,};
 
@@ -184,6 +184,9 @@ call_bail (void *data)
         list_for_each_entry_safe (trav, tmp, &list, list) {
                 localtime_r (&trav->saved_at.tv_sec, &frame_sent_tm);
                 strftime (frame_sent, 32, "%Y-%m-%d %H:%M:%S", &frame_sent_tm);
+                snprintf (frame_sent + strlen (frame_sent),
+                          256 - strlen (frame_sent),
+                          ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
 
 		gf_log (conn->trans->name, GF_LOG_ERROR,
 			"bailing out frame type(%s) op(%s(%d)) xid = 0x%lx "
