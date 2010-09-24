@@ -125,6 +125,8 @@
 #define VOLGEN_QR_OPTION_CACHESIZE "volgen_qr_option_cachesize"
 #define VOLGEN_QR_OPTION_MAXFILESIZE "volgen_qr_option_maxfilesize"
 
+#define VOLGEN_IOS_OPTION_DUMP_FD_STATS   "dump-fd-stats"
+#define VOLGEN_IOS_OPTION_MEASURE_LATENCY "latency-measurement"
 
 int
 glusterd_create_volfiles (glusterd_volinfo_t *volinfo);

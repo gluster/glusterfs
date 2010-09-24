@@ -1119,6 +1119,8 @@ char *set_option_list[] = {
         "io-cache",
         "quick-read",
         "stat-prefetch",
+        "latency-measurement",
+        "dump-fd-stats",
 };
 
 
