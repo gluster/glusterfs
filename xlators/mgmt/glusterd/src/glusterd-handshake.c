@@ -52,7 +52,17 @@ build_volfile_path (const char *volname, char *path,
         glusterd_volinfo_t *volinfo     = NULL;
 
         priv    = THIS->private;
-        dup_volname = gf_strdup (volname);
+
+        if (volname[0] != '/') {
+                /* Normal behavior */
+                dup_volname = gf_strdup (volname);
+        } else {
+                /* Bringing in NFS like behavior for mount command,    */
+                /* With this, one can mount a volume with below cmd    */
+                /* bash# mount -t glusterfs server:/volume /mnt/pnt    */
+                dup_volname = gf_strdup (&volname[1]);
+        }
+
         free_ptr = dup_volname;
 
         ret = glusterd_volinfo_find (dup_volname, &volinfo);
