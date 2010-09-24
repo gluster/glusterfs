@@ -1737,13 +1737,13 @@ glusterd_is_exisiting_brick (char *hostname, char *path)
         GF_ASSERT (this);
 
         priv = this->private;
+
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
 
                 list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
                                      brick_list) {
-
-                        if ((!strcmp(hostname, tmpbrkinfo-> hostname)
-                            && !strcmp(path, tmpbrkinfo->path))) {
+                        if ((!glusterd_is_local_addr (hostname)) && (!glusterd_is_local_addr (tmpbrkinfo->hostname))
+                            && !strcmp(path, tmpbrkinfo->path)) {
                                 gf_log ("glusterd", GF_LOG_ERROR, "Brick %s:%s"
                                         " already in use", hostname, path);
                                 ret = 1;
