@@ -62,7 +62,8 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         glusterd_conf_t         *priv = NULL;
         glusterd_peerinfo_t     *entry = NULL;
         glusterd_peer_hostname_t *name = NULL;
-        struct addrinfo         *addr, *p;
+        struct addrinfo         *addr = NULL;
+        struct addrinfo         *p = NULL;
         char                    *host = NULL;
         struct sockaddr_in6     *s6 = NULL;
         struct sockaddr_in      *s4 = NULL;
