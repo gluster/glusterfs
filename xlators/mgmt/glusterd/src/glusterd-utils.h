@@ -92,7 +92,7 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo);
 
 int32_t
 glusterd_service_stop(const char *service, char *pidfile, int sig,
-                      gf_boolean_t keep_pidfile);
+                      gf_boolean_t force_kill);
 
 int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);

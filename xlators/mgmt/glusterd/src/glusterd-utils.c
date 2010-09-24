@@ -769,8 +769,8 @@ glusterd_volinfo_find (char *volname, glusterd_volinfo_t **volinfo)
 
 
 int32_t
-glusterd_service_stop(const char *service, char *pidfile, int sig,
-                      gf_boolean_t keep_pidfile)
+glusterd_service_stop (const char *service, char *pidfile, int sig,
+                       gf_boolean_t force_kill)
 {
         int32_t  ret = -1;
         pid_t    pid = -1;
@@ -806,20 +806,23 @@ glusterd_service_stop(const char *service, char *pidfile, int sig,
 
         ret = kill (pid, sig);
 
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to kill pid %d", pid);
-                goto out;
-        }
-
-        if (keep_pidfile)
-                goto out;
-
-        ret = unlink (pidfile);
-
-        if (ret && (ENOENT != errno)) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unlink pidfile: %s",
-                                pidfile);
-                goto out;
+        if (force_kill) {
+                sleep (1);
+                ret = access (pidfile, F_OK);
+                if (!ret) {
+                        ret = kill (pid, SIGKILL);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "Unable to "
+                                        "kill pid %d", pid);
+                                goto out;
+                        }
+                        ret = unlink (pidfile);
+                        if (ret && (ENOENT != errno)) {
+                                gf_log ("", GF_LOG_ERROR, "Unable to "
+                                        "unlink pidfile: %s", pidfile);
+                                goto out;
+                        }
+                }
         }
 
         ret = 0;
@@ -1642,7 +1645,7 @@ glusterd_nfs_server_stop ()
         GLUSTERD_GET_NFS_DIR(path, priv);
         GLUSTERD_GET_NFS_PIDFILE(pidfile);
 
-        return glusterd_service_stop ("nfsd", pidfile, SIGTERM, _gf_false);
+        return glusterd_service_stop ("nfsd", pidfile, SIGTERM, _gf_true);
 }
 
 int
