@@ -2999,15 +2999,13 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
                 if (uuid_compare (brickinfo->uuid, priv->uuid))
                         continue;
 
-                brick_path = strchr (brick, ':');
-                brick_path++;
+                if (brick) {
+                        brick_path = strchr (brick, ':');
+                        brick_path++;
 
-                if (brick_path  && strcmp (brickinfo->path, brick_path))
-                         continue;
-
-                GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
-                if (brick && strcmp (brickinfo->path, brick))
-                        continue;
+                        if (brick_path  && strcmp (brickinfo->path, brick_path))
+                                continue;
+                }
 
                 GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
 
