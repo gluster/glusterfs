@@ -556,6 +556,7 @@ nfs_init_subvolumes (struct nfs_state *nfs, xlator_list_t *cl)
                 sv = &nfs->subvols[x];
                 sv->subvol = cl->xlator;
                 sv->status = GF_NFS_SUBVOLUME_NOTSTARTED;
+                cl = cl->next;
         }
 
         gf_log (GF_NFS, GF_LOG_TRACE, "inited volumes: %d", svcount);
