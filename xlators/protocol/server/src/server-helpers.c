@@ -726,6 +726,10 @@ server_connection_put (xlator_t *this, server_connection_t *conn)
 
         conf = this->private;
 
+        if (conf == NULL) {
+                goto out;
+        }
+
         pthread_mutex_lock (&conf->mutex);
         {
                 conn->ref--;
