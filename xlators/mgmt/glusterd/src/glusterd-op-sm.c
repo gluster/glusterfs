@@ -2637,8 +2637,8 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 		sprintf (str, "key%d", count);
 		ret = dict_get_str (dict, str, &key);
 
-		
-		if (ret) 
+
+		if (ret)
 			break;
 
 		sprintf (str, "value%d", count);
@@ -2652,7 +2652,7 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
         	}
 
 		ret = set_xlator_option (volinfo->dict, key, value);
-		
+
 		if (ret) {
                 	gf_log ("", GF_LOG_ERROR, "Unable to set the options"
 						  "in 'volume set'");
@@ -2676,14 +2676,21 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 		goto out;
         }
 
+        ret = glusterd_store_update_volume (volinfo);
+        if (ret)
+                goto out;
 
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
 
-
-        gf_log ("", GF_LOG_DEBUG, "Received set volume command");
+        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+                ret = glusterd_check_generate_start_nfs (volinfo);
 
         ret = 0;
 
 out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 
