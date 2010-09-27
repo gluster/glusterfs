@@ -23,6 +23,7 @@
 
 #include <sys/uio.h>
 //#include <rpc/rpc.h>
+#include <rpc/types.h>
 #include <rpc/xdr.h>
 
 #define xdr_decoded_remaining_addr(xdr)        ((&xdr)->x_private)
