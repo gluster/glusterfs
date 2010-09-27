@@ -1010,7 +1010,7 @@ ac_rename_src_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         op_ret = ac_parent_loc_fill (&parentloc, &stub->args.rename.new);
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 op_errno = -EFAULT;
                 goto out;
         }
