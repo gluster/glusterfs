@@ -1123,7 +1123,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         glusterd_peerinfo_t    *peerinfo    = NULL;
         char                   *brick_list  = NULL;
         void                   *cli_rsp     = NULL;
-        char                    err_str[1048];
+        char                    err_str[2048] = {0,};
         gf1_cli_create_vol_rsp  rsp         = {0,};
         glusterd_conf_t        *priv        = NULL;
         int                     err_ret     = 0;
@@ -1178,7 +1178,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         gf_cmd_log ("Volume create", "on volname: %s attempted", volname);
 
         if ((ret = glusterd_check_volume_exists (volname))) {
-                snprintf(err_str, 1048, "Volname %s already exists",
+                snprintf(err_str, 2048, "Volname %s already exists",
                          volname);
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                 err_ret = 1;
@@ -1237,7 +1237,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 ret = glusterd_friend_find_by_hostname (brickinfo->hostname,
                                                         &peerinfo);
                 if (ret) {
-                        snprintf (err_str, 1048, "Host %s not a friend",
+                        snprintf (err_str, 2048, "Host %s not a friend",
                                   brickinfo->hostname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
@@ -1245,7 +1245,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                 }
                 if ((!peerinfo->connected) ||
                     (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                        snprintf(err_str, 1048, "Host %s not connected",
+                        snprintf(err_str, 2048, "Host %s not connected",
                                  brickinfo->hostname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
@@ -1255,7 +1255,7 @@ brick_validation:
                 err_ret = glusterd_is_exisiting_brick (brickinfo->hostname,
                                                        brickinfo->path);
                 if (err_ret) {
-                        snprintf(err_str, 1048, "Brick: %s already in use",
+                        snprintf(err_str, 2048, "Brick: %s already in use",
                                  brick);
                         goto out;
                 }
@@ -1270,7 +1270,7 @@ brick_validation:
                 list_for_each_entry (tmp2, &tmp->brick_list, brick_list) {
                         if ((!glusterd_is_local_addr (tmp->hostname)) && (!glusterd_is_local_addr (tmp2->hostname))
                             && (!strcmp (tmp->path, tmp2->path))) {
-                                snprintf (err_str, 1048, "%s:%s and %s:%s are one and the same",
+                                snprintf (err_str, 2048, "%s:%s and %s:%s are one and the same",
                                           tmp->hostname, tmp->path, tmp2->hostname, tmp2->path);
                                 gf_log ("glusterd", GF_LOG_ERROR,
                                         "%s",err_str);
@@ -1422,7 +1422,7 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         glusterd_peerinfo_t             *peerinfo = NULL;
         char                            *brick_list = NULL;
         void                            *cli_rsp = NULL;
-        char                            err_str[1048];
+        char                            err_str[2048] = {0,};
         gf1_cli_add_brick_rsp           rsp = {0,};
         glusterd_volinfo_t              *volinfo = NULL;
         int32_t                         err_ret = 0;
@@ -1476,7 +1476,7 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         }
 
         if (!(ret = glusterd_check_volume_exists (volname))) {
-                snprintf(err_str, 1048, "Volname %s does not exist",
+                snprintf(err_str, 2048, "Volname %s does not exist",
                          volname);
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                 err_ret = -1;
@@ -1549,7 +1549,7 @@ brick_val:
                 ret = glusterd_friend_find_by_hostname(brickinfo->hostname,
                                                         &peerinfo);
                 if (ret) {
-                        snprintf(err_str, 1048, "Host %s not a friend",
+                        snprintf(err_str, 2048, "Host %s not a friend",
                                  brickinfo->hostname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
@@ -1557,7 +1557,7 @@ brick_val:
                 }
                 if ((!peerinfo->connected) ||
                     (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                        snprintf(err_str, 1048, "Host %s not connected",
+                        snprintf(err_str, 2048, "Host %s not connected",
                                  brickinfo->hostname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
@@ -1567,7 +1567,7 @@ brick_validation:
                 err_ret = glusterd_is_exisiting_brick (brickinfo->hostname,
                                                        brickinfo->path);
                 if (err_ret) {
-                        snprintf(err_str, 1048, "Brick: %s already in use",
+                        snprintf(err_str, 2048, "Brick: %s already in use",
                                  brick);
                         goto out;
                 }
@@ -1583,7 +1583,7 @@ brick_validation:
                 list_for_each_entry (tmp2, &tmp->brick_list, brick_list) {
                         if ((!glusterd_is_local_addr (tmp->hostname)) && (!glusterd_is_local_addr (tmp2->hostname))
                             && (!strcmp (tmp->path, tmp2->path))) {
-                                snprintf (err_str, 1048, "%s:%s and %s:%s are one and the same",
+                                snprintf (err_str, 2048, "%s:%s and %s:%s are one and the same",
                                           tmp->hostname, tmp->path, tmp2->hostname, tmp2->path);
                                 gf_log ("glusterd", GF_LOG_ERROR,
                                         "%s",err_str);
