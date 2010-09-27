@@ -1833,7 +1833,23 @@ struct xlator_fops fops = {
 int
 init (xlator_t *this)
 {
-        return 0;
+        int ret = -1;
+
+	if (!this->children || this->children->next) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"FATAL: access-control not configured with "
+                        "exactly one  child");
+                goto out;
+	}
+
+	if (!this->parents) {
+		gf_log (this->name, GF_LOG_WARNING,
+			"dangling volume. check volfile ");
+	}
+
+        ret = 0;
+out:
+        return ret;
 }
 
 void
