@@ -70,7 +70,6 @@ typedef struct {
         rpc_clnt_prog_t   *mgmt;
         struct pmap_registry *pmap;
         struct list_head  volumes;
-        struct list_head  hostnames;
         struct list_head  xprt_list;
         glusterd_store_handle_t *handle;
         gf_timer_t *timer;
@@ -245,7 +244,8 @@ glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid, struct rpc_clnt    *rpc,
                      glusterd_peerinfo_t **friend,
-                     gf_boolean_t restore);
+                     gf_boolean_t restore,
+                     glusterd_peerctx_args_t *args);
 
 int
 glusterd_friend_remove (uuid_t uuid, char *hostname);

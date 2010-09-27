@@ -590,7 +590,6 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
         int32_t                 ret = -1;
         glusterd_peerinfo_t     *peerinfo = NULL;
         glusterd_conf_t         *priv = NULL;
-        glusterd_peer_hostname_t        *host = NULL;
 
         priv = THIS->private;
         GF_ASSERT (priv);
@@ -601,15 +600,6 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
 
         if (!ret) {
                 uuid_copy (brickinfo->uuid, peerinfo->uuid);
-        } else {
-                list_for_each_entry (host, &priv->hostnames, hostname_list) {
-                        if (!strcmp (host->hostname, brickinfo->hostname)) {
-                                uuid_copy (brickinfo->uuid, priv->uuid);
-                                ret = 0;
-                                break;
-                        }
-
-                }
         }
 
         if (ret) {
@@ -729,7 +719,12 @@ int32_t
 glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
 {
         GF_ASSERT (peerinfo);
+        glusterd_peerctx_t *peerctx = NULL;
+
         if (peerinfo->rpc) {
+                peerctx = peerinfo->rpc->mydata;
+                peerinfo->rpc->mydata = NULL;
+                GF_FREE (peerctx);
                 peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
                 peerinfo->rpc = NULL;
         }
@@ -974,6 +969,7 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
                                   hostname_list) {
                 list_del_init (&name->hostname_list);
                 GF_FREE (name->hostname);
+                GF_FREE (name);
         }
 
         list_del_init (&peerinfo->hostnames);

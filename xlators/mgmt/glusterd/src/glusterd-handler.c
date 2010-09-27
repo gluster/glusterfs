@@ -182,15 +182,28 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_friend_sm_event_t      *event = NULL;
         glusterd_friend_req_ctx_t       *ctx = NULL;
+        glusterd_peerctx_args_t         args = {0};
+        char                            rhost[UNIX_PATH_MAX + 1] = {0};
+        uuid_t                          friend_uuid = {0};
+        char                            uuid_str[50] = {0,};
 
+        uuid_unparse (uuid, uuid_str);
+        uuid_parse (uuid_str, friend_uuid);
         if (!port)
                 port = 6969; // TODO: use define values.
 
-        ret = glusterd_friend_find (uuid, hostname, &peerinfo);
+        ret = glusterd_remote_hostname_get (req, rhost, sizeof (rhost));
+        ret = glusterd_friend_find (uuid, rhost, &peerinfo);
 
         if (ret) {
                 gf_log ("glusterd", GF_LOG_NORMAL,
-                         "Unable to find peer");
+                        " for host: %s (%d)", rhost, port);
+                args.mode = GD_MODE_SWITCH_ON;
+                args.req  = NULL;
+                ret = glusterd_friend_add (rhost, port,
+                                           GD_FRIEND_STATE_DEFAULT,
+                                           &friend_uuid, NULL, &peerinfo, 0,
+                                           &args);
 
         }
 
@@ -240,6 +253,8 @@ out:
                         GF_FREE (ctx);
         }
 
+        if (0 == peerinfo->connected)
+                ret = GLUSTERD_CONNECTION_AWAITED;
         return ret;
 }
 
@@ -2396,8 +2411,10 @@ glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
                                           dict);
 
 out:
-        if (ret && dict)
-                dict_unref (dict);
+        if (GLUSTERD_CONNECTION_AWAITED != ret) {
+                if (ret && dict)
+                        dict_unref (dict);
+        }
         if (friend_req.hostname)
                 free (friend_req.hostname);//malloced by xdr
 
@@ -2451,6 +2468,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         int                     i = 1;
         int                     count = 0;
         uuid_t                  uuid = {0,};
+        glusterd_peerctx_args_t args = {0};
 
         GF_ASSERT (req);
 
@@ -2490,6 +2508,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         if (ret)
                 goto out;
 
+        args.mode = GD_MODE_SWITCH_ON;
         while ( i <= count) {
                 snprintf (key, sizeof (key), "friend%d.uuid", i);
                 ret = dict_get_str (dict, key, &uuid_buf);
@@ -2519,7 +2538,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
 
                 ret = glusterd_friend_add (hostname, friend_req.port,
                                            GD_FRIEND_STATE_BEFRIENDED,
-                                           &uuid, NULL, &peerinfo, 0);
+                                           &uuid, NULL, &peerinfo, 0, &args);
 
                 i++;
         }
@@ -2542,7 +2561,6 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         glusterd_conf_t     *conf = NULL;
         gd1_mgmt_probe_req  probe_req = {{0},};
         gd1_mgmt_probe_rsp  rsp = {{0},};
-        glusterd_peer_hostname_t        *name = NULL;
         glusterd_peerinfo_t             *peerinfo = NULL;
         char               remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
@@ -2570,16 +2588,7 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
                 goto out;
         }
         ret = glusterd_friend_find (probe_req.uuid, remote_hostname, &peerinfo);
-        if ((ret == 0 ) || list_empty (&conf->peers)) {
-                ret = glusterd_peer_hostname_new (probe_req.hostname, &name);
-
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to get new peer_hostname");
-                } else {
-                        list_add_tail (&name->hostname_list, &conf->hostnames);
-                }
-
-        } else {
+        if ((ret != 0 ) && (!list_empty (&conf->peers))) {
                 rsp.op_ret = -1;
                 rsp.op_errno = GF_PROBE_ANOTHER_CLUSTER;
         }
@@ -2623,7 +2632,8 @@ glusterd_friend_add (const char *hoststr, int port,
                      uuid_t *uuid,
                      struct rpc_clnt    *rpc,
                      glusterd_peerinfo_t **friend,
-                     gf_boolean_t restore)
+                     gf_boolean_t restore,
+                     glusterd_peerctx_args_t *args)
 {
         int                     ret = 0;
         glusterd_conf_t         *priv = NULL;
@@ -2632,14 +2642,25 @@ glusterd_friend_add (const char *hoststr, int port,
         struct rpc_clnt_config  rpc_cfg = {0,};
         glusterd_peer_hostname_t *name = NULL;
         char                    *hostname = NULL;
+        glusterd_peerctx_t     *peerctx = NULL;
 
         priv = THIS->private;
 
-        peerinfo = GF_CALLOC (1, sizeof(*peerinfo), gf_gld_mt_peerinfo_t);
+        peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
+        if (!peerctx) {
+                ret = -1;
+                goto out;
+        }
+        peerinfo = GF_CALLOC (1, sizeof (*peerinfo), gf_gld_mt_peerinfo_t);
 
-        if (!peerinfo)
-                return -1;
+        if (!peerinfo) {
+                ret = -1;
+                goto out;
+        }
 
+        if (args)
+                peerctx->args = *args;
+        peerctx->peerinfo = peerinfo;
         if (friend)
                 *friend = peerinfo;
 
@@ -2650,7 +2671,7 @@ glusterd_friend_add (const char *hoststr, int port,
                 if (ret)
                         goto out;
                 list_add_tail (&peerinfo->hostnames, &name->hostname_list);
-                rpc_cfg.remote_host = gf_strdup (hoststr);
+                rpc_cfg.remote_host = (char *)hoststr;
                 peerinfo->hostname = gf_strdup (hoststr);
         }
         INIT_LIST_HEAD (&peerinfo->uuid_list);
@@ -2664,8 +2685,10 @@ glusterd_friend_add (const char *hoststr, int port,
 
         if (hoststr) {
                 options = dict_new ();
-                if (!options)
-                        return -1;
+                if (!options) {
+                        ret = -1;
+                        goto out;
+                }
 
                 hostname = gf_strdup((char*)hoststr);
                 if (!hostname) {
@@ -2701,7 +2724,7 @@ glusterd_friend_add (const char *hoststr, int port,
                 }
 
                 ret = rpc_clnt_register_notify (rpc, glusterd_rpc_notify,
-                                                peerinfo);
+                                                peerctx);
 
                 peerinfo->rpc = rpc;
 
@@ -2712,9 +2735,21 @@ glusterd_friend_add (const char *hoststr, int port,
 
 
 out:
+        if (ret) {
+                if (peerctx)
+                        GF_FREE (peerctx);
+                if (rpc) {
+                        (void) rpc_clnt_unref (rpc);
+                }
+                if (peerinfo) {
+                        peerinfo->rpc = NULL;
+                        (void) glusterd_friend_cleanup (peerinfo);
+                }
+                if (options)
+                        dict_unref (options);
+        }
+
         gf_log ("glusterd", GF_LOG_NORMAL, "connect returned %d", ret);
-        if (rpc_cfg.remote_host)
-                GF_FREE (rpc_cfg.remote_host);
         return ret;
 }
 
@@ -2725,8 +2760,7 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
 {
         int                             ret = -1;
         glusterd_peerinfo_t             *peerinfo = NULL;
-        glusterd_friend_sm_event_t      *event = NULL;
-        glusterd_probe_ctx_t            *ctx = NULL;
+        glusterd_peerctx_args_t         args = {0};
 
         GF_ASSERT (hoststr);
 
@@ -2735,38 +2769,11 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
         if (ret) {
                 gf_log ("glusterd", GF_LOG_NORMAL, "Unable to find peerinfo"
                         " for host: %s (%d)", hoststr, port);
+                args.mode = GD_MODE_ON;
+                args.req  = req;
                 ret = glusterd_friend_add ((char *)hoststr, port,
                                            GD_FRIEND_STATE_DEFAULT,
-                                           NULL, NULL, &peerinfo, 0);
-        }
-
-        ret = glusterd_friend_sm_new_event
-                        (GD_FRIEND_EVENT_PROBE, &event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get new event");
-                return ret;
-        }
-
-        ctx = GF_CALLOC (1, sizeof(*ctx), gf_gld_mt_probe_ctx_t);
-
-        if (!ctx) {
-                return ret;
-        }
-
-        ctx->hostname = gf_strdup (hoststr);
-        ctx->port = port;
-        ctx->req = req;
-
-        event->peerinfo = peerinfo;
-        event->ctx = ctx;
-
-        ret = glusterd_friend_sm_inject_event (event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject event %d, "
-                        "ret = %d", event->event, ret);
-                return ret;
+                                           NULL, NULL, &peerinfo, 0, &args);
         }
 
         if (!peerinfo->connected) {
@@ -3420,6 +3427,54 @@ out:
         return ret;
 }
 
+static int
+glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
+{
+        GF_ASSERT (peerctx);
+
+        glusterd_friend_sm_event_t      *event = NULL;
+        glusterd_probe_ctx_t            *ctx = NULL;
+        int                             ret = -1;
+        glusterd_peerinfo_t             *peerinfo = NULL;
+
+
+        ret = glusterd_friend_sm_new_event
+                        (GD_FRIEND_EVENT_CONNECTED, &event);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get new event");
+                goto out;
+        }
+
+        ctx = GF_CALLOC (1, sizeof(*ctx), gf_gld_mt_probe_ctx_t);
+
+        if (!ctx) {
+                ret = -1;
+                gf_log ("", GF_LOG_ERROR, "Memory not available");
+                goto out;
+        }
+
+        peerinfo = peerctx->peerinfo;
+        ctx->hostname = gf_strdup (peerinfo->hostname);
+        ctx->port = peerinfo->port;
+        ctx->req = peerctx->args.req;
+
+        event->peerinfo = peerinfo;
+        event->ctx = ctx;
+
+        ret = glusterd_friend_sm_inject_event (event);
+
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject "
+                        "EVENT_CONNECTED ret = %d", ret);
+                goto out;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
 int
 glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                      void *data)
@@ -3429,8 +3484,10 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         glusterd_conf_t         *conf = NULL;
         int                     ret = 0;
         glusterd_peerinfo_t     *peerinfo = NULL;
+        glusterd_peerctx_t     *peerctx = NULL;
 
-        peerinfo = mydata;
+        peerctx = mydata;
+        peerinfo = peerctx->peerinfo;
         this = THIS;
         conf = this->private;
 
@@ -3438,11 +3495,8 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         switch (event) {
         case RPC_CLNT_CONNECT:
         {
-
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
-                glusterd_friend_sm ();
-                glusterd_op_sm ();
 
                 if ((ret < 0) || (strcasecmp (handshake, "on"))) {
                         //ret = glusterd_handshake (this, peerinfo->rpc);
@@ -3451,6 +3505,16 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         //conf->rpc->connected = 1;
                         ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
                 }
+
+                if (GD_MODE_ON == peerctx->args.mode) {
+                        ret = glusterd_event_connected_inject (peerctx);
+                        peerctx->args.req = NULL;
+                } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
+                        peerctx->args.mode = GD_MODE_ON;
+                }
+
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
                 break;
         }
 
