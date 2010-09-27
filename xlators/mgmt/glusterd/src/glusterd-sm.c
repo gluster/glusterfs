@@ -67,8 +67,6 @@ glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx)
                 dict_unref (ctx->vols);
         if (ctx->hostname)
                 GF_FREE (ctx->hostname);
-        if (ctx->remote_hostname)
-                GF_FREE (ctx->remote_hostname);
         GF_FREE (ctx);
 }
 
@@ -99,14 +97,53 @@ static int
 glusterd_ac_reverse_probe_begin (glusterd_friend_sm_event_t *event, void *ctx)
 {
         int ret = 0;
-        glusterd_friend_update_ctx_t    *ev_ctx = NULL;
+        glusterd_peerinfo_t             *peerinfo = NULL;
+        glusterd_friend_sm_event_t      *new_event = NULL;
+        glusterd_probe_ctx_t            *new_ev_ctx = NULL;
 
         GF_ASSERT (event);
         GF_ASSERT (ctx);
 
-        ev_ctx = ctx;
-        ret = glusterd_probe_begin (NULL, ev_ctx->remote_hostname, 0);
+        peerinfo = event->peerinfo;
+        ret = glusterd_friend_sm_new_event
+                (GD_FRIEND_EVENT_PROBE, &new_event);
 
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get new new_event");
+                ret = -1;
+                goto out;
+        }
+
+        new_ev_ctx = GF_CALLOC (1, sizeof(*new_ev_ctx), gf_gld_mt_probe_ctx_t);
+
+        if (!new_ev_ctx) {
+                ret = -1;
+                goto out;
+        }
+
+        new_ev_ctx->hostname = gf_strdup (peerinfo->hostname);
+        new_ev_ctx->port = peerinfo->port;
+        new_ev_ctx->req = NULL;
+
+        new_event->peerinfo = peerinfo;
+        new_event->ctx = new_ev_ctx;
+
+        ret = glusterd_friend_sm_inject_event (new_event);
+
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject new_event %d, "
+                                "ret = %d", new_event->event, ret);
+        }
+
+out:
+        if (ret) {
+                if (new_event)
+                        GF_FREE (new_event);
+                if (new_ev_ctx->hostname)
+                        GF_FREE (new_ev_ctx->hostname);
+                if (new_ev_ctx)
+                        GF_FREE (new_ev_ctx);
+        }
         gf_log ("", GF_LOG_DEBUG, "returning with %d", ret);
         return ret;
 }
@@ -291,13 +328,8 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
         peerinfo = event->peerinfo;
         GF_ASSERT (peerinfo);
 
-        uuid_clear (peerinfo->uuid);
-
         ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname,
                                                 ev_ctx->port);
-
-        peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
-        peerinfo->rpc = NULL;
 
         ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
                                             &new_event);
@@ -353,7 +385,6 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         int                             status = 0;
         int32_t                         op_ret = -1;
         int32_t                         op_errno = 0;
-        char               remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
         GF_ASSERT (ctx);
         ev_ctx = ctx;
@@ -395,14 +426,6 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
         uuid_copy (new_ev_ctx->uuid, ev_ctx->uuid);
         new_ev_ctx->hostname = gf_strdup (ev_ctx->hostname);
 
-        ret = glusterd_remote_hostname_get (ev_ctx->req, remote_hostname,
-                                            sizeof (remote_hostname));
-        if (ret) {
-                ret = -1;
-                goto out;
-        }
-
-        new_ev_ctx->remote_hostname = gf_strdup (remote_hostname);
         new_event->ctx = new_ev_ctx;
 
         glusterd_friend_sm_inject_event (new_event);
@@ -446,6 +469,7 @@ glusterd_sm_t glusterd_state_default [] = {
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EV_INIT_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_none}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_probe}, //EVENT_CONNECTED
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_none}, //EVENT_MAX
 };
 
@@ -462,6 +486,7 @@ glusterd_sm_t  glusterd_state_req_sent [] = {
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND,
         {GD_FRIEND_STATE_REQ_SENT, glusterd_ac_none}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_REQ_SENT, glusterd_ac_none},//EVENT_CONNECTED
         {GD_FRIEND_STATE_REQ_SENT, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -477,6 +502,7 @@ glusterd_sm_t  glusterd_state_req_rcvd [] = {
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND,
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none},//EVENT_CONNECTED
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -486,12 +512,13 @@ glusterd_sm_t  glusterd_state_befriended [] = {
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_ACC
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_RJT
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
+        {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_RJT
+        {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_handle_friend_add_req}, //EVENT_RCV_FRIEND_REQ
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND,
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_friend_add},//EVENT_CONNECTED
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -507,6 +534,7 @@ glusterd_sm_t  glusterd_state_req_sent_rcvd [] = {
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND,
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none},//EVENT_CONNECTED
         {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -514,14 +542,15 @@ glusterd_sm_t  glusterd_state_rejected [] = {
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_NONE,
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_friend_probe}, //EVENT_PROBE,
         {GD_FRIEND_STATE_REQ_SENT, glusterd_ac_friend_add}, //EVENT_INIT_FRIEND_REQ,
-        {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_ACC
-        {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_handle_friend_add_req}, //EVENT_RCV_FRIEND_REQ
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_REJECTED, glusterd_ac_friend_add},//EVENT_CONNECTED
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -537,6 +566,7 @@ glusterd_sm_t  glusterd_state_req_accepted [] = {
         {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_none},//EVENT_CONNECTED
         {GD_FRIEND_STATE_REQ_SENT, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -552,6 +582,7 @@ glusterd_sm_t  glusterd_state_unfriend_sent [] = {
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_none}, //EVENT_INIT_REMOVE_FRIEND
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_none}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_none},//EVENT_CONNECTED
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -622,60 +653,6 @@ glusterd_destroy_friend_event_context (glusterd_friend_sm_event_t *event)
 }
 
 int
-glusterd_check_and_add_friend (glusterd_friend_sm_event_t *event)
-{
-        rpcsvc_request_t                *req = NULL;
-        glusterd_peerinfo_t             *peerinfo   = NULL;
-        glusterd_friend_sm_event_type_t  event_type = 0;
-        glusterd_friend_req_ctx_t       *fr_ctx = NULL;
-        glusterd_probe_ctx_t            *pb_ctx = NULL;
-        gf_boolean_t                    add_friend = _gf_false;
-        char                            rhost[UNIX_PATH_MAX + 1] = {0};
-        char                            *host_str = NULL;
-        int                             port       = 6969; //TODO, use standard
-        int                             ret = 0;
-
-        peerinfo = event->peerinfo;
-        event_type = event->event;
-
-        if (!peerinfo &&
-           (GD_FRIEND_EVENT_PROBE == event_type)) {
-                add_friend = _gf_true;
-                pb_ctx = event->ctx;
-                req = pb_ctx->req;
-        }
-        if (!peerinfo &&
-            (GD_FRIEND_EVENT_RCVD_FRIEND_REQ == event_type)) {
-                add_friend = _gf_true;
-                fr_ctx = event->ctx;
-                req = fr_ctx->req;
-        }
-        if (add_friend) {
-                if (req) {
-                        ret = glusterd_remote_hostname_get (req, rhost,
-                                                            sizeof (rhost));
-                        if (!ret)
-                                host_str = rhost;
-                }
-                ret = glusterd_friend_add ((const char*)host_str, port,
-                                          GD_FRIEND_STATE_DEFAULT,
-                                          NULL, NULL, &peerinfo, 0);
-                if (ret) {
-                        gf_log ("glusterd", GF_LOG_ERROR, "Unable to add peer, "
-                                "ret = %d", ret);
-                        ret = 1;
-                        goto out;
-                }
-                GF_ASSERT (peerinfo);
-                event->peerinfo = peerinfo;
-        }
-        ret = 0;
-
-out:
-        return ret;
-}
-
-int
 glusterd_friend_sm ()
 {
         glusterd_friend_sm_event_t      *event      = NULL;
@@ -686,22 +663,16 @@ glusterd_friend_sm ()
         glusterd_peerinfo_t             *peerinfo   = NULL;
         glusterd_friend_sm_event_type_t  event_type = 0;
         gf_boolean_t                     is_await_conn = _gf_false;
-        int                              loop       = 0;
 
         while (!list_empty (&gd_friend_sm_queue)) {
                 list_for_each_entry_safe (event, tmp, &gd_friend_sm_queue, list) {
 
                         list_del_init (&event->list);
                         event_type = event->event;
-
-
-                        loop = glusterd_check_and_add_friend (event);
-                        if (loop)
-                                continue;
-
                         peerinfo = event->peerinfo;
-                        if (!peerinfo)
-                                goto out;
+                        if (!peerinfo) {
+                                GF_ASSERT (0);
+                        }
 
                         state = glusterd_friend_state_table[peerinfo->state.state];
 

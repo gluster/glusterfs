@@ -390,7 +390,6 @@ init (xlator_t *this)
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
         INIT_LIST_HEAD (&conf->peers);
         INIT_LIST_HEAD (&conf->volumes);
-        INIT_LIST_HEAD (&conf->hostnames);
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
         conf->mgmt = &glusterd3_1_mgmt_prog;

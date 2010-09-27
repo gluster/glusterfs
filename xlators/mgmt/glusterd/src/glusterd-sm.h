@@ -84,7 +84,21 @@ struct glusterd_peerinfo_ {
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
 
+typedef enum glusterd_ev_gen_mode_ {
+        GD_MODE_OFF,
+        GD_MODE_ON,
+        GD_MODE_SWITCH_ON
+} glusterd_ev_gen_mode_t;
 
+typedef struct glusterd_peer_ctx_args_ {
+        rpcsvc_request_t        *req;
+        glusterd_ev_gen_mode_t  mode;
+} glusterd_peerctx_args_t;
+
+typedef struct glusterd_peer_ctx_ {
+        glusterd_peerctx_args_t        args;
+        glusterd_peerinfo_t            *peerinfo;
+} glusterd_peerctx_t;
 
 typedef enum glusterd_friend_sm_event_type_ {
         GD_FRIEND_EVENT_NONE = 0,
@@ -98,6 +112,7 @@ typedef enum glusterd_friend_sm_event_type_ {
         GD_FRIEND_EVENT_INIT_REMOVE_FRIEND,
         GD_FRIEND_EVENT_RCVD_REMOVE_FRIEND,
         GD_FRIEND_EVENT_REMOVE_FRIEND,
+        GD_FRIEND_EVENT_CONNECTED,
         GD_FRIEND_EVENT_MAX
 } glusterd_friend_sm_event_type_t;
 
@@ -121,7 +136,6 @@ typedef struct glusterd_sm_ {
 typedef struct glusterd_friend_req_ctx_ {
         uuid_t                  uuid;
         char                    *hostname;
-        char                    *remote_hostname;
         rpcsvc_request_t        *req;
         int                      port;
         dict_t                  *vols;

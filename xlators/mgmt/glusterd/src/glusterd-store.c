@@ -1294,6 +1294,7 @@ glusterd_store_retrieve_peers (xlator_t *this)
         glusterd_store_iter_t   *iter = NULL;
         char                    *key = NULL;
         char                    *value = NULL;
+        glusterd_peerctx_args_t args = {0};
 
         GF_ASSERT (this);
         priv = this->private;
@@ -1354,8 +1355,9 @@ glusterd_store_retrieve_peers (xlator_t *this)
 
                 (void) glusterd_store_iter_destroy (iter);
 
+                args.mode = GD_MODE_SWITCH_ON;
                 ret = glusterd_friend_add (hostname, 0, state, &uuid,
-                                           NULL, &peerinfo, 1);
+                                           NULL, &peerinfo, 1, &args);
 
                 if (ret)
                         goto out;

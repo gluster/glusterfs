@@ -92,8 +92,9 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                                                       ctx->hostname, ctx->port);
                 }
 
-                ret = rsp.op_ret;
+                glusterd_destroy_probe_ctx (ctx);
                 (void) glusterd_friend_remove (rsp.uuid, rsp.hostname);
+                ret = rsp.op_ret;
                 goto out;
         }
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
@@ -502,7 +503,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "";
+                rsp.op_errstr = "error";
                 goto out;
         }
 
@@ -511,7 +512,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "";
+                rsp.op_errstr = "error";
                 goto out;
         }
         uuid_unparse (rsp.uuid, str);
@@ -550,7 +551,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, ""))
+        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
                 free (rsp.op_errstr); //malloced by xdr
         return ret;
 }
@@ -631,7 +632,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "";
+                rsp.op_errstr = "error";
                 goto out;
         }
 
@@ -640,7 +641,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
-                rsp.op_errstr = "";
+                rsp.op_errstr = "error";
                 goto out;
         }
         uuid_unparse (rsp.uuid, str);
@@ -657,6 +658,8 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                                 "failed to "
                                 "unserialize rsp-buffer to dictionary");
                         goto out;
+                } else {
+                        dict->extra_stdfree = rsp.dict.dict_val;
                 }
         }
 
@@ -707,13 +710,10 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-        return ret;
-
-
 out:
         if (dict)
                 dict_unref (dict);
-        if (rsp.op_errstr && strcmp (rsp.op_errstr, ""))
+        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
                 free (rsp.op_errstr); //malloced by xdr
         return ret;
 }
@@ -805,7 +805,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         uuid_copy (req.uuid, priv->uuid);
-        req.hostname = gf_strdup (peerinfo->hostname);
+        req.hostname = peerinfo->hostname;
         req.port = peerinfo->port;
 
         ret = dict_allocate_and_serialize (vols, &req.vols.vols_val,
@@ -825,9 +825,6 @@ out:
 
         if (vols)
                 dict_unref (vols);
-
-        if (req.hostname)
-                GF_FREE (req.hostname);
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -1289,6 +1286,8 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
 
                 case GD_MGMT_FRIEND_ADD:
                         ret = glusterd_handle_incoming_friend_req (req);
+                        if (ret == GLUSTERD_CONNECTION_AWAITED)
+                                return 0;
                         break;
 
                 case GD_MGMT_CLUSTER_LOCK:

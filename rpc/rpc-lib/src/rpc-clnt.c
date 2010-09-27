@@ -1000,6 +1000,8 @@ rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
                 pthread_mutex_destroy (&rpc->lock);
                 GF_FREE (rpc);
                 rpc = NULL;
+                if (options)
+                        dict_unref (options);
                 goto out;
         }
 
