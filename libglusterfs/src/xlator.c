@@ -375,8 +375,13 @@ _volume_option_value_validate (xlator_t *xl,
 
 		for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
 			     opt->value[i]; i++) {
+#ifdef GF_DARWIN_HOST_OS
+                        if (fnmatch (opt->value[i], pair->value->data,
+                                     0) == 0) {
+#else
                         if (fnmatch (opt->value[i], pair->value->data,
                                      FNM_EXTMATCH) == 0) {
+#endif
 				ret = 0;
 				break;
 			}
