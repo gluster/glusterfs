@@ -822,7 +822,6 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
         char                            *status_reply     = NULL;
         gf1_cli_replace_op               replace_op       = 0;
         char                            *rb_operation_str = NULL;
-        char                             cmd_str[8192]    = {0,};
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -894,35 +893,6 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
 
-                snprintf (cmd_str, 4096, "gluster volume replace-brick %s %s %s abort >/dev/null",
-                          local->u.replace_brick.volname, src_brick, dst_brick);
-
-                ret = system (cmd_str);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "add brick failed");
-                        goto out;
-                }
-
-                snprintf (cmd_str, 4096, "gluster volume add-brick %s %s >/dev/null",
-                          local->u.replace_brick.volname, dst_brick);
-
-                ret = system (cmd_str);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "add brick failed");
-                        goto out;
-                }
-
-                snprintf (cmd_str, 4096, "gluster --mode=script volume remove-brick %s %s >/dev/null",
-                          local->u.replace_brick.volname, src_brick);
-
-                ret = system (cmd_str);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "remove brick failed");
-                        goto out;
-                }
 
                 if (rsp.op_ret || ret)
                         rb_operation_str = "replace-brick commit failed";

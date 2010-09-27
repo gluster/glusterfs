@@ -1190,12 +1190,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         }
 
         if (GD_OP_MAX == i) {
-
-                //No pending ops, inject stage_acc
-
-                ret = glusterd_op_sm_inject_event
-                        (GD_OP_EVENT_COMMIT_ACC, NULL);
-
+                //No pending ops, return
                 return ret;
         }
 

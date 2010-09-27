@@ -244,4 +244,7 @@ glusterd_check_option_exists(char *optstring);
 
 int
 set_xlator_option (dict_t *dict, char *key, char *value);
+
+void
+glusterd_do_replace_brick (void *data);
 #endif
