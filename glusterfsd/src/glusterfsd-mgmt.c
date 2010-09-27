@@ -237,7 +237,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
         FILE              *oldvolfile_fp    = NULL;
 	glusterfs_ctx_t   *ctx              = NULL;
 
-        int ret = 0;
+        int ret = -1;
 
         oldvolfile_fp = tmpfile ();
         if (!oldvolfile_fp)
@@ -360,7 +360,7 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         */
 
         ret = glusterfs_volfile_reconfigure (tmpfp);
-        if (ret) {
+        if (!ret) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                         "No need to re-load volfile");
                 goto out;
