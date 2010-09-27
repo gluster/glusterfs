@@ -100,8 +100,7 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 	layout = local->layout;
 
-        if (!op_ret && uuid_is_null (local->gfid) &&
-            uuid_is_null (local->inode->gfid))
+        if (!op_ret && uuid_is_null (local->gfid))
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
         LOCK (&frame->lock);
