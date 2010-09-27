@@ -30,11 +30,11 @@
 #include <rpc/xdr.h>
 #include <sys/uio.h>
 
-enum {
+enum gf_dump_procnum {
         GF_DUMP_NULL,
         GF_DUMP_DUMP,
         GF_DUMP_MAXVALUE,
-} gf_dump_procnum_t;
+};
 
 #define GLUSTER_DUMP_PROGRAM 123451501 /* Completely random */
 #define GLUSTER_DUMP_VERSION 1
