@@ -2255,38 +2255,24 @@ out:
 static int
 generate_brick_volfiles (glusterd_volinfo_t *volinfo)
 {
-        glusterd_brickinfo_t *brickinfo = NULL;
-        char                 *filename  = NULL;
-        int ret = -1;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        int                     ret = -1;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Found a brick - %s:%s", brickinfo->hostname,
                         brickinfo->path);
 
-                filename = get_brick_filename (volinfo, brickinfo);
-                if (!filename) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Out of memory");
-                        ret = -1;
+                ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
+                if (ret)
                         goto out;
-                }
 
-                ret = generate_server_volfile (brickinfo, volinfo->dict,
-                                               filename);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not generate volfile for brick %s:%s",
-                                brickinfo->hostname, brickinfo->path);
-                        goto out;
-                }
-
-                if (filename)
-                        GF_FREE (filename);
         }
 
         ret = 0;
+
 out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -2539,6 +2525,34 @@ glusterd_volgen_set_transport (glusterd_volinfo_t *volinfo)
 }
 
 int
+glusterd_rb_create_volfiles (glusterd_volinfo_t *volinfo,
+                             glusterd_brickinfo_t *brickinfo)
+{
+        int ret = -1;
+
+        glusterd_volgen_set_transport (volinfo);
+
+        ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not generate volfiles for bricks");
+                goto out;
+        }
+
+        ret = generate_client_volfiles (volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not generate volfile for client");
+                goto out;
+        }
+
+        ret = glusterd_fetchspec_notify (THIS);
+
+out:
+        return ret;
+}
+
+int
 glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 {
         int ret = -1;
@@ -2582,4 +2596,41 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
         if (filename)
                 GF_FREE (filename);
         return 0;
+}
+
+int
+glusterd_generate_brick_volfile (glusterd_volinfo_t  *volinfo,
+                                 glusterd_brickinfo_t *brickinfo)
+{
+        char    *filename  = NULL;
+        int     ret = -1;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+        filename = get_brick_filename (volinfo, brickinfo);
+
+        if (!filename) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        ret = generate_server_volfile (brickinfo, volinfo->dict,
+                                       filename);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not generate volfile for brick %s:%s",
+                        brickinfo->hostname, brickinfo->path);
+                goto out;
+        }
+
+        ret = 0;
+
+out:
+        if (filename)
+                GF_FREE (filename);
+
+        return ret;
 }

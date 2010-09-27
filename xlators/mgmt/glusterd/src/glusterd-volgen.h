@@ -146,4 +146,12 @@ volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo);
 
 int
 uncomment_option( char *opt_str,char *comment_str);
+
+int
+glusterd_generate_brick_volfile (glusterd_volinfo_t  *volinfo,
+                                 glusterd_brickinfo_t *brickinfo);
+
+int
+glusterd_rb_create_volfiles (glusterd_volinfo_t *volinfo,
+                             glusterd_brickinfo_t *brickinfo);
 #endif

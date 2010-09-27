@@ -1731,7 +1731,6 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                     " dst_brick:%s op:%s",cli_req.volname, src_brick, dst_brick
                     ,operation);
 
-
         ret = glusterd_replace_brick (req, dict);
 
         gf_cmd_log ("Volume replace-brick","on volname: %s %s", cli_req.volname,
