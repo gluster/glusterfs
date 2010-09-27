@@ -1453,7 +1453,10 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 if (!brick_count || !volinfo->sub_count)
                         goto brick_val;
 
-                if (volinfo->brick_count < volinfo->sub_count) {
+		/* If the brick count is less than sub_count then, allow add-brick only for 
+		   plain replicate volume since in plain stripe brick_count becoming less than 
+		   the sub_count is not allowed */
+                if (volinfo->brick_count < volinfo->sub_count && (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) ) {
                         if ((volinfo->sub_count - volinfo->brick_count) == brick_count)
                                 goto brick_val;
                 }
@@ -1806,19 +1809,28 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
         else
                 strcpy (vol_type, "distribute");
 
-        if ((volinfo->type == (GF_CLUSTER_TYPE_REPLICATE ||
-             GF_CLUSTER_TYPE_STRIPE)) &&
-            !(volinfo->brick_count <= volinfo->sub_count)) {
+	/* Do not allow remove-brick if the volume is plain stripe */
+	if ((volinfo->type == GF_CLUSTER_TYPE_STRIPE) && (volinfo->brick_count == volinfo->sub_count)) {
+                snprintf (err_str, 2048, "Removing brick from a plain stripe is not allowed");
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                err_ret = 1;
+                ret = -1;
+                goto out;
+	}
+
+	/* Do not allow remove-brick if the bricks given is less than the replica count
+	   or stripe count */
+        if (((volinfo->type == GF_CLUSTER_TYPE_REPLICATE) || (volinfo->type == GF_CLUSTER_TYPE_STRIPE)) 
+	    && !(volinfo->brick_count <= volinfo->sub_count)) {
                 if (volinfo->sub_count && (count % volinfo->sub_count != 0)) {
                         snprintf (err_str, 2048, "Remove brick incorrect"
                                   " brick count of %d for %s %d",
-                                   count, vol_type, volinfo->sub_count);
+                                  count, vol_type, volinfo->sub_count);
                         gf_log ("", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
                         ret = -1;
                         goto out;
                 }
-
         }
 
         brick_list = GF_MALLOC (120000 * sizeof(*brick_list),gf_common_mt_char);
