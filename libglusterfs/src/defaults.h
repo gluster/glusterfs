@@ -435,6 +435,10 @@ int32_t default_fxattrop_resume (call_frame_t *frame,
                           fd_t *fd,
                           gf_xattrop_flags_t flags,
                           dict_t *dict);
+int32_t default_rchecksum_resume (call_frame_t *frame,
+                                  xlator_t *this,
+                                  fd_t *fd, off_t offset,
+                                  int32_t len);
 
 int32_t default_notify (xlator_t *this,
                         int32_t event,
