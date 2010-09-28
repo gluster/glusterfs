@@ -651,6 +651,7 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         char                    *dup_brick = NULL;
         char                    *free_ptr = NULL;
         glusterd_brickinfo_t    *tmp = NULL;
+        uuid_t                  uuid = {0};
 
         GF_ASSERT (brick);
         GF_ASSERT (brickinfo);
@@ -679,17 +680,19 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
+        ret = glusterd_hostname_to_uuid (hostname, uuid);
+        if (ret)
+                goto out;
         list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
 
-                if ((!strcmp (tmp->hostname, hostname)) &&
+                if ((!uuid_compare (uuid, tmp->uuid)) &&
                         !strcmp (tmp->path, path)) {
                         gf_log ("", GF_LOG_NORMAL, "Found brick");
                         ret = 0;
+                        *brickinfo = tmp;
                         break;
                 }
         }
-
-        *brickinfo = tmp;
 
 out:
         if (free_ptr)
