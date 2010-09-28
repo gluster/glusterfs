@@ -916,7 +916,7 @@ xlator_fini_rec (xlator_t *xl)
 	}
 }
 
-static void
+static int
 xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
 {
 	xlator_list_t *trav1 = NULL;
@@ -924,7 +924,7 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
 
 	if (old_xl == NULL || new_xl == NULL)	{
 		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
-		return;
+		return -1;
 	}
 
 	trav1 = old_xl->children;
@@ -944,6 +944,7 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
         else
                 gf_log (old_xl->name, GF_LOG_DEBUG, "No reconfigure() found");
 
+        return 0;
 }
 
 int
@@ -1023,9 +1024,7 @@ xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl)
         old_top = old_xl;
         new_top = new_xl;
 
-	xlator_reconfigure_rec (old_top, new_top);
-
-        return 0;
+	return xlator_reconfigure_rec (old_top, new_top);
 }
 
 

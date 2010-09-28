@@ -252,13 +252,11 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 
         oldvolfile_graph = glusterfs_graph_construct (oldvolfile_fp);
         if (!oldvolfile_graph) {
-                ret = -1;
                 goto out;
         }
 
         newvolfile_graph = glusterfs_graph_construct (newvolfile_fp);
         if (!oldvolfile_graph) {
-                ret = -1;
                 goto out;
         }
 
@@ -267,7 +265,6 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                         "Graph topology not equal");
-                ret = 0;
                 goto out;
         }
 
@@ -280,7 +277,6 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 	if (!ctx) {
 		gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
 			"glusterfs_ctx_get() returned NULL");
-		ret = -1;
 		goto out;
 	}
 
@@ -289,12 +285,10 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 	if (!oldvolfile_graph) {
 		gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
 			"glsuterfs_ctx->active is NULL");
-		ret = -1;
 		goto out;
 	}
 
-	
-
+        /* */
         ret = glusterfs_graph_reconfigure (oldvolfile_graph,
                                            newvolfile_graph);
         if (ret) {
@@ -303,6 +297,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                                 "graph");
         }
 
+        ret = 0;
 out:
         return ret;
 }
@@ -360,11 +355,10 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         /* Check if only options have changed. No need to reload the
            volfile if topology hasn't changed.
         */
-
         ret = glusterfs_volfile_reconfigure (tmpfp);
         if (!ret) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                        "No need to re-load volfile");
+                        "No need to re-load volfile, reconfigure done");
                 goto out;
         }
 

@@ -501,7 +501,6 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
 {
         xlator_t *old_xl = NULL;
         xlator_t *new_xl = NULL;
-        int ret = 0;
 
         GF_ASSERT (oldgraph);
         GF_ASSERT (newgraph);
@@ -509,9 +508,7 @@ glusterfs_graph_reconfigure (glusterfs_graph_t *oldgraph,
         old_xl   = oldgraph->first;
         new_xl   = newgraph->first;
 
-        ret = xlator_tree_reconfigure (old_xl, new_xl);
-
-        return ret;
+        return xlator_tree_reconfigure (old_xl, new_xl);
 }
 
 int
