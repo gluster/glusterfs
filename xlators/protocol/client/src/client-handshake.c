@@ -53,19 +53,23 @@ rpc_client_ping_timer_expired (void *data)
         xlator_t                *this               = NULL;
         clnt_conf_t             *conf               = NULL;
 
-        if (!data) {
+        this = data;
+
+        if (!this || !this->private) {
                 goto out;
         }
 
-        this = data;
         conf = this->private;
 
-        conn = &conf->rpc->conn;
+        clnt = conf->rpc;
+        if (!clnt)
+                goto out;
+
+        conn = &clnt->conn;
         trans = conn->trans;
 
-        if (!clnt || !trans) {
+        if (!trans)
                 goto out;
-        }
 
         pthread_mutex_lock (&conn->lock);
         {
@@ -130,7 +134,12 @@ client_start_ping (void *data)
         int                      frame_count = 0;
 
         this = data;
+        if (!this || !this->private)
+                goto fail;
+
         conf  = this->private;
+        if (!conf->rpc)
+                goto fail;
 
         conn = &conf->rpc->conn;
 
@@ -213,9 +222,14 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t          *frame   = NULL;
         clnt_conf_t           *conf    = NULL;
 
-        frame = myframe;
+        if (!myframe)
+                goto out;
 
+        frame = myframe;
         this = frame->this;
+        if (!this || !this->private)
+                goto out;
+
         conf = this->private;
         conn = &conf->rpc->conn;
 
@@ -251,7 +265,8 @@ client_ping_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         pthread_mutex_unlock (&conn->lock);
 out:
-        STACK_DESTROY (frame->root);
+        if (frame)
+                STACK_DESTROY (frame->root);
         return 0;
 }
 
@@ -708,9 +723,13 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
         clnt_conf_t                      *conf  = NULL;
         int                               ret   = -1;
         struct rpc_clnt_config            config = {0, };
-
+        xlator_t                         *this   = NULL;
 
         frame = myframe;
+        if (!frame || !frame->this || !frame->this->private)
+                goto out;
+
+        this  = frame->this;
         conf  = frame->this->private;
 
         if (-1 == req->rpc_status) {
@@ -735,11 +754,14 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
         rpc_clnt_reconfig (conf->rpc, &config);
 
 out:
-        STACK_DESTROY (frame->root);
+        if (frame)
+                STACK_DESTROY (frame->root);
 
-        rpc_transport_disconnect (conf->rpc->conn.trans);
+        if (conf) {
+                rpc_transport_disconnect (conf->rpc->conn.trans);
 
-        rpc_clnt_reconnect (conf->rpc->conn.trans);
+                rpc_clnt_reconnect (conf->rpc->conn.trans);
+        }
 
         return ret;
 }
