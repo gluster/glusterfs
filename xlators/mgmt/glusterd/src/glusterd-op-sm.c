@@ -1084,6 +1084,8 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req)
         ret = 0;
 
 out:
+        if (dict)
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -1350,6 +1352,8 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
         }
 
 out:
+        if (dict)
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -2817,6 +2821,8 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
         ret = 0;
 
 out:
+        if (dict)
+                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
@@ -4787,6 +4793,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
                 case GD_OP_LOG_FILENAME:
                 case GD_OP_LOG_ROTATE:
                 case GD_OP_SYNC_VOLUME:
+                case GD_OP_SET_VOLUME:
                         dict_unref (ctx);
                         break;
                 case GD_OP_DELETE_VOLUME:
