@@ -3864,6 +3864,7 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         struct posix_private *priv           = NULL;
         struct iatt           stbuf          = {0, };
         char                  base_path[PATH_MAX] = {0,};
+        gf_dirent_t          *tmp_entry      = NULL;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -3962,24 +3963,8 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                         break;
                 }
 
-                if (whichop == GF_FOP_READDIRP) {
-                        strcpy (entry_path + real_path_len + 1, entry->d_name);
-                        /* Don't check for return value of below function.
-                         * because, if there is some data already existing,
-                         * (before gfid changes), this function fails to fill
-                         * gfid info (but gets the 'struct iatt' properly).
-                         */
-                        posix_lstat_with_gfid (this, entry_path, &stbuf);
-                } else
-                        stbuf.ia_ino = entry->d_ino;
+                stbuf.ia_ino = entry->d_ino;
 
-                /* So at this point stbuf ino is either:
-                 * a. the original inode number got from entry, in case this
-                 * was a readdir fop or if device spanning was disabled.
-                 *
-                 * b. the scaled inode number, if device spanning was enabled
-                 * or this was a readdirp fop.
-                 */
                 entry->d_ino = stbuf.ia_ino;
 
                 this_entry = gf_dirent_for_name (entry->d_name);
@@ -3992,8 +3977,6 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                 }
                 this_entry->d_off = telldir (dir);
                 this_entry->d_ino = entry->d_ino;
-                this_entry->d_stat = stbuf;
-                uuid_copy (this_entry->d_stat.ia_gfid, stbuf.ia_gfid);
 
                 list_add_tail (&this_entry->list, &entries.list);
 
@@ -4001,6 +3984,14 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                 count ++;
         }
 
+        if (whichop == GF_FOP_READDIRP) {
+                list_for_each_entry (tmp_entry, &entries.list, list) {
+                        strcpy (entry_path + real_path_len + 1, 
+                                tmp_entry->d_name);
+                        posix_lstat_with_gfid (this, entry_path, &stbuf);
+                        tmp_entry->d_stat = stbuf;
+                }
+        }
         op_ret = count;
         errno = 0;
         if ((!readdir (dir) && (errno == 0)))
