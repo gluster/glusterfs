@@ -325,15 +325,17 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                           sizeof(timestr) - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, trav->saved_at.tv_usec);
 
-		gf_log ("rpc-clnt", GF_LOG_ERROR,
-			"forced unwinding frame type(%s) op(%s(%d)) "
+                if (!trav->rpcreq || !trav->rpcreq->prog)
+                        continue;
+
+                gf_log ("rpc-clnt", GF_LOG_ERROR,
+                        "forced unwinding frame type(%s) op(%s(%d)) "
                         "called at %s",
-			trav->rpcreq->prog->progname,
+                        trav->rpcreq->prog->progname,
                         (trav->rpcreq->prog->procnames) ?
                         trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
                         : "--",
                         trav->rpcreq->procnum, timestr);
-
 		saved_frames->count--;
 
                 trav->rpcreq->rpc_status = -1;
@@ -1401,9 +1403,11 @@ out:
         }
 
         if (frame && (ret == -1)) {
-                rpcreq->rpc_status = -1;
-                cbkfn (rpcreq, NULL, 0, frame);
-                mem_put (rpc->reqpool, rpcreq);
+                if (rpcreq) {
+                        rpcreq->rpc_status = -1;
+                        cbkfn (rpcreq, NULL, 0, frame);
+                        mem_put (rpc->reqpool, rpcreq);
+                }
         }
         return ret;
 }
