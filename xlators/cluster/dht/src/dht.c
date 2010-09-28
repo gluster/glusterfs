@@ -357,7 +357,7 @@ init (xlator_t *this)
 	        gf_string2boolean (temp_str, &conf->unhashed_sticky_bit);
 	}
 
-	conf->use_readdirp = 0;
+	conf->use_readdirp = 1;
 
 	if (dict_get_str (this->options, "use-readdirp",
                           &temp_str) == 0) {
