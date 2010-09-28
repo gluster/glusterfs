@@ -307,10 +307,10 @@ init (xlator_t *this)
         }
 
         snprintf (voldir, PATH_MAX, "%s/logs", dirname);
-        ret = mkdir (voldir, 0777);
+        ret = symlink (DEFAULT_LOG_FILE_DIRECTORY, voldir);
         if ((-1 == ret) && (errno != EEXIST)) {
                 gf_log (this->name, GF_LOG_CRITICAL,
-                        "Unable to create logs directory %s"
+                        "Unable to create symlink to logs directory %s"
                         " ,errno = %d", voldir, errno);
                 exit (1);
         }
