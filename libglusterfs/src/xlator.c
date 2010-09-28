@@ -750,7 +750,7 @@ xlator_set_type (xlator_t *xl,
         }
 
 	if (!(xl->reconfigure = dlsym (handle, "reconfigure"))) {
-		gf_log ("xlator", GF_LOG_ERROR,
+		gf_log ("xlator", GF_LOG_DEBUG,
 			"dlsym(reconfigure) on %s -- neglecting",
 			dlerror());
 	}
