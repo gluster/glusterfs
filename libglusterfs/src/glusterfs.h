@@ -283,6 +283,7 @@ struct _glusterfs_ctx {
         unsigned char       measure_latency; /* toggle switch for latency measurement */
         pthread_t           sigwaiter;
         struct mem_pool    *stub_mem_pool;
+        unsigned char       cleanup_started;
 
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
