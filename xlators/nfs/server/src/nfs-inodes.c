@@ -32,6 +32,14 @@
 
 #include <libgen.h>
 
+#define inodes_nfl_to_prog_data(nflocal, pcbk, fram)                    \
+        do {                                                            \
+                nflocal = fram->local;                                  \
+                fram->local = nflocal->proglocal;                       \
+                pcbk = nflocal->progcbk;                                \
+                nfs_fop_local_wipe (nflocal->nfsx, nflocal);            \
+        } while (0)                                                     \
+
 void
 nfl_inodes_init (struct nfs_fop_local *nfl, inode_t *inode, inode_t *parent,
                  inode_t *newparent, const char *name, const char *newname)
@@ -78,7 +86,7 @@ do_not_link:
          */
         fd_unref (fd);
 
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, fd, inode, buf,
                          preparent, postparent);
@@ -138,7 +146,7 @@ nfs_inode_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_link (inode, nfl->parent, nfl->path, buf);
 
 do_not_link:
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -186,7 +194,7 @@ nfs_inode_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 /*        else
                 fd_bind (fd);
 */
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, fd);
         return 0;
@@ -247,7 +255,7 @@ nfs_inode_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       nfl->newpath, nfl->inode, buf);
 
 do_not_link:
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, buf,
                          preoldparent, postoldparent, prenewparent,
@@ -296,7 +304,7 @@ nfs_inode_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_link (inode, nfl->newparent, nfl->path, buf);
 
 do_not_link:
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -343,7 +351,7 @@ nfs_inode_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_unlink (nfl->inode, nfl->parent, nfl->path);
 
 do_not_unlink:
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, preparent,
                          postparent);
@@ -390,7 +398,7 @@ nfs_inode_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_unlink (nfl->inode, nfl->parent, nfl->path);
 
 do_not_unlink:
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, preparent,
                         postparent);
@@ -439,7 +447,7 @@ nfs_inode_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_link (inode, nfl->parent, nfl->path, buf);
 
 do_not_link:
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -488,7 +496,7 @@ nfs_inode_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         inode_link (inode, nfl->parent, nfl->path, buf);
 
 do_not_link:
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -533,7 +541,7 @@ nfs_inode_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         else
                 fd_bind (fd);
 
-        nfl_to_prog_data (nfl, progcbk, frame);
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
 
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, fd);
