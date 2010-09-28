@@ -1094,6 +1094,7 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	{
 		if (op_ret == -1) {
 			local->op_errno = op_errno;
+                        local->op_ret = -1;
 			gf_log (this->name, GF_LOG_DEBUG,
 				"subvolume %s returned -1 (%s)",
 				prev->this->name, strerror (op_errno));
