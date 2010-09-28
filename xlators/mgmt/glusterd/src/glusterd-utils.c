@@ -588,26 +588,10 @@ int32_t
 glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo)
 {
         int32_t                 ret = -1;
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        glusterd_conf_t         *priv = NULL;
-
-        priv = THIS->private;
-        GF_ASSERT (priv);
 
         GF_ASSERT (brickinfo);
 
-        ret = glusterd_friend_find (NULL, brickinfo->hostname, &peerinfo);
-
-        if (!ret) {
-                uuid_copy (brickinfo->uuid, peerinfo->uuid);
-        }
-
-        if (ret) {
-                ret = glusterd_is_local_addr (brickinfo->hostname);
-                if (!ret)
-                        uuid_copy (brickinfo->uuid, priv->uuid);
-        }
-
+        ret = glusterd_hostname_to_uuid (brickinfo->hostname, brickinfo->uuid);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1853,8 +1837,170 @@ glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
 
 int
 glusterd_is_brick_started (glusterd_brickinfo_t  *brickinfo)
-{       
+{
         GF_ASSERT (brickinfo);
         return (!(brickinfo->status == GF_BRICK_STARTED));
 }
 
+int
+glusterd_friend_brick_belongs (glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t *brickinfo, void* uuid)
+{
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+        GF_ASSERT (uuid);
+
+        if (!uuid_compare (brickinfo->uuid, *((uuid_t *)uuid)))
+                return 0;
+
+        return -1;
+}
+
+int
+glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
+                                void *ctx)
+{
+        glusterd_conf_t         *priv = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        glusterd_brickinfo_t    *brickinfo = NULL;
+        int                     ret = -1;
+        xlator_t                *this = NULL;
+
+        this = THIS;
+        priv = this->private;
+
+        list_for_each_entry (volinfo, &priv->volumes, vol_list) {
+                list_for_each_entry (brickinfo, &volinfo->bricks,
+                                     brick_list) {
+                        ret = func (volinfo, brickinfo, ctx);
+                        if (ret != status) {
+                                ret = -1;
+                                goto out;
+                        }
+                }
+        }
+        ret = 0;
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_friend_find_by_hostname (const char *hoststr,
+                                  glusterd_peerinfo_t  **peerinfo)
+{
+        int                     ret = -1;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_peerinfo_t     *entry = NULL;
+        glusterd_peer_hostname_t *name = NULL;
+        struct addrinfo         *addr = NULL;
+        struct addrinfo         *p = NULL;
+        char                    *host = NULL;
+        struct sockaddr_in6     *s6 = NULL;
+        struct sockaddr_in      *s4 = NULL;
+        struct in_addr          *in_addr = NULL;
+        char                    hname[1024] = {0,};
+
+        GF_ASSERT (hoststr);
+        GF_ASSERT (peerinfo);
+
+        *peerinfo = NULL;
+        priv    = THIS->private;
+
+        GF_ASSERT (priv);
+
+        list_for_each_entry (entry, &priv->peers, uuid_list) {
+                list_for_each_entry (name, &entry->hostnames, hostname_list) {
+                        if (!strncmp (name->hostname, hoststr,
+                                        1024)) {
+
+                        gf_log ("glusterd", GF_LOG_NORMAL,
+                                 "Friend %s found.. state: %d", hoststr,
+                                  entry->state.state);
+                        *peerinfo = entry;
+                        return 0;
+                        }
+                }
+        }
+
+        ret = getaddrinfo(hoststr, NULL, NULL, &addr);
+        if (ret != 0) {
+                gf_log ("", GF_LOG_ERROR, "error in getaddrinfo: %s\n",
+                        gai_strerror(ret));
+                goto out;
+        }
+
+        for (p = addr; p != NULL; p = p->ai_next) {
+                switch (p->ai_family) {
+                        case AF_INET:
+                                s4 = (struct sockaddr_in *) p->ai_addr;
+                                in_addr = &s4->sin_addr;
+                                break;
+                        case AF_INET6:
+                                s6 = (struct sockaddr_in6 *) p->ai_addr;
+                                in_addr =(struct in_addr *) &s6->sin6_addr;
+                                break;
+                       default: ret = -1;
+                                goto out;
+                }
+                host = inet_ntoa(*in_addr);
+
+                ret = getnameinfo (p->ai_addr, p->ai_addrlen, hname,
+                                   1024, NULL, 0, 0);
+                if (ret)
+                        goto out;
+
+                list_for_each_entry (entry, &priv->peers, uuid_list) {
+                        list_for_each_entry (name, &entry->hostnames,
+                                             hostname_list) {
+                                if (!strncmp (name->hostname, host,
+                                    1024) || !strncmp (name->hostname,hname,
+                                    1024)) {
+                                        gf_log ("glusterd", GF_LOG_NORMAL,
+                                                "Friend %s found.. state: %d",
+                                                hoststr, entry->state.state);
+                                        *peerinfo = entry;
+                                        freeaddrinfo (addr);
+                                        return 0;
+                                }
+                        }
+                }
+        }
+
+out:
+        if (addr)
+                freeaddrinfo (addr);
+        return -1;
+}
+
+int
+glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
+{
+        GF_ASSERT (hostname);
+        GF_ASSERT (uuid);
+
+        glusterd_peerinfo_t     *peerinfo = NULL;
+        glusterd_conf_t         *priv = NULL;
+        int                     ret = -1;
+        xlator_t                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = glusterd_friend_find_by_hostname (hostname, &peerinfo);
+        if (ret) {
+                ret = glusterd_is_local_addr (hostname);
+                if (ret)
+                        goto out;
+                else
+                        uuid_copy (uuid, priv->uuid);
+        } else {
+                uuid_copy (uuid, peerinfo->uuid);
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}

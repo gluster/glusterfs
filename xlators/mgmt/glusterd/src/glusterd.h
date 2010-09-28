@@ -311,7 +311,8 @@ int
 glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int port);
 
 int
-glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port);
+glusterd_deprobe_begin (rpcsvc_request_t *req, const char *hoststr, int port,
+                        uuid_t uuid);
 
 int
 glusterd_handle_cli_deprobe (rpcsvc_request_t *req);
