@@ -155,7 +155,31 @@ gf_cli3_1_deprobe_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to deprobe");
-        cli_out ("Detach %s", (rsp.op_ret) ? "unsuccessful": "successful");
+        if (rsp.op_ret) {
+                switch (rsp.op_errno) {
+                        case GF_DEPROBE_LOCALHOST:
+                                cli_out ("%s is localhost",
+                                         rsp.hostname);
+                                break;
+                        case GF_DEPROBE_NOT_FRIEND:
+                                cli_out ("%s is not part of cluster",
+                                         rsp.hostname);
+                                break;
+                        case GF_DEPROBE_BRICK_EXIST:
+                                cli_out ("Brick(s) with the peer %s exist in "
+                                         "cluster", rsp.hostname);
+                                break;
+                        default:
+                                cli_out ("Detach returned with unknown errno %d",
+                                         rsp.op_errno);
+                                break;
+                }
+                cli_out ("Detach unsuccessful");
+                gf_log ("glusterd",GF_LOG_ERROR,"Detach failed with op_ret %d"
+                        " and op_errno %d", rsp.op_ret, rsp.op_errno);
+        } else {
+                cli_out ("Detach successful");
+        }
 
 
         ret = rsp.op_ret;

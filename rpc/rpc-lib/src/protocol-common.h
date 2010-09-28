@@ -162,6 +162,13 @@ enum gf_probe_resp {
         GF_PROBE_VOLUME_CONFLICT
 };
 
+enum gf_deprobe_resp {
+        GF_DEPROBE_SUCCESS,
+        GF_DEPROBE_LOCALHOST,
+        GF_DEPROBE_NOT_FRIEND,
+        GF_DEPROBE_BRICK_EXIST
+};
+
 enum gf_cbk_procnum {
         GF_CBK_NULL = 0,
         GF_CBK_FETCHSPEC,

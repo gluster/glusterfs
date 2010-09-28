@@ -43,6 +43,10 @@ struct glusterd_lock_ {
         time_t  timestamp;
 };
 
+typedef int (*glusterd_condition_func) (glusterd_volinfo_t *volinfo,
+                                        glusterd_brickinfo_t *brickinfo,
+                                        void *ctx);
+
 typedef struct glusterd_lock_ glusterd_lock_t;
 
 int32_t
@@ -173,4 +177,16 @@ glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
 int
 glusterd_is_brick_started (glusterd_brickinfo_t  *brickinfo);
 
+int
+glusterd_friend_find_by_hostname (const char *hoststr,
+                                  glusterd_peerinfo_t  **peerinfo);
+int
+glusterd_hostname_to_uuid (char *hostname, uuid_t uuid);
+
+int
+glusterd_friend_brick_belongs (glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t *brickinfo, void *uuid);
+int
+glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
+                                void *ctx);
 #endif

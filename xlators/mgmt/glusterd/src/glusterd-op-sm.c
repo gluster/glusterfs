@@ -1220,6 +1220,9 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
                 if (ret)
                         goto out;
 
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret)
+                        goto out;
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
@@ -1558,6 +1561,9 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 if (ret)
                         goto out;
 
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret)
+                        goto out;
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
@@ -2521,6 +2527,11 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                 goto out;
         }
 
+        ret = glusterd_resolve_brick (dst_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to resolve dst-brickinfo");
+                goto out;
+        }
         /* Set src-brick's port number to be used in the maintainance mount
          * after all commit acks are received.
          */
@@ -3752,6 +3763,12 @@ glusterd_do_replace_brick (void *data)
         ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get dst-brickinfo");
+                goto out;
+        }
+
+        ret = glusterd_resolve_brick (dst_brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "Unable to resolve dst-brickinfo");
                 goto out;
         }
 
