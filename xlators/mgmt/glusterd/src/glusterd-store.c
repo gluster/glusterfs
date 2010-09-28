@@ -80,7 +80,7 @@ out:
 
 int32_t
 glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
-                             glusterd_brickinfo_t *brickinfo)
+                             glusterd_brickinfo_t *brickinfo, int32_t brick_count)
 {
         int32_t                 ret = -1;
         glusterd_conf_t         *priv = NULL;
@@ -91,6 +91,7 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
         char                    *tmppath = NULL;
         char                    *ptr = NULL;
         glusterd_store_handle_t *shandle = NULL;
+        char                    tmpbuf[4096] = {0,};
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -121,7 +122,6 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
         snprintf (brickpath, sizeof (brickpath), "%s/%s:%s",
                   path, brickinfo->hostname, tmppath);
 
-        GF_FREE (tmppath);
         ret = glusterd_store_handle_new (brickpath, &brickinfo->shandle);
 
         if (ret)
@@ -156,6 +156,14 @@ glusterd_store_create_brick (glusterd_volinfo_t *volinfo,
 
         ret = 0;
 
+        snprintf (buf, sizeof (buf), "%s-%d",GLUSTERD_STORE_KEY_VOL_BRICK,
+                  brick_count);
+        snprintf (tmpbuf, sizeof (tmpbuf), "%s:%s", brickinfo->hostname,
+                  tmppath);
+        ret = glusterd_store_save_value (volinfo->shandle, buf, tmpbuf);
+       
+        GF_FREE (tmppath);
+  
 out:
         if (shandle->fd > 0) {
                 close (shandle->fd);
@@ -270,6 +278,7 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
         char                    buf[4096] = {0,};
         glusterd_conf_t         *priv = NULL;
         glusterd_brickinfo_t    *brickinfo = NULL;
+        int32_t                 brick_count = 0;
 
         GF_ASSERT (volinfo);
         priv = THIS->private;
@@ -342,9 +351,11 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_store_create_brick (volinfo, brickinfo);
+                ret = glusterd_store_create_brick (volinfo, brickinfo, 
+                                                   brick_count);
                 if (ret)
                         goto out;
+                brick_count++;
         }
 
         ret = 0;
@@ -806,6 +817,30 @@ out:
 }
 
 int32_t
+glusterd_store_iter_get_matching (glusterd_store_iter_t *iter,
+                              char  *key, char **value)
+{
+        int32_t ret = -1;
+        char    *tmp_key = NULL;
+        char    *tmp_value = NULL;
+
+        ret = glusterd_store_iter_get_next (iter, &tmp_key, &tmp_value);
+        while (!ret) {
+                if (!strncmp (key, tmp_key, strlen (key))){
+                        *value = tmp_value; 
+                        GF_FREE (tmp_key);
+                        goto out;
+                }
+                GF_FREE (tmp_key);
+                GF_FREE (tmp_value);
+                ret = glusterd_store_iter_get_next (iter, &tmp_key, 
+                                                    &tmp_value);
+        }
+out:
+        return ret;
+}
+
+int32_t
 glusterd_store_iter_destroy (glusterd_store_iter_t *iter)
 {
         int32_t         ret = -1;
@@ -837,28 +872,38 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
         char                    brickdir[PATH_MAX] = {0,};
         char                    path[PATH_MAX] = {0,};
         glusterd_conf_t         *priv = NULL;
-        DIR                     *dir = NULL;
-        struct dirent           *entry = NULL;
+        int32_t                 brick_count = 0;
+        char                    tmpkey[4096] = {0,};
+        glusterd_store_iter_t   *tmpiter = NULL;
+        char                    *tmpvalue = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volinfo->volname);
 
         priv = THIS->private;
 
-        GLUSTERD_GET_BRICK_DIR (brickdir, volinfo, priv);
+        GLUSTERD_GET_BRICK_DIR (brickdir, volinfo, priv)
 
-        dir = opendir (brickdir);
+        ret = glusterd_store_iter_new (volinfo->shandle, &tmpiter);
 
-        glusterd_for_each_entry (entry, dir);
+        if (ret)
+                goto out;
 
-        while (entry) {
+        while (brick_count < volinfo->brick_count) {
                 ret = glusterd_brickinfo_new (&brickinfo);
 
                 if (ret)
                         goto out;
+             
+                snprintf (tmpkey, sizeof (tmpkey), "%s-%d",
+                          GLUSTERD_STORE_KEY_VOL_BRICK,brick_count); 
+                ret = glusterd_store_iter_get_matching (tmpiter, tmpkey, 
+                                                        &tmpvalue);
+                snprintf (path, sizeof (path), "%s/%s", brickdir, tmpvalue);
 
-                snprintf (path, sizeof (path), "%s/%s", brickdir,
-                          entry->d_name);
+                GF_FREE (tmpvalue);                          
+
+                tmpvalue = NULL;
 
                 ret = glusterd_store_handle_new (path, &brickinfo->shandle);
 
@@ -902,12 +947,13 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         goto out;
 
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
-                glusterd_for_each_entry (entry, dir);
+                brick_count++;
         }
 
+        ret = glusterd_store_iter_destroy (tmpiter);
+        if (ret)
+                goto out;
 out:
-        if (dir)
-                closedir (dir);
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -1060,6 +1106,7 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
         char            buf[1024] = {0,};
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_brickinfo_t    *tmp = NULL;
+        int32_t         brick_count = 0;
 
 
         list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
@@ -1113,9 +1160,11 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_store_create_brick (volinfo, brickinfo);
+                ret = glusterd_store_create_brick (volinfo, brickinfo, 
+                                                   brick_count);
                 if (ret)
                         goto out;
+                brick_count++;
         }
 
         ret = 0;
