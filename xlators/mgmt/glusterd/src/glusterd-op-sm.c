@@ -4512,7 +4512,7 @@ glusterd_op_sm_t glusterd_op_state_unlock_sent [] = {
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_STAGE_OP
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_COMMIT_OP
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_unlock}, //EVENT_UNLOCK
-        {GD_OP_STATE_COMMITED, glusterd_op_ac_none}, //EVENT_START_UNLOCK
+        {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_START_UNLOCK
         {GD_OP_STATE_UNLOCK_SENT, glusterd_op_ac_none}, //EVENT_MAX
 };
 
