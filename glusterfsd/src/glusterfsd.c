@@ -654,9 +654,15 @@ cleanup_and_exit (int signum)
         ctx = glusterfs_ctx_get ();
 
         /* TODO: is this the right place? */
+        if (!ctx)
+                return;
+        if (ctx->cleanup_started)
+                return;
+
+        ctx->cleanup_started = 1;
         glusterfs_mgmt_pmap_signout (ctx);
 
-        if (ctx && ctx->mgmt)
+        if (ctx->mgmt)
                 rpc_clnt_destroy (ctx->mgmt);
 
         gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
