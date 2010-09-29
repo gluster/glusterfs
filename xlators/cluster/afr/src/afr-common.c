@@ -1433,9 +1433,6 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
 
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-        gf_log (this->name, GF_LOG_TRACE,
-                "hits=%d, miss=%d", fd_ctx->hit, fd_ctx->miss);
-
         if (fd_ctx) {
                 if (fd_ctx->pre_op_done)
                         GF_FREE (fd_ctx->pre_op_done);
