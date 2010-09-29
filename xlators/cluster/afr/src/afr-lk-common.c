@@ -433,7 +433,6 @@ is_afr_lock_transaction (afr_local_t *local)
         switch (local->transaction.type) {
 	case AFR_DATA_TRANSACTION:
 	case AFR_METADATA_TRANSACTION:
-	case AFR_FLUSH_TRANSACTION:
                 ret = 1;
                 break;
 
@@ -878,7 +877,6 @@ afr_copy_locked_nodes (call_frame_t *frame, xlator_t *this)
         switch (local->transaction.type) {
 	case AFR_DATA_TRANSACTION:
 	case AFR_METADATA_TRANSACTION:
-	case AFR_FLUSH_TRANSACTION:
                 memcpy (int_lock->inode_locked_nodes,
                         int_lock->locked_nodes,
                         priv->child_count);
@@ -998,7 +996,6 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 	switch (local->transaction.type) {
 	case AFR_DATA_TRANSACTION:
 	case AFR_METADATA_TRANSACTION:
-	case AFR_FLUSH_TRANSACTION:
 
 		if (local->fd) {
                         afr_trace_inodelk_in (frame, AFR_INODELK_TRANSACTION,
@@ -1110,7 +1107,6 @@ afr_blocking_lock (call_frame_t *frame, xlator_t *this)
         switch (local->transaction.type) {
 	case AFR_DATA_TRANSACTION:
 	case AFR_METADATA_TRANSACTION:
-	case AFR_FLUSH_TRANSACTION:
                 initialize_inodelk_variables (frame, this);
                 break;
 
