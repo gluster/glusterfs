@@ -686,6 +686,11 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         ret = -1;
         list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
 
+                if (uuid_is_null (tmp->uuid)) {
+                        ret = glusterd_resolve_brick (tmp);
+                        if (ret)
+                                goto out;
+                }
                 if ((!uuid_compare (uuid, tmp->uuid)) &&
                         !strcmp (tmp->path, path)) {
                         gf_log ("", GF_LOG_NORMAL, "Found brick");
