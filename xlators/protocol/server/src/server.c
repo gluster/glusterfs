@@ -522,8 +522,6 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->xprt_list);
         pthread_mutex_init (&conf->mutex, NULL);
 
-        this->private = conf;
-
         ret = server_build_config (this, conf);
         if (ret)
                 goto out;
@@ -621,6 +619,7 @@ init (xlator_t *this)
                 }
         }
 #endif
+        this->private = conf;
 
         ret = 0;
 out:
