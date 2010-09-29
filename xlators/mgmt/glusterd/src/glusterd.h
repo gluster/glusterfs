@@ -50,6 +50,28 @@
 #define GLUSTERD_MAX_VOLUME_NAME        1000
 #define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
 
+typedef enum glusterd_op_ {
+        GD_OP_NONE = 0,
+        GD_OP_CREATE_VOLUME,
+        GD_OP_START_BRICK,
+        GD_OP_STOP_BRICK,
+        GD_OP_DELETE_VOLUME,
+        GD_OP_START_VOLUME,
+        GD_OP_STOP_VOLUME,
+        GD_OP_RENAME_VOLUME,
+        GD_OP_DEFRAG_VOLUME,
+        GD_OP_ADD_BRICK,
+        GD_OP_REMOVE_BRICK,
+        GD_OP_REPLACE_BRICK,
+        GD_OP_SET_VOLUME,
+        GD_OP_SYNC_VOLUME,
+        GD_OP_LOG_FILENAME,
+        GD_OP_LOG_LOCATE,
+        GD_OP_LOG_ROTATE,
+        GD_OP_MAX,
+} glusterd_op_t;
+
+
 struct glusterd_store_iter_ {
         int     fd;
         FILE    *file;
@@ -329,17 +351,11 @@ glusterd_handle_cli_list_friends (rpcsvc_request_t *req);
 int
 glusterd_handle_cli_start_volume (rpcsvc_request_t *req);
 
-int32_t
-glusterd_start_volume (rpcsvc_request_t *req, char *volname, int flags);
-
 int
 glusterd_handle_friend_update (rpcsvc_request_t *req);
 
 int
 glusterd_handle_cli_stop_volume (rpcsvc_request_t *req);
-
-int
-glusterd_stop_volume (rpcsvc_request_t *req, char *volname, int flags);
 
 int32_t
 glusterd_delete_volume (rpcsvc_request_t *req, char *volname, int flags);
@@ -408,5 +424,9 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count);
 
 int
-glusterd_restart_bricks(glusterd_conf_t *conf, xlator_t *this);
+glusterd_restart_bricks(glusterd_conf_t *conf);
+
+int32_t
+glusterd_volume_txn (rpcsvc_request_t *req, char *volname, int flags,
+                     glusterd_op_t op);
 #endif

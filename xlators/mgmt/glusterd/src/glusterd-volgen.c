@@ -2561,14 +2561,14 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 
         ret = generate_brick_volfiles (volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log ("", GF_LOG_ERROR,
                         "Could not generate volfiles for bricks");
                 goto out;
         }
 
         ret = generate_client_volfiles (volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log ("", GF_LOG_ERROR,
                         "Could not generate volfile for client");
                 goto out;
         }

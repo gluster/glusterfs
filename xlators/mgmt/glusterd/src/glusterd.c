@@ -412,7 +412,7 @@ init (xlator_t *this)
         glusterd_op_sm_init ();
         glusterd_opinfo_init ();
 
-        glusterd_restart_bricks(conf, this);
+        glusterd_restart_bricks (conf);
         ret = 0;
 out:
         if (ret == -1) {

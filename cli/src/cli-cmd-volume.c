@@ -44,7 +44,7 @@ cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
 void
 cli_cmd_volume_start_usage ()
 {
-        cli_out ("Usage: volume start <VOLNAME>");
+        cli_out ("Usage: volume start <VOLNAME> [force]");
 }
 
 void
@@ -71,11 +71,12 @@ cli_cmd_volume_info_usage ()
         cli_out ("Usage: volume info [all|<VOLNAME>]");
 }
 
-void 
+void
 cli_cmd_volume_set_usage ()
 {
 	cli_out ("Usage: volume set <VOLNAME> <KEY> <VALUE>");
 }
+
 int
 cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                          const char **words, int wordcount)
@@ -252,7 +253,6 @@ out:
         return ret;
 }
 
-
 int
 cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
@@ -260,29 +260,40 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
-        char                    *volname = NULL;
-
+        gf1_cli_start_vol_req    req = {0,};
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
                 goto out;
 
-        if (wordcount != 3) {
+        if (wordcount < 3 || wordcount > 4) {
                cli_cmd_volume_start_usage ();
                goto out;
         }
 
-        volname = (char *)words[2];
+        req.volname = (char *)words[2];
+        if (!req.volname)
+                goto out;
+
+        if (wordcount == 4) {
+                if (!strcmp("force", words[3])) {
+                        req.flags |= GF_CLI_FLAG_OP_FORCE;
+                } else {
+                        ret = -1;
+                        cli_cmd_volume_start_usage ();
+                        goto out;
+                }
+        }
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_START_VOLUME];
 
         if (proc->fn) {
-                ret = proc->fn (frame, THIS, volname);
+                ret = proc->fn (frame, THIS, &req);
         }
 
 out:
-        if (!proc && ret && volname)
-                cli_out ("Starting Volume %s failed", volname);
+        if (!proc && ret && req.volname)
+                cli_out ("Starting Volume %s failed", req.volname);
 
         return ret;
 }
@@ -812,7 +823,7 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_delete_cbk,
           "delete volume specified by <VOLNAME>"},
 
-        { "volume start <VOLNAME>",
+        { "volume start <VOLNAME> [force]",
           cli_cmd_volume_start_cbk,
           "start volume specified by <VOLNAME>"},
 

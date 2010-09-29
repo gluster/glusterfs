@@ -171,6 +171,7 @@ typedef struct gf1_cli_delete_vol_rsp gf1_cli_delete_vol_rsp;
 
 struct gf1_cli_start_vol_req {
 	char *volname;
+	int flags;
 };
 typedef struct gf1_cli_start_vol_req gf1_cli_start_vol_req;
 

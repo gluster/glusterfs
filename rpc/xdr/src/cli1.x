@@ -102,6 +102,7 @@ struct gf1_cli_get_vol_rsp {
 
  struct gf1_cli_start_vol_req {
         string volname<>;
+        int flags;
 }  ;
 
 

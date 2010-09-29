@@ -54,6 +54,12 @@
 #include "defaults.c"
 #include "common-utils.h"
 
+#define glusterd_start_volume(req, volname, flags) \
+        glusterd_volume_txn (req, volname, flags, GD_OP_START_VOLUME)
+
+#define glusterd_stop_volume(req, volname, flags) \
+        glusterd_volume_txn (req, volname, flags, GD_OP_STOP_VOLUME)
+
 static int
 glusterd_friend_find_by_uuid (uuid_t uuid,
                               glusterd_peerinfo_t  **peerinfo)
@@ -1281,7 +1287,6 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
         gf1_cli_start_vol_req           cli_req = {0,};
-        int32_t                         flags = 0;
 
         GF_ASSERT (req);
 
@@ -1294,7 +1299,7 @@ glusterd_handle_cli_start_volume (rpcsvc_request_t *req)
         gf_log ("glusterd", GF_LOG_NORMAL, "Received start vol req"
                 "for volume %s", cli_req.volname);
 
-        ret = glusterd_start_volume (req, cli_req.volname, flags);
+        ret = glusterd_start_volume (req, cli_req.volname, cli_req.flags);
 
         gf_cmd_log ("volume start","on volname: %s %s", cli_req.volname,
                     ((ret == 0) ? "SUCCESS": "FAILED"));
@@ -2980,35 +2985,8 @@ out:
 }
 
 int32_t
-glusterd_start_volume (rpcsvc_request_t *req, char *volname, int flags)
-{
-        int32_t      ret       = -1;
-        glusterd_op_start_volume_ctx_t  *ctx = NULL;
-
-        GF_ASSERT (req);
-        GF_ASSERT (volname);
-
-        ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_start_volume_ctx_t);
-
-        if (!ctx)
-                goto out;
-
-        strncpy (ctx->volume_name, volname, GD_VOLUME_NAME_MAX);
-
-        glusterd_op_set_op (GD_OP_START_VOLUME);
-
-        glusterd_op_set_ctx (GD_OP_START_VOLUME, ctx);
-        glusterd_op_set_ctx_free (GD_OP_START_VOLUME, _gf_true);
-        glusterd_op_set_req (req);
-
-        ret = glusterd_op_txn_begin ();
-
-out:
-        return ret;
-}
-
-int32_t
-glusterd_stop_volume (rpcsvc_request_t *req, char *volname, int flags)
+glusterd_volume_txn (rpcsvc_request_t *req, char *volname, int flags,
+                     glusterd_op_t op)
 {
         int32_t      ret        = -1;
         dict_t       *ctx       = NULL;
@@ -3034,10 +3012,10 @@ glusterd_stop_volume (rpcsvc_request_t *req, char *volname, int flags)
         if (ret)
                 goto out;
 
-        glusterd_op_set_op (GD_OP_STOP_VOLUME);
+        glusterd_op_set_op (op);
 
-        glusterd_op_set_ctx (GD_OP_STOP_VOLUME, ctx);
-        glusterd_op_set_ctx_free (GD_OP_STOP_VOLUME, _gf_true);
+        glusterd_op_set_ctx (op, ctx);
+        glusterd_op_set_ctx_free (op, _gf_true);
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
