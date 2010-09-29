@@ -404,7 +404,51 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 
-int
+void
+afr_update_read_child (call_frame_t *frame, xlator_t *this, inode_t *inode,
+                       afr_transaction_type type)
+{
+        int           curr_read_child = -1;
+        int           new_read_child = -1;
+        afr_private_t   *priv = NULL;
+        afr_local_t  *local = NULL;
+        int         **pending = NULL;
+        int           idx = 0;
+
+        idx = afr_index_for_transaction_type (type);
+
+        priv = this->private;
+        local = frame->local;
+        curr_read_child = afr_read_child (this, inode);
+        pending = local->pending;
+
+        if (pending[curr_read_child][idx] != 0)
+                return;
+
+        /* need to set new read_child */
+        for (new_read_child = 0; new_read_child < priv->child_count;
+             new_read_child++) {
+
+                if (!priv->child_up[new_read_child])
+                        /* child is down */
+                        continue;
+
+                if (pending[new_read_child][idx] == 0)
+                        /* op just failed */
+                        continue;
+
+                break;
+        }
+
+        if (new_read_child == priv->child_count)
+                /* all children uneligible. leave as-is */
+                return;
+
+        afr_set_read_child (this, inode, new_read_child);
+}
+
+
+int 
 afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 {
 	afr_private_t * priv = this->private;
@@ -425,6 +469,10 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
 	__mark_down_children (local->pending, priv->child_count,
                               local->child_up, local->transaction.type);
+
+        if (local->fd)
+                afr_update_read_child (frame, this, local->fd->inode,
+                                       local->transaction.type);
 
         xattr = alloca (priv->child_count * sizeof (*xattr));
         memset (xattr, 0, (priv->child_count * sizeof (*xattr)));

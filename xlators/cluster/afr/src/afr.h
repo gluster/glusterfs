@@ -609,6 +609,7 @@ typedef struct {
         unsigned int *pre_op_done;
         unsigned int *opened_on;     /* which subvolumes the fd is open on */
         unsigned int *pre_op_piggyback;
+
         int flags;
         int32_t wbflags;
         uint64_t up_count;   /* number of CHILD_UPs this fd has seen */
