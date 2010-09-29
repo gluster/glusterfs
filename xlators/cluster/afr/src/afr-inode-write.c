@@ -291,14 +291,9 @@ afr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-        if (fd_ctx->down_count < priv->down_count) {
-                local->up_down_flush_cbk = afr_do_writev;
-                afr_up_down_flush (frame, this, fd, AFR_CHILD_DOWN_FLUSH);
-
-        } else if (fd_ctx->up_count < priv->up_count) {
-                local->up_down_flush_cbk = afr_do_writev;
-                afr_up_down_flush (frame, this, fd, AFR_CHILD_UP_FLUSH);
-
+        if (fd_ctx->up_count < priv->up_count) {
+                local->openfd_flush_cbk = afr_do_writev;
+                afr_openfd_flush (frame, this, fd);
         } else {
                 afr_do_writev (frame, this);
         }
@@ -769,9 +764,9 @@ afr_ftruncate (call_frame_t *frame, xlator_t *this,
 
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-        if (fd_ctx->down_count < priv->down_count) {
-                local->up_down_flush_cbk = afr_do_ftruncate;
-                afr_up_down_flush (frame, this, fd, AFR_CHILD_DOWN_FLUSH);
+        if (fd_ctx->up_count < priv->up_count) {
+                local->openfd_flush_cbk = afr_do_ftruncate;
+                afr_openfd_flush (frame, this, fd);
         } else {
                 afr_do_ftruncate (frame, this);
         }

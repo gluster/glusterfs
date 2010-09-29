@@ -174,7 +174,6 @@ typedef enum {
 	AFR_METADATA_TRANSACTION,      /* chmod, chown, ... */
 	AFR_ENTRY_TRANSACTION,         /* create, rmdir, ... */
 	AFR_ENTRY_RENAME_TRANSACTION,  /* rename */
-	AFR_FLUSH_TRANSACTION,         /* flush */
 } afr_transaction_type;
 
 typedef enum {
@@ -217,7 +216,6 @@ afr_index_for_transaction_type (afr_transaction_type type)
         switch (type) {
 
         case AFR_DATA_TRANSACTION:
-        case AFR_FLUSH_TRANSACTION:
                 return 0;
 
         case AFR_METADATA_TRANSACTION:
@@ -231,11 +229,6 @@ afr_index_for_transaction_type (afr_transaction_type type)
         return -1;  /* make gcc happy */
 }
 
-
-typedef enum {
-        AFR_CHILD_UP_FLUSH,
-        AFR_CHILD_DOWN_FLUSH,
-} afr_flush_type;
 
 typedef struct {
         loc_t *lk_loc;
@@ -309,7 +302,7 @@ typedef struct _afr_local {
 
         dict_t  *dict;
 
-        int (*up_down_flush_cbk) (call_frame_t *, xlator_t *);
+        int (*openfd_flush_cbk) (call_frame_t *frame, xlator_t *this);
 
 	/*
 	   This struct contains the arguments for the "continuation"
@@ -606,7 +599,6 @@ typedef struct _afr_local {
 		int (*unwind) (call_frame_t *frame, xlator_t *this);
 
                 /* post-op hook */
-                int (*post_post_op) (call_frame_t *frame, xlator_t *this);
 	} transaction;
 
 	afr_self_heal_t self_heal;
@@ -614,15 +606,17 @@ typedef struct _afr_local {
 
 
 typedef struct {
-        unsigned char *pre_op_done;
-        unsigned char *opened_on;     /* which subvolumes the fd is open on */
-        unsigned char *child_failed;
+        unsigned int *pre_op_done;
+        unsigned int *opened_on;     /* which subvolumes the fd is open on */
+        unsigned int *pre_op_piggyback;
         int flags;
         int32_t wbflags;
         uint64_t up_count;   /* number of CHILD_UPs this fd has seen */
         uint64_t down_count; /* number of CHILD_DOWNs this fd has seen */
 
         int32_t last_tried;
+
+        int  hit, miss;
         gf_boolean_t failed_over;
         struct list_head entries; /* needed for readdir failover */
 } afr_fd_ctx_t;
@@ -729,9 +723,6 @@ int
 afr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
           fd_t *fd, int32_t wbflags);
 
-int
-afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd, afr_flush_type type);
-
 void
 afr_set_opendir_done (xlator_t *this, inode_t *inode);
 
@@ -743,6 +734,9 @@ afr_local_transaction_cleanup (afr_local_t *local, xlator_t *this);
 
 int
 afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
+
+int
+afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd);
 
 #define AFR_STACK_UNWIND(fop, frame, params ...)        \
 	do {						\

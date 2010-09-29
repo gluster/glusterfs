@@ -216,9 +216,8 @@ out:
 
 
 int
-afr_up_down_flush_open_cbk (call_frame_t *frame, void *cookie,
-                            xlator_t *this, int32_t op_ret, int32_t op_errno,
-                            fd_t *fd)
+afr_openfd_sh_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                        int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
@@ -261,7 +260,7 @@ out:
 
         if (call_count == 0) {
                 int_lock->lock_cbk = local->transaction.done;
-                local->transaction.post_post_op (frame, this);
+                local->transaction.resume (frame, this);
         }
 
         return 0;
@@ -269,7 +268,7 @@ out:
 
 
 static int
-__unopened_count (int child_count, unsigned char *opened_on, unsigned char *child_up)
+__unopened_count (int child_count, unsigned int *opened_on, unsigned char *child_up)
 {
         int i;
         int count = 0;
@@ -284,7 +283,7 @@ __unopened_count (int child_count, unsigned char *opened_on, unsigned char *chil
 
 
 int
-afr_up_down_flush_sh_unwind (call_frame_t *frame, xlator_t *this)
+afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t *local  = NULL;
         afr_private_t *priv = NULL;
@@ -331,7 +330,7 @@ afr_up_down_flush_sh_unwind (call_frame_t *frame, xlator_t *this)
                                 "opening fd for %s on subvolume %s",
                                 local->loc.path, priv->children[i]->name);
 
-                        STACK_WIND_COOKIE (frame, afr_up_down_flush_open_cbk,
+                        STACK_WIND_COOKIE (frame, afr_openfd_sh_open_cbk,
                                            (void *)(long) i,
                                            priv->children[i],
                                            priv->children[i]->fops->open,
@@ -345,14 +344,14 @@ afr_up_down_flush_sh_unwind (call_frame_t *frame, xlator_t *this)
 
 out:
         if (abandon)
-                local->transaction.post_post_op (frame, this);
+                local->transaction.resume (frame, this);
 
         return 0;
 }
 
 
 int
-afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
+afr_openfd_sh (call_frame_t *frame, xlator_t *this)
 {
         afr_local_t     *local  = NULL;
         afr_self_heal_t *sh = NULL;
@@ -375,7 +374,7 @@ afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
         sh->need_data_self_heal = _gf_true;
         sh->type                = local->fd->inode->ia_type;
         sh->background          = _gf_false;
-        sh->unwind              = afr_up_down_flush_sh_unwind;
+        sh->unwind              = afr_openfd_sh_unwind;
 
         afr_self_heal_type_str_get(&local->self_heal,
                                    sh_type_str,
@@ -391,19 +390,7 @@ afr_up_down_flush_post_post_op (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_up_down_flush_wind (call_frame_t *frame, xlator_t *this)
-{
-	afr_local_t *local = NULL;
-
-	local = frame->local;
-
-        local->transaction.resume (frame, this);
-	return 0;
-}
-
-
-int
-afr_up_down_flush_done (call_frame_t *frame, xlator_t *this)
+afr_openfd_flush_done (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t *priv = NULL;
 	afr_local_t *local  = NULL;
@@ -412,7 +399,6 @@ afr_up_down_flush_done (call_frame_t *frame, xlator_t *this)
         afr_fd_ctx_t * fd_ctx = NULL;
 
         int _ret = -1;
-        int i    = 0;
 
         priv  = this->private;
 	local = frame->local;
@@ -429,11 +415,6 @@ afr_up_down_flush_done (call_frame_t *frame, xlator_t *this)
 
                 fd_ctx->down_count = priv->down_count;
                 fd_ctx->up_count   = priv->up_count;
-
-                for (i = 0; i < priv->child_count; i++) {
-                        if (local->child_up[i])
-                                fd_ctx->pre_op_done[i] = 0;
-                }
         }
 out:
         UNLOCK (&local->fd->lock);
@@ -444,15 +425,14 @@ out:
                 "The up/down flush is over");
 
         fd_unref (local->fd);
-        local->up_down_flush_cbk (frame, this);
+        local->openfd_flush_cbk (frame, this);
 
 	return 0;
 }
 
 
 int
-afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                   afr_flush_type type)
+afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_local_t   * local = NULL;
 
@@ -466,18 +446,8 @@ afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         local->fd = fd_ref (fd);
 
-        local->transaction.fop          = afr_up_down_flush_wind;
-        local->transaction.done         = afr_up_down_flush_done;
-
-        switch (type) {
-        case AFR_CHILD_UP_FLUSH:
-                local->transaction.post_post_op = afr_up_down_flush_post_post_op;
-                break;
-
-        case AFR_CHILD_DOWN_FLUSH:
-                local->transaction.post_post_op = NULL;
-                break;
-        }
+        local->transaction.fop          = afr_openfd_sh;
+        local->transaction.done         = afr_openfd_flush_done;
 
         local->transaction.start  = 0;
         local->transaction.len    = 0;
@@ -486,8 +456,9 @@ afr_up_down_flush (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 "doing up/down flush on fd=%p",
                 fd);
 
-        afr_transaction (frame, this, AFR_FLUSH_TRANSACTION);
+        afr_transaction (frame, this, AFR_DATA_TRANSACTION);
 
 out:
 	return 0;
 }
+
