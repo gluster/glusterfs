@@ -229,6 +229,11 @@ out:
         return ret;
 }
 
+/* Function has 3types of return value 0, -ve , 1 
+ *   return 0          =======> reconfiguration of options has succeded
+ *   return 1          =======> the graph has to be reconstructed and all the xlators should be inited
+ *   return -1(or -ve) =======> Some Internal Error occured during the operation
+ */
 static int
 glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
 {
@@ -243,9 +248,10 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
         if (!oldvolfile_fp)
                 goto out;
 
-	if (!oldvollen)
+	if (!oldvollen) {
+		ret = 1; // Has to call INIT for the whole graph		
 		goto out;
-
+	}
         fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
         fflush (oldvolfile_fp);
 
@@ -264,7 +270,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                                       newvolfile_graph)) {
 
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                        "Graph topology not equal");
+                        "Graph topology not equal(should call INIT)");
                 goto out;
         }
 
@@ -293,8 +299,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                                            newvolfile_graph);
         if (ret) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
-                        "Could not reconfigure new options in old "
-                                "graph");
+                        "Could not reconfigure new options in old graph");
         }
 
         ret = 0;
@@ -352,15 +357,28 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         fwrite (rsp.spec, size, 1, tmpfp);
         fflush (tmpfp);
 
-        /* Check if only options have changed. No need to reload the
-           volfile if topology hasn't changed.
+        /*  Check if only options have changed. No need to reload the
+        *  volfile if topology hasn't changed.
+        *  glusterfs_volfile_reconfigure returns 3 possible return states 
+        *  return 0          =======> reconfiguration of options has succeded
+        *  return 1          =======> the graph has to be reconstructed and all the xlators should be inited
+        *  return -1(or -ve) =======> Some Internal Error occured during the operation
         */
+
+
         ret = glusterfs_volfile_reconfigure (tmpfp);
-        if (!ret) {
+        if (ret == 0) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                         "No need to re-load volfile, reconfigure done");
                 goto out;
         }
+
+        if (ret < 0) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG, "Reconfigure failed !!");
+                goto out;
+        }
+
+
 
         ret = glusterfs_process_volfp (ctx, tmpfp);
         if (ret)

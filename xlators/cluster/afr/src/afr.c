@@ -250,7 +250,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
 
-	if (read_ret == -1) 
+	if (read_ret < 0) 
 		goto next;// No need to traverse, hence set the next option
 	
 	trav = this->children;
