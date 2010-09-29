@@ -31,6 +31,7 @@
 #include <libgen.h>
 #include <pthread.h>
 #include <ftw.h>
+#include <sys/stat.h>
 
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
@@ -521,19 +522,37 @@ posix_stat (call_frame_t *frame,
 }
 
 static int
-posix_do_chmod (xlator_t *this,
-                const char *path,
-                struct iatt *stbuf)
+posix_do_chmod (xlator_t *this, const char *path, struct iatt *stbuf)
 {
-        int32_t ret = -1;
-        mode_t  mode = 0;
+        int32_t     ret = -1;
+        mode_t      mode = 0;
+        struct stat stat;
+        int         is_symlink = 0;
+
+        ret = sys_lstat (path, &stat);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s (%s)", path, strerror (errno));
+                goto out;
+        }
+
+        if (S_ISLNK (stat.st_mode))
+                is_symlink = 1;
 
         mode = st_mode_from_ia (stbuf->ia_prot, stbuf->ia_type);
         ret = lchmod (path, mode);
         if ((ret == -1) && (errno == ENOSYS)) {
+                /* in Linux symlinks are always in mode 0777 and no
+                   such call as lchmod exists.
+                */
+                if (is_symlink) {
+                        ret = 0;
+                        goto out;
+                }
+
                 ret = chmod (path, mode);
         }
-
+out:
         return ret;
 }
 
