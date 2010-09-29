@@ -314,8 +314,17 @@ afr_openfd_sh_unwind (call_frame_t *frame, xlator_t *this)
 
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
-        call_count = __unopened_count (priv->child_count, fd_ctx->opened_on,
-                                       local->child_up);
+        LOCK (&local->fd->lock);
+        {
+                call_count = __unopened_count (priv->child_count,
+                                               fd_ctx->opened_on,
+                                               local->child_up);
+                for (i = 0; i < priv->child_count; i++) {
+                        fd_ctx->pre_op_done[i] = 0;
+                        fd_ctx->pre_op_piggyback[i] = 0;
+                }
+        }
+        UNLOCK (&local->fd->lock);
 
         if (call_count == 0) {
                 abandon = 1;
