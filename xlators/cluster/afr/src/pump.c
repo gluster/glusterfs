@@ -456,6 +456,10 @@ gf_pump_traverse_directory (loc_t *loc)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "found readdir entry=%s", entry->d_name);
 
+                        if ((strcmp (entry->d_name, ".") == 0) ||
+                            (strcmp (entry->d_name, "..") == 0))
+                                continue;
+
                         file_path = build_file_path (loc, entry);
                         if (!file_path) {
                                 gf_log (this->name, GF_LOG_DEBUG,
