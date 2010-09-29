@@ -103,13 +103,11 @@ glusterd_resolve_brick (glusterd_brickinfo_t *brickinfo);
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t   *brickinfo,
-                                 int32_t count);
+                                 glusterd_brickinfo_t   *brickinfo);
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo,
-                                int32_t count);
+                                glusterd_brickinfo_t   *brickinfo);
 
 int32_t
 glusterd_volinfo_delete (glusterd_volinfo_t *volinfo);
@@ -189,4 +187,10 @@ glusterd_friend_brick_belongs (glusterd_volinfo_t *volinfo,
 int
 glusterd_all_volume_cond_check (glusterd_condition_func func, int status,
                                 void *ctx);
+int
+glusterd_brick_start (glusterd_volinfo_t *volinfo,
+                      glusterd_brickinfo_t *brickinfo);
+int
+glusterd_brick_stop (glusterd_volinfo_t *volinfo,
+                      glusterd_brickinfo_t *brickinfo);
 #endif

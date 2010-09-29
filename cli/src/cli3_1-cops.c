@@ -1409,7 +1409,7 @@ int32_t
 gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
-        gf1_cli_start_vol_req   req = {0,};
+        gf1_cli_start_vol_req   *req = NULL;
         int                     ret = 0;
         cli_local_t             *local = NULL;
 
@@ -1418,16 +1418,16 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        req = data;
         local = cli_local_get ();
 
         if (local) {
-                local->u.start_vol.volname = data;
+                local->u.start_vol.volname = req->volname;
+                local->u.start_vol.flags = req->flags;
                 frame->local = local;
         }
 
-        req.volname = data;
-
-        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+        ret = cli_cmd_submit (req, frame, cli_rpc_prog,
                               GD_MGMT_CLI_START_VOLUME, NULL,
                               gf_xdr_from_cli_start_vol_req,
                               this, gf_cli3_1_start_volume_cbk);

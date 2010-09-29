@@ -816,8 +816,7 @@ out:
 
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t  *brickinfo,
-                                 int32_t count)
+                                 glusterd_brickinfo_t  *brickinfo)
 {
         int32_t                 ret = -1;
         xlator_t                *this = NULL;
@@ -886,8 +885,7 @@ out:
 
 int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
-                                glusterd_brickinfo_t   *brickinfo,
-                                int32_t count)
+                                glusterd_brickinfo_t   *brickinfo)
 {
         xlator_t                *this = NULL;
         glusterd_conf_t         *priv = NULL;
@@ -1739,14 +1737,91 @@ out:
 }
 
 int
-glusterd_restart_bricks (glusterd_conf_t *conf, xlator_t *this)
+glusterd_brick_start (glusterd_volinfo_t *volinfo,
+                      glusterd_brickinfo_t *brickinfo)
+{
+        int                                     ret   = -1;
+        xlator_t                                *this = NULL;
+        glusterd_conf_t                         *conf = NULL;
+        char                                    path[PATH_MAX] = {0,};
+        char                                    pidfile[PATH_MAX] = {0,};
+        struct stat                             stbuf = {0,};
+
+        if ((!brickinfo) || (!volinfo))
+                goto out;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        if (uuid_is_null (brickinfo->uuid)) {
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "cannot resolve brick: %s:%s",
+                                brickinfo->hostname, brickinfo->path);
+                        goto out;
+                }
+        }
+
+        if (uuid_compare (brickinfo->uuid, conf->uuid)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (!glusterd_is_brick_started (brickinfo)) {
+                gf_log ("", GF_LOG_DEBUG, "brick: %s:%s, of volume: %s already"
+                        " started", brickinfo->hostname, brickinfo->path,
+                        volinfo->volname);
+                ret = 0;
+                goto out;
+        }
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
+        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
+                                    brickinfo->path);
+        ret = stat (pidfile, &stbuf);
+        if (ret && errno == ENOENT) {
+                gf_log ("", GF_LOG_NORMAL, "About to start glusterfs"
+                        " for brick %s:%s", brickinfo->hostname,
+                        brickinfo->path);
+                ret = glusterd_volume_start_glusterfs (volinfo, brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to start "
+                                "glusterfs, ret: %d", ret);
+                        goto out;
+                }
+        } else if (!ret) {
+                ret = pmap_registry_search (this, brickinfo->path,
+                                            GF_PMAP_PORT_BRICKSERVER);
+                if (ret) {
+                        ret = 0;
+                        goto out;
+                }
+                ret = unlink (pidfile);
+                gf_log ("", GF_LOG_NORMAL, "About to start glusterfs"
+                        " for brick %s:%s", brickinfo->hostname,
+                        brickinfo->path);
+                ret = glusterd_volume_start_glusterfs (volinfo, brickinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to start "
+                                "glusterfs, ret: %d", ret);
+                        goto out;
+                }
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
+        return ret;
+}
+
+int
+glusterd_restart_bricks (glusterd_conf_t *conf)
 {
         glusterd_volinfo_t       *volinfo = NULL;
         glusterd_brickinfo_t     *brickinfo = NULL;
-        char                     pidfile[PATH_MAX] = {0,};
-        char                     path[PATH_MAX] = {0,};
         int                      ret = -1;
-        struct stat              stbuf = {0,};
         struct                   timespec timeout;
         sigset_t                 mask;
 
@@ -1762,39 +1837,13 @@ glusterd_restart_bricks (glusterd_conf_t *conf, xlator_t *this)
 
         sigtimedwait(&mask, NULL, &timeout);
         GF_ASSERT (conf);
-        GF_ASSERT (this);
 
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
                 //If volume status is not started, do not proceed
                 if (volinfo->status == GLUSTERD_STATUS_STARTED) {
                         list_for_each_entry (brickinfo, &volinfo->bricks,
                                              brick_list) {
-                               //Only bricks on localhost to started
-                                if (glusterd_is_local_addr (brickinfo->hostname))
-                                        continue;
-                               //if started, implies already registered with pmap
-                                if (!glusterd_is_brick_started(brickinfo))
-                                        continue;
-                                GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
-                               GLUSTERD_GET_BRICK_PIDFILE (pidfile, path,
-                                        brickinfo->hostname, brickinfo->path);
-                                ret = stat (pidfile, &stbuf);
-                                //pid file not found, proceed to start
-                                if (ret && errno == ENOENT) {
-                                        glusterd_volume_start_glusterfs (
-                                                     volinfo, brickinfo, 0);
-                                } else if (!ret) {
-                                        ret = pmap_registry_search (this,
-                                                      brickinfo->path,
-                                                      GF_PMAP_PORT_BRICKSERVER);
-                                        if (ret)
-                                                continue;
-                                       //might be a stale pid file 
-                                        ret = unlink (pidfile);
-                                        //goto out;
-                                        glusterd_volume_start_glusterfs (
-                                                        volinfo, brickinfo, 0);
-                                }
+                                glusterd_brick_start (volinfo, brickinfo);
                         }
                         glusterd_check_generate_start_nfs (volinfo);
                 }
@@ -2005,5 +2054,60 @@ glusterd_hostname_to_uuid (char *hostname, uuid_t uuid)
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_brick_stop (glusterd_volinfo_t *volinfo,
+                     glusterd_brickinfo_t *brickinfo)
+{
+        int                                     ret   = -1;
+        xlator_t                                *this = NULL;
+        glusterd_conf_t                         *conf = NULL;
+
+        if ((!brickinfo) || (!volinfo))
+                goto out;
+
+        this = THIS;
+        GF_ASSERT (this);
+        conf = this->private;
+        GF_ASSERT (conf);
+
+        if (uuid_is_null (brickinfo->uuid)) {
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "cannot resolve brick: %s:%s",
+                                brickinfo->hostname, brickinfo->path);
+                        goto out;
+                }
+        }
+
+        if (uuid_compare (brickinfo->uuid, conf->uuid)) {
+                ret = 0;
+                goto out;
+        }
+
+        if (glusterd_is_brick_started (brickinfo)) {
+                gf_log ("", GF_LOG_DEBUG, "brick: %s:%s, of volume: %s not"
+                        " started", brickinfo->hostname, brickinfo->path,
+                        volinfo->volname);
+                ret = 0;
+                goto out;
+        }
+
+        gf_log ("", GF_LOG_NORMAL, "About to stop glusterfs"
+                " for brick %s:%s", brickinfo->hostname,
+                brickinfo->path);
+        ret = glusterd_volume_stop_glusterfs (volinfo, brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL, "Unable to remove"
+                        " brick: %s:%s", brickinfo->hostname,
+                        brickinfo->path);
+                goto out;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }

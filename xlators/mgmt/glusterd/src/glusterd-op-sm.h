@@ -83,27 +83,6 @@ typedef struct glusterd_op_sm_ {
         glusterd_op_sm_ac_fn        handler;
 } glusterd_op_sm_t;
 
-typedef enum glusterd_op_ {
-        GD_OP_NONE = 0,
-        GD_OP_CREATE_VOLUME,
-        GD_OP_START_BRICK,
-        GD_OP_STOP_BRICK,
-        GD_OP_DELETE_VOLUME,
-        GD_OP_START_VOLUME,
-        GD_OP_STOP_VOLUME,
-        GD_OP_RENAME_VOLUME,
-        GD_OP_DEFRAG_VOLUME,
-        GD_OP_ADD_BRICK,
-        GD_OP_REMOVE_BRICK,
-        GD_OP_REPLACE_BRICK,
-        GD_OP_SET_VOLUME,
-        GD_OP_SYNC_VOLUME,
-        GD_OP_LOG_FILENAME,
-        GD_OP_LOG_LOCATE,
-        GD_OP_LOG_ROTATE,
-        GD_OP_MAX,
-} glusterd_op_t;
-
 typedef struct glusterd_op_sm_state_info_ {
         glusterd_op_sm_state_t          state;
         struct timeval                  time;
@@ -129,12 +108,11 @@ struct glusterd_op_info_ {
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
 
-struct glusterd_op_start_volume_ctx_ {
+struct glusterd_op_delete_volume_ctx_ {
         char                    volume_name[GD_VOLUME_NAME_MAX];
 };
 
-typedef struct glusterd_op_start_volume_ctx_ glusterd_op_start_volume_ctx_t;
-typedef struct glusterd_op_start_volume_ctx_ glusterd_op_delete_volume_ctx_t;
+typedef struct glusterd_op_delete_volume_ctx_ glusterd_op_delete_volume_ctx_t;
 
 struct glusterd_op_log_filename_ctx_ {
         char                    volume_name[GD_VOLUME_NAME_MAX];
