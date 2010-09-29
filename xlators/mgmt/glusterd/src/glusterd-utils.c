@@ -683,6 +683,7 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
         ret = glusterd_hostname_to_uuid (hostname, uuid);
         if (ret)
                 goto out;
+        ret = -1;
         list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
 
                 if ((!uuid_compare (uuid, tmp->uuid)) &&
