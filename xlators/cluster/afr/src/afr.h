@@ -40,7 +40,7 @@ typedef struct _afr_private {
 
         unsigned int read_child_rr;   /* round-robin index of the read_child */
         gf_lock_t read_child_lock;    /* lock to protect above */
-        
+
 	xlator_t **children;
 
         gf_lock_t root_inode_lk;
@@ -215,7 +215,7 @@ static inline int
 afr_index_for_transaction_type (afr_transaction_type type)
 {
         switch (type) {
-                
+
         case AFR_DATA_TRANSACTION:
         case AFR_FLUSH_TRANSACTION:
                 return 0;
@@ -295,10 +295,10 @@ typedef struct _afr_local {
 
 	glusterfs_fop_t fop;
 
-	unsigned char *child_up; 
+	unsigned char *child_up;
 
 	int32_t *child_errno;
-	
+
 	dict_t  *xattr_req;
 	int      open_fd_count;
 
@@ -311,7 +311,7 @@ typedef struct _afr_local {
 
         int (*up_down_flush_cbk) (call_frame_t *, xlator_t *);
 
-	/* 
+	/*
 	   This struct contains the arguments for the "continuation"
 	   (scheme-like) of fops
 	*/
@@ -475,7 +475,7 @@ typedef struct _afr_local {
 		} removexattr;
 
 		/* dir write */
-		
+
 		struct {
 			ino_t ino;
                         uint64_t gen;
@@ -576,7 +576,7 @@ typedef struct _afr_local {
 			int32_t count;
 		} setdents;
 	} cont;
-	
+
 	struct {
 		off_t start, len;
 
@@ -771,13 +771,13 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd);
         } while (0);
 
 /* allocate and return a string that is the basename of argument */
-static inline char * 
-AFR_BASENAME (const char *str)						
+static inline char *
+AFR_BASENAME (const char *str)
 {
-	char *__tmp_str = NULL;				
-	char *__basename_str = NULL;			
-	__tmp_str = gf_strdup (str);			
-	__basename_str = gf_strdup (basename (__tmp_str));	
+	char *__tmp_str = NULL;
+	char *__basename_str = NULL;
+	__tmp_str = gf_strdup (str);
+	__basename_str = gf_strdup (basename (__tmp_str));
 	GF_FREE (__tmp_str);
 	return __basename_str;
 }
@@ -787,13 +787,13 @@ static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
 	local->child_up = GF_CALLOC (sizeof (*local->child_up),
-			       	     priv->child_count,
+                                     priv->child_count,
                                      gf_afr_mt_char);
 	if (!local->child_up) {
 		return -ENOMEM;
 	}
 
-	memcpy (local->child_up, priv->child_up, 
+	memcpy (local->child_up, priv->child_up,
 		sizeof (*local->child_up) * priv->child_count);
 
 

@@ -58,7 +58,7 @@ afr_pid_restore (call_frame_t *frame)
 static void
 __mark_all_pending (int32_t *pending[], int child_count,
                     afr_transaction_type type)
-{	
+{
 	int i;
         int j;
 
@@ -76,7 +76,7 @@ __mark_child_dead (int32_t *pending[], int child_count, int child,
         int j;
 
         j = afr_index_for_transaction_type (type);
-        
+
 	pending[child][j] = 0;
 }
 
@@ -104,7 +104,7 @@ out:
 
 
 static void
-__mark_failed_children (int32_t *pending[], int child_count, 
+__mark_failed_children (int32_t *pending[], int child_count,
                         xlator_t *this, fd_t *fd, afr_transaction_type type)
 {
         uint64_t       ctx;
@@ -127,7 +127,7 @@ __mark_failed_children (int32_t *pending[], int child_count,
                 if (fd_ctx->child_failed[i])
                         pending[i][j] = 0;
         }
-        
+
 out:
         return;
 }
@@ -162,7 +162,7 @@ out:
 
 
 static void
-__mark_down_children (int32_t *pending[], int child_count, 
+__mark_down_children (int32_t *pending[], int child_count,
                       unsigned char *child_up, afr_transaction_type type)
 {
 	int i;
@@ -208,7 +208,7 @@ __is_first_write_on_fd (xlator_t *this, fd_t *fd)
         LOCK (&fd->lock);
         {
                 _ret = __fd_ctx_get (fd, this, &ctx);
-                
+
                 if (_ret < 0) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "could not get fd ctx on fd=%p",
@@ -310,7 +310,7 @@ __changelog_enabled (afr_private_t *priv, afr_transaction_type type)
 	case AFR_DATA_TRANSACTION:
 		if (priv->data_change_log)
 			ret = 1;
-		
+
 		break;
 
 	case AFR_METADATA_TRANSACTION:
@@ -325,7 +325,7 @@ __changelog_enabled (afr_private_t *priv, afr_transaction_type type)
 			ret = 1;
 
 		break;
-		
+
 	case AFR_FLUSH_TRANSACTION:
 		ret = 1;
 	}
@@ -345,17 +345,17 @@ __changelog_needed_pre_op (call_frame_t *frame, xlator_t *this)
 
 	priv  = this->private;
 	local = frame->local;
-	
+
 	if (__changelog_enabled (priv, local->transaction.type)) {
 		switch (local->op) {
 
 		case GF_FOP_WRITE:
 		case GF_FOP_FTRUNCATE:
-			/* 
+			/*
 			   if it's a data transaction, we write the changelog
-			   only on the first write on an fd 
+			   only on the first write on an fd
 			*/
-			
+
 			fd = local->fd;
 			if (!fd || __is_first_write_on_fd (this, fd))
 				op_ret = 1;
@@ -421,7 +421,7 @@ afr_set_pending_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending)
                 ret = dict_set_static_bin (xattr, priv->pending_key[i],
                                            pending[i], 3 * sizeof (int32_t));
                 /* 3 = data+metadata+entry */
-                
+
                 if (ret < 0)
                         goto out;
         }
@@ -501,28 +501,28 @@ afr_changelog_post_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 }
 	}
 
-	return 0;	
+	return 0;
 }
 
 
-int 
+int
 afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 {
 	afr_private_t * priv = this->private;
         afr_internal_lock_t *int_lock = NULL;
 	int ret        = 0;
-	int i          = 0;				
+	int i          = 0;
 	int call_count = 0;
-	
-	afr_local_t *  local = NULL;	
+
+	afr_local_t *  local = NULL;
 	dict_t        **xattr = NULL;
 
 	local    = frame->local;
         int_lock = &local->internal_lock;
 
-	__mark_down_children (local->pending, priv->child_count, 
+	__mark_down_children (local->pending, priv->child_count,
                               local->child_up, local->transaction.type);
-        
+
         if (local->op == GF_FOP_FLUSH) {
                 __mark_failed_children (local->pending, priv->child_count,
                                         this, local->fd,
@@ -539,14 +539,14 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
         if (local->op == GF_FOP_FLUSH) {
                 call_count = afr_pre_op_done_count (this, local->fd, local->child_up);
         } else {
-                call_count = afr_up_children_count (priv->child_count, local->child_up); 
+                call_count = afr_up_children_count (priv->child_count, local->child_up);
 
                 if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
                         call_count *= 2;
                 }
         }
 
-	local->call_count = call_count;		
+	local->call_count = call_count;
 
 	if (call_count == 0) {
 		/* no child is up */
@@ -561,7 +561,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-                        ret = afr_set_pending_dict (priv, xattr[i], 
+                        ret = afr_set_pending_dict (priv, xattr[i],
                                                     local->pending);
 
 			if (ret < 0)
@@ -593,7 +593,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 			{
 				if (__if_fd_pre_op_done (this, local->fd, i)) {
 					STACK_WIND (frame, afr_changelog_post_op_cbk,
-						    priv->children[i], 
+						    priv->children[i],
 						    priv->children[i]->fops->fxattrop,
 						    local->fd,
 						    GF_XATTROP_ADD_ARRAY, xattr[i]);
@@ -610,19 +610,19 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 						   priv->children[i]->fops->xattrop,
 						   &local->transaction.new_parent_loc,
 						   GF_XATTROP_ADD_ARRAY, xattr[i]);
-				
+
 				call_count--;
 			}
 
-			/* 
+			/*
 			   set it again because previous stack_wind
 			   might have already returned (think of case
 			   where subvolume is posix) and would have
 			   used the dict as placeholder for return
 			   value
 			*/
-                        
-			ret = afr_set_pending_dict (priv, xattr[i], 
+
+			ret = afr_set_pending_dict (priv, xattr[i],
                                                     local->pending);
 
 			if (ret < 0)
@@ -635,15 +635,15 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 			{
 				if (local->fd)
 					STACK_WIND (frame, afr_changelog_post_op_cbk,
-						    priv->children[i], 
+						    priv->children[i],
 						    priv->children[i]->fops->fxattrop,
-						    local->fd, 
+						    local->fd,
 						    GF_XATTROP_ADD_ARRAY, xattr[i]);
-				else 
+				else
 					STACK_WIND (frame, afr_changelog_post_op_cbk,
-						    priv->children[i], 
+						    priv->children[i],
 						    priv->children[i]->fops->xattrop,
-						    &local->transaction.parent_loc, 
+						    &local->transaction.parent_loc,
 						    GF_XATTROP_ADD_ARRAY, xattr[i]);
                                 call_count--;
 			}
@@ -665,7 +665,7 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
 int32_t
 afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			      int32_t op_ret, int32_t op_errno, dict_t *xattr)
+                          int32_t op_ret, int32_t op_errno, dict_t *xattr)
 {
 	afr_local_t *   local = NULL;
 	afr_private_t * priv  = this->private;
@@ -685,17 +685,17 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 		if (op_ret == -1) {
 			local->child_up[child_index] = 0;
-			
+
 			if (op_errno == ENOTSUP) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"xattrop not supported by %s",
 					priv->children[child_index]->name);
 				local->op_ret = -1;
-                                
+
 			} else if (!child_went_down (op_ret, op_errno)) {
 				gf_log (this->name, GF_LOG_ERROR,
 					"xattrop failed on child %s: %s",
-					priv->children[child_index]->name, 
+					priv->children[child_index]->name,
 					strerror (op_errno));
 			}
 			local->op_errno = op_errno;
@@ -706,7 +706,7 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	UNLOCK (&frame->lock);
 
 	if (call_count == 0) {
-		if ((local->op_ret == -1) && 
+		if ((local->op_ret == -1) &&
 		    (local->op_errno == ENOTSUP)) {
 			local->transaction.resume (frame, this);
 		} else {
@@ -719,23 +719,23 @@ afr_changelog_pre_op_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 	}
 
-	return 0;	
+	return 0;
 }
 
 
-int 
+int
 afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 {
 	afr_private_t * priv = this->private;
-	int i = 0;				
+	int i = 0;
 	int ret = 0;
-	int call_count = 0;		     
+	int call_count = 0;
 	dict_t **xattr = NULL;
 
 	afr_local_t *local = NULL;
 
 	local = frame->local;
-        
+
         xattr = alloca (priv->child_count * sizeof (*xattr));
         memset (xattr, 0, (priv->child_count * sizeof (*xattr)));
 
@@ -744,8 +744,8 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                 dict_ref (xattr[i]);
         }
 
-	call_count = afr_up_children_count (priv->child_count, 
-					    local->child_up); 
+	call_count = afr_up_children_count (priv->child_count,
+					    local->child_up);
 
 	if (local->transaction.type == AFR_ENTRY_RENAME_TRANSACTION) {
 		call_count *= 2;
@@ -763,14 +763,14 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 		return 0;
 	}
 
-	local->call_count = call_count;		
+	local->call_count = call_count;
 
 	__mark_all_pending (local->pending, priv->child_count,
                             local->transaction.type);
 
 	for (i = 0; i < priv->child_count; i++) {
 		if (local->child_up[i]) {
-			ret = afr_set_pending_dict (priv, xattr[i], 
+			ret = afr_set_pending_dict (priv, xattr[i],
                                                     local->pending);
 
 			if (ret < 0)
@@ -784,39 +784,39 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 			case AFR_FLUSH_TRANSACTION:
 			{
 				if (local->fd)
-					STACK_WIND_COOKIE (frame, 
+					STACK_WIND_COOKIE (frame,
 							   afr_changelog_pre_op_cbk,
 							   (void *) (long) i,
-							   priv->children[i], 
+							   priv->children[i],
 							   priv->children[i]->fops->fxattrop,
 							   local->fd,
 							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 				else
-					STACK_WIND_COOKIE (frame, 
+					STACK_WIND_COOKIE (frame,
 							   afr_changelog_pre_op_cbk,
 							   (void *) (long) i,
-							   priv->children[i], 
+							   priv->children[i],
 							   priv->children[i]->fops->xattrop,
-							   &(local->loc), 
+							   &(local->loc),
 							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 			}
 			break;
-				
-			case AFR_ENTRY_RENAME_TRANSACTION: 
+
+			case AFR_ENTRY_RENAME_TRANSACTION:
 			{
-				STACK_WIND_COOKIE (frame, 
+				STACK_WIND_COOKIE (frame,
 						   afr_changelog_pre_op_cbk,
 						   (void *) (long) i,
-						   priv->children[i], 
+						   priv->children[i],
 						   priv->children[i]->fops->xattrop,
-						   &local->transaction.new_parent_loc, 
+						   &local->transaction.new_parent_loc,
 						   GF_XATTROP_ADD_ARRAY, xattr[i]);
 
 				call_count--;
 			}
 
 
-			/* 
+			/*
 			   set it again because previous stack_wind
 			   might have already returned (think of case
 			   where subvolume is posix) and would have
@@ -824,7 +824,7 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 			   value
 			*/
 
-			ret = afr_set_pending_dict (priv, xattr[i], 
+			ret = afr_set_pending_dict (priv, xattr[i],
                                                     local->pending);
 
 			if (ret < 0)
@@ -832,24 +832,24 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 					"failed to set pending entry");
 
 			/* fall through */
-				
+
 			case AFR_ENTRY_TRANSACTION:
 			{
 				if (local->fd)
-					STACK_WIND_COOKIE (frame, 
+					STACK_WIND_COOKIE (frame,
 							   afr_changelog_pre_op_cbk,
 							   (void *) (long) i,
-							   priv->children[i], 
+							   priv->children[i],
 							   priv->children[i]->fops->fxattrop,
-							   local->fd, 
+							   local->fd,
 							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 				else
-					STACK_WIND_COOKIE (frame, 
+					STACK_WIND_COOKIE (frame,
 							   afr_changelog_pre_op_cbk,
 							   (void *) (long) i,
-							   priv->children[i], 
+							   priv->children[i],
 							   priv->children[i]->fops->xattrop,
-							   &local->transaction.parent_loc, 
+							   &local->transaction.parent_loc,
 							   GF_XATTROP_ADD_ARRAY, xattr[i]);
 			}
 
@@ -860,13 +860,14 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 				break;
 		}
 	}
-        
+
         for (i = 0; i < priv->child_count; i++) {
                 dict_unref (xattr[i]);
         }
-        
+
 	return 0;
 }
+
 
 int
 afr_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
@@ -890,6 +891,7 @@ afr_post_blocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
 
         return 0;
 }
+
 
 int
 afr_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
@@ -916,6 +918,7 @@ afr_post_nonblocking_inodelk_cbk (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
+
 int
 afr_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
 {
@@ -938,6 +941,7 @@ afr_post_blocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
 
         return 0;
 }
+
 
 int
 afr_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
@@ -964,6 +968,7 @@ afr_post_nonblocking_entrylk_cbk (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
+
 int
 afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
 {
@@ -986,7 +991,9 @@ afr_post_blocking_rename_cbk (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-int afr_post_lower_unlock_cbk (call_frame_t *frame, xlator_t *this)
+
+int
+afr_post_lower_unlock_cbk (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
         afr_local_t         *local    = NULL;
@@ -1001,6 +1008,7 @@ int afr_post_lower_unlock_cbk (call_frame_t *frame, xlator_t *this)
 
         return 0;
 }
+
 
 int
 afr_set_transaction_flock (afr_local_t *local)
@@ -1060,7 +1068,7 @@ afr_lock_rec (call_frame_t *frame, xlator_t *this)
 }
 
 
-int32_t
+int
 afr_lock (call_frame_t *frame, xlator_t *this)
 {
         afr_pid_save (frame);
@@ -1100,7 +1108,8 @@ afr_internal_lock_finish (call_frame_t *frame, xlator_t *this)
         return 0;
 }
 
-int32_t
+
+int
 afr_transaction_resume (call_frame_t *frame, xlator_t *this)
 {
         afr_internal_lock_t *int_lock = NULL;
@@ -1151,7 +1160,7 @@ afr_transaction_fop_failed (call_frame_t *frame, xlator_t *this, int child_index
 }
 
 
-int32_t
+int
 afr_transaction (call_frame_t *frame, xlator_t *this, afr_transaction_type type)
 {
 	afr_local_t *   local = NULL;
