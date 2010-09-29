@@ -793,75 +793,18 @@ afr_sh_missing_entries_done (call_frame_t *frame, xlator_t *this)
 }
 
 
-int
-sh_missing_entries_unlck_cbk (call_frame_t *frame, void *cookie,
-			      xlator_t *this,
-			      int32_t op_ret, int32_t op_errno)
-{
-	afr_local_t     *local = NULL;
-	int              call_count = 0;
-
-	local = frame->local;
-
-	LOCK (&frame->lock);
-	{
-	}
-	UNLOCK (&frame->lock);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0) {
-		afr_sh_missing_entries_done (frame, this);
-	}
-
-	return 0;
-}
-
-
 static int
 sh_missing_entries_finish (call_frame_t *frame, xlator_t *this)
 {
-	afr_private_t      *priv = NULL;
-	afr_local_t        *local = NULL;
-	int                 i = 0;
-	int                 call_count = 0;
-	afr_self_heal_t    *sh = NULL;
-
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
 
 	local = frame->local;
-	sh = &local->self_heal;
-	priv = this->private;
+        int_lock = &local->internal_lock;
 
-        for (i = 0; i < priv->child_count; i++) {
-                if (sh->locked_nodes[i])
-                        call_count++;
-        }
+        int_lock->lock_cbk = afr_sh_missing_entries_done;
+        afr_unlock (frame, this);
 
-        if (call_count == 0) {
-                afr_sh_missing_entries_done (frame, this);
-                return 0;
-        }
-
-	local->call_count = call_count;
-
-	for (i = 0; i < priv->child_count; i++) {
-		if (sh->locked_nodes[i]) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"unlocking %"PRId64"/%s on subvolume %s",
-				sh->parent_loc.inode->ino, local->loc.name,
-				priv->children[i]->name);
-
-			STACK_WIND (frame, sh_missing_entries_unlck_cbk,
-				    priv->children[i],
-				    priv->children[i]->fops->entrylk,
-                                    this->name,
-				    &sh->parent_loc, local->loc.name,
-				    ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
-
-			if (!--call_count)
-				break;
-		}
-	}
 	return 0;
 }
 
