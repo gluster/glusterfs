@@ -589,11 +589,41 @@ fuse_mount_sys (const char *mountpoint, char *fsname, char *mnt_param)
         return fd;
 }
 
+static char *
+escape (char *s)
+{
+        size_t len = 0;
+        char *p = NULL;
+        char *q = NULL;
+        char *e = NULL;
+
+        for (p = s; *p; p++) {
+                if (*p == ',')
+                       len++;
+                len++;
+        }
+
+        e = CALLOC (1, len + 1);
+        if (!e)
+                return NULL;
+
+        for (p = s, q = e; *p; p++, q++) {
+                if (*p == ',') {
+                        *q = '\\';
+                        q++;
+                }
+                *q = *p;
+        }
+
+        return e;
+}
+
 int
 gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
 {
         int fd = -1, rv = -1;
         char *fm_mnt_params = NULL, *p = NULL;
+        char *efsname = NULL;
 
         fd = fuse_mount_sys (mountpoint, fsname, mnt_param);
         if (fd == -1) {
@@ -602,10 +632,16 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param)
                         "retry to mount via fusermount",
                         strerror (errno));
 
+                efsname = escape (fsname);
+                if (!efsname) {
+                        GFFUSE_LOGERR ("Out of memory");
+
+                        return -1;
+                }
                 rv = asprintf (&fm_mnt_params,
                                "%s,fsname=%s,nonempty,subtype=glusterfs",
-                               mnt_param, fsname);
-
+                               mnt_param, efsname);
+                FREE (efsname);
                 if (rv == -1) {
                         GFFUSE_LOGERR ("Out of memory");
 
