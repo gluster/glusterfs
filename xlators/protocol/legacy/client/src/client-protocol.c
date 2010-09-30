@@ -145,16 +145,26 @@ this_fd_set_ctx (fd_t *file, xlator_t *this, loc_t *loc, client_fd_ctx_t *ctx)
 
         ret = fd_ctx_get (file, this, &oldaddr);
         if (ret >= 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "%s (%"PRId64"): trying duplicate remote fd set. ",
-                        loc->path, loc->inode->ino);
+                if (loc)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s (%"PRId64"): trying duplicate remote fd set. ",
+                                loc->path, loc->inode->ino);
+                else
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%p: trying duplicate remote fd set. ",
+                                file);
         }
 
         ret = fd_ctx_set (file, this, (uint64_t)(unsigned long)ctx);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "%s (%"PRId64"): failed to set remote fd",
-                        loc->path, loc->inode->ino);
+                if (loc)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%s (%"PRId64"): failed to set remote fd",
+                                loc->path, loc->inode->ino);
+                else
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "%p: failed to set remote fd",
+                                file);
         }
 out:
         return;

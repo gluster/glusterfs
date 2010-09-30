@@ -1678,3 +1678,104 @@ afr_unlock (call_frame_t *frame, xlator_t *this)
 
         return 0;
 }
+
+int
+afr_mark_locked_nodes (xlator_t *this, fd_t *fd,
+                       unsigned char *locked_nodes)
+{
+        afr_private_t *priv  = NULL;
+        afr_fd_ctx_t  *fdctx = NULL;
+        uint64_t       tmp   = 0;
+        int            ret   = 0;
+
+        priv = this->private;
+
+        afr_fd_ctx_set (this, fd);
+        if (ret < 0)
+                goto out;
+
+        ret = fd_ctx_get (fd, this, &tmp);
+        fdctx = (afr_fd_ctx_t *) (long) tmp;
+
+        GF_ASSERT (fdctx->locked_on);
+
+        memcpy (fdctx->locked_on, locked_nodes,
+                priv->child_count);
+
+out:
+        return ret;
+}
+
+static int
+__is_fd_saved (xlator_t *this, fd_t *fd)
+{
+        afr_locked_fd_t *locked_fd = NULL;
+        afr_private_t   *priv      = NULL;
+        int              found     = 0;
+
+        priv = this->private;
+
+        list_for_each_entry (locked_fd, &priv->saved_fds, list) {
+                if (locked_fd->fd == fd) {
+                        found = 1;
+                        break;
+                }
+        }
+
+        return found;
+}
+
+static int
+__afr_save_locked_fd (xlator_t *this, fd_t *fd)
+{
+        afr_private_t   *priv      = NULL;
+        afr_locked_fd_t *locked_fd = NULL;
+        int              ret       = 0;
+
+        priv = this->private;
+
+        locked_fd = GF_CALLOC (1, sizeof (*locked_fd),
+                               gf_afr_mt_locked_fd);
+        if (!locked_fd) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&locked_fd->list);
+
+        list_add_tail (&locked_fd->list, &priv->saved_fds);
+
+out:
+        return ret;
+}
+
+int
+afr_save_locked_fd (xlator_t *this, fd_t *fd)
+{
+        afr_private_t   *priv      = NULL;
+        int              ret       = 0;
+
+        priv = this->private;
+
+        pthread_mutex_lock (&priv->mutex);
+        {
+                if (__is_fd_saved (this, fd)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "fd=%p already saved", fd);
+                        goto unlock;
+                }
+
+                ret = __afr_save_locked_fd (this, fd);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "fd=%p could not be saved");
+                        goto unlock;
+                }
+        }
+unlock:
+        pthread_mutex_unlock (&priv->mutex);
+
+        return ret;
+}

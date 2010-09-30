@@ -313,6 +313,7 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 fdctx->wbflags   = local->wbflags;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
+                INIT_LIST_HEAD (&fdctx->lock_list);
 
                 this_fd_set_ctx (fd, frame->this, &local->loc, fdctx);
 
@@ -605,10 +606,14 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
                      void *myframe)
 {
         call_frame_t    *frame      = NULL;
+        clnt_local_t  *local      = NULL;
+        xlator_t        *this       = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
 
         frame = myframe;
+        this  = THIS;
+        local = frame->local;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -622,6 +627,18 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 rsp.op_errno = EINVAL;
                 goto out;
         }
+
+        if (rsp.op_ret >= 0) {
+                /* Delete all saved locks of the owner issuing flush */
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Attempting to delete locks of owner=%llu",
+                        (long long unsigned) local->owner);
+                delete_granted_locks_owner (local->fd, local->owner);
+        }
+
+        frame->local = NULL;
+        if (local)
+                client_local_wipe (local);
 
 out:
         STACK_UNWIND_STRICT (flush, frame, rsp.op_ret,
@@ -1442,6 +1459,7 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 fdctx->flags     = local->flags;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
+                INIT_LIST_HEAD (&fdctx->lock_list);
 
                 this_fd_set_ctx (fd, frame->this, &local->loc, fdctx);
 
@@ -1506,12 +1524,14 @@ int
 client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                   void *myframe)
 {
-        call_frame_t  *frame = NULL;
-        struct flock   lock = {0,};
-        gfs3_lk_rsp    rsp        = {0,};
-        int            ret        = 0;
+        call_frame_t    *frame      = NULL;
+        clnt_local_t  *local      = NULL;
+        struct flock     lock       = {0,};
+        gfs3_lk_rsp      rsp        = {0,};
+        int              ret        = 0;
 
         frame = myframe;
+        local = frame->local;
 
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
@@ -1530,6 +1550,20 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (rsp.op_ret >= 0) {
                 gf_flock_to_flock (&rsp.flock, &lock);
         }
+
+        /* Save the lock to the client lock cache to be able
+           to recover in the case of server reboot.*/
+        if (local->cmd == F_SETLK || local->cmd == F_SETLKW) {
+                ret = client_add_lock_for_recovery (local->fd, &lock,
+                                                    local->owner, local->cmd);
+                if (ret < 0) {
+                        rsp.op_ret = -1;
+                        rsp.op_errno = -ret;
+                }
+        }
+
+        frame->local = NULL;
+        client_local_wipe (local);
 
 out:
         STACK_UNWIND_STRICT (lk, frame, rsp.op_ret,
@@ -1777,6 +1811,7 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 fdctx->is_dir    = 1;
 
                 INIT_LIST_HEAD (&fdctx->sfd_pos);
+                INIT_LIST_HEAD (&fdctx->lock_list);
 
                 this_fd_set_ctx (fd, frame->this, &local->loc, fdctx);
 
@@ -2014,12 +2049,14 @@ int
 client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                       void           *myframe)
 {
-        int32_t        ret = -1;
-        gfs3_open_rsp  rsp = {0,};
-        clnt_local_t  *local = NULL;
-        clnt_conf_t   *conf = NULL;
-        clnt_fd_ctx_t *fdctx = NULL;
-        call_frame_t  *frame = NULL;
+        int32_t        ret                   = -1;
+        gfs3_open_rsp  rsp                   = {0,};
+        int            attempt_lock_recovery = _gf_false;
+        uint64_t       fd_count              = 0;
+        clnt_local_t  *local                 = NULL;
+        clnt_conf_t   *conf                  = NULL;
+        clnt_fd_ctx_t *fdctx                 = NULL;
+        call_frame_t  *frame                 = NULL;
 
         frame = myframe;
         local = frame->local;
@@ -2052,12 +2089,27 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
                         if (!fdctx->released) {
                                 list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+                                attempt_lock_recovery = _gf_true;
                                 fdctx = NULL;
                         }
                 }
                 pthread_mutex_unlock (&conf->lock);
 	      
           }
+        }
+
+        if (attempt_lock_recovery) {
+                ret = client_attempt_lock_recovery (frame->this, local->fdctx);
+                if (ret < 0)
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                "No locks on fd to recover");
+                else {
+                        fd_count = decrement_reopen_fd_count (frame->this, conf);
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                "Need to attempt lock recovery on %lld open fds",
+                                (unsigned long long) fd_count);
+
+                }
         }
 
 out:
@@ -2380,6 +2432,9 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
         if (remote_fd != -1) {
                 req.fd = remote_fd;
                 req.gfs_id = GFS3_OP_RELEASE;
+
+                delete_granted_locks_fd (fdctx);
+
                 ret = client_submit_request (this, &req, frame, conf->fops,
                                              GFS3_OP_RELEASE,
                                              client3_1_release_cbk, NULL,
@@ -3468,7 +3523,6 @@ unwind:
 }
 
 
-
 int32_t
 client3_1_flush (call_frame_t *frame, xlator_t *this,
                  void *data)
@@ -3477,8 +3531,9 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         gfs3_flush_req  req      = {0,};
         clnt_fd_ctx_t  *fdctx    = NULL;
         clnt_conf_t    *conf     = NULL;
+        clnt_local_t *local    = NULL;
         int             op_errno = ESTALE;
-        int             ret        = 0;
+        int             ret      = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
@@ -3506,6 +3561,21 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
                 op_errno = EBADFD;
                 goto unwind;
         }
+
+        conf = this->private;
+
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of Memory");
+                STACK_UNWIND (frame, -1, ENOMEM);
+                return 0;
+
+        }
+
+        local->fd = fd_ref (args->fd);
+        local->owner = frame->root->lk_owner;
+        frame->local = local;
 
         req.fd = fdctx->remote_fd;
         req.gfs_id = GFS3_OP_FLUSH;
@@ -4012,16 +4082,23 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         clnt_conf_t       *conf     = NULL;
         clnt_args_t       *args     = NULL;
         gfs3_getxattr_req  req      = {0,};
+        dict_t            *dict     = NULL;
         int                ret      = 0;
+        int32_t            op_ret   = 0;
         int                op_errno = ESTALE;
 
-        if (!frame || !this || !data)
+        if (!frame || !this || !data) {
+                op_ret   = -1;
+                op_errno = 0;
                 goto unwind;
-
+        }
         args = data;
 
-        if (!(args->loc && args->loc->inode))
+        if (!(args->loc && args->loc->inode)) {
+                op_ret   = -1;
+                op_errno = EINVAL;
                 goto unwind;
+        }
 
         memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.namelen = 1; /* Use it as a flag */
@@ -4035,19 +4112,42 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         conf = this->private;
 
+        if (args && args->name) {
+                if (is_client_dump_locks_cmd ((char *)args->name)) {
+                        ret = client_dump_locks ((char *)args->name,
+                                                 args->loc->inode,
+                                                 dict);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "Client dump locks failed");
+                                op_ret = -1;
+                                op_errno = EINVAL;
+                        }
+
+                        GF_ASSERT (dict);
+                        op_ret = 0;
+                        op_errno = 0;
+                        goto unwind;
+                }
+        }
+
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_GETXATTR,
                                      client3_1_getxattr_cbk, NULL,
                                      xdr_from_getxattr_req, NULL, 0,
                                      NULL, 0, NULL);
         if (ret) {
+                op_ret   = -1;
                 op_errno = ENOTCONN;
                 goto unwind;
         }
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (getxattr, frame, -1, op_errno, NULL);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, NULL);
+        if (dict)
+                dict_unref (dict);
+
         return 0;
 }
 
@@ -4242,20 +4342,28 @@ int32_t
 client3_1_lk (call_frame_t *frame, xlator_t *this,
               void *data)
 {
-        clnt_args_t   *args     = NULL;
-        gfs3_lk_req    req      = {0,};
-        int32_t        gf_cmd   = 0;
-        int32_t        gf_type  = 0;
-        clnt_fd_ctx_t *fdctx    = NULL;
-        clnt_conf_t   *conf     = NULL;
-        int            op_errno = ESTALE;
-        int           ret        = 0;
+        clnt_args_t     *args       = NULL;
+        gfs3_lk_req      req        = {0,};
+        int32_t          gf_cmd     = 0;
+        int32_t          gf_type    = 0;
+        clnt_fd_ctx_t   *fdctx      = NULL;
+        clnt_local_t    *local      = NULL;
+        clnt_conf_t     *conf       = NULL;
+        int              op_errno   = ESTALE;
+        int              ret        = 0;
 
         if (!frame || !this || !data)
                 goto unwind;
 
         args = data;
         conf = this->private;
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                op_errno = ENOMEM;
+                goto unwind;
+        }
 
         pthread_mutex_lock (&conf->lock);
         {
@@ -4278,16 +4386,11 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
                 goto unwind;
         }
 
-        if (args->cmd == F_GETLK || args->cmd == F_GETLK64)
-                gf_cmd = GF_LK_GETLK;
-        else if (args->cmd == F_SETLK || args->cmd == F_SETLK64)
-                gf_cmd = GF_LK_SETLK;
-        else if (args->cmd == F_SETLKW || args->cmd == F_SETLKW64)
-                gf_cmd = GF_LK_SETLKW;
-        else {
+        ret = client_cmd_to_gf_cmd (args->cmd, &gf_cmd);
+        if (ret) {
+                op_errno = EINVAL;
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Unknown cmd (%d)!", gf_cmd);
-                goto unwind;
         }
 
         switch (args->flock->l_type) {
@@ -4301,6 +4404,11 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
                 gf_type = GF_LK_F_UNLCK;
                 break;
         }
+
+        local->owner = frame->root->lk_owner;
+        local->cmd   = args->cmd;
+        local->fd    = fd_ref (args->fd);
+        frame->local = local;
 
         req.fd    = fdctx->remote_fd;
         req.cmd   = gf_cmd;

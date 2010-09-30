@@ -125,6 +125,9 @@ struct __pl_inode {
         struct list_head dom_list;       /* list of domains */
         struct list_head ext_list;       /* list of fcntl locks */
         struct list_head rw_list;        /* list of waiting r/w requests */
+        struct list_head reservelk_list;        /* list of reservelks */
+        struct list_head blocked_reservelks;        /* list of blocked reservelks */
+        struct list_head blocked_calls;  /* List of blocked lock calls while a reserve is held*/
         int              mandatory;      /* if mandatory locking is enabled */
 
         inode_t          *refkeeper;     /* hold refs on an inode while locks are
@@ -149,5 +152,9 @@ typedef struct {
         gf_boolean_t   inodelk_count_req;
         gf_boolean_t   posixlk_count_req;
 } pl_local_t;
+
+typedef struct {
+        struct list_head locks_list;
+} pl_fdctx_t;
 
 #endif /* __POSIX_LOCKS_H__ */

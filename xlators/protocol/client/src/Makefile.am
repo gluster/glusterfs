@@ -9,7 +9,7 @@ client_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la
 
 client_la_SOURCES = client.c client-helpers.c client3_1-fops.c  \
-	client-handshake.c client-callback.c
+	client-handshake.c client-callback.c client-lk.c
 noinst_HEADERS = client.h client-mem-types.h
 
 AM_CFLAGS = -fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -D$(GF_HOST_OS) \

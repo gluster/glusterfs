@@ -1865,6 +1865,8 @@ init (xlator_t *this)
         pthread_mutex_init (&conf->lock, NULL);
         INIT_LIST_HEAD (&conf->saved_fds);
 
+        LOCK_INIT (&conf->rec_lock);
+
         this->private = conf;
 
         /* If it returns -1, then its a failure, if it returns +1 we need

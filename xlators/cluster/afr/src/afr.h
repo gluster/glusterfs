@@ -85,6 +85,9 @@ typedef struct _afr_private {
 
 	struct _pump_private *pump_private; /* Set if we are loaded as pump */
         int                   use_afr_in_pump;
+
+        pthread_mutex_t  mutex;
+        struct list_head saved_fds;   /* list of fds on which locks have succeeded */
 } afr_private_t;
 
 typedef struct {
@@ -261,6 +264,11 @@ typedef struct {
         int (*lock_cbk) (call_frame_t *, xlator_t *);
 
 } afr_internal_lock_t;
+
+typedef struct _afr_locked_fd {
+        fd_t  *fd;
+        struct list_head list;
+} afr_locked_fd_t;
 
 typedef struct _afr_local {
 	unsigned int call_count;
@@ -619,6 +627,8 @@ typedef struct {
         int  hit, miss;
         gf_boolean_t failed_over;
         struct list_head entries; /* needed for readdir failover */
+
+        unsigned char *locked_on; /* which subvolumes locks have been successful */
 } afr_fd_ctx_t;
 
 
@@ -654,6 +664,13 @@ pump_command_reply (call_frame_t *frame, xlator_t *this);
 int32_t
 afr_notify (xlator_t *this, int32_t event,
             void *data, ...);
+
+int
+afr_save_locked_fd (xlator_t *this, fd_t *fd);
+
+int
+afr_mark_locked_nodes (xlator_t *this, fd_t *fd,
+                       unsigned char *locked_nodes);
 
 void
 afr_set_lk_owner (call_frame_t *frame, xlator_t *this);
