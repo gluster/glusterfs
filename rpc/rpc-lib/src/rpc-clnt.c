@@ -1000,6 +1000,8 @@ rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
         ret = rpc_clnt_connection_init (rpc, ctx, options, name);
         if (ret == -1) {
                 pthread_mutex_destroy (&rpc->lock);
+                mem_pool_destroy (rpc->reqpool);
+                mem_pool_destroy (rpc->saved_frames_pool);
                 GF_FREE (rpc);
                 rpc = NULL;
                 if (options)
@@ -1457,6 +1459,12 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
         saved_frames_destroy (rpc->conn.saved_frames);
         pthread_mutex_destroy (&rpc->lock);
         pthread_mutex_destroy (&rpc->conn.lock);
+
+        /* mem-pool should be destroyed, otherwise,
+           it will cause huge memory leaks */
+        mem_pool_destroy (rpc->reqpool);
+        mem_pool_destroy (rpc->saved_frames_pool);
+
         GF_FREE (rpc);
         return;
 }
