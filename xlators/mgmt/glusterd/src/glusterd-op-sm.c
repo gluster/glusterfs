@@ -681,6 +681,14 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 goto out;
         }
 
+        if (glusterd_is_defrag_on(volinfo)) {
+                snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
+                          "progress. Please retry after completion", volname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        }
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get count");
@@ -841,6 +849,15 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 snprintf (msg, sizeof (msg), "volume: %s is not started",
                           volname);
                 *op_errstr = gf_strdup (msg);
+                goto out;
+        }
+
+        if (glusterd_is_defrag_on(volinfo)) {
+                snprintf (msg, sizeof(msg), "Volume name %s rebalance is in "
+                          "progress. Please retry after completion", volname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
                 goto out;
         }
 
@@ -1307,6 +1324,27 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Volume %s does not exist", volname);
+                goto out;
+        }
+
+        if (glusterd_is_defrag_on(volinfo)) {
+                ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
+                errstr = gf_strdup("Rebalance is in progress. Please retry"
+                                    " after completion");
+                if (!errstr) {
+                        ret = -1;
+                        goto out;
+                }
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", errstr);
+                ret = dict_set_dynstr (ctx, "errstr", errstr);
+                if (ret) {
+                        GF_FREE (errstr);
+                        gf_log ("", GF_LOG_DEBUG,
+                                "failed to set errstr ctx");
+                        goto out;
+                }
+
+                ret = -1;
                 goto out;
         }
 
@@ -2850,7 +2888,6 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                 gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
         }
-
 
         ret = dict_get_int32 (dict, "count", &count);
         if (ret) {

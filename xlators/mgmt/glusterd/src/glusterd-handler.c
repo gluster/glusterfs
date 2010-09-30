@@ -837,7 +837,7 @@ glusterd_defrag_start (void *data)
         volinfo->lookedup_files  = defrag->num_files_lookedup;
 out:
         if (defrag) {
-                gf_log ("defrag", GF_LOG_NORMAL, "defrag on %s complete",
+                gf_log ("rebalance", GF_LOG_NORMAL, "rebalance on %s complete",
                         defrag->mount);
 
                 snprintf (cmd_str, 1024, "umount -l %s", defrag->mount);
@@ -931,19 +931,19 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 default:
                         break;
         }
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag volume on %s",
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume on %s",
                 cli_req.volname);
 
         rsp.volname = cli_req.volname;
         rsp.op_ret = -1;
         if (glusterd_volinfo_find(cli_req.volname, &volinfo)) {
-                gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag on invalid"
+                gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance on invalid"
                         " volname %s", cli_req.volname);
                 goto out;
         }
 
         if (volinfo->status != GLUSTERD_STATUS_STARTED) {
-                gf_log ("glusterd", GF_LOG_NORMAL, "Received defrag on stopped"
+                gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance on stopped"
                         " volname %s", cli_req.volname);
                 goto out;
         }
@@ -953,7 +953,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
         {
                 if (volinfo->defrag) {
                         gf_log ("glusterd", GF_LOG_DEBUG,
-                                "defrag on volume %s already started",
+                                "rebalance on volume %s already started",
                                 cli_req.volname);
                         goto out;
                 }
