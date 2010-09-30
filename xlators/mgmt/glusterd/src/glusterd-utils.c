@@ -801,7 +801,8 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                         ret = kill (pid, SIGKILL);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to "
-                                        "kill pid %d", pid);
+                                        "kill pid %d reason: %s", pid,
+                                        strerror(errno));
                                 goto out;
                         }
                         ret = unlink (pidfile);

@@ -681,9 +681,7 @@ cleanup_and_exit (int signum)
         while (trav) {
                 if (trav->fini) {
                         THIS = trav;
-			gf_log ("", GF_LOG_NORMAL, "Calling fini for %s", trav->name);
                         trav->fini (trav);
-			gf_log ("", GF_LOG_NORMAL, "Done Calling fini for %s", trav->name);
                 }
                 trav = trav->next;
         }
