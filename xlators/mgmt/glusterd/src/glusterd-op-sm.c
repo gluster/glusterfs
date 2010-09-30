@@ -1208,6 +1208,9 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick)
         volinfo->brick_count--;
 
 out:
+        if (dup_brick)
+                GF_FREE (dup_brick);
+
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

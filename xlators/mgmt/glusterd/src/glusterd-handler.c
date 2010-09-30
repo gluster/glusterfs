@@ -1722,12 +1722,17 @@ glusterd_handle_set_volume (rpcsvc_request_t *req)
                                 "failed to "
                                 "unserialize req-buffer to dictionary");
                         goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
                 }
         }
 
         ret = glusterd_set_volume (req, dict);
 
 out:
+        if (cli_req.volname)
+                free (cli_req.volname);//malloced by xdr
+
         return ret;
 }
 
