@@ -1769,14 +1769,18 @@ int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	int	ret = 0;
-	int	timeout_ret=0;
-	int	ping_timeout;
-	int	frame_timeout;
+	int	timeout_ret = 0;
+	int	ping_timeout = 0;
+	int	frame_timeout = 0;
 	clnt_conf_t *conf = NULL;
+        char    *old_remote_subvol = NULL;
+        char    *new_remote_subvol = NULL;
+        int     subvol_ret = 0;
 
-	
+
+
 	conf = this->private;
-	
+
         timeout_ret = dict_get_int32 (options, "frame-timeout",
 				      &frame_timeout);
         if (timeout_ret == 0) {
@@ -1798,7 +1802,7 @@ reconfigure (xlator_t *this, dict_t *options)
 			goto out;
 		}
 
-		
+
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Reconfiguring otion frame-timeout to %d",
                         frame_timeout);
@@ -1827,15 +1831,30 @@ reconfigure (xlator_t *this, dict_t *options)
 			ret = -1;
 			goto out;
 		}
-		
+
                 gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
 			"'option ping-timeout' to %d", ping_timeout);
 		conf->opt.ping_timeout = ping_timeout;
         }
 
+        subvol_ret = dict_get_str (this->options, "remote-subvolume",
+                                   &old_remote_subvol);
+
+        if (subvol_ret == 0) {
+
+                subvol_ret = dict_get_str (options, "remote-subvolume",
+                                           &new_remote_subvol);
+
+                if (subvol_ret == 0) {
+                        if (strcmp (old_remote_subvol, new_remote_subvol)) {
+                                ret = 1;
+                                goto out;
+                        }
+                }
+        }
+
 out:
 	return ret;
-	
 
 }
 

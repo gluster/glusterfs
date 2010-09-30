@@ -921,6 +921,7 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
 {
 	xlator_list_t *trav1 = NULL;
         xlator_list_t *trav2 = NULL;
+        int32_t       ret    = 0;
 
 	if (old_xl == NULL || new_xl == NULL)	{
 		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
@@ -931,7 +932,10 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
         trav2 = new_xl->children;
 
 	while (trav1 && trav2) {
-		xlator_reconfigure_rec (trav1->xlator, trav2->xlator);
+		ret = xlator_reconfigure_rec (trav1->xlator, trav2->xlator);
+
+                if (ret)
+                        goto out;
 
 		gf_log (trav1->xlator->name, GF_LOG_DEBUG, "reconfigured");
 
@@ -939,12 +943,16 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
                 trav2 = trav2->next;
 	}
 
-        if (old_xl->reconfigure)
-                old_xl->reconfigure (old_xl, new_xl->options);
+        if (old_xl->reconfigure) {
+                ret = old_xl->reconfigure (old_xl, new_xl->options);
+                if (ret)
+                        goto out;
+        }
         else
                 gf_log (old_xl->name, GF_LOG_DEBUG, "No reconfigure() found");
 
-        return 0;
+out:
+        return ret;
 }
 
 int
