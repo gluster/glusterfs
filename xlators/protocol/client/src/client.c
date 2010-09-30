@@ -145,7 +145,7 @@ client_releasedir (xlator_t *this, fd_t *fd)
         call_frame_t *frame = NULL;
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -175,7 +175,7 @@ client_release (xlator_t *this, fd_t *fd)
         call_frame_t *frame = NULL;
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -205,7 +205,7 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -233,7 +233,7 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -259,7 +259,7 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc    = loc;
@@ -286,7 +286,7 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd     = fd;
@@ -313,7 +313,7 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc  = loc;
@@ -341,7 +341,7 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc  = loc;
@@ -368,7 +368,7 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc  = loc;
@@ -398,7 +398,7 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc  = loc;
@@ -427,7 +427,7 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -452,7 +452,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -480,7 +480,7 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.linkname = linkpath;
@@ -510,7 +510,7 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.oldloc = oldloc;
@@ -538,7 +538,7 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.oldloc = oldloc;
@@ -567,7 +567,7 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -599,7 +599,7 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -630,7 +630,7 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd     = fd;
@@ -663,7 +663,7 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd     = fd;
@@ -693,7 +693,7 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -720,7 +720,7 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd    = fd;
@@ -747,7 +747,7 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -773,7 +773,7 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -800,7 +800,7 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd    = fd;
@@ -827,7 +827,7 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -983,7 +983,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
 
         conf = this->private;
-        if (!conf->fops) {
+        if (!conf || !conf->fops) {
                 op_errno = ENOTCONN;
                 need_unwind = 1;
                 goto out;
@@ -1021,7 +1021,7 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -1051,7 +1051,7 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -1079,7 +1079,7 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.name = name;
@@ -1107,7 +1107,7 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -1136,7 +1136,7 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -1165,7 +1165,7 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.name = name;
@@ -1192,7 +1192,7 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd    = fd;
@@ -1220,7 +1220,7 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc    = loc;
@@ -1250,7 +1250,7 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd     = fd;
@@ -1280,7 +1280,7 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc          = loc;
@@ -1312,7 +1312,7 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd           = fd;
@@ -1342,7 +1342,7 @@ client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -1369,7 +1369,7 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -1397,7 +1397,7 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -1425,7 +1425,7 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.loc = loc;
@@ -1452,7 +1452,7 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops)
+        if (!conf || !conf->fops)
                 goto out;
 
         args.fd = fd;
@@ -1480,7 +1480,7 @@ client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
         clnt_args_t  args = {0,};
 
         conf = this->private;
-        if (!conf->fops || !conf->handshake)
+        if (!conf || !conf->fops || !conf->handshake)
                 goto out;
 
         args.name = key;
@@ -1591,6 +1591,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         void        *trans = NULL;
 
         conf = this->private;
+        if (!conf)
+                return 0;
 
         switch (event) {
         case GF_EVENT_PARENT_UP:
@@ -1627,6 +1629,9 @@ int
 build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
         int ret = 0;
+
+        if (!conf)
+                return -1;
 
         ret = dict_get_int32 (this->options, "frame-timeout",
                               &conf->rpc_conf.rpc_timeout);
@@ -1703,6 +1708,8 @@ client_destroy_rpc (xlator_t *this)
         clnt_conf_t *conf = NULL;
 
         conf = this->private;
+        if (!conf)
+                goto out;
 
         if (conf->rpc) {
                 conf->rpc = rpc_clnt_unref (conf->rpc);
