@@ -193,4 +193,7 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
 int
 glusterd_brick_stop (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *brickinfo);
+
+int
+glusterd_is_defrag_on (glusterd_volinfo_t *volinfo);
 #endif

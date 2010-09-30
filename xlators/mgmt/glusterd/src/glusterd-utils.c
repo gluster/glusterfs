@@ -2118,3 +2118,9 @@ out:
         gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
+
+int
+glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
+{
+        return (volinfo->defrag_status == GF_DEFRAG_STATUS_STARTED);
+}

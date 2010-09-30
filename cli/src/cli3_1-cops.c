@@ -662,20 +662,20 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 cmd = local->u.defrag_vol.cmd;
         }
         if (cmd == GF_DEFRAG_CMD_START) {
-                cli_out ("starting defrag on volume %s has been %s", volname,
+                cli_out ("starting rebalance on volume %s has been %s", volname,
                          (rsp.op_ret) ? "unsuccessful": "successful");
         }
         if (cmd == GF_DEFRAG_CMD_STOP) {
                 if (rsp.op_ret == -1)
-                        cli_out ("'defrag volume %s stop' failed", volname);
+                        cli_out ("rebalance volume %s stop failed", volname);
                 else
-                        cli_out ("stopped defrag process of volume %s \n"
+                        cli_out ("stopped rebalance process of volume %s \n"
                                  "(after rebalancing %"PRId64" files totaling "
                                  "%"PRId64" bytes)", volname, rsp.files, rsp.size);
         }
         if (cmd == GF_DEFRAG_CMD_STATUS) {
                 if (rsp.op_ret == -1)
-                        cli_out ("failed to get the status of defrag process");
+                        cli_out ("failed to get the status of rebalance process");
                 else {
                         char *status = "unknown";
                         if (rsp.op_errno == 0)
