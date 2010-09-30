@@ -229,7 +229,7 @@ out:
         return ret;
 }
 
-/* Function has 3types of return value 0, -ve , 1 
+/* Function has 3types of return value 0, -ve , 1
  *   return 0          =======> reconfiguration of options has succeded
  *   return 1          =======> the graph has to be reconstructed and all the xlators should be inited
  *   return -1(or -ve) =======> Some Internal Error occured during the operation
@@ -249,7 +249,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                 goto out;
 
 	if (!oldvollen) {
-		ret = 1; // Has to call INIT for the whole graph		
+		ret = 1; // Has to call INIT for the whole graph
 		goto out;
 	}
         fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
@@ -300,6 +300,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
         if (ret) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                         "Could not reconfigure new options in old graph");
+                goto out;
         }
 
         ret = 0;
@@ -359,12 +360,11 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         /*  Check if only options have changed. No need to reload the
         *  volfile if topology hasn't changed.
-        *  glusterfs_volfile_reconfigure returns 3 possible return states 
+        *  glusterfs_volfile_reconfigure returns 3 possible return states
         *  return 0          =======> reconfiguration of options has succeded
         *  return 1          =======> the graph has to be reconstructed and all the xlators should be inited
         *  return -1(or -ve) =======> Some Internal Error occured during the operation
         */
-
 
         ret = glusterfs_volfile_reconfigure (tmpfp);
         if (ret == 0) {
@@ -377,8 +377,6 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG, "Reconfigure failed !!");
                 goto out;
         }
-
-
 
         ret = glusterfs_process_volfp (ctx, tmpfp);
         if (ret)
