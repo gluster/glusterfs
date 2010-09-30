@@ -1197,6 +1197,16 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                 fd_ctx->up_count   = priv->up_count;
                 fd_ctx->down_count = priv->down_count;
 
+                fd_ctx->locked_on = GF_CALLOC (sizeof (*fd_ctx->locked_on),
+                                               priv->child_count,
+                                               gf_afr_mt_char);
+                if (!fd_ctx->locked_on) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        ret = -ENOMEM;
+                        goto unlock;
+                }
+
                 ret = __fd_ctx_set (fd, this, (uint64_t)(long) fd_ctx);
 
                 INIT_LIST_HEAD (&fd_ctx->entries);
@@ -1425,6 +1435,9 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
 
                 if (fd_ctx->opened_on)
                         GF_FREE (fd_ctx->opened_on);
+
+                if (fd_ctx->locked_on)
+                        GF_FREE (fd_ctx->locked_on);
 
                 GF_FREE (fd_ctx);
         }
@@ -2298,8 +2311,9 @@ int32_t
 afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             int32_t op_ret, int32_t op_errno, struct flock *lock)
 {
-        afr_local_t *local = NULL;
-        afr_private_t *priv = NULL;
+	afr_local_t *local = NULL;
+	afr_private_t *priv = NULL;
+        int            ret  = 0;
 
         int child_index = -1;
 
@@ -2339,7 +2353,18 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
                 /* locking has succeeded on all nodes that are up */
 
-                AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
+                ret = afr_mark_locked_nodes (this, local->fd,
+                                             local->cont.lk.locked_nodes);
+                if (ret)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Could not save locked nodes info in fdctx");
+
+                ret = afr_save_locked_fd (this, local->fd);
+                if (ret)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Could not save locked fd");
+
+		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
                                   &local->cont.lk.ret_flock);
         }
 

@@ -33,7 +33,7 @@
 /* FIXME: Needs to be defined in a common file */
 #define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"
 #define CLIENT_CMD_DISCONNECT "trusted.glusterfs.client-disconnect"
-
+#define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
 struct clnt_options {
         char *remote_subvolume;
         int   ping_timeout;
@@ -54,6 +54,10 @@ typedef struct clnt_conf {
         rpc_clnt_prog_t       *mgmt;
         rpc_clnt_prog_t       *handshake;
         rpc_clnt_prog_t       *dump;
+
+        uint64_t               reopen_fd_count; /* Count of fds reopened after a
+                                                   connection is established */
+        gf_lock_t              rec_lock;
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
@@ -68,7 +72,23 @@ typedef struct _client_fd_ctx {
         char              released;
         int32_t           flags;
         int32_t           wbflags;
+
+        pthread_mutex_t   mutex;
+        struct list_head  lock_list;     /* List of all granted locks on this fd */
 } clnt_fd_ctx_t;
+
+typedef struct _client_posix_lock {
+        fd_t              *fd;            /* The fd on which the lk operation was made */
+
+        struct flock       user_flock;    /* the flock supplied by the user */
+        off_t              fl_start;
+        off_t              fl_end;
+        short              fl_type;
+        int32_t            cmd;           /* the cmd for the lock call */
+        uint64_t           owner;         /* lock owner from fuse */
+
+        struct list_head   list;          /* reference used to add to the fdctx list of locks */
+} client_posix_lock_t;
 
 typedef struct client_local {
         loc_t              loc;
@@ -79,6 +99,12 @@ typedef struct client_local {
         uint32_t           wbflags;
         struct iobref     *iobref;
         fop_cbk_fn_t       op;
+
+        client_posix_lock_t *client_lock;
+        uint64_t           owner;
+        int32_t            cmd;
+        struct list_head   lock_list;
+        pthread_mutex_t    mutex;
 } clnt_local_t;
 
 typedef struct client_args {
@@ -138,6 +164,17 @@ int unserialize_rsp_direntp (struct gfs3_readdirp_rsp *rsp, gf_dirent_t *entries
 
 int clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
 int clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
-
-
+int client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx);
+int32_t delete_granted_locks_owner (fd_t *fd, uint64_t owner);
+int client_add_lock_for_recovery (fd_t *fd, struct flock *flock, uint64_t owner,
+                                  int32_t cmd);
+uint64_t decrement_reopen_fd_count (xlator_t *this, clnt_conf_t *conf);
+int32_t delete_granted_locks_fd (clnt_fd_ctx_t *fdctx);
+int32_t client_cmd_to_gf_cmd (int32_t cmd, int32_t *gf_cmd);
+void client_save_number_fds (clnt_conf_t *conf, int count);
+int dump_client_locks (inode_t *inode);
+int client_notify_parents_child_up (xlator_t *this);
+int32_t is_client_dump_locks_cmd (char *name);
+int32_t client_dump_locks (char *name, inode_t *inode,
+                           dict_t *dict);
 #endif /* !_CLIENT_H */

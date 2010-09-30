@@ -116,4 +116,18 @@ pl_trace_release (xlator_t *this, fd_t *fd);
 unsigned long
 fd_to_fdnum (fd_t *fd);
 
+fd_t *
+fd_from_fdnum (posix_lock_t *lock);
+
+int
+pl_reserve_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
+                  int can_block);
+int
+reservelks_equal (posix_lock_t *l1, posix_lock_t *l2);
+
+int
+pl_verify_reservelk (xlator_t *this, pl_inode_t *pl_inode,
+                     posix_lock_t *lock, int can_block);
+int
+pl_reserve_unlock (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *reqlock);
 #endif /* __COMMON_H__ */

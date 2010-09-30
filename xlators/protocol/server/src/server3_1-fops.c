@@ -4851,6 +4851,15 @@ server_lk (rpcsvc_request_t *req)
         case GF_LK_SETLKW:
                 state->cmd = F_SETLKW;
                 break;
+         case GF_LK_RESLK_LCK:
+                state->cmd = F_RESLK_LCK;
+                break;
+        case GF_LK_RESLK_LCKW:
+                state->cmd = F_RESLK_LCKW;
+                break;
+        case GF_LK_RESLK_UNLCK:
+                state->cmd = F_RESLK_UNLCK;
+                break;
         }
 
         gf_flock_to_flock (&args.flock, &state->flock);

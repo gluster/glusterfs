@@ -741,6 +741,194 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+static int
+__fd_has_locks (pl_inode_t *pl_inode, fd_t *fd)
+{
+        int           found = 0;
+        posix_lock_t *l     = NULL;
+
+        list_for_each_entry (l, &pl_inode->ext_list, list) {
+                if ((l->fd_num == fd_to_fdnum(fd))) {
+                        found = 1;
+                        break;
+                }
+        }
+
+        return found;
+}
+
+static posix_lock_t *
+lock_dup (posix_lock_t *lock)
+{
+        posix_lock_t *new_lock = NULL;
+
+        new_lock = new_posix_lock (&lock->user_flock, lock->transport,
+                                   lock->client_pid, lock->owner,
+                                   (fd_t *)lock->fd_num);
+        return new_lock;
+}
+
+static int
+__dup_locks_to_fdctx (pl_inode_t *pl_inode, fd_t *fd,
+                      pl_fdctx_t *fdctx)
+{
+        posix_lock_t *l        = NULL;
+        posix_lock_t *duplock = NULL;
+        int ret = 0;
+
+        fdctx = GF_CALLOC (1, sizeof (*fdctx),
+                           gf_locks_mt_pl_fdctx_t);
+        if (!fdctx) {
+                ret = -1;
+                goto out;
+        }
+
+        INIT_LIST_HEAD (&fdctx->locks_list);
+
+        list_for_each_entry (l, &pl_inode->ext_list, list) {
+                if ((l->fd_num == fd_to_fdnum(fd))) {
+                        duplock = lock_dup (l);
+                        if (!duplock) {
+                                gf_log (THIS->name, GF_LOG_DEBUG,
+                                        "Out of memory");
+                                ret = -1;
+                                break;
+                        }
+
+                        list_add_tail (&duplock->list, &fdctx->locks_list);
+                }
+        }
+
+out:
+        return ret;
+}
+
+static int
+__copy_locks_to_fdctx (pl_inode_t *pl_inode, fd_t *fd,
+                      pl_fdctx_t *fdctx)
+{
+        int ret = 0;
+
+        ret = __dup_locks_to_fdctx (pl_inode, fd, fdctx);
+        if (ret)
+                goto out;
+
+        ret = fd_ctx_set (fd, THIS, (uint64_t) (unsigned long)&fdctx);
+        if (ret)
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "Failed to set fdctx");
+out:
+        return ret;
+
+}
+
+static void
+pl_mark_eol_lock (posix_lock_t *lock)
+{
+        lock->user_flock.l_type = GF_LK_RECLK;
+        return;
+}
+
+static posix_lock_t *
+__get_next_fdctx_lock (pl_fdctx_t *fdctx)
+{
+        posix_lock_t *lock = NULL;
+
+        GF_ASSERT (fdctx);
+
+        if (list_empty (&fdctx->locks_list)) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "fdctx lock list empty");
+                goto out;
+        }
+
+        lock = list_entry (&fdctx->locks_list, typeof (*lock),
+                           list);
+
+        GF_ASSERT (lock);
+
+        list_del_init (&lock->list);
+
+out:
+        return lock;
+}
+
+static int
+__set_next_lock_fd (pl_fdctx_t *fdctx, posix_lock_t *reqlock)
+{
+        posix_lock_t *lock  = NULL;
+        int           ret   = 0;
+
+        GF_ASSERT (fdctx);
+
+        lock = __get_next_fdctx_lock (fdctx);
+        if (!lock) {
+                gf_log (THIS->name, GF_LOG_DEBUG,
+                        "marking EOL in reqlock");
+                pl_mark_eol_lock (reqlock);
+                goto out;
+        }
+
+        reqlock->user_flock = lock->user_flock;
+
+out:
+        if (lock)
+                __destroy_lock (lock);
+
+        return ret;
+}
+static int
+pl_getlk_fd (xlator_t *this, pl_inode_t *pl_inode,
+             fd_t *fd, posix_lock_t *reqlock)
+{
+        uint64_t    tmp   = 0;
+        pl_fdctx_t *fdctx = NULL;
+        int         ret   = 0;
+
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
+                if (!__fd_has_locks (pl_inode, fd)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "fd=%p has no active locks", fd);
+                        ret = 0;
+                        goto unlock;
+                }
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "There are active locks on fd");
+
+                ret = fd_ctx_get (fd, this, &tmp);
+                fdctx = (pl_fdctx_t *) tmp;
+                if (ret) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "no fdctx -> copying all locks on fd");
+
+                        ret = __copy_locks_to_fdctx (pl_inode, fd, fdctx);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Out of memory");
+                                goto unlock;
+                        }
+
+                        ret = __set_next_lock_fd (fdctx, reqlock);
+
+                } else {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "fdctx present -> returning the next lock");
+                        ret = __set_next_lock_fd (fdctx, reqlock);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "could not get next lock of fd");
+                                goto unlock;
+                        }
+                }
+        }
+
+unlock:
+        pthread_mutex_unlock (&pl_inode->mutex);
+        return ret;
+
+}
 
 int
 pl_lk (call_frame_t *frame, xlator_t *this,
@@ -791,6 +979,68 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
         switch (cmd) {
 
+        case F_RESLK_LCKW:
+                can_block = 1;
+
+                /* fall through */
+        case F_RESLK_LCK:
+                memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+                reqlock->frame = frame;
+                reqlock->this = this;
+
+                ret = pl_reserve_setlk (this, pl_inode, reqlock,
+                                        can_block);
+                if (ret < 0) {
+                        if (can_block)
+                                goto out;
+
+                        op_ret = -1;
+                        op_errno = -ret;
+                        __destroy_lock (reqlock);
+                        goto unwind;
+                }
+                /* Finally a getlk and return the call */
+                conf = pl_getlk (pl_inode, reqlock);
+                if (conf)
+                        posix_lock_to_flock (conf, flock);
+                break;
+
+        case F_RESLK_UNLCK:
+                reqlock->frame = frame;
+                reqlock->this = this;
+                ret = pl_reserve_unlock (this, pl_inode, reqlock);
+                if (ret < 0) {
+                        op_ret = -1;
+                        op_errno = -ret;
+                }
+                __destroy_lock (reqlock);
+                goto unwind;
+
+                break;
+
+        case F_GETLK_FD:
+                reqlock->frame = frame;
+                reqlock->this = this;
+                ret = pl_verify_reservelk (this, pl_inode, reqlock, can_block);
+                GF_ASSERT (ret >= 0);
+
+                ret = pl_getlk_fd (this, pl_inode, fd, reqlock);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "getting locks on fd failed");
+                        op_ret = -1;
+                        op_errno = ENOLCK;
+                        goto unwind;
+                }
+
+                gf_log (this->name, GF_LOG_TRACE,
+                        "Replying with a lock on fd for healing");
+
+                posix_lock_to_flock (reqlock, flock);
+                __destroy_lock (reqlock);
+
+                break;
+
 #if F_GETLK != F_GETLK64
         case F_GETLK64:
 #endif
@@ -816,6 +1066,12 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 #endif
         case F_SETLK:
                 memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+                ret = pl_verify_reservelk (this, pl_inode, reqlock, can_block);
+                if (ret < 0) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "Lock blocked due to conflicting reserve lock");
+                        goto out;
+                }
                 ret = pl_setlk (this, pl_inode, reqlock,
                                 can_block);
 

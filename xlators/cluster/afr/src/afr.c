@@ -641,6 +641,9 @@ init (xlator_t *this)
         priv->first_lookup = 1;
         priv->root_inode = NULL;
 
+        pthread_mutex_init (&priv->mutex, NULL);
+        INIT_LIST_HEAD (&priv->saved_fds);
+
 	ret = 0;
 out:
 	return ret;

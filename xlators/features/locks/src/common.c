@@ -103,6 +103,12 @@ fd_to_fdnum (fd_t *fd)
         return ((unsigned long) fd);
 }
 
+fd_t *
+fd_from_fdnum (posix_lock_t *lock)
+{
+        return ((fd_t *) lock->fd_num);
+}
+
 int
 __pl_inode_is_empty (pl_inode_t *pl_inode)
 {
@@ -442,6 +448,9 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 	INIT_LIST_HEAD (&pl_inode->dom_list);
 	INIT_LIST_HEAD (&pl_inode->ext_list);
 	INIT_LIST_HEAD (&pl_inode->rw_list);
+	INIT_LIST_HEAD (&pl_inode->reservelk_list);
+	INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
+        INIT_LIST_HEAD (&pl_inode->blocked_calls);
 
 	inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
 
