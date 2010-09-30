@@ -3040,8 +3040,8 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
         char                  logfile[PATH_MAX]  = {0,};
         char                  exp_path[PATH_MAX] = {0,};
         struct stat           stbuf              = {0,};
-        char                 *brick_path         = NULL;
-
+        int                   valid_brick        = 0;
+        glusterd_brickinfo_t *tmpbrkinfo         = NULL;
 
         GF_ASSERT (req);
 
@@ -3073,39 +3073,51 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        ret = stat (path, &stbuf);
-        if (!S_ISDIR (stbuf.st_mode)) {
-                ret = -1;
-                gf_log ("", GF_LOG_ERROR, "not a directory");
-                goto out;
-        }
-
         ret = dict_get_str (dict, "brick", &brick);
         if (ret)
                 goto out;
 
         if (!strchr (brick, ':'))
                 brick = NULL;
+        else {
+                ret = glusterd_brickinfo_from_brick (brick, &tmpbrkinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "cannot get brickinfo from brick");
+                        goto out;
+                }
+        }
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
         if (ret)
                 goto out;
 
+        ret = -1;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
 
                 if (uuid_is_null (brickinfo->uuid)) {
                         ret = glusterd_resolve_brick (brickinfo);
                 }
 
+                /* check if the brickinfo belongs to the 'this' machine */
                 if (uuid_compare (brickinfo->uuid, priv->uuid))
                         continue;
 
-                if (brick) {
-                        brick_path = strchr (brick, ':');
-                        brick_path++;
+                if (brick &&
+                    (strcmp (tmpbrkinfo->hostname, brickinfo->hostname) ||
+                     strcmp (tmpbrkinfo->path,brickinfo->path)))
+                        continue;
 
-                        if (brick_path  && strcmp (brickinfo->path, brick_path))
-                                continue;
+                valid_brick = 1;
+
+                /* If there are more than one brick in 'this' server, its an
+                 * extra check, but it doesn't harm functionality
+                 */
+                ret = stat (path, &stbuf);
+                if (ret || !S_ISDIR (stbuf.st_mode)) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_ERROR, "not a directory");
+                        goto out;
                 }
 
                 GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
@@ -3115,13 +3127,22 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
                 if (brickinfo->logfile)
                         GF_FREE (brickinfo->logfile);
                 brickinfo->logfile = gf_strdup (logfile);
+                ret = 0;
+
+                /* If request was for brick, only one iteration is enough */
+                if (brick)
+                        break;
         }
 
-        ret = 0;
-
+        if (ret && !valid_brick)
+                ret = 0;
 out:
         if (dict)
                 dict_unref (dict);
+
+        if (tmpbrkinfo)
+                glusterd_brickinfo_delete (tmpbrkinfo);
+
         return ret;
 }
 
@@ -3142,6 +3163,8 @@ glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
         FILE                 *file               = NULL;
         pid_t                 pid                = 0;
         uint64_t              key                = 0;
+        int                   valid_brick        = 0;
+        glusterd_brickinfo_t *tmpbrkinfo         = NULL;
 
         GF_ASSERT (req);
 
@@ -3180,17 +3203,30 @@ glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
 
         if (!strchr (brick, ':'))
                 brick = NULL;
+        else {
+                ret = glusterd_brickinfo_from_brick (brick, &tmpbrkinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "cannot get brickinfo from brick");
+                        goto out;
+                }
+        }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret)
                 goto out;
 
+        ret = -1;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 if (uuid_compare (brickinfo->uuid, priv->uuid))
                         continue;
 
-                if (brick && strcmp (brickinfo->path, brick))
+                if (brick &&
+                    (strcmp (tmpbrkinfo->hostname, brickinfo->hostname) ||
+                     strcmp (tmpbrkinfo->path,brickinfo->path)))
                         continue;
+
+                valid_brick = 1;
 
                 GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
                 GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
@@ -3226,13 +3262,23 @@ glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
                         gf_log ("", GF_LOG_ERROR, "Unable to SIGHUP to %d", pid);
                         goto out;
                 }
+                ret = 0;
+
+                /* If request was for brick, only one iteration is enough */
+                if (brick)
+                        break;
         }
 
-        ret = 0;
+        if (ret && !valid_brick)
+                ret = 0;
 
 out:
         if (dict)
                 dict_unref (dict);
+
+        if (tmpbrkinfo)
+                glusterd_brickinfo_delete (tmpbrkinfo);
+
         return ret;
 }
 
