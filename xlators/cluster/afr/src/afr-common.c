@@ -1450,7 +1450,23 @@ out:
 int
 afr_release (xlator_t *this, fd_t *fd)
 {
+        afr_locked_fd_t *locked_fd = NULL;
+        afr_locked_fd_t *tmp       = NULL;
+        afr_private_t   *priv      = NULL;
+
+        priv = this->private;
+
         afr_cleanup_fd_ctx (this, fd);
+
+        list_for_each_entry_safe (locked_fd, tmp, &priv->saved_fds,
+                                  list) {
+
+                if (locked_fd->fd == fd) {
+                        list_del_init (&locked_fd->list);
+                        GF_FREE (locked_fd);
+                }
+
+        }
 
         return 0;
 }
@@ -2522,6 +2538,8 @@ afr_notify (xlator_t *this, int32_t event,
         switch (event) {
         case GF_EVENT_CHILD_UP:
                 i = find_child_index (this, data);
+
+                afr_attempt_lock_recovery (this, i);
 
                 child_up[i] = 1;
 

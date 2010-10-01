@@ -164,7 +164,7 @@ __delete_client_lock (client_posix_lock_t *lock)
 static void
 __destroy_client_lock (client_posix_lock_t *lock)
 {
-	free (lock);
+	GF_FREE (lock);
 }
 
 /* Subtract two locks */
@@ -861,7 +861,7 @@ int
 client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx)
 {
         call_frame_t        *frame = NULL;
-        clnt_local_t      *local = NULL;
+        clnt_local_t        *local = NULL;
         client_posix_lock_t *lock  = NULL;
 
         struct flock reserve_flock;
@@ -895,6 +895,7 @@ client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         construct_reserve_lock (lock, frame, &reserve_flock);
 
+        frame->local       = local;
         local->fdctx       = fdctx;
         local->client_lock = lock;
 
