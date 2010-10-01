@@ -375,7 +375,6 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         if (ret < 0) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG, "Reconfigure failed !!");
-                goto out;
         }
 
         ret = glusterfs_process_volfp (ctx, tmpfp);
