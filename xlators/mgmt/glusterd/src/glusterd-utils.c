@@ -763,6 +763,7 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
         int32_t  ret = -1;
         pid_t    pid = -1;
         FILE    *file = NULL;
+        gf_boolean_t is_locked = _gf_false;
 
         file = fopen (pidfile, "r+");
 
@@ -778,6 +779,17 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                 ret = -1;
                 goto out;
         }
+        ret = lockf (fileno (file), F_TLOCK, 0);
+        if (!ret) {
+                is_locked = _gf_true;
+                ret = unlink (pidfile);
+                if (ret && (ENOENT != errno)) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to "
+                                "unlink stale pidfile: %s", pidfile);
+                }
+                goto out;
+        }
+
 
         ret = fscanf (file, "%d", &pid);
         if (ret <= 0) {
@@ -796,8 +808,13 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
 
         if (force_kill) {
                 sleep (1);
-                ret = access (pidfile, F_OK);
-                if (!ret) {
+                file = fopen (pidfile, "r+");
+                if (!file) {
+                        ret = 0;
+                        goto out;
+                }
+                ret = lockf (fileno (file), F_TLOCK, 0);
+                if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
                         ret = kill (pid, SIGKILL);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Unable to "
@@ -805,17 +822,22 @@ glusterd_service_stop (const char *service, char *pidfile, int sig,
                                         strerror(errno));
                                 goto out;
                         }
-                        ret = unlink (pidfile);
-                        if (ret && (ENOENT != errno)) {
-                                gf_log ("", GF_LOG_ERROR, "Unable to "
-                                        "unlink pidfile: %s", pidfile);
-                                goto out;
-                        }
+
+                } else if (0 == ret){
+                        is_locked = _gf_true;
+                }
+                ret = unlink (pidfile);
+                if (ret && (ENOENT != errno)) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to "
+                                "unlink pidfile: %s", pidfile);
+                        goto out;
                 }
         }
 
         ret = 0;
 out:
+        if (is_locked && file)
+                lockf (fileno (file), F_ULOCK, 0);
         if (file)
                 fclose (file);
         return ret;
@@ -836,6 +858,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         char                    exp_path[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
         int                     port = 0;
+        FILE                    *file = NULL;
+        gf_boolean_t            is_locked = _gf_false;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -855,13 +879,31 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 goto out;
         }
 
-        port = brickinfo->port;
-        if (!port)
-                port = pmap_registry_alloc (THIS);
-
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
+        ret = pmap_registry_search (this, brickinfo->path,
+                                    GF_PMAP_PORT_BRICKSERVER);
+        if (ret) {
+                ret = 0;
+                file = fopen (pidfile, "r+");
+                if (file) {
+                        ret = lockf (fileno (file), F_TLOCK, 0);
+                        if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
+                                ret = 0;
+                                gf_log ("", GF_LOG_NORMAL, "brick %s:%s "
+                                        "already started", brickinfo->hostname,
+                                        brickinfo->path);
+                                goto out;
+                        } else if (0 == ret) {
+                                is_locked = _gf_true;
+                        }
+                }
+        }
+        unlink (pidfile);
 
+        gf_log ("", GF_LOG_NORMAL, "About to start glusterfs"
+                " for brick %s:%s", brickinfo->hostname,
+                brickinfo->path);
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, exp_path);
         snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
                   brickinfo->hostname, exp_path);
@@ -871,6 +913,10 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                           priv->workdir, exp_path);
                 brickinfo->logfile = gf_strdup (logfile);
         }
+
+        port = brickinfo->port;
+        if (!port)
+                port = pmap_registry_alloc (THIS);
 
         snprintf (cmd_str, 8192,
                   "%s/sbin/glusterfsd --xlator-option %s-server.listen-port=%d "
@@ -887,6 +933,10 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 brickinfo->port = port;
         }
 out:
+        if (is_locked && file)
+                lockf (fileno (file), F_ULOCK, 0);
+        if (file)
+                fclose (file);
         return ret;
 }
 
@@ -1750,9 +1800,6 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
         int                                     ret   = -1;
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *conf = NULL;
-        char                                    path[PATH_MAX] = {0,};
-        char                                    pidfile[PATH_MAX] = {0,};
-        struct stat                             stbuf = {0,};
 
         if ((!brickinfo) || (!volinfo))
                 goto out;
@@ -1776,47 +1823,13 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 ret = 0;
                 goto out;
         }
-
-        if (!glusterd_is_brick_started (brickinfo)) {
-                gf_log ("", GF_LOG_DEBUG, "brick: %s:%s, of volume: %s already"
-                        " started", brickinfo->hostname, brickinfo->path,
-                        volinfo->volname);
-                ret = 0;
+        ret = glusterd_volume_start_glusterfs (volinfo, brickinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to start "
+                        "glusterfs, ret: %d", ret);
                 goto out;
         }
 
-        GLUSTERD_GET_VOLUME_DIR (path, volinfo, conf);
-        GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
-                                    brickinfo->path);
-        ret = stat (pidfile, &stbuf);
-        if (ret && errno == ENOENT) {
-                gf_log ("", GF_LOG_NORMAL, "About to start glusterfs"
-                        " for brick %s:%s", brickinfo->hostname,
-                        brickinfo->path);
-                ret = glusterd_volume_start_glusterfs (volinfo, brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to start "
-                                "glusterfs, ret: %d", ret);
-                        goto out;
-                }
-        } else if (!ret) {
-                ret = pmap_registry_search (this, brickinfo->path,
-                                            GF_PMAP_PORT_BRICKSERVER);
-                if (ret) {
-                        ret = 0;
-                        goto out;
-                }
-                ret = unlink (pidfile);
-                gf_log ("", GF_LOG_NORMAL, "About to start glusterfs"
-                        " for brick %s:%s", brickinfo->hostname,
-                        brickinfo->path);
-                ret = glusterd_volume_start_glusterfs (volinfo, brickinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to start "
-                                "glusterfs, ret: %d", ret);
-                        goto out;
-                }
-        }
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
@@ -2091,14 +2104,6 @@ glusterd_brick_stop (glusterd_volinfo_t *volinfo,
         }
 
         if (uuid_compare (brickinfo->uuid, conf->uuid)) {
-                ret = 0;
-                goto out;
-        }
-
-        if (glusterd_is_brick_started (brickinfo)) {
-                gf_log ("", GF_LOG_DEBUG, "brick: %s:%s, of volume: %s not"
-                        " started", brickinfo->hostname, brickinfo->path,
-                        volinfo->volname);
                 ret = 0;
                 goto out;
         }
