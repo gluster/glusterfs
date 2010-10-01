@@ -307,6 +307,10 @@ typedef struct _afr_local {
 
         afr_internal_lock_t internal_lock;
 
+        afr_locked_fd_t *locked_fd;
+        int32_t          source_child;
+        int32_t          lock_recovery_child;
+
         dict_t  *dict;
 
         int (*openfd_flush_cbk) (call_frame_t *frame, xlator_t *this);
@@ -664,6 +668,9 @@ pump_command_reply (call_frame_t *frame, xlator_t *this);
 int32_t
 afr_notify (xlator_t *this, int32_t event,
             void *data, ...);
+
+int
+afr_attempt_lock_recovery (xlator_t *this, int32_t child_index);
 
 int
 afr_save_locked_fd (xlator_t *this, fd_t *fd);

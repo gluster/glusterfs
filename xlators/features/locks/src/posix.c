@@ -825,7 +825,7 @@ out:
 static void
 pl_mark_eol_lock (posix_lock_t *lock)
 {
-        lock->user_flock.l_type = GF_LK_RECLK;
+        lock->user_flock.l_type = GF_LK_EOL;
         return;
 }
 

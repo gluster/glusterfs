@@ -1743,6 +1743,7 @@ __afr_save_locked_fd (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
+        locked_fd->fd = fd;
         INIT_LIST_HEAD (&locked_fd->list);
 
         list_add_tail (&locked_fd->list, &priv->saved_fds);
@@ -1777,5 +1778,387 @@ afr_save_locked_fd (xlator_t *this, fd_t *fd)
 unlock:
         pthread_mutex_unlock (&priv->mutex);
 
+        return ret;
+}
+
+static int
+afr_lock_recovery_cleanup (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t     *local     = NULL;
+        afr_locked_fd_t *locked_fd = NULL;
+
+        local = frame->local;
+
+        locked_fd = local->locked_fd;
+
+        STACK_DESTROY (frame->root);
+        afr_local_cleanup (local, this);
+
+        afr_save_locked_fd (this, locked_fd->fd);
+
+        return 0;
+
+}
+
+static int
+afr_get_source_lock_recovery (xlator_t *this, fd_t *fd)
+{
+        afr_fd_ctx_t  *fdctx        = NULL;
+        afr_private_t *priv         = NULL;
+        uint64_t      tmp           = 0;
+        int           i             = 0;
+        int           source_child  = -1;
+        int           ret           = 0;
+
+        priv = this->private;
+
+        ret = fd_ctx_get (fd, this, &tmp);
+        if (ret)
+                goto out;
+
+        fdctx = (afr_fd_ctx_t *) (long) tmp;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (fdctx->locked_on[i]) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Found lock recovery source=%d",
+                                i);
+                        source_child = i;
+                        break;
+                }
+
+        }
+
+out:
+        return source_child;
+
+}
+
+int32_t
+afr_get_locks_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct flock *lock);
+int32_t
+afr_recover_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct flock *lock)
+{
+        afr_local_t   *local = NULL;
+        afr_private_t *priv  = NULL;
+        int32_t source_child = 0;
+        struct flock flock   = {0,};
+
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "lock recovery failed");
+                goto cleanup;
+        }
+
+        source_child = local->source_child;
+
+        memcpy (&flock, lock, sizeof (*lock));
+
+        STACK_WIND_COOKIE (frame, afr_get_locks_fd_cbk,
+                           (void *) (long) source_child,
+                           priv->children[source_child],
+                           priv->children[source_child]->fops->lk,
+                           local->fd, F_GETLK_FD, &flock);
+
+        return 0;
+
+cleanup:
+        afr_lock_recovery_cleanup (frame, this);
+        return 0;
+}
+
+int
+afr_recover_lock (call_frame_t *frame, xlator_t *this,
+                  struct flock *flock)
+{
+        afr_local_t   *local             = NULL;
+        afr_private_t *priv              = NULL;
+        int32_t      lock_recovery_child = 0;
+
+        priv  = this->private;
+        local = frame->local;
+
+        lock_recovery_child = local->lock_recovery_child;
+
+        STACK_WIND_COOKIE (frame, afr_recover_lock_cbk,
+                           (void *) (long) lock_recovery_child,
+                           priv->children[lock_recovery_child],
+                           priv->children[lock_recovery_child]->fops->lk,
+                           local->fd, F_SETLK, flock);
+
+        return 0;
+}
+
+static int
+is_afr_lock_eol (struct flock *lock)
+{
+        int ret = 0;
+
+        if ((lock->l_type = GF_LK_EOL))
+                ret = 1;
+
+        return ret;
+}
+
+int32_t
+afr_get_locks_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct flock *lock)
+{
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Failed to get locks on fd");
+                goto cleanup;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Got a lock on fd");
+
+        if (is_afr_lock_eol (lock)) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Reached EOL on locks on fd");
+                goto cleanup;
+        }
+
+        afr_recover_lock (frame, this, lock);
+
+        return 0;
+
+cleanup:
+        afr_lock_recovery_cleanup (frame, this);
+
+        return 0;
+}
+
+static int
+afr_lock_recovery (call_frame_t *frame, xlator_t *this)
+{
+        afr_local_t   *local        = NULL;
+        afr_private_t *priv         = NULL;
+        fd_t          *fd           = NULL;
+        int            ret          = 0;
+        int32_t        source_child = 0;
+        struct flock   flock        = {0,};
+
+        priv  = this->private;
+        local = frame->local;
+
+        fd = local->fd;
+
+        source_child = afr_get_source_lock_recovery (this, fd);
+        if (source_child < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Could not recover locks due to lock "
+                        "split brain");
+                ret = -1;
+                goto out;
+        }
+
+        local->source_child = source_child;
+
+        /* the flock can be zero filled as we're querying incrementally
+           the locks held on the fd.
+        */
+        STACK_WIND_COOKIE (frame, afr_get_locks_fd_cbk,
+                           (void *) (long) source_child,
+                           priv->children[source_child],
+                           priv->children[source_child]->fops->lk,
+                           local->fd, F_GETLK_FD, &flock);
+
+out:
+        return ret;
+}
+
+
+static int
+afr_mark_fd_opened (xlator_t *this, fd_t *fd, int32_t child_index)
+{
+        afr_fd_ctx_t *fdctx = NULL;
+        uint64_t      tmp   = 0;
+        int           ret   = 0;
+
+        ret = fd_ctx_get (fd, this, &tmp);
+        if (ret)
+                goto out;
+
+        fdctx = (afr_fd_ctx_t *) (long) tmp;
+
+        fdctx->opened_on[child_index] = 1;
+
+out:
+        return ret;
+}
+
+int32_t
+afr_lock_recovery_preopen_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                               int32_t op_ret, int32_t op_errno, fd_t *fd)
+{
+        int32_t child_index = (long )cookie;
+        int ret = 0;
+
+        if (op_ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Reopen during lock-recovery failed");
+                goto cleanup;
+        }
+
+        gf_log (this->name, GF_LOG_DEBUG,
+                "Open succeeded => proceed to recover locks");
+
+        ret = afr_lock_recovery (frame, this);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Lock recovery failed");
+                goto cleanup;
+        }
+
+        ret = afr_mark_fd_opened (this, fd, child_index);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Marking fd open failed");
+                goto cleanup;
+        }
+
+        return 0;
+
+cleanup:
+        afr_lock_recovery_cleanup (frame, this);
+        return 0;
+}
+
+static int
+afr_lock_recovery_preopen (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t *priv  = NULL;
+        afr_local_t   *local = NULL;
+        uint64_t       tmp   = 0;
+        afr_fd_ctx_t  *fdctx = NULL;
+        loc_t          loc   = {0,};
+        int32_t        child_index = 0;
+        int            ret   = 0;
+
+        priv  = this->private;
+        local = frame->local;
+
+        GF_ASSERT (local && local->fd);
+
+        ret = fd_ctx_get (local->fd, this, &tmp);
+        fdctx = (afr_fd_ctx_t *) (long) tmp;
+        GF_ASSERT (fdctx);
+
+        child_index = local->lock_recovery_child;
+
+        inode_path (local->fd->inode, NULL, (char **)&loc.path);
+        loc.name   = strrchr (loc.path, '/');
+        loc.inode  = inode_ref (local->fd->inode);
+        loc.parent = inode_parent (local->fd->inode, 0, NULL);
+
+
+        STACK_WIND_COOKIE (frame, afr_lock_recovery_preopen_cbk,
+                           (void *)(long) child_index,
+                           priv->children[child_index],
+                           priv->children[child_index]->fops->open,
+                           &loc, fdctx->flags, local->fd,
+                           fdctx->wbflags);
+
+        return 0;
+}
+
+static int
+is_fd_opened (fd_t *fd, int32_t child_index)
+{
+        afr_fd_ctx_t *fdctx = NULL;
+        uint64_t      tmp = 0;
+        int           ret = 0;
+
+        ret = fd_ctx_get (fd, THIS, &tmp);
+        if (ret)
+                goto out;
+
+        fdctx = (afr_fd_ctx_t *) (long) tmp;
+
+        if (fdctx->opened_on[child_index])
+                ret = 1;
+
+out:
+        return ret;
+}
+
+int
+afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
+{
+        call_frame_t    *frame     = NULL;
+        afr_private_t   *priv      = NULL;
+        afr_local_t     *local     = NULL;
+        afr_locked_fd_t *locked_fd = NULL;
+       afr_locked_fd_t  *tmp       = NULL;
+        int              ret       = 0;
+        struct list_head locks_list;
+
+
+        priv = this->private;
+
+        if (list_empty (&priv->saved_fds))
+                goto out;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        local = GF_CALLOC (1, sizeof (*local),
+                           gf_afr_mt_afr_local_t);
+        if (!local) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        AFR_LOCAL_INIT (local, priv);
+        if (!local) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        frame->local = local;
+
+        INIT_LIST_HEAD (&locks_list);
+
+        pthread_mutex_lock (&priv->mutex);
+        {
+                list_splice_init (&priv->saved_fds, &locks_list);
+        }
+        pthread_mutex_unlock (&priv->mutex);
+
+        list_for_each_entry_safe (locked_fd, tmp,
+                                  &locks_list, list) {
+
+                list_del_init (&locked_fd->list);
+
+                local->fd                  = locked_fd->fd;
+                local->lock_recovery_child = child_index;
+                local->locked_fd           = locked_fd;
+
+                if (!is_fd_opened (locked_fd->fd, child_index)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "attempting open before lock "
+                                "recovery");
+                        afr_lock_recovery_preopen (frame, this);
+                } else {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "attempting lock recovery "
+                                "without a preopen");
+                        afr_lock_recovery (frame, this);
+                }
+        }
+
+out:
         return ret;
 }

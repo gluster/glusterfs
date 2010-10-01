@@ -42,7 +42,7 @@ __delete_reserve_lock (posix_lock_t *lock)
 void
 __destroy_reserve_lock (posix_lock_t *lock)
 {
-	FREE (lock);
+	GF_FREE (lock);
 }
 
 /* Return true if the two reservelks have exactly same lock boundaries */
@@ -125,7 +125,7 @@ __reservelk_conflict (xlator_t *this, pl_inode_t *pl_inode,
                         list_del_init (&conf->list);
                         gf_log (this->name, GF_LOG_TRACE,
                                 "Removing the matching reservelk for setlk to progress");
-                        FREE (conf);
+                        GF_FREE (conf);
                         ret = 0;
                 } else {
                         gf_log (this->name, GF_LOG_TRACE,

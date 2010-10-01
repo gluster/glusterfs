@@ -160,7 +160,7 @@ typedef enum {
         GF_LK_F_RDLCK = 0,
         GF_LK_F_WRLCK,
         GF_LK_F_UNLCK,
-        GF_LK_RECLK,
+        GF_LK_EOL,
 } glusterfs_lk_types_t;
 
 typedef enum {
