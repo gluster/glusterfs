@@ -2385,6 +2385,9 @@ init (xlator_t *this)
 
 	priv->pump_private = pump_priv;
 
+        pthread_mutex_init (&priv->mutex, NULL);
+        INIT_LIST_HEAD (&priv->saved_fds);
+
         pump_change_state (this, PUMP_STATE_ABORT);
 
 	ret = 0;
