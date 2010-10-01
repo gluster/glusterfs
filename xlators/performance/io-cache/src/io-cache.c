@@ -181,7 +181,7 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		struct iatt *stbuf, dict_t *dict, struct iatt *postparent)
 {
 	ioc_inode_t   *ioc_inode = NULL;
-	ioc_table_t   *table = this->private;
+	ioc_table_t   *table = NULL;
 	uint8_t       cache_still_valid = 0;
 	uint64_t      tmp_ioc_inode = 0;
 	uint32_t      weight = 0xffffffff;
@@ -197,6 +197,11 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 op_errno = EINVAL;
                 goto out;
         }
+
+        if (!this || !this->private)
+                goto out;
+
+        table = this->private;
 
         path = local->file_loc.path;
 
