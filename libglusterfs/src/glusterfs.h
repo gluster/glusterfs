@@ -144,6 +144,14 @@ typedef enum {
         GF_OP_TYPE_MAX,
 } gf_op_type_t;
 
+struct gf_flock {
+        short    l_type;
+        short    l_whence;
+        off_t    l_start;
+        off_t    l_len;
+        pid_t    l_pid;
+        uint64_t l_owner;
+};
 
 /* NOTE: all the miscellaneous flags used by GlusterFS should be listed here */
 typedef enum {

@@ -416,12 +416,12 @@ typedef struct {
 			fop_lk_t fn;
 			fd_t *fd;
 			int32_t cmd;
-			struct flock lock;
+			struct gf_flock lock;
 		} lk;
 		struct {
 			fop_lk_cbk_t fn;
 			int32_t op_ret, op_errno;
-			struct flock lock;
+			struct gf_flock lock;
 		} lk_cbk;
 
 		/* inodelk */
@@ -430,7 +430,7 @@ typedef struct {
                         const char *volume;
 			loc_t loc;
 			int32_t cmd;
-			struct flock lock;
+			struct gf_flock lock;
 		} inodelk;
 
 		struct {
@@ -444,7 +444,7 @@ typedef struct {
                         const char *volume;
 			fd_t *fd;
 			int32_t cmd;
-			struct flock lock;
+			struct gf_flock lock;
 		} finodelk;
 
 		struct {
@@ -968,24 +968,24 @@ fop_lk_stub (call_frame_t *frame,
 	     fop_lk_t fn,
 	     fd_t *fd,
 	     int32_t cmd,
-	     struct flock *lock);
+	     struct gf_flock *lock);
 
 call_stub_t *
 fop_lk_cbk_stub (call_frame_t *frame,
 		 fop_lk_cbk_t fn,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 struct flock *lock);
+		 struct gf_flock *lock);
 
 call_stub_t *
 fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
 		  const char *volume, loc_t *loc, int32_t cmd, 
-                  struct flock *lock);
+                  struct gf_flock *lock);
 
 call_stub_t *
 fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
 		   const char *volume, fd_t *fd, int32_t cmd, 
-                   struct flock *lock);
+                   struct gf_flock *lock);
 
 call_stub_t *
 fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,

@@ -10,4 +10,5 @@
 
 unsigned long calc_timeout_sec (double t);
 unsigned int calc_timeout_nsec (double t);
-void convert_fuse_file_lock (struct fuse_file_lock *fl, struct flock *flock);
+void convert_fuse_file_lock (struct fuse_file_lock *fl, struct gf_flock *flock,
+                             uint64_t lk_owner);

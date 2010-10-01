@@ -60,7 +60,7 @@ ro_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
 
 int32_t
 ro_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-            loc_t *loc, int32_t cmd, struct flock *lock)
+            loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
         STACK_UNWIND_STRICT (inodelk, frame, -1, EROFS);
         return 0;
@@ -68,7 +68,7 @@ ro_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
 
 int32_t
 ro_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-             fd_t *fd, int32_t cmd, struct flock *lock)
+             fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
         STACK_UNWIND_STRICT (finodelk, frame, -1, EROFS);
         return 0;
@@ -76,7 +76,7 @@ ro_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
 
 int32_t
 ro_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int cmd,
-       struct flock *flock)
+       struct gf_flock *flock)
 {
         STACK_UNWIND_STRICT (lk, frame, -1, EROFS, NULL);
         return 0;

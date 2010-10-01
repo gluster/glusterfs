@@ -1121,7 +1121,7 @@ trace_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 trace_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-              int32_t op_ret, int32_t op_errno, struct flock *lock)
+              int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         if (trace_fop_names[GF_FOP_LK].enabled) {
                 if (op_ret >= 0) {
@@ -1226,7 +1226,7 @@ trace_entrylk (call_frame_t *frame, xlator_t *this,
 
 int
 trace_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-               loc_t *loc, int32_t cmd, struct flock *flock)
+               loc_t *loc, int32_t cmd, struct gf_flock *flock)
 {
         if (trace_fop_names[GF_FOP_INODELK].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,
@@ -1260,7 +1260,7 @@ trace_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 trace_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-                fd_t *fd, int32_t cmd, struct flock *flock)
+                fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
         if (trace_fop_names[GF_FOP_FINODELK].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,
@@ -1938,7 +1938,7 @@ trace_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
 int
 trace_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
-          int32_t cmd, struct flock *lock)
+          int32_t cmd, struct gf_flock *lock)
 {
         if (trace_fop_names[GF_FOP_LK].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,

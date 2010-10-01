@@ -299,7 +299,7 @@ struct gf_flock {
 
 
 static inline void
-gf_flock_to_flock (struct gf_flock *gf_flock, struct flock *flock)
+gf_flock_to_flock (struct gf_flock *gf_flock, struct gf_flock *flock)
 {
 	flock->l_type   = ntoh16 (gf_flock->type);
 	flock->l_whence = ntoh16 (gf_flock->whence);
@@ -310,7 +310,7 @@ gf_flock_to_flock (struct gf_flock *gf_flock, struct flock *flock)
 
 
 static inline void
-gf_flock_from_flock (struct gf_flock *gf_flock, struct flock *flock)
+gf_flock_from_flock (struct gf_flock *gf_flock, struct gf_flock *flock)
 {
 	gf_flock->type   = hton16 (flock->l_type);
 	gf_flock->whence = hton16 (flock->l_whence);

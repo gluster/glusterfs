@@ -438,7 +438,7 @@ map_lk_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		struct flock *lock)
+		struct gf_flock *lock)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, lock);
 	return 0;
@@ -1770,7 +1770,7 @@ map_lk (call_frame_t *frame,
 	xlator_t *this,
 	fd_t *fd,
 	int32_t cmd,
-	struct flock *lock)
+	struct gf_flock *lock)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;
@@ -1799,7 +1799,7 @@ map_lk (call_frame_t *frame,
 
 int32_t
 map_inodelk (call_frame_t *frame, xlator_t *this,
-	     const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
+	     const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;
@@ -1829,7 +1829,7 @@ map_inodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 map_finodelk (call_frame_t *frame, xlator_t *this,
-	      const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
+	      const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
 	int32_t op_errno = 1;
 	xlator_t *subvol   = NULL;

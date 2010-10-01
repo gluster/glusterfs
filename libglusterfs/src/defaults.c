@@ -329,7 +329,7 @@ default_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 default_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct flock *lock)
+                int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
         return 0;
@@ -675,7 +675,7 @@ default_removexattr_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 default_lk_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                   int32_t cmd, struct flock *lock)
+                   int32_t cmd, struct gf_flock *lock)
 {
         STACK_WIND (frame, default_lk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lk, fd, cmd, lock);
@@ -686,7 +686,7 @@ default_lk_resume (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t
 default_inodelk_resume (call_frame_t *frame, xlator_t *this,
                         const char *volume, loc_t *loc, int32_t cmd,
-                        struct flock *lock)
+                        struct gf_flock *lock)
 {
         STACK_WIND (frame, default_inodelk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
@@ -697,7 +697,7 @@ default_inodelk_resume (call_frame_t *frame, xlator_t *this,
 int32_t
 default_finodelk_resume (call_frame_t *frame, xlator_t *this,
                          const char *volume, fd_t *fd, int32_t cmd,
-                         struct flock *lock)
+                         struct gf_flock *lock)
 {
         STACK_WIND (frame, default_finodelk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->finodelk,
@@ -1043,7 +1043,7 @@ default_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 default_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
-            int32_t cmd, struct flock *lock)
+            int32_t cmd, struct gf_flock *lock)
 {
         STACK_WIND (frame, default_lk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lk, fd, cmd, lock);
@@ -1054,7 +1054,7 @@ default_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
 int32_t
 default_inodelk (call_frame_t *frame, xlator_t *this,
                  const char *volume, loc_t *loc, int32_t cmd,
-                 struct flock *lock)
+                 struct gf_flock *lock)
 {
         STACK_WIND (frame, default_inodelk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->inodelk,
@@ -1064,7 +1064,7 @@ default_inodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 default_finodelk (call_frame_t *frame, xlator_t *this,
-                  const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
+                  const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
         STACK_WIND (frame, default_finodelk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->finodelk,

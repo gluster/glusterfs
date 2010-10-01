@@ -1526,7 +1526,7 @@ error_gen_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 error_gen_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		  int32_t op_ret, int32_t op_errno, struct flock *lock)
+		  int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
 	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
 	return 0;
@@ -1535,7 +1535,7 @@ error_gen_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 error_gen_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-	      struct flock *lock)
+	      struct gf_flock *lock)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -1574,7 +1574,7 @@ error_gen_inodelk_cbk (call_frame_t *frame, void *cookie,
 int
 error_gen_inodelk (call_frame_t *frame, xlator_t *this,
 		   const char *volume, loc_t *loc, int32_t cmd,
-                   struct flock *lock)
+                   struct gf_flock *lock)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -1613,7 +1613,7 @@ error_gen_finodelk_cbk (call_frame_t *frame, void *cookie,
 int
 error_gen_finodelk (call_frame_t *frame, xlator_t *this,
 		    const char *volume, fd_t *fd, int32_t cmd,
-                    struct flock *lock)
+                    struct gf_flock *lock)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;

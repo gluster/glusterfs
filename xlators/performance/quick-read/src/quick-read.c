@@ -1856,7 +1856,7 @@ qr_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 qr_finodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
-                    fd_t *fd, int32_t cmd, struct flock *lock)
+                    fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
         STACK_WIND (frame, qr_finodelk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->finodelk, volume, fd, cmd, lock);
@@ -1866,7 +1866,7 @@ qr_finodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
 
 int32_t
 qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
-             int32_t cmd, struct flock *lock)
+             int32_t cmd, struct gf_flock *lock)
 {
         int          flags = 0; 
         uint64_t     value = 0;
@@ -2193,7 +2193,7 @@ out:
 
 int32_t
 qr_lk_cbk (call_frame_t *frame,	void *cookie, xlator_t *this, int32_t op_ret,
-           int32_t op_errno, struct flock *lock)
+           int32_t op_errno, struct gf_flock *lock)
 {
 	QR_STACK_UNWIND (lk, frame, op_ret, op_errno, lock);
 	return 0;
@@ -2202,7 +2202,7 @@ qr_lk_cbk (call_frame_t *frame,	void *cookie, xlator_t *this, int32_t op_ret,
 
 int32_t
 qr_lk_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-              struct flock *lock)
+              struct gf_flock *lock)
 {
 	STACK_WIND (frame, qr_lk_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->lk, fd, cmd, lock);
@@ -2213,7 +2213,7 @@ qr_lk_helper (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
 int32_t
 qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-       struct flock *lock)
+       struct gf_flock *lock)
 {
         int          flags = 0;
         uint64_t     value = 0;

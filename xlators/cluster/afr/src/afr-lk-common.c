@@ -120,7 +120,7 @@ internal_lock_count (call_frame_t *frame, xlator_t *this,
 
 static void
 afr_print_inodelk (char *str, int size, int cmd,
-                   struct flock *flock, uint64_t owner)
+                   struct gf_flock *flock, uint64_t owner)
 {
         char *cmd_str = NULL;
         char *type_str = NULL;
@@ -247,7 +247,7 @@ afr_set_lock_call_type (afr_lock_call_type_t lock_call_type,
 
 static void
 afr_trace_inodelk_out (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
-                       afr_lock_op_type_t lk_op_type, struct flock *flock,
+                       afr_lock_op_type_t lk_op_type, struct gf_flock *flock,
                        int op_ret, int op_errno, int32_t child_index)
 {
         xlator_t            *this     = NULL;
@@ -286,7 +286,7 @@ afr_trace_inodelk_out (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
 
 static void
 afr_trace_inodelk_in (call_frame_t *frame, afr_lock_call_type_t lock_call_type,
-                      afr_lock_op_type_t lk_op_type, struct flock *flock,
+                      afr_lock_op_type_t lk_op_type, struct gf_flock *flock,
                       int32_t cmd, int32_t child_index)
 {
         xlator_t            *this     = NULL;
@@ -578,7 +578,7 @@ afr_unlock_inodelk (call_frame_t *frame, xlator_t *this)
         afr_local_t         *local    = NULL;
         afr_private_t       *priv     = NULL;
 
-        struct flock flock;
+        struct gf_flock flock;
         int call_count = 0;
         int i = 0;
 
@@ -908,7 +908,7 @@ afr_lock_blocking (call_frame_t *frame, xlator_t *this, int child_index)
 	const char          *lower_name  = NULL;
 	const char          *higher_name = NULL;
 
-	struct flock flock;
+	struct gf_flock flock;
         uint64_t ctx;
         int ret = 0;
 
@@ -1360,7 +1360,7 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
         uint64_t ctx        = 0;
         int      i          = 0;
         int      ret        = 0;
-        struct flock flock;
+        struct gf_flock flock;
 
         local    = frame->local;
         int_lock = &local->internal_lock;
@@ -1836,15 +1836,15 @@ out:
 
 int32_t
 afr_get_locks_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct flock *lock);
+                      int32_t op_ret, int32_t op_errno, struct gf_flock *lock);
 int32_t
 afr_recover_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct flock *lock)
+                      int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         afr_local_t   *local = NULL;
         afr_private_t *priv  = NULL;
         int32_t source_child = 0;
-        struct flock flock   = {0,};
+        struct gf_flock flock   = {0,};
 
         if (op_ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1871,7 +1871,7 @@ cleanup:
 
 int
 afr_recover_lock (call_frame_t *frame, xlator_t *this,
-                  struct flock *flock)
+                  struct gf_flock *flock)
 {
         afr_local_t   *local             = NULL;
         afr_private_t *priv              = NULL;
@@ -1892,7 +1892,7 @@ afr_recover_lock (call_frame_t *frame, xlator_t *this,
 }
 
 static int
-is_afr_lock_eol (struct flock *lock)
+is_afr_lock_eol (struct gf_flock *lock)
 {
         int ret = 0;
 
@@ -1904,7 +1904,7 @@ is_afr_lock_eol (struct flock *lock)
 
 int32_t
 afr_get_locks_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                      int32_t op_ret, int32_t op_errno, struct flock *lock)
+                      int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         if (op_ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1939,7 +1939,7 @@ afr_lock_recovery (call_frame_t *frame, xlator_t *this)
         fd_t          *fd           = NULL;
         int            ret          = 0;
         int32_t        source_child = 0;
-        struct flock   flock        = {0,};
+        struct gf_flock   flock        = {0,};
 
         priv  = this->private;
         local = frame->local;

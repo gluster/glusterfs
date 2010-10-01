@@ -172,7 +172,7 @@ out:
 
 int
 server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct flock *lock)
+               int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         gfs3_lk_rsp       rsp   = {0,};
         rpcsvc_request_t *req   = NULL;
@@ -202,7 +202,7 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         break;
                 }
 
-                gf_flock_from_flock (&rsp.flock, lock);
+                gf_proto_flock_from_flock (&rsp.flock, lock);
         } else if (op_errno != ENOSYS) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "%"PRId64": LK %"PRId64" (%"PRId64") ==> %"PRId32" (%s)",
@@ -4314,7 +4314,7 @@ server_inodelk (rpcsvc_request_t *req)
         state->type = args.type;
         state->volume = gf_strdup (args.volume);
 
-        gf_flock_to_flock (&args.flock, &state->flock);
+        gf_proto_flock_to_flock (&args.flock, &state->flock);
 
         switch (state->type) {
         case GF_LK_F_RDLCK:
@@ -4385,7 +4385,7 @@ server_finodelk (rpcsvc_request_t *req)
 
         state->type = args.type;
 
-        gf_flock_to_flock (&args.flock, &state->flock);
+        gf_proto_flock_to_flock (&args.flock, &state->flock);
 
         switch (state->type) {
         case GF_LK_F_RDLCK:
@@ -4820,7 +4820,7 @@ server_lk (rpcsvc_request_t *req)
                 break;
         }
 
-        gf_flock_to_flock (&args.flock, &state->flock);
+        gf_proto_flock_to_flock (&args.flock, &state->flock);
 
         switch (state->type) {
         case GF_LK_F_RDLCK:

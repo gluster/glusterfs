@@ -463,7 +463,7 @@ gf_del_locker (struct _lock_table *table, const char *volume,
  */
 static int
 server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct flock *lock)
+               int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         gf_hdr_common_t     *hdr = NULL;
         gf_fop_lk_rsp_t     *rsp = NULL;

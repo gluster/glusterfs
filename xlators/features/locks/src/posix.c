@@ -932,7 +932,7 @@ unlock:
 
 int
 pl_lk (call_frame_t *frame, xlator_t *this,
-       fd_t *fd, int32_t cmd, struct flock *flock)
+       fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
         void                  *transport = NULL;
         pid_t                  client_pid = 0;
@@ -984,7 +984,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
                 /* fall through */
         case F_RESLK_LCK:
-                memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+                memcpy (&reqlock->user_flock, flock, sizeof (struct gf_flock));
                 reqlock->frame = frame;
                 reqlock->this = this;
 
@@ -1065,7 +1065,7 @@ pl_lk (call_frame_t *frame, xlator_t *this,
         case F_SETLK64:
 #endif
         case F_SETLK:
-                memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+                memcpy (&reqlock->user_flock, flock, sizeof (struct gf_flock));
                 ret = pl_verify_reservelk (this, pl_inode, reqlock, can_block);
                 if (ret < 0) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -1439,7 +1439,7 @@ out:
 }
 
 void
-pl_dump_lock (char *str, int size, struct flock *flock,
+pl_dump_lock (char *str, int size, struct gf_flock *flock,
               uint64_t owner, void *trans)
 {
         char *type_str = NULL;
@@ -1794,11 +1794,11 @@ fini (xlator_t *this)
 
 int
 pl_inodelk (call_frame_t *frame, xlator_t *this,
-            const char *volume, loc_t *loc, int32_t cmd, struct flock *flock);
+            const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock);
 
 int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, fd_t *fd, int32_t cmd, struct flock *flock);
+             const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock);
 
 int
 pl_entrylk (call_frame_t *frame, xlator_t *this,

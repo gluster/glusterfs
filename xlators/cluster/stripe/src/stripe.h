@@ -147,7 +147,7 @@ struct stripe_local {
         int entry_self_heal_needed;
 
         int8_t              *list;
-        struct flock         lock;
+        struct gf_flock         lock;
         fd_t                *fd;
         void                *value;
         struct iobref       *iobref;

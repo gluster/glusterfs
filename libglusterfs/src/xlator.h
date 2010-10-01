@@ -339,7 +339,7 @@ typedef int32_t (*fop_lk_cbk_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 int32_t op_ret,
 				 int32_t op_errno,
-				 struct flock *flock);
+				 struct gf_flock *flock);
 
 typedef int32_t (*fop_inodelk_cbk_t) (call_frame_t *frame,
 				      void *cookie,
@@ -560,21 +560,21 @@ typedef int32_t (*fop_lk_t) (call_frame_t *frame,
 			     xlator_t *this,
 			     fd_t *fd,
 			     int32_t cmd,
-			     struct flock *flock);
+			     struct gf_flock *flock);
 
 typedef int32_t (*fop_inodelk_t) (call_frame_t *frame,
 				  xlator_t *this,
                                   const char *volume,
 				  loc_t *loc,
 				  int32_t cmd,
-				  struct flock *flock);
+				  struct gf_flock *flock);
 
 typedef int32_t (*fop_finodelk_t) (call_frame_t *frame,
 				   xlator_t *this,
                                    const char *volume,
 				   fd_t *fd,
 				   int32_t cmd,
-				   struct flock *flock);
+				   struct gf_flock *flock);
 
 typedef int32_t (*fop_entrylk_t) (call_frame_t *frame,
 				  xlator_t *this,

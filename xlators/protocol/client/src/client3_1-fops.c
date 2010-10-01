@@ -1526,7 +1526,7 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
 {
         call_frame_t    *frame      = NULL;
         clnt_local_t  *local      = NULL;
-        struct flock     lock       = {0,};
+        struct gf_flock     lock       = {0,};
         gfs3_lk_rsp      rsp        = {0,};
         int              ret        = 0;
 
@@ -1548,7 +1548,7 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         if (rsp.op_ret >= 0) {
-                gf_flock_to_flock (&rsp.flock, &lock);
+                gf_proto_flock_to_flock (&rsp.flock, &lock);
         }
 
         /* Save the lock to the client lock cache to be able
@@ -4377,7 +4377,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         req.fd    = fdctx->remote_fd;
         req.cmd   = gf_cmd;
         req.type  = gf_type;
-        gf_flock_from_flock (&req.flock, args->flock);
+        gf_proto_flock_from_flock (&req.flock, args->flock);
 
         ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_LK,
                                      client3_1_lk_cbk, NULL, xdr_from_lk_req,
@@ -4443,7 +4443,7 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
         req.volume = (char *)args->volume;
         req.cmd    = gf_cmd;
         req.type   = gf_type;
-        gf_flock_from_flock (&req.flock, args->flock);
+        gf_proto_flock_from_flock (&req.flock, args->flock);
 
         conf = this->private;
 
@@ -4533,7 +4533,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         req.fd    = fdctx->remote_fd;
         req.cmd   = gf_cmd;
         req.type  = gf_type;
-        gf_flock_from_flock (&req.flock, args->flock);
+        gf_proto_flock_from_flock (&req.flock, args->flock);
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FINODELK,

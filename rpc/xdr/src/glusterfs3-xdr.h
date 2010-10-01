@@ -205,41 +205,44 @@ gf_statfs_from_statfs (struct gf_statfs *gf_stat, struct statvfs *stat)
 	gf_stat->namemax = stat->f_namemax;
 }
 
-struct gf_flock {
+struct gf_proto_flock {
 	u_int type;
 	u_int whence;
 	u_quad_t start;
 	u_quad_t len;
 	u_int pid;
+	u_quad_t owner;
 };
-typedef struct gf_flock gf_flock;
+typedef struct gf_proto_flock gf_proto_flock;
 
 
 static inline void
-gf_flock_to_flock (struct gf_flock *gf_flock, struct flock *flock)
+gf_proto_flock_to_flock (struct gf_proto_flock *gf_proto_flock, struct gf_flock *gf_flock)
 {
-        if (!flock || !gf_flock)
+        if (!gf_flock || !gf_proto_flock)
                 return;
 
-	flock->l_type   = gf_flock->type;
-	flock->l_whence = gf_flock->whence;
-	flock->l_start  = gf_flock->start;
-	flock->l_len    = gf_flock->len;
-	flock->l_pid    = gf_flock->pid;
+	gf_flock->l_type     = gf_proto_flock->type;
+	gf_flock->l_whence   = gf_proto_flock->whence;
+	gf_flock->l_start    = gf_proto_flock->start;
+	gf_flock->l_len      = gf_proto_flock->len;
+	gf_flock->l_pid      = gf_proto_flock->pid;
+	gf_flock->l_owner    = gf_proto_flock->owner;
 }
 
 
 static inline void
-gf_flock_from_flock (struct gf_flock *gf_flock, struct flock *flock)
+gf_proto_flock_from_flock (struct gf_proto_flock *gf_proto_flock, struct gf_flock *gf_flock)
 {
-        if (!flock || !gf_flock)
+        if (!gf_flock || !gf_proto_flock)
                 return;
 
-	gf_flock->type   =  (flock->l_type);
-	gf_flock->whence =  (flock->l_whence);
-	gf_flock->start  =  (flock->l_start);
-	gf_flock->len    =  (flock->l_len);
-	gf_flock->pid    =  (flock->l_pid);
+	gf_proto_flock->type     =  (gf_flock->l_type);
+	gf_proto_flock->whence   =  (gf_flock->l_whence);
+	gf_proto_flock->start    =  (gf_flock->l_start);
+	gf_proto_flock->len      =  (gf_flock->l_len);
+	gf_proto_flock->pid      =  (gf_flock->l_pid)
+;	gf_proto_flock->owner    =  (gf_flock->l_owner);
 }
 
 struct gf_iatt {
@@ -584,14 +587,14 @@ struct gfs3_lk_req {
 	quad_t fd;
 	u_int cmd;
 	u_int type;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
 };
 typedef struct gfs3_lk_req gfs3_lk_req;
 
 struct gfs3_lk_rsp {
 	int op_ret;
 	int op_errno;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
 };
 typedef struct gfs3_lk_rsp gfs3_lk_rsp;
 
@@ -599,7 +602,7 @@ struct gfs3_inodelk_req {
 	char gfid[16];
 	u_int cmd;
 	u_int type;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
 	char *path;
 	char *volume;
 };
@@ -610,7 +613,7 @@ struct gfs3_finodelk_req {
 	quad_t fd;
 	u_int cmd;
 	u_int type;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
 	char *volume;
 };
 typedef struct gfs3_finodelk_req gfs3_finodelk_req;
@@ -1018,7 +1021,7 @@ typedef struct gfs3_readdirp_rsp gfs3_readdirp_rsp;
 
 #if defined(__STDC__) || defined(__cplusplus)
 extern  bool_t xdr_gf_statfs (XDR *, gf_statfs*);
-extern  bool_t xdr_gf_flock (XDR *, gf_flock*);
+extern  bool_t xdr_gf_proto_flock (XDR *, gf_proto_flock*);
 extern  bool_t xdr_gf_iatt (XDR *, gf_iatt*);
 extern  bool_t xdr_gfs3_stat_req (XDR *, gfs3_stat_req*);
 extern  bool_t xdr_gfs3_stat_rsp (XDR *, gfs3_stat_rsp*);
@@ -1105,7 +1108,7 @@ extern  bool_t xdr_gfs3_readdirp_rsp (XDR *, gfs3_readdirp_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf_statfs ();
-extern bool_t xdr_gf_flock ();
+extern bool_t xdr_gf_proto_flock ();
 extern bool_t xdr_gf_iatt ();
 extern bool_t xdr_gfs3_stat_req ();
 extern bool_t xdr_gfs3_stat_rsp ();

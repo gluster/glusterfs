@@ -797,7 +797,7 @@ io_stats_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                 int32_t op_ret, int32_t op_errno, struct flock *lock)
+                 int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         END_FOP_LATENCY (frame, LK);
         STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
@@ -864,7 +864,7 @@ io_stats_entrylk (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_inodelk (call_frame_t *frame, xlator_t *this,
-                  const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
+                  const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock)
 {
 
         BUMP_FOP (INODELK);
@@ -892,7 +892,7 @@ io_stats_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 io_stats_finodelk (call_frame_t *frame, xlator_t *this,
-                   const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
+                   const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
         BUMP_FOP (FINODELK);
 
@@ -1489,7 +1489,7 @@ io_stats_fstat (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_lk (call_frame_t *frame, xlator_t *this,
-             fd_t *fd, int32_t cmd, struct flock *lock)
+             fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
         BUMP_FOP (LK);
 

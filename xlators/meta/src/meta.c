@@ -1136,7 +1136,7 @@ meta_lk_cbk (call_frame_t *frame,
 	     xlator_t *this,
 	     int32_t op_ret,
 	     int32_t op_errno,
-	     struct flock *lock)
+	     struct gf_flock *lock)
 {
   STACK_UNWIND (frame,
 		op_ret,
@@ -1150,7 +1150,7 @@ meta_lk (call_frame_t *frame,
 	 xlator_t *this,
 	 dict_t *file,
 	 int32_t cmd,
-	 struct flock *lock)
+	 struct gf_flock *lock)
 {
   STACK_WIND (frame,
 	      meta_lk_cbk,

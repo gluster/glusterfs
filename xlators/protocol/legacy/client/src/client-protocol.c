@@ -2815,7 +2815,7 @@ unwind:
 
 int
 client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-           struct flock *flock)
+           struct gf_flock *flock)
 {
         int              ret = -1;
         gf_hdr_common_t *hdr = NULL;
@@ -2912,7 +2912,7 @@ unwind:
 
 int
 client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-                loc_t *loc, int32_t cmd, struct flock *flock)
+                loc_t *loc, int32_t cmd, struct gf_flock *flock)
 {
         int                   ret = -1;
         gf_hdr_common_t      *hdr = NULL;
@@ -3007,7 +3007,7 @@ unwind:
 
 int
 client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-                 fd_t *fd, int32_t cmd, struct flock *flock)
+                 fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
         int                    ret = -1;
         gf_hdr_common_t       *hdr = NULL;
@@ -5046,7 +5046,7 @@ int
 client_lk_common_cbk (call_frame_t *frame, gf_hdr_common_t *hdr, size_t hdrlen,
                       struct iobuf *iobuf)
 {
-        struct flock     lock = {0,};
+        struct gf_flock     lock = {0,};
         gf_fop_lk_rsp_t *rsp = NULL;
         int32_t          op_ret = 0;
         int32_t          op_errno = 0;

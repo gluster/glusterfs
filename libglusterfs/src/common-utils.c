@@ -1392,7 +1392,7 @@ gf_string2boolean (const char *str, gf_boolean_t *b)
 int
 gf_lockfd (int fd)
 {
-	struct flock fl;
+	struct gf_flock fl;
 
 	fl.l_type = F_WRLCK;
 	fl.l_whence = SEEK_SET;
@@ -1406,7 +1406,7 @@ gf_lockfd (int fd)
 int
 gf_unlockfd (int fd)
 {
-	struct flock fl;
+	struct gf_flock fl;
 
 	fl.l_type = F_UNLCK;
 	fl.l_whence = SEEK_SET;

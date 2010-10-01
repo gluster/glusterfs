@@ -1184,7 +1184,7 @@ out:
 
 int32_t
 client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-           struct flock *lock)
+           struct gf_flock *lock)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1212,7 +1212,7 @@ out:
 
 int32_t
 client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-                loc_t *loc, int32_t cmd, struct flock *lock)
+                loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -1242,7 +1242,7 @@ out:
 
 int32_t
 client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
-                 fd_t *fd, int32_t cmd, struct flock *lock)
+                 fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;

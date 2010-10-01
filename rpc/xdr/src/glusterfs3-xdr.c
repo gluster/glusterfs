@@ -55,7 +55,7 @@ xdr_gf_statfs (XDR *xdrs, gf_statfs *objp)
 }
 
 bool_t
-xdr_gf_flock (XDR *xdrs, gf_flock *objp)
+xdr_gf_proto_flock (XDR *xdrs, gf_proto_flock *objp)
 {
 
 	 if (!xdr_u_int (xdrs, &objp->type))
@@ -67,6 +67,8 @@ xdr_gf_flock (XDR *xdrs, gf_flock *objp)
 	 if (!xdr_u_quad_t (xdrs, &objp->len))
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->pid))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->owner))
 		 return FALSE;
 	return TRUE;
 }
@@ -705,7 +707,7 @@ xdr_gfs3_lk_req (XDR *xdrs, gfs3_lk_req *objp)
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->type))
 		 return FALSE;
-	 if (!xdr_gf_flock (xdrs, &objp->flock))
+	 if (!xdr_gf_proto_flock (xdrs, &objp->flock))
 		 return FALSE;
 	return TRUE;
 }
@@ -718,7 +720,7 @@ xdr_gfs3_lk_rsp (XDR *xdrs, gfs3_lk_rsp *objp)
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
-	 if (!xdr_gf_flock (xdrs, &objp->flock))
+	 if (!xdr_gf_proto_flock (xdrs, &objp->flock))
 		 return FALSE;
 	return TRUE;
 }
@@ -733,7 +735,7 @@ xdr_gfs3_inodelk_req (XDR *xdrs, gfs3_inodelk_req *objp)
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->type))
 		 return FALSE;
-	 if (!xdr_gf_flock (xdrs, &objp->flock))
+	 if (!xdr_gf_proto_flock (xdrs, &objp->flock))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->path, ~0))
 		 return FALSE;
@@ -754,7 +756,7 @@ xdr_gfs3_finodelk_req (XDR *xdrs, gfs3_finodelk_req *objp)
 		 return FALSE;
 	 if (!xdr_u_int (xdrs, &objp->type))
 		 return FALSE;
-	 if (!xdr_gf_flock (xdrs, &objp->flock))
+	 if (!xdr_gf_proto_flock (xdrs, &objp->flock))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volume, ~0))
 		 return FALSE;

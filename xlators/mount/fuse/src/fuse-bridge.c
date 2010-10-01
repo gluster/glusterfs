@@ -2645,7 +2645,7 @@ static int gf_fuse_lk_enosys_log;
 
 static int
 fuse_getlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct flock *lock)
+                int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         fuse_state_t *state = NULL;
 
@@ -2710,7 +2710,8 @@ fuse_getlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fd = FH_TO_FD (fli->fh);
         GET_STATE (this, finh, state);
         state->fd = fd;
-        convert_fuse_file_lock (&fli->lk, &state->lk_lock);
+        convert_fuse_file_lock (&fli->lk, &state->lk_lock,
+                                fli->owner);
 
         state->lk_owner = fli->owner;
 
@@ -2722,7 +2723,7 @@ fuse_getlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
 static int
 fuse_setlk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct flock *lock)
+                int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         fuse_state_t *state = NULL;
 
@@ -2790,7 +2791,8 @@ fuse_setlk (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
         state->finh = finh;
         state->fd = fd;
-        convert_fuse_file_lock (&fli->lk, &state->lk_lock);
+        convert_fuse_file_lock (&fli->lk, &state->lk_lock,
+                                fli->owner);
 
         state->lk_owner = fli->owner;
 

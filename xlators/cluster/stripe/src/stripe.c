@@ -2566,7 +2566,7 @@ err:
 
 int32_t
 stripe_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-               int32_t op_ret, int32_t op_errno, struct flock *lock)
+               int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         int32_t         callcnt = 0;
         stripe_local_t *local = NULL;
@@ -2614,7 +2614,7 @@ out:
 
 int32_t
 stripe_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-           struct flock *lock)
+           struct gf_flock *lock)
 {
         stripe_local_t   *local = NULL;
         xlator_list_t    *trav = NULL;

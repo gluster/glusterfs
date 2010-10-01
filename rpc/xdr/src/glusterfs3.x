@@ -13,12 +13,13 @@ struct gf_statfs {
 	unsigned hyper namemax;
 };
 
-struct gf_flock {
+struct gf_proto_flock {
 	unsigned int   type;
 	unsigned int   whence;
 	unsigned hyper start;
 	unsigned hyper len;
         unsigned int   pid;
+        unsigned hyper owner;
 } ;
 
 
@@ -262,19 +263,19 @@ struct   gfs3_lookup_req {
 	hyper         fd;
 	unsigned int        cmd;
 	unsigned int        type;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
 }  ;
  struct gfs3_lk_rsp {
         int    op_ret;
         int    op_errno;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
 }  ;
 
  struct gfs3_inodelk_req {
         opaque gfid[16];
 	unsigned int cmd;
 	unsigned int type;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
 	string     path<>;
         string     volume<>;
 }  ;
@@ -284,7 +285,7 @@ struct   gfs3_finodelk_req {
 	hyper  fd;
 	unsigned int cmd;
 	unsigned int type;
-	struct gf_flock flock;
+	struct gf_proto_flock flock;
         string volume<>;
 } ;
 
