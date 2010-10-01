@@ -243,14 +243,17 @@ io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
                                  (1 << i), stats->block_count_write[i]);
         }
 
-        for (i = 0; i < GF_FOP_MAXVALUE; i++)
-                if (stats->fop_hits[i])
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                if (stats->fop_hits[i] && !stats->latency[i].avg)
+                        ios_log (this, logfp, "%14s : %"PRId64,
+                                 gf_fop_list[i], stats->fop_hits[i]);
+                else if (stats->fop_hits[i] && stats->latency[i].avg)
                         ios_log (this, logfp, "%14s : %"PRId64 ", latency"
                                  "(avg: %f, min: %f, max: %f)",
                                  gf_fop_list[i], stats->fop_hits[i],
                                  stats->latency[i].avg, stats->latency[i].min,
                                  stats->latency[i].max);
-
+        }
 
         return 0;
 }

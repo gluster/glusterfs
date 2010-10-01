@@ -25,6 +25,8 @@
 #include "server.h"
 #include "server-helpers.h"
 
+#include <fnmatch.h>
+
 int
 server_decode_groups (call_frame_t *frame, rpcsvc_request_t *req)
 {
@@ -1295,6 +1297,62 @@ readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp)
                 trav = trav->nextentry;
                 GF_FREE (prev);
                 prev = trav;
+        }
+
+        return 0;
+}
+
+int
+gf_server_check_getxattr_cmd (call_frame_t *frame, const char *key)
+{
+
+        server_conf_t    *conf = NULL;
+        rpc_transport_t  *xprt = NULL;
+
+        conf = frame->this->private;
+        if (!conf)
+                return 0;
+
+        if (fnmatch ("*list*mount*point*", key, 0) == 0) {
+                /* list all the client protocol connecting to this process */
+                list_for_each_entry (xprt, &conf->xprt_list, list) {
+                        gf_log ("mount-point-list", GF_LOG_INFO,
+                                "%s", xprt->peerinfo.identifier);
+                }
+        }
+
+        /* Add more options/keys here */
+
+        return 0;
+}
+
+int
+gf_server_check_setxattr_cmd (call_frame_t *frame, dict_t *dict)
+{
+
+        data_pair_t      *pair = NULL;
+        server_conf_t    *conf = NULL;
+        rpc_transport_t  *xprt = NULL;
+        uint64_t          total_read = 0;
+        uint64_t          total_write = 0;
+
+        conf = frame->this->private;
+        if (!conf)
+                return 0;
+
+        for (pair = dict->members_list; pair; pair = pair->next) {
+                /* this exact key is used in 'io-stats' too.
+                 * But this is better place for this information dump.
+                 */
+                if (fnmatch ("*io*stat*dump", pair->key, 0) == 0) {
+                        list_for_each_entry (xprt, &conf->xprt_list, list) {
+                                total_read  += xprt->total_bytes_read;
+                                total_write += xprt->total_bytes_write;
+                        }
+                        gf_log ("stats", GF_LOG_INFO,
+                                "total-read %"PRIu64", total-write %"PRIu64,
+                                total_read, total_write);
+                }
         }
 
         return 0;

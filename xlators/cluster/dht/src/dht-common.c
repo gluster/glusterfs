@@ -1938,10 +1938,12 @@ int
 dht_setxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, dict_t *xattr, int flags)
 {
-	xlator_t     *subvol = NULL;
-        int           op_errno = -1;
-	dht_local_t  *local = NULL;
-
+	xlator_t     *subvol   = NULL;
+	dht_local_t  *local    = NULL;
+        dht_conf_t   *conf     = NULL;
+        dht_layout_t *layout   = NULL;
+        int           i        = 0;
+        int           op_errno = EINVAL;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1949,6 +1951,7 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
 
+        conf   = this->private;
 	subvol = dht_subvol_get_cached (this, loc->inode);
 	if (!subvol) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -1965,11 +1968,22 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
 		goto err;
 	}
 
-	local->call_cnt = 1;
+	local->layout = layout = dht_layout_get (this, loc->inode);
+	if (!layout) {
+		gf_log (this->name, GF_LOG_DEBUG,
+			"no layout for path=%s", loc->path);
+		op_errno = EINVAL;
+		goto err;
+	}
 
-	STACK_WIND (frame, dht_err_cbk,
-		    subvol, subvol->fops->setxattr,
-		    loc, xattr, flags);
+	local->call_cnt = layout->cnt;
+
+	for (i = 0; i < layout->cnt; i++) {
+		STACK_WIND (frame, dht_err_cbk,
+			    layout->list[i].xlator,
+			    layout->list[i].xlator->fops->setxattr,
+			    loc, xattr, flags);
+	}
 
 	return 0;
 
