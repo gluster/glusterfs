@@ -319,14 +319,12 @@ gf_stat_from_iatt (struct gf_iatt *gf_stat, struct iatt *iatt)
 
 /* Gluster FS Payload structures */
 struct gfs3_stat_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	char *path;
 };
 typedef struct gfs3_stat_req gfs3_stat_req;
 
 struct gfs3_stat_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -334,7 +332,6 @@ struct gfs3_stat_rsp {
 typedef struct gfs3_stat_rsp gfs3_stat_rsp;
 
 struct gfs3_readlink_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int size;
 	char *path;
@@ -342,7 +339,6 @@ struct gfs3_readlink_req {
 typedef struct gfs3_readlink_req gfs3_readlink_req;
 
 struct gfs3_readlink_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt buf;
@@ -351,7 +347,6 @@ struct gfs3_readlink_rsp {
 typedef struct gfs3_readlink_rsp gfs3_readlink_rsp;
 
 struct gfs3_mknod_req {
-	u_quad_t gfs_id;
 	char pargfid[16];
 	u_quad_t dev;
 	u_int mode;
@@ -365,7 +360,6 @@ struct gfs3_mknod_req {
 typedef struct gfs3_mknod_req gfs3_mknod_req;
 
 struct gfs3_mknod_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -375,7 +369,6 @@ struct gfs3_mknod_rsp {
 typedef struct gfs3_mknod_rsp gfs3_mknod_rsp;
 
 struct gfs3_mkdir_req {
-	u_quad_t gfs_id;
 	char pargfid[16];
 	u_int mode;
 	char *path;
@@ -388,7 +381,6 @@ struct gfs3_mkdir_req {
 typedef struct gfs3_mkdir_req gfs3_mkdir_req;
 
 struct gfs3_mkdir_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -398,7 +390,6 @@ struct gfs3_mkdir_rsp {
 typedef struct gfs3_mkdir_rsp gfs3_mkdir_rsp;
 
 struct gfs3_unlink_req {
-	u_quad_t gfs_id;
 	char pargfid[16];
 	char *path;
 	char *bname;
@@ -406,7 +397,6 @@ struct gfs3_unlink_req {
 typedef struct gfs3_unlink_req gfs3_unlink_req;
 
 struct gfs3_unlink_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt preparent;
@@ -415,7 +405,6 @@ struct gfs3_unlink_rsp {
 typedef struct gfs3_unlink_rsp gfs3_unlink_rsp;
 
 struct gfs3_rmdir_req {
-	u_quad_t gfs_id;
 	char pargfid[16];
 	char *path;
 	char *bname;
@@ -423,7 +412,6 @@ struct gfs3_rmdir_req {
 typedef struct gfs3_rmdir_req gfs3_rmdir_req;
 
 struct gfs3_rmdir_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt preparent;
@@ -432,7 +420,6 @@ struct gfs3_rmdir_rsp {
 typedef struct gfs3_rmdir_rsp gfs3_rmdir_rsp;
 
 struct gfs3_symlink_req {
-	u_quad_t gfs_id;
 	char pargfid[16];
 	char *path;
 	char *bname;
@@ -445,7 +432,6 @@ struct gfs3_symlink_req {
 typedef struct gfs3_symlink_req gfs3_symlink_req;
 
 struct gfs3_symlink_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -455,7 +441,6 @@ struct gfs3_symlink_rsp {
 typedef struct gfs3_symlink_rsp gfs3_symlink_rsp;
 
 struct gfs3_rename_req {
-	u_quad_t gfs_id;
 	char oldgfid[16];
 	char newgfid[16];
 	char *oldpath;
@@ -466,7 +451,6 @@ struct gfs3_rename_req {
 typedef struct gfs3_rename_req gfs3_rename_req;
 
 struct gfs3_rename_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -478,7 +462,6 @@ struct gfs3_rename_rsp {
 typedef struct gfs3_rename_rsp gfs3_rename_rsp;
 
 struct gfs3_link_req {
-	u_quad_t gfs_id;
 	char oldgfid[16];
 	char newgfid[16];
 	char *oldpath;
@@ -488,7 +471,6 @@ struct gfs3_link_req {
 typedef struct gfs3_link_req gfs3_link_req;
 
 struct gfs3_link_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -498,7 +480,6 @@ struct gfs3_link_rsp {
 typedef struct gfs3_link_rsp gfs3_link_rsp;
 
 struct gfs3_truncate_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_quad_t offset;
 	char *path;
@@ -506,7 +487,6 @@ struct gfs3_truncate_req {
 typedef struct gfs3_truncate_req gfs3_truncate_req;
 
 struct gfs3_truncate_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt prestat;
@@ -515,7 +495,6 @@ struct gfs3_truncate_rsp {
 typedef struct gfs3_truncate_rsp gfs3_truncate_rsp;
 
 struct gfs3_open_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int flags;
 	u_int wbflags;
@@ -524,7 +503,6 @@ struct gfs3_open_req {
 typedef struct gfs3_open_req gfs3_open_req;
 
 struct gfs3_open_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	quad_t fd;
@@ -532,7 +510,6 @@ struct gfs3_open_rsp {
 typedef struct gfs3_open_rsp gfs3_open_rsp;
 
 struct gfs3_read_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_quad_t offset;
@@ -541,7 +518,6 @@ struct gfs3_read_req {
 typedef struct gfs3_read_req gfs3_read_req;
 
 struct gfs3_read_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -550,7 +526,6 @@ struct gfs3_read_rsp {
 typedef struct gfs3_read_rsp gfs3_read_rsp;
 
 struct gfs3_lookup_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	char pargfid[16];
 	u_int flags;
@@ -564,7 +539,6 @@ struct gfs3_lookup_req {
 typedef struct gfs3_lookup_req gfs3_lookup_req;
 
 struct gfs3_lookup_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -577,7 +551,6 @@ struct gfs3_lookup_rsp {
 typedef struct gfs3_lookup_rsp gfs3_lookup_rsp;
 
 struct gfs3_write_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_quad_t offset;
@@ -586,7 +559,6 @@ struct gfs3_write_req {
 typedef struct gfs3_write_req gfs3_write_req;
 
 struct gfs3_write_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt prestat;
@@ -595,14 +567,12 @@ struct gfs3_write_rsp {
 typedef struct gfs3_write_rsp gfs3_write_rsp;
 
 struct gfs3_statfs_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	char *path;
 };
 typedef struct gfs3_statfs_req gfs3_statfs_req;
 
 struct gfs3_statfs_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_statfs statfs;
@@ -610,7 +580,6 @@ struct gfs3_statfs_rsp {
 typedef struct gfs3_statfs_rsp gfs3_statfs_rsp;
 
 struct gfs3_lk_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_int cmd;
@@ -620,7 +589,6 @@ struct gfs3_lk_req {
 typedef struct gfs3_lk_req gfs3_lk_req;
 
 struct gfs3_lk_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_flock flock;
@@ -628,7 +596,6 @@ struct gfs3_lk_rsp {
 typedef struct gfs3_lk_rsp gfs3_lk_rsp;
 
 struct gfs3_inodelk_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int cmd;
 	u_int type;
@@ -639,7 +606,6 @@ struct gfs3_inodelk_req {
 typedef struct gfs3_inodelk_req gfs3_inodelk_req;
 
 struct gfs3_finodelk_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_int cmd;
@@ -650,14 +616,12 @@ struct gfs3_finodelk_req {
 typedef struct gfs3_finodelk_req gfs3_finodelk_req;
 
 struct gfs3_flush_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 };
 typedef struct gfs3_flush_req gfs3_flush_req;
 
 struct gfs3_fsync_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_int data;
@@ -665,7 +629,6 @@ struct gfs3_fsync_req {
 typedef struct gfs3_fsync_req gfs3_fsync_req;
 
 struct gfs3_fsync_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt prestat;
@@ -674,7 +637,6 @@ struct gfs3_fsync_rsp {
 typedef struct gfs3_fsync_rsp gfs3_fsync_rsp;
 
 struct gfs3_setxattr_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int flags;
 	struct {
@@ -686,7 +648,6 @@ struct gfs3_setxattr_req {
 typedef struct gfs3_setxattr_req gfs3_setxattr_req;
 
 struct gfs3_fsetxattr_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_int flags;
@@ -698,7 +659,6 @@ struct gfs3_fsetxattr_req {
 typedef struct gfs3_fsetxattr_req gfs3_fsetxattr_req;
 
 struct gfs3_xattrop_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int flags;
 	struct {
@@ -710,7 +670,6 @@ struct gfs3_xattrop_req {
 typedef struct gfs3_xattrop_req gfs3_xattrop_req;
 
 struct gfs3_xattrop_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct {
@@ -721,7 +680,6 @@ struct gfs3_xattrop_rsp {
 typedef struct gfs3_xattrop_rsp gfs3_xattrop_rsp;
 
 struct gfs3_fxattrop_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_int flags;
@@ -733,7 +691,6 @@ struct gfs3_fxattrop_req {
 typedef struct gfs3_fxattrop_req gfs3_fxattrop_req;
 
 struct gfs3_fxattrop_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct {
@@ -744,7 +701,6 @@ struct gfs3_fxattrop_rsp {
 typedef struct gfs3_fxattrop_rsp gfs3_fxattrop_rsp;
 
 struct gfs3_getxattr_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int namelen;
 	char *path;
@@ -753,7 +709,6 @@ struct gfs3_getxattr_req {
 typedef struct gfs3_getxattr_req gfs3_getxattr_req;
 
 struct gfs3_getxattr_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct {
@@ -764,7 +719,6 @@ struct gfs3_getxattr_rsp {
 typedef struct gfs3_getxattr_rsp gfs3_getxattr_rsp;
 
 struct gfs3_fgetxattr_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_int namelen;
@@ -773,7 +727,6 @@ struct gfs3_fgetxattr_req {
 typedef struct gfs3_fgetxattr_req gfs3_fgetxattr_req;
 
 struct gfs3_fgetxattr_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct {
@@ -784,7 +737,6 @@ struct gfs3_fgetxattr_rsp {
 typedef struct gfs3_fgetxattr_rsp gfs3_fgetxattr_rsp;
 
 struct gfs3_removexattr_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	char *path;
 	char *name;
@@ -792,14 +744,12 @@ struct gfs3_removexattr_req {
 typedef struct gfs3_removexattr_req gfs3_removexattr_req;
 
 struct gfs3_opendir_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	char *path;
 };
 typedef struct gfs3_opendir_req gfs3_opendir_req;
 
 struct gfs3_opendir_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	quad_t fd;
@@ -807,7 +757,6 @@ struct gfs3_opendir_rsp {
 typedef struct gfs3_opendir_rsp gfs3_opendir_rsp;
 
 struct gfs3_fsyncdir_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	int data;
@@ -815,7 +764,6 @@ struct gfs3_fsyncdir_req {
 typedef struct gfs3_fsyncdir_req gfs3_fsyncdir_req;
 
 struct gfs3_readdir_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_quad_t offset;
@@ -824,7 +772,6 @@ struct gfs3_readdir_req {
 typedef struct gfs3_readdir_req gfs3_readdir_req;
 
 struct gfs3_readdirp_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_quad_t offset;
@@ -833,7 +780,6 @@ struct gfs3_readdirp_req {
 typedef struct gfs3_readdirp_req gfs3_readdirp_req;
 
 struct gf_setvolume_req {
-	u_quad_t gfs_id;
 	struct {
 		u_int dict_len;
 		char *dict_val;
@@ -842,7 +788,6 @@ struct gf_setvolume_req {
 typedef struct gf_setvolume_req gf_setvolume_req;
 
 struct gf_setvolume_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct {
@@ -853,7 +798,6 @@ struct gf_setvolume_rsp {
 typedef struct gf_setvolume_rsp gf_setvolume_rsp;
 
 struct gfs3_access_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int mask;
 	char *path;
@@ -861,7 +805,6 @@ struct gfs3_access_req {
 typedef struct gfs3_access_req gfs3_access_req;
 
 struct gfs3_create_req {
-	u_quad_t gfs_id;
 	char pargfid[16];
 	u_int flags;
 	u_int mode;
@@ -875,7 +818,6 @@ struct gfs3_create_req {
 typedef struct gfs3_create_req gfs3_create_req;
 
 struct gfs3_create_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -886,7 +828,6 @@ struct gfs3_create_rsp {
 typedef struct gfs3_create_rsp gfs3_create_rsp;
 
 struct gfs3_ftruncate_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_quad_t offset;
@@ -894,7 +835,6 @@ struct gfs3_ftruncate_req {
 typedef struct gfs3_ftruncate_req gfs3_ftruncate_req;
 
 struct gfs3_ftruncate_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt prestat;
@@ -903,14 +843,12 @@ struct gfs3_ftruncate_rsp {
 typedef struct gfs3_ftruncate_rsp gfs3_ftruncate_rsp;
 
 struct gfs3_fstat_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 };
 typedef struct gfs3_fstat_req gfs3_fstat_req;
 
 struct gfs3_fstat_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt stat;
@@ -918,7 +856,6 @@ struct gfs3_fstat_rsp {
 typedef struct gfs3_fstat_rsp gfs3_fstat_rsp;
 
 struct gfs3_entrylk_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	u_int cmd;
 	u_int type;
@@ -930,7 +867,6 @@ struct gfs3_entrylk_req {
 typedef struct gfs3_entrylk_req gfs3_entrylk_req;
 
 struct gfs3_fentrylk_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 	u_int cmd;
@@ -942,7 +878,6 @@ struct gfs3_fentrylk_req {
 typedef struct gfs3_fentrylk_req gfs3_fentrylk_req;
 
 struct gfs3_setattr_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	struct gf_iatt stbuf;
 	int valid;
@@ -951,7 +886,6 @@ struct gfs3_setattr_req {
 typedef struct gfs3_setattr_req gfs3_setattr_req;
 
 struct gfs3_setattr_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt statpre;
@@ -960,7 +894,6 @@ struct gfs3_setattr_rsp {
 typedef struct gfs3_setattr_rsp gfs3_setattr_rsp;
 
 struct gfs3_fsetattr_req {
-	u_quad_t gfs_id;
 	quad_t fd;
 	struct gf_iatt stbuf;
 	int valid;
@@ -968,7 +901,6 @@ struct gfs3_fsetattr_req {
 typedef struct gfs3_fsetattr_req gfs3_fsetattr_req;
 
 struct gfs3_fsetattr_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gf_iatt statpre;
@@ -977,7 +909,6 @@ struct gfs3_fsetattr_rsp {
 typedef struct gfs3_fsetattr_rsp gfs3_fsetattr_rsp;
 
 struct gfs3_rchecksum_req {
-	u_quad_t gfs_id;
 	quad_t fd;
 	u_quad_t offset;
 	u_int len;
@@ -985,7 +916,6 @@ struct gfs3_rchecksum_req {
 typedef struct gfs3_rchecksum_req gfs3_rchecksum_req;
 
 struct gfs3_rchecksum_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	u_int weak_checksum;
@@ -997,14 +927,12 @@ struct gfs3_rchecksum_rsp {
 typedef struct gfs3_rchecksum_rsp gfs3_rchecksum_rsp;
 
 struct gf_getspec_req {
-	u_quad_t gfs_id;
 	u_int flags;
 	char *key;
 };
 typedef struct gf_getspec_req gf_getspec_req;
 
 struct gf_getspec_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	char *spec;
@@ -1012,7 +940,6 @@ struct gf_getspec_rsp {
 typedef struct gf_getspec_rsp gf_getspec_rsp;
 
 struct gf_log_req {
-	u_quad_t gfs_id;
 	struct {
 		u_int msg_len;
 		char *msg_val;
@@ -1021,14 +948,12 @@ struct gf_log_req {
 typedef struct gf_log_req gf_log_req;
 
 struct gf_notify_req {
-	u_quad_t gfs_id;
 	u_int flags;
 	char *buf;
 };
 typedef struct gf_notify_req gf_notify_req;
 
 struct gf_notify_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	u_int flags;
@@ -1037,21 +962,18 @@ struct gf_notify_rsp {
 typedef struct gf_notify_rsp gf_notify_rsp;
 
 struct gfs3_releasedir_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 };
 typedef struct gfs3_releasedir_req gfs3_releasedir_req;
 
 struct gfs3_release_req {
-	u_quad_t gfs_id;
 	char gfid[16];
 	quad_t fd;
 };
 typedef struct gfs3_release_req gfs3_release_req;
 
 struct gf_common_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 };
@@ -1068,7 +990,6 @@ struct gfs3_dirlist {
 typedef struct gfs3_dirlist gfs3_dirlist;
 
 struct gfs3_readdir_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gfs3_dirlist *reply;
@@ -1087,7 +1008,6 @@ struct gfs3_dirplist {
 typedef struct gfs3_dirplist gfs3_dirplist;
 
 struct gfs3_readdirp_rsp {
-	u_quad_t gfs_id;
 	int op_ret;
 	int op_errno;
 	struct gfs3_dirplist *reply;
