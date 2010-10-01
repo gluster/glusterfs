@@ -52,6 +52,7 @@ echo "adding-brick......."
 gluster volume add-brick vol `hostname`:/exports/exp2
 gluster volume info
 sleep 1 
+umount /mnt/client
 mount -t glusterfs `hostname`:vol /mnt/client
 df -h
 sleep 1
@@ -60,8 +61,21 @@ echo "replacing brick......"
 gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 start
 gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
 gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 pause
-gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 abort
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 start
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
 gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 commit
+
+
+echo "replcing brick for abort operation"
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 start
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 pause
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 start
+gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 abort
+
+
 gluster volume info
 sleep 1
 df -h
