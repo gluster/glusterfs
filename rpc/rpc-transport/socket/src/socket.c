@@ -781,7 +781,7 @@ __socket_read_vectored_request (rpc_transport_t *this)
         struct iobuf     *iobuf                  = NULL;
         uint32_t          remaining_size         = 0;
         uint32_t          gluster_write_proc_len = 0;
-        gfs3_write_req    write_req              = {0, };
+        gfs3_write_req    write_req              = {{0,},};
 
         if (!this || !this->private)
                 goto out;

@@ -335,7 +335,7 @@ fail:
 int
 server_setvolume (rpcsvc_request_t *req)
 {
-        gf_setvolume_req     args          = {0,};
+        gf_setvolume_req     args          = {{0,},};
         gf_setvolume_rsp     rsp           = {0,};
         server_connection_t *conn          = NULL;
         server_conf_t       *conf          = NULL;
@@ -647,7 +647,6 @@ server_ping (rpcsvc_request_t *req)
 {
         gf_common_rsp rsp = {0,};
 
-        rsp.gfs_id = req->gfs_id;
         /* Accepted */
         rsp.op_ret = 0;
 

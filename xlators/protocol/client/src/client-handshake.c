@@ -574,7 +574,7 @@ int
 client_setvolume (xlator_t *this, struct rpc_clnt *rpc)
 {
         int               ret             = 0;
-        gf_setvolume_req  req             = {0,};
+        gf_setvolume_req  req             = {{0,},};
         call_frame_t     *fr              = NULL;
         char             *process_uuid_xl = NULL;
         clnt_conf_t      *conf            = NULL;

@@ -43,7 +43,6 @@ server_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -158,7 +157,6 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret, strerror (op_errno));
         }
 out:
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret   = op_ret;
         rsp.op_errno = gf_errno_to_error (op_errno);
 
@@ -182,7 +180,6 @@ server_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -232,7 +229,6 @@ server_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -273,7 +269,6 @@ server_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -315,7 +310,6 @@ server_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -355,7 +349,6 @@ server_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -394,7 +387,6 @@ server_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -416,7 +408,6 @@ server_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -460,7 +451,6 @@ server_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -500,7 +490,6 @@ server_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -538,7 +527,6 @@ server_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -585,7 +573,6 @@ server_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         strerror (op_errno));
         }
 unwind:
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -607,7 +594,6 @@ server_releasedir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -646,7 +632,6 @@ server_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
 
         rsp.fd        = fd_no;
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -665,7 +650,6 @@ server_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -721,7 +705,6 @@ server_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         req               = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
@@ -781,7 +764,6 @@ server_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         req               = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
@@ -803,7 +785,6 @@ server_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -823,7 +804,6 @@ server_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -845,7 +825,6 @@ server_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -893,7 +872,6 @@ server_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -944,7 +922,6 @@ server_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -986,7 +963,6 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1037,7 +1013,6 @@ server_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1070,7 +1045,6 @@ server_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1103,7 +1077,6 @@ server_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1136,7 +1109,6 @@ server_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1167,7 +1139,6 @@ server_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1199,7 +1170,6 @@ server_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1220,7 +1190,6 @@ server_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1255,7 +1224,6 @@ server_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1287,7 +1255,6 @@ server_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1333,7 +1300,6 @@ server_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         req           = frame->local;
 
         rsp.fd        = fd_no;
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1412,7 +1378,6 @@ out:
         req           = frame->local;
 
         rsp.fd        = fd_no;
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1433,7 +1398,6 @@ server_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1470,7 +1434,6 @@ server_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1504,7 +1467,6 @@ server_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1552,7 +1514,6 @@ server_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         req           = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -1616,7 +1577,6 @@ server_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         req               = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
@@ -1685,7 +1645,6 @@ server_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 out:
         req               = frame->local;
 
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret        = op_ret;
         rsp.op_errno      = gf_errno_to_error (op_errno);
         rsp.dict.dict_len = len;
@@ -1729,7 +1688,6 @@ server_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
 out:
-        rsp.gfs_id    = req->gfs_id;
         rsp.op_ret    = op_ret;
         rsp.op_errno  = gf_errno_to_error (op_errno);
 
@@ -2661,7 +2619,7 @@ server_stat (rpcsvc_request_t *req)
 {
         server_state_t *state                 = NULL;
         call_frame_t   *frame                 = NULL;
-        gfs3_stat_req   args                  = {0,};
+        gfs3_stat_req   args                  = {{0,},};
         char            path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
@@ -2706,7 +2664,7 @@ server_setattr (rpcsvc_request_t *req)
 {
         server_state_t   *state                 = NULL;
         call_frame_t     *frame                 = NULL;
-        gfs3_setattr_req  args                  = {0,};
+        gfs3_setattr_req  args                  = {{0,},};
         char              path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
@@ -2796,7 +2754,7 @@ server_readlink (rpcsvc_request_t *req)
 {
         server_state_t    *state                 = NULL;
         call_frame_t      *frame                 = NULL;
-        gfs3_readlink_req  args                  = {0,};
+        gfs3_readlink_req  args                  = {{0,},};
         char               path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
@@ -2844,7 +2802,7 @@ server_create (rpcsvc_request_t *req)
         call_frame_t        *frame                  = NULL;
         dict_t              *params                 = NULL;
         char                *buf                    = NULL;
-        gfs3_create_req      args                   = {0,};
+        gfs3_create_req      args                   = {{0,},};
         char                 path[SERVER_PATH_MAX]  = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
         int                  ret                    = 0;
@@ -2940,7 +2898,7 @@ server_open (rpcsvc_request_t *req)
 {
         server_state_t *state                 = NULL;
         call_frame_t   *frame                 = NULL;
-        gfs3_open_req   args                  = {0,};
+        gfs3_open_req   args                  = {{0,},};
         char            path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
@@ -2986,7 +2944,7 @@ server_readv (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
-        gfs3_read_req   args  = {0,};
+        gfs3_read_req   args  = {{0,},};
 
         if (!req)
                 goto out;
@@ -3028,7 +2986,7 @@ server_writev (rpcsvc_request_t *req)
 {
         server_state_t      *state  = NULL;
         call_frame_t        *frame  = NULL;
-        gfs3_write_req       args   = {0,};
+        gfs3_write_req       args   = {{0,},};
         ssize_t              len    = 0;
         int                  i      = 0;
 
@@ -3097,7 +3055,7 @@ int
 server_release (rpcsvc_request_t *req)
 {
         server_connection_t *conn = NULL;
-        gfs3_release_req     args = {0,};
+        gfs3_release_req     args = {{0,},};
         gf_common_rsp        rsp  = {0,};
 
         if (!xdr_to_release_req (req->msg[0], &args)) {
@@ -3119,7 +3077,7 @@ int
 server_releasedir (rpcsvc_request_t *req)
 {
         server_connection_t *conn = NULL;
-        gfs3_releasedir_req  args = {0,};
+        gfs3_releasedir_req  args = {{0,},};
         gf_common_rsp        rsp  = {0,};
 
         if (!xdr_to_release_req (req->msg[0], &args)) {
@@ -3143,7 +3101,7 @@ server_fsync (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
-        gfs3_fsync_req  args  = {0,};
+        gfs3_fsync_req  args  = {{0,},};
 
         if (!req)
                 return 0;
@@ -3185,7 +3143,7 @@ server_flush (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
-        gfs3_flush_req  args  = {0,};
+        gfs3_flush_req  args  = {{0,},};
 
         if (!req)
                 return 0;
@@ -3226,7 +3184,7 @@ server_ftruncate (rpcsvc_request_t *req)
 {
         server_state_t     *state = NULL;
         call_frame_t       *frame = NULL;
-        gfs3_ftruncate_req  args  = {0,};
+        gfs3_ftruncate_req  args  = {{0,},};
 
         if (!req)
                 return 0;
@@ -3267,7 +3225,7 @@ server_fstat (rpcsvc_request_t *req)
 {
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
-        gfs3_write_req  args  = {0,};
+        gfs3_write_req  args  = {{0,},};
 
         if (!req)
                 return 0;
@@ -3307,7 +3265,7 @@ server_truncate (rpcsvc_request_t *req)
 {
         server_state_t    *state                 = NULL;
         call_frame_t      *frame                 = NULL;
-        gfs3_truncate_req  args                  = {0,};
+        gfs3_truncate_req  args                  = {{0,},};
         char               path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
@@ -3352,7 +3310,7 @@ server_unlink (rpcsvc_request_t *req)
 {
         server_state_t  *state                  = NULL;
         call_frame_t    *frame                  = NULL;
-        gfs3_unlink_req  args                   = {0,};
+        gfs3_unlink_req  args                   = {{0,},};
         char             path[SERVER_PATH_MAX]  = {0,};
         char             bname[SERVER_PATH_MAX] = {0,};
 
@@ -3402,7 +3360,7 @@ server_setxattr (rpcsvc_request_t *req)
         call_frame_t        *frame                 = NULL;
         server_connection_t *conn                  = NULL;
         char                *buf                   = NULL;
-        gfs3_setxattr_req    args                  = {0,};
+        gfs3_setxattr_req    args                  = {{0,},};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 dict_val[(16 * 1024)] = {0, };
         int32_t              ret                   = -1;
@@ -3487,7 +3445,7 @@ server_fsetxattr (rpcsvc_request_t *req)
         server_connection_t *conn                 = NULL;
         call_frame_t        *frame                = NULL;
         char                *buf                   = NULL;
-        gfs3_fsetxattr_req   args                 = {0,};
+        gfs3_fsetxattr_req   args                 = {{0,},};
         char                 dict_val[(16 *1024)] = {0,};
         int32_t              ret                  = -1;
 
@@ -3565,7 +3523,7 @@ server_fxattrop (rpcsvc_request_t *req)
         server_connection_t *conn                 = NULL;
         call_frame_t        *frame                = NULL;
         char                *buf                   = NULL;
-        gfs3_fxattrop_req    args                 = {0,};
+        gfs3_fxattrop_req    args                 = {{0,},};
         char                 dict_val[(16 *1024)] = {0,};
         int32_t              ret                  = -1;
 
@@ -3645,7 +3603,7 @@ server_xattrop (rpcsvc_request_t *req)
         server_connection_t *conn                  = NULL;
         call_frame_t        *frame                 = NULL;
         char                *buf                   = NULL;
-        gfs3_xattrop_req     args                  = {0,};
+        gfs3_xattrop_req     args                  = {{0,},};
         char                 dict_val[(16 *1024)]  = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
         int32_t              ret                   = -1;
@@ -3722,7 +3680,7 @@ server_getxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
-        gfs3_getxattr_req    args                  = {0,};
+        gfs3_getxattr_req    args                  = {{0,},};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 name[4096]            = {0,};
 
@@ -3771,7 +3729,7 @@ server_fgetxattr (rpcsvc_request_t *req)
 {
         server_state_t      *state      = NULL;
         call_frame_t        *frame      = NULL;
-        gfs3_fgetxattr_req   args       = {0,};
+        gfs3_fgetxattr_req   args       = {{0,},};
         char                 name[4096] = {0,};
 
         if (!req)
@@ -3817,7 +3775,7 @@ server_removexattr (rpcsvc_request_t *req)
 {
         server_state_t       *state                 = NULL;
         call_frame_t         *frame                 = NULL;
-        gfs3_removexattr_req  args                  = {0,};
+        gfs3_removexattr_req  args                  = {{0,},};
         char                  path[SERVER_PATH_MAX] = {0,};
         char                  name[4096]            = {0,};
 
@@ -3865,7 +3823,7 @@ server_opendir (rpcsvc_request_t *req)
 {
         server_state_t   *state                 = NULL;
         call_frame_t     *frame                 = NULL;
-        gfs3_opendir_req  args                  = {0,};
+        gfs3_opendir_req  args                  = {{0,},};
         char              path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
@@ -3909,7 +3867,7 @@ server_readdirp (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
-        gfs3_readdirp_req    args         = {0,};
+        gfs3_readdirp_req    args         = {{0,},};
         size_t               headers_size = 0;
 
         if (!req)
@@ -3961,7 +3919,7 @@ server_readdir (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
-        gfs3_readdir_req     args         = {0,};
+        gfs3_readdir_req     args         = {{0,},};
         size_t               headers_size = 0;
 
         if (!req)
@@ -4013,7 +3971,7 @@ server_fsyncdir (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
-        gfs3_fsyncdir_req    args  = {0,};
+        gfs3_fsyncdir_req    args  = {{0,},};
 
         if (!req)
                 return 0;
@@ -4057,7 +4015,7 @@ server_mknod (rpcsvc_request_t *req)
         call_frame_t        *frame                  = NULL;
         dict_t              *params                 = NULL;
         char                *buf                    = NULL;
-        gfs3_mknod_req       args                   = {0,};
+        gfs3_mknod_req       args                   = {{0,},};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
         int                  ret                    = 0;
@@ -4159,7 +4117,7 @@ server_mkdir (rpcsvc_request_t *req)
         call_frame_t        *frame                  = NULL;
         dict_t              *params                 = NULL;
         char                *buf                    = NULL;
-        gfs3_mkdir_req       args                   = {0,};
+        gfs3_mkdir_req       args                   = {{0,},};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
         int                  ret                    = 0;
@@ -4256,7 +4214,7 @@ server_rmdir (rpcsvc_request_t *req)
 {
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
-        gfs3_rmdir_req       args                   = {0,};
+        gfs3_rmdir_req       args                   = {{0,},};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
 
@@ -4304,7 +4262,7 @@ server_inodelk (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
-        gfs3_inodelk_req     args                  = {0,};
+        gfs3_inodelk_req     args                  = {{0,},};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 volume[4096]          = {0,};
         int                  cmd                   = 0;
@@ -4380,7 +4338,7 @@ server_finodelk (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
-        gfs3_finodelk_req    args         = {0,};
+        gfs3_finodelk_req    args         = {{0,},};
         char                 volume[4096] = {0,};
 
         if (!req)
@@ -4452,7 +4410,7 @@ server_entrylk (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
-        gfs3_entrylk_req     args                  = {0,};
+        gfs3_entrylk_req     args                  = {{0,},};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 name[4096]            = {0,};
         char                 volume[4096]          = {0,};
@@ -4506,7 +4464,7 @@ server_fentrylk (rpcsvc_request_t *req)
 {
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
-        gfs3_fentrylk_req    args         = {0,};
+        gfs3_fentrylk_req    args         = {{0,},};
         char                 name[4096]   = {0,};
         char                 volume[4096] = {0,};
 
@@ -4555,7 +4513,7 @@ server_access (rpcsvc_request_t *req)
 {
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
-        gfs3_access_req      args                  = {0,};
+        gfs3_access_req      args                  = {{0,},};
         char                 path[SERVER_PATH_MAX] = {0,};
 
         if (!req)
@@ -4602,7 +4560,7 @@ server_symlink (rpcsvc_request_t *req)
         call_frame_t        *frame                 = NULL;
         dict_t              *params                = NULL;
         char                *buf                   = NULL;
-        gfs3_symlink_req     args                  = {0,};
+        gfs3_symlink_req     args                  = {{0,},};
         char                 linkname[4096]        = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 bname[4096]           = {0,};
@@ -4701,7 +4659,7 @@ server_link (rpcsvc_request_t *req)
 {
         server_state_t      *state                     = NULL;
         call_frame_t        *frame                     = NULL;
-        gfs3_link_req        args                      = {0,};
+        gfs3_link_req        args                      = {{0,},};
         char                 oldpath[SERVER_PATH_MAX]  = {0,};
         char                 newpath[SERVER_PATH_MAX]  = {0,};
         char                 newbname[SERVER_PATH_MAX] = {0,};
@@ -4754,7 +4712,7 @@ server_rename (rpcsvc_request_t *req)
 {
         server_state_t      *state                     = NULL;
         call_frame_t        *frame                     = NULL;
-        gfs3_rename_req      args                      = {0,};
+        gfs3_rename_req      args                      = {{0,},};
         char                 oldpath[SERVER_PATH_MAX]  = {0,};
         char                 oldbname[SERVER_PATH_MAX] = {0,};
         char                 newpath[SERVER_PATH_MAX]  = {0,};
@@ -4809,7 +4767,7 @@ server_lk (rpcsvc_request_t *req)
         server_state_t      *state = NULL;
         server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
-        gfs3_lk_req          args  = {0,};
+        gfs3_lk_req          args  = {{0,},};
 
         if (!req)
                 return 0;
@@ -4934,7 +4892,6 @@ server_null (rpcsvc_request_t *req)
 {
         gf_common_rsp rsp = {0,};
 
-        rsp.gfs_id = req->gfs_id;
         /* Accepted */
         rsp.op_ret = 0;
 
@@ -4952,7 +4909,7 @@ server_lookup (rpcsvc_request_t *req)
         server_state_t      *state                  = NULL;
         dict_t              *xattr_req              = NULL;
         char                *buf                    = NULL;
-        gfs3_lookup_req      args                   = {0,};
+        gfs3_lookup_req      args                   = {{0,},};
         int                  ret                    = 0;
         char                 path[SERVER_PATH_MAX]  = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
@@ -5052,7 +5009,7 @@ server_statfs (rpcsvc_request_t *req)
 {
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
-        gfs3_statfs_req      args  = {0,};
+        gfs3_statfs_req      args  = {{0,},};
         char                 path[SERVER_PATH_MAX]  = {0,};
 
         if (!req)

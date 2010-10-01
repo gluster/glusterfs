@@ -2013,18 +2013,16 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
         fr = create_frame (this, this->ctx->pool);
 
         if (fdctx->is_dir) {
-                gfs3_releasedir_req  req = {0,};
+                gfs3_releasedir_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
-                req.gfs_id = GFS3_OP_RELEASEDIR;
                 ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
                                              GFS3_OP_RELEASEDIR,
                                              client3_1_releasedir_cbk,
                                              NULL, xdr_from_releasedir_req,
                                              NULL, 0, NULL, 0, NULL);
         } else {
-                gfs3_release_req  req = {0,};
+                gfs3_release_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
-                req.gfs_id = GFS3_OP_RELEASE;
                 ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
                                              GFS3_OP_RELEASE,
                                              client3_1_release_cbk, NULL,
@@ -2196,7 +2194,7 @@ int
 protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
 {
         int               ret   = -1;
-        gfs3_opendir_req  req   = {0,};
+        gfs3_opendir_req  req   = {{0,},};
         clnt_local_t     *local = NULL;
         inode_t          *inode = NULL;
         char             *path  = NULL;
@@ -2231,7 +2229,6 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         memcpy (req.gfid,  inode->gfid, 16);
         req.path  = (char *)local->loc.path;
-        req.gfs_id = GFS3_OP_OPENDIR;
 
         gf_log (frame->this->name, GF_LOG_DEBUG,
                 "attempting reopen on %s", local->loc.path);
@@ -2268,7 +2265,7 @@ int
 protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
 {
         int            ret   = -1;
-        gfs3_open_req  req   = {0,};
+        gfs3_open_req  req   = {{0,},};
         clnt_local_t  *local = NULL;
         inode_t       *inode = NULL;
         char          *path  = NULL;
@@ -2306,7 +2303,6 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
         req.flags    = gf_flags_from_flags (fdctx->flags);
         req.wbflags  = fdctx->wbflags;
         req.path     = (char *)local->loc.path;
-        req.gfs_id = GFS3_OP_OPEN;
 
         gf_log (frame->this->name, GF_LOG_DEBUG,
                 "attempting reopen on %s", local->loc.path);
@@ -2345,7 +2341,7 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
         clnt_conf_t         *conf = NULL;
         clnt_fd_ctx_t       *fdctx = NULL;
         clnt_args_t         *args = NULL;
-        gfs3_releasedir_req  req = {0,};
+        gfs3_releasedir_req  req = {{0,},};
         int64_t              remote_fd = -1;
         int                  ret = 0;
 
@@ -2376,7 +2372,6 @@ client3_1_releasedir (call_frame_t *frame, xlator_t *this,
 
         if (remote_fd != -1) {
                 req.fd = remote_fd;
-                req.gfs_id = GFS3_OP_RELEASEDIR;
                 ret = client_submit_request (this, &req, frame, conf->fops,
                                              GFS3_OP_RELEASEDIR,
                                              client3_1_releasedir_cbk,
@@ -2401,7 +2396,7 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
         clnt_conf_t      *conf      = NULL;
         clnt_fd_ctx_t    *fdctx     = NULL;
         clnt_args_t      *args      = NULL;
-        gfs3_release_req  req       = {0,};
+        gfs3_release_req  req       = {{0,},};
         int               ret       = 0;
 
         if (!frame || !this || !data)
@@ -2431,7 +2426,6 @@ client3_1_release (call_frame_t *frame, xlator_t *this,
 
         if (remote_fd != -1) {
                 req.fd = remote_fd;
-                req.gfs_id = GFS3_OP_RELEASE;
 
                 delete_granted_locks_fd (fdctx);
 
@@ -2458,7 +2452,7 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         clnt_conf_t     *conf              = NULL;
         clnt_local_t    *local             = NULL;
         clnt_args_t     *args              = NULL;
-        gfs3_lookup_req  req               = {0,};
+        gfs3_lookup_req  req               = {{0,},};
         int              ret               = 0;
         size_t           dict_len          = 0;
         int              op_errno          = ESTALE;
@@ -2536,7 +2530,6 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         req.path          = (char *)args->loc->path;
         req.bname         = (char *)args->loc->name;
         req.dict.dict_len = dict_len;
-        req.gfs_id        = GFS3_OP_LOOKUP;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_LOOKUP, client3_1_lookup_cbk,
@@ -2590,7 +2583,7 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t   *conf     = NULL;
         clnt_args_t   *args     = NULL;
-        gfs3_stat_req  req      = {0,};
+        gfs3_stat_req  req      = {{0,},};
         int            ret      = 0;
         int            op_errno = ESTALE;
 
@@ -2603,7 +2596,6 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
 
         memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
-        req.gfs_id = GFS3_OP_STAT;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -2627,7 +2619,7 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t       *conf     = NULL;
         clnt_args_t       *args     = NULL;
-        gfs3_truncate_req  req      = {0,};
+        gfs3_truncate_req  req      = {{0,},};
         int                ret      = 0;
         int                op_errno = ESTALE;
 
@@ -2642,7 +2634,6 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
         memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.offset = args->offset;
-        req.gfs_id = GFS3_OP_TRUNCATE;
 
         conf = this->private;
 
@@ -2669,7 +2660,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
         clnt_args_t        *args     = NULL;
         clnt_fd_ctx_t      *fdctx    = NULL;
         clnt_conf_t        *conf     = NULL;
-        gfs3_ftruncate_req  req      = {0,};
+        gfs3_ftruncate_req  req      = {{0,},};
         int                 op_errno = EINVAL;
         int                 ret      = 0;
 
@@ -2703,7 +2694,6 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
 
         req.offset = args->offset;
         req.fd     = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_FTRUNCATE;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FTRUNCATE,
@@ -2728,7 +2718,7 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t     *conf     = NULL;
         clnt_args_t     *args     = NULL;
-        gfs3_access_req  req      = {0,};
+        gfs3_access_req  req      = {{0,},};
         int              ret      = 0;
         int              op_errno = ESTALE;
 
@@ -2743,7 +2733,6 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
         memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.mask = args->mask;
-        req.gfs_id = GFS3_OP_ACCESS;
 
         conf = this->private;
 
@@ -2769,7 +2758,7 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t       *conf     = NULL;
         clnt_args_t       *args     = NULL;
-        gfs3_readlink_req  req      = {0,};
+        gfs3_readlink_req  req      = {{0,},};
         int                ret      = 0;
         int                op_errno = ESTALE;
 
@@ -2784,7 +2773,6 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
         memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.size = args->size;
-        req.gfs_id = GFS3_OP_READLINK;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -2812,7 +2800,7 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t     *conf     = NULL;
         clnt_args_t     *args     = NULL;
-        gfs3_unlink_req  req      = {0,};
+        gfs3_unlink_req  req      = {{0,},};
         int              ret      = 0;
         int              op_errno = 0;
 
@@ -2827,7 +2815,6 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
         memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
-        req.gfs_id = GFS3_OP_UNLINK;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -2853,7 +2840,7 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t    *conf     = NULL;
         clnt_args_t    *args     = NULL;
-        gfs3_rmdir_req  req      = {0,};
+        gfs3_rmdir_req  req      = {{0,},};
         int             ret      = 0;
         int             op_errno = ESTALE;
 
@@ -2868,7 +2855,6 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
         memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
-        req.gfs_id = GFS3_OP_RMDIR;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -2894,7 +2880,7 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         clnt_local_t     *local    = NULL;
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args     = NULL;
-        gfs3_symlink_req  req      = {0,};
+        gfs3_symlink_req  req      = {{0,},};
         size_t            dict_len = 0;
         int               ret      = 0;
         int               op_errno = ESTALE;
@@ -2919,7 +2905,6 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         req.path     = (char *)args->loc->path;
         req.linkname = (char *)args->linkname;
         req.bname    = (char *)args->loc->name;
-        req.gfs_id = GFS3_OP_SYMLINK;
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -2969,7 +2954,7 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t     *conf     = NULL;
         clnt_args_t     *args     = NULL;
-        gfs3_rename_req  req      = {0,};
+        gfs3_rename_req  req      = {{0,},};
         int              ret      = 0;
         int              op_errno = ESTALE;
 
@@ -2989,7 +2974,6 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
         req.oldbname =  (char *)args->oldloc->name;
         req.newpath = (char *)args->newloc->path;
         req.newbname = (char *)args->newloc->name;
-        req.gfs_id = GFS3_OP_RENAME;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -3015,7 +2999,7 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         clnt_local_t  *local    = NULL;
         clnt_conf_t   *conf     = NULL;
         clnt_args_t   *args     = NULL;
-        gfs3_link_req  req      = {0,};
+        gfs3_link_req  req      = {{0,},};
         int            ret      = 0;
         int            op_errno = ESTALE;
 
@@ -3043,7 +3027,6 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         req.oldpath = (char *)args->oldloc->path;
         req.newpath = (char *)args->newloc->path;
         req.newbname = (char *)args->newloc->name;
-        req.gfs_id = GFS3_OP_LINK;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
@@ -3068,7 +3051,7 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         clnt_local_t   *local    = NULL;
         clnt_conf_t    *conf     = NULL;
         clnt_args_t    *args     = NULL;
-        gfs3_mknod_req  req      = {0,};
+        gfs3_mknod_req  req      = {{0,},};
         size_t          dict_len = 0;
         int             ret      = 0;
         int             op_errno = ESTALE;
@@ -3095,7 +3078,6 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         req.bname  = (char *)args->loc->name;
         req.mode   = args->mode;
         req.dev    = args->rdev;
-        req.gfs_id = GFS3_OP_MKNOD;
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -3146,7 +3128,7 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         clnt_local_t   *local    = NULL;
         clnt_conf_t    *conf     = NULL;
         clnt_args_t    *args     = NULL;
-        gfs3_mkdir_req  req      = {0,};
+        gfs3_mkdir_req  req      = {{0,},};
         size_t          dict_len = 0;
         int             ret      = 0;
         int             op_errno = ESTALE;
@@ -3172,7 +3154,6 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
-        req.gfs_id = GFS3_OP_MKDIR;
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -3222,7 +3203,7 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         clnt_local_t    *local    = NULL;
         clnt_conf_t     *conf     = NULL;
         clnt_args_t     *args     = NULL;
-        gfs3_create_req  req      = {0,};
+        gfs3_create_req  req      = {{0,},};
         size_t           dict_len = 0;
         int              ret      = 0;
         int              op_errno = ESTALE;
@@ -3251,7 +3232,6 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         req.bname = (char *)args->loc->name;
         req.mode  = args->mode;
         req.flags = gf_flags_from_flags (args->flags);
-        req.gfs_id = GFS3_OP_CREATE;
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
                                                    &req.dict.dict_val,
@@ -3302,7 +3282,7 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
         clnt_local_t  *local    = NULL;
         clnt_conf_t   *conf     = NULL;
         clnt_args_t   *args     = NULL;
-        gfs3_open_req  req      = {0,};
+        gfs3_open_req  req      = {{0,},};
         int            ret      = 0;
         int            op_errno = ESTALE;
 
@@ -3329,7 +3309,6 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
         req.flags = gf_flags_from_flags (args->flags);
         req.wbflags = args->wbflags;
         req.path = (char *)args->loc->path;
-        req.gfs_id = GFS3_OP_OPEN;
 
         conf = this->private;
 
@@ -3362,7 +3341,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         clnt_fd_ctx_t  *fdctx      = NULL;
         clnt_conf_t    *conf       = NULL;
         int             op_errno   = ESTALE;
-        gfs3_read_req   req        = {0,};
+        gfs3_read_req   req        = {{0,},};
         int             ret        = 0;
         struct iovec    rsp_vec    = {0, };
         struct iobuf   *rsp_iobuf  = NULL;
@@ -3399,7 +3378,6 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         req.size   = args->size;
         req.offset = args->offset;
         req.fd     = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_READ;
 
         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (rsp_iobuf == NULL) {
@@ -3473,7 +3451,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         clnt_args_t    *args     = NULL;
         clnt_fd_ctx_t  *fdctx    = NULL;
         clnt_conf_t    *conf     = NULL;
-        gfs3_write_req  req      = {0,};
+        gfs3_write_req  req      = {{0,},};
         int             op_errno = ESTALE;
         int             ret        = 0;
 
@@ -3507,7 +3485,6 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         req.size   = args->size;
         req.offset = args->offset;
         req.fd     = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_WRITE;
 
         ret = client_submit_vec_request (this, &req, frame, conf->fops, GFS3_OP_WRITE,
                                          client3_1_writev_cbk,
@@ -3528,7 +3505,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_args_t    *args     = NULL;
-        gfs3_flush_req  req      = {0,};
+        gfs3_flush_req  req      = {{0,},};
         clnt_fd_ctx_t  *fdctx    = NULL;
         clnt_conf_t    *conf     = NULL;
         clnt_local_t *local    = NULL;
@@ -3578,7 +3555,6 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         frame->local = local;
 
         req.fd = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_FLUSH;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FLUSH, client3_1_flush_cbk, NULL,
@@ -3601,7 +3577,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_args_t    *args     = NULL;
-        gfs3_fsync_req  req      = {0,};
+        gfs3_fsync_req  req      = {{0,},};
         clnt_fd_ctx_t  *fdctx    = NULL;
         clnt_conf_t    *conf     = NULL;
         int             op_errno = 0;
@@ -3636,7 +3612,6 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
 
         req.fd   = fdctx->remote_fd;
         req.data = args->flags;
-        req.gfs_id = GFS3_OP_FSYNC;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FSYNC, client3_1_fsync_cbk, NULL,
@@ -3659,7 +3634,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
                  void *data)
 {
         clnt_args_t    *args     = NULL;
-        gfs3_fstat_req  req      = {0,};
+        gfs3_fstat_req  req      = {{0,},};
         clnt_fd_ctx_t  *fdctx    = NULL;
         clnt_conf_t    *conf     = NULL;
         int             op_errno = ESTALE;
@@ -3693,7 +3668,6 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         }
 
         req.fd = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_FSTAT;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FSTAT, client3_1_fstat_cbk, NULL,
@@ -3718,7 +3692,7 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
         clnt_local_t     *local    = NULL;
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args     = NULL;
-        gfs3_opendir_req  req      = {0,};
+        gfs3_opendir_req  req      = {{0,},};
         int               ret      = 0;
         int               op_errno = ESTALE;
 
@@ -3741,7 +3715,6 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
 
         memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
-        req.gfs_id = GFS3_OP_OPENDIR;
 
         conf = this->private;
 
@@ -3772,7 +3745,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
         clnt_fd_ctx_t     *fdctx    = NULL;
         clnt_conf_t       *conf     = NULL;
         int                op_errno = ESTALE;
-        gfs3_fsyncdir_req  req      = {0,};
+        gfs3_fsyncdir_req  req      = {{0,},};
         int                ret        = 0;
 
         if (!frame || !this || !data)
@@ -3804,7 +3777,6 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
 
         req.fd   = fdctx->remote_fd;
         req.data = args->flags;
-        req.gfs_id = GFS3_OP_FSYNCDIR;
 
         conf = this->private;
 
@@ -3830,7 +3802,7 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t     *conf     = NULL;
         clnt_args_t     *args     = NULL;
-        gfs3_statfs_req  req      = {0,};
+        gfs3_statfs_req  req      = {{0,},};
         int              ret      = 0;
         int              op_errno = ESTALE;
 
@@ -3848,7 +3820,6 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
 		req.gfid[15] = 1;
 
         req.path = (char *)args->loc->path;
-        req.gfs_id = GFS3_OP_STATFS;
 
         conf = this->private;
 
@@ -3874,7 +3845,7 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t       *conf     = NULL;
         clnt_args_t       *args     = NULL;
-        gfs3_setxattr_req  req      = {0,};
+        gfs3_setxattr_req  req      = {{0,},};
         int                ret      = 0;
         size_t             dict_len = 0;
         int                op_errno = ESTALE;
@@ -3902,7 +3873,6 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
         }
         req.flags = args->flags;
         req.path  = (char *)args->loc->path;
-        req.gfs_id = GFS3_OP_SETXATTR;
 
         conf = this->private;
 
@@ -3936,7 +3906,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         clnt_args_t        *args     = NULL;
         clnt_fd_ctx_t      *fdctx    = NULL;
         clnt_conf_t        *conf     = NULL;
-        gfs3_fsetxattr_req  req      = {0,};
+        gfs3_fsetxattr_req  req      = {{0,},};
         int                 op_errno = ESTALE;
         int                 ret      = 0;
         size_t              dict_len = 0;
@@ -3971,7 +3941,6 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         req.fd    = fdctx->remote_fd;
         req.flags = args->flags;
         memcpy (req.gfid,  args->fd->inode->gfid, 16);
-        req.gfs_id = GFS3_OP_FSETXATTR;
 
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
@@ -4017,7 +3986,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         clnt_args_t        *args     = NULL;
         clnt_fd_ctx_t      *fdctx    = NULL;
         clnt_conf_t        *conf     = NULL;
-        gfs3_fgetxattr_req  req      = {0,};
+        gfs3_fgetxattr_req  req      = {{0,},};
         int                 op_errno = ESTALE;
         int           ret        = 0;
 
@@ -4055,7 +4024,6 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
                 req.name = "";
                 req.namelen = 0;
         }
-        req.gfs_id = GFS3_OP_FGETXATTR;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FGETXATTR,
@@ -4081,7 +4049,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t       *conf     = NULL;
         clnt_args_t       *args     = NULL;
-        gfs3_getxattr_req  req      = {0,};
+        gfs3_getxattr_req  req      = {{0,},};
         dict_t            *dict     = NULL;
         int                ret      = 0;
         int32_t            op_ret   = 0;
@@ -4108,7 +4076,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                 req.name = "";
                 req.namelen = 0;
         }
-        req.gfs_id = GFS3_OP_GETXATTR;
 
         conf = this->private;
 
@@ -4159,7 +4126,7 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args     = NULL;
-        gfs3_xattrop_req  req      = {0,};
+        gfs3_xattrop_req  req      = {{0,},};
         int               ret      = 0;
         size_t            dict_len = 0;
         int               op_errno = ESTALE;
@@ -4187,7 +4154,6 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         }
         req.flags = args->flags;
         req.path  = (char *)args->loc->path;
-        req.gfs_id = GFS3_OP_XATTROP;
 
         conf = this->private;
 
@@ -4222,7 +4188,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         clnt_args_t       *args     = NULL;
         clnt_fd_ctx_t     *fdctx    = NULL;
         clnt_conf_t       *conf     = NULL;
-        gfs3_fxattrop_req  req      = {0,};
+        gfs3_fxattrop_req  req      = {{0,},};
         int                op_errno = ESTALE;
         int                ret      = 0;
         size_t             dict_len = 0;
@@ -4257,7 +4223,6 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         req.fd     = fdctx->remote_fd;
         req.flags  = args->flags;
         memcpy (req.gfid,  args->fd->inode->gfid, 16);
-        req.gfs_id = GFS3_OP_FXATTROP;
 
         if (args->dict) {
                 ret = dict_allocate_and_serialize (args->dict,
@@ -4302,7 +4267,7 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t          *conf     = NULL;
         clnt_args_t          *args     = NULL;
-        gfs3_removexattr_req  req      = {0,};
+        gfs3_removexattr_req  req      = {{0,},};
         int                   ret      = 0;
         int                   op_errno = ESTALE;
 
@@ -4317,7 +4282,6 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
         memcpy (req.gfid,  args->loc->inode->gfid, 16);
         req.path = (char *)args->loc->path;
         req.name = (char *)args->name;
-        req.gfs_id = GFS3_OP_REMOVEXATTR;
 
         conf = this->private;
 
@@ -4343,7 +4307,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
               void *data)
 {
         clnt_args_t     *args       = NULL;
-        gfs3_lk_req      req        = {0,};
+        gfs3_lk_req      req        = {{0,},};
         int32_t          gf_cmd     = 0;
         int32_t          gf_type    = 0;
         clnt_fd_ctx_t   *fdctx      = NULL;
@@ -4414,7 +4378,6 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         req.cmd   = gf_cmd;
         req.type  = gf_type;
         gf_flock_from_flock (&req.flock, args->flock);
-        req.gfs_id = GFS3_OP_LK;
 
         ret = client_submit_request (this, &req, frame, conf->fops, GFS3_OP_LK,
                                      client3_1_lk_cbk, NULL, xdr_from_lk_req,
@@ -4437,7 +4400,7 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args    = NULL;
-        gfs3_inodelk_req  req     = {0,};
+        gfs3_inodelk_req  req     = {{0,},};
         int               ret     = 0;
         int32_t           gf_cmd  = 0;
         int32_t           gf_type = 0;
@@ -4481,7 +4444,6 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
         req.cmd    = gf_cmd;
         req.type   = gf_type;
         gf_flock_from_flock (&req.flock, args->flock);
-        req.gfs_id = GFS3_OP_INODELK;
 
         conf = this->private;
 
@@ -4508,7 +4470,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_args_t       *args     = NULL;
-        gfs3_finodelk_req  req      = {0,};
+        gfs3_finodelk_req  req      = {{0,},};
         int32_t            gf_cmd   = 0;
         int32_t            gf_type  = 0;
         clnt_fd_ctx_t     *fdctx    = NULL;
@@ -4572,7 +4534,6 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         req.cmd   = gf_cmd;
         req.type  = gf_type;
         gf_flock_from_flock (&req.flock, args->flock);
-        req.gfs_id = GFS3_OP_FINODELK;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FINODELK,
@@ -4597,7 +4558,7 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args     = NULL;
-        gfs3_entrylk_req  req      = {0,};
+        gfs3_entrylk_req  req      = {{0,},};
         int               ret      = 0;
         int               op_errno = ESTALE;
 
@@ -4619,7 +4580,6 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
                 req.name = (char *)args->basename;
                 req.namelen = 1;
         }
-        req.gfs_id = GFS3_OP_ENTRYLK;
 
         conf = this->private;
 
@@ -4646,7 +4606,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_args_t       *args     = NULL;
-        gfs3_fentrylk_req  req      = {0,};
+        gfs3_fentrylk_req  req      = {{0,},};
         clnt_fd_ctx_t     *fdctx    = NULL;
         clnt_conf_t       *conf     = NULL;
         int                op_errno = ESTALE;
@@ -4688,7 +4648,6 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
                 req.name = (char *)args->basename;
                 req.namelen = 1;
         }
-        req.gfs_id = GFS3_OP_FENTRYLK;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FENTRYLK,
@@ -4748,7 +4707,6 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
         req.len    = args->len;
         req.offset = args->offset;
         req.fd     = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_RCHECKSUM;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_RCHECKSUM,
@@ -4775,7 +4733,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         clnt_args_t      *args     = NULL;
         clnt_fd_ctx_t    *fdctx    = NULL;
         clnt_conf_t      *conf     = NULL;
-        gfs3_readdir_req  req      = {0,};
+        gfs3_readdir_req  req      = {{0,},};
         int               op_errno = ESTALE;
         int               ret        = 0;
 
@@ -4809,7 +4767,6 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         req.size = args->size;
         req.offset = args->offset;
         req.fd = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_READDIR;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_READDIR,
@@ -4833,7 +4790,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
                     void *data)
 {
         clnt_args_t       *args     = NULL;
-        gfs3_readdirp_req  req      = {0,};
+        gfs3_readdirp_req  req      = {{0,},};
         clnt_fd_ctx_t     *fdctx    = NULL;
         clnt_conf_t       *conf     = NULL;
         int                op_errno = ESTALE;
@@ -4869,7 +4826,6 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         req.size = args->size;
         req.offset = args->offset;
         req.fd = fdctx->remote_fd;
-        req.gfs_id = GFS3_OP_READDIRP;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_READDIRP,
@@ -4894,7 +4850,7 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
 {
         clnt_conf_t      *conf     = NULL;
         clnt_args_t      *args     = NULL;
-        gfs3_setattr_req  req      = {0,};
+        gfs3_setattr_req  req      = {{0,},};
         int               ret      = 0;
         int               op_errno = ESTALE;
 
@@ -4910,7 +4866,6 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
         req.path = (char *)args->loc->path;
         req.valid = args->valid;
         gf_stat_from_iatt (&req.stbuf, args->stbuf);
-        req.gfs_id = GFS3_OP_SETATTR;
 
         conf = this->private;
 
@@ -4970,7 +4925,6 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
         req.fd = fdctx->remote_fd;
         req.valid = args->valid;
         gf_stat_from_iatt (&req.stbuf, args->stbuf);
-        req.gfs_id = GFS3_OP_FSETATTR;
 
         ret = client_submit_request (this, &req, frame, conf->fops,
                                      GFS3_OP_FSETATTR,
