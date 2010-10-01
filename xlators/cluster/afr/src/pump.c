@@ -913,6 +913,9 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t *priv = NULL;
         pump_private_t *pump_priv = NULL;
+        pump_state_t  state;
+        char pump_status[1024] = {0,};
+        char current_file[1024] = {0,};
 
         uint64_t number_files = 0;
 
@@ -927,6 +930,25 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 
         priv = this->private;
         pump_priv = priv->pump_private;
+
+        state = pump_get_state ();
+        switch (state) {
+        case PUMP_STATE_RUNNING:
+                snprintf (pump_status, 1024, "PUMP_STATE_RUNNING");
+                break;
+        case PUMP_STATE_RESUME:
+                snprintf (pump_status, 1024, "PUMP_STATE_RESUME");
+                break;
+        case PUMP_STATE_PAUSE:
+                snprintf (pump_status, 1024, "PUMP_STATE_PAUSE");
+                break;
+        case PUMP_STATE_ABORT:
+                snprintf (pump_status, 1024, "PUMP_STATE_ABORT");
+                break;
+        default:
+                snprintf (pump_status, 1024, "Unknown pump state");
+                break;
+        }
 
         LOCK (&pump_priv->resume_path_lock);
         {
@@ -945,11 +967,14 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
         }
 
         if (pump_priv->pump_finished) {
-        snprintf (dict_str, PATH_MAX + 256, "Number of files migrated = %"PRIu64"        Migration complete ",
-                  number_files);
+                snprintf (pump_status, 1024, "Migration complete");
+                snprintf (dict_str, PATH_MAX + 1024, "Status: %s \nNumber: Number of files migrated = %"PRIu64"\n",
+                          pump_status, number_files);
         } else {
-        snprintf (dict_str, PATH_MAX + 256, "Number of files migrated = %"PRIu64"       Current file= %s ",
-                  number_files, filename);
+                snprintf (current_file, 1024, "Curent file: %s", filename);
+                snprintf (dict_str, PATH_MAX + 1024 + 1024, "Status: %s \nNumber: Number of files migrated = %"PRIu64"\n"
+                          "Current file: %s\n", pump_status,
+                          number_files, filename);
         }
 
         dict = dict_new ();
