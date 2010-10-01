@@ -10,6 +10,7 @@
 #include <string.h>
 #include <limits.h>
 #include <fcntl.h>
+#include "glusterfs.h"
 #include "fuse_kernel.h"
 #include "fuse-misc.h"
 
@@ -37,7 +38,8 @@ calc_timeout_nsec (double t)
 }
 
 void
-convert_fuse_file_lock (struct fuse_file_lock *fl, struct flock *flock)
+convert_fuse_file_lock (struct fuse_file_lock *fl, struct gf_flock *flock,
+                        uint64_t lk_owner)
 {
         memset (flock, 0, sizeof (struct flock));
         flock->l_type = fl->type;
@@ -48,4 +50,5 @@ convert_fuse_file_lock (struct fuse_file_lock *fl, struct flock *flock)
         else
                 flock->l_len = fl->end - fl->start + 1;
         flock->l_pid = fl->pid;
+        flock->l_owner = lk_owner;
 }

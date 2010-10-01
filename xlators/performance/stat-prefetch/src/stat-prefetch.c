@@ -3381,7 +3381,7 @@ out:
 
 int32_t
 sp_inodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
-                   loc_t *loc, int32_t cmd, struct flock *lock)
+                   loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
@@ -3423,7 +3423,7 @@ unwind:
 
 int32_t
 sp_inodelk (call_frame_t *frame, xlator_t *this, const char *volume, loc_t *loc,
-            int32_t cmd, struct flock *lock)
+            int32_t cmd, struct gf_flock *lock)
 {
         int32_t         op_errno     = -1;
         call_stub_t    *stub         = NULL;

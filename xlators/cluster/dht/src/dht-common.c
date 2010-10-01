@@ -2350,7 +2350,7 @@ err:
 
 int
 dht_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-	    int op_ret, int op_errno, struct flock *flock)
+	    int op_ret, int op_errno, struct gf_flock *flock)
 {
         DHT_STACK_UNWIND (lk, frame, op_ret, op_errno, flock);
 
@@ -2360,7 +2360,7 @@ dht_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 dht_lk (call_frame_t *frame, xlator_t *this,
-	fd_t *fd, int cmd, struct flock *flock)
+	fd_t *fd, int cmd, struct gf_flock *flock)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -4287,7 +4287,7 @@ dht_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 dht_inodelk (call_frame_t *frame, xlator_t *this,
-	     const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
+	     const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;
@@ -4346,7 +4346,7 @@ dht_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 int
 dht_finodelk (call_frame_t *frame, xlator_t *this,
-	      const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
+	      const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
 	xlator_t     *subvol = NULL;
         int           op_errno = -1;

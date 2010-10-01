@@ -479,7 +479,7 @@ client_cmd_to_gf_cmd (int32_t cmd, int32_t *gf_cmd)
 }
 
 static client_posix_lock_t *
-new_client_lock (struct flock *flock, uint64_t owner,
+new_client_lock (struct gf_flock *flock, uint64_t owner,
                  int32_t cmd, fd_t *fd)
 {
         client_posix_lock_t *new_lock = NULL;
@@ -497,7 +497,7 @@ new_client_lock (struct flock *flock, uint64_t owner,
 
         INIT_LIST_HEAD (&new_lock->list);
         new_lock->fd = fd;
-        memcpy (&new_lock->user_flock, flock, sizeof (struct flock));
+        memcpy (&new_lock->user_flock, flock, sizeof (struct gf_flock));
 
         new_lock->fl_type  = flock->l_type;
         new_lock->fl_start = flock->l_start;
@@ -526,7 +526,7 @@ client_save_number_fds (clnt_conf_t *conf, int count)
 }
 
 int
-client_add_lock_for_recovery (fd_t *fd, struct flock *flock, uint64_t owner,
+client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock, uint64_t owner,
                               int32_t cmd)
 {
         clnt_fd_ctx_t       *fdctx = NULL;
@@ -568,7 +568,7 @@ out:
 }
 
 static int
-construct_reserve_unlock (struct flock *lock, call_frame_t *frame,
+construct_reserve_unlock (struct gf_flock *lock, call_frame_t *frame,
                           client_posix_lock_t *client_lock)
 {
         GF_ASSERT (lock);
@@ -588,11 +588,11 @@ construct_reserve_unlock (struct flock *lock, call_frame_t *frame,
 
 static int
 construct_reserve_lock (client_posix_lock_t *client_lock, call_frame_t *frame,
-                        struct flock *lock)
+                        struct gf_flock *lock)
 {
         GF_ASSERT (client_lock);
 
-        memcpy (lock, &(client_lock->user_flock), sizeof (struct flock));
+        memcpy (lock, &(client_lock->user_flock), sizeof (struct gf_flock));
 
         frame->root->lk_owner = client_lock->owner;
 
@@ -625,7 +625,7 @@ client_remove_reserve_lock_cbk (call_frame_t *frame,
                                 xlator_t *this,
                                 int32_t op_ret,
                                 int32_t op_errno,
-                                struct flock *lock)
+                                struct gf_flock *lock)
 {
         clnt_local_t *local = NULL;
         clnt_conf_t  *conf  = NULL;
@@ -665,7 +665,7 @@ static void
 client_remove_reserve_lock (xlator_t *this, call_frame_t *frame,
                             client_posix_lock_t *lock)
 {
-        struct flock unlock;
+        struct gf_flock unlock;
         clnt_local_t *local = NULL;
 
         local = frame->local;
@@ -705,7 +705,7 @@ client_reserve_lock_cbk (call_frame_t *frame,
 		xlator_t *this,
 		int32_t op_ret,
 		int32_t op_errno,
-		struct flock *lock)
+		struct gf_flock *lock)
 {
 
         clnt_local_t *local = NULL;
@@ -761,14 +761,14 @@ client_recovery_lock_cbk (call_frame_t *frame,
                           xlator_t *this,
                           int32_t op_ret,
                           int32_t op_errno,
-                          struct flock *lock)
+                          struct gf_flock *lock)
 {
         clnt_local_t *local = NULL;
         clnt_fd_ctx_t *fdctx = NULL;
         clnt_conf_t   *conf  = NULL;
         client_posix_lock_t *next_lock = NULL;
 
-        struct flock reserve_flock;
+        struct gf_flock reserve_flock;
         uint64_t fd_count = 0;
 
         local = frame->local;
@@ -864,7 +864,7 @@ client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx)
         clnt_local_t        *local = NULL;
         client_posix_lock_t *lock  = NULL;
 
-        struct flock reserve_flock;
+        struct gf_flock reserve_flock;
         int ret = 0;
 
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);

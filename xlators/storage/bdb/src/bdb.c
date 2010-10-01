@@ -713,9 +713,9 @@ bdb_lk (call_frame_t *frame,
         xlator_t *this,
         fd_t *fd,
         int32_t cmd,
-        struct flock *lock)
+        struct gf_flock *lock)
 {
-        struct flock nullock = {0, };
+        struct gf_flock nullock = {0, };
 
         if (BDB_TIMED_LOG (ENOTSUP, gf_bdb_lk_log)) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -3050,7 +3050,7 @@ out:
 
 int32_t
 bdb_inodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
+             const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
         gf_log (this->name, GF_LOG_ERROR,
                 "glusterfs internal locking request. please load "
@@ -3064,7 +3064,7 @@ bdb_inodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 bdb_finodelk (call_frame_t *frame, xlator_t *this,
-              const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
+              const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
         gf_log (this->name, GF_LOG_ERROR,
                 "glusterfs internal locking request. please load "

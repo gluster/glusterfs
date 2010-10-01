@@ -1323,7 +1323,7 @@ ioc_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
 int32_t
 ioc_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
-	    int32_t op_errno, struct flock *lock)
+	    int32_t op_errno, struct gf_flock *lock)
 {
 	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
 	return 0;
@@ -1331,7 +1331,7 @@ ioc_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
 int32_t 
 ioc_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-        struct flock *lock)
+        struct gf_flock *lock)
 {
 	ioc_inode_t  *ioc_inode = NULL;
 	uint64_t     tmp_inode = 0;

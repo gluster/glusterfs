@@ -1000,7 +1000,7 @@ out:
 
 int32_t
 iot_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-            int32_t op_ret, int32_t op_errno, struct flock *flock)
+            int32_t op_ret, int32_t op_errno, struct gf_flock *flock)
 {
 	STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, flock);
 	return 0;
@@ -1009,7 +1009,7 @@ iot_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int
 iot_lk_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
-                int32_t cmd, struct flock *flock)
+                int32_t cmd, struct gf_flock *flock)
 {
 	STACK_WIND (frame, iot_lk_cbk,
 		    FIRST_CHILD(this),
@@ -1021,7 +1021,7 @@ iot_lk_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
 int
 iot_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
-	struct flock *flock)
+	struct gf_flock *flock)
 {
 	call_stub_t *stub = NULL;
         int         ret = -1;

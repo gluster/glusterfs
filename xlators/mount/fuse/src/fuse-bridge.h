@@ -265,7 +265,7 @@ typedef struct {
         dev_t          rdev;
         mode_t         mode;
         struct iatt    attr;
-        struct flock   lk_lock;
+        struct gf_flock   lk_lock;
         struct iovec   vector;
 
         uuid_t         gfid;

@@ -235,7 +235,7 @@ afr_index_for_transaction_type (afr_transaction_type type)
 
 typedef struct {
         loc_t *lk_loc;
-        struct flock lk_flock;
+        struct gf_flock lk_flock;
 
         const char *lk_basename;
         const char *lower_basename;
@@ -347,8 +347,8 @@ typedef struct _afr_local {
 
 		struct {
 			int32_t cmd;
-                        struct flock user_flock;
-                        struct flock ret_flock;
+                        struct gf_flock user_flock;
+                        struct gf_flock ret_flock;
 			unsigned char *locked_nodes;
 		} lk;
 

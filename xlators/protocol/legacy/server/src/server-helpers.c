@@ -162,7 +162,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
 {
         struct list_head  file_lockers, dir_lockers;
         call_frame_t     *tmp_frame = NULL;
-        struct flock      flock = {0, };
+        struct gf_flock      flock = {0, };
         xlator_t         *bound_xl = NULL;
         struct _locker   *locker = NULL, *tmp = NULL;
         int               ret = -1;
@@ -395,7 +395,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         struct list_head    dir_lockers;
         struct _lock_table *ltable = NULL;
         struct _locker     *locker = NULL, *tmp = NULL;
-        struct flock        flock = {0,};
+        struct gf_flock        flock = {0,};
         fd_t               *fd = NULL;
         int32_t             i = 0;
         fdentry_t          *fdentries = NULL;

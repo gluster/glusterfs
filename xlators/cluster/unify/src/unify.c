@@ -2644,7 +2644,7 @@ unify_lk_cbk (call_frame_t *frame,
 	      xlator_t *this,
 	      int32_t op_ret,
 	      int32_t op_errno,
-	      struct flock *lock)
+	      struct gf_flock *lock)
 {
 	STACK_UNWIND (frame, op_ret, op_errno, lock);
 	return 0;
@@ -2658,7 +2658,7 @@ unify_lk (call_frame_t *frame,
 	  xlator_t *this,
 	  fd_t *fd,
 	  int32_t cmd,
-	  struct flock *lock)
+	  struct gf_flock *lock)
 {
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 	xlator_t *child = NULL;
@@ -3999,7 +3999,7 @@ unify_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 unify_finodelk (call_frame_t *frame, xlator_t *this,
-		const char *volume, fd_t *fd, int cmd, struct flock *flock)
+		const char *volume, fd_t *fd, int cmd, struct gf_flock *flock)
 {
 	UNIFY_CHECK_FD_CTX_AND_UNWIND_ON_ERR (fd);
 	xlator_t *child = NULL;
@@ -4103,7 +4103,7 @@ unify_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
  */
 int
 unify_inodelk (call_frame_t *frame, xlator_t *this,
-	       const char *volume, loc_t *loc, int cmd, struct flock *flock)
+	       const char *volume, loc_t *loc, int cmd, struct gf_flock *flock)
 {
 	xlator_t *child = NULL;
 

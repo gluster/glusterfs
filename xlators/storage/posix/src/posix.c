@@ -3792,9 +3792,9 @@ static int gf_posix_lk_log;
 
 int32_t
 posix_lk (call_frame_t *frame, xlator_t *this,
-          fd_t *fd, int32_t cmd, struct flock *lock)
+          fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
-        struct flock nullock = {0, };
+        struct gf_flock nullock = {0, };
 
         gf_posix_lk_log++;
 
@@ -3809,7 +3809,7 @@ posix_lk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 posix_inodelk (call_frame_t *frame, xlator_t *this,
-	       const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
+	       const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"\"features/locks\" translator is not loaded. "
@@ -3821,7 +3821,7 @@ posix_inodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 posix_finodelk (call_frame_t *frame, xlator_t *this,
-		const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
+		const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
 	gf_log (this->name, GF_LOG_CRITICAL,
 		"\"features/locks\" translator is not loaded. "

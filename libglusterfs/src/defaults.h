@@ -181,15 +181,15 @@ int32_t default_lk (call_frame_t *frame,
                     xlator_t *this,
                     fd_t *fd,
                     int32_t cmd,
-                    struct flock *flock);
+                    struct gf_flock *flock);
 
 int32_t default_inodelk (call_frame_t *frame, xlator_t *this,
                          const char *volume, loc_t *loc, int32_t cmd,
-                         struct flock *flock);
+                         struct gf_flock *flock);
 
 int32_t default_finodelk (call_frame_t *frame, xlator_t *this,
                           const char *volume, fd_t *fd, int32_t cmd,
-                          struct flock *flock);
+                          struct gf_flock *flock);
 
 int32_t default_entrylk (call_frame_t *frame, xlator_t *this,
                          const char *volume, loc_t *loc, const char *basename,
@@ -396,15 +396,15 @@ int32_t default_lk_resume (call_frame_t *frame,
                     xlator_t *this,
                     fd_t *fd,
                     int32_t cmd,
-                    struct flock *flock);
+                    struct gf_flock *flock);
 
 int32_t default_inodelk_resume (call_frame_t *frame, xlator_t *this,
                          const char *volume, loc_t *loc, int32_t cmd,
-                         struct flock *flock);
+                         struct gf_flock *flock);
 
 int32_t default_finodelk_resume (call_frame_t *frame, xlator_t *this,
                           const char *volume, fd_t *fd, int32_t cmd,
-                          struct flock *flock);
+                          struct gf_flock *flock);
 
 int32_t default_entrylk_resume (call_frame_t *frame, xlator_t *this,
                          const char *volume, loc_t *loc, const char *basename,
@@ -627,7 +627,7 @@ default_removexattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 default_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                int32_t op_ret, int32_t op_errno, struct flock *lock);
+                int32_t op_ret, int32_t op_errno, struct gf_flock *lock);
 
 int32_t
 default_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,

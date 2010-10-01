@@ -987,7 +987,7 @@ quiesce_lk (call_frame_t *frame,
 	    xlator_t *this,
 	    fd_t *fd,
 	    int32_t cmd,
-	    struct flock *lock)
+	    struct gf_flock *lock)
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
@@ -1020,7 +1020,7 @@ quiesce_lk (call_frame_t *frame,
 int32_t
 quiesce_inodelk (call_frame_t *frame, xlator_t *this,
 		 const char *volume, loc_t *loc, int32_t cmd,
-                 struct flock *lock)
+                 struct gf_flock *lock)
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
@@ -1050,7 +1050,7 @@ quiesce_inodelk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 quiesce_finodelk (call_frame_t *frame, xlator_t *this,
-		  const char *volume, fd_t *fd, int32_t cmd, struct flock *lock)
+		  const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *lock)
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;

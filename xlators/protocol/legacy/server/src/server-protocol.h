@@ -182,7 +182,7 @@ struct _server_state {
 	int               mask;
 	char              is_revalidate;
 	dict_t           *dict;
-	struct flock      flock;
+	struct gf_flock      flock;
         const char       *volume;
         dir_entry_t      *entry;
 };

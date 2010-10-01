@@ -80,7 +80,7 @@ typedef struct _client_fd_ctx {
 typedef struct _client_posix_lock {
         fd_t              *fd;            /* The fd on which the lk operation was made */
 
-        struct flock       user_flock;    /* the flock supplied by the user */
+        struct gf_flock       user_flock;    /* the flock supplied by the user */
         off_t              fl_start;
         off_t              fl_end;
         short              fl_type;
@@ -120,7 +120,7 @@ typedef struct client_args {
         loc_t              *oldloc;
         loc_t              *newloc;
         const char         *name;
-        struct flock       *flock;
+        struct gf_flock       *flock;
         const char         *volume;
         const char         *basename;
         off_t               offset;
@@ -166,7 +166,7 @@ int clnt_readdir_rsp_cleanup (gfs3_readdir_rsp *rsp);
 int clnt_readdirp_rsp_cleanup (gfs3_readdirp_rsp *rsp);
 int client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx);
 int32_t delete_granted_locks_owner (fd_t *fd, uint64_t owner);
-int client_add_lock_for_recovery (fd_t *fd, struct flock *flock, uint64_t owner,
+int client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock, uint64_t owner,
                                   int32_t cmd);
 uint64_t decrement_reopen_fd_count (xlator_t *this, clnt_conf_t *conf);
 int32_t delete_granted_locks_fd (clnt_fd_ctx_t *fdctx);

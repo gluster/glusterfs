@@ -1057,7 +1057,7 @@ path_entrylk (call_frame_t *frame, xlator_t *this,
 
 int32_t
 path_inodelk (call_frame_t *frame, xlator_t *this,
-              const char *volume, loc_t *loc, int32_t cmd, struct flock *lock)
+              const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *lock)
 {
 	char *loc_path = (char *)loc->path;
 	char *tmp_path = NULL;

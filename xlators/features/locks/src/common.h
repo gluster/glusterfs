@@ -21,7 +21,7 @@
 #define __COMMON_H__
 
 posix_lock_t *
-new_posix_lock (struct flock *flock, void *transport, pid_t client_pid,
+new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, fd_t *fd);
 
 pl_inode_t *
@@ -38,7 +38,7 @@ void
 grant_blocked_locks (xlator_t *this, pl_inode_t *inode);
 
 void
-posix_lock_to_flock (posix_lock_t *lock, struct flock *flock);
+posix_lock_to_flock (posix_lock_t *lock, struct gf_flock *flock);
 
 int
 locks_overlap (posix_lock_t *l1, posix_lock_t *l2);
@@ -75,13 +75,13 @@ int32_t
 get_entrylk_count (xlator_t *this, inode_t *inode);
 
 void pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                  int cmd, struct flock *flock, const char *domain);
+                  int cmd, struct gf_flock *flock, const char *domain);
 
 void pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                   int cmd, struct flock *flock, int op_ret, int op_errno, const char *domain);
+                   int cmd, struct gf_flock *flock, int op_ret, int op_errno, const char *domain);
 
 void pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                     int cmd, struct flock *flock, const char *domain);
+                     int cmd, struct gf_flock *flock, const char *domain);
 
 void pl_trace_flush (xlator_t *this, call_frame_t *frame, fd_t *fd);
 
@@ -108,7 +108,7 @@ void
 pl_print_locker (char *str, int size, xlator_t *this, call_frame_t *frame);
 
 void
-pl_print_inodelk (char *str, int size, int cmd, struct flock *flock, const char *domain);
+pl_print_inodelk (char *str, int size, int cmd, struct gf_flock *flock, const char *domain);
 
 void
 pl_trace_release (xlator_t *this, fd_t *fd);

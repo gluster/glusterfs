@@ -176,7 +176,7 @@ pl_print_lockee (char *str, int size, fd_t *fd, loc_t *loc)
 
 void
 pl_print_lock (char *str, int size, int cmd,
-               struct flock *flock, uint64_t owner)
+               struct gf_flock *flock, uint64_t owner)
 {
         char *cmd_str = NULL;
         char *type_str = NULL;
@@ -234,7 +234,7 @@ pl_print_lock (char *str, int size, int cmd,
 
 void
 pl_trace_in (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-             int cmd, struct flock *flock, const char *domain)
+             int cmd, struct gf_flock *flock, const char *domain)
 {
         posix_locks_private_t  *priv = NULL;
         char                    pl_locker[256];
@@ -282,7 +282,7 @@ pl_print_verdict (char *str, int size, int op_ret, int op_errno)
 
 void
 pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-              int cmd, struct flock *flock, int op_ret, int op_errno, const char *domain)
+              int cmd, struct gf_flock *flock, int op_ret, int op_errno, const char *domain)
 
 {
         posix_locks_private_t  *priv = NULL;
@@ -313,7 +313,7 @@ pl_trace_out (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
 
 void
 pl_trace_block (xlator_t *this, call_frame_t *frame, fd_t *fd, loc_t *loc,
-                int cmd, struct flock *flock, const char *domain)
+                int cmd, struct gf_flock *flock, const char *domain)
 
 {
         posix_locks_private_t  *priv = NULL;
@@ -461,7 +461,7 @@ out:
 
 /* Create a new posix_lock_t */
 posix_lock_t *
-new_posix_lock (struct flock *flock, void *transport, pid_t client_pid,
+new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, fd_t *fd)
 {
 	posix_lock_t *lock = NULL;
@@ -507,9 +507,9 @@ __destroy_lock (posix_lock_t *lock)
 }
 
 
-/* Convert a posix_lock to a struct flock */
+/* Convert a posix_lock to a struct gf_flock */
 void
-posix_lock_to_flock (posix_lock_t *lock, struct flock *flock)
+posix_lock_to_flock (posix_lock_t *lock, struct gf_flock *flock)
 {
 	flock->l_pid   = lock->client_pid;
 	flock->l_type  = lock->fl_type;

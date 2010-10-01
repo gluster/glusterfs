@@ -1871,7 +1871,7 @@ afr_inodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_inodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
+             const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -1953,7 +1953,7 @@ afr_finodelk_cbk (call_frame_t *frame, void *cookie,
 
 int32_t
 afr_finodelk (call_frame_t *frame, xlator_t *this,
-              const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
+              const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local  = NULL;
@@ -2264,7 +2264,7 @@ out:
 
 int32_t
 afr_lk_unlock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, struct flock *lock)
+                   int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
         afr_local_t * local = NULL;
 
@@ -2325,7 +2325,7 @@ afr_lk_unlock (call_frame_t *frame, xlator_t *this)
 
 int32_t
 afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-            int32_t op_ret, int32_t op_errno, struct flock *lock)
+            int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
@@ -2391,7 +2391,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 afr_lk (call_frame_t *frame, xlator_t *this,
         fd_t *fd, int32_t cmd,
-        struct flock *flock)
+        struct gf_flock *flock)
 {
         afr_private_t *priv = NULL;
         afr_local_t *local = NULL;

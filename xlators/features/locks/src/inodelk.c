@@ -56,7 +56,7 @@ inodelk_type_conflict (pl_inode_lock_t *l1, pl_inode_lock_t *l2)
 }
 
 void
-pl_print_inodelk (char *str, int size, int cmd, struct flock *flock, const char *domain)
+pl_print_inodelk (char *str, int size, int cmd, struct gf_flock *flock, const char *domain)
 {
         char *cmd_str = NULL;
         char *type_str = NULL;
@@ -505,7 +505,7 @@ out:
 
 /* Create a new inode_lock_t */
 pl_inode_lock_t *
-new_inode_lock (struct flock *flock, void *transport, pid_t client_pid,
+new_inode_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, const char *volume)
 
 {
@@ -540,7 +540,7 @@ new_inode_lock (struct flock *flock, void *transport, pid_t client_pid,
 int
 pl_common_inodelk (call_frame_t *frame, xlator_t *this,
                    const char *volume, inode_t *inode, int32_t cmd,
-                   struct flock *flock, loc_t *loc, fd_t *fd)
+                   struct gf_flock *flock, loc_t *loc, fd_t *fd)
 {
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -612,7 +612,7 @@ pl_common_inodelk (call_frame_t *frame, xlator_t *this,
 		/* fall through */
 
 	case F_SETLK:
-		memcpy (&reqlock->user_flock, flock, sizeof (struct flock));
+		memcpy (&reqlock->user_flock, flock, sizeof (struct gf_flock));
 		ret = pl_inode_setlk (this, pinode, reqlock,
                                       can_block, dom);
 
@@ -653,7 +653,7 @@ out:
 
 int
 pl_inodelk (call_frame_t *frame, xlator_t *this,
-            const char *volume, loc_t *loc, int32_t cmd, struct flock *flock)
+            const char *volume, loc_t *loc, int32_t cmd, struct gf_flock *flock)
 {
 
         pl_common_inodelk (frame, this, volume, loc->inode, cmd, flock, loc, NULL);
@@ -663,7 +663,7 @@ pl_inodelk (call_frame_t *frame, xlator_t *this,
 
 int
 pl_finodelk (call_frame_t *frame, xlator_t *this,
-             const char *volume, fd_t *fd, int32_t cmd, struct flock *flock)
+             const char *volume, fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
 
         pl_common_inodelk (frame, this, volume, fd->inode, cmd, flock, NULL, fd);

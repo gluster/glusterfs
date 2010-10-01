@@ -3066,7 +3066,7 @@ ha_lk_setlk_unlck_cbk (call_frame_t *frame,
 		       xlator_t *this,
 		       int32_t op_ret,
 		       int32_t op_errno,
-		       struct flock *lock)
+		       struct gf_flock *lock)
 {
 	ha_local_t *local = NULL;
 	int cnt = 0;
@@ -3099,7 +3099,7 @@ ha_lk_setlk_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 struct flock *lock)
+		 struct gf_flock *lock)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -3155,7 +3155,7 @@ ha_lk_setlk_cbk (call_frame_t *frame,
 				cnt++;
 		}
 		if (cnt) {
-			struct flock lock;
+			struct gf_flock lock;
 			lock = local->stub->args.lk.lock;
 			for (i = 0; i < child_count; i++) {
 				if (state[i]) {
@@ -3189,7 +3189,7 @@ ha_lk_getlk_cbk (call_frame_t *frame,
 		 xlator_t *this,
 		 int32_t op_ret,
 		 int32_t op_errno,
-		 struct flock *lock)
+		 struct gf_flock *lock)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -3244,7 +3244,7 @@ ha_lk (call_frame_t *frame,
        xlator_t *this,
        fd_t *fd,
        int32_t cmd,
-       struct flock *lock)
+       struct gf_flock *lock)
 {
 	ha_local_t *local = NULL;
 	ha_private_t *pvt = NULL;
@@ -3378,7 +3378,7 @@ ha_inodelk (call_frame_t *frame,
             const char *volume,
 	    loc_t *loc,
 	    int32_t cmd,
-	    struct flock *lock)
+	    struct gf_flock *lock)
 {
 	ha_local_t *local = NULL;
 	int op_errno = 0;
