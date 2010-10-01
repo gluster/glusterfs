@@ -125,6 +125,7 @@ struct gf_defrag_brickinfo_ {
 typedef enum gf_defrag_status_ {
         GF_DEFRAG_STATUS_NOT_STARTED,
         GF_DEFRAG_STATUS_STARTED,
+        GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE,
         GF_DEFRAG_STATUS_STOPED,
         GF_DEFRAG_STATUS_COMPLETE,
         GF_DEFRAG_STATUS_FAILED,

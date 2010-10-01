@@ -681,15 +681,20 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (rsp.op_errno == 0)
                                 status = "not started";
                         if (rsp.op_errno == 1)
-                                status = "in progress";
+                                status = "step 1: layout fix in progress";
                         if (rsp.op_errno == 2)
-                                status = "stopped";
+                                status = "step 2: data migration in progress";
                         if (rsp.op_errno == 3)
-                                status = "completed";
+                                status = "stopped";
                         if (rsp.op_errno == 4)
+                                status = "completed";
+                        if (rsp.op_errno == 5)
                                 status = "failed";
 
-                        if (rsp.files) {
+                        if (rsp.files && (rsp.op_errno == 1)) {
+                                cli_out ("rebalance %s: fixed layout %"PRId64,
+                                         status, rsp.files);
+                        } else if (rsp.files) {
                                 cli_out ("rebalance %s: rebalanced %"PRId64
                                          " files of size %"PRId64" (total files"
                                          " scanned %"PRId64")", status,
