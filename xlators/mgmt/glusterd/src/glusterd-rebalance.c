@@ -37,10 +37,11 @@
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 
+#include "syscall.h"
 #include "cli1.h"
 
 int
-glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
+gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 {
         int                     ret                = -1;
         int                     dst_fd             = -1;
@@ -52,17 +53,141 @@ glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
         struct stat             new_stbuf          = {0,};
         char                    full_path[1024]    = {0,};
         char                    tmp_filename[1024] = {0,};
-        char                    value[128]         = {0,};
 
-        defrag = volinfo->defrag;
-        if (!defrag)
+        if (!volinfo->defrag)
                 goto out;
 
+        defrag = volinfo->defrag;
 
-        /* Fix files at this level */
         fd = opendir (dir);
         if (!fd)
                 goto out;
+        while ((entry = readdir (fd))) {
+                if (!entry)
+                        break;
+
+                if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
+                        continue;
+
+                snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
+
+                ret = stat (full_path, &stbuf);
+                if (ret == -1)
+                        continue;
+
+                if (S_ISREG (stbuf.st_mode))
+                        defrag->num_files_lookedup += 1;
+
+                if (!(S_ISREG (stbuf.st_mode) &&
+                      ((stbuf.st_mode & 01000) == 01000)))
+                        continue;
+
+                /* If its a regular file, and sticky bit is set, we need to
+                   rebalance that */
+                snprintf (tmp_filename, 1024, "%s/.%s.gfs%llu", dir,
+                          entry->d_name,
+                          (unsigned long long)stbuf.st_size);
+
+                dst_fd = creat (tmp_filename, (stbuf.st_mode & ~01000));
+                if (dst_fd == -1)
+                        continue;
+
+                src_fd = open (full_path, O_RDONLY);
+                if (src_fd == -1) {
+                        close (dst_fd);
+                        continue;
+                }
+
+                while (1) {
+                        ret = read (src_fd, defrag->databuf, 131072);
+                        if (!ret || (ret < 0)) {
+                                close (dst_fd);
+                                close (src_fd);
+                                break;
+                        }
+                        ret = write (dst_fd, defrag->databuf, ret);
+                        if (ret < 0) {
+                                close (dst_fd);
+                                close (src_fd);
+                                break;
+                        }
+                }
+
+                ret = stat (full_path, &new_stbuf);
+                if (ret < 0)
+                        continue;
+                /* No need to rebalance, if there is some
+                   activity on source file */
+                if (new_stbuf.st_mtime != stbuf.st_mtime)
+                        continue;
+
+                ret = rename (tmp_filename, full_path);
+                if (ret != -1) {
+                        LOCK (&defrag->lock);
+                        {
+                                defrag->total_files += 1;
+                                defrag->total_data += stbuf.st_size;
+                        }
+                        UNLOCK (&defrag->lock);
+                }
+
+                if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED) {
+                        closedir (fd);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        closedir (fd);
+
+        fd = opendir (dir);
+        if (!fd)
+                goto out;
+        while ((entry = readdir (fd))) {
+                if (!entry)
+                        break;
+
+                if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
+                        continue;
+
+                snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
+
+                ret = stat (full_path, &stbuf);
+                if (ret == -1)
+                        continue;
+
+                if (!S_ISDIR (stbuf.st_mode))
+                        continue;
+
+                ret = gf_glusterd_rebalance_move_data (volinfo,
+                                                       full_path);
+                if (ret)
+                        break;
+        }
+        closedir (fd);
+
+        if (!entry)
+                ret = 0;
+out:
+        return ret;
+}
+
+int
+gf_glusterd_rebalance_fix_layout (glusterd_volinfo_t *volinfo, const char *dir)
+{
+        int            ret             = -1;
+        char           value[128]      = {0,};
+        char           full_path[1024] = {0,};
+        struct stat    stbuf           = {0,};
+        DIR           *fd              = NULL;
+        struct dirent *entry           = NULL;
+
+        if (!volinfo->defrag)
+                goto out;
+
+        fd = opendir (dir);
+        if (!fd)
+                goto out;
+
         while ((entry = readdir (fd))) {
                 if (!entry)
                         break;
@@ -78,101 +203,29 @@ glusterd_check_and_rebalance (glusterd_volinfo_t *volinfo, char *dir)
 
                 if (S_ISDIR (stbuf.st_mode)) {
                         /* Fix the layout of the directory */
-                        getxattr (full_path, "trusted.distribute.fix.layout",
-                                  &value, 128);
-                        continue;
-                }
-                if (S_ISREG (stbuf.st_mode) && ((stbuf.st_mode & 01000) == 01000)) {
-                        /* TODO: run the defrag */
-                        snprintf (tmp_filename, 1024, "%s/.%s.gfs%llu", dir,
-                                  entry->d_name,
-                                  (unsigned long long)stbuf.st_size);
+                        sys_lgetxattr (full_path, "trusted.distribute.fix.layout",
+                                       &value, 128);
 
-                        dst_fd = creat (tmp_filename, (stbuf.st_mode & ~01000));
-                        if (dst_fd == -1)
-                                continue;
+                        volinfo->defrag->total_files += 1;
 
-                        src_fd = open (full_path, O_RDONLY);
-                        if (src_fd == -1) {
-                                close (dst_fd);
-                                continue;
-                        }
-
-                        while (1) {
-                                ret = read (src_fd, defrag->databuf, 131072);
-                                if (!ret || (ret < 0)) {
-                                        close (dst_fd);
-                                        close (src_fd);
-                                        break;
-                                }
-                                ret = write (dst_fd, defrag->databuf, ret);
-                                if (ret < 0) {
-                                        close (dst_fd);
-                                        close (src_fd);
-                                        break;
-                                }
-                        }
-
-                        ret = stat (full_path, &new_stbuf);
-                        if (ret < 0)
-                                continue;
-                        if (new_stbuf.st_mtime != stbuf.st_mtime)
-                                continue;
-
-                        ret = rename (tmp_filename, full_path);
-                        if (ret != -1) {
-                                LOCK (&defrag->lock);
-                                {
-                                        defrag->total_files += 1;
-                                        defrag->total_data += stbuf.st_size;
-                                }
-                                UNLOCK (&defrag->lock);
-                        }
-                } else {
-                        LOCK (&defrag->lock);
-                        {
-                                if (S_ISREG (stbuf.st_mode))
-                                        defrag->num_files_lookedup += 1;
-                        }
-                        UNLOCK (&defrag->lock);
+                        /* Traverse into subdirectory */
+                        ret = gf_glusterd_rebalance_fix_layout (volinfo,
+                                                                full_path);
+                        if (ret)
+                                break;
                 }
 
                 if (volinfo->defrag_status == GF_DEFRAG_STATUS_STOPED) {
                         closedir (fd);
+                        ret = -1;
                         goto out;
                 }
         }
         closedir (fd);
 
-        /* Iterate over directories */
-        fd = opendir (dir);
-        if (!fd)
-                goto out;
-        while ((entry = readdir (fd))) {
-                if (!entry)
-                        break;
-
-                if (!strcmp (entry->d_name, ".") || !strcmp (entry->d_name, ".."))
-                        continue;
-
-                snprintf (full_path, 1024, "%s/%s", dir, entry->d_name);
-
-                ret = stat (full_path, &stbuf);
-                if (ret == -1)
-                        continue;
-
-                if (S_ISDIR (stbuf.st_mode)) {
-                        /* iterate in subdirectories */
-                        ret = glusterd_check_and_rebalance (volinfo, full_path);
-                        if (ret)
-                                break;
-                }
-        }
-
-        closedir (fd);
-
         if (!entry)
                 ret = 0;
+
 out:
         return ret;
 }
@@ -207,19 +260,33 @@ glusterd_defrag_start (void *data)
         }
 
         /* Fix the root ('/') first */
-        getxattr (defrag->mount, "trusted.distribute.fix.layout", &value, 128);
+        sys_lgetxattr (defrag->mount, "trusted.distribute.fix.layout",
+                       &value, 128);
 
-        ret = glusterd_check_and_rebalance (volinfo, defrag->mount);
+        /* root's layout got fixed */
+        defrag->total_files = 1;
 
-        /* TODO: This should run in a thread, and finish the thread when
-           the task is complete. While defrag is running, keep updating
-           files */
+        /* Step 1: Fix layout of all the directories */
+        ret = gf_glusterd_rebalance_fix_layout (volinfo, defrag->mount);
+        if (ret)
+                goto out;
 
+        /* Completed first step */
+        volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE;
+
+        /* It was used by number of layout fixes on directories */
+        defrag->total_files = 0;
+
+        /* Step 2: Iterate over directories to move data */
+        ret = gf_glusterd_rebalance_move_data (volinfo, defrag->mount);
+
+        /* Completed whole process */
         volinfo->defrag_status   = GF_DEFRAG_STATUS_COMPLETE;
         volinfo->rebalance_files = defrag->total_files;
         volinfo->rebalance_data  = defrag->total_data;
         volinfo->lookedup_files  = defrag->num_files_lookedup;
 out:
+        volinfo->defrag = NULL;
         if (defrag) {
                 gf_log ("rebalance", GF_LOG_NORMAL, "rebalance on %s complete",
                         defrag->mount);
@@ -229,7 +296,6 @@ out:
                 LOCK_DESTROY (&defrag->lock);
                 GF_FREE (defrag);
         }
-        volinfo->defrag = NULL;
 
         return NULL;
 }
