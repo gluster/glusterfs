@@ -1216,6 +1216,58 @@ out:
 }
 
 static int
+glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
+                                   char *old_brick, char  *new_brick)
+{
+        glusterd_brickinfo_t                    *old_brickinfo = NULL;
+        glusterd_brickinfo_t                    *new_brickinfo = NULL;
+        int32_t                                 ret = -1;
+        glusterd_conf_t                         *priv = NULL;
+
+        priv = THIS->private;
+
+        GF_ASSERT (volinfo);
+
+        ret = glusterd_brickinfo_from_brick (new_brick,
+                                             &new_brickinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_brickinfo_get (old_brick, volinfo,
+                                      &old_brickinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_resolve_brick (new_brickinfo);
+        if (ret)
+                goto out;
+
+        list_add_tail (&new_brickinfo->brick_list,
+                       &old_brickinfo->brick_list);
+
+        volinfo->brick_count++;
+
+        ret = glusterd_op_perform_remove_brick (volinfo, old_brick);
+        if (ret)
+                goto out;
+
+        ret = glusterd_create_volfiles (volinfo);
+        if (ret)
+                goto out;
+
+        if (GLUSTERD_STATUS_STARTED == volinfo->status) {
+                ret = glusterd_brick_start (volinfo, new_brickinfo);
+                if (ret)
+                        goto out;
+        }
+
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+static int
 glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
                                 char  *bricks)
 {
@@ -2487,7 +2539,6 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
         char                                    *dst_brick = NULL;
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
-        char                                    dup_brick[4096] = {0,};
 
         GF_ASSERT (req);
 
@@ -2650,9 +2701,8 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                         goto out;
                 }
 
-                snprintf (dup_brick, sizeof (dup_brick), " %s", dst_brick);
-                ret = glusterd_op_perform_add_bricks (volinfo, 1,
-                                                      dup_brick);
+                ret = glusterd_op_perform_replace_brick (volinfo, src_brick,
+                                                         dst_brick);
                 if (ret) {
                         gf_log ("", GF_LOG_CRITICAL, "Unable to add "
                                 "dst-brick: %s to volume: %s",
@@ -2660,20 +2710,6 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                         goto out;
                 }
 
-                ret = glusterd_op_perform_remove_brick (volinfo, src_brick);
-                if (ret) {
-                        gf_log ("", GF_LOG_CRITICAL, "Unable to add "
-                                "src-brick: %s to volume: %s",
-                                src_brick, volinfo->volname);
-                        goto out;
-                }
-
-                ret = glusterd_create_volfiles (volinfo);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not generate volfile for client");
-                        goto out;
-                }
                 volinfo->version++;
                 volinfo->defrag_status = 0;
 
