@@ -3,7 +3,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mgmt
 glusterd_la_LDFLAGS = -module -avoidversion
 glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c glusterd-op-sm.c \
 	glusterd-utils.c glusterd3_1-mops.c glusterd-store.c glusterd-handshake.c \
-	glusterd-pmap.c glusterd-volgen.c
+	glusterd-pmap.c glusterd-volgen.c glusterd-rebalance.c
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la\
 		     $(top_builddir)/rpc/xdr/src/libgfxdr.la\
