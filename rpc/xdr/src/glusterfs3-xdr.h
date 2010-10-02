@@ -409,6 +409,7 @@ typedef struct gfs3_unlink_rsp gfs3_unlink_rsp;
 
 struct gfs3_rmdir_req {
 	char pargfid[16];
+        int  flags;
 	char *path;
 	char *bname;
 };
