@@ -514,6 +514,7 @@ posix_lock_to_flock (posix_lock_t *lock, struct gf_flock *flock)
 	flock->l_pid   = lock->client_pid;
 	flock->l_type  = lock->fl_type;
 	flock->l_start = lock->fl_start;
+        flock->l_owner = lock->owner;
 
 	if (lock->fl_end == LLONG_MAX)
 		flock->l_len = 0;
