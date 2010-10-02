@@ -248,6 +248,15 @@ typedef ssize_t (*gd_serialize_t) (struct iovec outmsg, void *args);
                           volpath, hostname, exp_path);                 \
         }
 
+#define GLUSTERD_STACK_DESTROY(frame) do {\
+		void *__local = NULL;     \
+                xlator_t *__xl = NULL;    \
+                __xl = frame->this;       \
+		__local = frame->local;   \
+		frame->local = NULL;	  \
+		STACK_DESTROY (frame->root);\
+	} while (0)
+
 int32_t
 glusterd_brick_from_brickinfo (glusterd_brickinfo_t *brickinfo,
                                char **new_brick);

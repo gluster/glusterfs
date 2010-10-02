@@ -141,6 +141,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         if (rsp.hostname)
                 free (rsp.hostname);//malloced by xdr
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 
@@ -236,6 +237,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
 out:
         if (rsp.hostname)
                 free (rsp.hostname);//malloced by xdr
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 
@@ -330,6 +332,7 @@ respond:
 
         if (rsp.hostname)
                 free (rsp.hostname);//malloced by xdr
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 
@@ -366,6 +369,7 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
                 (op_ret)?"RJT":"ACC", str);
 
 out:
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 int32_t
@@ -424,6 +428,7 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 
@@ -484,6 +489,7 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         }
 
 out:
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 
@@ -553,6 +559,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
                 free (rsp.op_errstr); //malloced by xdr
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 
@@ -715,6 +722,7 @@ out:
                 dict_unref (dict);
         if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
                 free (rsp.op_errstr); //malloced by xdr
+        GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
 
