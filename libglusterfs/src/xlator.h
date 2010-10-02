@@ -828,7 +828,11 @@ struct _xlator {
 
 int validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt);
 
+int32_t xlator_set_type_virtual (xlator_t *xl, const char *type);
+
 int32_t xlator_set_type (xlator_t *xl, const char *type);
+
+int32_t xlator_dynload (xlator_t *xl);
 
 xlator_t *file_to_xlator_tree (glusterfs_ctx_t *ctx,
 			       FILE *fp);

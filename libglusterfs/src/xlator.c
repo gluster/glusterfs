@@ -674,14 +674,8 @@ validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
 }
 
 int32_t
-xlator_set_type (xlator_t *xl,
-		 const char *type)
+xlator_set_type_virtual (xlator_t *xl, const char *type)
 {
-        int   ret = 0;
-	char *name = NULL;
-	void *handle = NULL;
-	volume_opt_list_t *vol_opt = NULL;
-
 	if (xl == NULL || type == NULL)	{
 		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
 		return -1;
@@ -689,7 +683,22 @@ xlator_set_type (xlator_t *xl,
 
         xl->type = gf_strdup (type);
 
-	ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, type);
+        if (xl->type)
+                return 0;
+        else
+                return -1;
+}
+
+
+int32_t
+xlator_dynload (xlator_t *xl)
+{
+        int   ret = 0;
+	char *name = NULL;
+	void *handle = NULL;
+	volume_opt_list_t *vol_opt = NULL;
+
+	ret = gf_asprintf (&name, "%s/%s.so", XLATORDIR, xl->type);
         if (-1 == ret) {
                 gf_log ("xlator", GF_LOG_ERROR, "asprintf failed");
                 return -1;
@@ -776,6 +785,19 @@ xlator_set_type (xlator_t *xl,
 
 	GF_FREE (name);
 	return 0;
+}
+
+
+int32_t
+xlator_set_type (xlator_t *xl, const char *type)
+{
+        int ret = 0;
+
+        ret = xlator_set_type_virtual (xl, type);
+        if (!ret)
+                ret = xlator_dynload (xl);
+
+        return ret;
 }
 
 
