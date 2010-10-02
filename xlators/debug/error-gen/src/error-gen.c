@@ -807,7 +807,7 @@ error_gen_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-error_gen_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+error_gen_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
 	int              op_errno = 0;
         eg_t            *egp = NULL;
@@ -828,7 +828,7 @@ error_gen_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	STACK_WIND (frame, error_gen_rmdir_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->rmdir,
-		    loc);
+		    loc, flags);
 	return 0;
 }
 

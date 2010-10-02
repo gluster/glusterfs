@@ -941,7 +941,7 @@ nfs_fop_rmdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         nfs_fop_save_root_ino (nfl, pathloc);
 
         STACK_WIND_COOKIE (frame, nfs_fop_rmdir_cbk, xl, xl, xl->fops->rmdir,
-                           pathloc);
+                           pathloc, 0);
         ret = 0;
 err:
         if (ret < 0) {

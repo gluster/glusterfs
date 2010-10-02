@@ -2855,6 +2855,7 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
         memcpy (req.pargfid,  args->loc->parent->gfid, 16);
         req.path  = (char *)args->loc->path;
         req.bname = (char *)args->loc->name;
+        req.flags = args->flags;
         conf = this->private;
 
         ret = client_submit_request (this, &req, frame, conf->fops,

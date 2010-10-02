@@ -137,8 +137,9 @@ ro_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 }
 
-int32_t
-ro_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+
+int
+ro_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         STACK_UNWIND_STRICT (rmdir, frame, -1, EROFS, NULL, NULL);
         return 0;

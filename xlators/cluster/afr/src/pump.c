@@ -1719,22 +1719,23 @@ pump_unlink (call_frame_t *frame,
 }
 
 
-static int32_t
-pump_rmdir (call_frame_t *frame,
-            xlator_t *this,
-            loc_t *loc)
+static int
+pump_rmdir (call_frame_t *frame, xlator_t *this,
+            loc_t *loc, int flags)
 {
         afr_private_t *priv  = NULL;
+
 	priv = this->private;
+
         if (!priv->use_afr_in_pump) {
-                STACK_WIND (frame,
-                            default_rmdir_cbk,
+                STACK_WIND (frame, default_rmdir_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->rmdir,
-                            loc);
+                            loc, flags);
                 return 0;
         }
-        afr_rmdir (frame, this, loc);
+
+        afr_rmdir (frame, this, loc, flags);
         return 0;
 
 }

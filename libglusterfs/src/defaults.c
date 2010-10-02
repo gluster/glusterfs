@@ -574,10 +574,11 @@ default_symlink_resume (call_frame_t *frame, xlator_t *this,
 }
 
 int32_t
-default_rmdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
+default_rmdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                      int flags)
 {
         STACK_WIND (frame, default_rmdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rmdir, loc);
+                    FIRST_CHILD(this)->fops->rmdir, loc, flags);
         return 0;
 }
 
@@ -945,10 +946,10 @@ default_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
 }
 
 int32_t
-default_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+default_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         STACK_WIND (frame, default_rmdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rmdir, loc);
+                    FIRST_CHILD(this)->fops->rmdir, loc, flags);
         return 0;
 }
 

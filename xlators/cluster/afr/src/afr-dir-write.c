@@ -1900,7 +1900,7 @@ afr_rmdir_wind (call_frame_t *frame, xlator_t *this)
 					   (void *) (long) i,
 					   priv->children[i], 
 					   priv->children[i]->fops->rmdir,
-					   &local->loc);
+					   &local->loc, local->cont.rmdir.flags);
 
 			if (!--call_count)
 				break;
@@ -1926,7 +1926,7 @@ afr_rmdir_done (call_frame_t *frame, xlator_t *this)
 
 int
 afr_rmdir (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc)
+	   loc_t *loc, int flags)
 {
 	afr_private_t * priv  = NULL;
 	afr_local_t   * local = NULL;
@@ -1960,6 +1960,7 @@ afr_rmdir (call_frame_t *frame, xlator_t *this,
 
 	transaction_frame->local = local;
 
+        local->cont.rmdir.flags = flags;
 	loc_copy (&local->loc, loc);
 
         if (loc->parent)

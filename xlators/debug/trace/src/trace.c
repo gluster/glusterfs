@@ -1525,18 +1525,18 @@ trace_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 
 int
-trace_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+trace_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         if (trace_fop_names[GF_FOP_RMDIR].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": (loc {path=%s, ino=%"PRIu64"})",
-                        frame->root->unique, loc->path, loc->inode->ino);
+                        "%"PRId64": (loc {path=%s, ino=%"PRIu64"}, flags=%d)",
+                        frame->root->unique, loc->path, loc->inode->ino, flags);
         }
 
         STACK_WIND (frame, trace_rmdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rmdir,
-                    loc);
+                    loc, flags);
 
         return 0;
 }

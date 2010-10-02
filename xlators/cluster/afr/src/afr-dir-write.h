@@ -39,7 +39,7 @@ afr_unlink (call_frame_t *frame, xlator_t *this,
 
 int32_t
 afr_rmdir (call_frame_t *frame, xlator_t *this,
-	   loc_t *loc);
+	   loc_t *loc, int flags);
 
 int32_t
 afr_link (call_frame_t *frame, xlator_t *this,

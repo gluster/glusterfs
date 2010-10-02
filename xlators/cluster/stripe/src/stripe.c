@@ -1143,7 +1143,8 @@ stripe_first_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         while (trav) {
                 STACK_WIND (frame, stripe_unlink_cbk, trav->xlator,
-                            trav->xlator->fops->rmdir, &local->loc);
+                            trav->xlator->fops->rmdir, &local->loc,
+                            local->flags);
                 trav = trav->next;
         }
 
@@ -1155,7 +1156,7 @@ err:
 }
 
 int32_t
-stripe_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+stripe_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         xlator_list_t    *trav = NULL;
         stripe_local_t   *local = NULL;
@@ -1187,10 +1188,11 @@ stripe_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
         local->op_ret = -1;
         frame->local = local;
         loc_copy (&local->loc, loc);
+        local->flags = flags;
         local->call_count = priv->child_count;
 
         STACK_WIND (frame, stripe_first_rmdir_cbk,  trav->xlator,
-                    trav->xlator->fops->rmdir, loc);
+                    trav->xlator->fops->rmdir, loc, flags);
 
         return 0;
 err:

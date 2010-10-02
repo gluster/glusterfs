@@ -54,6 +54,7 @@
 #include "locking.h"
 #include "timer.h"
 #include "glusterfs3-xdr.h"
+#include "hashfn.h"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -1480,9 +1481,10 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t
+
+int
 posix_rmdir (call_frame_t *frame, xlator_t *this,
-             loc_t *loc)
+             loc_t *loc, int flags)
 {
         int32_t op_ret    = -1;
         int32_t op_errno  = 0;
@@ -1491,12 +1493,15 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
         char *  parentpath = NULL;
         struct iatt   preparent = {0,};
         struct iatt   postparent = {0,};
+        struct posix_private    *priv      = NULL;
 
         DECLARE_OLD_FS_ID_VAR;
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
         VALIDATE_OR_GOTO (loc, out);
+
+        priv = this->private;
 
         SET_FS_ID (frame->root->uid, frame->root->gid);
         MAKE_REAL_PATH (real_path, this, loc->path);
@@ -1515,7 +1520,17 @@ posix_rmdir (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        op_ret = rmdir (real_path);
+        if (flags) {
+                uint32_t hashval = 0;
+                char *tmp_path = alloca (strlen (priv->trash_path) + 16);
+
+                mkdir (priv->trash_path, 0755);
+                hashval = gf_dm_hashfn (real_path, strlen (real_path));
+                sprintf (tmp_path, "%s/%u", priv->trash_path, hashval);
+                op_ret = rename (real_path, tmp_path);
+        } else {
+                op_ret = rmdir (real_path);
+        }
         op_errno = errno;
 
 	if (op_errno == EEXIST)

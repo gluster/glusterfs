@@ -1179,7 +1179,7 @@ fuse_rmdir_resume (fuse_state_t *state)
                 state->loc.path);
 
         FUSE_FOP (state, fuse_unlink_cbk, GF_FOP_RMDIR,
-                  rmdir, &state->loc);
+                  rmdir, &state->loc, 0);
 }
 
 static void
