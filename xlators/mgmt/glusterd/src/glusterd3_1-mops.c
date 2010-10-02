@@ -839,7 +839,9 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_conf_t                 *priv = NULL;
         glusterd_friend_sm_event_t      *event = NULL;
-        glusterd_friend_req_ctx_t       *ctx = NULL;
+        glusterd_probe_ctx_t            *ctx = NULL;
+        glusterd_friend_sm_event_t      *new_event = NULL;
+        glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
 
 
         if (!frame || !this || !data) {
@@ -856,15 +858,36 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
 
         peerinfo = event->peerinfo;
 
-        uuid_copy (req.uuid, priv->uuid);
-        req.hostname = peerinfo->hostname;
-        req.port = peerinfo->port;
-        ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
-                                       GD_MGMT_FRIEND_REMOVE,
-                                       NULL, gd_xdr_from_mgmt_friend_req,
-                                       this, glusterd3_1_friend_remove_cbk);
-        //Override ret
-        ret = 0;
+        ret = -1;
+        if (peerinfo->connected) {
+                uuid_copy (req.uuid, priv->uuid);
+                req.hostname = peerinfo->hostname;
+                req.port = peerinfo->port;
+                ret = glusterd_submit_request (peerinfo, &req, frame, priv->mgmt,
+                                               GD_MGMT_FRIEND_REMOVE,
+                                               NULL, gd_xdr_from_mgmt_friend_req,
+                                               this, glusterd3_1_friend_remove_cbk);
+        }
+        if (ret) {
+                event_type = GD_FRIEND_EVENT_REMOVE_FRIEND;
+
+                ret = glusterd_friend_sm_new_event (event_type, &new_event);
+
+                if (!ret) {
+                        new_event->peerinfo = peerinfo;
+                        ret = glusterd_friend_sm_inject_event (new_event);
+                } else {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                 "Unable to get event");
+                }
+                if (ctx)
+                        ret = glusterd_xfer_cli_deprobe_resp (ctx->req, ret, 0,
+                                                              ctx->hostname);
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
+                if (ctx)
+                        glusterd_destroy_probe_ctx (ctx);
+        }
 
 out:
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
