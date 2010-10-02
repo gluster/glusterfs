@@ -533,6 +533,7 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         int       pump = 0;
         xlator_t *xl = NULL;
         xlator_t *txl = NULL;
+        xlator_t *rbxl = NULL;
         char     *aaa = NULL;
         int       ret = 0;
         char      transt[16] = {0,};
@@ -559,26 +560,31 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
         if (ret == -ENOENT)
-                pump = 0;
+                ret = pump = 0;
+        if (ret)
+                return -1;
         if (pump) {
                 txl = first_of (graph);
 
-                xl = volgen_graph_add_as (graph, "protocol/client", "%s-%s",
-                                          volname, "replace-brick");
-                if (!xl)
+                rbxl = volgen_graph_add_nolink (graph, "protocol/client",
+                                                "%s-replace-brick", volname);
+                if (!rbxl)
                         return -1;
-                ret = xlator_set_option (xl, "transport-type", transt);
+                ret = xlator_set_option (rbxl, "transport-type", transt);
                 if (ret)
                         return -1;
-                ret = xlator_set_option (xl, "remote-port", "34034");
+                ret = xlator_set_option (rbxl, "remote-port", "34034");
                 if (ret)
                         return -1;
 
-                xl = volgen_graph_add (graph, "cluster/pump", volname);
+                xl = volgen_graph_add_nolink (graph, "cluster/pump", "%s-pump",
+                                              volname);
                 if (!xl)
                         return -1;
-
                 ret = volgen_xlator_link (xl, txl);
+                if (ret)
+                        return -1;
+                ret = volgen_xlator_link (xl, rbxl);
                 if (ret)
                         return -1;
         }
