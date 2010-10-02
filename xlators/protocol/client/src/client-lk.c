@@ -914,20 +914,16 @@ client_dump_locks (char *name, inode_t *inode,
                    dict_t *dict)
 {
         int     ret = 0;
+        dict_t *new_dict = NULL;
         char    dict_string[256];
+
+        GF_ASSERT (dict);
+        new_dict = dict;
 
         ret = dump_client_locks (inode);
         snprintf (dict_string, 256, "%d locks dumped in log file", ret);
 
-        dict = dict_new ();
-        if (!dict) {
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "trusted.glusterfs.clientlk-dump", dict_string);
+        ret = dict_set_dynstr(new_dict, CLIENT_DUMP_LOCKS, dict_string);
         if (ret) {
                 gf_log (THIS->name, GF_LOG_DEBUG,
                         "Could not set dict with %s", CLIENT_DUMP_LOCKS);
@@ -935,6 +931,7 @@ client_dump_locks (char *name, inode_t *inode,
         }
 
 out:
+
         return ret;
 }
 

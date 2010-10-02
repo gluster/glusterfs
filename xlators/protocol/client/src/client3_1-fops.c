@@ -4081,6 +4081,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         if (args && args->name) {
                 if (is_client_dump_locks_cmd ((char *)args->name)) {
+                        dict = dict_new ();
                         ret = client_dump_locks ((char *)args->name,
                                                  args->loc->inode,
                                                  dict);
@@ -4111,9 +4112,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
-        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, NULL);
-        if (dict)
-                dict_unref (dict);
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
 
         return 0;
 }
