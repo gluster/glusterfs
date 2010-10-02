@@ -2403,8 +2403,8 @@ out:
 }
 
 
-int32_t
-sp_rmdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
+int
+sp_rmdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
@@ -2434,7 +2434,7 @@ sp_rmdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
 
         STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rmdir, loc);
+                    FIRST_CHILD(this)->fops->rmdir, loc, flags);
 
         return 0;
 
@@ -2444,8 +2444,8 @@ unwind:
 }
  
 
-int32_t
-sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+int
+sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         int32_t         ret          = -1, op_errno = -1;
         call_stub_t    *stub         = NULL;
@@ -2470,7 +2470,7 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
         }
 
-        stub = fop_rmdir_stub (frame, sp_rmdir_helper, loc);
+        stub = fop_rmdir_stub (frame, sp_rmdir_helper, loc, flags);
         if (stub == NULL) {
                 op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -2489,7 +2489,7 @@ out:
                             FIRST_CHILD(this)->fops->lookup, loc, NULL);
         } else if (can_wind) {
                 STACK_WIND (frame, sp_unlink_cbk, FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->rmdir, loc);
+                            FIRST_CHILD(this)->fops->rmdir, loc, flags);
         }
 
         return 0;

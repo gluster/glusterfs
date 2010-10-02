@@ -454,9 +454,8 @@ typedef int32_t (*fop_unlink_t) (call_frame_t *frame,
 				 xlator_t *this,
 				 loc_t *loc);
 
-typedef int32_t (*fop_rmdir_t) (call_frame_t *frame,
-				xlator_t *this,
-				loc_t *loc);
+typedef int32_t (*fop_rmdir_t) (call_frame_t *frame, xlator_t *this,
+				loc_t *loc, int flags);
 
 typedef int32_t (*fop_symlink_t) (call_frame_t *frame, xlator_t *this,
 				  const char *linkname, loc_t *loc,

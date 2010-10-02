@@ -552,9 +552,8 @@ out:
 
 
 call_stub_t *
-fop_rmdir_stub (call_frame_t *frame,
-		fop_rmdir_t fn,
-		loc_t *loc)
+fop_rmdir_stub (call_frame_t *frame, fop_rmdir_t fn,
+		loc_t *loc, int flags)
 {
 	call_stub_t *stub = NULL;
 
@@ -566,6 +565,7 @@ fop_rmdir_stub (call_frame_t *frame,
 
 	stub->args.rmdir.fn = fn;
 	loc_copy (&stub->args.rmdir.loc, loc);
+        stub->args.rmdir.flags = flags;
 out:
 	return stub;
 }
@@ -2178,9 +2178,9 @@ call_resume_wind (call_stub_t *stub)
 
 	case GF_FOP_RMDIR:
 	{
-		stub->args.rmdir.fn (stub->frame,
-				     stub->frame->this,
-				     &stub->args.rmdir.loc);
+		stub->args.rmdir.fn (stub->frame, stub->frame->this,
+				     &stub->args.rmdir.loc,
+                                     stub->args.rmdir.flags);
 	}
 	break;
       
@@ -2672,13 +2672,13 @@ call_resume_unwind (call_stub_t *stub)
                                       &stub->args.rmdir_cbk.preparent,
                                       &stub->args.rmdir_cbk.postparent);
 		else
-			stub->args.unlink_cbk.fn (stub->frame,
-						  stub->frame->cookie,
-						  stub->frame->this,
-						  stub->args.rmdir_cbk.op_ret,
-						  stub->args.rmdir_cbk.op_errno,
-                                                  &stub->args.rmdir_cbk.preparent,
-                                                  &stub->args.rmdir_cbk.postparent);
+			stub->args.rmdir_cbk.fn (stub->frame,
+                                                 stub->frame->cookie,
+                                                 stub->frame->this,
+                                                 stub->args.rmdir_cbk.op_ret,
+                                                 stub->args.rmdir_cbk.op_errno,
+                                                 &stub->args.rmdir_cbk.preparent,
+                                                 &stub->args.rmdir_cbk.postparent);
 		break;
 	}
 

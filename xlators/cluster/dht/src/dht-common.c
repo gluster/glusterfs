@@ -3860,7 +3860,7 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 		STACK_WIND (frame, dht_rmdir_cbk,
 			    conf->subvolumes[i],
 			    conf->subvolumes[i]->fops->rmdir,
-			    &local->loc);
+			    &local->loc, local->flags);
 	}
 
 	return 0;
@@ -4127,7 +4127,7 @@ err:
 
 
 int
-dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
 	dht_local_t  *local  = NULL;
 	dht_conf_t   *conf = NULL;
@@ -4162,6 +4162,8 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		op_errno = ENOMEM;
 		goto err;
 	}
+
+        local->flags = flags;
 
 	local->fd = fd_create (local->loc.inode, frame->root->pid);
 	if (!local->fd) {

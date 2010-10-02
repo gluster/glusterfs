@@ -1044,7 +1044,7 @@ io_stats_unlink (call_frame_t *frame, xlator_t *this,
 
 int
 io_stats_rmdir (call_frame_t *frame, xlator_t *this,
-                loc_t *loc)
+                loc_t *loc, int flags)
 {
         BUMP_FOP (RMDIR);
 
@@ -1053,7 +1053,7 @@ io_stats_rmdir (call_frame_t *frame, xlator_t *this,
         STACK_WIND (frame, io_stats_rmdir_cbk,
                     FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->rmdir,
-                    loc);
+                    loc, flags);
 
         return 0;
 }

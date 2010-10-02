@@ -444,7 +444,7 @@ out:
 }
 
 int32_t
-client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         int          ret  = -1;
         clnt_conf_t *conf = NULL;
@@ -456,6 +456,7 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 goto out;
 
         args.loc = loc;
+        args.flags = flags;
 
         proc = &conf->fops->proctable[GF_FOP_RMDIR];
         if (proc->fn)

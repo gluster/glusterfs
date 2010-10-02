@@ -43,6 +43,7 @@ struct quota_local {
 	struct iovec   vector[MAX_IOVEC];
 	struct iobref *iobref;
 	loc_t          loc;
+        int            flags;
 };
 
 
@@ -520,14 +521,14 @@ quota_rmdir_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	STACK_WIND (frame, quota_rmdir_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->rmdir,
-		    &local->loc);
+		    &local->loc, local->flags);
 
 	return 0;
 }
 
 
 int
-quota_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+quota_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
 	struct quota_local *local = NULL;
 	struct quota_priv  *priv = NULL;
@@ -540,6 +541,7 @@ quota_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 		frame->local = local;
 
 		loc_copy (&local->loc, loc);
+                local->flags = flags;
 
 		STACK_WIND (frame, quota_rmdir_stat_cbk,
 			    FIRST_CHILD(this),
@@ -550,7 +552,7 @@ quota_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
 	STACK_WIND (frame, quota_rmdir_cbk,
 		    FIRST_CHILD(this),
 		    FIRST_CHILD(this)->fops->rmdir,
-		    loc);
+		    loc, flags);
 	return 0;
 }
 

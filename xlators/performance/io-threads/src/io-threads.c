@@ -534,21 +534,21 @@ iot_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 
 int
-iot_rmdir_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc)
+iot_rmdir_wrapper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         STACK_WIND (frame, iot_rmdir_cbk, FIRST_CHILD (this),
-                    FIRST_CHILD (this)->fops->rmdir, loc);
+                    FIRST_CHILD (this)->fops->rmdir, loc, flags);
         return 0;
 }
 
 
 int
-iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+iot_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         call_stub_t     *stub = NULL;
         int             ret = -1;
 
-        stub = fop_rmdir_stub (frame, iot_rmdir_wrapper, loc);
+        stub = fop_rmdir_stub (frame, iot_rmdir_wrapper, loc, flags);
         if (!stub) {
                 gf_log (this->name, GF_LOG_ERROR, "cannot create rmdir stub"
                         "(out of memory)");

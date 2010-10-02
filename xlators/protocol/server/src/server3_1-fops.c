@@ -1956,7 +1956,7 @@ server_rmdir_resume (call_frame_t *frame, xlator_t *bound_xl)
                 goto err;
 
         STACK_WIND (frame, server_rmdir_cbk,
-                    bound_xl, bound_xl->fops->rmdir, &state->loc);
+                    bound_xl, bound_xl->fops->rmdir, &state->loc, state->flags);
         return 0;
 err:
         server_rmdir_cbk (frame, NULL, frame->this, state->resolve.op_ret,
@@ -4255,6 +4255,8 @@ server_rmdir (rpcsvc_request_t *req)
         memcpy (state->resolve.pargfid, args.pargfid, 16);
         state->resolve.path    = gf_strdup (args.path);
         state->resolve.bname   = gf_strdup (args.bname);
+
+        state->flags = args.flags;
 
         resolve_and_resume (frame, server_rmdir_resume);
 out:

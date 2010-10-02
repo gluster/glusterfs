@@ -788,11 +788,11 @@ out:
 }
 
 
-int32_t
-ac_rmdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc)
+int
+ac_rmdir_resume (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         STACK_WIND (frame, default_rmdir_cbk, FIRST_CHILD(this),
-                    FIRST_CHILD(this)->fops->rmdir, loc);
+                    FIRST_CHILD(this)->fops->rmdir, loc, flags);
         return 0;
 }
 
@@ -827,14 +827,14 @@ out:
 }
 
 
-int32_t
-ac_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc)
+int
+ac_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
-        stub = fop_rmdir_stub (frame, ac_rmdir_resume, loc);
+        stub = fop_rmdir_stub (frame, ac_rmdir_resume, loc, flags);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");

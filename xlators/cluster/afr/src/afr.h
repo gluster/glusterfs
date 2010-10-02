@@ -531,6 +531,7 @@ typedef struct _afr_local {
 		} unlink;
 
 		struct {
+                        int   flags;
                         ino_t parent_ino;
 			int32_t op_ret;
 			int32_t op_errno;

@@ -628,10 +628,9 @@ quiesce_symlink (call_frame_t *frame, xlator_t *this,
         return 0;
 }
 
-int32_t
-quiesce_rmdir (call_frame_t *frame,
-	       xlator_t *this,
-	       loc_t *loc)
+
+int
+quiesce_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
@@ -639,15 +638,14 @@ quiesce_rmdir (call_frame_t *frame,
         priv = this->private;
 
         if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_rmdir_cbk,
+                STACK_WIND (frame, default_rmdir_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->rmdir,
-                            loc);
+                            loc, flags);
 	        return 0;
         }
 
-        stub = fop_rmdir_stub (frame, default_rmdir_resume, loc);
+        stub = fop_rmdir_stub (frame, default_rmdir_resume, loc, flags);
         if (!stub) {
                 STACK_UNWIND_STRICT (rmdir, frame, -1, ENOMEM, NULL, NULL);
                 return 0;

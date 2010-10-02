@@ -173,6 +173,7 @@ typedef struct {
 		struct {
 			fop_rmdir_t fn;
 			loc_t loc;
+                        int   flags;
 		} rmdir;
 		struct {
 			fop_rmdir_cbk_t fn;
@@ -715,9 +716,8 @@ fop_unlink_cbk_stub (call_frame_t *frame,
                      struct iatt *postparent);
 
 call_stub_t *
-fop_rmdir_stub (call_frame_t *frame,
-		fop_rmdir_t fn,
-		loc_t *loc);
+fop_rmdir_stub (call_frame_t *frame, fop_rmdir_t fn,
+		loc_t *loc, int flags);
 
 call_stub_t *
 fop_rmdir_cbk_stub (call_frame_t *frame,

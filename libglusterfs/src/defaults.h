@@ -87,9 +87,8 @@ int32_t default_unlink (call_frame_t *frame,
                         xlator_t *this,
                         loc_t *loc);
 
-int32_t default_rmdir (call_frame_t *frame,
-                       xlator_t *this,
-                       loc_t *loc);
+int32_t default_rmdir (call_frame_t *frame, xlator_t *this,
+                       loc_t *loc, int flags);
 
 int32_t default_symlink (call_frame_t *frame, xlator_t *this,
                          const char *linkpath, loc_t *loc, dict_t *params);
@@ -302,9 +301,8 @@ int32_t default_unlink_resume (call_frame_t *frame,
                         xlator_t *this,
                         loc_t *loc);
 
-int32_t default_rmdir_resume (call_frame_t *frame,
-                       xlator_t *this,
-                       loc_t *loc);
+int32_t default_rmdir_resume (call_frame_t *frame, xlator_t *this,
+                              loc_t *loc, int flags);
 
 int32_t default_symlink_resume (call_frame_t *frame, xlator_t *this,
                          const char *linkpath, loc_t *loc, dict_t *params);
