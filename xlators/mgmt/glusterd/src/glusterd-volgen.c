@@ -98,6 +98,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         {"ping-timeout",                "protocol/client"},
 
         {"inode-lru-limit",             "protocol/server"},
+        {"auth.addr.%s.allow",          "protocol/server:!server-auth"},
+        {"auth.addr.%s.reject",         "protocol/server:!server-auth"},
 
         {"write-behind",                "performance/write-behind:!perf"},
         {"read-ahead",                  "performance/read-ahead:!perf"},
@@ -525,6 +527,50 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 }
 
 static int
+server_auth_option_handler (glusterfs_graph_t *graph,
+                            struct volopt_map_entry2 *vme2, void *param)
+{
+        char *brick = NULL;
+        char *addrs = NULL;
+        char *opt   = NULL;
+        int   ret   = 0;
+
+        if (strcmp (vme2->option, "!server-auth") != 0)
+                return 0;
+
+        brick = gf_strdup (vme2->value);
+        if (!brick) {
+                ret = -1;
+                goto out;
+        }
+        addrs = strchr (brick, ':');
+        if (!addrs || !addrs[1]) {
+                GF_FREE (brick);
+                return -1;
+        }
+        *addrs++ = '\0';
+        ret = gf_asprintf (&opt, vme2->key, brick);
+        if (ret == -1) {
+                opt = NULL;
+                goto out;
+        }
+        ret = xlator_set_option (first_of (graph), opt, addrs);
+
+ out:
+        if (brick)
+                GF_FREE (brick);
+        if (opt)
+                GF_FREE (opt);
+
+        if (ret == 0)
+                return 0;
+
+        gf_log ("", GF_LOG_ERROR, "Out of memory");
+
+        return -1;
+}
+
+static int
 server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
@@ -615,6 +661,9 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
         ret = xlator_set_option (xl, aaa, "*");
         GF_FREE (aaa);
+
+        ret = volgen_graph_set_options_generic (graph, set_dict, NULL,
+                                                &server_auth_option_handler);
 
         return ret;
 }
