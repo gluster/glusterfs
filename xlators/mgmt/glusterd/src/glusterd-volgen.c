@@ -413,6 +413,37 @@ volgen_graph_set_options (glusterfs_graph_t *graph, dict_t *dict)
 }
 
 static int
+optget_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
+                       void *param)
+{
+        struct volopt_map_entry2 *vme2x = param;
+
+        if (strcmp (vme2->key, vme2x->key) == 0)
+                vme2x->value = vme2->value;
+
+        return 0;
+}
+
+/* This getter considers defaults also. */
+int
+glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
+{
+        struct volopt_map_entry2 vme2 = {0,};
+        int ret = 0;
+
+        vme2.key = key;
+
+        ret = volgen_graph_set_options_generic (NULL, volinfo->dict, &vme2,
+                                                &optget_option_handler);
+        if (ret)
+                return -1;
+
+        *value = vme2.value;
+
+        return 0;
+}
+
+static int
 volgen_graph_merge_sub (glusterfs_graph_t *dgraph, glusterfs_graph_t *sgraph)
 {
         xlator_t *trav = NULL;

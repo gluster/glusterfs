@@ -46,4 +46,6 @@ int glusterd_create_nfs_volfile ();
 int glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                              glusterd_brickinfo_t *brickinfo);
 
+int glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value);
+
 #endif
