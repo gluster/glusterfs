@@ -1119,50 +1119,16 @@ out:
 }
 
 
-char *set_option_list[] = {
-	"max-file-size",
-	"min-file-size",
-	"cache-timeout",
-	"priority",
-	"entry-change-log",
-	"read-subvolume",
-	"background-self-heal-count",
-	"metadata-self-heal",
-	"data-self-heal",
-	"entry-self-heal",
-	"strict-readdir",
-	"data-self-heal-window-size",
-	"data-change-log",
-	"metadata-change-log",
-	"frame-timeout",
-	"ping-timeout",
-	"cache-size",
-	"disk-usage-limit",
-	"min-free-disk-limit",
-	"block-size",
-	"inode-lru-limit",
-	"thread-count"	,
-	"lookup-unhashed",
-	"min-free-disk",
-        "write-behind",
-        "read-ahead",
-        "io-cache",
-        "quick-read",
-        "stat-prefetch",
-        "latency-measurement",
-        "dump-fd-stats",
-};
-
-
 gf_boolean_t
 glusterd_check_option_exists(char *optstring)
 {
-	//struct set_option_list		       *list;
-	char 				      **list = NULL;
+        struct volopt_map_entry *vme = NULL;
 
-	for (list = &set_option_list[0]; *list ;list++)
-		if (!strcmp (optstring, *list))
+        for (vme = glusterd_volopt_map; vme->key; vme++) {
+                if (strcmp (vme->key, optstring) == 0)
 			return _gf_true;
+        }
+
 	return _gf_false;
 
 }
@@ -1781,7 +1747,7 @@ rb_regenerate_volfiles (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        ret = glusterd_rb_create_volfiles (volinfo, brickinfo);
+        ret = glusterd_create_rb_volfiles (volinfo, brickinfo);
 
 out:
         return ret;
@@ -2844,7 +2810,11 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 			goto out;
         	}
 
-		ret = set_xlator_option (volinfo->dict, key, value);
+                value = gf_strdup (value);
+                if (value)
+		        ret = dict_set_dynstr (volinfo->dict, key, value);
+                else
+                        ret = -1;
 
 		if (ret) {
                 	gf_log ("", GF_LOG_ERROR, "Unable to set the options"

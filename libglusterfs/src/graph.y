@@ -30,6 +30,7 @@
 #include <sys/wait.h>
 
 #include "xlator.h"
+#include "graph-utils.h"
 #include "logging.h"
 
 static int new_volume (char *name);
@@ -270,9 +271,6 @@ volume_sub (char *sub)
 {
         extern int       yylineno;
         xlator_t        *trav = NULL;
-        xlator_list_t   *xlchild = NULL;
-        xlator_list_t   *tmp = NULL;
-        xlator_list_t   *xlparent = NULL;
         int              ret = 0;
 
         if (!sub) {
@@ -306,43 +304,11 @@ volume_sub (char *sub)
                 goto out;
         }
 
-        xlparent = (void *) GF_CALLOC (1, sizeof (*xlparent),
-                                       gf_common_mt_xlator_list_t);
-
-        if (!xlparent) {
+	ret = glusterfs_xlator_link (curr, trav);
+	if (ret) {
                 gf_log ("parser", GF_LOG_ERROR, "Out of memory");
                 ret = -1;
                 goto out;
-        }
-
-        xlparent->xlator = curr;
-
-        tmp = trav->parents;
-        if (tmp == NULL) {
-                trav->parents = xlparent;
-        } else {
-                while (tmp->next)
-                        tmp = tmp->next;
-                tmp->next = xlparent;
-        }
-
-        xlchild = (void *) GF_CALLOC (1, sizeof(*xlchild),
-                                      gf_common_mt_xlator_list_t);
-        if (!xlchild) {
-                gf_log ("parser", GF_LOG_ERROR, "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        xlchild->xlator = trav;
-
-        tmp = curr->children;
-        if (tmp == NULL) {
-                curr->children = xlchild;
-        } else {
-                while (tmp->next)
-                        tmp = tmp->next;
-                tmp->next = xlchild;
         }
 
         gf_log ("parser", GF_LOG_TRACE, "child:%s->%s", curr->name, sub);
