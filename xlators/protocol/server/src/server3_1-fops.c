@@ -3718,11 +3718,11 @@ server_getxattr (rpcsvc_request_t *req)
         state->resolve.path  = gf_strdup (args.path);
         memcpy (state->resolve.gfid, args.gfid, 16);
 
-        if (args.namelen)
+        if (args.namelen) {
                 state->name = gf_strdup (args.name);
-
-        /* There can be some commands hidden in key, check and proceed */
-        gf_server_check_getxattr_cmd (frame, state->name);
+                /* There can be some commands hidden in key, check and proceed */
+                gf_server_check_getxattr_cmd (frame, state->name);
+        }
 
         resolve_and_resume (frame, server_getxattr_resume);
 out:
