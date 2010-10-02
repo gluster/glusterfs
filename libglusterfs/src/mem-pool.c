@@ -460,7 +460,12 @@ mem_put (struct mem_pool *pool, void *ptr)
 		case 1:
 	                list = head = mem_pool_ptr2chunkhead (ptr);
 			in_use = (head + GF_MEM_POOL_LIST_BOUNDARY);
-			GF_ASSERT (is_mem_chunk_in_use(in_use));
+			if (!is_mem_chunk_in_use(in_use)) {
+                               gf_log_callingfn ("mem-pool", GF_LOG_CRITICAL,
+                                       "mem_put called on freed ptr %p of mem "
+                                       "pool %p", ptr, pool);
+                               break;
+                       } 
 		        pool->hot_count--;
 			pool->cold_count++;
 			*in_use = 0;
