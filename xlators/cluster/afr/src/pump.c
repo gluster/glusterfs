@@ -456,10 +456,6 @@ gf_pump_traverse_directory (loc_t *loc)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "found readdir entry=%s", entry->d_name);
 
-                        if ((strcmp (entry->d_name, ".") == 0) ||
-                            (strcmp (entry->d_name, "..") == 0))
-                                continue;
-
                         file_path = build_file_path (loc, entry);
                         if (!file_path) {
                                 gf_log (this->name, GF_LOG_DEBUG,
@@ -469,57 +465,56 @@ gf_pump_traverse_directory (loc_t *loc)
 
                         build_child_loc (loc, &entry_loc, file_path, entry->d_name);
 
-                        ret = syncop_lookup (this, &entry_loc, NULL,
-                                             &iatt, &xattr_rsp, &parent);
+                        if (!IS_ENTRY_CWD (entry->d_name) &&
+                                           !IS_ENTRY_PARENT (entry->d_name)) {
 
-                        entry_loc.ino = iatt.ia_ino;
-                        entry_loc.inode->ino = iatt.ia_ino;
-                        memcpy (entry_loc.inode->gfid, iatt.ia_gfid, 16);
+                                    ret = syncop_lookup (this, &entry_loc, NULL,
+                                                         &iatt, &xattr_rsp, &parent);
 
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "lookup %s => %"PRId64,
-                                entry_loc.path,
-                                iatt.ia_ino);
+                                    entry_loc.ino = iatt.ia_ino;
+                                    entry_loc.inode->ino = iatt.ia_ino;
+                                    memcpy (entry_loc.inode->gfid, iatt.ia_gfid, 16);
 
-                        ret = syncop_lookup (this, &entry_loc, NULL,
-                                             &iatt, &xattr_rsp, &parent);
+                                    gf_log (this->name, GF_LOG_DEBUG,
+                                            "lookup %s => %"PRId64,
+                                            entry_loc.path,
+                                            iatt.ia_ino);
+
+                                    ret = syncop_lookup (this, &entry_loc, NULL,
+                                                         &iatt, &xattr_rsp, &parent);
 
 
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "second lookup ret=%d: %s => %"PRId64,
-                                ret,
-                                entry_loc.path,
-                                iatt.ia_ino);
+                                    gf_log (this->name, GF_LOG_DEBUG,
+                                            "second lookup ret=%d: %s => %"PRId64,
+                                            ret,
+                                            entry_loc.path,
+                                            iatt.ia_ino);
 
-                        pump_update_resume_state (this, entry_loc.path);
+                                    pump_update_resume_state (this, entry_loc.path);
 
-                        if (!IS_ENTRY_CWD(entry->d_name) &&
-                            !IS_ENTRY_PARENT (entry->d_name)) {
-                                pump_save_path (this, entry_loc.path);
-                                pump_save_file_stats (this, entry_loc.path);
-                        }
+                                    pump_save_path (this, entry_loc.path);
+                                    pump_save_file_stats (this, entry_loc.path);
 
-                        ret = pump_check_and_update_status (this);
-                        if (ret < 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "Pump beginning to exit out");
-                                goto out;
-                        }
+                                    ret = pump_check_and_update_status (this);
+                                    if (ret < 0) {
+                                            gf_log (this->name, GF_LOG_DEBUG,
+                                                    "Pump beginning to exit out");
+                                            goto out;
+                                    }
 
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "type of file=%d, IFDIR=%d",
-                                iatt.ia_type, IA_IFDIR);
+                                    gf_log (this->name, GF_LOG_TRACE,
+                                            "type of file=%d, IFDIR=%d",
+                                            iatt.ia_type, IA_IFDIR);
 
-                        if (IA_ISDIR (iatt.ia_type) && !IS_ENTRY_CWD(entry->d_name) &&
-                            !IS_ENTRY_PARENT (entry->d_name)) {
-                                if (is_pump_traversal_allowed (this, entry_loc.path)) {
-                                        gf_log (this->name, GF_LOG_TRACE,
-                                                "entering dir=%s",
-                                                entry->d_name);
-                                        gf_pump_traverse_directory (&entry_loc);
-                                }
-                        }
-
+                                    if (IA_ISDIR (iatt.ia_type)) {
+                                            if (is_pump_traversal_allowed (this, entry_loc.path)) {
+                                                    gf_log (this->name, GF_LOG_TRACE,
+                                                            "entering dir=%s",
+                                                            entry->d_name);
+                                                    gf_pump_traverse_directory (&entry_loc);
+                                            }
+                                    }
+                            }
                         offset = entry->d_off;
                         loc_wipe (&entry_loc);
                 }
@@ -913,9 +908,6 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 {
         afr_private_t *priv = NULL;
         pump_private_t *pump_priv = NULL;
-        pump_state_t  state;
-        char pump_status[1024] = {0,};
-        char current_file[1024] = {0,};
 
         uint64_t number_files = 0;
 
@@ -930,25 +922,6 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
 
         priv = this->private;
         pump_priv = priv->pump_private;
-
-        state = pump_get_state ();
-        switch (state) {
-        case PUMP_STATE_RUNNING:
-                snprintf (pump_status, 1024, "PUMP_STATE_RUNNING");
-                break;
-        case PUMP_STATE_RESUME:
-                snprintf (pump_status, 1024, "PUMP_STATE_RESUME");
-                break;
-        case PUMP_STATE_PAUSE:
-                snprintf (pump_status, 1024, "PUMP_STATE_PAUSE");
-                break;
-        case PUMP_STATE_ABORT:
-                snprintf (pump_status, 1024, "PUMP_STATE_ABORT");
-                break;
-        default:
-                snprintf (pump_status, 1024, "Unknown pump state");
-                break;
-        }
 
         LOCK (&pump_priv->resume_path_lock);
         {
@@ -967,14 +940,11 @@ pump_execute_status (call_frame_t *frame, xlator_t *this)
         }
 
         if (pump_priv->pump_finished) {
-                snprintf (pump_status, 1024, "Migration complete");
-                snprintf (dict_str, PATH_MAX + 1024, "Status: %s \nNumber: Number of files migrated = %"PRIu64"\n",
-                          pump_status, number_files);
+        snprintf (dict_str, PATH_MAX + 256, "Number of files migrated = %"PRIu64"        Migration complete ",
+                  number_files);
         } else {
-                snprintf (current_file, 1024, "Curent file: %s", filename);
-                snprintf (dict_str, PATH_MAX + 1024 + 1024, "Status: %s \nNumber: Number of files migrated = %"PRIu64"\n"
-                          "Current file: %s\n", pump_status,
-                          number_files, filename);
+        snprintf (dict_str, PATH_MAX + 256, "Number of files migrated = %"PRIu64"       Current file= %s ",
+                  number_files, filename);
         }
 
         dict = dict_new ();
