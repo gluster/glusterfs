@@ -3493,7 +3493,8 @@ rdma_send_completion_proc (void *data)
                                 if ((ret == 0)
                                     && (wc.status == IBV_WC_SUCCESS)
                                     && !is_request
-                                    && (post->type == RDMA_SEND_POST)) {
+                                    && (post->type == RDMA_SEND_POST)
+                                    && (peer != NULL)) {
                                         /* An RDMA_RECV_POST can end up in
                                          * rdma_send_completion_proc for 
                                          * rdma-reads, and we do not take
@@ -4226,7 +4227,7 @@ rdma_handshake_pollerr (rpc_transport_t *this)
 {
         rdma_private_t *priv = this->private;
         int32_t ret = 0;
-        char need_unref = 0;
+        char need_unref = 0, connected = 0;
 
         gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
                 "%s: peer disconnected, cleaning up",
@@ -4236,6 +4237,7 @@ rdma_handshake_pollerr (rpc_transport_t *this)
         {
                 __rdma_teardown (this);
 
+                connected = priv->connected;
                 if (priv->sock != -1) {
                         event_unregister (this->ctx->event_pool, 
                                           priv->sock, priv->idx);
@@ -4267,7 +4269,9 @@ rdma_handshake_pollerr (rpc_transport_t *this)
         }
         pthread_mutex_unlock (&priv->write_mutex);
 
-        rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
+        if (connected) {
+                rpc_transport_notify (this, RPC_TRANSPORT_DISCONNECT, this);
+        }
 
         if (need_unref)
                 rpc_transport_unref (this);
