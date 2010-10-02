@@ -1882,6 +1882,8 @@ afr_recover_lock (call_frame_t *frame, xlator_t *this,
 
         lock_recovery_child = local->lock_recovery_child;
 
+        frame->root->lk_owner = flock->l_owner;
+
         STACK_WIND_COOKIE (frame, afr_recover_lock_cbk,
                            (void *) (long) lock_recovery_child,
                            priv->children[lock_recovery_child],
