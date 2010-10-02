@@ -165,4 +165,6 @@ glusterd_destroy_probe_ctx (glusterd_probe_ctx_t *ctx);
 
 void
 glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx);
+char*
+glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state);
 #endif
