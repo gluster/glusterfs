@@ -116,6 +116,7 @@ struct gfs3_readlink_req {
 
  struct   gfs3_rmdir_req {
         opaque  pargfid[16];
+        int        flags;
 	string     path<>;
 	string     bname<>; /* NULL terminated */
 };

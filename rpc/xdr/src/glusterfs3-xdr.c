@@ -385,6 +385,8 @@ xdr_gfs3_rmdir_req (XDR *xdrs, gfs3_rmdir_req *objp)
 
 	 if (!xdr_opaque (xdrs, objp->pargfid, 16))
                  return FALSE;
+         if (!xdr_int (xdrs, &objp->flags))
+                 return FALSE;
 	 if (!xdr_string (xdrs, &objp->path, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->bname, ~0))
