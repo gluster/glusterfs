@@ -200,7 +200,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
         char                       *hostname_buf = NULL;
         int32_t                    i = 1;
         char                       key[256] = {0,};
-        int32_t                    state = 0;
+        char                       *state = NULL;
         int32_t                    port = 0;
         int32_t                    connected = 0;
         char                       *connected_str = NULL;
@@ -272,9 +272,9 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
                         if (connected)
-                                connected_str = "connected";
+                                connected_str = "Connected";
                         else
-                                connected_str = "disconnected";
+                                connected_str = "Disconnected";
 
                         snprintf (key, 256, "friend%d.port", i);
                         ret = dict_get_int32 (dict, key, &port);
@@ -282,17 +282,18 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
                                 goto out;
 
                         snprintf (key, 256, "friend%d.state", i);
-                        ret = dict_get_int32 (dict, key, &state);
+                        ret = dict_get_str (dict, key, &state);
                         if (ret)
                                 goto out;
 
                         if (!port) {
-                                cli_out ("hostname:%s, uuid:%s, state:%d (%s)",
+                                cli_out ("\nHostname: %s\nUuid: %s\nState: %s "
+                                         "(%s)",
                                          hostname_buf, uuid_buf, state,
                                          connected_str);
                         } else {
-                                cli_out ("hostname:%s, port:%d, uuid:%s, "
-                                         "state:%d, (%s)", hostname_buf, port,
+                                cli_out ("\nHostname: %s\nPort: %d\nUuid: %s\n"
+                                         "State: %s (%s)", hostname_buf, port,
                                          uuid_buf, state, connected_str);
                         }
                         i++;

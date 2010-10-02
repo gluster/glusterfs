@@ -46,6 +46,25 @@
 
 static struct list_head gd_friend_sm_queue;
 
+static  char *glusterd_friend_sm_state_names[] = {
+        "Establishing Connection",
+        "Probe Sent to Peer",
+        "Probe Received from Peer",
+        "Peer in Cluster",
+        "Accepted peer request",
+        "Sent and Received peer request",
+        "Peer Rejected",
+        "Peer detach in progress",
+        "Invalid State"
+};
+
+char*
+glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state)
+{
+        if (state < 0 || state >= GD_FRIEND_STATE_MAX)
+                return glusterd_friend_sm_state_names[GD_FRIEND_STATE_MAX];
+        return glusterd_friend_sm_state_names[state];
+}
 void
 glusterd_destroy_probe_ctx (glusterd_probe_ctx_t *ctx)
 {
