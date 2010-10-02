@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
+#include <stdarg.h>
 
 
 #define MALLOC(size) malloc(size)
@@ -59,6 +60,9 @@ __gf_malloc (size_t size, uint32_t type);
 
 void *
 __gf_realloc (void *ptr, size_t size);
+
+int
+gf_vasprintf (char **string_ptr, const char *format, va_list arg);
 
 int
 gf_asprintf (char **string_ptr, const char *format, ...);

@@ -197,9 +197,9 @@ __gf_realloc (void *ptr, size_t size)
 }
 
 int
-gf_asprintf (char **string_ptr, const char *format, ...)
+gf_vasprintf (char **string_ptr, const char *format, va_list arg)
 {
-	va_list arg;
+        va_list arg_save;
 	char    *str = NULL;
 	int     size = 0;
 	int     rv = 0;
@@ -207,13 +207,12 @@ gf_asprintf (char **string_ptr, const char *format, ...)
 	if (!string_ptr || !format)
 		return -1;
 
-	va_start (arg, format);
+        va_copy (arg_save, arg);
+
 	size = vsnprintf (NULL, 0, format, arg);
 	size++;
-	va_start (arg, format);
 	str = GF_MALLOC (size, gf_common_mt_asprintf);
 	if (str == NULL) {
-		va_end (arg);
 		/*
 		 * Strictly speaking, GNU asprintf doesn't do this,
 		 * but the caller isn't checking the return value.
@@ -222,11 +221,23 @@ gf_asprintf (char **string_ptr, const char *format, ...)
                          "failed to allocate memory");
 		return -1;
 	}
-	rv = vsnprintf( str, size, format, arg);
-	va_end (arg);
+	rv = vsnprintf (str, size, format, arg_save);
 
 	*string_ptr = str;
 	return (rv);
+}
+
+int
+gf_asprintf (char **string_ptr, const char *format, ...)
+{
+	va_list arg;
+	int     rv = 0;
+
+	va_start (arg, format);
+	rv = gf_vasprintf (string_ptr, format, arg);
+	va_end (arg);
+
+	return rv;
 }
 
 void
