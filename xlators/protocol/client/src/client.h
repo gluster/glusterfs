@@ -120,7 +120,7 @@ typedef struct client_args {
         loc_t              *oldloc;
         loc_t              *newloc;
         const char         *name;
-        struct gf_flock       *flock;
+        struct gf_flock    *flock;
         const char         *volume;
         const char         *basename;
         off_t               offset;
