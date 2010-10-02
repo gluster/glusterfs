@@ -1228,11 +1228,59 @@ int
 trace_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                loc_t *loc, int32_t cmd, struct gf_flock *flock)
 {
+        char *cmd_str = NULL;
+        char *type_str = NULL;
+
         if (trace_fop_names[GF_FOP_INODELK].enabled) {
+                switch (cmd) {
+#if F_GETLK != F_GETLK64
+                case F_GETLK64:
+#endif
+                case F_GETLK:
+                        cmd_str = "GETLK";
+                        break;
+
+#if F_SETLK != F_SETLK64
+                case F_SETLK64:
+#endif
+                case F_SETLK:
+                        cmd_str = "SETLK";
+                        break;
+
+#if F_SETLKW != F_SETLKW64
+                case F_SETLKW64:
+#endif
+                case F_SETLKW:
+                        cmd_str = "SETLKW";
+                        break;
+
+                default:
+                        cmd_str = "UNKNOWN";
+                        break;
+                }
+
+                switch (flock->l_type) {
+                case F_RDLCK:
+                        type_str = "READ";
+                        break;
+                case F_WRLCK:
+                        type_str = "WRITE";
+                        break;
+                case F_UNLCK:
+                        type_str = "UNLOCK";
+                        break;
+                default:
+                        type_str = "UNKNOWN";
+                        break;
+                }
+
                 gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": volume=%s, (loc {path=%s, ino=%"PRIu64"}, cmd=%s)",
+                        "%"PRId64": volume=%s, (loc {path=%s, ino=%"PRIu64"}, "
+                        "cmd=%s, type=%s, start=%llu, len=%llu, pid=%llu)",
                         frame->root->unique, volume, loc->path, loc->inode->ino,
-                        ((cmd == F_SETLK)? "F_SETLK" : "unknown"));
+                        cmd_str, type_str, (unsigned long long) flock->l_start,
+                        (unsigned long long) flock->l_len,
+                        (unsigned long long) flock->l_pid);
         }
 
         STACK_WIND (frame, trace_inodelk_cbk,
@@ -1262,11 +1310,58 @@ int
 trace_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
                 fd_t *fd, int32_t cmd, struct gf_flock *flock)
 {
+        char *cmd_str = NULL, *type_str = NULL;
+
         if (trace_fop_names[GF_FOP_FINODELK].enabled) {
+                switch (cmd) {
+#if F_GETLK != F_GETLK64
+                case F_GETLK64:
+#endif
+                case F_GETLK:
+                        cmd_str = "GETLK";
+                        break;
+
+#if F_SETLK != F_SETLK64
+                case F_SETLK64:
+#endif
+                case F_SETLK:
+                        cmd_str = "SETLK";
+                        break;
+
+#if F_SETLKW != F_SETLKW64
+                case F_SETLKW64:
+#endif
+                case F_SETLKW:
+                        cmd_str = "SETLKW";
+                        break;
+
+                default:
+                        cmd_str = "UNKNOWN";
+                        break;
+                }
+
+                switch (flock->l_type) {
+                case F_RDLCK:
+                        type_str = "READ";
+                        break;
+                case F_WRLCK:
+                        type_str = "WRITE";
+                        break;
+                case F_UNLCK:
+                        type_str = "UNLOCK";
+                        break;
+                default:
+                        type_str = "UNKNOWN";
+                        break;
+                }
+
                 gf_log (this->name, GF_LOG_NORMAL,
-                        "%"PRId64": volume=%s, (fd=%p, cmd=%s)",
-                        frame->root->unique, volume, fd,
-                        ((cmd == F_SETLK) ? "F_SETLK" : "unknown"));
+                        "%"PRId64": volume=%s, (fd =%p, ino=%"PRIu64"}, "
+                        "cmd=%s, type=%s, start=%llu, len=%llu, pid=%llu)",
+                        frame->root->unique, volume, fd, fd->inode->ino,
+                        cmd_str, type_str, (unsigned long long) flock->l_start,
+                        (unsigned long long) flock->l_len,
+                        (unsigned long long) flock->l_pid);
         }
 
         STACK_WIND (frame, trace_finodelk_cbk,
