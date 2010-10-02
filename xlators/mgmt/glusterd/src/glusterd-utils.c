@@ -495,8 +495,8 @@ glusterd_volinfo_new (glusterd_volinfo_t **volinfo)
         INIT_LIST_HEAD (&new_volinfo->vol_list);
         INIT_LIST_HEAD (&new_volinfo->bricks);
 
-        ret = glusterd_default_xlator_options (new_volinfo);
-        if (ret) {
+        new_volinfo->dict = dict_new ();
+        if (!new_volinfo->dict) {
                 if (new_volinfo)
                         GF_FREE (new_volinfo);
 
@@ -1620,7 +1620,7 @@ glusterd_nfs_server_start ()
         glusterd_conf_t         *priv = NULL;
         char                    pidfile[PATH_MAX] = {0,};
         char                    logfile[PATH_MAX] = {0,};
-        char                    *volfile = NULL;
+        char                    volfile[PATH_MAX] = {0,};
         char                    path[PATH_MAX] = {0,};
         char                    cmd_str[8192] = {0,};
         char                    rundir[PATH_MAX] = {0,};
@@ -1641,11 +1641,7 @@ glusterd_nfs_server_start ()
         }
 
         GLUSTERD_GET_NFS_PIDFILE(pidfile);
-        volfile = glusterd_get_nfs_filepath ();
-        if (!volfile) {
-                ret = -1;
-                goto out;
-        }
+        glusterd_get_nfs_filepath (volfile);
 
         ret = access (volfile, F_OK);
         if (ret) {
@@ -1662,8 +1658,6 @@ glusterd_nfs_server_start ()
         ret = gf_system (cmd_str);
 
 out:
-        if (volfile)
-                GF_FREE(volfile);
         return ret;
 }
 
@@ -1721,7 +1715,7 @@ glusterd_check_generate_start_nfs (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        ret = volgen_generate_nfs_volfile (volinfo);
+        ret = glusterd_create_nfs_volfile ();
         if (ret)
                 goto out;
 

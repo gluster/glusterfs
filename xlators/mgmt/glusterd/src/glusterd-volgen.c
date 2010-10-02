@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2006-2009 Gluster, Inc. <http://www.gluster.com>
+  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
   GlusterFS is GF_FREE software; you can redistribute it and/or modify
@@ -24,1987 +24,631 @@
 #endif
 
 #include "xlator.h"
-#include "protocol-common.h"
 #include "glusterd.h"
 #include "defaults.h"
-#include "list.h"
+#include "logging.h"
 #include "dict.h"
-#include "compat.h"
-#include "compat-errno.h"
-#include "glusterd-sm.h"
-#include "glusterd-op-sm.h"
-#include "cli1.h"
+#include "graph-utils.h"
 #include "glusterd-mem-types.h"
+#include "cli1.h"
 #include "glusterd-volgen.h"
-#include "glusterd-utils.h"
 
-int
-set_xlator_option (dict_t *dict, char *key,
-                   char *value)
+
+/* dispatch table for VOLUME SET
+ *
+ * First field is the <key>, for the purpose of looking it up
+ * in volume dictionary.
+ *
+ * Second field is of the format "<xlator-type>:<action-specifier>".
+ * The ":<action-specifier>" part can be omitted, which is handled
+ * as if <action-specifier> is same as <key>.
+ *
+ * There are two type of entries: basic and special.
+ *
+ * - Basic entries are the ones where the <action-specifier>
+ *   does _not_ start with the bang! character ('!').
+ *   In their case, <action-specifier> is understood as
+ *   an option for <xlator-type>. Their effect is to copy over
+ *   the volinfo->dict[<key>] value to the graph nodes of
+ *   type <xlator-type> (if such a value is set). You are free to
+ *   add entries of this type, they will become functional just
+ *   by being present in the table.
+ *
+ * - Special entries where the <action-specifier> starts
+ *   with the bang!. They are not applied to all graphs
+ *   during generation, and you cannot extend them in a
+ *   trivial way which could be just picked up. Better
+ *   not touch them unless you know what you do.
+ */
+
+struct volopt_map_entry glusterd_volopt_map[] = {
+        {"lookup-unhashed",             "cluster/distribute"},
+        {"min-free-disk",               "cluster/distribute"},
+
+        {"entry-change-log",            "cluster/replicate"},
+        {"read-subvolume",              "cluster/replicate"},
+        {"background-self-heal-count",  "cluster/replicate"},
+        {"metadata-self-heal",          "cluster/replicate"},
+        {"data-self-heal",              "cluster/replicate"},
+        {"entry-self-heal",             "cluster/replicate"},
+        {"strict-readdir",              "cluster/replicate"},
+        {"data-self-heal-window-size",  "cluster/replicate"},
+        {"data-change-log",             "cluster/replicate"},
+        {"metadata-change-log",         "cluster/replicate"},
+
+        {"block-size",                  "cluster/stripe"},
+
+        {"latency-measurement",         "debug/io-stats"},
+        {"dump-fd-stats",               "debug/io-stats"},
+
+        {"max-file-size",               "performance/io-cache"},
+        {"min-file-size",               "performance/io-cache"},
+        {"cache-timeout",               "performance/io-cache"},
+        {"cache-size",                  "performance/io-cache"},
+        {"priority",                    "performance/io-cache"},
+
+        {"thread-count",                "performance/io-threads"},
+
+        {"disk-usage-limit",            "performance/quota"},
+        {"min-free-disk-limit",         "performance/quota"},
+
+        {"window-size",                 "performance/write-behind:cache-size"},
+
+        {"frame-timeout",               "protocol/client"},
+        {"ping-timeout",                "protocol/client"},
+
+        {"inode-lru-limit",             "protocol/server"},
+
+        {"write-behind",                "performance/write-behind:!perf"},
+        {"read-ahead",                  "performance/read-ahead:!perf"},
+        {"io-cache",                    "performance/io-cache:!perf"},
+        {"quick-read",                  "performance/quick-read:!perf"},
+        {"stat-prefetch",               "performance/stat-prefetch:!perf"},
+
+        {NULL,                          }
+};
+
+
+/* Default entries (as of now, only for special volopts). */
+
+struct volopt_map_entry2 {
+        char *key;
+        char *voltype;
+        char *option;
+        char *value;
+};
+
+static struct volopt_map_entry2 default_volopt_map2[] = {
+        {"write-behind",  NULL, NULL, "on"},
+        {"read-ahead",    NULL, NULL, "on"},
+        {"io-cache",      NULL, NULL, "on"},
+        {"quick-read",    NULL, NULL, "on"},
+        {NULL,                            }
+};
+
+#define VOLGEN_GET_NFS_DIR(path)                                        \
+        do {                                                            \
+                glusterd_conf_t *priv = THIS->private;                  \
+                snprintf (path, PATH_MAX, "%s/nfs", priv->workdir);     \
+        } while (0);                                                    \
+
+#define VOLGEN_GET_VOLUME_DIR(path, volinfo)                            \
+        do {                                                            \
+                glusterd_conf_t *priv = THIS->private;                  \
+                snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,  \
+                          volinfo->volname);                            \
+        } while (0);                                                    \
+
+
+
+
+/*********************************************
+ *
+ * xlator generation / graph manipulation API
+ *
+ *********************************************/
+
+
+
+static xlator_t *
+xlator_instantiate_va (const char *type, const char *format, va_list arg)
 {
-        int  ret      = 0;
-        char *str     = NULL;
+        xlator_t *xl = NULL;
+        char *volname = NULL;
+        int ret = 0;
 
-        str = GF_CALLOC (1, strlen (value) + 1,
-                         gf_gld_mt_char);
+        ret = gf_vasprintf (&volname, format, arg);
+        if (ret < 0) {
+                volname = NULL;
 
-        if (!str)
+                goto error;
+        }
+
+        xl = GF_CALLOC (1, sizeof (*xl), gf_common_mt_xlator_t);
+        if (!xl)
+                goto error;
+        ret = xlator_set_type_virtual (xl, type);
+        if (ret)
+                goto error;
+        xl->options = get_new_dict();
+        if (!xl->options)
+                goto error;
+        xl->name = volname;
+
+        return xl;
+
+ error:
+        gf_log ("", GF_LOG_ERROR, "creating xlator of type %s failed",
+                type);
+        if (volname)
+                GF_FREE (volname);
+        if (xl)
+                xlator_destroy (xl);
+
+        return NULL;
+}
+
+static xlator_t *
+xlator_instantiate (const char *type, const char *format, ...)
+{
+        va_list arg;
+        xlator_t *xl;
+
+        va_start (arg, format);
+        xl = xlator_instantiate_va (type, format, arg);
+        va_end (arg);
+
+        return xl;
+}
+
+static int
+volgen_xlator_link (xlator_t *pxl, xlator_t *cxl)
+{
+        int ret = 0;
+
+        ret = glusterfs_xlator_link (pxl, cxl);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Out of memory, cannot link xlators %s <- %s",
+                        pxl->name, cxl->name);
+        }
+
+        return ret;
+}
+
+static int
+volgen_graph_insert (glusterfs_graph_t *graph, xlator_t *xl)
+{
+        int ret = 0;
+
+        /* no need to care about graph->top here */
+        if (graph->first)
+                ret = volgen_xlator_link (xl, graph->first);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_ERROR, "failed to add graph entry %s",
+                        xl->name);
+
+                return -1;
+        }
+
+        glusterfs_graph_set_first (graph, xl);
+
+        return 0;
+}
+
+static int
+volgen_graph_add_as (glusterfs_graph_t *graph, const char *type,
+                     const char *format, ...)
+{
+        va_list arg;
+        xlator_t *xl;
+
+        va_start (arg, format);
+        xl = xlator_instantiate_va (type, format, arg);
+        va_end (arg);
+
+        if (!xl)
                 return -1;
 
-        strncpy (str, value, strlen (value));
-
-        ret = dict_set_dynstr (dict, key, str);
-
-        return ret;
-}
-
-static int32_t
-set_default_options (dict_t *dict, char *volname)
-{
-        int     ret       = -1;
-
-        ret = dict_set_str (dict, "volname",
-                            volname);
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_POSIX_OPTION_ODIRECT,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_POSIX_OPTION_STATFSSIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_POSIX_OPTION_MANDATTR,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_POSIX_OPTION_SPANDEVICES,
-                                 "1");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_POSIX_OPTION_BCKUNLINK,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_LOCKS_OPTION_TRACE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_LOCKS_OPTION_MAND,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
-                                 "tcp");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_CLIENT_OPTION_NODELAY,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOT_OPTION_THREADCOUNT,
-                                 "16");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOT_OPTION_AUTOSCALING,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOT_OPTION_MINTHREADS,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOT_OPTION_MAXTHREADS,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
-                                 "tcp");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_SERVER_OPTION_NODELAY,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_READSUBVOL,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_FAVCHILD,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_BCKSHCOUNT,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_DATASH,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_DATASHALGO,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_SHWINDOWSIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_METASH,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_ENTRYSH,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_DATACHANGELOG,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_METADATACHANGELOG,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_ENTRYCHANGELOG,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_REPLICATE_OPTION_STRICTREADDIR,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_STRIPE_OPTION_BLOCKSIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_STRIPE_OPTION_USEXATTR,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_DHT_OPTION_LOOKUPUNHASH,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_DHT_OPTION_MINFREEDISK,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_DHT_OPTION_UNHASHSTICKY,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_WB_OPTION_FLUSHBEHIND,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_WB_OPTION_CACHESIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_WB_OPTION_DISABLENBYTES,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_WB_OPTION_OSYNC,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_WB_OPTION_TRICKLINGWRITES,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_RA_OPTION_ATIME,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_RA_OPTION_PAGECOUNT,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOCACHE_OPTION_PRIORITY,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOCACHE_OPTION_TIMEOUT,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOCACHE_OPTION_CACHESIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOCACHE_OPTION_MINFILESIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOCACHE_OPTION_MAXFILESIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_QR_OPTION_PRIORITY,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_QR_OPTION_TIMEOUT,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_QR_OPTION_CACHESIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_QR_OPTION_MAXFILESIZE,
-                                 "on");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOS_OPTION_DUMP_FD_STATS,
-                                 "no");
-        if (ret)
-                goto out;
-
-        ret = set_xlator_option (dict, VOLGEN_IOS_OPTION_MEASURE_LATENCY,
-                                 "no");
-        if (ret)
-                goto out;
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-int32_t
-glusterd_default_xlator_options (glusterd_volinfo_t *volinfo)
-{
-        int ret = -1;
-
-        volinfo->dict = dict_new ();
-        if (!volinfo->dict) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = set_default_options (volinfo->dict,
-                                   volinfo->volname);
-        if (ret) {
-                dict_unref (volinfo->dict);
-                goto out;
-        }
-
-        ret = 0;
-
-out:
-        return ret;
-
+        return volgen_graph_insert(graph, xl);
 }
 
 static int
-__write_posix_xlator (FILE *file, dict_t *dict,
-                      char *posix_directory)
+volgen_graph_add (glusterfs_graph_t *graph, char *type, char *volname)
 {
-         char      *volname                 = NULL;
-        char       *opt_odirect             = NULL;
-        char       *opt_statfssize          = NULL;
-        char       *opt_mandattr            = NULL;
-        char       *opt_spandevices         = NULL;
-        char       *opt_bckunlink           = NULL;
-        int         ret                     = -1;
+        char *shorttype = NULL;
 
-        const char *posix_str = "volume %s-%s\n"
-                "    type storage/posix\n"
-                "    option directory %s\n"
-                "#   option o-direct %s\n"
-                "#   option export-statfs-size %s\n"
-                "#   option mandate-attribute %s\n"
-                "#   option span-devices %s\n"
-                "#   option background-unlink %s\n"
-                "end-volume\n\n";
+        shorttype = strrchr (type, '/');
+        GF_ASSERT (shorttype);
+        shorttype++;
+        GF_ASSERT (*shorttype);
 
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_POSIX_OPTION_ODIRECT,
-                            &opt_odirect);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_POSIX_OPTION_STATFSSIZE,
-                            &opt_statfssize);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_POSIX_OPTION_MANDATTR,
-                            &opt_mandattr);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_POSIX_OPTION_SPANDEVICES,
-                            &opt_spandevices);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_POSIX_OPTION_BCKUNLINK,
-                            &opt_bckunlink);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, posix_str,
-                 volname,
-                 "posix",
-                 posix_directory,
-                 opt_odirect,
-                 opt_statfssize,
-                 opt_mandattr,
-                 opt_spandevices,
-                 opt_bckunlink);
-
-        ret = 0;
-
-out:
-        return ret;
+        return volgen_graph_add_as (graph, type, "%s-%s", volname, shorttype);
 }
 
+/* XXX Seems there is no such generic routine?
+ * Maybe should put to xlator.c ??
+ */
 static int
-__write_locks_xlator (FILE *file, dict_t *dict,
-                      char *subvolume)
+xlator_set_option (xlator_t *xl, char *key, char *value)
 {
-        char       *volname           = NULL;
-        char       *opt_trace         = NULL;
-        char       *opt_mand          = NULL;
-        int         ret               = -1;
+        char *dval     = NULL;
 
-        const char *locks_str = "volume %s-%s\n"
-                "    type features/locks\n"
-                "#   option trace %s\n"
-                "#   option mandatory %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
+        dval = gf_strdup (value);
+        if (!dval) {
+                gf_log ("", GF_LOG_ERROR,
+                        "failed to set xlator opt: %s[%s] = %s",
+                        xl->name, key, value);
 
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
+                return -1;
         }
 
-        ret = dict_get_str (dict, VOLGEN_LOCKS_OPTION_TRACE,
-                            &opt_trace);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_LOCKS_OPTION_MAND,
-                            &opt_mand);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, locks_str,
-                 volname,
-                 "locks",
-                 opt_trace,
-                 opt_mand,
-                 subvolume);
-
-        ret = 0;
-
-out:
-        return ret;
+        return dict_set_dynstr (xl->options, key, dval);
 }
 
-static int
-__write_client_xlator (FILE *file, dict_t *dict,
-                       char *remote_subvol,
-                       char *remote_host,
-                       int count,
-                       char *last_xlator)
+static inline xlator_t *
+first_of (glusterfs_graph_t *graph)
 {
-        char       *volname               = NULL;
-        char       *opt_transtype         = NULL;
-        char       *opt_nodelay           = NULL;
-        int         ret                   = 0;
-	char	   *ping                  = NULL;
-	char	   *frame                 = NULL;
-	char	    ping_timeout[100]	  = {0, };
-	char 	    frame_timeout[100]	  = {0, };
-
-        const char *client_str = "volume %s-%s-%d\n"
-                "    type protocol/client\n"
-                "    option transport-type %s\n"
-                "    option remote-host %s\n"
-                "    option transport.socket.nodelay %s\n"
-		"%s" //for frame-timeout
-		"%s" //for ping-timeout
-                "    option remote-subvolume %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
-                            &opt_transtype);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_CLIENT_OPTION_NODELAY,
-                            &opt_nodelay);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "frame-timeout")) {
-		ret = dict_get_str (dict, "frame-timeout", &frame);
-		if (ret) {
-                	goto out;
-        	}
-		gf_log ("", GF_LOG_DEBUG, "Reconfiguring frame-timeout %s",
-			frame);
-		sprintf(frame_timeout, "    option frame-timeout %s\n",frame);
-	} 
-
-	if (dict_get (dict, "ping-timeout")) {
-		ret = dict_get_str (dict, "ping-timeout", &ping);
-		if (ret) {
-                	goto out;
-        	}
-		gf_log ("", GF_LOG_DEBUG, "Reconfiguring ping-timeout %s",
-			ping);
-		sprintf(ping_timeout, "    option ping-timeout %s\n",ping);
-	} 
-
-        fprintf (file, client_str,
-                 volname,
-                 "client",
-                 count,
-                 opt_transtype,
-                 remote_host,
-                 opt_nodelay,
-		 frame_timeout,
-		 ping_timeout,
-                 remote_subvol);
-
-        ret = 0;
-
-        snprintf (last_xlator, 1024, "%s-%s-%d",
-                  volname, "client", count);
-
-out:
-        return ret;
-}
-
-static int
-__write_replace_brick_xlator (FILE *file, dict_t *dict)
-{
-        char       *volname               = NULL;
-        char       *opt_transtype         = NULL;
-        char       *opt_nodelay           = NULL;
-        int         ret                   = 0;
-
-
-        const char *client_str = "volume %s-%s\n"
-                "    type protocol/client\n"
-                "    option transport-type %s\n"
-                "    option remote-port 34034\n"
-                "    option transport.socket.nodelay %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
-                            &opt_transtype);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_CLIENT_OPTION_NODELAY,
-                            &opt_nodelay);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, client_str,
-                 volname,
-                 "replace-brick",
-                 opt_transtype,
-                 opt_nodelay);
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_pump_xlator (FILE *file, dict_t *dict,
-                     char *subvolume)
-{
-        char *volname   = NULL;
-        int   ret       = -1;
-
-        const char *pump_str = "volume %s-%s\n"
-                "    type cluster/pump\n"
-                "    subvolumes %s %s-replace-brick\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, pump_str,
-                 volname, "pump",
-                 subvolume,
-                 volname);
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_iothreads_xlator (FILE *file, dict_t *dict,
-                          char *subvolume)
-{
-        char       *volname           = NULL;
-        char       *opt_threadcount   = NULL;
-        char       *opt_autoscaling   = NULL;
-        char       *opt_minthreads    = NULL;
-        char       *opt_maxthreads    = NULL;
-        int         ret               = -1;
-
-        const char *iot_str = "volume %s-iot\n"
-                "    type performance/io-threads\n"
-                "    option thread-count %s\n"
-                "#   option autoscaling %s\n"
-                "#   option min-threads %s\n"
-                "#   option max-threads %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "thread-count")) {
-		gf_log("", GF_LOG_DEBUG, "Resetting the thread-count value");
-        	ret = dict_get_str (dict, "thread-count", &opt_threadcount);
-	} else
-		ret = dict_get_str (dict, VOLGEN_IOT_OPTION_THREADCOUNT,
-                	            &opt_threadcount);
-
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_IOT_OPTION_AUTOSCALING,
-                            &opt_autoscaling);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_IOT_OPTION_MINTHREADS,
-                            &opt_minthreads);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_IOT_OPTION_MAXTHREADS,
-                            &opt_maxthreads);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, iot_str,
-                 volname,
-                 opt_threadcount,
-                 opt_autoscaling,
-                 opt_minthreads,
-                 opt_maxthreads,
-                 subvolume);
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_access_control_xlator (FILE *file, dict_t *dict,
-                               char *subvolume)
-{
-        char  *volname       = NULL;
-        int    ret           = -1;
-
-        const char *ac_str = "volume %s-access-control\n"
-                             "    type features/access-control\n"
-                             "    subvolumes %s\n"
-                             "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-
-        fprintf (file, ac_str, volname, subvolume);
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_server_xlator (FILE *file, dict_t *dict,
-                       char *subvolume)
-{
-        char  *volname              = NULL;
-        char  *opt_transtype        = NULL;
-        char  *opt_nodelay          = NULL;
-        int    ret                  = -1;
-	char  *lru_count            = NULL;
-	char   inode_lru_count[100] = {0,}; 
-
-        const char *server_str = "volume %s-%s\n"
-                "    type protocol/server\n"
-                "    option transport-type %s\n"
-                "    option auth.addr.%s.allow *\n"
-                "    option transport.socket.nodelay %s\n"
-		"%s"//for inode-lru-limit
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
-                            &opt_transtype);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_SERVER_OPTION_NODELAY,
-                            &opt_nodelay);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "inode-lru-limit")) {
-		ret = dict_get_str (dict, "inode-lru-limit", &lru_count);
-		if (ret) {
-                	goto out;
-        	}
-		gf_log ("", GF_LOG_DEBUG, "Reconfiguring inode-lru-limit %s",
-			lru_count);
-		sprintf (inode_lru_count, "    option inode-lru-limit %s\n", 
-			 lru_count);
-	} 
-
-        fprintf (file, server_str,
-                 volname, "server",
-                 opt_transtype,
-                 subvolume,
-                 opt_nodelay,
-		 inode_lru_count,
-                 subvolume
-		 );
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_replicate_xlator (FILE *file, dict_t *dict,
-                          char *subvolume,
-                          int replicate_count,
-                          int subvol_count,
-                          int count,
-                          char *last_xlator)
-{
-        char *volname               = NULL;
-        char       *opt_readsubvol        = NULL;
-        char       *opt_favchild          = NULL;
-        char       *opt_bckshcount        = NULL;
-        char       *opt_datash            = NULL;
-        char       *opt_datashalgo        = NULL;
-        char       *opt_shwindowsize      = NULL;
-        char       *opt_metash            = NULL;
-        char       *opt_entrysh           = NULL;
-        char       *opt_datachangelog     = NULL;
-        char       *opt_metadatachangelog = NULL;
-        char       *opt_entrychangelog    = NULL;
-        char       *opt_strictreaddir     = NULL;
-        char        *subvol_str           = NULL;
-        char        tmp[4096]             = {0,};
-        int         ret                   = -1;
-        int         subvolume_count       = 0;
-        int         i                     = 0;
-        int         len                   = 0;
-        int         subvol_len            = 0;
-
-
-        char replicate_str[] = "volume %s-%s-%d\n"
-                "    type cluster/replicate\n"
-                "#   option read-subvolume %s\n"
-                "#   option favorite-child %s\n"
-                "#   option background-self-heal-count %s\n"
-                "#   option data-self-heal %s\n"
-                "#   option data-self-heal-algorithm %s\n"
-                "#   option data-self-heal-window-size %s\n"
-                "#   option metadata-self-heal %s\n"
-                "#   option entry-self-heal %s\n"
-                "#   option data-change-log %s\n"
-                "#   option metadata-change-log %s\n"
-                "#   option entry-change-log %s\n"
-                "#   option strict-readdir %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        subvolume_count = subvol_count;
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "read-subvolume")) {
-		ret = dict_get_str (dict, "read-subvolume", &opt_readsubvol);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring read-subvolume: %s", 
-		       &opt_readsubvol);
-		uncomment_option (replicate_str,
-				  (char *) "#   option read-subvolume %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_READSUBVOL,
-                            &opt_readsubvol);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_FAVCHILD,
-                            &opt_favchild);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "background-self-heal-count")) {
-		ret = dict_get_str (dict,"background-self-heal-count", 
-				    &opt_bckshcount);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring background-self-heal-"
-					 "count: %s", &opt_bckshcount);
-		uncomment_option (replicate_str,
-				  (char *) "#   option background-self-heal-count %s\n");
-	}
-	else
-	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_BCKSHCOUNT,
-                            &opt_bckshcount);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "data-self-heal")) {
-		ret = dict_get_str (dict,"data-self-heal", 
-				    &opt_datash);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring data-self-heal"
-					 "count: %s", &opt_datash);
-		uncomment_option (replicate_str,
-				  (char *) "#   option data-self-heal %s\n");
-	}
-	else
-	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_DATASH,
-                                    &opt_datash);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_DATASHALGO,
-                            &opt_datashalgo);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "data-self-heal-window-size")) {
-		ret = dict_get_str (dict,"data-self-heal-window-size", 
-				    &opt_shwindowsize);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring data-self-heal"
-					 "window-size: %s", &opt_shwindowsize);
-		uncomment_option (replicate_str,
-				  (char *) "#   option data-self-heal-window-size %s\n");
-	}
-	else
-	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_SHWINDOWSIZE,
-                            &opt_shwindowsize);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "metadata-self-heal")) {
-		ret = dict_get_str (dict,"metadata-self-heal", 
-				    &opt_metash);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring metadata-self-heal"
-					 "count: %s", &opt_metash);
-		uncomment_option (replicate_str,
-				  (char *) "#   option metadata-self-heal %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_METASH,
-                            &opt_metash);
-        if (ret) {
-                goto out;
-        }
-	
-	if (dict_get (dict, "entry-self-heal")) {
-		ret = dict_get_str (dict,"entry-self-heal", 
-				    &opt_entrysh);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring entry-self-heal"
-					 "count: %s", &opt_entrysh);
-		uncomment_option (replicate_str,
-				  (char *) "#   option entry-self-heal %s\n");
-	}
-	else
-	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_ENTRYSH,
-                            &opt_entrysh);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "data-change-log")) {
-		ret = dict_get_str (dict,"data-change-log", 
-				    &opt_datachangelog);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring data-change-log"
-					 "count: %s", &opt_datachangelog);
-		uncomment_option (replicate_str,
-				  (char *) "#   option data-change-log %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_DATACHANGELOG,
-                            &opt_datachangelog);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "metadata-change-log")) {
-		ret = dict_get_str (dict,"metadata-change-log", 
-				    &opt_metadatachangelog);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring metadata-change-log"
-					 "count: %s", &opt_metadatachangelog);
-		uncomment_option (replicate_str,
-				  (char *) "#   option metadata-change-log %s\n");
-	}
-	else
-	        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_METADATACHANGELOG,
-                            &opt_metadatachangelog);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "entry-change-log")) {
-		ret = dict_get_str (dict, "entry-change-log", &opt_entrychangelog);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring entry-change-log: %s", 
-		       &opt_entrychangelog);
-		uncomment_option (replicate_str,
-				  (char *) "#   option entry-change-log %s\n");
-	}
-	else
-
-        ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_ENTRYCHANGELOG,
-                            &opt_entrychangelog);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "strict-readdir")) {
-		ret = dict_get_str (dict,"strict-readdir", 
-				    &opt_strictreaddir);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring sstrict-readdir"
-					 "count: %s", &opt_strictreaddir);
-		uncomment_option (replicate_str,
-				  (char *) "#   option strict-readdir %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_REPLICATE_OPTION_STRICTREADDIR,
-                            &opt_strictreaddir);
-        if (ret) {
-                goto out;
-        }
-
-        for (i = 0; i < replicate_count; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume,
-                          subvolume_count);
-                len = strlen (tmp);
-                subvol_len += len;
-                subvolume_count++;
-        }
-
-        subvolume_count = subvol_count;
-        subvol_len++;
-
-        subvol_str = GF_CALLOC (1, subvol_len, gf_gld_mt_char);
-        if (!subvol_str) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        for (i = 0; i < replicate_count ; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume,
-                          subvolume_count);
-                strncat (subvol_str, tmp, strlen (tmp));
-                subvolume_count++;
-        }
-
-        fprintf (file, replicate_str,
-                 volname,
-                 "replicate",
-                 count,
-                 opt_readsubvol,
-                 opt_favchild,
-                 opt_bckshcount,
-                 opt_datash,
-                 opt_datashalgo,
-                 opt_shwindowsize,
-                 opt_metash,
-                 opt_entrysh,
-                 opt_datachangelog,
-                 opt_metadatachangelog,
-                 opt_entrychangelog,
-                 opt_strictreaddir,
-                 subvol_str);
-
-
-        ret = 0;
-
-        snprintf (last_xlator, 1024, "%s-%s-%d",
-                  volname, "replicate", count);
-
-out:
-        if (subvol_str)
-                GF_FREE (subvol_str);
-        return ret;
-}
-
-static int
-__write_stripe_xlator (FILE *file, dict_t *dict,
-                       char *subvolume,
-                       int stripe_count,
-                       int subvol_count,
-                       int count,
-                       char *last_xlator)
-{
-        char *volname = NULL;
-        char       *opt_blocksize    = NULL;
-        char       *opt_usexattr     = NULL;
-        char       *subvol_str       = NULL;
-        char        tmp[4096]        = {0,};
-        int         subvolume_count  = 0;
-        int         ret              = -1;
-        int         i                = 0;
-        int         subvol_len        = 0;
-        int         len              = 0;
-
-        char stripe_str[] = "volume %s-%s-%d\n"
-                "    type cluster/stripe\n"
-                "#   option block-size %s\n"
-                "#   option use-xattr %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        subvolume_count = subvol_count;
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "block-size")) {
-		ret = dict_get_str (dict, "block-size", &opt_blocksize);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring Stripe Count %s", 
-		       opt_blocksize);
-		uncomment_option (stripe_str,
-				  (char *) "#   option block-size %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_STRIPE_OPTION_BLOCKSIZE,
-                            &opt_blocksize);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_STRIPE_OPTION_USEXATTR,
-                            &opt_usexattr);
-        if (ret) {
-                goto out;
-        }
-
-
-        for (i = 0; i < stripe_count; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume, subvolume_count);
-                len = strlen (tmp);
-                subvol_len += len;
-                subvolume_count++;
-        }
-
-        subvolume_count = subvol_count;
-        subvol_len++;
-
-        subvol_str = GF_CALLOC (1, subvol_len, gf_gld_mt_char);
-        if (!subvol_str) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        for (i = 0; i < stripe_count; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume, subvolume_count);
-                strncat (subvol_str, tmp, strlen (tmp));
-                subvolume_count++;
-        }
-
-        fprintf (file, stripe_str,
-                 volname,
-                 "stripe",
-                 count,
-                 opt_blocksize,
-                 opt_usexattr,
-                 subvol_str);
-
-
-        ret = 0;
-
-        snprintf (last_xlator, 1024, "%s-%s-%d",
-                  volname, "stripe", count);
-
-out:
-        if (subvol_str)
-                GF_FREE (subvol_str);
-        return ret;
-        
-}
-
-static int
-__write_distribute_xlator (FILE *file, dict_t *dict,
-                           char *subvolume,
-                           int dist_count,
-                           char *last_xlator)
-{
-        char       *volname          = NULL;
-        char       *subvol_str       = NULL;
-        char       tmp[4096]         = {0,};
-        char       *opt_lookupunhash = NULL;
-        char       *opt_minfreedisk  = NULL;
-        char       *opt_unhashsticky = NULL;
-        int        ret               = -1;
-        int        i                 = 0;
-        int        subvol_len        = 0;
-        int        len               = 0;
-        
-        char       dht_str[] = "volume %s-%s\n"
-                "type cluster/distribute\n"
-                "#   option lookup-unhashed %s\n"
-                "#   option min-free-disk %s\n"
-                "#   option unhashed-sticky-bit %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "lookup-unhashed")) {
-		ret = dict_get_str (dict, "lookup-unhashed", &opt_lookupunhash);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring lookup-unhashed %s",
-		       opt_lookupunhash);
-		uncomment_option (dht_str, 
-				  (char *) "#   option lookup-unhashed %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_DHT_OPTION_LOOKUPUNHASH,
-                            &opt_lookupunhash);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "min-free-disk")) {
-		ret = dict_get_str (dict, "min-free-disk", &opt_minfreedisk);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring min-free-disk",
-		       opt_minfreedisk);
-		uncomment_option (dht_str, 
-				  (char *) "#   option min-free-disk %s\n");
-	}
-	else
-        ret = dict_get_str (dict, VOLGEN_DHT_OPTION_MINFREEDISK,
-                            &opt_minfreedisk);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_DHT_OPTION_UNHASHSTICKY,
-                            &opt_unhashsticky);
-        if (ret) {
-                goto out;
-        }
-
-        for (i = 0; i < dist_count; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume, i);
-                len = strlen (tmp);
-                subvol_len += len;
-        }
-
-        subvol_len++;
-        subvol_str = GF_CALLOC (1, subvol_len, gf_gld_mt_char);
-        if (!subvol_str) {
-                gf_log ("glusterd", GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        for (i = 0; i < dist_count ; i++) {
-                snprintf (tmp, 4096, "%s-%d ", subvolume, i);
-                strncat (subvol_str, tmp, strlen (tmp));
-        }
-
-        fprintf (file, dht_str,
-                 volname,
-                 "dht",
-                 opt_lookupunhash,
-                 opt_minfreedisk,
-                 opt_unhashsticky,
-                 subvol_str);
-
-
-        ret = 0;
-
-        snprintf (last_xlator, 1024, "%s-%s",
-                  volname, "dht");
-
-out:
-        if (subvol_str)
-                GF_FREE (subvol_str);
-        return ret;
+        return (xlator_t *)graph->first;
 }
 
 
-int
-uncomment_option( char *opt_str,char *comment_str)
-{
-	char *ptr;
 
-	ptr = strstr (opt_str,comment_str);
-	if (!ptr)
-		return -1;
-	
-	if (*ptr != '#')
-		return -1;
 
-	*ptr = ' ';
+/**************************
+ *
+ * Volume generation engine
+ *
+ **************************/
 
-	return 0;
-} 
 
 static int
-__write_wb_xlator (FILE *file, dict_t *dict,
-                   char *subvolume)
+volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
+                                  void *param,
+                                  int (*handler) (glusterfs_graph_t *graph,
+                                                  struct volopt_map_entry2 *vme2,
+                                                  void *param))
 {
-        char        *volname              = NULL;
-        char        *opt_flushbehind     = NULL;
-        char        *opt_cachesize       = NULL;
-        char        *opt_disablenbytes   = NULL;
-        char        *opt_osync           = NULL;
-        char        *opt_tricklingwrites = NULL;
-        int          ret                 = -1;
-
-        char dht_str[] = "volume %s-%s\n"
-                "    type performance/write-behind\n"
-                "#   option flush-behind %s\n"
-                "#   option cache-size %s\n"
-                "#   option disable-for-first-nbytes %s\n"
-                "#   option enable-O_SYNC %s\n"
-                "#   option enable-trickling-writes %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_WB_OPTION_FLUSHBEHIND,
-                            &opt_flushbehind);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "cache-size")) {
-		gf_log("",GF_LOG_DEBUG, "Uncommenting option cache-size");
-		uncomment_option (dht_str,(char *) "#   option cache-size %s\n");
-		ret = dict_get_str (dict, "cache-size", &opt_cachesize);
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_WB_OPTION_CACHESIZE,
-                            &opt_cachesize);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_WB_OPTION_DISABLENBYTES,
-                            &opt_disablenbytes);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_WB_OPTION_OSYNC,
-                            &opt_osync);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_WB_OPTION_TRICKLINGWRITES,
-                            &opt_tricklingwrites);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, dht_str,
-                 volname,
-                 "write-behind",
-                 opt_flushbehind,
-                 opt_cachesize,
-                 opt_disablenbytes,
-                 opt_osync,
-                 opt_tricklingwrites,
-                 subvolume);
-
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_ra_xlator (FILE *file, dict_t *dict,
-                   char *subvolume)
-{
-        char       *volname       = NULL;
-        char       *opt_atime     = NULL;
-        char       *opt_pagecount = NULL;
-        int         ret           = -1;
-
-        const char *ra_str = "volume %s-%s\n"
-                "    type performance/read-ahead\n"
-                "#   option force-atime-update %s\n"
-                "#   option page-count %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_RA_OPTION_ATIME,
-                            &opt_atime);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_RA_OPTION_PAGECOUNT,
-                            &opt_pagecount);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, ra_str,
-                 volname,
-                 "read-ahead",
-                 opt_atime,
-                 opt_pagecount,
-                 subvolume);
-
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_iocache_xlator (FILE *file, dict_t *dict,
-                        char *subvolume)
-{
-        char       *volname         = NULL;
-        char       *opt_priority    = NULL;
-        char       *opt_timeout     = NULL;
-        char       *opt_cachesize   = NULL;
-        char       *opt_minfilesize = NULL;
-        char       *opt_maxfilesize = NULL;
-        int         ret             = -1;
-
-        char        iocache_str[] = "volume %s-%s\n"
-                "    type performance/io-cache\n"
-                "#   option priority %s\n"
-                "#   option cache-timeout %s\n"
-                "#   option cache-size %s\n"
-                "#   option min-file-size %s\n"
-                "#   option max-file-size %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "priority")) {
-		ret = dict_get_str (dict, "priority", &opt_priority);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring priority",
-		       opt_priority);
-		uncomment_option (iocache_str, 
-				  (char *) "#   option priority %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_PRIORITY,
-                            &opt_priority);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "cache-timeout")) {
-		ret = dict_get_str (dict, "cache-timeout", &opt_timeout);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring cache-timeout",
-		       opt_timeout);
-		uncomment_option (iocache_str, 
-				  (char *) "#   option cache-timeout %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_TIMEOUT,
-                            &opt_timeout);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "cache-size")) {
-		ret = dict_get_str (dict, "cache-size", &opt_cachesize);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring cache-size :%s",
-		       opt_cachesize);
-		uncomment_option (iocache_str, 
-				  (char *) "#   option cache-size %s\n");
-	}
-	else
-	        ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_CACHESIZE,
-                            &opt_cachesize);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "min-file-size")) {
-		ret = dict_get_str (dict, "min-file-size", &opt_minfilesize);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring min-file-size: %s",
-		       opt_minfilesize);
-		uncomment_option (iocache_str, 
-				  (char *) "#   option min-file-size %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_MINFILESIZE,
-                            &opt_minfilesize);
-        if (ret) {
-                goto out;
-        }
-
-	if (dict_get (dict, "max-file-size")) {
-		ret = dict_get_str (dict, "max-file-size", &opt_maxfilesize);
-		gf_log("", GF_LOG_DEBUG, "Reconfiguring max-file-size: %s",
-		       opt_maxfilesize);
-		uncomment_option (iocache_str, 
-				  (char *) "#   option max-file-size %s\n");
-	}
-	else
-        	ret = dict_get_str (dict, VOLGEN_IOCACHE_OPTION_MAXFILESIZE,
-                            &opt_maxfilesize);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, iocache_str,
-                 volname,
-                 "io-cache",
-                 opt_priority,
-                 opt_timeout,
-                 opt_cachesize,
-                 opt_minfilesize,
-                 opt_maxfilesize,
-                 subvolume);
-
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_qr_xlator (FILE *file, dict_t *dict,
-                        char *subvolume)
-{
-        char       *volname         = NULL;
-        char       *opt_priority    = NULL;
-        char       *opt_timeout     = NULL;
-        char       *opt_cachesize   = NULL;
-        char       *opt_maxfilesize = NULL;
-        int         ret             = -1;
-
-        const char *qr_str = "volume %s-%s\n"
-                "    type performance/quick-read\n"
-                "#   option priority %s\n"
-                "#   option cache-timeout %s\n"
-                "#   option cache-size %s\n"
-                "#   option max-file-size %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_QR_OPTION_PRIORITY,
-                            &opt_priority);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_QR_OPTION_TIMEOUT,
-                            &opt_timeout);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_QR_OPTION_CACHESIZE,
-                            &opt_cachesize);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_QR_OPTION_MAXFILESIZE,
-                            &opt_maxfilesize);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, qr_str,
-                 volname,
-                 "quick-read",
-                 opt_priority,
-                 opt_timeout,
-                 opt_cachesize,
-                 opt_maxfilesize,
-                 subvolume);
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_statprefetch_xlator (FILE *file, dict_t *dict,
-                             char *subvolume)
-{
-        char *volname = NULL;
-        int   ret     = -1;
-
-        const char *statprefetch_str = "volume %s-%s\n"
-                "    type performance/stat-prefetch\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        fprintf (file, statprefetch_str,
-                 volname,
-                 "stat-prefetch",
-                 subvolume);
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-__write_iostats_xlator (FILE *file, dict_t *dict,
-                        char *subvolume)
-{
-        char *volname = NULL;
-        char *dumpfd  = NULL;
-        char *latency = NULL;
-        int ret       = -1;
-
-        const char *iostats_str = "volume %s\n"
-                "    type debug/io-stats\n"
-                "    option dump-fd-stats %s\n"
-                "    option latency-measurement %s\n"
-                "    subvolumes %s\n"
-                "end-volume\n\n";
-
-        ret = dict_get_str (dict, "iostat-volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = dict_get_str (dict, VOLGEN_IOS_OPTION_DUMP_FD_STATS, &dumpfd);
-        if (ret)
-                goto out;
-
-        ret = dict_get_str (dict, VOLGEN_IOS_OPTION_MEASURE_LATENCY, &latency);
-        if (ret)
-                goto out;
-
-        fprintf (file, iostats_str, volname, dumpfd, latency, subvolume);
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-generate_server_volfile (glusterd_brickinfo_t *brickinfo,
-                         dict_t *dict,
-                         const char *filename)
-{
-        FILE *file          = NULL;
-        char  subvol[2048]  = {0,};
-        char *volname       = NULL;
-        int   ret           = -1;
-        int   activate_pump = 0;
-
-        GF_ASSERT (filename);
-
-        file = fopen (filename, "w+");
-        if (!file) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not open file %s", filename);
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_get_str (dict, "volname", &volname);
-        if (ret) {
-                goto out;
-        }
-
-        /* Call functions in the same order
-           as you'd call if you were manually
-           writing a volfile top-down
-        */
-
-        ret = __write_posix_xlator (file, dict, brickinfo->path);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "posix");
-
-        ret = __write_access_control_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "access-control");
-
-        ret = __write_locks_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        ret = dict_get_int32 (dict, "enable-pump", &activate_pump);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Pump is disabled");
-        }
-
-        if (activate_pump) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Pump is enabled");
-
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "locks");
-
-                ret = __write_replace_brick_xlator (file, dict);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not write xlator");
-                        goto out;
-                }
-
-                ret = __write_pump_xlator (file, dict, subvol);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not write xlator");
-                        goto out;
-                }
-
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "pump");
-        } else
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "locks");
-
-        ret = __write_iothreads_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        ret = dict_set_str (dict, "iostat-volname", brickinfo->path);
-        if (ret) {
-                goto out;
-        }
-
-        VOLGEN_GENERATE_VOLNAME (subvol, volname, "iot");
-
-        ret = __write_iostats_xlator (file, dict, subvol);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write io-stats xlator");
-                goto out;
-        }
-
-        ret = __write_server_xlator (file, dict, brickinfo->path);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        fclose (file);
-        file = NULL;
-
-out:
-        return ret;
-}
-
-static int
-__write_perf_xlator (char *xlator_name, FILE *file,
-                     dict_t *dict, char *subvol)
-{
+        struct volopt_map_entry *vme = NULL;
+        struct volopt_map_entry2 vme2 = {0,};
+        struct volopt_map_entry2 *vme2x = NULL;
+        char *value = NULL;
         int ret = 0;
 
-        if (strcmp (xlator_name, "write-behind") == 0) {
+        for (vme = glusterd_volopt_map; vme->key; vme++) {
+                ret = dict_get_str (dict, vme->key, &value);
+                if (ret) {
+                        for (vme2x = default_volopt_map2; vme2x->key;
+                             vme2x++) {
+                                if (strcmp (vme2x->key, vme->key) == 0) {
+                                        value = vme2x->value;
+                                        ret = 0;
+                                        break;
+                                }
+                        }
+                }
+                if (ret)
+                        continue;
 
-                ret = __write_wb_xlator (file, dict, subvol);
-
-        } else if (strcmp (xlator_name, "read-ahead") == 0) {
-
-                ret = __write_ra_xlator (file, dict, subvol);
-
-        } else if (strcmp (xlator_name, "io-cache") == 0) {
-
-                ret = __write_iocache_xlator (file, dict, subvol);
-
-        } else if (strcmp (xlator_name, "quick-read") == 0) {
-
-                ret = __write_qr_xlator (file, dict, subvol);
-
-        } else if (strcmp (xlator_name, "stat-prefetch") == 0) {
-
-                ret = __write_statprefetch_xlator (file, dict, subvol);
-
-        }
-
-        return ret;
-
-}
-
-static
-int
-add_perf_xlator_list_item (dict_t *dict, char **perf_xlator_list,
-                           char *xlator_name, int *idx)
-{
-        int ret = 0;
-
-        ret = dict_get_str_boolean (dict, xlator_name, 1);
-        switch (ret) {
-        case -1:
-                goto out;
-        case 1:
-                gf_log ("", GF_LOG_DEBUG,
-                        "%s is enabled", xlator_name);
-                perf_xlator_list[*idx] = gf_strdup (xlator_name);
-                if (!perf_xlator_list[*idx]) {
+                vme2.key = vme->key;
+                vme2.voltype = gf_strdup (vme->voltype);
+                if (!vme2.voltype) {
                         gf_log ("", GF_LOG_ERROR, "Out of memory");
 
                         return -1;
                 }
+                vme2.option = strchr (vme2.voltype, ':');
+                if (vme2.option) {
+                        *vme2.option = '\0';
+                        vme2.option++;
+                } else
+                        vme2.option = vme->key;
+                vme2.value = value;
 
-                (*idx)++;
+                ret = handler (graph, &vme2, param);
 
-                break;
-        case 0:
-                gf_log ("", GF_LOG_DEBUG, "%s option is disabled", xlator_name);
-                break;
-        default:
-                GF_ASSERT (!"Biohazard!");
-        }
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
-static int
-generate_perf_xlator_list (dict_t *dict, char *perf_xlator_list[])
-{
-        int i   = 0;
-        int ret = 0;
-
-        GF_ASSERT (dict);
-
-        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
-                                         "write-behind", &i);
-        if (ret == -1)
-                goto out;
-
-        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
-                                         "read-ahead", &i);
-        if (ret == -1)
-                goto out;
-
-        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
-                                         "io-cache", &i);
-        if (ret == -1)
-                goto out;
-
-        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
-                                         "quick-read", &i);
-        if (ret == -1)
-                goto out;
-
-        ret = add_perf_xlator_list_item (dict, perf_xlator_list,
-                                         "stat-prefetch", &i);
-        if (ret == -1)
-                goto out;
-
-out:
-        return ret;
-}
-
-static int
-destroy_perf_xlator_list (char *perf_xlator_list[])
-{
-        int i = 0;
-
-        while (perf_xlator_list[i]) {
-                GF_FREE (perf_xlator_list[i]);
-                i++;
+                GF_FREE (vme2.voltype);
+                if (ret)
+                        return -1;
         }
 
         return 0;
 }
 
 static int
-write_perf_xlators (glusterd_volinfo_t *volinfo, FILE *file,
-                    int32_t dist_count, int32_t replicate_count,
-                    int32_t stripe_count, char *last_xlator)
+basic_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
+                      void *param)
 {
-        char *perf_xlator_list[256]     = {0,};
-        char  subvol[2048]              = {0,};
-        int   i                         = 0;
-        int   last_idx                  = 0;
-        int  ret                        = 0;
-        char  *volname                  = NULL;
-        dict_t *dict                    = NULL;
+        xlator_t *trav;
+        int ret = 0;
 
-        dict    = volinfo->dict;
-        volname = volinfo->volname;
+        if (vme2->option[0] == '!')
+                return 0;
 
-        ret = generate_perf_xlator_list (
-                dict, perf_xlator_list);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not generate perf xlator list");
-                goto out;
+        for (trav = first_of (graph); trav; trav = trav->next) {
+                if (strcmp (trav->type, vme2->voltype) != 0)
+                        continue;
+
+                ret = xlator_set_option (trav, vme2->option, vme2->value);
+                if (ret)
+                        return -1;
         }
 
-        while (perf_xlator_list[i]) {
-                i++;
-        }
-
-        if (i == 0) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "No perf xlators enabled");
-                ret = 0;
-                goto out;
-        }
-
-        i = 0;
-
-        if (dist_count > 1) {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "dht");
-                ret = __write_perf_xlator (perf_xlator_list[i], file,
-                                           dict, subvol);
-                i++;
-        }
-        else if (replicate_count > 1) {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "replicate-0");
-                ret = __write_perf_xlator (perf_xlator_list[i], file,
-                                           dict, subvol);
-                i++;
-
-        }
-        else if (stripe_count > 1) {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "stripe-0");
-                ret = __write_perf_xlator (perf_xlator_list[i], file,
-                                           dict, subvol);
-                i++;
-
-        }
-        else {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, "client-0");
-                ret = __write_perf_xlator (perf_xlator_list[i], file,
-                                           dict, subvol);
-                i++;
-
-        }
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write xlator");
-                goto out;
-        }
-
-        while (perf_xlator_list[i]) {
-                VOLGEN_GENERATE_VOLNAME (subvol, volname, perf_xlator_list[i-1]);
-                ret = __write_perf_xlator (perf_xlator_list[i], file,
-                                           dict, subvol);
-                i++;
-
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not write xlator");
-                        goto out;
-                }
-        }
-
-        if (i >= 1) {
-                last_idx = i - 1;
-
-                if (perf_xlator_list[last_idx] && last_idx >= 0) {
-                        VOLGEN_GENERATE_VOLNAME (last_xlator, volname,
-                                                 perf_xlator_list[last_idx]);
-                        gf_log ("", GF_LOG_DEBUG,
-                                "last xlator copied to %s", last_xlator);
-                }
-        }
-
-
-out:
-        destroy_perf_xlator_list (perf_xlator_list);
-        return ret;
-
+        return 0;
 }
 
 static int
-generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
+volgen_graph_set_options (glusterfs_graph_t *graph, dict_t *dict)
 {
-        FILE    *file               = NULL;
-        dict_t  *dict               = NULL;
-        char    *volname            = NULL;
-        glusterd_brickinfo_t *brick = NULL;
-        char     last_xlator[1024]  = {0,};
-        char     subvol[2048]       = {0,};
-        int32_t  replicate_count    = 0;
-        int32_t  stripe_count       = 0;
-        int32_t  dist_count         = 0;
-        int32_t  num_bricks         = 0;
-        int      subvol_count       = 0;
-        int      count              = 0;
-        int      i                  = 0;
-        int      ret                = -1;
+        return volgen_graph_set_options_generic (graph, dict, NULL,
+                                                 &basic_option_handler);
+}
 
-        GF_ASSERT (filename);
+static int
+volgen_graph_merge_sub (glusterfs_graph_t *dgraph, glusterfs_graph_t *sgraph)
+{
+        xlator_t *trav = NULL;
+
+        GF_ASSERT (dgraph->first);
+
+        if (volgen_xlator_link (first_of (dgraph), first_of (sgraph)) == -1)
+                return -1;
+
+        for (trav = first_of (dgraph); trav->next; trav = trav->next);
+
+        trav->next = sgraph->first;
+        trav->next->prev = trav;
+        dgraph->xl_count += sgraph->xl_count;
+
+        return 0;
+}
+
+static int
+volgen_write_volfile (glusterfs_graph_t *graph, char *filename)
+{
+        char *ftmp = NULL;
+        FILE *f = NULL;
+
+        if (gf_asprintf (&ftmp, "%s.tmp", filename) == -1) {
+                ftmp = NULL;
+
+                goto error;
+        }
+
+        f = fopen (ftmp, "w");
+        if (!f)
+                goto error;
+
+        if (glusterfs_graph_print_file (f, graph) == -1)
+                goto error;
+
+        if (fclose (f) == -1)
+                goto error;
+
+        if (rename (ftmp, filename) == -1)
+                goto error;
+
+        GF_FREE (ftmp);
+
+        return 0;
+
+ error:
+
+        if (ftmp)
+                GF_FREE (ftmp);
+        if (f)
+                fclose (f);
+
+        gf_log ("", GF_LOG_ERROR, "failed to create volfile %s", filename);
+
+        return -1;
+}
+
+static void
+volgen_graph_free (glusterfs_graph_t *graph)
+{
+        xlator_t *trav = NULL;
+        xlator_t *trav_old = NULL;
+
+        for (trav = first_of (graph) ;; trav = trav->next) {
+                if (trav_old)
+                        xlator_destroy (trav_old);
+
+                trav_old = trav;
+
+                if (!trav)
+                        break;
+        }
+}
+
+static int
+build_graph_generic (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+                     dict_t *mod_dict, void *param,
+                     int (*builder) (glusterfs_graph_t *graph,
+                                     glusterd_volinfo_t *volinfo,
+                                     dict_t *set_dict, void *param))
+{
+        dict_t *set_dict = NULL;
+        int ret = 0;
+
+        if (mod_dict) {
+                set_dict = dict_copy (volinfo->dict, NULL);
+                if (!set_dict)
+                        return -1;
+                set_dict = dict_copy (mod_dict, set_dict);
+        } else
+                set_dict = volinfo->dict;
+
+        ret = builder (graph, volinfo, set_dict, param);
+        if (!ret)
+                ret = volgen_graph_set_options (graph, set_dict);
+
+        if (mod_dict)
+                dict_destroy (set_dict);
+
+        return ret;
+}
+
+static void
+get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
+{
+        volinfo->transport_type == GF_TRANSPORT_RDMA ?
+        strcpy (tt, "rdma"):
+        strcpy (tt, "tcp");
+}
+
+static int
+server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict, void *param)
+{
+        char     *volname = NULL;
+        char     *path = NULL;
+        int       pump = 0;
+        xlator_t *xl = NULL;
+        char     *aaa = NULL;
+        int       ret = 0;
+        char      transt[16] = {0,};
+
+        path = param;
+        volname = volinfo->volname;
+        get_vol_transport_type (volinfo, transt);
+
+        ret = volgen_graph_add (graph, "storage/posix", volname);
+        if (ret)
+                return -1;
+
+        ret = xlator_set_option (first_of (graph), "directory", path);
+        if (ret)
+                return -1;
+
+        ret = volgen_graph_add (graph, "features/access-control", volname);
+        if (ret)
+                return -1;
+
+        ret = volgen_graph_add (graph, "features/locks", volname);
+        if (ret)
+                return -1;
+
+        ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
+        if (ret == -ENOENT)
+                pump = 0;
+        if (pump) {
+                xl = first_of (graph);
+
+                ret = volgen_graph_add_as (graph, "protocol/client", "%s-%s",
+                                           volname, "replace-brick");
+                if (ret)
+                        return -1;
+                ret = xlator_set_option (first_of (graph), "transport-type",
+                                         transt);
+                if (ret)
+                        return -1;
+                ret = xlator_set_option (first_of (graph), "remote-port",
+                                         "34034");
+                if (ret)
+                        return -1;
+
+                ret = volgen_graph_add (graph, "cluster/pump", volname);
+                if (ret)
+                        return -1;
+
+                ret = volgen_xlator_link (first_of (graph), xl);
+                if (ret)
+                        return -1;
+        }
+
+        ret = volgen_graph_add (graph, "performance/io-threads", volname);
+        if (ret)
+                return -1;
+        ret = xlator_set_option (first_of (graph), "thread-count", "16");
+        if (ret)
+                return -1;
+
+        ret = volgen_graph_add_as (graph, "debug/io-stats", path);
+        if (ret)
+                return -1;
+
+        ret = volgen_graph_add (graph, "protocol/server", volname);
+        if (ret)
+                return -1;
+        xl = first_of (graph);
+        ret = xlator_set_option (xl, "transport-type", transt);
+        if (ret)
+                return -1;
+
+        ret = gf_asprintf (&aaa, "auth.addr.%s.allow", path);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_ERROR, "Out of memory");
+
+                return -1;
+        }
+        ret = xlator_set_option (xl, aaa, "*");
+        GF_FREE (aaa);
+
+        return ret;
+}
+
+
+/* builds a graph for server role , with option overrides in mod_dict */
+static int
+build_server_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+                    dict_t *mod_dict, char *path)
+{
+        return build_graph_generic (graph, volinfo, mod_dict, path,
+                                    &server_graph_builder);
+}
+
+static int
+perfxl_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
+                       void *param)
+{
+        char *volname = NULL;
+        gf_boolean_t enabled = _gf_false;
+        int ret = 0;
+
+        volname = param;
+
+        if (strcmp (vme2->option, "!perf") != 0)
+                return 0;
+
+        ret = gf_string2boolean (vme2->value, &enabled);
+        if (ret)
+                return -1;
+        if (!enabled)
+                return 0;
+
+        return volgen_graph_add (graph, vme2->voltype, volname);
+}
+
+static int
+client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+                      dict_t *set_dict, void *param)
+{
+        int                      replicate_count    = 0;
+        int                      stripe_count       = 0;
+        int                      dist_count         = 0;
+        int                      num_bricks         = 0;
+        char                     transt[16]         = {0,};
+        int                      cluster_count      = 0;
+        char                    *volname            = NULL;
+        dict_t                  *dict               = NULL;
+        glusterd_brickinfo_t    *brick = NULL;
+        char                    *replicate_args[]   = {"cluster/replicate",
+                                                       "%s-replicate-%d"};
+        char                    *stripe_args[]      = {"cluster/stripe",
+                                                       "%s-stripe-%d"};
+        char                   **cluster_args       = NULL;
+        int                      i                  = 0;
+        int                      j                  = 0;
+        int                      ret                = 0;
+        xlator_t                *xl                 = NULL;
+        xlator_t                *txl                = NULL;
+        xlator_t                *trav               = NULL;
 
         volname = volinfo->volname;
         dict    = volinfo->dict;
+        GF_ASSERT (dict);
+        get_vol_transport_type (volinfo, transt);
 
         list_for_each_entry (brick, &volinfo->bricks, brick_list)
                 num_bricks++;
@@ -2044,156 +688,184 @@ generate_client_volfile (glusterd_volinfo_t *volinfo, char *filename)
                 dist_count = num_bricks;
         }
 
-
-        file = fopen (filename, "w+");
-        if (!file) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not open file %s", filename);
-                ret = -1;
-                goto out;
-        }
-
-        /* Call functions in the same order
-           as you'd call if you were manually
-           writing a volfile top-down
-        */
-
-        count = 0;
-
-        list_for_each_entry (brick, &volinfo->bricks, brick_list) {
-
-                ret = __write_client_xlator (file, dict, brick->path,
-                                             brick->hostname, count,
-                                             last_xlator);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Could not write xlator");
-                        goto out;
-                }
-
-                count++;
-        }
-
         if (stripe_count && replicate_count) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Striped Replicate config not allowed");
-                ret = -1;
-                goto out;
+                return -1;
         }
-
         if (replicate_count > 1) {
-                subvol_count = 0;
-                for (i = 0; i < dist_count; i++) {
-
-                        VOLGEN_GENERATE_VOLNAME (subvol, volname, "client");
-
-                        ret = __write_replicate_xlator (file, dict, subvol,
-                                                        replicate_count,
-                                                        subvol_count,
-                                                        i,
-                                                        last_xlator);
-                        if (ret) {
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "Count not write xlator");
-                                goto out;
-                        }
-
-                        subvol_count += replicate_count;
-
-                }
+                cluster_count = replicate_count;
+                cluster_args = replicate_args;
+        }
+        if (stripe_count > 1) {
+                cluster_count = stripe_count;
+                cluster_args = stripe_args;
         }
 
-        if (stripe_count > 1) {
-                subvol_count = 0;
-                for (i = 0; i < dist_count; i++) {
+        i = 0;
+        list_for_each_entry (brick, &volinfo->bricks, brick_list) {
+                xl = xlator_instantiate ("protocol/client", "%s-client-%d", volname, i);
+                if (!xl)
+                        return -1;
+                glusterfs_graph_set_first (graph, xl);
 
-                        VOLGEN_GENERATE_VOLNAME (subvol, volname, "client");
+                ret = xlator_set_option (xl, "remote-host", brick->hostname);
+                if (ret)
+                        return -1;
+                ret = xlator_set_option (xl, "remote-subvolume", brick->path);
+                if (ret)
+                        return -1;
+                ret = xlator_set_option (xl, "transport-type", transt);
+                if (ret)
+                        return -1;
 
-                        ret = __write_stripe_xlator (file, dict, subvol,
-                                                     stripe_count,
-                                                     subvol_count,
-                                                     i,
-                                                     last_xlator);
-                        if (ret) {
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "Count not write xlator");
-                                goto out;
+                i++;
+        }
+
+        if (cluster_count > 1) {
+                j = 0;
+                i = 0;
+                txl = first_of (graph);
+                for (trav = txl; trav->next; trav = trav->next);
+                for (;; trav = trav->prev) {
+                        if (i % cluster_count == 0) {
+                                xl = xlator_instantiate (cluster_args[0],
+                                                         cluster_args[1],
+                                                         volname, j);
+                                if (!xl)
+                                        return -1;
+                                glusterfs_graph_set_first (graph, xl);
+                                j++;
                         }
 
-                        subvol_count += stripe_count;
-                }
+                        ret = volgen_xlator_link (xl, trav);
+                        if (ret)
+                                return -1;
 
+                        if (trav == txl)
+                                break;
+                        i++;
+                }
         }
 
         if (dist_count > 1) {
-                if (replicate_count) {
-                        VOLGEN_GENERATE_VOLNAME (subvol, volname,
-                                                 "replicate");
-                } else if (stripe_count) {
-                        VOLGEN_GENERATE_VOLNAME (subvol, volname,
-                                                 "stripe");
-                } else {
-                        VOLGEN_GENERATE_VOLNAME (subvol, volname,
-                                                 "client");
-                }
+                xl = xlator_instantiate ("cluster/distribute", "%s-dht",
+                                         volname);
+                if (!xl)
+                        return -1;
+                glusterfs_graph_set_first (graph, xl);
 
-
-                ret = __write_distribute_xlator (file,
-                                                 dict,
-                                                 subvol,
-                                                 dist_count,
-                                                 last_xlator);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Count not write xlator");
-                        goto out;
+                trav = first_of (graph);
+                for (i = 0; i < dist_count; i++)
+                        trav = trav->next;
+                for (; trav != xl; trav = trav->prev) {
+                        ret = volgen_xlator_link (xl, trav);
+                        if (ret)
+                                return -1;
                 }
         }
 
+        ret = volgen_graph_set_options_generic (graph, set_dict, volname,
+                                                &perfxl_option_handler);
+        if (ret)
+                return -1;
 
-        ret = write_perf_xlators (volinfo, file, dist_count,
-                                  replicate_count, stripe_count,
-                                  last_xlator);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write performance xlators");
-                goto out;
-        }
+        ret = volgen_graph_add_as (graph, "debug/io-stats", volname);
+        if (ret)
+                return -1;
 
-        ret = dict_set_str (dict, "iostat-volname", volname);
-        if (ret) {
-                goto out;
-        }
-
-        ret = __write_iostats_xlator (file,
-                                      dict,
-                                      last_xlator);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not write io-stats xlator");
-                goto out;
-        }
-
-out:
-        if (file)
-                fclose (file);
-        file = NULL;
-
-        return ret;
+        return 0;
 }
 
-static char *
-get_brick_filename (glusterd_volinfo_t *volinfo,
+
+/* builds a graph for client role , with option overrides in mod_dict */
+static int
+build_client_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
+                    dict_t *mod_dict)
+{
+        return build_graph_generic (graph, volinfo, mod_dict, NULL,
+                                    &client_graph_builder);
+}
+
+
+/* builds a graph for nfs server role */
+static int
+build_nfs_graph (glusterfs_graph_t *graph)
+{
+        glusterfs_graph_t   cgraph        = {{0,},};
+        glusterd_volinfo_t *voliter       = NULL;
+        xlator_t           *this          = NULL;
+        glusterd_conf_t    *priv          = NULL;
+        xlator_t           *nfsxl         = NULL;
+        char               *skey          = NULL;
+        char                volume_id[64] = {0,};
+        int                 ret           = 0;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        ret = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
+        nfsxl = first_of (graph);
+        ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
+        if (ret)
+                return -1;
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+
+                ret = gf_asprintf (&skey, "rpc-auth.addr.%s.allow",
+                                   voliter->volname);
+                if (ret == -1)
+                        goto oom;
+                ret = xlator_set_option (nfsxl, skey, "*");
+                GF_FREE (skey);
+                if (ret)
+                        return -1;
+
+                ret = gf_asprintf (&skey, "nfs3.%s.volume-id",
+                                   voliter->volname);
+                if (ret == -1)
+                        goto oom;
+                uuid_unparse (voliter->volume_id, volume_id);
+                ret = xlator_set_option (nfsxl, skey, volume_id);
+                GF_FREE (skey);
+                if (ret)
+                        return -1;
+
+                memset (&cgraph, 0, sizeof (cgraph));
+                ret = build_client_graph (&cgraph, voliter, NULL);
+                if (ret)
+                        return -1;
+                ret = volgen_graph_merge_sub (graph, &cgraph);
+        }
+
+        return ret;
+
+ oom:
+        gf_log ("", GF_LOG_ERROR, "Out of memory");
+
+        return -1;
+}
+
+
+
+
+/****************************
+ *
+ * Volume generation interface
+ *
+ ****************************/
+
+
+static void
+get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
                     glusterd_brickinfo_t *brickinfo)
 {
         char  path[PATH_MAX]   = {0,};
-        char *ret              = NULL;
         char  brick[PATH_MAX]  = {0,};
-        char *filename         = NULL;
-
-        filename = GF_CALLOC (1, PATH_MAX, gf_gld_mt_char);
-        if (!filename)
-                goto out;
 
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, brick);
         VOLGEN_GET_VOLUME_DIR (path, volinfo);
@@ -2202,53 +874,27 @@ get_brick_filename (glusterd_volinfo_t *volinfo,
                   path, volinfo->volname,
                   brickinfo->hostname,
                   brick);
-
-        ret = filename;
-out:
-        return ret;
 }
 
-char *
-glusterd_get_nfs_filepath ()
+static int
+glusterd_generate_brick_volfile (glusterd_volinfo_t *volinfo,
+                                 glusterd_brickinfo_t *brickinfo)
 {
-        char  path[PATH_MAX] = {0,};
-        char *ret            = NULL;
-        char *filepath       = NULL;
+        glusterfs_graph_t graph = {{0,},};
+        char    filename[PATH_MAX] = {0,};
+        int     ret = -1;
 
-        filepath = GF_CALLOC (1, PATH_MAX, gf_common_mt_char);
-        if (!filepath) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate nfs file path");
-                goto out;
-        }
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
 
-        VOLGEN_GET_NFS_DIR (path);
+        get_brick_filepath (filename, volinfo, brickinfo);
 
-        snprintf (filepath, PATH_MAX, "%s/nfs-server.vol", path);
+        ret = build_server_graph (&graph, volinfo, NULL, brickinfo->path);
+        if (!ret)
+                ret = volgen_write_volfile (&graph, filename);
 
-        ret = filepath;
-out:
-        return ret;
-}
+        volgen_graph_free (&graph);
 
-
-static char *
-get_client_filepath (glusterd_volinfo_t *volinfo)
-{
-        char  path[PATH_MAX] = {0,};
-        char *ret            = NULL;
-        char *filename       = NULL;
-
-        filename = GF_CALLOC (1, PATH_MAX, gf_gld_mt_char);
-        if (!filename)
-                goto out;
-
-        VOLGEN_GET_VOLUME_DIR (path, volinfo);
-
-        snprintf (filename, PATH_MAX, "%s/%s-fuse.vol",
-                  path, volinfo->volname);
-
-        ret = filename;
-out:
         return ret;
 }
 
@@ -2276,279 +922,47 @@ out:
         return ret;
 }
 
-static int
-glusterfsd_write_nfs_xlator (int fd, char *subvols, char *volume_ids)
+static void
+get_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
 {
-        char    *dup_subvols = NULL;
-        char    *subvols_remain = NULL;
-        char    *subvol      = NULL;
-        char    *str         = NULL;
-        char    *free_ptr    = NULL;
-        const char *nfs_str = "volume nfs-server\n"
-                              "type nfs/server\n";
+        char  path[PATH_MAX] = {0,};
 
-        if (fd <= 0)
-                return -1;
+        VOLGEN_GET_VOLUME_DIR (path, volinfo);
 
-        dup_subvols = gf_strdup (subvols);
-        if (!dup_subvols)
-                return -1;
-        else
-                free_ptr = dup_subvols;
-
-        write (fd, nfs_str, strlen(nfs_str));
-
-        subvol = strtok_r (dup_subvols, " \n", &subvols_remain);
-        while (subvol) {
-                str = "option rpc-auth.addr.";
-                write (fd, str, strlen (str));
-                write (fd, subvol, strlen (subvol));
-                str = ".allow *\n";
-                write (fd, str, strlen (str));
-                subvol = strtok_r (NULL, " \n", &subvols_remain);
-        }
-        str = "option nfs.dynamic-volumes on\n";
-        write (fd, str, strlen (str));
-
-        /* Write fsids */
-        write (fd, volume_ids, strlen (volume_ids));
-
-        str = "subvolumes ";
-        write (fd, str, strlen (str));
-        write (fd, subvols, strlen (subvols));
-        str = "\nend-volume\n";
-        write (fd, str, strlen (str));
-        GF_FREE (free_ptr);
-
-        return 0;
-}
-
-int
-volgen_generate_nfs_volfile (glusterd_volinfo_t *volinfo)
-{
-        char               *nfs_filepath             = NULL;
-        char               *fuse_filepath            = NULL;
-        int                 nfs_fd                   = -1;
-        int                 fuse_fd                  = -1;
-        int                 ret                      = -1;
-        char                nfs_orig_path[PATH_MAX]  = {0,};
-        char               *pad                      = NULL;
-        char               *nfs_subvols              = NULL;
-        char                fuse_subvols[2048]       = {0,};
-        int                 subvol_len               = 0;
-        char               *nfs_vol_id               = NULL;
-        char                nfs_vol_id_opt[512]      = {0,};
-        char                volume_id[64]            = {0,};
-        int                 nfs_volid_len            = 0;
-        glusterd_volinfo_t *voliter                  = NULL;
-        glusterd_conf_t    *priv                     = NULL;
-        xlator_t           *this                     = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-        if (!volinfo) {
-                gf_log ("", GF_LOG_ERROR, "Invalid Volume info");
-                goto out;
-        }
-
-        nfs_filepath = glusterd_get_nfs_filepath (volinfo);
-        if (!nfs_filepath)
-                goto out;
-
-        strncat (nfs_filepath, ".tmp", PATH_MAX);
-        nfs_fd = open (nfs_filepath, O_WRONLY|O_TRUNC|O_CREAT, 0666);
-        if (nfs_fd < 0) {
-                gf_log ("", GF_LOG_ERROR, "Could not open file: %s",
-                        nfs_filepath);
-                goto out;
-        }
-
-
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (voliter->status != GLUSTERD_STATUS_STARTED)
-                        continue;
-                else {
-                        subvol_len += (strlen (voliter->volname) + 1); // ' '
-                        // "option nfs3.<volume>.volume-id <uuid>\n"
-                        nfs_volid_len += (7 + 4 + 11 + 40 +
-                                          strlen (voliter->volname));
-                }
-        }
-
-        if (subvol_len == 0) {
-                gf_log ("", GF_LOG_ERROR, "No volumes started");
-                ret = -1;
-                goto out;
-        }
-        subvol_len++; //null character
-        nfs_subvols = GF_CALLOC (subvol_len, sizeof(*nfs_subvols),
-                                 gf_common_mt_char);
-        if (!nfs_subvols) {
-                gf_log ("", GF_LOG_ERROR, "Memory not available");
-                ret = -1;
-                goto out;
-        }
-
-        nfs_vol_id = GF_CALLOC (nfs_volid_len, sizeof (char),
-                                 gf_common_mt_char);
-        if (!nfs_vol_id) {
-                gf_log ("", GF_LOG_ERROR, "Memory not available");
-                ret = -1;
-                goto out;
-        }
-
-        voliter = NULL;
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                if (voliter->status != GLUSTERD_STATUS_STARTED)
-                        continue;
-
-                gf_log ("", GF_LOG_DEBUG,
-                        "adding fuse info of - %s", voliter->volname);
-
-                snprintf (fuse_subvols, sizeof(fuse_subvols), " %s", voliter->volname);
-                fuse_filepath = get_client_filepath (voliter);
-                if (!fuse_filepath) {
-                        ret = -1;
-                        goto out;
-                }
-
-                fuse_fd = open (fuse_filepath, O_RDONLY);
-                if (fuse_fd < 0) {
-                        gf_log ("", GF_LOG_ERROR, "Could not open file: %s",
-                                fuse_filepath);
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = glusterd_file_copy (nfs_fd, fuse_fd);
-                if (ret)
-                        goto out;
-                GF_FREE (fuse_filepath);
-                fuse_filepath = NULL;
-                close (fuse_fd);
-                fuse_fd = -1;
-                if (subvol_len > strlen (fuse_subvols)) {
-                        strncat (nfs_subvols, fuse_subvols, subvol_len - 1);
-                        subvol_len -= strlen (fuse_subvols);
-                } else {
-                        ret = -1;
-                        gf_log ("", GF_LOG_ERROR, "Too many subvolumes");
-                        goto out;
-                }
-                uuid_unparse (voliter->volume_id, volume_id);
-                snprintf (nfs_vol_id_opt, 512, "option nfs3.%s.volume-id %s\n",
-                          voliter->volname, volume_id);
-                strcat (nfs_vol_id, nfs_vol_id_opt);
-        }
-
-        ret = glusterfsd_write_nfs_xlator (nfs_fd, nfs_subvols, nfs_vol_id);
-        if (ret)
-                goto out;
-
-        strncpy (nfs_orig_path, nfs_filepath, PATH_MAX);
-        pad = strrchr (nfs_orig_path, '.');
-        if (!pad) {
-                gf_log ("", GF_LOG_ERROR, "Failed to find the pad in nfs pat");
-                ret = -1;
-                goto out;
-        }
-        *pad = '\0';
-        ret = rename (nfs_filepath, nfs_orig_path);
-out:
-        if (ret && nfs_filepath)
-                unlink (nfs_filepath);
-        if (fuse_filepath)
-                GF_FREE (fuse_filepath);
-        if (nfs_filepath)
-                GF_FREE (nfs_filepath);
-        if (nfs_vol_id)
-                GF_FREE (nfs_vol_id);
-        if (nfs_subvols)
-                GF_FREE (nfs_subvols);
-        if (fuse_fd > 0)
-                close (fuse_fd);
-        if (nfs_fd > 0)
-                close (nfs_fd);
-        return ret;
+        snprintf (filename, PATH_MAX, "%s/%s-fuse.vol",
+                  path, volinfo->volname);
 }
 
 static int
-generate_client_volfiles (glusterd_volinfo_t *volinfo)
+generate_client_volfile (glusterd_volinfo_t *volinfo)
 {
-        char                 *filename    = NULL;
-        int                   ret         = -1;
+        glusterfs_graph_t graph = {{0,},};
+        char    filename[PATH_MAX] = {0,};
+        int     ret = -1;
 
-        filename = get_client_filepath (volinfo);
-        if (!filename) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
+        get_client_filepath (filename, volinfo);
 
-        ret = generate_client_volfile (volinfo, filename);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not generate volfile for client");
-                goto out;
-        }
+        ret = build_client_graph (&graph, volinfo, NULL);
+        if (!ret)
+                ret = volgen_write_volfile (&graph, filename);
 
-out:
-        if (filename)
-                GF_FREE (filename);
+        volgen_graph_free (&graph);
 
         return ret;
 }
 
-static int
-glusterd_volgen_set_transport (glusterd_volinfo_t *volinfo)
-{
-        int ret = 0;
-
-        GF_ASSERT (volinfo->dict);
-
-        if(volinfo->transport_type == GF_TRANSPORT_RDMA) {
-                ret = set_xlator_option (volinfo->dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
-                                        "rdma");
-                ret = set_xlator_option (volinfo->dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
-                                        "rdma");
-        } else {
-                ret = set_xlator_option (volinfo->dict, VOLGEN_CLIENT_OPTION_TRANSTYPE,
-                                 "tcp");
-                ret = set_xlator_option (volinfo->dict, VOLGEN_SERVER_OPTION_TRANSTYPE,
-                                 "tcp");
-        }
-
-        return 0;
-}
-
 int
-glusterd_rb_create_volfiles (glusterd_volinfo_t *volinfo,
+glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                              glusterd_brickinfo_t *brickinfo)
 {
         int ret = -1;
 
-        glusterd_volgen_set_transport (volinfo);
-
         ret = glusterd_generate_brick_volfile (volinfo, brickinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not generate volfiles for bricks");
-                goto out;
-        }
+        if (!ret)
+                ret = generate_client_volfile (volinfo);
+        if (!ret)
+                ret = glusterd_fetchspec_notify (THIS);
 
-        ret = generate_client_volfiles (volinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not generate volfile for client");
-                goto out;
-        }
-
-        ret = glusterd_fetchspec_notify (THIS);
-
-out:
         return ret;
 }
 
@@ -2557,8 +971,6 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
 {
         int ret = -1;
 
-        glusterd_volgen_set_transport (volinfo);
-
         ret = generate_brick_volfiles (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
@@ -2566,7 +978,7 @@ glusterd_create_volfiles (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        ret = generate_client_volfiles (volinfo);
+        ret = generate_client_volfile (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR,
                         "Could not generate volfile for client");
@@ -2579,58 +991,43 @@ out:
         return ret;
 }
 
+void
+glusterd_get_nfs_filepath (char *filename)
+{
+        char  path[PATH_MAX] = {0,};
+
+        VOLGEN_GET_NFS_DIR (path);
+
+        snprintf (filename, PATH_MAX, "%s/nfs-server.vol", path);
+}
+
+int
+glusterd_create_nfs_volfile ()
+{
+        glusterfs_graph_t graph = {{0,},};
+        char    filename[PATH_MAX] = {0,};
+        int     ret = -1;
+
+        glusterd_get_nfs_filepath (filename);
+
+        ret = build_nfs_graph (&graph);
+        if (!ret)
+                ret = volgen_write_volfile (&graph, filename);
+
+        volgen_graph_free (&graph);
+
+        return ret;
+}
+
 int
 glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo)
 {
-        char                    *filename  = NULL;
+        char filename[PATH_MAX] = {0,};
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
 
-        filename = get_brick_filename (volinfo, brickinfo);
-
-        if (filename)
-                unlink (filename);
-
-        if (filename)
-                GF_FREE (filename);
-        return 0;
-}
-
-int
-glusterd_generate_brick_volfile (glusterd_volinfo_t  *volinfo,
-                                 glusterd_brickinfo_t *brickinfo)
-{
-        char    *filename  = NULL;
-        int     ret = -1;
-
-        GF_ASSERT (volinfo);
-        GF_ASSERT (brickinfo);
-
-        filename = get_brick_filename (volinfo, brickinfo);
-
-        if (!filename) {
-                gf_log ("", GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
-
-        ret = generate_server_volfile (brickinfo, volinfo->dict,
-                                       filename);
-        if (ret) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Could not generate volfile for brick %s:%s",
-                        brickinfo->hostname, brickinfo->path);
-                goto out;
-        }
-
-        ret = 0;
-
-out:
-        if (filename)
-                GF_FREE (filename);
-
-        return ret;
+        get_brick_filepath (filename, volinfo, brickinfo);
+        return unlink (filename);
 }

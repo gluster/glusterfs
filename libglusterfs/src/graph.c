@@ -124,12 +124,54 @@ _log_if_option_is_invalid (xlator_t *xl, data_pair_t *pair)
 
 
 int
+glusterfs_xlator_link (xlator_t *pxl, xlator_t *cxl)
+{
+        xlator_list_t   *xlchild = NULL;
+        xlator_list_t   *xlparent = NULL;
+        xlator_list_t  **tmp = NULL;
+
+        xlparent = (void *) GF_CALLOC (1, sizeof (*xlparent),
+                                       gf_common_mt_xlator_list_t);
+        if (!xlparent)
+                return -1;
+
+        xlchild = (void *) GF_CALLOC (1, sizeof (*xlchild),
+                                      gf_common_mt_xlator_list_t);
+        if (!xlchild) {
+                GF_FREE (xlparent);
+
+                return -1;
+        }
+
+        xlparent->xlator = pxl;
+        for (tmp = &cxl->parents; *tmp; tmp = &(*tmp)->next);
+        *tmp = xlparent;
+
+        xlchild->xlator = cxl;
+        for (tmp = &pxl->children; *tmp; tmp = &(*tmp)->next);
+        *tmp = xlchild;
+
+        return 0;
+}
+
+
+void
+glusterfs_graph_set_first (glusterfs_graph_t *graph, xlator_t *xl)
+{
+        xl->next = graph->first;
+        if (graph->first)
+                ((xlator_t *)graph->first)->prev = xl;
+        graph->first = xl;
+
+        graph->xl_count++;
+}
+
+
+int
 glusterfs_graph_insert (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
                         const char *type, const char *name)
 {
         xlator_t        *ixl = NULL;
-        xlator_list_t   *xlchild = NULL;
-        xlator_list_t   *xlparent = NULL;
 
         if (!ctx->master) {
                 gf_log ("glusterfs", GF_LOG_ERROR,
@@ -160,31 +202,10 @@ glusterfs_graph_insert (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
                 return -1;
         }
 
-
-        /* children */
-        xlchild = GF_CALLOC (sizeof (*xlchild), 1, gf_common_mt_xlator_list_t);
-        if (!xlchild)
+        if (glusterfs_xlator_link (ixl, graph->top) == -1)
                 goto err;
-        xlchild->xlator = graph->top;
-        ixl->children = xlchild; xlchild = NULL;
-
-
-        /* parent */
-        xlparent = GF_CALLOC (sizeof (*xlparent), 1,
-                              gf_common_mt_xlator_list_t);
-        if (!xlparent)
-                goto err;
-        xlparent->xlator = ixl;
-
-        ixl->next = graph->first;
-        graph->first = ixl;
-
-        xlparent->next = ((xlator_t *)graph->top)->parents;
-        ((xlator_t *)graph->top)->parents = xlparent;
-
+        glusterfs_graph_set_first (graph, ixl);
         graph->top = ixl;
-
-        graph->xl_count++;
 
         return 0;
 err:

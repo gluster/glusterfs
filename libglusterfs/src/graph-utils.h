@@ -26,4 +26,6 @@ glusterfs_graph_print_file (FILE *file, glusterfs_graph_t *graph);
 char *
 glusterfs_graph_print_buf (glusterfs_graph_t *graph);
 
+int glusterfs_xlator_link (xlator_t *pxl, xlator_t *cxl);
+void glusterfs_graph_set_first (glusterfs_graph_t *graph, xlator_t *xl);
 #endif
