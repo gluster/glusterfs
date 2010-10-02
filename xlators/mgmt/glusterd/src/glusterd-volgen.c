@@ -188,6 +188,7 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
         return NULL;
 }
 
+#ifdef __not_used_as_of_now_
 static xlator_t *
 xlator_instantiate (const char *type, const char *format, ...)
 {
@@ -200,6 +201,7 @@ xlator_instantiate (const char *type, const char *format, ...)
 
         return xl;
 }
+#endif
 
 static int
 volgen_xlator_link (xlator_t *pxl, xlator_t *cxl)
@@ -217,7 +219,7 @@ volgen_xlator_link (xlator_t *pxl, xlator_t *cxl)
 }
 
 static int
-volgen_graph_insert (glusterfs_graph_t *graph, xlator_t *xl)
+volgen_graph_link (glusterfs_graph_t *graph, xlator_t *xl)
 {
         int ret = 0;
 
@@ -231,29 +233,53 @@ volgen_graph_insert (glusterfs_graph_t *graph, xlator_t *xl)
                 return -1;
         }
 
-        glusterfs_graph_set_first (graph, xl);
-
         return 0;
 }
 
-static int
+static xlator_t *
 volgen_graph_add_as (glusterfs_graph_t *graph, const char *type,
                      const char *format, ...)
 {
         va_list arg;
-        xlator_t *xl;
+        xlator_t *xl = NULL;
 
         va_start (arg, format);
         xl = xlator_instantiate_va (type, format, arg);
         va_end (arg);
 
         if (!xl)
-                return -1;
+                return NULL;
 
-        return volgen_graph_insert(graph, xl);
+        if (volgen_graph_link (graph, xl)) {
+                xlator_destroy (xl);
+
+                return NULL;
+        } else
+                glusterfs_graph_set_first (graph, xl);
+
+        return xl;
 }
 
-static int
+static xlator_t *
+volgen_graph_add_nolink (glusterfs_graph_t *graph, const char *type,
+                         const char *format, ...)
+{
+        va_list arg;
+        xlator_t *xl = NULL;
+
+        va_start (arg, format);
+        xl = xlator_instantiate_va (type, format, arg);
+        va_end (arg);
+
+        if (!xl)
+                return NULL;
+
+        glusterfs_graph_set_first (graph, xl);
+
+        return xl;
+}
+
+static xlator_t *
 volgen_graph_add (glusterfs_graph_t *graph, char *type, char *volname)
 {
         char *shorttype = NULL;
@@ -475,7 +501,8 @@ build_graph_generic (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 set_dict = dict_copy (volinfo->dict, NULL);
                 if (!set_dict)
                         return -1;
-                set_dict = dict_copy (mod_dict, set_dict);
+                dict_copy (mod_dict, set_dict);
+                /* XXX dict_copy swallows errors */
         } else
                 set_dict = volinfo->dict;
 
@@ -505,6 +532,7 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         char     *path = NULL;
         int       pump = 0;
         xlator_t *xl = NULL;
+        xlator_t *txl = NULL;
         char     *aaa = NULL;
         int       ret = 0;
         char      transt[16] = {0,};
@@ -513,65 +541,62 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         volname = volinfo->volname;
         get_vol_transport_type (volinfo, transt);
 
-        ret = volgen_graph_add (graph, "storage/posix", volname);
+        xl = volgen_graph_add (graph, "storage/posix", volname);
+        if (!xl)
+                return -1;
+
+        ret = xlator_set_option (xl, "directory", path);
         if (ret)
                 return -1;
 
-        ret = xlator_set_option (first_of (graph), "directory", path);
-        if (ret)
+        xl = volgen_graph_add (graph, "features/access-control", volname);
+        if (!xl)
                 return -1;
 
-        ret = volgen_graph_add (graph, "features/access-control", volname);
-        if (ret)
-                return -1;
-
-        ret = volgen_graph_add (graph, "features/locks", volname);
-        if (ret)
+        xl = volgen_graph_add (graph, "features/locks", volname);
+        if (!xl)
                 return -1;
 
         ret = dict_get_int32 (volinfo->dict, "enable-pump", &pump);
         if (ret == -ENOENT)
                 pump = 0;
         if (pump) {
-                xl = first_of (graph);
+                txl = first_of (graph);
 
-                ret = volgen_graph_add_as (graph, "protocol/client", "%s-%s",
-                                           volname, "replace-brick");
+                xl = volgen_graph_add_as (graph, "protocol/client", "%s-%s",
+                                          volname, "replace-brick");
+                if (!xl)
+                        return -1;
+                ret = xlator_set_option (xl, "transport-type", transt);
                 if (ret)
                         return -1;
-                ret = xlator_set_option (first_of (graph), "transport-type",
-                                         transt);
-                if (ret)
-                        return -1;
-                ret = xlator_set_option (first_of (graph), "remote-port",
-                                         "34034");
+                ret = xlator_set_option (xl, "remote-port", "34034");
                 if (ret)
                         return -1;
 
-                ret = volgen_graph_add (graph, "cluster/pump", volname);
-                if (ret)
+                xl = volgen_graph_add (graph, "cluster/pump", volname);
+                if (!xl)
                         return -1;
 
-                ret = volgen_xlator_link (first_of (graph), xl);
+                ret = volgen_xlator_link (xl, txl);
                 if (ret)
                         return -1;
         }
 
-        ret = volgen_graph_add (graph, "performance/io-threads", volname);
-        if (ret)
+        xl = volgen_graph_add (graph, "performance/io-threads", volname);
+        if (!xl)
                 return -1;
-        ret = xlator_set_option (first_of (graph), "thread-count", "16");
-        if (ret)
-                return -1;
-
-        ret = volgen_graph_add_as (graph, "debug/io-stats", path);
+        ret = xlator_set_option (xl, "thread-count", "16");
         if (ret)
                 return -1;
 
-        ret = volgen_graph_add (graph, "protocol/server", volname);
-        if (ret)
+        xl = volgen_graph_add_as (graph, "debug/io-stats", path);
+        if (!xl)
                 return -1;
-        xl = first_of (graph);
+
+        xl = volgen_graph_add (graph, "protocol/server", volname);
+        if (!xl)
+                return -1;
         ret = xlator_set_option (xl, "transport-type", transt);
         if (ret)
                 return -1;
@@ -604,20 +629,21 @@ perfxl_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
 {
         char *volname = NULL;
         gf_boolean_t enabled = _gf_false;
-        int ret = 0;
 
         volname = param;
 
         if (strcmp (vme2->option, "!perf") != 0)
                 return 0;
 
-        ret = gf_string2boolean (vme2->value, &enabled);
-        if (ret)
+        if (gf_string2boolean (vme2->value, &enabled) == -1)
                 return -1;
         if (!enabled)
                 return 0;
 
-        return volgen_graph_add (graph, vme2->voltype, volname);
+        if (volgen_graph_add (graph, vme2->voltype, volname))
+                return 0;
+        else
+                return -1;
 }
 
 static int
@@ -704,11 +730,10 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 
         i = 0;
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
-                xl = xlator_instantiate ("protocol/client", "%s-client-%d", volname, i);
+                xl = volgen_graph_add_nolink (graph, "protocol/client",
+                                              "%s-client-%d", volname, i);
                 if (!xl)
                         return -1;
-                glusterfs_graph_set_first (graph, xl);
-
                 ret = xlator_set_option (xl, "remote-host", brick->hostname);
                 if (ret)
                         return -1;
@@ -729,12 +754,12 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 for (trav = txl; trav->next; trav = trav->next);
                 for (;; trav = trav->prev) {
                         if (i % cluster_count == 0) {
-                                xl = xlator_instantiate (cluster_args[0],
-                                                         cluster_args[1],
-                                                         volname, j);
+                                xl = volgen_graph_add_nolink (graph,
+                                                              cluster_args[0],
+                                                              cluster_args[1],
+                                                              volname, j);
                                 if (!xl)
                                         return -1;
-                                glusterfs_graph_set_first (graph, xl);
                                 j++;
                         }
 
@@ -749,13 +774,12 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
 
         if (dist_count > 1) {
-                xl = xlator_instantiate ("cluster/distribute", "%s-dht",
-                                         volname);
+                xl = volgen_graph_add_nolink (graph, "cluster/distribute",
+                                              "%s-dht", volname);
                 if (!xl)
                         return -1;
-                glusterfs_graph_set_first (graph, xl);
 
-                trav = first_of (graph);
+                trav = xl;
                 for (i = 0; i < dist_count; i++)
                         trav = trav->next;
                 for (; trav != xl; trav = trav->prev) {
@@ -770,8 +794,8 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
-        ret = volgen_graph_add_as (graph, "debug/io-stats", volname);
-        if (ret)
+        xl = volgen_graph_add_as (graph, "debug/io-stats", volname);
+        if (!xl)
                 return -1;
 
         return 0;
@@ -806,8 +830,9 @@ build_nfs_graph (glusterfs_graph_t *graph)
         priv = this->private;
         GF_ASSERT (priv);
 
-        ret = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
-        nfsxl = first_of (graph);
+        nfsxl = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
+        if (!nfsxl)
+                return -1;
         ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
         if (ret)
                 return -1;
