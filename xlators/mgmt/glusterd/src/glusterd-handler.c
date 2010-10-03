@@ -47,6 +47,7 @@
 #include "cli1.h"
 #include "rpc-clnt.h"
 #include "glusterd1-xdr.h"
+#include "glusterd-volgen.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -1319,6 +1320,50 @@ out:
                 dict_unref (dict);
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
+        return ret;
+}
+
+
+
+
+int
+glusterd_handle_reset_volume (rpcsvc_request_t *req)
+{
+        int32_t                           ret = -1;
+        gf1_cli_reset_vol_req           cli_req = {0,};
+        dict_t                          *dict = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_set_vol_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                                "unserialize req-buffer to dictionary");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+                }
+        }
+
+        ret = glusterd_reset_volume (req, dict);
+
+out:
+                if (cli_req.volname)
+                free (cli_req.volname);//malloced by xdr
+
         return ret;
 }
 
@@ -2756,13 +2801,106 @@ glusterd_replace_brick (rpcsvc_request_t *req, dict_t *dict)
         return ret;
 }
 
+static void
+_print (dict_t *unused, char *key, data_t *value, void *newdict)
+{
+        gf_log ("", GF_LOG_DEBUG, "key=%s, value=%s", key, value->data);
+}
+
+int
+glusterd_set_volume_history (rpcsvc_request_t *req,dict_t *dict)
+{
+//         dict_t                 *reply_dict = NULL;
+        glusterd_volinfo_t     *volinfo    = NULL;
+        gf1_cli_set_vol_rsp     rsp        = {0, };
+        int                     ret        = -1;
+        char                   *volname    = NULL;
+        
+        gf_log ("", GF_LOG_DEBUG, "'volume set history' command");
+        
+        ret = dict_get_str (dict, "volname", &volname);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+        
+
+        
+        dict_foreach (volinfo->dict, _print, volinfo->dict);
+        
+        ret = dict_allocate_and_serialize (volinfo->dict, &rsp.dict.dict_val,
+                                           (size_t *)&rsp.dict.dict_len);
+ 
+
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG, "FAILED: allocatea n serialize dict");
+                goto out;
+        }
+
+        if (!ret)
+                rsp.op_ret = 1;
+        else
+                rsp.op_ret = ret;
+        if (!rsp.volname) 
+                rsp.volname = "";
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     gf_xdr_serialize_cli_set_vol_rsp);
+
+out:
+                gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_reset_volume (rpcsvc_request_t *req, dict_t *dict)
+{
+        int ret = -1;
+
+        
+        glusterd_op_set_op (GD_OP_RESET_VOLUME);
+
+        glusterd_op_set_ctx (GD_OP_RESET_VOLUME, dict);
+
+        glusterd_op_set_ctx_free (GD_OP_RESET_VOLUME, _gf_true);
+
+        glusterd_op_set_cli_op (GD_MGMT_CLI_RESET_VOLUME);
+
+        glusterd_op_set_req (req);
+
+        ret = glusterd_op_txn_begin ();
+        
+        return ret;
+}
+
+
+
 int32_t
 glusterd_set_volume (rpcsvc_request_t *req, dict_t *dict)
 {
-        int32_t      ret       = -1;
+        int32_t      ret        = -1;
+        int32_t      dict_count = 0;
 
         GF_ASSERT (req);
         GF_ASSERT (dict);
+        
+        ret = dict_get_int32 (dict, "count", &dict_count);
+        if (ret)
+               goto out;
+        
+        if (dict_count == 1) {
+                if (dict_get (dict, "history")) {
+                        ret = glusterd_set_volume_history(req, dict);
+                        goto out;
+                }
+        }
 
         glusterd_op_set_op (GD_OP_SET_VOLUME);
 
@@ -2775,6 +2913,8 @@ glusterd_set_volume (rpcsvc_request_t *req, dict_t *dict)
 	glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
+
+out:
 
         return ret;
 }
@@ -2812,6 +2952,7 @@ glusterd_log_filename (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
+
 
         return ret;
 }

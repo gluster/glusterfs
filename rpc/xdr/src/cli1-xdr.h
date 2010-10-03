@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+  Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
   This file is part of GlusterFS.
 
   GlusterFS is free software; you can redistribute it and/or modify
@@ -282,6 +282,23 @@ struct gf1_cli_replace_brick_rsp {
 };
 typedef struct gf1_cli_replace_brick_rsp gf1_cli_replace_brick_rsp;
 
+struct gf1_cli_reset_vol_req {
+	char *volname;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
+};
+typedef struct gf1_cli_reset_vol_req gf1_cli_reset_vol_req;
+
+struct gf1_cli_reset_vol_rsp {
+	int op_ret;
+	int op_errno;
+	char *volname;
+	char *op_errstr;
+};
+typedef struct gf1_cli_reset_vol_rsp gf1_cli_reset_vol_rsp;
+
 struct gf1_cli_set_vol_req {
 	char *volname;
 	struct {
@@ -295,6 +312,10 @@ struct gf1_cli_set_vol_rsp {
 	int op_ret;
 	int op_errno;
 	char *volname;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
 };
 typedef struct gf1_cli_set_vol_rsp gf1_cli_set_vol_rsp;
 
@@ -387,6 +408,8 @@ extern  bool_t xdr_gf1_cli_remove_brick_req (XDR *, gf1_cli_remove_brick_req*);
 extern  bool_t xdr_gf1_cli_remove_brick_rsp (XDR *, gf1_cli_remove_brick_rsp*);
 extern  bool_t xdr_gf1_cli_replace_brick_req (XDR *, gf1_cli_replace_brick_req*);
 extern  bool_t xdr_gf1_cli_replace_brick_rsp (XDR *, gf1_cli_replace_brick_rsp*);
+extern  bool_t xdr_gf1_cli_reset_vol_req (XDR *, gf1_cli_reset_vol_req*);
+extern  bool_t xdr_gf1_cli_reset_vol_rsp (XDR *, gf1_cli_reset_vol_rsp*);
 extern  bool_t xdr_gf1_cli_set_vol_req (XDR *, gf1_cli_set_vol_req*);
 extern  bool_t xdr_gf1_cli_set_vol_rsp (XDR *, gf1_cli_set_vol_rsp*);
 extern  bool_t xdr_gf1_cli_log_filename_req (XDR *, gf1_cli_log_filename_req*);
@@ -431,6 +454,8 @@ extern bool_t xdr_gf1_cli_remove_brick_req ();
 extern bool_t xdr_gf1_cli_remove_brick_rsp ();
 extern bool_t xdr_gf1_cli_replace_brick_req ();
 extern bool_t xdr_gf1_cli_replace_brick_rsp ();
+extern bool_t xdr_gf1_cli_reset_vol_req ();
+extern bool_t xdr_gf1_cli_reset_vol_rsp ();
 extern bool_t xdr_gf1_cli_set_vol_req ();
 extern bool_t xdr_gf1_cli_set_vol_rsp ();
 extern bool_t xdr_gf1_cli_log_filename_req ();

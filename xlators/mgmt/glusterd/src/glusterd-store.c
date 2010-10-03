@@ -20,6 +20,8 @@
 #define _CONFIG_H
 #include "config.h"
 #endif
+
+#include "glusterd-op-sm.h"
 #include <inttypes.h>
 
 
@@ -970,6 +972,7 @@ glusterd_store_retrieve_volume (char    *volname)
         char                    volpath[PATH_MAX] = {0,};
         glusterd_conf_t         *priv = NULL;
         char                    path[PATH_MAX] = {0,};
+        gf_boolean_t            exists = _gf_false;
 
         ret = glusterd_volinfo_new (&volinfo);
 
@@ -1025,7 +1028,21 @@ glusterd_store_retrieve_volume (char    *volname)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
                 } else {
-                        gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
+                        exists = glusterd_check_option_exists (key);
+                        if (exists) {
+                                ret = dict_set_str(volinfo->dict, key, 
+                                                     gf_strdup (value));
+                                if (ret) {
+                                        gf_log ("",GF_LOG_ERROR, "Error in "
+                                                        "dict_set_str");
+                                        goto out;
+                                }
+                                gf_log ("", GF_LOG_DEBUG, "Parsed as Volume-"
+                                                "set:key=%s,value:%s", 
+                                                                key, value);
+                        }
+                        else
+                                gf_log ("", GF_LOG_DEBUG, "Unknown key: %s",
                                         key);
                 }
 
@@ -1104,6 +1121,39 @@ out:
         return ret;
 }
 
+void _setopts(dict_t *this, char *key, data_t *value, void *data)
+{
+        int                      ret = 0;
+        glusterd_store_handle_t *shandle = NULL;
+        gf_boolean_t             exists = _gf_false;
+        
+
+        shandle = (glusterd_store_handle_t *) data;
+
+        GF_ASSERT (shandle);
+        if (!key)
+                return;
+        if (!value || !value->data)
+                return;
+
+        exists = glusterd_check_option_exists (key);
+        if (exists)
+                gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
+                        key, value->data);
+        else {
+                gf_log ("", GF_LOG_DEBUG, "Discarding:key= %s, val=%s",
+                        key, value->data);
+                return;
+        }
+        
+        ret = glusterd_store_save_value (shandle, key, value->data);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to write into store"
+                                " handle for path: %s", shandle->path);
+                return;
+        }
+}
+
 int32_t
 glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
 {
@@ -1171,6 +1221,8 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
                         goto out;
                 brick_count++;
         }
+        
+        dict_foreach (volinfo->dict, _setopts, volinfo->shandle);
 
         ret = 0;
 

@@ -72,6 +72,12 @@ cli_cmd_volume_info_usage ()
 }
 
 void
+cli_cmd_volume_reset_usage ()
+{
+        cli_out ("Usage: volume reset <VOLNAME> ");
+}
+
+void
 cli_cmd_volume_set_usage ()
 {
 	cli_out ("Usage: volume set <VOLNAME> <KEY> <VALUE>");
@@ -481,6 +487,41 @@ out:
         return 0;
 }
 
+int
+cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word, 
+                          const char **words, int wordcount)
+{
+
+        int                     ret = -1;
+        rpc_clnt_procedure_t    *proc = NULL;
+        call_frame_t            *frame = NULL;
+        dict_t                  *options = NULL;
+
+        proc = &cli_rpc_prog->proctable[GF1_CLI_RESET_VOLUME];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        ret = cli_cmd_volume_reset_parse (words, wordcount, &options);
+
+        if (ret) {
+                cli_cmd_volume_reset_usage ();
+                goto out;
+        }
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+                if (options)
+                dict_unref (options);
+
+        return ret;
+
+}
+
 
 int
 cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
@@ -886,6 +927,10 @@ struct cli_cmd volume_cmds[] = {
         { "volume sync <HOSTNAME> [all|<VOLNAME>]",
           cli_cmd_sync_volume_cbk,
          "sync the volume information from a peer"},
+         
+         { "volume reset <VOLNAME> ",
+         cli_cmd_volume_reset_cbk,
+         "reset all the reconfigured options"}, 
 
         { NULL, NULL, NULL }
 };

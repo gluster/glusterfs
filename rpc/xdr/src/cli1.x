@@ -194,6 +194,20 @@ struct gf1_cli_get_vol_rsp {
         string  status<>;
 }  ;
 
+struct gf1_cli_reset_vol_req {
+        string volname<>;
+        opaque dict<>;
+} ;
+
+
+ struct gf1_cli_reset_vol_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+	string  op_errstr<>;
+}  ;
+
+
 
 struct gf1_cli_set_vol_req {
         string volname<>;
@@ -205,6 +219,7 @@ struct gf1_cli_set_vol_req {
         int     op_ret;
         int     op_errno;
         string  volname<>;
+        opaque  dict<>;
 }  ;
 
 struct gf1_cli_log_filename_req {
