@@ -117,6 +117,13 @@ typedef enum glusterd_friend_sm_event_type_ {
 } glusterd_friend_sm_event_type_t;
 
 
+typedef enum glusterd_friend_update_op_ {
+        GD_FRIEND_UPDATE_NONE = 0,
+        GD_FRIEND_UPDATE_ADD,
+        GD_FRIEND_UPDATE_DEL,
+} glusterd_friend_update_op_t;
+
+
 struct glusterd_friend_sm_event_ {
         struct list_head        list;
         glusterd_peerinfo_t     *peerinfo;
@@ -141,7 +148,11 @@ typedef struct glusterd_friend_req_ctx_ {
         dict_t                  *vols;
 } glusterd_friend_req_ctx_t;
 
-typedef glusterd_friend_req_ctx_t glusterd_friend_update_ctx_t;
+typedef struct glusterd_friend_update_ctx_ {
+        uuid_t                  uuid;
+        char                    *hostname;
+        int                     op;
+} glusterd_friend_update_ctx_t;
 
 typedef struct glusterd_probe_ctx_ {
         char                    *hostname;
@@ -165,6 +176,10 @@ glusterd_destroy_probe_ctx (glusterd_probe_ctx_t *ctx);
 
 void
 glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx);
+
 char*
 glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state);
+
+int
+glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid);
 #endif
