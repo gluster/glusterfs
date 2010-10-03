@@ -89,8 +89,58 @@ glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx)
         GF_FREE (ctx);
 }
 
-#define glusterd_destroy_friend_update_ctx(ctx)\
-        glusterd_destroy_friend_req_ctx(ctx)
+void
+glusterd_destroy_friend_update_ctx (glusterd_friend_update_ctx_t *ctx)
+{
+        if (!ctx)
+                return;
+        if (ctx->hostname)
+                GF_FREE (ctx->hostname);
+        GF_FREE (ctx);
+}
+
+int
+glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
+{
+        int                             ret = 0;
+        rpc_clnt_procedure_t            *proc = NULL;
+        call_frame_t                    *frame = NULL;
+        glusterd_conf_t                 *conf = NULL;
+        xlator_t                        *this = NULL;
+        glusterd_friend_update_ctx_t    *ctx = NULL;
+
+        this = THIS;
+        conf = this->private;
+
+        GF_ASSERT (conf);
+        GF_ASSERT (conf->mgmt);
+
+        ctx = GF_CALLOC (1, sizeof (*ctx),
+                         gf_gld_mt_friend_update_ctx_t);
+
+        if (!ctx) {
+                ret = -1;
+                goto out;
+        }
+
+        ctx->hostname = gf_strdup (hostname);
+        ctx->op = GD_FRIEND_UPDATE_DEL;
+        proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
+        if (proc->fn) {
+                frame = create_frame (this, this->ctx->pool);
+                if (!frame) {
+                        goto out;
+                }
+                frame->local = ctx;
+                ret = proc->fn (frame, this, ctx);
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+        return ret;
+}
+
 
 static int
 glusterd_ac_none (glusterd_friend_sm_event_t *event, void *ctx)
@@ -305,7 +355,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         call_frame_t            *frame = NULL;
         glusterd_conf_t         *conf = NULL;
         xlator_t                *this = NULL;
-
+        glusterd_friend_update_ctx_t    *ev_ctx = NULL;
 
         GF_ASSERT (event);
         peerinfo = event->peerinfo;
@@ -315,6 +365,9 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 
         GF_ASSERT (conf);
         GF_ASSERT (conf->mgmt);
+        ev_ctx = ctx;
+
+        ev_ctx->op = GD_FRIEND_UPDATE_ADD;
 
         proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
         if (proc->fn) {
@@ -323,7 +376,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                         goto out;
                 }
                 frame->local = ctx;
-                ret = proc->fn (frame, this, event);
+                ret = proc->fn (frame, this, ctx);
         }
 
 out:
@@ -376,7 +429,6 @@ glusterd_ac_friend_remove (glusterd_friend_sm_event_t *event, void *ctx)
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Cleanup returned: %d", ret);
         }
-
 
         return 0;
 }
@@ -444,6 +496,7 @@ glusterd_ac_handle_friend_add_req (glusterd_friend_sm_event_t *event, void *ctx)
 
         uuid_copy (new_ev_ctx->uuid, ev_ctx->uuid);
         new_ev_ctx->hostname = gf_strdup (ev_ctx->hostname);
+        new_ev_ctx->op = GD_FRIEND_UPDATE_ADD;
 
         new_event->ctx = new_ev_ctx;
 

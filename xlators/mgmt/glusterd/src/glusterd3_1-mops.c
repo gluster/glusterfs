@@ -327,8 +327,10 @@ respond:
                 glusterd_op_sm ();
         }
 
-        if (ctx)
+        if (ctx) {
+                glusterd_broadcast_friend_delete (ctx->hostname, NULL);
                 glusterd_destroy_probe_ctx (ctx);
+        }
 
         if (rsp.hostname)
                 free (rsp.hostname);//malloced by xdr
@@ -342,7 +344,7 @@ glusterd3_1_friend_update_cbk (struct rpc_req *req, struct iovec *iov,
 {
         gd1_mgmt_cluster_lock_rsp     rsp   = {{0},};
         int                           ret   = -1;
-        int32_t                       op_ret = -1;
+        int32_t                       op_ret = 0;
         char                          str[50] = {0,};
 
         GF_ASSERT (req);
@@ -372,6 +374,7 @@ out:
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }
+
 int32_t
 glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                               int count, void *myframe)
@@ -875,8 +878,7 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
                                                GD_MGMT_FRIEND_REMOVE,
                                                NULL, gd_xdr_from_mgmt_friend_req,
                                                this, glusterd3_1_friend_remove_cbk);
-        }
-        if (ret) {
+        } else {
                 event_type = GD_FRIEND_EVENT_REMOVE_FRIEND;
 
                 ret = glusterd_friend_sm_new_event (event_type, &new_event);
@@ -888,13 +890,17 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
                         gf_log ("glusterd", GF_LOG_ERROR,
                                  "Unable to get event");
                 }
+
                 if (ctx)
                         ret = glusterd_xfer_cli_deprobe_resp (ctx->req, ret, 0,
                                                               ctx->hostname);
                 glusterd_friend_sm ();
                 glusterd_op_sm ();
-                if (ctx)
+
+                if (ctx) {
+                        glusterd_broadcast_friend_delete (ctx->hostname, NULL);
                         glusterd_destroy_probe_ctx (ctx);
+                }
         }
 
 out:
@@ -911,7 +917,6 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         int                             ret = 0;
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_conf_t                 *priv = NULL;
-        glusterd_friend_sm_event_t      *event = NULL;
         glusterd_friend_update_ctx_t     *ctx = NULL;
         dict_t                          *friends = NULL;
         char                            key[100] = {0,};
@@ -928,36 +933,47 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        ctx = data;
         friends = dict_new ();
         if (!friends)
                 goto out;
 
-        event = data;
         priv = this->private;
 
         GF_ASSERT (priv);
 
-        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                count++;
-                uuid_unparse (peerinfo->uuid, uuid_buf);
-                snprintf (key, sizeof (key), "friend%d.uuid", count);
-                dup_buf = gf_strdup (uuid_buf);
-                ret = dict_set_dynstr (friends, key, dup_buf);
+        snprintf (key, sizeof (key), "op");
+        ret = dict_set_int32 (friends, key, ctx->op);
+        if (ret)
+                goto out;
+
+        if (GD_FRIEND_UPDATE_ADD == ctx->op) {
+                list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                        count++;
+                        uuid_unparse (peerinfo->uuid, uuid_buf);
+                        snprintf (key, sizeof (key), "friend%d.uuid", count);
+                        dup_buf = gf_strdup (uuid_buf);
+                        ret = dict_set_dynstr (friends, key, dup_buf);
+                        if (ret)
+                                goto out;
+                        snprintf (key, sizeof (key), "friend%d.hostname", count);
+                        ret = dict_set_str (friends, key, peerinfo->hostname);
+                        if (ret)
+                                goto out;
+                        gf_log ("", GF_LOG_NORMAL, "Added uuid: %s, host: %s",
+                                dup_buf, peerinfo->hostname);
+                }
+        } else {
+                snprintf (key, sizeof (key), "hostname");
+                ret = dict_set_str (friends, key, ctx->hostname);
                 if (ret)
                         goto out;
-                snprintf (key, sizeof (key), "friend%d.hostname", count);
-                ret = dict_set_str (friends, key, peerinfo->hostname);
-                if (ret)
-                        goto out;
-                gf_log ("", GF_LOG_NORMAL, "Added uuid: %s, host: %s",
-                        dup_buf, peerinfo->hostname);
         }
 
         ret = dict_set_int32 (friends, "count", count);
         if (ret)
                 goto out;
 
-        ctx = event->ctx;
 
         ret = dict_allocate_and_serialize (friends, &dict_buf, (size_t *)&len);
 
@@ -967,7 +983,6 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         req.friends.friends_val = dict_buf;
         req.friends.friends_len = len;
 
-        peerinfo = event->peerinfo;
         uuid_copy (req.uuid, priv->uuid);
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {

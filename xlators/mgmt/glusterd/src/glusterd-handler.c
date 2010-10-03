@@ -2041,6 +2041,27 @@ out:
         return ret;
 }
 
+
+int
+glusterd_handle_friend_update_delete (dict_t *dict)
+{
+        char                    *hostname = NULL;
+        int32_t                 ret = -1;
+
+        GF_ASSERT (dict);
+
+        ret = dict_get_str (dict, "hostname", &hostname);
+        if (ret)
+                goto out;
+
+        ret = glusterd_friend_remove (NULL, hostname);
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+
 int
 glusterd_handle_friend_update (rpcsvc_request_t *req)
 {
@@ -2060,6 +2081,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         int                     count = 0;
         uuid_t                  uuid = {0,};
         glusterd_peerctx_args_t args = {0};
+        int32_t                 op = 0;
 
         GF_ASSERT (req);
 
@@ -2098,6 +2120,15 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
         ret = dict_get_int32 (dict, "count", &count);
         if (ret)
                 goto out;
+
+        ret = dict_get_int32 (dict, "op", &op);
+        if (ret)
+                goto out;
+
+        if (GD_FRIEND_UPDATE_DEL == op) {
+                ret = glusterd_handle_friend_update_delete (dict);
+                goto out;
+        }
 
         args.mode = GD_MODE_SWITCH_ON;
         while ( i <= count) {
