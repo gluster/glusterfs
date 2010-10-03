@@ -288,6 +288,49 @@ out:
         return ret;
 }
 
+int32_t
+cli_cmd_volume_reset_parse (const char **words, int wordcount, dict_t **options)
+{
+        dict_t  *dict = NULL;
+        char    *volname = NULL;
+        int     ret = -1;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "reset")) == 0);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        if (wordcount < 3)
+                goto out;
+
+        volname = (char *)words[2];
+
+        if (!volname) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_str (dict, "volname", volname);
+
+        if (ret)
+                goto out;
+
+        *options = dict;
+
+out:
+                if (ret) {
+        if (dict)
+                dict_destroy (dict);
+                }
+
+                return ret;
+}
 
 int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
@@ -328,6 +371,19 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
 
 		key = (char *) words[i];
 		value = (char *) words[i+1];
+                
+                if ( key && !value ) {
+                        if ( !strcmp (key, "history")) {
+                                ret = dict_set_str (dict, key, "history");
+                                if (ret)
+                                        goto out;
+                                ret = dict_set_int32 (dict, "count", 1);
+                                if (ret)
+                                        goto out;
+                                *options = dict;
+                                goto out;
+                        }
+                }
                 
 		if ( !key || !value) {
 			ret = -1;

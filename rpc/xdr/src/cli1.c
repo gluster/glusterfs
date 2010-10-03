@@ -408,6 +408,36 @@ gf_xdr_from_cli_replace_brick_req (struct iovec outmsg, void *req)
 }
 
 ssize_t
+gf_xdr_serialize_cli_reset_vol_rsp (struct iovec outmsg, void *rsp)
+{
+        return xdr_serialize_generic (outmsg, (void *)rsp,
+                                      (xdrproc_t)xdr_gf1_cli_reset_vol_rsp);
+
+}
+
+ssize_t
+gf_xdr_to_cli_reset_vol_req (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_reset_vol_req);
+}
+
+ssize_t
+gf_xdr_to_cli_reset_vol_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_reset_vol_rsp);
+}
+
+
+ssize_t
+gf_xdr_from_cli_reset_vol_req (struct iovec outmsg, void *req)
+{
+        return xdr_serialize_generic (outmsg, (void *)req,
+                                      (xdrproc_t)xdr_gf1_cli_reset_vol_req);
+}
+
+ssize_t
 gf_xdr_serialize_cli_set_vol_rsp (struct iovec outmsg, void *rsp)
 {
         return xdr_serialize_generic (outmsg, (void *)rsp,

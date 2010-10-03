@@ -481,16 +481,32 @@ reconfigure (xlator_t *this, dict_t *options)
 			gf_log (this->name, GF_LOG_WARNING,
 				"'trace' takes on only boolean values. "
                                 "Neglecting option");
-			return -1;			
+			ret = -1;
+                        goto out;			
 		}
 		conf->trace = trace;
 		gf_log (this->name, GF_LOG_TRACE, "Reconfigured trace"
 			" to %d", conf->trace);
 		
 	}
+        if (!conf->auth_modules)
+                conf->auth_modules = dict_new ();
 
-	return 0;
+        dict_foreach (options, get_auth_types, conf->auth_modules);
+        ret = validate_auth_options (this, options);
+        if (ret == -1) {
+                /* logging already done in validate_auth_options function. */
+                goto out;
+        }
 
+        ret = gf_auth_init (this, conf->auth_modules);
+        if (ret) {
+                dict_unref (conf->auth_modules);
+                goto out;
+        }
+
+out:
+        return ret;
 }
 
 int

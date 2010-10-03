@@ -746,11 +746,52 @@ out:
 }
 
 int
+gf_cli3_1_reset_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                             int count, void *myframe)
+{
+        gf1_cli_reset_vol_rsp  rsp   = {0,};
+        int                  ret   = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_reset_vol_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_NORMAL, "Received resp to reset");
+        cli_out ("reset volume %s", (rsp.op_ret) ? "unsuccessful":
+                        "successful");
+
+        if (rsp.op_ret &&  rsp.op_errstr)
+                cli_out ("%s", rsp.op_errstr);
+
+        ret = rsp.op_ret;
+
+out:
+                cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+void
+_cli_out_options (dict_t *this, char *key, data_t *value, void *count)
+{
+        
+        (*((int *) count))++;
+        cli_out ("%s  -  %s", key, value->data);
+}
+
+int
 gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_set_vol_rsp  rsp   = {0,};
         int                  ret   = 0;
+        dict_t              *dict  = NULL;
+        int                  dict_count = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -761,6 +802,38 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
         }
+        
+        if (rsp.op_ret == 1) { // if the command was volume set <vol> history
+
+                if (!rsp.dict.dict_len) {
+                        cli_out ("No volumes present");
+                        ret = 0;
+                        goto out;
+                }
+
+                dict = dict_new ();
+
+                if (!dict) {
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = dict_unserialize (rsp.dict.dict_val,
+                                        rsp.dict.dict_len,
+                                        &dict);
+
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR,
+                                "Unable to allocate memory");
+                        goto out;
+                }
+                cli_out ("Options:");
+                dict_foreach (dict, _cli_out_options, &dict_count);
+                if (!dict_count)
+                        cli_out ("No Options Reconfigured!!");
+                goto out;
+        }
+
 
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to set");
@@ -1572,6 +1645,47 @@ out:
 }
 
 int32_t
+gf_cli3_1_reset_volume (call_frame_t *frame, xlator_t *this, 
+                        void *data)
+{
+        gf1_cli_reset_vol_req     req = {0,};
+        int                     ret = 0;
+        dict_t                  *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &req.volname);
+
+        if (ret)
+                goto out;
+
+        ret = dict_allocate_and_serialize (dict,
+                                           &req.dict.dict_val,
+                                           (size_t *)&req.dict.dict_len);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to get serialized length of dict");
+                goto out;
+        }
+
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                               GD_MGMT_CLI_RESET_VOLUME, NULL,
+                               gf_xdr_from_cli_reset_vol_req,
+                               this, gf_cli3_1_reset_volume_cbk);
+
+out:
+                gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
+int32_t
 gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
                          void *data)
 {
@@ -2022,6 +2136,7 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_GETSPEC] = {"GETSPEC", gf_cli3_1_getspec},
         [GF1_CLI_PMAP_PORTBYBRICK] = {"PMAP PORTBYBRICK", gf_cli3_1_pmap_b2p},
         [GF1_CLI_SYNC_VOLUME] = {"SYNC_VOLUME", gf_cli3_1_sync_volume},
+        [GF1_CLI_RESET_VOLUME] = {"RESET_VOLUME", gf_cli3_1_reset_volume}
 };
 
 struct rpc_clnt_program cli3_1_prog = {
