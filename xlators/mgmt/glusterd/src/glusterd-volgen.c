@@ -23,6 +23,8 @@
 #include "config.h"
 #endif
 
+#include <fnmatch.h>
+
 #include "xlator.h"
 #include "glusterd.h"
 #include "defaults.h"
@@ -61,7 +63,12 @@
  *   not touch them unless you know what you do.
  */
 
-struct volopt_map_entry glusterd_volopt_map[] = {
+struct volopt_map_entry {
+        char *key;
+        char *voltype;
+};
+
+static struct volopt_map_entry glusterd_volopt_map[] = {
         {"lookup-unhashed",             "cluster/distribute"},
         {"min-free-disk",               "cluster/distribute"},
 
@@ -98,8 +105,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         {"ping-timeout",                "protocol/client"},
 
         {"inode-lru-limit",             "protocol/server"},
-        {"auth.addr.%s.allow",          "protocol/server:!server-auth"},
-        {"auth.addr.%s.reject",         "protocol/server:!server-auth"},
+        {"auth.addr.*.allow",           "protocol/server"},
+        {"auth.addr.*.reject",          "protocol/server"},
 
         {"write-behind",                "performance/write-behind:!perf"},
         {"read-ahead",                  "performance/read-ahead:!perf"},
@@ -330,54 +337,98 @@ first_of (glusterfs_graph_t *graph)
  **************************/
 
 
+typedef int (*volgen_opthandler_t) (glusterfs_graph_t *graph,
+                                    struct volopt_map_entry2 *vme2,
+                                    void *param);
+
+struct opthandler_data {
+        glusterfs_graph_t *graph;
+        volgen_opthandler_t handler;
+        struct volopt_map_entry *vme;
+        gf_boolean_t found;
+        gf_boolean_t data_t_fake;
+        int rv;
+        void *param;
+};
+
+static void
+process_option (dict_t *dict, char *key, data_t *value, void *param)
+{
+        struct opthandler_data *data = param;
+        struct volopt_map_entry2 vme2 = {0,};
+
+        if (data->rv)
+                return;
+        if (fnmatch (data->vme->key, key, 0) != 0)
+                return;
+
+        data->found = _gf_true;
+
+        vme2.key = key;
+        vme2.voltype = gf_strdup (data->vme->voltype);
+        if (!vme2.voltype) {
+                gf_log ("", GF_LOG_ERROR, "Out of memory");
+
+                data->rv = -1;
+                return;
+        }
+        vme2.option = strchr (vme2.voltype, ':');
+        if (vme2.option) {
+                *vme2.option = '\0';
+                vme2.option++;
+        } else
+                vme2.option = key;
+        if (data->data_t_fake)
+                vme2.value = (char *)value;
+        else
+                vme2.value = value->data;
+
+        data->rv = data->handler (data->graph, &vme2, data->param);
+
+        GF_FREE (vme2.voltype);
+}
+
 static int
 volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
-                                  void *param,
-                                  int (*handler) (glusterfs_graph_t *graph,
-                                                  struct volopt_map_entry2 *vme2,
-                                                  void *param))
+                                  void *param, volgen_opthandler_t handler)
 {
         struct volopt_map_entry *vme = NULL;
-        struct volopt_map_entry2 vme2 = {0,};
-        struct volopt_map_entry2 *vme2x = NULL;
-        char *value = NULL;
-        int ret = 0;
+        struct volopt_map_entry2 *vme2 = NULL;
+        struct opthandler_data data = {0,};
+
+        data.graph = graph;
+        data.handler = handler;
+        data.param = param;
 
         for (vme = glusterd_volopt_map; vme->key; vme++) {
-                ret = dict_get_str (dict, vme->key, &value);
-                if (ret) {
-                        for (vme2x = default_volopt_map2; vme2x->key;
-                             vme2x++) {
-                                if (strcmp (vme2x->key, vme->key) == 0) {
-                                        value = vme2x->value;
-                                        ret = 0;
-                                        break;
-                                }
-                        }
-                }
-                if (ret)
+                data.vme = vme;
+                data.found = _gf_false;
+                data.data_t_fake = _gf_false;
+
+                dict_foreach (dict, process_option, &data);
+                if (data.rv)
+                        return data.rv;
+
+                if (data.found)
                         continue;
 
-                vme2.key = vme->key;
-                vme2.voltype = gf_strdup (vme->voltype);
-                if (!vme2.voltype) {
-                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                /* check for default value */
+                for (vme2 = default_volopt_map2; vme2->key;
+                     vme2++) {
+                        if (strcmp (vme2->key, vme->key) != 0)
+                                continue;
 
-                        return -1;
+                        /* stupid hack to be able to reuse dict iterator
+                         * in this context
+                         */
+                        data.data_t_fake = _gf_true;
+                        process_option (NULL, vme->key, (data_t *)vme2->value,
+                                        &data);
+                        if (data.rv)
+                                return data.rv;
+
+                        break;
                 }
-                vme2.option = strchr (vme2.voltype, ':');
-                if (vme2.option) {
-                        *vme2.option = '\0';
-                        vme2.option++;
-                } else
-                        vme2.option = vme->key;
-                vme2.value = value;
-
-                ret = handler (graph, &vme2, param);
-
-                GF_FREE (vme2.voltype);
-                if (ret)
-                        return -1;
         }
 
         return 0;
@@ -435,12 +486,50 @@ glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
 
         ret = volgen_graph_set_options_generic (NULL, volinfo->dict, &vme2,
                                                 &optget_option_handler);
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Out of memory");
+
                 return -1;
+        }
 
         *value = vme2.value;
 
         return 0;
+}
+
+int
+glusterd_check_option_exists (char *key)
+{
+        dict_t *dict = NULL;
+        struct volopt_map_entry2 vme2 = {0,};
+        int ret = 0;
+
+        vme2.key = key;
+
+        /* We are getting a bit anal here to avoid typing
+         * fnmatch one more time. Orthogonality foremost!
+         * The internal logic of looking up in the volopt_map table
+         * should be coded exactly once.
+         *
+         * [[Ha-ha-ha, so now if I ever change the internals then I'll
+         * have to update the fnmatch in this comment also :P ]]
+         */
+        dict = get_new_dict ();
+        if (!dict || dict_set_str (dict, key, ""))
+                goto oom;
+
+        ret = volgen_graph_set_options_generic (NULL, dict, &vme2,
+                                                &optget_option_handler);
+        dict_destroy (dict);
+        if (ret)
+                goto oom;
+
+        return !!vme2.value;
+
+ oom:
+        gf_log ("", GF_LOG_ERROR, "Out of memory");
+
+        return -1;
 }
 
 static int
@@ -558,50 +647,6 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 }
 
 static int
-server_auth_option_handler (glusterfs_graph_t *graph,
-                            struct volopt_map_entry2 *vme2, void *param)
-{
-        char *brick = NULL;
-        char *addrs = NULL;
-        char *opt   = NULL;
-        int   ret   = 0;
-
-        if (strcmp (vme2->option, "!server-auth") != 0)
-                return 0;
-
-        brick = gf_strdup (vme2->value);
-        if (!brick) {
-                ret = -1;
-                goto out;
-        }
-        addrs = strchr (brick, ':');
-        if (!addrs || !addrs[1]) {
-                GF_FREE (brick);
-                return -1;
-        }
-        *addrs++ = '\0';
-        ret = gf_asprintf (&opt, vme2->key, brick);
-        if (ret == -1) {
-                opt = NULL;
-                goto out;
-        }
-        ret = xlator_set_option (first_of (graph), opt, addrs);
-
- out:
-        if (brick)
-                GF_FREE (brick);
-        if (opt)
-                GF_FREE (opt);
-
-        if (ret == 0)
-                return 0;
-
-        gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-        return -1;
-}
-
-static int
 server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
@@ -692,9 +737,6 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
         ret = xlator_set_option (xl, aaa, "*");
         GF_FREE (aaa);
-
-        ret = volgen_graph_set_options_generic (graph, set_dict, NULL,
-                                                &server_auth_option_handler);
 
         return ret;
 }

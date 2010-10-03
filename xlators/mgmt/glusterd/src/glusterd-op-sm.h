@@ -217,7 +217,7 @@ glusterd_op_clear_ctx_free (glusterd_op_t op);
 gf_boolean_t
 glusterd_op_get_ctx_free (glusterd_op_t op);
 
-gf_boolean_t
+int
 glusterd_check_option_exists(char *optstring);
 
 int
