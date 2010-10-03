@@ -1047,7 +1047,7 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req)
         int                                      ret           = 0;
         dict_t                                  *dict          = NULL;
         char                                    *volname       = NULL;
-	gf_boolean_t                             exists        = _gf_false;
+	int                                      exists         = 0;
 	char					*key	       = NULL;
 	char					 str[100]      = {0, };
 	int					 count	       = 0;
@@ -1094,7 +1094,7 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req)
 		
 		exists = glusterd_check_option_exists(key);
 
-		if (!exists) {
+		if (exists != 1) {
                 	gf_log ("", GF_LOG_ERROR, "Option with name: %s "
                         	"does not exist", key);
 			ret = -1;
@@ -1167,21 +1167,6 @@ out:
         return ret;
 }
 
-
-
-gf_boolean_t
-glusterd_check_option_exists(char *optstring)
-{
-        struct volopt_map_entry *vme = NULL;
-
-        for (vme = glusterd_volopt_map; vme->key; vme++) {
-                if (strcmp (vme->key, optstring) == 0)
-			return _gf_true;
-        }
-
-	return _gf_false;
-
-}
 
 static int
 glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick)
@@ -2800,11 +2785,11 @@ void
 _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
 {
         
-        gf_boolean_t            exists = _gf_false;
+        int            exists = 0;
         
         exists = glusterd_check_option_exists(key);
         
-        if (exists) {
+        if (exists == 1) {
                 gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s", 
                         key, value->data);
                 dict_del (this, key);

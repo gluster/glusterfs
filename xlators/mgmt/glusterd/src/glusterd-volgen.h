@@ -27,13 +27,6 @@
 
 #include "glusterd.h"
 
-struct volopt_map_entry {
-        char *key;
-        char *voltype;
-};
-
-extern struct volopt_map_entry glusterd_volopt_map[];
-
 int glusterd_create_rb_volfiles (glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo);
 

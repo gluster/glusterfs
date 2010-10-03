@@ -972,7 +972,7 @@ glusterd_store_retrieve_volume (char    *volname)
         char                    volpath[PATH_MAX] = {0,};
         glusterd_conf_t         *priv = NULL;
         char                    path[PATH_MAX] = {0,};
-        gf_boolean_t            exists = _gf_false;
+        int                     exists = 0;
 
         ret = glusterd_volinfo_new (&volinfo);
 
@@ -1029,6 +1029,10 @@ glusterd_store_retrieve_volume (char    *volname)
                                         "failed to parse uuid");
                 } else {
                         exists = glusterd_check_option_exists (key);
+                        if (exists == -1) {
+                                ret = -1;
+                                goto out;
+                        }
                         if (exists) {
                                 ret = dict_set_str(volinfo->dict, key, 
                                                      gf_strdup (value));
@@ -1125,7 +1129,7 @@ void _setopts(dict_t *this, char *key, data_t *value, void *data)
 {
         int                      ret = 0;
         glusterd_store_handle_t *shandle = NULL;
-        gf_boolean_t             exists = _gf_false;
+        int                      exists = 0;
         
 
         shandle = (glusterd_store_handle_t *) data;
@@ -1137,7 +1141,7 @@ void _setopts(dict_t *this, char *key, data_t *value, void *data)
                 return;
 
         exists = glusterd_check_option_exists (key);
-        if (exists)
+        if (exists == 1)
                 gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
                         key, value->data);
         else {
