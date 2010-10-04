@@ -1036,7 +1036,7 @@ glusterd_store_retrieve_volume (char    *volname)
                                 gf_log ("", GF_LOG_WARNING,
                                         "failed to parse uuid");
                 } else {
-                        exists = glusterd_check_option_exists (key);
+                        exists = glusterd_check_option_exists (key, NULL);
                         if (exists == -1) {
                                 ret = -1;
                                 goto out;
@@ -1148,7 +1148,7 @@ void _setopts(dict_t *this, char *key, data_t *value, void *data)
         if (!value || !value->data)
                 return;
 
-        exists = glusterd_check_option_exists (key);
+        exists = glusterd_check_option_exists (key, NULL);
         if (exists == 1)
                 gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
                         key, value->data);

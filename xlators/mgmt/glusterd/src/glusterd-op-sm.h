@@ -218,7 +218,7 @@ gf_boolean_t
 glusterd_op_get_ctx_free (glusterd_op_t op);
 
 int
-glusterd_check_option_exists(char *optstring);
+glusterd_check_option_exists(char *optstring, char **completion);
 
 int
 set_xlator_option (dict_t *dict, char *key, char *value);
