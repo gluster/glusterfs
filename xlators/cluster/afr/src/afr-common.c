@@ -2539,6 +2539,9 @@ afr_notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_UP:
                 i = find_child_index (this, data);
 
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "child=%d up", i);
+
                 afr_attempt_lock_recovery (this, i);
 
                 child_up[i] = 1;

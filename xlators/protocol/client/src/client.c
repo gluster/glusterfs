@@ -888,20 +888,24 @@ out:
 static gf_boolean_t
 client_set_remote_options (char *value, xlator_t *this)
 {
-        clnt_conf_t  *conf          = NULL;
-        char         *dup_value     = NULL;
-        char         *host          = NULL;
-        char         *subvol        = NULL;
-        char         *host_dup      = NULL;
-        char         *subvol_dup    = NULL;
-        char         *tmp           = NULL;
-        gf_boolean_t  ret           = _gf_false;
+        clnt_conf_t  *conf            = NULL;
+        char         *dup_value       = NULL;
+        char         *host            = NULL;
+        char         *subvol          = NULL;
+        char         *host_dup        = NULL;
+        char         *subvol_dup      = NULL;
+        char         *remote_port_str = NULL;
+        char         *tmp             = NULL;
+        int           remote_port     = 0;
+        gf_boolean_t  ret             = _gf_false;
 
         conf = this->private;
 
         dup_value = gf_strdup (value);
         host = strtok_r (dup_value, ":", &tmp);
         subvol = strtok_r (NULL, ":", &tmp);
+        remote_port_str = strtok_r (NULL, ":", &tmp);
+
         if (!subvol) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "proper value not passed as subvolume");
@@ -933,6 +937,17 @@ client_set_remote_options (char *value, xlator_t *this)
         if (ret) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "failed to set remote-host with %s", host);
+                goto out;
+        }
+
+        remote_port = atoi (remote_port_str);
+        GF_ASSERT (remote_port);
+
+        ret = dict_set_int32 (this->options, "remote-port",
+                              remote_port);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to set remote-port to %d", remote_port);
                 goto out;
         }
 

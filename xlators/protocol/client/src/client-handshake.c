@@ -353,13 +353,14 @@ client_notify_parents_child_up (xlator_t *this)
                 /* send notify to 'ctx->master' if it exists */
                 xlator_notify (this->ctx->master, GF_EVENT_CHILD_UP,
                                this->graph);
-        }
+        } else {
 
-        parent = this->parents;
-        while (parent) {
-                xlator_notify (parent->xlator, GF_EVENT_CHILD_UP,
-                               this);
-                parent = parent->next;
+                parent = this->parents;
+                while (parent) {
+                        xlator_notify (parent->xlator, GF_EVENT_CHILD_UP,
+                                       this);
+                        parent = parent->next;
+                }
         }
 
         return 0;

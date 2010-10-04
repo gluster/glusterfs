@@ -620,6 +620,53 @@ pump_complete_migration (xlator_t *this)
 }
 
 static int
+pump_set_root_gfid (dict_t *dict)
+{
+        uuid_t gfid;
+        int ret = 0;
+
+        memset (gfid, 0, 16);
+        gfid[15] = 1;
+
+        ret = afr_set_dict_gfid (dict, gfid);
+
+        return ret;
+}
+
+static int
+pump_lookup_sink (loc_t *loc)
+{
+        xlator_t *this = NULL;
+	struct iatt iatt, parent;
+	dict_t *xattr_rsp;
+        dict_t *xattr_req = NULL;
+        int ret = 0;
+
+        this = THIS;
+
+        xattr_req = dict_new ();
+
+        ret = pump_set_root_gfid (xattr_req);
+        if (ret)
+                goto out;
+
+        ret = syncop_lookup (PUMP_SINK_CHILD (this), loc,
+                             xattr_req, &iatt, &xattr_rsp, &parent);
+
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Lookup on sink child failed");
+                goto out;
+        }
+
+out:
+        if (xattr_req)
+                dict_unref (xattr_req);
+
+        return ret;
+}
+
+static int
 pump_task (void *data)
 {
 	xlator_t *this = NULL;
@@ -628,7 +675,8 @@ pump_task (void *data)
 
         loc_t loc;
 	struct iatt iatt, parent;
-	dict_t *xattr_rsp;
+	dict_t *xattr_rsp = NULL;
+        dict_t *xattr_req = NULL;
 
         int ret = -1;
 
@@ -638,8 +686,16 @@ pump_task (void *data)
         assert (priv->root_inode);
 
         build_root_loc (priv->root_inode, &loc);
+        xattr_req = dict_new ();
+        if (!xattr_req) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
 
-        ret = syncop_lookup (this, &loc, NULL,
+        pump_set_root_gfid (xattr_req);
+        ret = syncop_lookup (this, &loc, xattr_req,
                              &iatt, &xattr_rsp, &parent);
 
         gf_log (this->name, GF_LOG_TRACE,
@@ -654,10 +710,20 @@ pump_task (void *data)
 
         pump_update_resume_path (this);
 
+        pump_set_root_gfid (xattr_req);
+        ret = pump_lookup_sink (&loc);
+        if (ret) {
+                pump_update_resume_path (this);
+                goto out;
+        }
+
         gf_pump_traverse_directory (&loc);
 
         pump_complete_migration (this);
 out:
+        if (xattr_req)
+                dict_unref (xattr_req);
+
 	return 0;
 }
 
@@ -698,7 +764,8 @@ pump_start (call_frame_t *pump_frame, xlator_t *this)
         if (!pump_frame->root->lk_owner)
                 pump_frame->root->lk_owner = PUMP_LK_OWNER;
 
-	ret = synctask_new (pump_priv->env, pump_task, pump_task_completion,
+	ret = synctask_new (pump_priv->env, pump_task,
+                            pump_task_completion,
                             pump_frame);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -891,6 +958,8 @@ pump_cmd_start_getxattr_cbk (call_frame_t *frame,
         else {
                 /* We're re-starting pump from a previous
                    pause */
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "about to start synctask");
                 ret = pump_start_synctask (this);
                 need_unwind = 1;
         }
@@ -2210,6 +2279,8 @@ notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_UP:
                 if (is_xlator_pump_sink (child_xl))
                         if (is_pump_start_pending (this)) {
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "about to start synctask");
                                 ret = pump_start_synctask (this);
                                 if (ret < 0)
                                         gf_log (this->name, GF_LOG_DEBUG,
