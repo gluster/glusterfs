@@ -915,6 +915,19 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
+
+        file = fopen (pidfile, "r+");
+        if (file) {
+                ret = lockf (fileno (file), F_TLOCK, 0);
+                if (ret && ((EAGAIN == errno) || (EACCES == errno))) {
+                        ret = 0;
+                        gf_log ("", GF_LOG_NORMAL, "brick %s:%s "
+                                "already started", brickinfo->hostname,
+                                brickinfo->path);
+                        goto out;
+                }
+        }
+
         ret = pmap_registry_search (this, brickinfo->path,
                                     GF_PMAP_PORT_BRICKSERVER);
         if (ret) {
@@ -932,6 +945,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                 is_locked = _gf_true;
                         }
                 }
+                /* This means, pmap has the entry, remove it */
+                ret = pmap_registry_remove (this, 0, brickinfo->path,
+                                            GF_PMAP_PORT_BRICKSERVER, NULL);
         }
         unlink (pidfile);
 
