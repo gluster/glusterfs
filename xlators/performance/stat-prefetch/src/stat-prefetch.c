@@ -21,7 +21,7 @@
 #include "statedump.h"
 
 #define GF_SP_CACHE_BUCKETS 1
-#define GF_SP_CACHE_ENTRIES_EXPECTED 1048576
+#define GF_SP_CACHE_ENTRIES_EXPECTED (128 * 1024) //1048576
 
 typedef enum {
         SP_EXPECT,
