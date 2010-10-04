@@ -91,6 +91,18 @@ struct nfs3stat_strerror nfs3stat_strerror_table[] = {
 };
 
 
+uint64_t
+nfs3_iatt_gfid_to_ino (struct iatt *buf)
+{
+        if (!buf)
+                return 0;
+
+        memcpy (&buf->ia_ino, &buf->ia_gfid[8], sizeof (uint64_t));
+
+        return buf->ia_ino;
+}
+
+
 void
 nfs3_map_deviceid_to_statdev (struct iatt *ia, uint64_t deviceid)
 {
@@ -305,7 +317,7 @@ nfs3_stat_to_fattr3 (struct iatt *buf)
         }
 
         fa.fsid = buf->ia_dev;
-        fa.fileid = buf->ia_ino;
+        fa.fileid = nfs3_iatt_gfid_to_ino (buf);
         /* FIXME: Handle time resolutions for sub-second granularity */
         if (buf->ia_atime == 9669) {
                 fa.mtime.seconds = 0;
@@ -395,11 +407,8 @@ nfs3_fill_lookup3res_success (lookup3res *res, nfsstat3 stat,
 
         obj.attributes_follow = FALSE;
         dir.attributes_follow = FALSE;
-        if (buf)
-                obj = nfs3_stat_to_post_op_attr (buf);
-
-        if (postparent)
-                dir = nfs3_stat_to_post_op_attr (postparent);
+        obj = nfs3_stat_to_post_op_attr (buf);
+        dir = nfs3_stat_to_post_op_attr (postparent);
 
         res->lookup3res_u.resok.obj_attributes = obj;
         res->lookup3res_u.resok.dir_attributes = dir;
@@ -773,6 +782,7 @@ nfs3_fill_entry3 (gf_dirent_t *entry, struct nfs3_fh *dfh)
          * sense the behavious we provide is similar to the output of the
          * command: "stat /.."
          */
+        entry->d_ino = nfs3_iatt_gfid_to_ino (&entry->d_stat);
         nfs3_funge_root_dotdot_dirent (entry, dfh);
         ent->fileid = entry->d_ino;
         ent->cookie = entry->d_off;
@@ -841,6 +851,7 @@ nfs3_fill_entryp3 (gf_dirent_t *entry, struct nfs3_fh *dirfh, uint64_t devid)
          * sense the behavious we provide is similar to the output of the
          * command: "stat /.."
          */
+        entry->d_ino = nfs3_iatt_gfid_to_ino (&entry->d_stat);
         nfs3_funge_root_dotdot_dirent (entry, dirfh);
         gf_log (GF_NFS3, GF_LOG_TRACE, "Entry: %s, ino: %"PRIu64,
                 entry->d_name, entry->d_ino);
