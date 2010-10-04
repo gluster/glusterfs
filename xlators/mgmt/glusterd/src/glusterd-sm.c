@@ -394,24 +394,32 @@ glusterd_ac_handle_friend_remove_req (glusterd_friend_sm_event_t *event,
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_friend_req_ctx_t       *ev_ctx = NULL;
         glusterd_friend_sm_event_t      *new_event = NULL;
+        glusterd_conf_t                 *priv = NULL;
 
         GF_ASSERT (ctx);
         ev_ctx = ctx;
         peerinfo = event->peerinfo;
         GF_ASSERT (peerinfo);
 
+        priv = THIS->private;
+        GF_ASSERT (priv);
+
         ret = glusterd_xfer_friend_remove_resp (ev_ctx->req, ev_ctx->hostname,
                                                 ev_ctx->port);
 
-        ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
-                                            &new_event);
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
 
-        if (ret)
-                goto out;
+                ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_REMOVE_FRIEND,
+                                                    &new_event);
+                if (ret)
+                        goto out;
 
-        new_event->peerinfo = peerinfo;
+                new_event->peerinfo = peerinfo;
 
-        ret = glusterd_friend_sm_inject_event (new_event);
+                ret = glusterd_friend_sm_inject_event (new_event);
+                if (ret)
+                        goto out;
+        }
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
