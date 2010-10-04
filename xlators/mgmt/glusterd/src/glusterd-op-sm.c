@@ -1092,7 +1092,7 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req)
 		if (ret) 
 			break;
 		
-		exists = glusterd_check_option_exists(key);
+		exists = glusterd_check_option_exists (key, NULL);
 
 		if (exists != 1) {
                 	gf_log ("", GF_LOG_ERROR, "Option with name: %s "
@@ -2850,7 +2850,7 @@ _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
         
         int            exists = 0;
         
-        exists = glusterd_check_option_exists(key);
+        exists = glusterd_check_option_exists (key, NULL);
         
         if (exists == 1) {
                 gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s", 

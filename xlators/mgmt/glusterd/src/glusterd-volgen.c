@@ -351,22 +351,26 @@ struct opthandler_data {
         void *param;
 };
 
+#define pattern_match_options 0
+
+
 static void
 process_option (dict_t *dict, char *key, data_t *value, void *param)
 {
-        struct opthandler_data *data = param;
+        struct opthandler_data *odt = param;
         struct volopt_map_entry vme = {0,};
 
-        if (data->rv)
+        if (odt->rv)
                 return;
-        if (fnmatch (data->vme->key, key, 0) != 0)
+#if pattern_match_options
+        if (fnmatch (odt->vme->key, key, 0) != 0)
                 return;
-
-        data->found = _gf_true;
+#endif
+        odt->found = _gf_true;
 
         vme.key = key;
-        vme.voltype = data->vme->voltype;
-        vme.option = data->vme->option;
+        vme.voltype = odt->vme->voltype;
+        vme.option = odt->vme->option;
         if (!vme.option) {
                 vme.option = strrchr (key, '.');
                 if (vme.option)
@@ -374,12 +378,12 @@ process_option (dict_t *dict, char *key, data_t *value, void *param)
                 else
                         vme.option = key;
         }
-        if (data->data_t_fake)
+        if (odt->data_t_fake)
                 vme.value = (char *)value;
         else
                 vme.value = value->data;
 
-        data->rv = data->handler (data->graph, &vme, data->param);
+        odt->rv = odt->handler (odt->graph, &vme, odt->param);
 }
 
 static int
@@ -387,22 +391,31 @@ volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
                                   void *param, volgen_opthandler_t handler)
 {
         struct volopt_map_entry *vme = NULL;
-        struct opthandler_data data = {0,};
+        struct opthandler_data odt = {0,};
+        data_t *data = NULL;
 
-        data.graph = graph;
-        data.handler = handler;
-        data.param = param;
+        odt.graph = graph;
+        odt.handler = handler;
+        odt.param = param;
+        (void)data;
 
         for (vme = glusterd_volopt_map; vme->key; vme++) {
-                data.vme = vme;
-                data.found = _gf_false;
-                data.data_t_fake = _gf_false;
+                odt.vme = vme;
+                odt.found = _gf_false;
+                odt.data_t_fake = _gf_false;
 
-                dict_foreach (dict, process_option, &data);
-                if (data.rv)
-                        return data.rv;
+#if pattern_match_options
+                dict_foreach (dict, process_option, &odt);
+#else
+                data = dict_get (dict, vme->key);
 
-                if (data.found)
+                if (data)
+                        process_option (dict, vme->key, data, &odt);
+#endif
+                if (odt.rv)
+                        return odt.rv;
+
+                if (odt.found)
                         continue;
 
                 /* check for default value */
@@ -411,11 +424,11 @@ volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
                         /* stupid hack to be able to reuse dict iterator
                          * in this context
                          */
-                        data.data_t_fake = _gf_true;
+                        odt.data_t_fake = _gf_true;
                         process_option (NULL, vme->key, (data_t *)vme->value,
-                                        &data);
-                        if (data.rv)
-                                return data.rv;
+                                        &odt);
+                        if (odt.rv)
+                                return odt.rv;
                 }
         }
 
@@ -485,13 +498,56 @@ glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
         return 0;
 }
 
+static char *
+option_complete (char *key)
+{
+        struct volopt_map_entry *vme = NULL;
+        char *completion = NULL;
+
+        for (vme = glusterd_volopt_map; vme->key; vme++) {
+                if (strcmp (strchr (vme->key, '.') + 1, key) != 0)
+                        continue;
+
+                if (completion)
+                        return NULL;
+                else
+                        completion = vme->key;
+        }
+
+        return completion;
+}
+
 int
-glusterd_check_option_exists (char *key)
+glusterd_check_option_exists (char *key, char **completion)
 {
         dict_t *dict = NULL;
         struct volopt_map_entry vme = {0,};
+        struct volopt_map_entry *vmep = NULL;
         int ret = 0;
 
+        (void)vme;
+        (void)vmep;
+        (void)dict;
+
+        if (!strchr (key, '.')) {
+                if (completion) {
+                        *completion = option_complete (key);
+
+                        return !!*completion;
+                } else
+                        return 0;
+        }
+
+#if !pattern_match_options
+        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
+                if (strcmp (vmep->key, key) == 0) {
+                        ret = 1;
+                        break;
+                }
+        }
+
+        return ret;
+#else
         vme.key = key;
 
         /* We are getting a bit anal here to avoid typing
@@ -518,6 +574,7 @@ glusterd_check_option_exists (char *key)
         gf_log ("", GF_LOG_ERROR, "Out of memory");
 
         return -1;
+#endif
 }
 
 static int
