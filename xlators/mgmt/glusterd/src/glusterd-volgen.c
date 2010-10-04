@@ -107,8 +107,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"ping-timeout",                "protocol/client"},
 
         {"inode-lru-limit",             "protocol/server"},
-        {"auth.addr.*.allow",           "protocol/server"},
-        {"auth.addr.*.reject",          "protocol/server"},
+        {"allow",                       "protocol/server:!server-auth"},
+        {"reject",                      "protocol/server:!server-auth"},
 
         {"write-behind",                "performance/write-behind:!perf"},
         {"read-ahead",                  "performance/read-ahead:!perf"},
@@ -130,6 +130,7 @@ struct volopt_map_entry2 {
 };
 
 static struct volopt_map_entry2 default_volopt_map2[] = {
+        {"allow",         NULL, NULL, "*"},
         {"write-behind",  NULL, NULL, "on"},
         {"read-ahead",    NULL, NULL, "on"},
         {"io-cache",      NULL, NULL, "on"},
@@ -649,6 +650,34 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 }
 
 static int
+server_auth_option_handler (glusterfs_graph_t *graph,
+                            struct volopt_map_entry2 *vme2, void *param)
+{
+        xlator_t *xl = NULL;
+        xlator_list_t *trav = NULL;
+        char *aa = NULL;
+        int   ret   = 0;
+
+        if (strcmp (vme2->option, "!server-auth") != 0)
+                return 0;
+
+        xl = first_of (graph);
+
+        for (trav = xl->children; trav; trav = trav->next) {
+                ret = gf_asprintf (&aa, "auth.addr.%s.%s", trav->xlator->name,
+                                   vme2->key);
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme2->value);
+                        GF_FREE (aa);
+                }
+                if (ret)
+                        return -1;
+        }
+
+        return 0;
+}
+
+static int
 server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
@@ -658,7 +687,6 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         xlator_t *xl = NULL;
         xlator_t *txl = NULL;
         xlator_t *rbxl = NULL;
-        char     *aaa = NULL;
         int       ret = 0;
         char      transt[16] = {0,};
 
@@ -731,14 +759,8 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (ret)
                 return -1;
 
-        ret = gf_asprintf (&aaa, "auth.addr.%s.allow", path);
-        if (ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-                return -1;
-        }
-        ret = xlator_set_option (xl, aaa, "*");
-        GF_FREE (aaa);
+        ret = volgen_graph_set_options_generic (graph, set_dict, NULL,
+                                                &server_auth_option_handler);
 
         return ret;
 }
