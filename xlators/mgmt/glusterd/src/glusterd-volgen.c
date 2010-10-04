@@ -642,15 +642,19 @@ server_auth_option_handler (glusterfs_graph_t *graph,
         xlator_list_t *trav = NULL;
         char *aa = NULL;
         int   ret   = 0;
+        char *key = NULL;
 
         if (strcmp (vme->option, "!server-auth") != 0)
                 return 0;
 
         xl = first_of (graph);
 
+        /* from 'auth.allow' -> 'allow', and 'auth.reject' -> 'reject' */
+        key = strchr (vme->key, '.') + 1;
+
         for (trav = xl->children; trav; trav = trav->next) {
                 ret = gf_asprintf (&aa, "auth.addr.%s.%s", trav->xlator->name,
-                                   vme->key);
+                                   key);
                 if (ret != -1) {
                         ret = xlator_set_option (xl, aa, vme->value);
                         GF_FREE (aa);
