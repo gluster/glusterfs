@@ -706,6 +706,8 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
 
         priv = this->private;
 
+        INIT_LIST_HEAD (&tmpvolinfo.bricks);
+
         if (!gf_xdr_to_cli_create_vol_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -784,7 +786,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                     ((cli_req.type == 1)? "STRIPE":"REPLICATE")), cli_req.count,
                     bricks);
 
-        INIT_LIST_HEAD (&tmpvolinfo.bricks);
+
         while ( i < brick_count) {
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
@@ -967,6 +969,8 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
 
         GF_ASSERT (req);
 
+        INIT_LIST_HEAD (&tmpvolinfo.bricks);
+
         if (!gf_xdr_to_cli_add_brick_req (req->msg[0], &cli_req)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -1065,7 +1069,7 @@ brick_val:
                     ,volname, ((volinfo->type == 0)? "DEFAULT" : ((volinfo->type
                     == 1)? "STRIPE": "REPLICATE")), brick_count, brick_list);
 
-        INIT_LIST_HEAD (&tmpvolinfo.bricks);
+
         while ( i < brick_count) {
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
