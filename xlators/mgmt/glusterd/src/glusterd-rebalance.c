@@ -476,5 +476,6 @@ out:
                                      gf_xdr_serialize_cli_defrag_vol_rsp);
         if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
-        return ret;
+
+        return 0;
 }
