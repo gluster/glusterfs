@@ -1879,14 +1879,14 @@ rpcsvc_create_listeners (rpcsvc_t *svc, dict_t *options, char *name)
 
         data = dict_get (options, "transport-type");
         if (data == NULL) {
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
+                gf_log (GF_RPCSVC, GF_LOG_ERROR,
                         "option transport-type not set");
                 goto out;
         }
 
         transport_type = data_to_str (data);
         if (transport_type == NULL) {
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG,
+                gf_log (GF_RPCSVC, GF_LOG_ERROR,
                         "option transport-type not set");
                 goto out;
         }
