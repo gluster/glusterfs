@@ -8,7 +8,7 @@
 . /etc/rc.d/init.d/functions
 
 BASE=glusterd
-GLUSTERD_BIN=@exec_prefix@/sbin/$BASE
+GLUSTERD_BIN=@prefix@/sbin/$BASE
 GLUSTERD_OPTS=""
 GLUSTERD="$GLUSTERD_BIN $GLUSTERD_OPTS"
 RETVAL=0
