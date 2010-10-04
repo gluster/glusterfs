@@ -531,15 +531,13 @@ glusterd_brickinfo_delete (glusterd_brickinfo_t *brickinfo)
 }
 
 int32_t
-glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
+glusterd_volume_bricks_delete (glusterd_volinfo_t *volinfo)
 {
-        int32_t                 ret = -1;
         glusterd_brickinfo_t    *brickinfo = NULL;
         glusterd_brickinfo_t    *tmp = NULL;
+        int32_t                 ret = -1;
 
         GF_ASSERT (volinfo);
-
-        list_del_init (&volinfo->vol_list);
 
         list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
                                    brick_list) {
@@ -548,6 +546,23 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
                         goto out;
         }
 
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
+{
+        int32_t                 ret = -1;
+
+        GF_ASSERT (volinfo);
+
+        list_del_init (&volinfo->vol_list);
+
+        ret = glusterd_volume_bricks_delete (volinfo);
+        if (ret)
+                goto out;
         dict_unref (volinfo->dict);
 
         GF_FREE (volinfo);
@@ -642,19 +657,56 @@ out:
 }
 
 int32_t
-glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
-                        glusterd_brickinfo_t **brickinfo)
+glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
+                               glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t **brickinfo)
+{
+        glusterd_brickinfo_t    *brickiter = NULL;
+        uuid_t                  peer_uuid = {0};
+        int32_t                 ret = -1;
+
+        if (uuid) {
+                uuid_copy (peer_uuid, uuid);
+        } else {
+                ret = glusterd_hostname_to_uuid (hostname, peer_uuid);
+                if (ret)
+                        goto out;
+        }
+        ret = -1;
+        list_for_each_entry (brickiter, &volinfo->bricks, brick_list) {
+
+                if (uuid_is_null (brickiter->uuid)) {
+                        ret = glusterd_resolve_brick (brickiter);
+                        if (ret)
+                                goto out;
+                }
+                if ((!uuid_compare (peer_uuid, brickiter->uuid)) &&
+                        !strcmp (brickiter->path, path)) {
+                        gf_log ("", GF_LOG_NORMAL, "Found brick");
+                        ret = 0;
+                        if (brickinfo)
+                                *brickinfo = brickiter;
+                        break;
+                }
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_volume_brickinfo_get_by_brick (char *brick,
+                                        glusterd_volinfo_t *volinfo,
+                                        glusterd_brickinfo_t **brickinfo)
 {
         int32_t                 ret = -1;
         char                    *hostname = NULL;
         char                    *path = NULL;
         char                    *dup_brick = NULL;
         char                    *free_ptr = NULL;
-        glusterd_brickinfo_t    *tmp = NULL;
-        uuid_t                  uuid = {0};
 
         GF_ASSERT (brick);
-        GF_ASSERT (brickinfo);
         GF_ASSERT (volinfo);
 
         gf_log ("", GF_LOG_NORMAL, "brick: %s", brick);
@@ -680,26 +732,8 @@ glusterd_brickinfo_get (char *brick, glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-        ret = glusterd_hostname_to_uuid (hostname, uuid);
-        if (ret)
-                goto out;
-        ret = -1;
-        list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
-
-                if (uuid_is_null (tmp->uuid)) {
-                        ret = glusterd_resolve_brick (tmp);
-                        if (ret)
-                                goto out;
-                }
-                if ((!uuid_compare (uuid, tmp->uuid)) &&
-                        !strcmp (tmp->path, path)) {
-                        gf_log ("", GF_LOG_NORMAL, "Found brick");
-                        ret = 0;
-                        *brickinfo = tmp;
-                        break;
-                }
-        }
-
+        ret = glusterd_volume_brickinfo_get (NULL, hostname, path, volinfo,
+                                             brickinfo);
 out:
         if (free_ptr)
                 GF_FREE (free_ptr);
@@ -1757,15 +1791,14 @@ glusterd_volume_count_get (void)
 }
 
 int
-glusterd_is_exisiting_brick (char *hostname, char *path)
+glusterd_brickinfo_get (uuid_t uuid, char *hostname, char *path,
+                        glusterd_brickinfo_t **brickinfo)
 {
-        glusterd_brickinfo_t            *tmpbrkinfo = NULL;
         glusterd_volinfo_t              *volinfo     = NULL;
         glusterd_conf_t                 *priv = NULL;
         xlator_t                        *this = NULL;
-        int                             ret = 0;
+        int                             ret = -1;
 
-        GF_ASSERT (hostname);
         GF_ASSERT (path);
 
         this = THIS;
@@ -1775,16 +1808,11 @@ glusterd_is_exisiting_brick (char *hostname, char *path)
 
         list_for_each_entry (volinfo, &priv->volumes, vol_list) {
 
-                list_for_each_entry (tmpbrkinfo, &volinfo->bricks,
-                                     brick_list) {
-                        if ((!glusterd_is_local_addr (hostname)) && (!glusterd_is_local_addr (tmpbrkinfo->hostname))
-                            && !strcmp(path, tmpbrkinfo->path)) {
-                                gf_log ("glusterd", GF_LOG_ERROR, "Brick %s:%s"
-                                        " already in use", hostname, path);
-                                ret = 1;
-                                goto out;
-                        }
-                }
+                ret = glusterd_volume_brickinfo_get (uuid, hostname, path,
+                                                     volinfo,
+                                                     brickinfo);
+                if (!ret)
+                        goto out;
         }
 out:
         return ret;
@@ -1953,6 +1981,39 @@ out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
+
+int
+glusterd_friend_find_by_uuid (uuid_t uuid,
+                              glusterd_peerinfo_t  **peerinfo)
+{
+        int                     ret = -1;
+        glusterd_conf_t         *priv = NULL;
+        glusterd_peerinfo_t     *entry = NULL;
+
+        GF_ASSERT (peerinfo);
+
+        *peerinfo = NULL;
+        priv    = THIS->private;
+
+        GF_ASSERT (priv);
+
+        if (uuid_is_null (uuid))
+                return -1;
+
+        list_for_each_entry (entry, &priv->peers, uuid_list) {
+                if (!uuid_compare (entry->uuid, uuid)) {
+
+                        gf_log ("glusterd", GF_LOG_NORMAL,
+                                 "Friend found.. state: %d",
+                                  entry->state.state);
+                        *peerinfo = entry;
+                        return 0;
+                }
+        }
+
+        return ret;
+}
+
 
 int
 glusterd_friend_find_by_hostname (const char *hoststr,
@@ -2126,4 +2187,75 @@ glusterd_is_defrag_on (glusterd_volinfo_t *volinfo)
 {
         return ((volinfo->defrag_status == GF_DEFRAG_STATUS_STARTED) ||
                 (volinfo->defrag_status == GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE));
+}
+
+int
+glusterd_new_brick_validate (char *brick, glusterd_brickinfo_t *brickinfo,
+                             char *op_errstr, size_t len)
+{
+        glusterd_brickinfo_t    *newbrickinfo = NULL;
+        glusterd_brickinfo_t    *tmpbrkinfo = NULL;
+        int                     ret = -1;
+        gf_boolean_t            is_allocated = _gf_false;
+        glusterd_peerinfo_t     *peerinfo = NULL;
+        glusterd_conf_t         *priv = NULL;
+        xlator_t                *this = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+
+        GF_ASSERT (brick);
+        GF_ASSERT (op_errstr);
+
+        if (!brickinfo) {
+                ret = glusterd_brickinfo_from_brick (brick, &newbrickinfo);
+                if (ret)
+                        goto out;
+                is_allocated = _gf_true;
+        } else {
+                newbrickinfo = brickinfo;
+        }
+
+        ret = glusterd_resolve_brick (newbrickinfo);
+        if (ret) {
+                snprintf (op_errstr, len, "Host %s not a friend",
+                          newbrickinfo->hostname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", op_errstr);
+                goto out;
+        }
+
+        if (!uuid_compare (priv->uuid, newbrickinfo->uuid))
+                goto brick_validation;
+        ret = glusterd_friend_find_by_uuid (newbrickinfo->uuid, &peerinfo);
+        if (ret)
+                goto out;
+        if ((!peerinfo->connected) ||
+            (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
+                snprintf(op_errstr, len, "Host %s not connected",
+                         newbrickinfo->hostname);
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", op_errstr);
+                ret = -1;
+                goto out;
+        }
+brick_validation:
+        ret = glusterd_brickinfo_get (newbrickinfo->uuid,
+                                      newbrickinfo->hostname,
+                                      newbrickinfo->path, &tmpbrkinfo);
+        if (!ret) {
+                snprintf(op_errstr, len, "Brick: %s already in use",
+                         brick);
+                gf_log ("", GF_LOG_ERROR, op_errstr);
+                ret = -1;
+                goto out;
+        } else {
+                ret = 0;
+        }
+out:
+        if (is_allocated && newbrickinfo)
+                glusterd_brickinfo_delete (newbrickinfo);
+        gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
+        return ret;
 }
