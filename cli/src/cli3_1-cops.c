@@ -42,7 +42,9 @@ extern int      cli_op_ret;
 
 char *cli_volume_type[] = {"Distribute",
                            "Stripe",
-                           "Replicate"
+                           "Replicate",
+                           "Distributed-Stripe",
+                           "Distributed-Replicate",
 };
 
 
@@ -330,6 +332,8 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    status = 0;
         int32_t                    type = 0;
         int32_t                    brick_count = 0;
+        int32_t                    sub_count = 0;
+        int32_t                    vol_type = 0;
         char                       *brick = NULL;
         int32_t                    j = 1;
         cli_local_t                *local = NULL;
@@ -420,15 +424,36 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         if (ret)
                                 goto out;
 
+                        snprintf (key, 256, "volume%d.sub_count", i);
+                        ret = dict_get_int32 (dict, key, &sub_count);
+                        if (ret)
+                                goto out;
+
                         snprintf (key, 256, "volume%d.transport", i);
                         ret = dict_get_int32 (dict, key, &transport);
                         if (ret)
                                 goto out;
 
+                        vol_type = type;
+
+                        // Stripe
+                        if ((type == 1) && (sub_count < brick_count))
+                                vol_type = 3;
+
+                        // Replicate
+                        if ((type == 2) && (sub_count < brick_count))
+                                vol_type = 4;
+
                         cli_out ("Volume Name: %s", volname);
-                        cli_out ("Type: %s", cli_volume_type[type]);
+                        cli_out ("Type: %s", cli_volume_type[vol_type]);
                         cli_out ("Status: %s", cli_volume_status[status], brick_count);
-                        cli_out ("Number of Bricks: %d", brick_count);
+                        if (sub_count > 1)
+                                cli_out ("Number of Bricks: %d x %d = %d",
+                                         brick_count / sub_count, sub_count,
+                                         brick_count);
+                        else
+                                cli_out ("Number of Bricks: %d", brick_count);
+
                         cli_out ("Transport-type: %s", ((transport == 0)?
                                  "tcp" : "rdma"));
                         j = 1;
