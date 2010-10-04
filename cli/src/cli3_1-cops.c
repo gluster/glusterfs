@@ -1007,6 +1007,7 @@ gf_cli3_1_replace_brick_cbk (struct rpc_req *req, struct iovec *iov,
                 break;
 
         case GF_REPLACE_OP_COMMIT:
+        case GF_REPLACE_OP_COMMIT_FORCE:
                 ret = dict_get_str (dict, "src-brick", &src_brick);
                 if (ret) {
                         gf_log ("", GF_LOG_DEBUG,

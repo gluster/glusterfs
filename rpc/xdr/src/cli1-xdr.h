@@ -48,6 +48,7 @@ enum gf1_cli_replace_op {
 	GF_REPLACE_OP_PAUSE = 0 + 3,
 	GF_REPLACE_OP_ABORT = 0 + 4,
 	GF_REPLACE_OP_STATUS = 0 + 5,
+	GF_REPLACE_OP_COMMIT_FORCE = 0 + 6,
 };
 typedef enum gf1_cli_replace_op gf1_cli_replace_op;
 
