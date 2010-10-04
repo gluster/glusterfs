@@ -210,11 +210,13 @@ glusterd_store_delete_brick (glusterd_volinfo_t *volinfo,
 
         ret = unlink (brickpath);
 
-        if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "Unlink failed on %s",
-                        brickpath);
+        if ((ret < 0) && (errno != ENOENT)) {
+                gf_log ("", GF_LOG_ERROR, "Unlink failed on %s, reason: %s",
+                        brickpath, strerror(errno));
                 ret = -1;
                 goto out;
+        } else {
+                ret = 0;
         }
 
 out:
@@ -256,9 +258,9 @@ glusterd_store_remove_bricks (glusterd_volinfo_t *volinfo)
                 snprintf (path, sizeof (path), "%s/%s",
                           brickdir, entry->d_name);
                 ret = unlink (path);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to unlink %s",
-                                path);
+                if (ret && errno != ENOENT) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to unlink %s, "
+                                "reason: %s", path, strerror(errno));
                 }
                 glusterd_for_each_entry (entry, dir);
         }
@@ -1281,6 +1283,8 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
         }
 
         ret = unlink (filepath);
+        if (ret && (errno == ENOENT))
+                ret = 0;
 
 out:
         if (peerinfo->shandle)

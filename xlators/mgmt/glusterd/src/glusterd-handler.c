@@ -2175,7 +2175,7 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
                 goto out;
         }
 
-        args.mode = GD_MODE_SWITCH_ON;
+        args.mode = GD_MODE_ON;
         while ( i <= count) {
                 snprintf (key, sizeof (key), "friend%d.uuid", i);
                 ret = dict_get_str (dict, key, &uuid_buf);
