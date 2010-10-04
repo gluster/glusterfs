@@ -208,7 +208,7 @@ fini (xlator_t *this)
         dht_conf_t *conf = NULL;
 
 	conf = this->private;
-
+        this->private = NULL;
         if (conf) {
                 if (conf->file_layouts) {
                         for (i = 0; i < conf->subvolume_cnt; i++) {
@@ -262,6 +262,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
 
 	conf = this->private;
+        if (!conf)
+                return 0;
 
 	if (dict_get_str (options, "lookup-unhashed", &temp_str) == 0) {
                 /* If option is not "auto", other options _should_ be boolean*/

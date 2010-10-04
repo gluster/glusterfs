@@ -64,6 +64,8 @@ dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y_p)
 	}
 
 	conf = this->private;
+        if (!conf)
+                goto out;
 
 	max = conf->subvolume_cnt;
 	cnt = dht_subvol_cnt (this, subvol);
@@ -147,6 +149,8 @@ dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol_p,
 	uint64_t    x = 0;
 	xlator_t   *subvol = 0;
 
+        if (!this->private)
+                goto out;
 
 	conf = this->private;
 	max = conf->subvolume_cnt;
@@ -162,6 +166,7 @@ dht_deitransform (xlator_t *this, uint64_t y, xlator_t **subvol_p,
 	if (x_p)
 		*x_p = x;
 
+out:
 	return 0;
 }
 
@@ -262,6 +267,8 @@ dht_first_up_subvol (xlator_t *this)
 	int         i = 0;
 
 	conf = this->private;
+        if (!conf)
+                goto out;
 
 	LOCK (&conf->subvolume_lock);
 	{
@@ -274,6 +281,7 @@ dht_first_up_subvol (xlator_t *this)
 	}
 	UNLOCK (&conf->subvolume_lock);
 
+out:
 	return child;
 }
 
@@ -285,6 +293,9 @@ dht_last_up_subvol (xlator_t *this)
         int         i = 0;
 
         conf = this->private;
+        if (!conf)
+                goto out;
+
         LOCK (&conf->subvolume_lock);
         {
                 for (i = conf->subvolume_cnt-1; i >= 0; i--) {
@@ -296,6 +307,7 @@ dht_last_up_subvol (xlator_t *this)
         }
         UNLOCK (&conf->subvolume_lock);
 
+out:
         return child;
 }
 
@@ -369,6 +381,8 @@ dht_subvol_next (xlator_t *this, xlator_t *prev)
 	xlator_t   *next = NULL;
 
 	conf = this->private;
+        if (!conf)
+                goto out;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
 		if (conf->subvolumes[i] == prev) {
@@ -378,6 +392,7 @@ dht_subvol_next (xlator_t *this, xlator_t *prev)
 		}
 	}
 
+out:
 	return next;
 }
 
@@ -389,8 +404,9 @@ dht_subvol_cnt (xlator_t *this, xlator_t *subvol)
 	int ret = -1;
 	dht_conf_t *conf = NULL;
 
-
 	conf = this->private;
+        if (!conf)
+                goto out;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
 		if (subvol == conf->subvolumes[i]) {
@@ -399,6 +415,7 @@ dht_subvol_cnt (xlator_t *this, xlator_t *subvol)
 		}
 	}
 
+out:
 	return ret;
 }
 

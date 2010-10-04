@@ -294,6 +294,8 @@ dht_do_fresh_lookup_on_root (xlator_t *this, call_frame_t *frame)
 
         local = frame->local;
         conf = this->private;
+        if (!conf)
+                goto err;
 
         if (local->layout) {
                 dht_layout_unref (this, local->layout);
@@ -351,6 +353,8 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         prev  = cookie;
 	conf = this->private;
+        if (!conf)
+                goto out;
 
         LOCK (&frame->lock);
         {
@@ -431,14 +435,14 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	}
 unlock:
 	UNLOCK (&frame->lock);
-
+out:
         this_call_cnt = dht_frame_return (frame);
 
         if (is_last_call (this_call_cnt)) {
 		if (!IA_ISDIR (local->stbuf.ia_type)
 		    && (local->hashed_subvol != local->cached_subvol)
 		    && (local->stbuf.ia_nlink == 1)
-		    && (conf->unhashed_sticky_bit)) {
+                    && (conf && conf->unhashed_sticky_bit)) {
 			local->stbuf.ia_prot.sticky = 1;
 		}
 
@@ -496,7 +500,7 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
 
 	local->op_ret = 0;
 	if ((local->stbuf.ia_nlink == 1)
-	    && (conf->unhashed_sticky_bit)) {
+	    && (conf && conf->unhashed_sticky_bit)) {
 		local->stbuf.ia_prot.sticky = 1;
 	}
 
@@ -686,6 +690,8 @@ dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
 	conf = this->private;
 	local = frame->local;
+        if (!conf)
+                goto out;
 
 	call_cnt = conf->subvolume_cnt;
 	local->call_cnt = call_cnt;
@@ -700,7 +706,10 @@ dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
 			    loc, local->xattr_req);
 	}
 
-	return 0;
+        return 0;
+out:
+        DHT_STACK_UNWIND (lookup, frame, -1, EINVAL, NULL, NULL, NULL, NULL);
+        return 0;
 }
 
 
@@ -745,7 +754,7 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         }
 
 	if ((stbuf->ia_nlink == 1)
-	    && (conf->unhashed_sticky_bit)) {
+	    && (conf && conf->unhashed_sticky_bit)) {
 		stbuf->ia_prot.sticky = 1;
 	}
         dht_itransform (this, prev->this, stbuf->ia_ino, &stbuf->ia_ino);
@@ -788,17 +797,19 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         conf = this->private;
         local = frame->local;
 
+        if (!conf)
+                goto unwind;
+
         call_cnt        = conf->subvolume_cnt;
         local->call_cnt = call_cnt;
-		
+
         local->layout = dht_layout_new (this, conf->subvolume_cnt);
         if (!local->layout) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
-                DHT_STACK_UNWIND (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
-                return 0;
+                goto unwind;
         }
-		
+
         for (i = 0; i < call_cnt; i++) {
                 STACK_WIND (frame, dht_lookup_dir_cbk,
                             conf->subvolumes[i],
@@ -806,6 +817,10 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
                             &local->loc, local->xattr_req);
         }
         return 0;
+unwind:
+        DHT_STACK_UNWIND (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+        return 0;
+
 }
 
 
@@ -827,6 +842,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_layout_t *parent_layout = NULL;
 
         conf  = this->private;
+        if (!conf)
+                goto out;
 
         prev  = cookie;
         local = frame->local;
@@ -952,6 +969,8 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc->path, err);
 
 	conf = this->private;
+        if (!conf)
+                goto err;
 
         local = dht_local_init (frame);
 	if (!local) {
@@ -1818,6 +1837,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
         conf   = this->private;
         layout = dht_layout_get (this, loc->inode);
@@ -2466,6 +2486,7 @@ dht_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
 	conf = this->private;
 
@@ -2501,6 +2522,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
 	conf = this->private;
 
@@ -2809,6 +2831,8 @@ dht_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         int          i = 0;
 
         conf = this->private;
+        if (!conf)
+                goto out;
 
         for (i = 0; i < conf->subvolume_cnt; i++) {
                 if (!conf->subvolume_status[i]) {
@@ -2820,6 +2844,7 @@ dht_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (conf->use_readdirp)
                 op = GF_FOP_READDIRP;
 
+out:
         dht_do_readdir (frame, this, fd, size, yoff, op);
         return 0;
 }
@@ -2874,6 +2899,7 @@ dht_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
         VALIDATE_OR_GOTO (fd, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
 	conf = this->private;
 
@@ -3628,6 +3654,8 @@ dht_mkdir_hashed_cbk (call_frame_t *frame, void *cookie,
 	int           i = 0;
 	xlator_t     *hashed_subvol = NULL;
 
+        VALIDATE_OR_GOTO (this->private, err);
+
 	local = frame->local;
 	prev  = cookie;
 	layout = local->layout;
@@ -3693,6 +3721,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
 	conf = this->private;
 
@@ -3847,6 +3876,8 @@ dht_rmdir_do (call_frame_t *frame, xlator_t *this)
 	dht_local_t  *local = NULL;
 	dht_conf_t   *conf = NULL;
 	int           i = 0;
+
+        VALIDATE_OR_GOTO (this->private, err);
 
 	conf = this->private;
 	local = frame->local;
@@ -4141,6 +4172,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         VALIDATE_OR_GOTO (loc, err);
         VALIDATE_OR_GOTO (loc->inode, err);
         VALIDATE_OR_GOTO (loc->path, err);
+        VALIDATE_OR_GOTO (this->private, err);
 
 	conf = this->private;
 
@@ -4683,6 +4715,8 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         xlator_list_t *subvols = NULL;
         int            cnt = 0;
 
+        if (!conf)
+                return -1;
 
         for (subvols = this->children; subvols; subvols = subvols->next)
                 cnt++;
@@ -4727,6 +4761,8 @@ dht_notify (xlator_t *this, int event, void *data, ...)
         int         notify = 1;
 
 	conf = this->private;
+        if (!conf)
+                return ret;
 
 	switch (event) {
 	case GF_EVENT_CHILD_UP:

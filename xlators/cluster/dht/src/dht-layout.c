@@ -72,6 +72,9 @@ dht_layout_get (xlator_t *this, inode_t *inode)
         int           ret    = -1;
 
         conf = this->private;
+        if (!conf)
+                goto out;
+
         LOCK (&conf->layout_lock);
         {
                 ret = inode_ctx_get (inode, this, &layout_int);
@@ -82,6 +85,7 @@ dht_layout_get (xlator_t *this, inode_t *inode)
         }
         UNLOCK (&conf->layout_lock);
 
+out:
         return layout;
 }
 
@@ -96,6 +100,9 @@ dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
         uint64_t      old_layout_int;
 
         conf = this->private;
+        if (!conf)
+                goto out;
+
         LOCK (&conf->layout_lock);
         {
                 oldret = inode_ctx_get (inode, this, &old_layout_int);
@@ -111,6 +118,7 @@ dht_layout_set (xlator_t *this, inode_t *inode, dht_layout_t *layout)
                 dht_layout_unref (this, old_layout);
         }
 
+out:
         return ret;
 }
 
@@ -121,10 +129,11 @@ dht_layout_unref (xlator_t *this, dht_layout_t *layout)
         dht_conf_t  *conf = NULL;
         int          ref = 0;
 
-        if (layout->preset)
+        if (layout->preset || !this->private)
                 return;
 
         conf = this->private;
+
         LOCK (&conf->layout_lock);
         {
                 ref = --layout->ref;
@@ -141,7 +150,7 @@ dht_layout_ref (xlator_t *this, dht_layout_t *layout)
 {
         dht_conf_t  *conf = NULL;
 
-        if (layout->preset)
+        if (layout->preset || !this->private)
                 return layout;
 
         conf = this->private;
@@ -197,8 +206,9 @@ dht_layout_for_subvol (xlator_t *this, xlator_t *subvol)
 	dht_layout_t *layout = NULL;
 	int           i = 0;
 
-
 	conf = this->private;
+        if (!conf)
+                goto out;
 
 	for (i = 0; i < conf->subvolume_cnt; i++) {
 		if (conf->subvolumes[i] == subvol) {
@@ -207,6 +217,7 @@ dht_layout_for_subvol (xlator_t *this, xlator_t *subvol)
 		}
 	}
 
+out:
 	return layout;
 }
 
@@ -217,7 +228,9 @@ dht_layouts_init (xlator_t *this, dht_conf_t *conf)
 	dht_layout_t *layout = NULL;
 	int           i = 0;
 	int           ret = -1;
-	
+
+        if (!conf)
+                goto out;
 
 	conf->file_layouts = GF_CALLOC (conf->subvolume_cnt,
 				        sizeof (dht_layout_t *),
@@ -691,6 +704,8 @@ dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
         dht_conf_t   *conf = NULL;
 
         conf = this->private;
+        if (!conf)
+                goto out;
 
 	layout = dht_layout_for_subvol (this, subvol);
 	if (!layout) {
