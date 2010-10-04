@@ -79,6 +79,17 @@
         } while (0)                                                     \
 
 
+#define nfs3_disable_subvolume_on_disconnect(ts, sv, rval, errlbl)      \
+        do {                                                            \
+                if (rval == ENOTCONN) {                                 \
+                        gf_log (GF_NFS3, GF_LOG_ERROR, "Connection to"  \
+                                " subvol was lost: %s",                 \
+                                ((xlator_t *)sv)->name);                \
+                        nfs_subvolume_lookup_again_later (ts->private, sv);\
+                        goto errlbl;                                    \
+                }                                                       \
+        } while (0)                                                     \
+
 struct nfs3_export *
 __nfs3_get_export_by_index (struct nfs3_state *nfs3, uuid_t exportid)
 {
@@ -585,15 +596,18 @@ nfs3svc_getattr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 status = nfs3_errno_to_nfsstat3 (op_errno);
+        }
 
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "GETATTR",
                              status, op_errno);
 
         nfs3_getattr_reply (cs->req, status, buf);
+out:
         nfs3_call_state_wipe (cs);
-
         return 0;
 }
 
@@ -607,15 +621,18 @@ nfs3svc_getattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 status = nfs3_errno_to_nfsstat3 (op_errno);
+        }
 
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "GETATTR",
                              status, op_errno);
 
         nfs3_getattr_reply (cs->req, status, buf);
+out:
         nfs3_call_state_wipe (cs);
-
         return 0;
 }
 
@@ -757,6 +774,8 @@ nfs3svc_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -775,8 +794,8 @@ nfs3err:
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "SETATTR", stat,
                              op_errno);
         nfs3_setattr_reply (cs->req, stat, prestat, postbuf);
+out:
         nfs3_call_state_wipe (cs);
-
         return 0;
 }
 
@@ -794,6 +813,8 @@ nfs3svc_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -832,8 +853,10 @@ nfs3err:
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req),
                                      "SETATTR", stat, op_errno);
                 nfs3_setattr_reply (cs->req, stat, prebuf, postop);
-                nfs3_call_state_wipe (cs);
         }
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
 
         return 0;
 }
@@ -852,6 +875,8 @@ nfs3svc_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -875,8 +900,10 @@ nfs3err:
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req),
                                      "SETATTR", stat, op_errno);
                 nfs3_setattr_reply (cs->req, stat, NULL, NULL);
-                nfs3_call_state_wipe (cs);
         }
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
 
         return 0;
 }
@@ -1071,6 +1098,8 @@ nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      wipeout);
                 status = nfs3_errno_to_nfsstat3 (op_errno);
                 goto xmit_res;
         }
@@ -1088,6 +1117,7 @@ xmit_res:
         nfs3_log_newfh_res (nfs_rpcsvc_request_xid (cs->req), "LOOKUP", status,
                             op_errno, &newfh);
         nfs3_lookup_reply (cs->req, status, &newfh, buf, postparent);
+wipeout:
         nfs3_call_state_wipe (cs);
 out:
         return 0;
@@ -1108,6 +1138,8 @@ nfs3svc_lookup_parentdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 status = nfs3_errno_to_nfsstat3 (op_errno);
                 goto xmit_res;
         }
@@ -1134,6 +1166,7 @@ xmit_res:
         nfs3_log_newfh_res (nfs_rpcsvc_request_xid (cs->req), "LOOKUP", status,
                             op_errno, &newfh);
         nfs3_lookup_reply (cs->req, status, &newfh, buf, postparent);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -1351,12 +1384,16 @@ nfs3svc_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 status = nfs3_errno_to_nfsstat3 (op_errno);
+        }
 
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "ACCESS", status,
                              op_errno);
         nfs3_access_reply (cs->req, status, buf, cs->accessbits);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -1487,6 +1524,8 @@ nfs3svc_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -1497,6 +1536,7 @@ nfs3err:
         nfs3_log_readlink_res (nfs_rpcsvc_request_xid (cs->req), stat, op_errno,
                                (char *)path);
         nfs3_readlink_reply (cs->req, stat, (char *)path, buf);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -1648,6 +1688,8 @@ nfs3svc_read_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto err;
         } else
@@ -1661,6 +1703,7 @@ err:
                            op_ret, is_eof, vector, count);
         nfs3_read_reply (cs->req, stat, op_ret, vector, count, iobref, stbuf,
                          is_eof);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -1824,15 +1867,18 @@ nfs3svc_write_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
         nfs3 = nfs_rpcsvc_request_program_private (cs->req);
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
-        else
+        } else
                 stat = NFS3_OK;
 
         nfs3_log_write_res (nfs_rpcsvc_request_xid (cs->req), stat, op_errno,
                             cs->maxcount, cs->writetype, nfs3->serverstart);
         nfs3_write_reply (cs->req, stat, cs->maxcount, cs->writetype,
                           nfs3->serverstart, &cs->stbuf, postbuf);
+out:
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -1921,6 +1967,8 @@ nfs3svc_write_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
         nfs3 = nfs_rpcsvc_request_program_private (cs->req);
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto err;
         }
@@ -1955,8 +2003,10 @@ err:
                 nfs3_write_reply (cs->req, stat, cs->maxcount,
                                   cs->writetype, nfs3->serverstart, prebuf,
                                   postbuf);
-                nfs3_call_state_wipe (cs);
         }
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
 
         return 0;
 }
@@ -2242,6 +2292,8 @@ nfs3svc_create_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2252,6 +2304,7 @@ nfs3err:
                             op_errno, &cs->fh);
         nfs3_create_reply (cs->req, stat, &cs->fh, postop, &cs->preparent,
                            &cs->postparent);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -2271,6 +2324,8 @@ nfs3svc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2298,8 +2353,10 @@ nfs3err:
                                     stat, op_errno, &cs->fh);
                 nfs3_create_reply (cs->req, stat, &cs->fh, buf, preparent,
                                    postparent);
-                nfs3_call_state_wipe (cs);
         }
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
 
         return 0;
 }
@@ -2350,6 +2407,8 @@ nfs3svc_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs_request_user_init (&nfu, cs->req);
         if (op_ret == -1) {
                 ret = -op_errno;
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2364,9 +2423,10 @@ nfs3err:
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "CREATE",
                                      stat, op_errno);
                 nfs3_create_reply (cs->req, stat, NULL, NULL, NULL, NULL);
-                nfs3_call_state_wipe (cs);
         }
-
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
         return 0;
 }
 
@@ -2546,6 +2606,8 @@ nfs3svc_mkdir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2556,6 +2618,7 @@ nfs3err:
                             op_errno, &cs->fh);
         nfs3_mkdir_reply (cs->req, stat, &cs->fh, postop, &cs->preparent,
                           &cs->postparent);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -2575,6 +2638,8 @@ nfs3svc_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2601,9 +2666,10 @@ nfs3err:
                                     stat, op_errno, &cs->fh);
                 nfs3_mkdir_reply (cs->req, stat, &cs->fh, buf, preparent,
                                   postparent);
-                nfs3_call_state_wipe (cs);
         }
-
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
         return 0;
 }
 
@@ -2750,6 +2816,8 @@ nfs3svc_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2762,6 +2830,7 @@ nfs3err:
                             op_errno, &cs->fh);
         nfs3_symlink_reply (cs->req, stat, &cs->fh, buf, preparent,
                             postparent);
+out:
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -2909,6 +2978,8 @@ nfs3svc_mknod_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2919,6 +2990,7 @@ nfs3err:
                             op_errno, &cs->fh);
         nfs3_mknod_reply (cs->req, stat, &cs->fh, postop, &cs->preparent,
                           &cs->postparent);
+out:
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -2938,6 +3010,8 @@ nfs3svc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -2965,8 +3039,10 @@ nfs3err:
                                     op_errno, &cs->fh);
                 nfs3_mknod_reply (cs->req, stat, &cs->fh, buf, preparent,
                                   postparent);
-                nfs3_call_state_wipe (cs);
         }
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
 
         return 0;
 }
@@ -3193,6 +3269,8 @@ nfs3svc_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto do_not_unref_cached_fd;
         }
@@ -3216,6 +3294,7 @@ do_not_unref_cached_fd:
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "REMOVE", stat,
                              op_errno);
         nfs3_remove_reply (cs->req, stat, preparent, postparent);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -3369,9 +3448,11 @@ nfs3svc_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs3_call_state_t       *cs = NULL;
 
         cs = frame->local;
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
-        else {
+        } else {
                 inode_unref (cs->resolvedloc.inode);
                 stat = NFS3_OK;
         }
@@ -3379,6 +3460,7 @@ nfs3svc_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "RMDIR", stat,
                              op_errno);
         nfs3_rmdir_reply (cs->req, stat, preparent, postparent);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -3522,6 +3604,8 @@ nfs3svc_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -3544,6 +3628,7 @@ nfs3err:
                              -ret);
         nfs3_rename_reply (cs->req, stat, buf, preoldparent, postoldparent,
                            prenewparent, postnewparent);
+out:
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -3733,14 +3818,17 @@ nfs3svc_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs3_call_state_t       *cs = NULL;
 
         cs = frame->local;
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
-        else
+        } else
                 stat = NFS3_OK;
 
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "LINK", stat,
                              op_errno);
         nfs3_link_reply (cs->req, stat, buf, preparent, postparent);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -3940,6 +4028,8 @@ nfs3svc_readdir_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto nfs3err;
         }
@@ -3983,6 +4073,7 @@ nfs3err:
         }
 
         gf_log (GF_NFS3, GF_LOG_TRACE, "CS WIPE REF: %d", cs->fd->refcount);
+out:
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -3999,6 +4090,8 @@ nfs3svc_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
         if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto err;
         }
@@ -4029,6 +4122,7 @@ err:
                                      0, 0, 0);
         }
 
+out:
         /* For directories, we force a purge from the fd cache on close
          * so that next time the dir is read, we'll get any changed directory
          * entries.
@@ -4275,14 +4369,17 @@ nfs3_fsstat_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs3_call_state_t       *cs = NULL;
 
         cs = frame->local;
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
-        else
+        } else
                 stat = NFS3_OK;
 
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "FSTAT", stat,
                              op_errno);
         nfs3_fsstat_reply (cs->req, stat, &cs->fsstat, buf);
+out:
         nfs3_call_state_wipe (cs);
         return 0;
 }
@@ -4300,6 +4397,8 @@ nfs3_fsstat_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         cs = frame->local;
         if (op_ret == -1) {
                 ret = -op_errno;
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
                 goto err;
         }
@@ -4319,9 +4418,10 @@ err:
                 nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "FSTAT",
                                      stat, -ret);
                 nfs3_fsstat_reply (cs->req, stat, NULL, NULL);
-                nfs3_call_state_wipe (cs);
         }
-
+out:
+        if (ret < 0)
+                nfs3_call_state_wipe (cs);
         return 0;
 }
 
@@ -4454,15 +4554,18 @@ nfs3svc_fsinfo_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         cs = frame->local;
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 status = nfs3_errno_to_nfsstat3 (op_errno);
-        else
+        } else
                 status = NFS3_OK;
 
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "FSINFO", status,
                              op_errno);
 
         nfs3_fsinfo_reply (cs->req, status, buf);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -4592,9 +4695,11 @@ nfs3svc_pathconf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfsstat3                stat = NFS3ERR_SERVERFAULT;
 
         cs = frame->local;
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
-        else {
+        } else {
                 /* If stat fop failed, we can still send the other components
                  * in a pathconf reply.
                  */
@@ -4605,6 +4710,7 @@ nfs3svc_pathconf_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "PATHCONF", stat,
                              op_errno);
         nfs3_pathconf_reply (cs->req, stat, sbuf);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
@@ -4734,15 +4840,18 @@ nfs3svc_commit_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct nfs3_state       *nfs3 = NULL;
 
         cs = frame->local;
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                nfs3_disable_subvolume_on_disconnect (this, cookie, op_errno,
+                                                      out);
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
-        else
+        } else
                 stat = NFS3_OK;
 
         nfs3 = nfs_rpcsvc_request_program_private (cs->req);
         nfs3_log_commit_res (nfs_rpcsvc_request_xid (cs->req), stat, op_errno,
                              nfs3->serverstart);
         nfs3_commit_reply (cs->req, stat, nfs3->serverstart, prebuf, postbuf);
+out:
         nfs3_call_state_wipe (cs);
 
         return 0;
