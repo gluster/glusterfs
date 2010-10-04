@@ -2639,11 +2639,12 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
 
                 src_brickinfo->port = pmap_registry_search (this,
                                       src_brickinfo->path, GF_PMAP_PORT_BRICKSERVER);
-                if (!src_brickinfo->port) {
-                         gf_log ("", GF_LOG_ERROR,
+                if (!src_brickinfo->port &&
+                    replace_op != GF_REPLACE_OP_COMMIT_FORCE ) {
+                        gf_log ("", GF_LOG_ERROR,
                                 "Src brick port not available");
-                         ret = -1;
-                         goto out;
+                        ret = -1;
+                        goto out;
                 }
 
                 if (rsp_dict) {
@@ -2721,6 +2722,7 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
 	}
 
         case GF_REPLACE_OP_COMMIT:
+        case GF_REPLACE_OP_COMMIT_FORCE:
         {
 
                 ret = dict_set_int32 (volinfo->dict, "enable-pump", 0);
@@ -2728,7 +2730,8 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                         "Received commit - will be adding dst brick and "
                         "removing src brick");
 
-                if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                if (!glusterd_is_local_addr (dst_brickinfo->hostname) &&
+                    replace_op != GF_REPLACE_OP_COMMIT_FORCE) {
                         gf_log ("", GF_LOG_NORMAL,
                                 "I AM THE DESTINATION HOST");
                         ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
@@ -4018,8 +4021,8 @@ glusterd_do_replace_brick (void *data)
                 break;
         case GF_REPLACE_OP_PAUSE:
         case GF_REPLACE_OP_ABORT:
-                break;
         case GF_REPLACE_OP_COMMIT:
+        case GF_REPLACE_OP_COMMIT_FORCE:
         case GF_REPLACE_OP_STATUS:
                 break;
         default:

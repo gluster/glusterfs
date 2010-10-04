@@ -822,8 +822,7 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 goto out;
 
         op_index = 5;
-        if ((wordcount < (op_index + 1)) ||
-            (wordcount > (op_index + 1))) {
+        if ((wordcount < (op_index + 1))) {
                 ret = -1;
                 goto out;
         }
@@ -842,6 +841,21 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
                 replace_op = GF_REPLACE_OP_STATUS;
         }
 
+        /* commit force option */
+        op_index = 6;
+
+        if (wordcount > (op_index + 1)) {
+                ret = -1;
+                goto out;
+        }
+
+        if (wordcount == (op_index + 1)) {
+                op = (char *) words[op_index];
+                if (!strcasecmp ("force", op)) {
+                        replace_op = GF_REPLACE_OP_COMMIT_FORCE;
+                }
+        }
+
         if (replace_op == GF_REPLACE_OP_NONE) {
                 ret = -1;
                 goto out;
@@ -851,6 +865,9 @@ cli_cmd_volume_replace_brick_parse (const char **words, int wordcount,
 
         if (ret)
                 goto out;
+
+
+
 
         *options = dict;
 

@@ -1142,7 +1142,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
         char                            *src_brick = NULL;
         char                            *dst_brick = NULL;
         int32_t                         op = 0;
-        char                            operation[8];
+        char                            operation[256];
 
         GF_ASSERT (req);
 
@@ -1209,6 +1209,8 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 case GF_REPLACE_OP_ABORT:  strcpy (operation, "abort");
                         break;
                 case GF_REPLACE_OP_STATUS: strcpy (operation, "status");
+                        break;
+                case GF_REPLACE_OP_COMMIT_FORCE: strcpy (operation, "commit-force");
                         break;
                 default:strcpy (operation, "unknown");
                         break;
