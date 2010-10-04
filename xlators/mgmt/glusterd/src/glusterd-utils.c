@@ -1526,6 +1526,7 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
         int32_t                 ret = -1;
         int32_t                 count = 0;
         int                     i = 1;
+        gf_boolean_t            update = _gf_false;
 
         GF_ASSERT (vols);
         GF_ASSERT (status);
@@ -1543,11 +1544,13 @@ glusterd_compare_friend_data (dict_t  *vols, int32_t *status)
                         ret = 0;
                         goto out;
                 }
+                if (GLUSTERD_VOL_COMP_UPDATE_REQ == *status)
+                        update = _gf_true;
 
                 i++;
         }
 
-        if (GLUSTERD_VOL_COMP_UPDATE_REQ == *status) {
+        if (update) {
                 ret = glusterd_import_friend_volumes (vols);
                 if (ret)
                         goto out;
