@@ -87,6 +87,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"latency-measurement",         "debug/io-stats"},
         {"dump-fd-stats",               "debug/io-stats"},
+        {"log-level",                   "debug/io-stats"},
+        {"client-log-level",            "debug/io-stats"},
 
         {"max-file-size",               "performance/io-cache"},
         {"min-file-size",               "performance/io-cache"},

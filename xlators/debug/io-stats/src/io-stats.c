@@ -20,6 +20,7 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 #include "config.h"
+#include "xlator.h"
 #endif
 
 /**
@@ -1549,6 +1550,8 @@ reconfigure (xlator_t *this, dict_t *options)
         struct ios_conf    *conf = NULL;
         char               *str = NULL;
         int                 ret = 0;
+        char               *log_str = NULL;
+        glusterfs_ctx_t     *ctx = NULL;
 
         if (!this || !this->private)
                 return -1;
@@ -1578,6 +1581,21 @@ reconfigure (xlator_t *this, dict_t *options)
                                 conf->measure_latency, ret);
                 }
                 conf->measure_latency = ret;
+        }
+        ctx = glusterfs_ctx_get ();
+        if (!ctx)
+                return -1;
+
+        if (ctx->cmd_args.brick_name)
+                ret = dict_get_str (options, "log-level", &log_str);
+        else
+                ret = dict_get_str (options, "client-log-level", &log_str);
+
+        if (!ret) {
+                if (!is_gf_log_command(this, "trusted.glusterfs*set-log-level", log_str)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                               "changing log-level to %s", log_str);
+                }
         }
         return 0;
 }
@@ -1736,6 +1754,12 @@ struct volume_options options[] = {
         },
         { .key  = { "latency-measurement" },
           .type = GF_OPTION_TYPE_BOOL,
+        },
+        { .key = {"log-level"},
+          .type = GF_OPTION_TYPE_STR,
+        },
+        { .key = {"client-log-level"},
+          .type = GF_OPTION_TYPE_STR,
         },
         { .key  = {NULL} },
 };

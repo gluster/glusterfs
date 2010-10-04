@@ -859,6 +859,7 @@ int loc_copy (loc_t *dst, loc_t *src);
 void loc_wipe (loc_t *loc);
 int xlator_mem_acct_init (xlator_t *xl, int num_types);
 int xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl);
+int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 
