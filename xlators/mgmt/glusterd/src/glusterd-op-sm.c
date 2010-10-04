@@ -1865,7 +1865,7 @@ rb_send_xattr_command (glusterd_volinfo_t *volinfo,
 
         ret = lsetxattr (mount_point_path, xattr_key,
                          value,
-                         strlen (value),
+                         strlen (value) + 1,
                          0);
 
         if (ret) {
@@ -1887,15 +1887,23 @@ rb_spawn_dst_brick (glusterd_volinfo_t *volinfo,
         glusterd_conf_t    *priv           = NULL;
         char                cmd_str[8192]  = {0,};
         int                 ret            = -1;
+        int32_t             port           = 0;
 
         priv = THIS->private;
 
+        port = pmap_registry_alloc (THIS);
+        brickinfo->port = port;
+
+        GF_ASSERT (port);
+
         snprintf (cmd_str, 8192,
-                  "%s/sbin/glusterfs -f %s/vols/%s/%s -p %s/vols/%s/%s",
+                  "%s/sbin/glusterfs -f %s/vols/%s/%s -p %s/vols/%s/%s "
+                  "--xlator-option src-server.listen-port=%d",
                   GFS_PREFIX, priv->workdir, volinfo->volname,
                   RB_DSTBRICKVOL_FILENAME,
                   priv->workdir, volinfo->volname,
-                  RB_DSTBRICK_PIDFILE);
+                  RB_DSTBRICK_PIDFILE,
+                  port);
 
         ret = gf_system (cmd_str);
         if (ret) {
@@ -2016,19 +2024,18 @@ out:
 }
 
 static const char *dst_brick_volfile_str = "volume src-posix\n"
-        "type storage/posix\n"
-        "option directory %s\n"
+        " type storage/posix\n"
+        " option directory %s\n"
         "end-volume\n"
         "volume %s\n"
-        "type features/locks\n"
-        "subvolumes src-posix\n"
+        " type features/locks\n"
+        " subvolumes src-posix\n"
         "end-volume\n"
         "volume src-server\n"
-        "type protocol/server\n"
-        "option auth.addr.%s.allow *\n"
-        "option listen-port 34034\n"
-        "option transport-type tcp\n"
-        "subvolumes %s\n"
+        " type protocol/server\n"
+        " option auth.addr.%s.allow *\n"
+        " option transport-type tcp\n"
+        " subvolumes %s\n"
         "end-volume\n";
 
 static int
@@ -2260,9 +2267,10 @@ rb_do_operation_start (glusterd_volinfo_t *volinfo,
 	gf_log ("", GF_LOG_DEBUG,
 		"mounted the replace brick client");
 
-        snprintf (start_value, 8192, "%s:%s:",
+        snprintf (start_value, 8192, "%s:%s:%d",
                   dst_brickinfo->hostname,
-                  dst_brickinfo->path);
+                  dst_brickinfo->path,
+                  dst_brickinfo->port);
 
 
         ret = rb_send_xattr_command (volinfo, src_brickinfo,
@@ -2404,6 +2412,14 @@ rb_do_operation_abort (glusterd_volinfo_t *volinfo,
         ret = 0;
 
 out:
+	if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
+	        ret = rb_src_brick_restart (volinfo, src_brickinfo,
+					    0);
+		 if (ret) {
+			gf_log ("", GF_LOG_DEBUG,
+                       "Could not restart src-brick");
+		}
+        }
         return ret;
 }
 
@@ -2663,6 +2679,33 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                                         "Failed to spawn destination brick");
                                 goto out;
                         }
+
+                        if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                                gf_log ("", GF_LOG_NORMAL,
+                                        "adding dst-brick port no");
+
+                                if (rsp_dict) {
+                                        ret = dict_set_int32 (rsp_dict, "dst-brick-port",
+                                                              dst_brickinfo->port);
+                                        if (ret) {
+                                                gf_log ("", GF_LOG_DEBUG,
+                                                        "Could not set dst-brick port no");
+                                                goto out;
+                                        }
+                                } else {
+                                        ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                                        GF_ASSERT (ctx);
+
+                                        ret = dict_set_int32 (ctx, "dst-brick-port",
+                                                              dst_brickinfo->port);
+                                        if (ret) {
+                                                gf_log ("", GF_LOG_DEBUG,
+                                                        "Could not set dst-brick port no");
+                                                goto out;
+                                        }
+                                }
+
+                        }
                 }
 
 		if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
@@ -2739,11 +2782,28 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
         {
                 gf_log ("", GF_LOG_DEBUG,
                         "Recieved pause - doing nothing");
+                ret = rb_do_operation_pause (volinfo, src_brickinfo, dst_brickinfo);
+                if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
+                        gf_log ("", GF_LOG_NORMAL,
+                                "I AM THE DESTINATION HOST");
+                        ret = rb_kill_destination_brick (volinfo, dst_brickinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_DEBUG,
+                                        "Failed to kill destination brick");
+                                goto out;
+                        }
+                }
         }
                 break;
 
         case GF_REPLACE_OP_ABORT:
         {
+                ret = dict_set_int32 (volinfo->dict, "enable-pump", 0);
+		if (ret) {
+			gf_log ("", GF_LOG_CRITICAL, "Unable to disable pump");
+		}
+
+                ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname)) {
                         gf_log ("", GF_LOG_NORMAL,
                                 "I AM THE DESTINATION HOST");
@@ -3845,6 +3905,7 @@ glusterd_do_replace_brick (void *data)
         glusterd_volinfo_t     *volinfo = NULL;
         int32_t                 op      = 0;
         int32_t                 src_port = 0;
+        int32_t                 dst_port = 0;
         dict_t                 *dict    = NULL;
         char                   *src_brick = NULL;
         char                   *dst_brick = NULL;
@@ -3933,6 +3994,13 @@ glusterd_do_replace_brick (void *data)
                 goto out;
         }
 
+        ret = dict_get_int32 (dict, "dst-brick-port", &dst_port);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get dst-brick port");
+                goto out;
+        }
+
+        dst_brickinfo->port = dst_port;
         src_brickinfo->port = src_port;
 
         brick_signin = rb_check_brick_signin (src_brickinfo);
@@ -3949,10 +4017,7 @@ glusterd_do_replace_brick (void *data)
                 ret = rb_do_operation_start (volinfo, src_brickinfo, dst_brickinfo);
                 break;
         case GF_REPLACE_OP_PAUSE:
-                ret = rb_do_operation_pause (volinfo, src_brickinfo, dst_brickinfo);
-                break;
         case GF_REPLACE_OP_ABORT:
-                ret = rb_do_operation_abort (volinfo, src_brickinfo, dst_brickinfo);
                 break;
         case GF_REPLACE_OP_COMMIT:
         case GF_REPLACE_OP_STATUS:
