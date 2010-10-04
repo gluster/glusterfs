@@ -19,12 +19,12 @@ Summary: Cluster File System
 Name: @PACKAGE_NAME@
 Version: @PACKAGE_VERSION@
 Release: %{release}
-License: GPLv3+
+License: AGPLv3+
 Group: System Environment/Base
 Vendor: Gluster Inc
 Packager: @PACKAGE_BUGREPORT@
 URL: http://www.gluster.org/docs/index.php/GlusterFS
-Source0: ftp://ftp.gluster.com/pub/gluster/glusterfs/2.0/@PACKAGE_VERSION@/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
+Source0: ftp://ftp.gluster.com/pub/gluster/glusterfs/@PACKAGE_VERSION@/@PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/service, /sbin/chkconfig
@@ -65,7 +65,7 @@ GlusterFS server and client framework.
 %package rdma
 Summary: GlusterFS rdma
 Group: Applications/File
-Requires: libibverbs-devel
+BuildRequires: libibverbs-devel
 
 %description rdma
 GlusterFS is a clustered file-system capable of scaling to several
@@ -137,7 +137,7 @@ fi
 
 %files core
 %defattr(-,root,root)
-%doc AUTHORS ChangeLog COPYING.GPL COPYING.AGPL INSTALL NEWS README
+%doc AUTHORS ChangeLog COPYING.GPL COPYING.AGPL INSTALL NEWS README THANKS
 %doc /usr/share/doc/glusterfs
 %if 0%{?_with_fusermount:1}
 %{_bindir}/fusermount-glusterfs 
