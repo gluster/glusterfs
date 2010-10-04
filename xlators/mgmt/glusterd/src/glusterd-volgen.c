@@ -37,106 +37,103 @@
 
 
 /* dispatch table for VOLUME SET
+ * -----------------------------
+ *
+ * Format of entries:
  *
  * First field is the <key>, for the purpose of looking it up
- * in volume dictionary.
+ * in volume dictionary. Each <key> is of the format "<domain>.<specifier>".
  *
- * Second field is of the format "<xlator-type>:<action-specifier>".
- * The ":<action-specifier>" part can be omitted, which is handled
- * as if <action-specifier> is same as <key>.
+ * Second field is <voltype>.
+ *
+ * Third field is <option>, if its unset, it's assumed to be
+ * the same as <specifier>.
+ *
+ * Fourth field is <value>. In this context they are used to specify
+ * a default. That is, even the volume dict doesn't have a value,
+ * we procced as if the default value were set for it.
  *
  * There are two type of entries: basic and special.
  *
- * - Basic entries are the ones where the <action-specifier>
- *   does _not_ start with the bang! character ('!').
- *   In their case, <action-specifier> is understood as
- *   an option for <xlator-type>. Their effect is to copy over
- *   the volinfo->dict[<key>] value to the graph nodes of
- *   type <xlator-type> (if such a value is set). You are free to
- *   add entries of this type, they will become functional just
- *   by being present in the table.
+ * - Basic entries are the ones where the <option> does _not_ start with
+ *   the bang! character ('!').
  *
- * - Special entries where the <action-specifier> starts
- *   with the bang!. They are not applied to all graphs
- *   during generation, and you cannot extend them in a
- *   trivial way which could be just picked up. Better
+ *   In their case, <option> is understood as an option for an xlator of
+ *   type <voltype>. Their effect is to copy over the volinfo->dict[<key>]
+ *   value to all graph nodes of type <voltype> (if such a value is set).
+ *
+ *   You are free to add entries of this type, they will become functional
+ *   just by being present in the table.
+ *
+ * - Special entries where the <option> starts with the bang!.
+ *
+ *   They are not applied to all graphs during generation, and you cannot
+ *   extend them in a trivial way which could be just picked up. Better
  *   not touch them unless you know what you do.
+ *
+ * "NODOC" entries are not part of the public interface and are subject
+ * to change at any time.
  */
 
 struct volopt_map_entry {
-        char *key;
-        char *voltype;
-};
-
-static struct volopt_map_entry glusterd_volopt_map[] = {
-        {"lookup-unhashed",             "cluster/distribute"},
-        {"min-free-disk",               "cluster/distribute"},
-
-        {"entry-change-log",            "cluster/replicate"},
-        {"read-subvolume",              "cluster/replicate"},
-        {"background-self-heal-count",  "cluster/replicate"},
-        {"metadata-self-heal",          "cluster/replicate"},
-        {"data-self-heal",              "cluster/replicate"},
-        {"entry-self-heal",             "cluster/replicate"},
-        {"strict-readdir",              "cluster/replicate"},
-        {"data-self-heal-window-size",  "cluster/replicate"},
-        {"data-change-log",             "cluster/replicate"},
-        {"metadata-change-log",         "cluster/replicate"},
-
-        {"block-size",                  "cluster/stripe"},
-
-        {"latency-measurement",         "debug/io-stats"},
-        {"dump-fd-stats",               "debug/io-stats"},
-        {"log-level",                   "debug/io-stats"},
-        {"client-log-level",            "debug/io-stats"},
-
-        {"max-file-size",               "performance/io-cache"},
-        {"min-file-size",               "performance/io-cache"},
-        {"cache-timeout",               "performance/io-cache"},
-        {"cache-size",                  "performance/io-cache"},
-        {"priority",                    "performance/io-cache"},
-
-        {"thread-count",                "performance/io-threads"},
-
-        {"disk-usage-limit",            "performance/quota"},
-        {"min-free-disk-limit",         "performance/quota"},
-
-        {"window-size",                 "performance/write-behind:cache-size"},
-
-        {"frame-timeout",               "protocol/client"},
-        {"ping-timeout",                "protocol/client"},
-
-        {"inode-lru-limit",             "protocol/server"},
-        {"allow",                       "protocol/server:!server-auth"},
-        {"reject",                      "protocol/server:!server-auth"},
-
-        {"write-behind",                "performance/write-behind:!perf"},
-        {"read-ahead",                  "performance/read-ahead:!perf"},
-        {"io-cache",                    "performance/io-cache:!perf"},
-        {"quick-read",                  "performance/quick-read:!perf"},
-        {"stat-prefetch",               "performance/stat-prefetch:!perf"},
-
-        {NULL,                          }
-};
-
-
-/* Default entries (as of now, only for special volopts). */
-
-struct volopt_map_entry2 {
         char *key;
         char *voltype;
         char *option;
         char *value;
 };
 
-static struct volopt_map_entry2 default_volopt_map2[] = {
-        {"allow",         NULL, NULL, "*"},
-        {"write-behind",  NULL, NULL, "on"},
-        {"read-ahead",    NULL, NULL, "on"},
-        {"io-cache",      NULL, NULL, "on"},
-        {"quick-read",    NULL, NULL, "on"},
-        {NULL,                            }
+static struct volopt_map_entry glusterd_volopt_map[] = {
+        {"cluster.lookup-unhashed",              "cluster/distribute",        }, /* NODOC */
+        {"cluster.min-free-disk",                "cluster/distribute",        }, /* NODOC */
+
+        {"cluster.entry-change-log",             "cluster/replicate",         }, /* NODOC */
+        {"cluster.read-subvolume",               "cluster/replicate",         }, /* NODOC */
+        {"cluster.background-self-heal-count",   "cluster/replicate",         }, /* NODOC */
+        {"cluster.metadata-self-heal",           "cluster/replicate",         }, /* NODOC */
+        {"cluster.data-self-heal",               "cluster/replicate",         }, /* NODOC */
+        {"cluster.entry-self-heal",              "cluster/replicate",         }, /* NODOC */
+        {"cluster.strict-readdir",               "cluster/replicate",         }, /* NODOC */
+        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size",},
+        {"cluster.data-change-log",              "cluster/replicate",         }, /* NODOC */
+        {"cluster.metadata-change-log",          "cluster/replicate",         }, /* NODOC */
+
+        {"cluster.stripe-block-size",            "cluster/stripe",            "block-size",},
+
+        {"diagnostics.latency-measurement",      "debug/io-stats",            },
+        {"diagnostics.dump-fd-stats",            "debug/io-stats",            },
+        {"diagnostics.brick-log-level",          "debug/io-stats",            "log-level",},
+        {"diagnostics.client-log-level",         "debug/io-stats",            },
+
+        {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size",},
+        {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size",},
+        {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout",},
+        {"performance.cache-priority",           "performance/io-cache",      "priority",}, /* NODOC */
+        {"performance.cache-size",               "performance/io-cache",      },
+        {"performance.cache-size",               "performance/quick-read",    },
+
+        {"performance.io-thread-count",          "performance/io-threads",    "thread-count",},
+
+        {"performance.disk-usage-limit",         "performance/quota",         }, /* NODOC */
+        {"performance.min-free-disk-limit",      "performance/quota",         }, /* NODOC */
+
+        {"performance.write-behind-window-size", "performance/write-behind",  "cache-size",},
+
+        {"network.frame-timeout",                "protocol/client",           },
+        {"network.ping-timeout",                 "protocol/client",           },
+        {"network.inode-lru-limit",              "protocol/server",           }, /* NODOC */
+
+        {"auth.allow",                           "protocol/server",           "!server-auth", "*"},
+        {"auth.reject",                          "protocol/server",           "!server-auth",},
+
+        {"performance.write-behind",             "performance/write-behind",  "!perf", "on"}, /* NODOC */
+        {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on"}, /* NODOC */
+        {"performance.io-cache",                 "performance/io-cache",      "!perf", "on"}, /* NODOC */
+        {"performance.quick-read",               "performance/quick-read",    "!perf", "on"}, /* NODOC */
+        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf",},      /* NODOC */
+
+        {NULL,                                                                }
 };
+
 
 #define VOLGEN_GET_NFS_DIR(path)                                        \
         do {                                                            \
@@ -341,7 +338,7 @@ first_of (glusterfs_graph_t *graph)
 
 
 typedef int (*volgen_opthandler_t) (glusterfs_graph_t *graph,
-                                    struct volopt_map_entry2 *vme2,
+                                    struct volopt_map_entry *vme,
                                     void *param);
 
 struct opthandler_data {
@@ -358,7 +355,7 @@ static void
 process_option (dict_t *dict, char *key, data_t *value, void *param)
 {
         struct opthandler_data *data = param;
-        struct volopt_map_entry2 vme2 = {0,};
+        struct volopt_map_entry vme = {0,};
 
         if (data->rv)
                 return;
@@ -367,28 +364,22 @@ process_option (dict_t *dict, char *key, data_t *value, void *param)
 
         data->found = _gf_true;
 
-        vme2.key = key;
-        vme2.voltype = gf_strdup (data->vme->voltype);
-        if (!vme2.voltype) {
-                gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-                data->rv = -1;
-                return;
+        vme.key = key;
+        vme.voltype = data->vme->voltype;
+        vme.option = data->vme->option;
+        if (!vme.option) {
+                vme.option = strrchr (key, '.');
+                if (vme.option)
+                        vme.option++;
+                else
+                        vme.option = key;
         }
-        vme2.option = strchr (vme2.voltype, ':');
-        if (vme2.option) {
-                *vme2.option = '\0';
-                vme2.option++;
-        } else
-                vme2.option = key;
         if (data->data_t_fake)
-                vme2.value = (char *)value;
+                vme.value = (char *)value;
         else
-                vme2.value = value->data;
+                vme.value = value->data;
 
-        data->rv = data->handler (data->graph, &vme2, data->param);
-
-        GF_FREE (vme2.voltype);
+        data->rv = data->handler (data->graph, &vme, data->param);
 }
 
 static int
@@ -396,7 +387,6 @@ volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
                                   void *param, volgen_opthandler_t handler)
 {
         struct volopt_map_entry *vme = NULL;
-        struct volopt_map_entry2 *vme2 = NULL;
         struct opthandler_data data = {0,};
 
         data.graph = graph;
@@ -416,21 +406,16 @@ volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
                         continue;
 
                 /* check for default value */
-                for (vme2 = default_volopt_map2; vme2->key;
-                     vme2++) {
-                        if (strcmp (vme2->key, vme->key) != 0)
-                                continue;
 
+                if (vme->value) {
                         /* stupid hack to be able to reuse dict iterator
                          * in this context
                          */
                         data.data_t_fake = _gf_true;
-                        process_option (NULL, vme->key, (data_t *)vme2->value,
+                        process_option (NULL, vme->key, (data_t *)vme->value,
                                         &data);
                         if (data.rv)
                                 return data.rv;
-
-                        break;
                 }
         }
 
@@ -438,20 +423,20 @@ volgen_graph_set_options_generic (glusterfs_graph_t *graph, dict_t *dict,
 }
 
 static int
-basic_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
+basic_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
                       void *param)
 {
         xlator_t *trav;
         int ret = 0;
 
-        if (vme2->option[0] == '!')
+        if (vme->option[0] == '!')
                 return 0;
 
         for (trav = first_of (graph); trav; trav = trav->next) {
-                if (strcmp (trav->type, vme2->voltype) != 0)
+                if (strcmp (trav->type, vme->voltype) != 0)
                         continue;
 
-                ret = xlator_set_option (trav, vme2->option, vme2->value);
+                ret = xlator_set_option (trav, vme->option, vme->value);
                 if (ret)
                         return -1;
         }
@@ -467,13 +452,13 @@ volgen_graph_set_options (glusterfs_graph_t *graph, dict_t *dict)
 }
 
 static int
-optget_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
+optget_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
                        void *param)
 {
-        struct volopt_map_entry2 *vme2x = param;
+        struct volopt_map_entry *vme2 = param;
 
-        if (strcmp (vme2->key, vme2x->key) == 0)
-                vme2x->value = vme2->value;
+        if (strcmp (vme->key, vme2->key) == 0)
+                vme2->value = vme->value;
 
         return 0;
 }
@@ -482,12 +467,12 @@ optget_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
 int
 glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
 {
-        struct volopt_map_entry2 vme2 = {0,};
+        struct volopt_map_entry vme = {0,};
         int ret = 0;
 
-        vme2.key = key;
+        vme.key = key;
 
-        ret = volgen_graph_set_options_generic (NULL, volinfo->dict, &vme2,
+        ret = volgen_graph_set_options_generic (NULL, volinfo->dict, &vme,
                                                 &optget_option_handler);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Out of memory");
@@ -495,7 +480,7 @@ glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
                 return -1;
         }
 
-        *value = vme2.value;
+        *value = vme.value;
 
         return 0;
 }
@@ -504,10 +489,10 @@ int
 glusterd_check_option_exists (char *key)
 {
         dict_t *dict = NULL;
-        struct volopt_map_entry2 vme2 = {0,};
+        struct volopt_map_entry vme = {0,};
         int ret = 0;
 
-        vme2.key = key;
+        vme.key = key;
 
         /* We are getting a bit anal here to avoid typing
          * fnmatch one more time. Orthogonality foremost!
@@ -521,13 +506,13 @@ glusterd_check_option_exists (char *key)
         if (!dict || dict_set_str (dict, key, ""))
                 goto oom;
 
-        ret = volgen_graph_set_options_generic (NULL, dict, &vme2,
+        ret = volgen_graph_set_options_generic (NULL, dict, &vme,
                                                 &optget_option_handler);
         dict_destroy (dict);
         if (ret)
                 goto oom;
 
-        return !!vme2.value;
+        return !!vme.value;
 
  oom:
         gf_log ("", GF_LOG_ERROR, "Out of memory");
@@ -651,23 +636,23 @@ get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 
 static int
 server_auth_option_handler (glusterfs_graph_t *graph,
-                            struct volopt_map_entry2 *vme2, void *param)
+                            struct volopt_map_entry *vme, void *param)
 {
         xlator_t *xl = NULL;
         xlator_list_t *trav = NULL;
         char *aa = NULL;
         int   ret   = 0;
 
-        if (strcmp (vme2->option, "!server-auth") != 0)
+        if (strcmp (vme->option, "!server-auth") != 0)
                 return 0;
 
         xl = first_of (graph);
 
         for (trav = xl->children; trav; trav = trav->next) {
                 ret = gf_asprintf (&aa, "auth.addr.%s.%s", trav->xlator->name,
-                                   vme2->key);
+                                   vme->key);
                 if (ret != -1) {
-                        ret = xlator_set_option (xl, aa, vme2->value);
+                        ret = xlator_set_option (xl, aa, vme->value);
                         GF_FREE (aa);
                 }
                 if (ret)
@@ -776,7 +761,7 @@ build_server_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 }
 
 static int
-perfxl_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
+perfxl_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry *vme,
                        void *param)
 {
         char *volname = NULL;
@@ -784,15 +769,15 @@ perfxl_option_handler (glusterfs_graph_t *graph, struct volopt_map_entry2 *vme2,
 
         volname = param;
 
-        if (strcmp (vme2->option, "!perf") != 0)
+        if (strcmp (vme->option, "!perf") != 0)
                 return 0;
 
-        if (gf_string2boolean (vme2->value, &enabled) == -1)
+        if (gf_string2boolean (vme->value, &enabled) == -1)
                 return -1;
         if (!enabled)
                 return 0;
 
-        if (volgen_graph_add (graph, vme2->voltype, volname))
+        if (volgen_graph_add (graph, vme->voltype, volname))
                 return 0;
         else
                 return -1;
