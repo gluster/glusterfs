@@ -228,8 +228,6 @@ init (xlator_t *this)
         glusterd_conf_t   *conf              = NULL;
         data_t            *dir_data          = NULL;
         struct stat        buf               = {0,};
-        char              *port_str          = NULL;
-        int                port_num          = 0;
         char               voldir [PATH_MAX] = {0,};
         char               dirname [PATH_MAX];
         char               cmd_log_filename [PATH_MAX] = {0,};
@@ -347,13 +345,6 @@ init (xlator_t *this)
                 goto out;
         }
 
-        glusterd1_mop_prog.options = this->options;
-        port_str = getenv ("GLUSTERD_LOCAL_PORT");
-        if (port_str) {
-                port_num = atoi (port_str);
-                glusterd1_mop_prog.progport = port_num;
-        }
-
         /*
          * only one (atmost a pair - rdma and socket) listener for
          * glusterd1_mop_prog, gluster_pmap_prog and gluster_handshake_prog.
@@ -377,7 +368,6 @@ init (xlator_t *this)
                 goto out;
         }
 
-        gluster_handshake_prog.options = this->options;
         ret = glusterd_program_register (this, rpc, &gluster_handshake_prog);
         if (ret) {
                 rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);

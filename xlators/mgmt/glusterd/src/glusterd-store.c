@@ -880,6 +880,7 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
         char                    tmpkey[4096] = {0,};
         glusterd_store_iter_t   *tmpiter = NULL;
         char                    *tmpvalue = NULL;
+        struct pmap_registry *pmap = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volinfo->volname);
@@ -931,6 +932,11 @@ glusterd_store_retrieve_bricks (glusterd_volinfo_t *volinfo)
                         } else if (!strncmp (key, GLUSTERD_STORE_KEY_BRICK_PORT,
                                     strlen (GLUSTERD_STORE_KEY_BRICK_PORT))) {
                                 gf_string2int (value, &brickinfo->port);
+                                /* This is required to have proper ports
+                                   assigned to bricks after restart */
+                                pmap = pmap_registry_get (THIS);
+                                if (pmap->last_alloc <= brickinfo->port)
+                                        pmap->last_alloc = brickinfo->port + 1;
                         } else {
                                 gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);
