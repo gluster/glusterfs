@@ -994,7 +994,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
         }
 
 err_reply:
-        if ((ret == RPCSVC_ACTOR_ERROR) || (req->rpc_err != SUCCESS)) {
+        if (ret == RPCSVC_ACTOR_ERROR) {
                 ret = rpcsvc_error_reply (req);
         }
 

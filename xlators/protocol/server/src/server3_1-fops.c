@@ -2621,6 +2621,7 @@ server_stat (rpcsvc_request_t *req)
         call_frame_t   *frame                 = NULL;
         gfs3_stat_req   args                  = {{0,},};
         char            path[SERVER_PATH_MAX] = {0,};
+        int             ret                   = -1;
 
         if (!req)
                 return 0;
@@ -2653,9 +2654,10 @@ server_stat (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path  = gf_strdup (args.path);
 
+        ret = 0;
         resolve_and_resume (frame, server_stat_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -2666,6 +2668,7 @@ server_setattr (rpcsvc_request_t *req)
         call_frame_t     *frame                 = NULL;
         gfs3_setattr_req  args                  = {{0,},};
         char              path[SERVER_PATH_MAX] = {0,};
+        int               ret                   = -1;
 
         if (!req)
                 return 0;
@@ -2700,9 +2703,10 @@ server_setattr (rpcsvc_request_t *req)
         gf_stat_to_iatt (&args.stbuf, &state->stbuf);
         state->valid = args.valid;
 
+        ret = 0;
         resolve_and_resume (frame, server_setattr_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -2712,9 +2716,10 @@ server_fsetattr (rpcsvc_request_t *req)
         server_state_t    *state = NULL;
         call_frame_t      *frame = NULL;
         gfs3_fsetattr_req  args  = {0,};
+        int                ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_fsetattr_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -2743,9 +2748,10 @@ server_fsetattr (rpcsvc_request_t *req)
         gf_stat_to_iatt (&args.stbuf, &state->stbuf);
         state->valid = args.valid;
 
+        ret = 0;
         resolve_and_resume (frame, server_fsetattr_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -2756,9 +2762,10 @@ server_readlink (rpcsvc_request_t *req)
         call_frame_t      *frame                 = NULL;
         gfs3_readlink_req  args                  = {{0,},};
         char               path[SERVER_PATH_MAX] = {0,};
+        int                ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
 
@@ -2789,9 +2796,10 @@ server_readlink (rpcsvc_request_t *req)
 
         state->size  = args.size;
 
+        ret = 0;
         resolve_and_resume (frame, server_readlink_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -2805,9 +2813,10 @@ server_create (rpcsvc_request_t *req)
         gfs3_create_req      args                   = {{0,},};
         char                 path[SERVER_PATH_MAX]  = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
-        int                  ret                    = 0;
+        int                  ret                    = -1;
+
         if (!req)
-                return 0;
+                return ret;
 
         args.path  = path;
         args.bname = bname;
@@ -2868,6 +2877,7 @@ server_create (rpcsvc_request_t *req)
         state->flags          = gf_flags_to_flags (args.flags);
         memcpy (state->resolve.pargfid, args.pargfid, 16);
 
+        ret = 0;
         resolve_and_resume (frame, server_create_resume);
 
         /* memory allocated by libc, don't use GF_FREE */
@@ -2875,7 +2885,7 @@ server_create (rpcsvc_request_t *req)
                 free (args.dict.dict_val);
         }
 
-        return 0;
+        return ret;
 out:
         if (params)
                 dict_unref (params);
@@ -2889,7 +2899,7 @@ out:
                 free (args.dict.dict_val);
         }
 
-        return 0;
+        return ret;
 }
 
 
@@ -2900,9 +2910,10 @@ server_open (rpcsvc_request_t *req)
         call_frame_t   *frame                 = NULL;
         gfs3_open_req   args                  = {{0,},};
         char            path[SERVER_PATH_MAX] = {0,};
+        int             ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
 
@@ -2933,9 +2944,10 @@ server_open (rpcsvc_request_t *req)
 
         state->flags = gf_flags_to_flags (args.flags);
 
+        ret = 0;
         resolve_and_resume (frame, server_open_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -2945,6 +2957,7 @@ server_readv (rpcsvc_request_t *req)
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
         gfs3_read_req   args  = {{0,},};
+        int             ret   = -1;
 
         if (!req)
                 goto out;
@@ -2975,9 +2988,10 @@ server_readv (rpcsvc_request_t *req)
         state->size           = args.size;
         state->offset         = args.offset;
 
+        ret = 0;
         resolve_and_resume (frame, server_readv_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -2989,9 +3003,10 @@ server_writev (rpcsvc_request_t *req)
         gfs3_write_req       args   = {{0,},};
         ssize_t              len    = 0;
         int                  i      = 0;
+        int                  ret    = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         len = xdr_to_writev_req (req->msg[0], &args);
         if (len == 0) {
@@ -3037,9 +3052,10 @@ server_writev (rpcsvc_request_t *req)
                 state->size += state->payload_vector[i].iov_len;
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_writev_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3057,6 +3073,7 @@ server_release (rpcsvc_request_t *req)
         server_connection_t *conn = NULL;
         gfs3_release_req     args = {{0,},};
         gf_common_rsp        rsp  = {0,};
+        int                  ret  = -1;
 
         if (!xdr_to_release_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3069,8 +3086,9 @@ server_release (rpcsvc_request_t *req)
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_common_rsp);
+        ret = 0;
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -3079,6 +3097,7 @@ server_releasedir (rpcsvc_request_t *req)
         server_connection_t *conn = NULL;
         gfs3_releasedir_req  args = {{0,},};
         gf_common_rsp        rsp  = {0,};
+        int                  ret  = -1;
 
         if (!xdr_to_release_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3091,8 +3110,9 @@ server_releasedir (rpcsvc_request_t *req)
 
         server_submit_reply (NULL, req, &rsp, NULL, 0, NULL,
                              xdr_serialize_common_rsp);
+        ret = 0;
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3102,9 +3122,10 @@ server_fsync (rpcsvc_request_t *req)
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
         gfs3_fsync_req  args  = {{0,},};
+        int             ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_fsync_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3131,9 +3152,10 @@ server_fsync (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->flags         = args.data;
 
+        ret = 0;
         resolve_and_resume (frame, server_fsync_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3144,9 +3166,10 @@ server_flush (rpcsvc_request_t *req)
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
         gfs3_flush_req  args  = {{0,},};
+        int             ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_flush_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3172,9 +3195,10 @@ server_flush (rpcsvc_request_t *req)
         state->resolve.type  = RESOLVE_MUST;
         state->resolve.fd_no = args.fd;
 
+        ret = 0;
         resolve_and_resume (frame, server_flush_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3185,9 +3209,10 @@ server_ftruncate (rpcsvc_request_t *req)
         server_state_t     *state = NULL;
         call_frame_t       *frame = NULL;
         gfs3_ftruncate_req  args  = {{0,},};
+        int                 ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_ftruncate_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3214,9 +3239,10 @@ server_ftruncate (rpcsvc_request_t *req)
         state->resolve.fd_no  = args.fd;
         state->offset         = args.offset;
 
+        ret = 0;
         resolve_and_resume (frame, server_ftruncate_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3226,9 +3252,10 @@ server_fstat (rpcsvc_request_t *req)
         server_state_t *state = NULL;
         call_frame_t   *frame = NULL;
         gfs3_write_req  args  = {{0,},};
+        int             ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_fstat_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3254,9 +3281,10 @@ server_fstat (rpcsvc_request_t *req)
         state->resolve.type    = RESOLVE_MUST;
         state->resolve.fd_no   = args.fd;
 
+        ret = 0;
         resolve_and_resume (frame, server_fstat_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3267,9 +3295,10 @@ server_truncate (rpcsvc_request_t *req)
         call_frame_t      *frame                 = NULL;
         gfs3_truncate_req  args                  = {{0,},};
         char               path[SERVER_PATH_MAX] = {0,};
+        int                ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         if (!xdr_to_truncate_req (req->msg[0], &args)) {
@@ -3298,9 +3327,10 @@ server_truncate (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->offset        = args.offset;
 
+        ret = 0;
         resolve_and_resume (frame, server_truncate_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3313,9 +3343,10 @@ server_unlink (rpcsvc_request_t *req)
         gfs3_unlink_req  args                   = {{0,},};
         char             path[SERVER_PATH_MAX]  = {0,};
         char             bname[SERVER_PATH_MAX] = {0,};
+        int              ret                    = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path  = path;
         args.bname = bname;
@@ -3346,9 +3377,10 @@ server_unlink (rpcsvc_request_t *req)
         state->resolve.bname  = gf_strdup (args.bname);
         memcpy (state->resolve.pargfid, args.pargfid, 16);
 
+        ret = 0;
         resolve_and_resume (frame, server_unlink_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3366,7 +3398,7 @@ server_setxattr (rpcsvc_request_t *req)
         int32_t              ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         conn = req->trans->xl_private;
 
@@ -3423,18 +3455,20 @@ server_setxattr (rpcsvc_request_t *req)
         /* There can be some commands hidden in key, check and proceed */
         gf_server_check_setxattr_cmd (frame, dict);
 
+        ret = 0;
         resolve_and_resume (frame, server_setxattr_resume);
 
-        return 0;
+        return ret;
 err:
         if (dict)
                 dict_unref (dict);
 
         server_setxattr_cbk (frame, NULL, frame->this, -1, EINVAL);
+        ret = 0;
 out:
         if (buf)
                 GF_FREE (buf);
-        return 0;
+        return ret;
 
 }
 
@@ -3453,7 +3487,7 @@ server_fsetxattr (rpcsvc_request_t *req)
         int32_t              ret                  = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         conn = req->trans->xl_private;
 
@@ -3502,18 +3536,20 @@ server_fsetxattr (rpcsvc_request_t *req)
                 state->dict = dict;
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_fsetxattr_resume);
 
-        return 0;
+        return ret;
 err:
         if (dict)
                 dict_unref (dict);
 
         server_setxattr_cbk (frame, NULL, frame->this, -1, EINVAL);
+        ret = 0;
 out:
         if (buf)
                 GF_FREE (buf);
-        return 0;
+        return ret;
 }
 
 
@@ -3531,7 +3567,7 @@ server_fxattrop (rpcsvc_request_t *req)
         int32_t              ret                  = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         conn = req->trans->xl_private;
 
@@ -3583,17 +3619,19 @@ server_fxattrop (rpcsvc_request_t *req)
                 state->dict = dict;
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_fxattrop_resume);
 
-        return 0;
+        return ret;
 
 fail:
         if (dict)
                 dict_unref (dict);
 
         server_fxattrop_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
+        ret = 0;
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3612,7 +3650,7 @@ server_xattrop (rpcsvc_request_t *req)
         int32_t              ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         conn = req->trans->xl_private;
         args.dict.dict_val = dict_val;
@@ -3665,16 +3703,18 @@ server_xattrop (rpcsvc_request_t *req)
                 state->dict = dict;
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_xattrop_resume);
 
-        return 0;
+        return ret;
 fail:
         if (dict)
                 dict_unref (dict);
 
         server_xattrop_cbk (frame, NULL, frame->this, -1, EINVAL, NULL);
+        ret = 0;
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3686,9 +3726,10 @@ server_getxattr (rpcsvc_request_t *req)
         gfs3_getxattr_req    args                  = {{0,},};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 name[4096]            = {0,};
+        int                  ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         args.name = name;
@@ -3724,9 +3765,10 @@ server_getxattr (rpcsvc_request_t *req)
                 gf_server_check_getxattr_cmd (frame, state->name);
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_getxattr_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3737,9 +3779,10 @@ server_fgetxattr (rpcsvc_request_t *req)
         call_frame_t        *frame      = NULL;
         gfs3_fgetxattr_req   args       = {{0,},};
         char                 name[4096] = {0,};
+        int                  ret        = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.name = name;
         if (!xdr_to_fgetxattr_req (req->msg[0], &args)) {
@@ -3769,9 +3812,10 @@ server_fgetxattr (rpcsvc_request_t *req)
         if (args.namelen)
                 state->name = gf_strdup (args.name);
 
+        ret = 0;
         resolve_and_resume (frame, server_fgetxattr_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3784,9 +3828,10 @@ server_removexattr (rpcsvc_request_t *req)
         gfs3_removexattr_req  args                  = {{0,},};
         char                  path[SERVER_PATH_MAX] = {0,};
         char                  name[4096]            = {0,};
+        int                   ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         args.name = name;
@@ -3816,9 +3861,10 @@ server_removexattr (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->name           = gf_strdup (args.name);
 
+        ret = 0;
         resolve_and_resume (frame, server_removexattr_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3831,9 +3877,10 @@ server_opendir (rpcsvc_request_t *req)
         call_frame_t     *frame                 = NULL;
         gfs3_opendir_req  args                  = {{0,},};
         char              path[SERVER_PATH_MAX] = {0,};
+        int               ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
 
@@ -3862,9 +3909,10 @@ server_opendir (rpcsvc_request_t *req)
         state->resolve.path   = gf_strdup (args.path);
         memcpy (state->resolve.gfid, args.gfid, 16);
 
+        ret = 0;
         resolve_and_resume (frame, server_opendir_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -3875,9 +3923,10 @@ server_readdirp (rpcsvc_request_t *req)
         call_frame_t        *frame        = NULL;
         gfs3_readdirp_req    args         = {{0,},};
         size_t               headers_size = 0;
+        int                  ret          = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_readdirp_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3915,9 +3964,10 @@ server_readdirp (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->offset = args.offset;
 
+        ret = 0;
         resolve_and_resume (frame, server_readdirp_resume);
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -3927,9 +3977,10 @@ server_readdir (rpcsvc_request_t *req)
         call_frame_t        *frame        = NULL;
         gfs3_readdir_req     args         = {{0,},};
         size_t               headers_size = 0;
+        int                  ret          = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_readdir_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3967,9 +4018,10 @@ server_readdir (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->offset = args.offset;
 
+        ret = 0;
         resolve_and_resume (frame, server_readdir_resume);
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -3978,9 +4030,10 @@ server_fsyncdir (rpcsvc_request_t *req)
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
         gfs3_fsyncdir_req    args  = {{0,},};
+        int                  ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_fsyncdir_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4007,9 +4060,10 @@ server_fsyncdir (rpcsvc_request_t *req)
         state->resolve.fd_no = args.fd;
         state->flags = args.data;
 
+        ret = 0;
         resolve_and_resume (frame, server_fsyncdir_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -4024,10 +4078,10 @@ server_mknod (rpcsvc_request_t *req)
         gfs3_mknod_req       args                   = {{0,},};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
-        int                  ret                    = 0;
+        int                  ret                    = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path  = path;
         args.bname = bname;
@@ -4090,6 +4144,7 @@ server_mknod (rpcsvc_request_t *req)
         state->mode = args.mode;
         state->dev  = args.dev;
 
+        ret = 0;
         resolve_and_resume (frame, server_mknod_resume);
 
         /* memory allocated by libc, don't use GF_FREE */
@@ -4097,7 +4152,7 @@ server_mknod (rpcsvc_request_t *req)
                 free (args.dict.dict_val);
         }
 
-        return 0;
+        return ret;
 out:
         if (params)
                 dict_unref (params);
@@ -4111,7 +4166,7 @@ out:
                 free (args.dict.dict_val);
         }
 
-        return 0;
+        return ret;
 
 }
 
@@ -4126,10 +4181,10 @@ server_mkdir (rpcsvc_request_t *req)
         gfs3_mkdir_req       args                   = {{0,},};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
-        int                  ret                    = 0;
+        int                  ret                    = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path  = path;
         args.bname = bname;
@@ -4190,6 +4245,7 @@ server_mkdir (rpcsvc_request_t *req)
 
         state->mode = args.mode;
 
+        ret = 0;
         resolve_and_resume (frame, server_mkdir_resume);
 
         if (args.dict.dict_val != NULL) {
@@ -4197,7 +4253,7 @@ server_mkdir (rpcsvc_request_t *req)
                 free (args.dict.dict_val);
         }
 
-        return 0;
+        return ret;
 out:
         if (params)
                 dict_unref (params);
@@ -4211,7 +4267,7 @@ out:
                 free (args.dict.dict_val);
         }
 
-        return 0;
+        return ret;
 }
 
 
@@ -4223,9 +4279,10 @@ server_rmdir (rpcsvc_request_t *req)
         gfs3_rmdir_req       args                   = {{0,},};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 path[SERVER_PATH_MAX]  = {0,};
+        int                  ret                    = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         args.bname = bname;
@@ -4258,9 +4315,10 @@ server_rmdir (rpcsvc_request_t *req)
 
         state->flags = args.flags;
 
+        ret = 0;
         resolve_and_resume (frame, server_rmdir_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -4274,9 +4332,10 @@ server_inodelk (rpcsvc_request_t *req)
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 volume[4096]          = {0,};
         int                  cmd                   = 0;
+        int                  ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         args.volume = volume;
@@ -4336,9 +4395,10 @@ server_inodelk (rpcsvc_request_t *req)
                 break;
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_inodelk_resume);
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -4348,9 +4408,10 @@ server_finodelk (rpcsvc_request_t *req)
         call_frame_t        *frame        = NULL;
         gfs3_finodelk_req    args         = {{0,},};
         char                 volume[4096] = {0,};
+        int                  ret          = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.volume = volume;
         if (!xdr_to_finodelk_req (req->msg[0], &args)) {
@@ -4407,9 +4468,10 @@ server_finodelk (rpcsvc_request_t *req)
                 break;
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_finodelk_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -4422,9 +4484,10 @@ server_entrylk (rpcsvc_request_t *req)
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 name[4096]            = {0,};
         char                 volume[4096]          = {0,};
+        int                  ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         args.volume = volume;
@@ -4462,9 +4525,10 @@ server_entrylk (rpcsvc_request_t *req)
         state->cmd            = args.cmd;
         state->type           = args.type;
 
+        ret = 0;
         resolve_and_resume (frame, server_entrylk_resume);
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -4475,9 +4539,10 @@ server_fentrylk (rpcsvc_request_t *req)
         gfs3_fentrylk_req    args         = {{0,},};
         char                 name[4096]   = {0,};
         char                 volume[4096] = {0,};
+        int                  ret          = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.name = name;
         args.volume = volume;
@@ -4511,9 +4576,10 @@ server_fentrylk (rpcsvc_request_t *req)
                 state->name = gf_strdup (args.name);
         state->volume = gf_strdup (args.volume);
 
+        ret = 0;
         resolve_and_resume (frame, server_fentrylk_resume);
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -4523,9 +4589,10 @@ server_access (rpcsvc_request_t *req)
         call_frame_t        *frame                 = NULL;
         gfs3_access_req      args                  = {{0,},};
         char                 path[SERVER_PATH_MAX] = {0,};
+        int                  ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         if (!xdr_to_access_req (req->msg[0], &args)) {
@@ -4554,9 +4621,10 @@ server_access (rpcsvc_request_t *req)
         state->resolve.path  = gf_strdup (args.path);
         state->mask          = args.mask;
 
+        ret = 0;
         resolve_and_resume (frame, server_access_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -4572,10 +4640,10 @@ server_symlink (rpcsvc_request_t *req)
         char                 linkname[4096]        = {0,};
         char                 path[SERVER_PATH_MAX] = {0,};
         char                 bname[4096]           = {0,};
-        int                  ret                   = 0;
+        int                  ret                   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         args.bname = bname;
@@ -4637,13 +4705,14 @@ server_symlink (rpcsvc_request_t *req)
         state->resolve.bname  = gf_strdup (args.bname);
         state->name           = gf_strdup (args.linkname);
 
+        ret = 0;
         resolve_and_resume (frame, server_symlink_resume);
 
         /* memory allocated by libc, don't use GF_FREE */
         if (args.dict.dict_val != NULL) {
                 free (args.dict.dict_val);
         }
-        return 0;
+        return ret;
 out:
         if (params)
                 dict_unref (params);
@@ -4657,7 +4726,7 @@ out:
                 free (args.dict.dict_val);
         }
 
-        return 0;
+        return ret;
 }
 
 
@@ -4671,9 +4740,10 @@ server_link (rpcsvc_request_t *req)
         char                 oldpath[SERVER_PATH_MAX]  = {0,};
         char                 newpath[SERVER_PATH_MAX]  = {0,};
         char                 newbname[SERVER_PATH_MAX] = {0,};
+        int                  ret                       = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.oldpath  = oldpath;
         args.newpath  = newpath;
@@ -4709,9 +4779,10 @@ server_link (rpcsvc_request_t *req)
         state->resolve2.bname  = gf_strdup (args.newbname);
         memcpy (state->resolve2.pargfid, args.newgfid, 16);
 
+        ret = 0;
         resolve_and_resume (frame, server_link_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -4725,9 +4796,10 @@ server_rename (rpcsvc_request_t *req)
         char                 oldbname[SERVER_PATH_MAX] = {0,};
         char                 newpath[SERVER_PATH_MAX]  = {0,};
         char                 newbname[SERVER_PATH_MAX] = {0,};
+        int                  ret                       = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.oldpath  = oldpath;
         args.oldbname = oldbname;
@@ -4764,9 +4836,10 @@ server_rename (rpcsvc_request_t *req)
         state->resolve2.bname = gf_strdup (args.newbname);
         memcpy (state->resolve2.pargfid, args.newgfid, 16);
 
+        ret = 0;
         resolve_and_resume (frame, server_rename_resume);
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -4776,9 +4849,10 @@ server_lk (rpcsvc_request_t *req)
         server_connection_t *conn  = NULL;
         call_frame_t        *frame = NULL;
         gfs3_lk_req          args  = {{0,},};
+        int                  ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         conn = req->trans->xl_private;
 
@@ -4848,9 +4922,10 @@ server_lk (rpcsvc_request_t *req)
         }
 
 
+        ret = 0;
         resolve_and_resume (frame, server_lk_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
@@ -4860,9 +4935,10 @@ server_rchecksum (rpcsvc_request_t *req)
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
         gfs3_rchecksum_req   args  = {0,};
+        int                  ret   = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         if (!xdr_to_rchecksum_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4890,9 +4966,10 @@ server_rchecksum (rpcsvc_request_t *req)
         state->offset        = args.offset;
         state->size          = args.len;
 
+        ret = 0;
         resolve_and_resume (frame, server_rchecksum_resume);
 out:
-        return 0;
+        return ret;
 }
 
 int
@@ -4918,13 +4995,13 @@ server_lookup (rpcsvc_request_t *req)
         dict_t              *xattr_req              = NULL;
         char                *buf                    = NULL;
         gfs3_lookup_req      args                   = {{0,},};
-        int                  ret                    = 0;
+        int                  ret                    = -1;
         char                 path[SERVER_PATH_MAX]  = {0,};
         char                 bname[SERVER_PATH_MAX] = {0,};
         char                 dict_val[(16 * 1024)]  = {0,};
 
         if (!req)
-                return 0;
+                return ret;
 
         conn = req->trans->xl_private;
 
@@ -4995,9 +5072,10 @@ server_lookup (rpcsvc_request_t *req)
                 buf = NULL;
         }
 
+        ret = 0;
         resolve_and_resume (frame, server_lookup_resume);
 
-        return 0;
+        return ret;
 out:
         if (xattr_req)
                 dict_unref (xattr_req);
@@ -5008,8 +5086,9 @@ out:
 
         server_lookup_cbk (frame, NULL, frame->this, -1, EINVAL, NULL, NULL,
                            NULL, NULL);
+        ret = 0;
 err:
-        return 0;
+        return ret;
 }
 
 int
@@ -5019,9 +5098,10 @@ server_statfs (rpcsvc_request_t *req)
         call_frame_t        *frame = NULL;
         gfs3_statfs_req      args  = {{0,},};
         char                 path[SERVER_PATH_MAX]  = {0,};
+        int                  ret                    = -1;
 
         if (!req)
-                return 0;
+                return ret;
 
         args.path = path;
         if (!xdr_to_statfs_req (req->msg[0], &args)) {
@@ -5049,9 +5129,10 @@ server_statfs (rpcsvc_request_t *req)
         memcpy (state->resolve.gfid, args.gfid, 16);
         state->resolve.path   = gf_strdup (args.path);
 
+        ret = 0;
         resolve_and_resume (frame, server_statfs_resume);
 out:
-        return 0;
+        return ret;
 }
 
 
