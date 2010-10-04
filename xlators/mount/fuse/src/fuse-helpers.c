@@ -172,7 +172,8 @@ fuse_ino_to_inode (uint64_t ino, xlator_t *fuse)
 
         if (ino == 1) {
                 active_subvol = fuse_active_subvol (fuse);
-                inode = active_subvol->itable->root;
+                if (active_subvol)
+                        inode = active_subvol->itable->root;
         } else {
                 inode = (inode_t *) (unsigned long) ino;
                 inode_ref (inode);
