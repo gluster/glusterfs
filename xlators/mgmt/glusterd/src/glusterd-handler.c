@@ -62,38 +62,6 @@
         glusterd_volume_txn (req, volname, flags, GD_OP_STOP_VOLUME)
 
 static int
-glusterd_friend_find_by_uuid (uuid_t uuid,
-                              glusterd_peerinfo_t  **peerinfo)
-{
-        int                     ret = -1;
-        glusterd_conf_t         *priv = NULL;
-        glusterd_peerinfo_t     *entry = NULL;
-
-        GF_ASSERT (peerinfo);
-
-        *peerinfo = NULL;
-        priv    = THIS->private;
-
-        GF_ASSERT (priv);
-
-        if (uuid_is_null (uuid))
-                return -1;
-
-        list_for_each_entry (entry, &priv->peers, uuid_list) {
-                if (!uuid_compare (entry->uuid, uuid)) {
-
-                        gf_log ("glusterd", GF_LOG_NORMAL,
-                                 "Friend found.. state: %d",
-                                  entry->state.state);
-                        *peerinfo = entry;
-                        return 0;
-                }
-        }
-
-        return ret;
-}
-
-static int
 glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
                             char *hostname, int port, dict_t *dict)
 {
@@ -717,7 +685,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         int                    brick_count = 0;
         char                   *tmpptr      = NULL;
         int                    i           = 0;
-        glusterd_peerinfo_t    *peerinfo    = NULL;
         char                   *brick_list  = NULL;
         void                   *cli_rsp     = NULL;
         char                    err_str[2048] = {0,};
@@ -730,9 +697,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         uuid_t                  volume_id   = {0,};
         char                    volid[64]   = {0,};
         glusterd_brickinfo_t    *tmpbrkinfo = NULL;
-        glusterd_brickinfo_t    *tmp        = NULL;
-        glusterd_brickinfo_t    *tmp2       = NULL;
-        uint32_t                delete_list = 0;
+        glusterd_volinfo_t      tmpvolinfo = {{0},};
 
         GF_ASSERT (req);
 
@@ -819,63 +784,35 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
                     ((cli_req.type == 1)? "STRIPE":"REPLICATE")), cli_req.count,
                     bricks);
 
+        INIT_LIST_HEAD (&tmpvolinfo.bricks);
         while ( i < brick_count) {
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
                 brick_list = tmpptr;
-                brickinfo = NULL;
                 ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
 
-                if(!(ret = glusterd_is_local_addr (brickinfo->hostname)))
-                        goto brick_validation;        //localhost, continue without validation
-
-                ret = glusterd_friend_find_by_hostname (brickinfo->hostname,
-                                                        &peerinfo);
+                ret = glusterd_new_brick_validate (brick, brickinfo, err_str,
+                                                   sizeof (err_str));
                 if (ret) {
-                        snprintf (err_str, 2048, "Host %s not a friend",
-                                  brickinfo->hostname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
                         goto out;
                 }
-                if ((!peerinfo->connected) ||
-                    (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                        snprintf(err_str, 2048, "Host %s not connected",
-                                 brickinfo->hostname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
+                                                     brickinfo->hostname,
+                                                     brickinfo->path,
+                                                     &tmpvolinfo, &tmpbrkinfo);
+                if (!ret) {
                         err_ret = 1;
+                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
+                                  " in the arguments mean the same",
+                                  tmpbrkinfo->hostname, tmpbrkinfo->path,
+                                  brick);
                         goto out;
                 }
-brick_validation:
-                err_ret = glusterd_is_exisiting_brick (brickinfo->hostname,
-                                                       brickinfo->path);
-                if (err_ret) {
-                        snprintf(err_str, 2048, "Brick: %s already in use",
-                                 brick);
-                        goto out;
-                }
-
-                if (1 < i)
-                        list_add_tail (&brickinfo->brick_list, &tmpbrkinfo->brick_list);
-                else
-                        tmpbrkinfo = brickinfo;
-        }
-
-        list_for_each_entry (tmp, &tmpbrkinfo->brick_list, brick_list) {
-                list_for_each_entry (tmp2, &tmp->brick_list, brick_list) {
-                        if ((!glusterd_is_local_addr (tmp->hostname)) && (!glusterd_is_local_addr (tmp2->hostname))
-                            && (!strcmp (tmp->path, tmp2->path))) {
-                                snprintf (err_str, 2048, "%s:%s and %s:%s are one and the same",
-                                          tmp->hostname, tmp->path, tmp2->hostname, tmp2->path);
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "%s",err_str);
-                                err_ret = 1;
-                                delete_list = 1;
-                                goto out;
-                        }
-                }
+                list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
+                brickinfo = NULL;
         }
 
         ret = glusterd_create_volume (req, dict);
@@ -883,7 +820,6 @@ brick_validation:
         gf_cmd_log ("Volume create", "on volname: %s %s", volname,
                     ((ret || err_ret) != 0) ? "FAILED": "SUCCESS");
 
-        delete_list = 1;
 out:
         if ((err_ret || ret) && dict)
                 dict_unref (dict);
@@ -904,12 +840,9 @@ out:
         if (free_ptr)
                 GF_FREE(free_ptr);
 
-        if (delete_list) {
-                list_for_each_entry_safe (tmp, tmp2, &tmpbrkinfo->brick_list, brick_list) {
-                        glusterd_brickinfo_delete (tmp);
-                }
-        }
-
+        ret = glusterd_volume_bricks_delete (&tmpvolinfo);
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
         if (cli_req.volname)
                 free (cli_req.volname); // its a malloced by xdr
         return ret;
@@ -1015,7 +948,6 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         int                             brick_count = 0;
         char                            *tmpptr = NULL;
         int                             i = 0;
-        glusterd_peerinfo_t             *peerinfo = NULL;
         char                            *brick_list = NULL;
         void                            *cli_rsp = NULL;
         char                            err_str[2048] = {0,};
@@ -1026,9 +958,7 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         xlator_t                        *this = NULL;
         char                            *free_ptr = NULL;
         glusterd_brickinfo_t            *tmpbrkinfo = NULL;
-        glusterd_brickinfo_t            *tmp = NULL;
-        glusterd_brickinfo_t            *tmp2 = NULL;
-        uint32_t                        delete_list = 0;
+        glusterd_volinfo_t              tmpvolinfo = {{0},};
 
         this = THIS;
         GF_ASSERT(this);
@@ -1135,6 +1065,7 @@ brick_val:
                     ,volname, ((volinfo->type == 0)? "DEFAULT" : ((volinfo->type
                     == 1)? "STRIPE": "REPLICATE")), brick_count, brick_list);
 
+        INIT_LIST_HEAD (&tmpvolinfo.bricks);
         while ( i < brick_count) {
                 i++;
                 brick= strtok_r (brick_list, " \n", &tmpptr);
@@ -1143,61 +1074,32 @@ brick_val:
                 ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
                 if (ret)
                         goto out;
-                if(!(ret = glusterd_is_local_addr(brickinfo->hostname)))
-                        goto brick_validation;       //localhost, continue without validation
-                ret = glusterd_friend_find_by_hostname(brickinfo->hostname,
-                                                        &peerinfo);
+                ret = glusterd_new_brick_validate (brick, brickinfo, err_str,
+                                                   sizeof (err_str));
                 if (ret) {
-                        snprintf(err_str, 2048, "Host %s not a friend",
-                                 brickinfo->hostname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;
                         goto out;
                 }
-                if ((!peerinfo->connected) ||
-                    (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
-                        snprintf(err_str, 2048, "Host %s not connected",
-                                 brickinfo->hostname);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
+                ret = glusterd_volume_brickinfo_get (brickinfo->uuid,
+                                                     brickinfo->hostname,
+                                                     brickinfo->path,
+                                                     &tmpvolinfo, &tmpbrkinfo);
+                if (!ret) {
                         err_ret = 1;
+                        snprintf (err_str, sizeof (err_str), "Brick: %s:%s, %s"
+                                  " in the arguments mean the same",
+                                  tmpbrkinfo->hostname, tmpbrkinfo->path,
+                                  brick);
                         goto out;
                 }
-brick_validation:
-                err_ret = glusterd_is_exisiting_brick (brickinfo->hostname,
-                                                       brickinfo->path);
-                if (err_ret) {
-                        snprintf(err_str, 2048, "Brick: %s already in use",
-                                 brick);
-                        goto out;
-                }
-
-                if (1 < i)
-                        list_add_tail (&brickinfo->brick_list, &tmpbrkinfo->brick_list);
-                else
-                        tmpbrkinfo = brickinfo;
-
-        }
-
-        list_for_each_entry (tmp, &tmpbrkinfo->brick_list, brick_list) {
-                list_for_each_entry (tmp2, &tmp->brick_list, brick_list) {
-                        if ((!glusterd_is_local_addr (tmp->hostname)) && (!glusterd_is_local_addr (tmp2->hostname))
-                            && (!strcmp (tmp->path, tmp2->path))) {
-                                snprintf (err_str, 2048, "%s:%s and %s:%s are one and the same",
-                                          tmp->hostname, tmp->path, tmp2->hostname, tmp2->path);
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "%s",err_str);
-                                err_ret = 1;
-                                delete_list = 1;
-                                goto out;
-                        }
-                }
+                list_add_tail (&brickinfo->brick_list, &tmpvolinfo.bricks);
+                brickinfo = NULL;
         }
 
         ret = glusterd_add_brick (req, dict);
 
         gf_cmd_log ("Volume add-brick","on volname: %s %s", volname,
                    ((ret || err_ret) != 0)? "FAILED" : "SUCCESS");
-        delete_list = 1;
 
 out:
         if ((err_ret || ret) && dict)
@@ -1217,14 +1119,11 @@ out:
                 ret = 0; //sent error to cli, prevent second reply
         }
 
-        if (delete_list) {
-                list_for_each_entry_safe (tmp, tmp2, &tmpbrkinfo->brick_list, brick_list) {
-                        glusterd_brickinfo_delete (tmp);
-                }
-        }
-
         if (free_ptr)
                 GF_FREE (free_ptr);
+        ret = glusterd_volume_bricks_delete (&tmpvolinfo);
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
         if (cli_req.volname)
                 free (cli_req.volname); //its malloced by xdr
         return ret;
@@ -1540,7 +1439,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 gf_log ("", GF_LOG_DEBUG, "Remove brick count %d brick: %s",
                         i, brick);
 
-                ret = glusterd_brickinfo_get(brick, volinfo, &brickinfo);
+                ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo, &brickinfo);
                 if (ret) {
                         snprintf(err_str, 2048," Incorrect brick %s for volname"
                                 " %s", brick, cli_req.volname);

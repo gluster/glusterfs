@@ -712,7 +712,7 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
 
         while ( i < count) {
-                ret = glusterd_brickinfo_get (brick, volinfo, &brickinfo);
+                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, &brickinfo);
                 if (!ret) {
                         gf_log ("", GF_LOG_ERROR, "Adding duplicate brick: %s",
                                 brick);
@@ -863,7 +863,7 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 goto out;
         }
 
-        ret = glusterd_brickinfo_get (src_brick, volinfo,
+        ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo,
                                       &src_brickinfo);
         if (ret) {
                 snprintf (msg, sizeof (msg), "brick: %s does not exist in "
@@ -893,7 +893,7 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 ret = -1;
                 goto out;
         }
-        if (glusterd_is_exisiting_brick (host, path)) {
+        if (!glusterd_brickinfo_get (NULL, host, path, NULL)) {
                 snprintf(msg, sizeof(msg), "Brick: %s:%s already in use",
                          host, path);
                 *op_errstr = gf_strdup (msg);
@@ -1186,7 +1186,7 @@ glusterd_op_perform_remove_brick (glusterd_volinfo_t  *volinfo, char *brick)
         if (!dup_brick)
                 goto out;
 
-        ret = glusterd_brickinfo_get (dup_brick, volinfo,  &brickinfo);
+        ret = glusterd_volume_brickinfo_get_by_brick (dup_brick, volinfo,  &brickinfo);
         if (ret)
                 goto out;
 
@@ -1234,7 +1234,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
         if (ret)
                 goto out;
 
-        ret = glusterd_brickinfo_get (old_brick, volinfo,
+        ret = glusterd_volume_brickinfo_get_by_brick (old_brick, volinfo,
                                       &old_brickinfo);
         if (ret)
                 goto out;
@@ -1320,7 +1320,7 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
 
         while (i <= count) {
 
-                ret = glusterd_brickinfo_get (brick, volinfo, &brickinfo);
+                ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo, &brickinfo);
                 if (ret)
                         goto out;
 
@@ -2613,7 +2613,7 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_brickinfo_get (src_brick, volinfo, &src_brickinfo);
+        ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo, &src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
                 goto out;
@@ -3970,7 +3970,7 @@ glusterd_do_replace_brick (void *data)
                 goto out;
         }
 
-        ret = glusterd_brickinfo_get (src_brick, volinfo, &src_brickinfo);
+        ret = glusterd_volume_brickinfo_get_by_brick (src_brick, volinfo, &src_brickinfo);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get src-brickinfo");
                 goto out;
@@ -4527,7 +4527,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 case GD_OP_SET_VOLUME:
                         ret = glusterd_op_stage_set_volume (req);
                         break;
-                        
+
                 case GD_OP_RESET_VOLUME:
                         ret = glusterd_op_stage_reset_volume (req);
 
