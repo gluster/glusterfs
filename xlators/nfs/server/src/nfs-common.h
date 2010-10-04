@@ -80,4 +80,7 @@ nfs_root_loc_fill (inode_table_t *itable, loc_t *loc);
 
 extern int
 is_nfs_subvolume_disabled (struct nfs_state *nfs, xlator_t *xl);
+
+extern int
+nfs_subvolume_lookup_again_later (struct nfs_state *nfs, xlator_t *xl);
 #endif
