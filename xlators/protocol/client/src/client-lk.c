@@ -471,6 +471,8 @@ client_cmd_to_gf_cmd (int32_t cmd, int32_t *gf_cmd)
                 *gf_cmd = GF_LK_RESLK_LCKW;
         else if (cmd == F_RESLK_UNLCK)
                 *gf_cmd = GF_LK_RESLK_UNLCK;
+        else if (cmd == F_GETLK_FD)
+                *gf_cmd = GF_LK_GETLK_FD;
         else
                 ret = -1;
 

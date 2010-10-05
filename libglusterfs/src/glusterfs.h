@@ -161,6 +161,7 @@ typedef enum {
         GF_LK_RESLK_LCK,
         GF_LK_RESLK_LCKW,
         GF_LK_RESLK_UNLCK,
+        GF_LK_GETLK_FD,
 } glusterfs_lk_cmds_t;
 
 
@@ -175,11 +176,8 @@ typedef enum {
         F_RESLK_LCK = 200,
         F_RESLK_LCKW,
         F_RESLK_UNLCK,
+        F_GETLK_FD,
 } glusterfs_lk_recovery_cmds_t;
-
-typedef enum {
-        F_GETLK_FD = 250,
-} glusterfs_lk_rec_types_t;
 
 typedef enum {
         GF_LOCK_POSIX,
