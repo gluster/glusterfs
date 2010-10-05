@@ -94,10 +94,15 @@ struct nfs3stat_strerror nfs3stat_strerror_table[] = {
 uint64_t
 nfs3_iatt_gfid_to_ino (struct iatt *buf)
 {
+        uint64_t        ino = 0;
+
         if (!buf)
                 return 0;
 
-        memcpy (&buf->ia_ino, &buf->ia_gfid[8], sizeof (uint64_t));
+        if (buf->ia_ino != 1)
+                memcpy (&buf->ia_ino, &buf->ia_gfid[8], sizeof (uint64_t));
+        else
+                ino = 1;
 
         return buf->ia_ino;
 }
