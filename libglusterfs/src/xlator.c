@@ -763,6 +763,13 @@ xlator_dynload (xlator_t *xl)
 			"dlsym(reconfigure) on %s -- neglecting",
 			dlerror());
 	}
+        
+        if (!(xl->validate_options = dlsym (handle, "validate_options"))) {
+                gf_log ("xlator", GF_LOG_DEBUG,
+                        "dlsym(validate_options) on %s -- neglecting",
+                        dlerror());
+        }
+
 
 	INIT_LIST_HEAD (&xl->volume_options);
 
@@ -977,6 +984,58 @@ out:
         return ret;
 }
 
+int
+xlator_validate_rec (xlator_t *xlator, char **op_errstr)
+{
+        xlator_list_t *trav = NULL;
+       
+        if (xlator == NULL )    {
+                gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+                return -1;
+        }
+
+        trav = xlator->children;
+
+        while (trav) {
+                if (xlator_validate_rec (trav->xlator, op_errstr) )
+                        return -1;
+
+                trav = trav->next;
+        }
+        
+        if (xlator_dynload (xlator))
+                gf_log ("", GF_LOG_DEBUG, "Did not load the symbols");
+
+        if (xlator->validate_options) {
+                if (xlator->validate_options (xlator, xlator->options, 
+                    op_errstr)) {
+                        gf_log ("", GF_LOG_DEBUG, *op_errstr);
+                        return -1;
+                }
+                gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");
+                
+        }
+        
+        gf_log (xlator->name, GF_LOG_DEBUG, "No validate_options() found");
+
+        return 0;
+}
+
+int
+graph_reconf_validateopt (glusterfs_graph_t *graph, 
+                          char **op_errstr)
+{
+        xlator_t *xlator = NULL;
+        int ret = -1;
+
+        GF_ASSERT (graph);
+
+        xlator = graph->first;
+
+        ret = xlator_validate_rec (xlator, op_errstr);
+
+        return ret;
+}
 int
 xlator_notify (xlator_t *xl, int event, void *data, ...)
 {

@@ -313,6 +313,7 @@ struct gf1_cli_set_vol_rsp {
 	int op_ret;
 	int op_errno;
 	char *volname;
+        char *op_errstr;
 	struct {
 		u_int dict_len;
 		char *dict_val;

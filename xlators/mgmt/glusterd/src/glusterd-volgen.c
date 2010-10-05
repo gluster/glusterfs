@@ -1254,3 +1254,100 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
         get_brick_filepath (filename, volinfo, brickinfo);
         return unlink (filename);
 }
+
+int
+validate_clientopts (glusterd_volinfo_t *volinfo, 
+                    dict_t *val_dict, 
+                    char **op_errstr)
+{
+        glusterfs_graph_t graph = {{0,},};
+        int     ret = -1;
+
+        GF_ASSERT (volinfo);
+
+
+        ret = build_client_graph (&graph, volinfo, val_dict);
+        if (!ret)
+                ret = graph_reconf_validateopt (&graph, op_errstr);
+
+        volgen_graph_free (&graph);
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+validate_brickopts (glusterd_volinfo_t *volinfo, 
+                    char *brickinfo_path,
+                    dict_t *val_dict,
+                    char **op_errstr)
+{
+        glusterfs_graph_t graph = {{0,},};
+        int     ret = -1;
+
+        GF_ASSERT (volinfo);
+
+
+
+        ret = build_server_graph (&graph, volinfo, val_dict, brickinfo_path);
+        if (!ret)
+                ret = graph_reconf_validateopt (&graph, op_errstr);
+
+        volgen_graph_free (&graph);
+
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
+                               dict_t *val_dict,
+                               char **op_errstr)
+{
+        glusterd_brickinfo_t *brickinfo = NULL;
+        int                   ret = -1;
+        
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Validating %s", brickinfo->hostname);
+
+                ret = validate_brickopts (volinfo, brickinfo->path, val_dict, 
+                                          op_errstr);
+                if (ret)
+                        goto out;
+        }
+
+        ret = 0;
+out:
+        
+                return ret;
+}
+
+int
+glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, 
+                              char **op_errstr)
+{
+        int ret = -1;
+
+        gf_log ("", GF_LOG_DEBUG, "Inside Validate reconfigure options");
+
+        ret = glusterd_validate_brickreconf (volinfo, val_dict, op_errstr);
+
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not Validate  bricks");
+                goto out;
+        }
+        
+        ret = validate_clientopts (volinfo, val_dict, op_errstr);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not Validate client");
+                goto out;
+        }
+
+
+out:
+                gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+                return ret;
+}

@@ -807,6 +807,8 @@ struct _xlator {
 	int32_t           (*init) (xlator_t *this);
         int32_t           (*reconfigure) (xlator_t *this, dict_t *options);
 	int32_t           (*mem_acct_init) (xlator_t *this);
+        int32_t           (*validate_options) (xlator_t *this, dict_t *options, 
+                                               char **op_errstr);
 	event_notify_fn_t notify;
 
         gf_loglevel_t    loglevel;   /* Log level for translator */
@@ -860,6 +862,8 @@ void loc_wipe (loc_t *loc);
 int xlator_mem_acct_init (xlator_t *xl, int num_types);
 int xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl);
 int is_gf_log_command (xlator_t *trans, const char *name, char *value);
+int xlator_validate_rec (xlator_t *xlator, char **op_errstr);
+int graph_reconf_validateopt (glusterfs_graph_t *graph, char **op_errstr);
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 
