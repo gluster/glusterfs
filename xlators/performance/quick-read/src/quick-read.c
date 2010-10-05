@@ -2411,6 +2411,91 @@ mem_acct_init (xlator_t *this)
 }
 
 
+int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+        char         *str  = NULL;
+        int32_t       ret  = -1;
+        int32_t       cache_timeout;
+ 
+        if (!this)
+                goto out;
+
+        
+
+        ret = dict_get_str (this->options, "cache-timeout", &str);
+        if (ret == 0) {
+                ret = gf_string2uint_base10 (str, 
+                                             (unsigned int *)&cache_timeout);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid cache-timeout value %s", str);
+                        *op_errstr = "Invalid Format!!";
+                        ret = -1;
+                        goto out;
+                } 
+                if (ret < 1  || ret > 60) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid cache-timeout value %s", str);
+                        *op_errstr = "Range 1 <= value <= 60";
+                                        ret = -1;
+                        goto out;
+                }
+        }
+
+
+        ret =0;
+out:
+                return ret;
+
+}
+
+int
+reconfigure (xlator_t *this, dict_t *options)
+{
+       
+                
+        
+        char         *str  = NULL;
+        int32_t       ret  = -1;
+        qr_private_t *priv = NULL;
+        qr_conf_t    *conf = NULL;
+        int32_t       cache_timeout;
+ 
+        if (!this)
+                goto out;
+        
+        priv = this->private;
+        if (!priv)
+                goto out;
+        
+        conf = &priv->conf;
+        if (!conf)
+                goto out;
+        
+        cache_timeout = conf->cache_timeout;
+        ret = dict_get_str (this->options, "cache-timeout", &str);
+        if (ret == 0) {
+                ret = gf_string2uint_base10 (str, 
+                                             (unsigned int *)&conf->cache_timeout);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid cache-timeout value %s", str);
+                        ret = -1;
+                        goto out;
+                } 
+                conf->cache_timeout = cache_timeout;
+        }
+        else
+                conf->cache_timeout = 1;
+        
+        ret = 0;
+out:
+        return ret;
+
+}
+
+
 int32_t
 qr_get_priority_list (const char *opt_str, struct list_head *first)
 {

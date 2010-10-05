@@ -59,7 +59,242 @@ mem_acct_init (xlator_t *this)
 
         return ret;
 }
+int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
 
+ 
+        gf_boolean_t metadata_self_heal;   
+        gf_boolean_t entry_self_heal;
+        gf_boolean_t data_self_heal;
+        gf_boolean_t data_change_log;       
+        gf_boolean_t metadata_change_log; 
+        gf_boolean_t entry_change_log;      
+        gf_boolean_t strict_readdir;
+
+        xlator_list_t * trav        = NULL;
+        
+        char * read_subvol     = NULL;
+        char * self_heal       = NULL;
+        char * change_log      = NULL;
+        char * str_readdir     = NULL;
+
+        int32_t background_count  = 0;
+        int32_t window_size       = 0;
+
+        int    read_ret      = -1;
+        int    dict_ret      = -1;
+        int    flag          = 1;
+        int    ret           = 0;
+        int    temp_ret      = -1;
+        
+
+        
+        dict_ret = dict_get_int32 (options, "background-self-heal-count",
+                                   &background_count);
+        if (dict_ret == 0) {
+                if (background_count < 0) {
+                        *op_errstr = gf_strdup ("Error, option should be >= 0");
+                        ret = -1;
+                        goto out;
+                }
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "validated background self-heal count to %d",
+                        background_count);
+        }
+
+        dict_ret = dict_get_str (options, "metadata-self-heal",
+                                 &self_heal);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (self_heal, &metadata_self_heal);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "validation failed 'option metadata"
+                                                "-self-heal %s'.not correct.", 
+                                                self_heal);
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                } 
+        
+
+                
+        }
+
+        dict_ret = dict_get_str (options, "data-self-heal",
+                                 &self_heal);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (self_heal, &data_self_heal);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Validation failed for data self heal", 
+                                self_heal);
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                } 
+        
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Reconfiguring 'option data"
+                                        "-self-heal %s'.", self_heal);
+        }
+
+        dict_ret = dict_get_str (options, "entry-self-heal",
+                                 &self_heal);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (self_heal, &entry_self_heal);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Validation faled for entry-self-heal", 
+                                self_heal);
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                } 
+        
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated 'option entry"
+                                        "-self-heal %s'.", self_heal);
+        }
+
+
+        dict_ret = dict_get_str (options, "strict-readdir",
+                                 &str_readdir);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (str_readdir, &strict_readdir);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Validation faled for strict_readdir",
+                                str_readdir);
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                }
+                
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated 'option strict"
+                                        "-readdir %s'.", str_readdir);
+        }
+
+        dict_ret = dict_get_int32 (options, "data-self-heal-window-size",
+                                   &window_size);
+        if (dict_ret == 0) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "validated data self-heal window size to %d",
+                        window_size);
+
+                if (window_size < 0) {
+                        *op_errstr = gf_strdup ("Error, option should be >= 0");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (window_size > 1024) {
+                        *op_errstr = gf_strdup ("Error, option should be <= 1024");
+                        ret = -1;
+                        goto out;
+                }
+
+
+        }
+
+        dict_ret = dict_get_str (options, "data-change-log",
+                                 &change_log);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (change_log, &data_change_log);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Validation faled for data-change-log");
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                }
+ 
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated 'option data-"
+                                        "change-log %s'.", change_log);
+        }
+
+        dict_ret = dict_get_str (options, "metadata-change-log",
+                                 &change_log);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (change_log,
+                                              &metadata_change_log);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Validation faild for metadata-change-log");
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                } 
+                
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated 'option metadata-"
+                                        "change-log %s'.", change_log);
+        }
+
+        dict_ret = dict_get_str (options, "entry-change-log",
+                                 &change_log);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (change_log, &entry_change_log);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Validation faild for entr-change-log");
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                } 
+
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated 'option entry-"
+                                        "change-log %s'.", change_log);
+        }
+
+        read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
+
+        if (read_ret) 
+                goto next;// No need to traverse, hence set the next option
+        
+        trav = this->children;
+        flag = 0;
+        while (trav) {
+                if (!read_ret && !strcmp (read_subvol, trav->xlator->name)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Validated Subvolume '%s'  as read child.",
+                                trav->xlator->name);
+
+                        flag = 1;
+                        ret = 0; 
+                        goto out;
+                }
+
+                
+                trav = trav->next;
+        }
+
+        if (flag == 0 ) {
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Invalid 'option read-subvolume %s', no such subvolume"
+                                        , read_subvol);
+                *op_errstr = gf_strdup ("Error, the sub-volume is not right");
+                ret = -1;
+                goto out;
+        }
+
+next:
+out:
+                return ret;
+
+
+}
 
 
 int
@@ -190,6 +425,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
 		priv->data_self_heal_window_size = window_size;
 	}
+        else {
+                priv->data_self_heal_window_size = 16;
+        }
+        
 
 	dict_ret = dict_get_str (options, "data-change-log",
 				 &change_log);

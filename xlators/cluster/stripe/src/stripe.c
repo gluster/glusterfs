@@ -3735,6 +3735,45 @@ mem_acct_init (xlator_t *this)
 out:
         return ret;
 }
+int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+
+
+        data_t           *data = NULL;
+        int               ret = 0;
+        stripe_private_t *priv = NULL;
+
+        data = dict_get (options, "block-size");
+        if (data) {
+                gf_log (this->name, GF_LOG_TRACE,"Reconfiguring Stripe"
+                                " Block-size");
+                priv = GF_CALLOC (1, sizeof (stripe_private_t),
+                                  gf_stripe_mt_stripe_private_t);
+                if (!priv) {
+                        gf_log ("",GF_LOG_ERROR, "Unable to allocate memory");
+                        ret = -1;
+                        goto out;
+                }
+
+                ret = set_stripe_block_size (this, priv, data->data);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Reconfigue: Block-Size reconfiguration failed");
+                        *op_errstr = gf_strdup ("Error, could not parse list");
+                        ret = -1;
+                        goto out;
+                }
+                gf_log (this->name, GF_LOG_TRACE,
+                        "Reconfigue: Block-Size reconfigured Successfully");
+        }
+
+out:
+                if (priv)
+                GF_FREE (priv);
+        return ret;
+
+}
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -3761,6 +3800,10 @@ reconfigure (xlator_t *this, dict_t *options)
 		gf_log (this->name, GF_LOG_TRACE,
                         "Reconfigue: Block-Size reconfigured Successfully");
 	}
+        else {
+                priv->block_size = (128 * GF_UNIT_KB);
+        }
+                        
 
 out:
 	return ret;

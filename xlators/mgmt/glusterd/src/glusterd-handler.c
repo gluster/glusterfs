@@ -1259,9 +1259,8 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
                                         cli_req.dict.dict_len,
                                         &dict);
                 if (ret < 0) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "failed to "
-                                                "unserialize req-buffer to dictionary");
+                        gf_log ("glusterd", GF_LOG_ERROR, "failed to "
+                                    "unserialize req-buffer to dictionary");
                         goto out;
                 } else {
                         dict->extra_stdfree = cli_req.dict.dict_val;
