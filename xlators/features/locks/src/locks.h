@@ -44,6 +44,7 @@ struct __posix_lock {
         xlator_t          *this;       /* required for blocked locks */
         unsigned long      fd_num;
 
+        fd_t              *fd;
         call_frame_t      *frame;
 
         /* These two together serve to uniquely identify each process

@@ -42,7 +42,9 @@ static int
 __is_lock_grantable (pl_inode_t *pl_inode, posix_lock_t *lock);
 static void
 __insert_and_merge (pl_inode_t *pl_inode, posix_lock_t *lock);
-
+static int
+pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
+                        posix_lock_t *old_lock);
 static pl_dom_list_t *
 allocate_domain (const char *volume)
 {
@@ -481,6 +483,7 @@ new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
 
 	lock->transport  = transport;
         lock->fd_num     = fd_to_fdnum (fd);
+        lock->fd         = fd;
 	lock->client_pid = client_pid;
         lock->owner      = owner;
 
@@ -521,12 +524,11 @@ posix_lock_to_flock (posix_lock_t *lock, struct gf_flock *flock)
 		flock->l_len = lock->fl_end - lock->fl_start + 1;
 }
 
-
 /* Insert the lock into the inode's lock list */
 static void
 __insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-	list_add_tail (&lock->list, &pl_inode->ext_list);
+        list_add_tail (&lock->list, &pl_inode->ext_list);
 
 	return;
 }
@@ -920,6 +922,56 @@ grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode)
         return;
 }
 
+static int
+pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
+                        posix_lock_t *old_lock)
+{
+        struct gf_flock  flock       = {0,};
+        posix_lock_t *unlock_lock = NULL;
+
+        struct list_head granted_list;
+        posix_lock_t     *tmp = NULL;
+        posix_lock_t     *lock = NULL;
+
+        int ret = 0;
+
+        INIT_LIST_HEAD (&granted_list);
+
+        flock.l_type   = F_UNLCK;
+        flock.l_whence = old_lock->user_flock.l_whence;
+        flock.l_start  = old_lock->user_flock.l_start;
+        flock.l_len    = old_lock->user_flock.l_len;
+
+
+        unlock_lock = new_posix_lock (&flock, old_lock->transport,
+                                      old_lock->client_pid, old_lock->owner,
+                                      old_lock->fd);
+        if (!unlock_lock) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        __insert_and_merge (pl_inode, unlock_lock);
+
+        __grant_blocked_locks (this, pl_inode, &granted_list);
+
+        list_for_each_entry_safe (lock, tmp, &granted_list, list) {
+                list_del_init (&lock->list);
+
+                pl_trace_out (this, lock->frame, NULL, NULL, F_SETLKW,
+                              &lock->user_flock, 0, 0, NULL);
+
+                STACK_UNWIND (lock->frame, 0, 0, &lock->user_flock);
+
+                GF_FREE (lock);
+        }
+
+out:
+
+        return ret;
+}
 
 int
 pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
@@ -931,6 +983,18 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
         pthread_mutex_lock (&pl_inode->mutex);
         {
+                /* Send unlock before the actual lock to
+                   prevent lock upgrade / downgrade
+                   problems
+                */
+
+                ret = pl_send_prelock_unlock (this, pl_inode,
+                                              lock);
+                if (ret)
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Could not send pre-lock "
+                                "unlock");
+
                 if (__is_lock_grantable (pl_inode, lock)) {
                         gf_log (this->name, GF_LOG_TRACE,
                                 "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => OK",
