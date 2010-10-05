@@ -1846,6 +1846,9 @@ afr_recover_lock_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t source_child = 0;
         struct gf_flock flock   = {0,};
 
+        local = frame->local;
+        priv  = this->private;
+
         if (op_ret) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         "lock recovery failed");
@@ -1898,7 +1901,7 @@ is_afr_lock_eol (struct gf_flock *lock)
 {
         int ret = 0;
 
-        if ((lock->l_type = GF_LK_EOL))
+        if ((lock->l_type == GF_LK_EOL))
                 ret = 1;
 
         return ret;
@@ -2144,7 +2147,7 @@ afr_attempt_lock_recovery (xlator_t *this, int32_t child_index)
 
                 list_del_init (&locked_fd->list);
 
-                local->fd                  = locked_fd->fd;
+                local->fd                  = fd_ref (locked_fd->fd);
                 local->lock_recovery_child = child_index;
                 local->locked_fd           = locked_fd;
 

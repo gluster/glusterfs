@@ -4900,7 +4900,12 @@ server_lk (rpcsvc_request_t *req)
         case GF_LK_RESLK_UNLCK:
                 state->cmd = F_RESLK_UNLCK;
                 break;
+        case GF_LK_GETLK_FD:
+                state->cmd = F_GETLK_FD;
+                break;
+
         }
+
 
         gf_proto_flock_to_flock (&args.flock, &state->flock);
 
