@@ -108,11 +108,9 @@ static struct argp_option gf_options[] = {
          "This option should be provided with --volfile-server option"
          "[default: 1]"},
         {"volfile", ARGP_VOLUME_FILE_KEY, "VOLFILE", 0,
-         "File to use as VOLUME_FILE [default: "DEFAULT_CLIENT_VOLFILE" or "
-         DEFAULT_SERVER_VOLFILE"]"},
+         "File to use as VOLUME_FILE"},
         {"spec-file", ARGP_VOLUME_FILE_KEY, "VOLFILE", OPTION_HIDDEN,
-         "File to use as VOLFILE [default : "DEFAULT_CLIENT_VOLFILE" or "
-         DEFAULT_SERVER_VOLFILE"]"},
+         "File to use as VOLUME FILE"},
         {"log-server", ARGP_LOG_SERVER_KEY, "LOGSERVER", 0,
          "Server to use as the central log server"},
 
