@@ -274,6 +274,39 @@ out:
         return ret;
 }
 
+void _setopts (dict_t *this, char *key, data_t *value, void *data)
+{
+        int                      ret = 0;
+        glusterd_store_handle_t *shandle = NULL;
+        int                      exists = 0;
+
+
+        shandle = (glusterd_store_handle_t *) data;
+
+        GF_ASSERT (shandle);
+        if (!key)
+                return;
+        if (!value || !value->data)
+                return;
+
+        exists = glusterd_check_option_exists (key, NULL);
+        if (1 == exists) {
+                gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
+                        key, value->data);
+        } else {
+                gf_log ("", GF_LOG_DEBUG, "Discarding:key= %s, val=%s",
+                        key, value->data);
+                return;
+        }
+
+        ret = glusterd_store_save_value (shandle, key, value->data);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to write into store"
+                                " handle for path: %s", shandle->path);
+                return;
+        }
+}
+
 int32_t
 glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
 {
@@ -361,6 +394,8 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
                         goto out;
                 brick_count++;
         }
+
+        dict_foreach (volinfo->dict, _setopts, volinfo->shandle);
 
         ret = 0;
 
@@ -1042,7 +1077,7 @@ glusterd_store_retrieve_volume (char    *volname)
                                 goto out;
                         }
                         if (exists) {
-                                ret = dict_set_str(volinfo->dict, key, 
+                                ret = dict_set_str(volinfo->dict, key,
                                                      gf_strdup (value));
                                 if (ret) {
                                         gf_log ("",GF_LOG_ERROR, "Error in "
@@ -1050,7 +1085,7 @@ glusterd_store_retrieve_volume (char    *volname)
                                         goto out;
                                 }
                                 gf_log ("", GF_LOG_DEBUG, "Parsed as Volume-"
-                                                "set:key=%s,value:%s", 
+                                                "set:key=%s,value:%s",
                                                                 key, value);
                         }
                         else
@@ -1133,39 +1168,6 @@ out:
         return ret;
 }
 
-void _setopts(dict_t *this, char *key, data_t *value, void *data)
-{
-        int                      ret = 0;
-        glusterd_store_handle_t *shandle = NULL;
-        int                      exists = 0;
-        
-
-        shandle = (glusterd_store_handle_t *) data;
-
-        GF_ASSERT (shandle);
-        if (!key)
-                return;
-        if (!value || !value->data)
-                return;
-
-        exists = glusterd_check_option_exists (key, NULL);
-        if (exists == 1)
-                gf_log ("", GF_LOG_DEBUG, "Storing in volinfo:key= %s, val=%s",
-                        key, value->data);
-        else {
-                gf_log ("", GF_LOG_DEBUG, "Discarding:key= %s, val=%s",
-                        key, value->data);
-                return;
-        }
-        
-        ret = glusterd_store_save_value (shandle, key, value->data);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to write into store"
-                                " handle for path: %s", shandle->path);
-                return;
-        }
-}
-
 int32_t
 glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
 {
@@ -1227,13 +1229,13 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
                 goto out;
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                ret = glusterd_store_create_brick (volinfo, brickinfo, 
+                ret = glusterd_store_create_brick (volinfo, brickinfo,
                                                    brick_count);
                 if (ret)
                         goto out;
                 brick_count++;
         }
-        
+
         dict_foreach (volinfo->dict, _setopts, volinfo->shandle);
 
         ret = 0;

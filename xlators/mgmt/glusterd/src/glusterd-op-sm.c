@@ -2920,13 +2920,13 @@ out:
 void
 _delete_reconfig_opt (dict_t *this, char *key, data_t *value, void *data)
 {
-        
+
         int            exists = 0;
-        
-        exists = glusterd_check_option_exists (key, NULL);
-        
+
+        exists = glusterd_check_option_exists(key, NULL);
+
         if (exists == 1) {
-                gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s", 
+                gf_log ("", GF_LOG_DEBUG, "deleting dict with key=%s,value=%s",
                         key, value->data);
                 dict_del (this, key);
         }
@@ -2937,13 +2937,13 @@ int
 glusterd_options_reset (glusterd_volinfo_t *volinfo)
 {
         int                      ret = 0;
-        
+
         gf_log ("", GF_LOG_DEBUG, "Received volume set reset command");
-        
+
         GF_ASSERT (volinfo->dict);
-        
-        dict_foreach (volinfo->dict, _delete_reconfig_opt, volinfo->dict); 
-        
+
+        dict_foreach (volinfo->dict, _delete_reconfig_opt, volinfo->dict);
+
         ret = glusterd_create_volfiles (volinfo);
 
         if (ret) {
