@@ -219,6 +219,7 @@ struct gf1_cli_set_vol_req {
         int     op_ret;
         int     op_errno;
         string  volname<>;
+        string  op_errstr<>;
         opaque  dict<>;
 }  ;
 

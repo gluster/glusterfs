@@ -405,7 +405,7 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
                         goto out;
         }
 
-        ret = dict_set_int32 (dict, "count", count);
+        ret = dict_set_int32 (dict, "count", wordcount-3);
 
         if (ret)
                 goto out;

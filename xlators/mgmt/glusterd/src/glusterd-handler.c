@@ -2760,6 +2760,8 @@ glusterd_set_volume_history (rpcsvc_request_t *req,dict_t *dict)
                 rsp.op_ret = ret;
         if (!rsp.volname) 
                 rsp.volname = "";
+        if (!rsp.op_errstr)
+                rsp.op_errstr = "";
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gf_xdr_serialize_cli_set_vol_rsp);
