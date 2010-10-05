@@ -1445,8 +1445,6 @@ out:
                    otherwise rpcsvc.c will send an error reply for the same
                    request, which causes double replies */
                 ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL, op_errstr);
-                if (!ret)
-                        req->rpc_err = SUCCESS;
         }
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
