@@ -1235,18 +1235,20 @@ dict_foreach (dict_t *dict,
 			 void *data),
 	      void *data)
 {
-	if (!data) {
-		gf_log ("dict", GF_LOG_CRITICAL,
-			"@data=%p", data);
-		return;
-	}
+        if (!data || !dict) {
+                gf_log_callingfn ("dict", GF_LOG_CRITICAL,
+                        "@data=%p, @dict=%p", data, dict);
+                return;
+        }
 
-	data_pair_t *pairs = dict->members_list;
+        data_pair_t *pairs = dict->members_list;
+        data_pair_t *next = NULL;
 
-	while (pairs) {
-		fn (dict, pairs->key, pairs->value, data);
-		pairs = pairs->next;
-	}
+        while (pairs) {
+                next = pairs->next;
+                fn (dict, pairs->key, pairs->value, data);
+                pairs = next;
+        }
 }
 
 

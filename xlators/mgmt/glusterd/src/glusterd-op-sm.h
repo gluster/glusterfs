@@ -225,4 +225,6 @@ set_xlator_option (dict_t *dict, char *key, char *value);
 
 void
 glusterd_do_replace_brick (void *data);
+int
+glusterd_options_reset (glusterd_volinfo_t *volinfo);
 #endif

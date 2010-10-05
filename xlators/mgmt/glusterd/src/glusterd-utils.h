@@ -43,6 +43,12 @@ struct glusterd_lock_ {
         time_t  timestamp;
 };
 
+typedef struct glusterd_volopt_ctx_ {
+        dict_t  *dict;
+        int     count;
+        int     opt_count;
+} glusterd_volopt_ctx_t;
+
 typedef int (*glusterd_condition_func) (glusterd_volinfo_t *volinfo,
                                         glusterd_brickinfo_t *brickinfo,
                                         void *ctx);
@@ -142,9 +148,6 @@ glusterd_nfs_server_start ();
 
 int32_t
 glusterd_nfs_server_stop ();
-
-int
-glusterd_file_copy (int out, int in);
 
 int
 glusterd_remote_hostname_get (rpcsvc_request_t *req,

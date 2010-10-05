@@ -37,6 +37,7 @@
 #include "statedump.h"
 #include "glusterd-mem-types.h"
 #include "glusterd.h"
+#include "glusterd-op-sm.h"
 #include "glusterd-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
@@ -1109,11 +1110,13 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         char                    path[PATH_MAX] = {0,};
         char                    cksum_path[PATH_MAX] = {0,};
         char                    filepath[PATH_MAX] = {0,};
-        DIR                     *dir = NULL;
-        struct dirent           *entry = NULL;
         int                     fd = -1;
         uint32_t                cksum = 0;
         char                    buf[4096] = {0,};
+        char                    sort_filepath[PATH_MAX] = {0};
+        gf_boolean_t            unlink_sortfile = _gf_false;
+        char                    sort_cmd[2*PATH_MAX + 32];
+        int                     sort_fd = 0;
 
         GF_ASSERT (volinfo);
 
@@ -1134,50 +1137,34 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
                 goto out;
         }
 
-
-        dir = opendir (path);
-
-        glusterd_for_each_entry (entry, dir);
-
-/*        while (entry) {
-
-                snprintf (filepath, sizeof (filepath), "%s/%s", path,
-                          entry->d_name);
-
-                if (!strcmp (entry->d_name, "bricks") ||
-                     !strcmp (entry->d_name, "run")) {
-                        glusterd_for_each_entry (entry, dir);
-                        continue;
-                }
-
-                ret = get_checksum_for_path (filepath, &cksum);
-
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to get checksum"
-                                " for path: %s", filepath);
-                        goto out;
-                }
-
-                snprintf (buf, sizeof (buf), "%s=%u\n", entry->d_name, cksum);
-                ret = write (fd, buf, strlen (buf));
-
-                if (ret <= 0) {
-                        ret = -1;
-                        goto out;
-                }
-
-                glusterd_for_each_entry (entry, dir);
-        }
-*/
-
         snprintf (filepath, sizeof (filepath), "%s/%s", path,
                   GLUSTERD_VOLUME_INFO_FILE);
+        snprintf (sort_filepath, sizeof (sort_filepath), "/tmp/%s.XXXXXX",
+                  volinfo->volname);
+        sort_fd = mkstemp(sort_filepath);
+        if (sort_fd < 0) {
+                gf_log ("", GF_LOG_ERROR, "Could not generate temp file, "
+                        "reason: %s for volume: %s", strerror (errno),
+                        volinfo->volname);
+                goto out;
+        } else {
+                unlink_sortfile = _gf_true;
+                close (sort_fd);
+        }
 
-        ret = get_checksum_for_path (filepath, &cksum);
+        snprintf (sort_cmd, sizeof (sort_cmd), "sort %s -o %s",
+                  filepath, sort_filepath);
+        ret = system (sort_cmd);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "failed to sort file %s to %s",
+                        filepath, sort_filepath);
+                goto out;
+        }
+        ret = get_checksum_for_path (sort_filepath, &cksum);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get checksum"
-                        " for path: %s", filepath);
+                        " for path: %s", sort_filepath);
                 goto out;
         }
 
@@ -1200,12 +1187,41 @@ out:
        if (fd > 0)
                close (fd);
 
-       if (dir)
-               closedir (dir);
-
+       if (unlink_sortfile)
+               unlink (sort_filepath);
        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
        return ret;
+}
+
+void
+_add_volume_option_to_dict (dict_t *this, char *key, data_t *value, void *data)
+{
+        int                     exists = 0;
+        glusterd_volopt_ctx_t   *ctx = NULL;
+        char                    optkey[512] = {0,};
+        int                     ret = -1;
+
+        exists = glusterd_check_option_exists (key, NULL);
+        if (0 == exists)
+                return;
+
+        ctx = data;
+        snprintf (optkey, sizeof (optkey), "volume%d.key%d", ctx->count,
+                  ctx->opt_count);
+        ret = dict_set_str (ctx->dict, optkey, key);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "option add for key%d %s",
+                        ctx->count, key);
+        snprintf (optkey, sizeof (optkey), "volume%d.value%d", ctx->count,
+                  ctx->opt_count);
+        ret = dict_set_str (ctx->dict, optkey, value->data);
+        if (ret)
+                gf_log ("", GF_LOG_ERROR, "option add for value%d %s",
+                        ctx->count, value->data);
+        ctx->opt_count++;
+
+        return;
 }
 
 int32_t
@@ -1218,6 +1234,7 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         int32_t                 i = 1;
         char                    uuid_str[50] = {0,};
         char                    *volume_id_str = NULL;
+        glusterd_volopt_ctx_t   ctx = {0};
 
         GF_ASSERT (dict);
         GF_ASSERT (volinfo);
@@ -1227,37 +1244,37 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.type", count);
         ret = dict_set_int32 (dict, key, volinfo->type);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick_count", count);
         ret = dict_set_int32 (dict, key, volinfo->brick_count);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
         ret = dict_set_int32 (dict, key, volinfo->version);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.status", count);
         ret = dict_set_int32 (dict, key, volinfo->status);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.sub_count", count);
         ret = dict_set_int32 (dict, key, volinfo->sub_count);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
         ret = dict_set_int64 (dict, key, volinfo->cksum);
         if (ret)
@@ -1268,21 +1285,34 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (!volume_id_str)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, 256, "volume%d.volume_id", count);
         ret = dict_set_dynstr (dict, key, volume_id_str);
         if (ret)
                 goto out;
 
+        ctx.dict = dict;
+        ctx.count = count;
+        ctx.opt_count = 1;
+        GF_ASSERT (volinfo->dict);
+
+        dict_foreach (volinfo->dict, _add_volume_option_to_dict, &ctx);
+        ctx.opt_count--;
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.opt-count", count);
+        ret = dict_set_int32 (dict, key, ctx.opt_count);
+        if (ret)
+                goto out;
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
-                memset (&key, 0, sizeof (key));
+                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.brick%d.hostname",
                           count, i);
                 ret = dict_set_str (dict, key, brickinfo->hostname);
                 if (ret)
                         goto out;
 
-                memset (&key, 0, sizeof (key));
+                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.brick%d.path",
                           count, i);
                 ret = dict_set_str (dict, key, brickinfo->path);
@@ -1363,7 +1393,7 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
                 goto out;
         }
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
         ret = dict_get_int32 (vols, key, &version);
         if (ret)
@@ -1384,7 +1414,7 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
 
         //Now, versions are same, compare cksums.
         //
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
         ret = dict_get_uint32 (vols, key, &cksum);
         if (ret)
@@ -1404,6 +1434,60 @@ glusterd_compare_friend_volume (dict_t *vols, int32_t count, int32_t *status)
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d, status: %d",
                 ret, *status);
+        return ret;
+}
+
+int32_t
+glusterd_import_friend_volume_opts (dict_t *vols, int count,
+                                    glusterd_volinfo_t *volinfo,
+                                    int new_volinfo)
+{
+        char                    key[512] = {0,};
+        int32_t                 ret = -1;
+        int                     i = 1;
+        int                     opt_count = 0;
+        char                    *opt_key = NULL;
+        char                    *opt_val = NULL;
+        char                    *dup_opt_val = NULL;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "volume%d.opt-count", count);
+        ret = dict_get_int32 (vols, key, &opt_count);
+        if (ret)
+                goto out;
+        if (!new_volinfo) {
+                ret = glusterd_options_reset (volinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "options reset failed");
+                        goto out;
+                }
+        }
+        while (i <= opt_count) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.key%d",
+                          count, i);
+                ret = dict_get_str (vols, key, &opt_key);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "volume%d.value%d",
+                          count, i);
+                ret = dict_get_str (vols, key, &opt_val);
+                if (ret)
+                        goto out;
+                dup_opt_val = gf_strdup (opt_val);
+                if (!dup_opt_val) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = dict_set_dynstr (volinfo->dict, opt_key, dup_opt_val);
+                if (ret)
+                        goto out;
+                i++;
+        }
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
         return ret;
 }
 
@@ -1444,43 +1528,43 @@ glusterd_import_friend_volume (dict_t *vols, int count)
         }
 
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.type", count);
         ret = dict_get_int32 (vols, key, &volinfo->type);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.brick_count", count);
         ret = dict_get_int32 (vols, key, &volinfo->brick_count);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
         ret = dict_get_int32 (vols, key, &volinfo->version);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.status", count);
         ret = dict_get_int32 (vols, key, (int32_t *)&volinfo->status);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.sub_count", count);
         ret = dict_get_int32 (vols, key, &volinfo->sub_count);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.ckusm", count);
         ret = dict_get_uint32 (vols, key, &volinfo->cksum);
         if (ret)
                 goto out;
 
-        memset (&key, 0, sizeof (key));
+        memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.volume_id", count);
         ret = dict_get_str (vols, key, &volume_id_str);
         if (ret)
@@ -1496,14 +1580,14 @@ glusterd_import_friend_volume (dict_t *vols, int count)
 
         while (i <= volinfo->brick_count) {
 
-                memset (&key, 0, sizeof (key));
+                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.brick%d.hostname",
                           count, i);
                 ret = dict_get_str (vols, key, &hostname);
                 if (ret)
                         goto out;
 
-                memset (&key, 0, sizeof (key));
+                memset (key, 0, sizeof (key));
                 snprintf (key, sizeof (key), "volume%d.brick%d.path",
                           count, i);
                 ret = dict_get_str (vols, key, &path);
@@ -1522,6 +1606,10 @@ glusterd_import_friend_volume (dict_t *vols, int count)
                 i++;
         }
 
+        ret = glusterd_import_friend_volume_opts (vols, count, volinfo,
+                                                  new_volinfo);
+        if (ret)
+                goto out;
         if (new_volinfo) {
                 list_add_tail (&volinfo->vol_list, &priv->volumes);
                 ret = glusterd_store_create_volume (volinfo);
@@ -1610,36 +1698,6 @@ out:
         gf_log ("", GF_LOG_DEBUG, "Returning with ret: %d, status: %d",
                 ret, *status);
 
-        return ret;
-}
-
-int
-glusterd_file_copy (int out, int in)
-{
-        int     read_size = 0;
-        char    buffer[16 * 1024];
-        int     ret = -1;
-
-        if (out <= 0 || in < 0) {
-                gf_log ("", GF_LOG_ERROR, "Invalid File descriptors");
-                goto out;
-        }
-
-        while (1) {
-                read_size = read(in, buffer, sizeof(buffer));
-
-                if (read_size == 0) {
-                        ret = 0;
-                        break;              /* end of file */
-                }
-
-                if (read_size < 0) {
-                        ret = -1;
-                        break; /*error reading file); */
-                }
-                write (out, buffer, (unsigned int) read_size);
-        }
-out:
         return ret;
 }
 

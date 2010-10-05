@@ -111,4 +111,5 @@ glusterd_store_handle_destroy (glusterd_store_handle_t *handle);
 
 int32_t
 glusterd_restore ();
+
 #endif
