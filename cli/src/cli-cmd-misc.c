@@ -72,9 +72,6 @@ cli_cmd_display_help (struct cli_state *state, struct cli_cmd_word *in_word,
         for (cmd = cli_misc_cmds; cmd->pattern; cmd++)
                 cli_out ("%s - %s", cmd->pattern, cmd->desc);
 
-        if (!state->rl_enabled)
-                exit (0);
-
         return 0;
 }
 
