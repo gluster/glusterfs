@@ -45,7 +45,7 @@ is in userspace and easily manageable.
 %package core
 Summary: GlusterFS common files for both the client and the server 
 Group: System Environment/Libraries
-Obsoletes: glusterfs-libs <= 2.0.0
+Obsoletes: glusterfs-libs <= 2.0.0 glusterfs-common < 3.1.0 glusterfs-server < 3.1.0
 Provides: glusterfs-libs = %{version}-%{release}
 
 %description core
@@ -82,6 +82,7 @@ This package provides support to ib-verbs library.
 %package fuse
 Summary: GlusterFS Fuse
 Group: Applications/File
+Obsoletes: glusterfs-client < 3.1.0
 
 %description fuse
 GlusterFS is a clustered file-system capable of scaling to several
