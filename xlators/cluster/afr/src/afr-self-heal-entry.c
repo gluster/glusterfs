@@ -382,14 +382,11 @@ afr_sh_entry_expunge_parent_setattr_cbk (call_frame_t *expunge_frame,
 
 
 int
-afr_sh_entry_expunge_rename_cbk (call_frame_t *expunge_frame, void *cookie,
+afr_sh_entry_expunge_remove_cbk (call_frame_t *expunge_frame, void *cookie,
 				 xlator_t *this,
 				 int32_t op_ret, int32_t op_errno,
-                                 struct iatt *buf,
-                                 struct iatt *preoldparent,
-                                 struct iatt *postoldparent,
-                                 struct iatt *prenewparent,
-                                 struct iatt *postnewparent)
+                                 struct iatt *preparent,
+                                 struct iatt *postparent)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
@@ -434,232 +431,50 @@ afr_sh_entry_expunge_rename_cbk (call_frame_t *expunge_frame, void *cookie,
 }
 
 
-static void
-init_trash_loc (loc_t *trash_loc, inode_table_t *table)
-{
-        trash_loc->path   = gf_strdup ("/" GF_REPLICATE_TRASH_DIR);
-        trash_loc->name   = GF_REPLICATE_TRASH_DIR;
-        trash_loc->parent = table->root;
-        trash_loc->inode  = inode_new (table);
-}
-
-
-char *
-make_trash_path (const char *path)
-{
-        char *c  = NULL;
-        char *tp = NULL;
-
-        tp = GF_CALLOC (strlen ("/" GF_REPLICATE_TRASH_DIR) + strlen (path) + 1, sizeof (char),
-                        gf_afr_mt_char);
-
-        strcpy (tp, GF_REPLICATE_TRASH_DIR);
-        strcat (tp, path);
-
-        c = strchr (tp, '/') + 1;
-        while (*c++)
-                if (*c == '/')
-                        *c = '-';
-
-        return tp;
-}
-
-
 int
-afr_sh_entry_expunge_rename (call_frame_t *expunge_frame, xlator_t *this,
-                             int active_src, inode_t *trash_inode)
+afr_sh_entry_expunge_unlink (call_frame_t *expunge_frame, xlator_t *this,
+                             int active_src)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
 
-        loc_t rename_loc;
-
 	priv          = this->private;
 	expunge_local = expunge_frame->local;
 
-        rename_loc.inode = inode_ref (expunge_local->loc.inode);
-        rename_loc.path  = make_trash_path (expunge_local->loc.path);
-        rename_loc.name  = strrchr (rename_loc.path, '/') + 1;
-        rename_loc.parent = trash_inode;
-
 	gf_log (this->name, GF_LOG_TRACE,
-		"moving file/directory %s on %s to %s",
-		expunge_local->loc.path, priv->children[active_src]->name,
-                rename_loc.path);
+		"expunging file %s on %s",
+		expunge_local->loc.path, priv->children[active_src]->name);
 
-	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_rename_cbk,
+	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_remove_cbk,
 			   (void *) (long) active_src,
 			   priv->children[active_src],
-			   priv->children[active_src]->fops->rename,
-			   &expunge_local->loc, &rename_loc);
-
-        loc_wipe (&rename_loc);
+			   priv->children[active_src]->fops->unlink,
+			   &expunge_local->loc);
 
 	return 0;
 }
 
 
-int
-afr_sh_entry_expunge_mkdir_cbk (call_frame_t *expunge_frame, void *cookie, xlator_t *this,
-                                int32_t op_ret, int32_t op_errno, inode_t *inode,
-                                struct iatt *buf, struct iatt *preparent,
-                                struct iatt *postparent)
-{
-        afr_private_t *priv            = NULL;
-        afr_local_t     *expunge_local = NULL;
-	afr_self_heal_t *expunge_sh    = NULL;
-        call_frame_t    *frame         = NULL;
-
-        int active_src = (long) cookie;
-
-        inode_t *trash_inode = NULL;
-
-        priv          = this->private;
-        expunge_local = expunge_frame->local;
-	expunge_sh    = &expunge_local->self_heal;
-	frame         = expunge_sh->sh_frame;
-
-        if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "mkdir of /" GF_REPLICATE_TRASH_DIR " failed on %s",
-                        priv->children[active_src]->name);
-
-                goto out;
-        }
-
-        /* mkdir successful */
-
-        trash_inode = inode_link (inode, expunge_local->loc.inode->table->root,
-                                  GF_REPLICATE_TRASH_DIR, buf);
-
-        afr_sh_entry_expunge_rename (expunge_frame, this, active_src,
-                                     trash_inode);
-        return 0;
-out:
-        AFR_STACK_DESTROY (expunge_frame);
-        afr_sh_entry_expunge_entry_done (frame, this, active_src);
-        return 0;
-}
-
 
 int
-afr_sh_entry_expunge_lookup_trash_cbk (call_frame_t *expunge_frame, void *cookie,
-                                       xlator_t *this,
-                                       int32_t op_ret, int32_t op_errno,
-                                       inode_t *inode, struct iatt *buf,
-                                       dict_t *xattr, struct iatt *postparent)
-{
-        afr_private_t *priv            = NULL;
-        afr_local_t     *expunge_local = NULL;
-	afr_self_heal_t *expunge_sh    = NULL;
-        call_frame_t    *frame         = NULL;
-        dict_t          *dict          = NULL;
-
-        int active_src = (long) cookie;
-        int ret = 0;
-
-        inode_t *trash_inode;
-        loc_t    trash_loc;
-
-        priv          = this->private;
-        expunge_local = expunge_frame->local;
-	expunge_sh    = &expunge_local->self_heal;
-	frame         = expunge_sh->sh_frame;
-
-        if ((op_ret != 0) && (op_errno == ENOENT)) {
-                init_trash_loc (&trash_loc, expunge_local->loc.inode->table);
-
-                dict = dict_new ();
-                if (!dict) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        goto out;
-                }
-
-                ret = afr_set_dict_gfid (dict, buf->ia_gfid);
-                if (ret)
-                        gf_log (this->name, GF_LOG_DEBUG, "gfid set failed");
-
-
-                gf_log (this->name, GF_LOG_TRACE,
-                        "creating directory " GF_REPLICATE_TRASH_DIR " on subvolume %s",
-                        priv->children[active_src]->name);
-
-                STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_mkdir_cbk,
-                                   (void *) (long) active_src,
-                                   priv->children[active_src],
-                                   priv->children[active_src]->fops->mkdir,
-                                   &trash_loc, 0777, dict);
-
-                loc_wipe (&trash_loc);
-                if (dict)
-                        dict_unref (dict);
-                return 0;
-        }
-
-        if (op_ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "lookup of /" GF_REPLICATE_TRASH_DIR " failed on %s",
-                        priv->children[active_src]->name);
-                goto out;
-        }
-
-        /* lookup successful */
-
-        trash_inode = inode_link (inode, expunge_local->loc.inode->table->root,
-                                  GF_REPLICATE_TRASH_DIR, buf);
-
-        afr_sh_entry_expunge_rename (expunge_frame, this, active_src,
-                                     trash_inode);
-        return 0;
-out:
-        AFR_STACK_DESTROY (expunge_frame);
-        afr_sh_entry_expunge_entry_done (frame, this, active_src);
-        return 0;
-}
-
-
-int
-afr_sh_entry_expunge_lookup_trash (call_frame_t *expunge_frame, xlator_t *this,
-                                   int active_src)
+afr_sh_entry_expunge_rmdir (call_frame_t *expunge_frame, xlator_t *this,
+                            int active_src)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *expunge_local = NULL;
 
-        inode_t *root  = NULL;
-        inode_t *trash = NULL;
-        loc_t trash_loc;
-
 	priv          = this->private;
 	expunge_local = expunge_frame->local;
 
-        root = expunge_local->loc.inode->table->root;
+	gf_log (this->name, GF_LOG_DEBUG,
+		"expunging directory %s on %s",
+		expunge_local->loc.path, priv->children[active_src]->name);
 
-        trash = inode_grep (root->table, root, GF_REPLICATE_TRASH_DIR);
-
-        if (trash) {
-                /* inode is in cache, so no need to mkdir */
-
-                afr_sh_entry_expunge_rename (expunge_frame, this, active_src,
-                                             trash);
-                return 0;
-        }
-
-        /* Not in cache, so look it up */
-
-        init_trash_loc (&trash_loc, expunge_local->loc.inode->table);
-
-	gf_log (this->name, GF_LOG_TRACE,
-		"looking up /" GF_REPLICATE_TRASH_DIR " on %s",
-                priv->children[active_src]->name);
-
-	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_lookup_trash_cbk,
+	STACK_WIND_COOKIE (expunge_frame, afr_sh_entry_expunge_remove_cbk,
 			   (void *) (long) active_src,
 			   priv->children[active_src],
-			   priv->children[active_src]->fops->lookup,
-			   &trash_loc, NULL);
-
-        loc_wipe (&trash_loc);
+			   priv->children[active_src]->fops->rmdir,
+			   &expunge_local->loc, 1);
 
 	return 0;
 }
@@ -691,8 +506,10 @@ afr_sh_entry_expunge_remove (call_frame_t *expunge_frame, xlator_t *this,
 	case IA_IFCHR:
 	case IA_IFIFO:
 	case IA_IFLNK:
+		afr_sh_entry_expunge_unlink (expunge_frame, this, active_src);
+                break;
 	case IA_IFDIR:
-		afr_sh_entry_expunge_lookup_trash (expunge_frame, this, active_src);
+		afr_sh_entry_expunge_rmdir (expunge_frame, this, active_src);
 		break;
 	default:
 		gf_log (this->name, GF_LOG_ERROR,
