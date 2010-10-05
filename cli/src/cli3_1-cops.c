@@ -447,7 +447,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         cli_out ("Volume Name: %s", volname);
                         cli_out ("Type: %s", cli_volume_type[vol_type]);
                         cli_out ("Status: %s", cli_volume_status[status], brick_count);
-                        if (sub_count > 1)
+                        if ((sub_count > 1) && (brick_count > sub_count))
                                 cli_out ("Number of Bricks: %d x %d = %d",
                                          brick_count / sub_count, sub_count,
                                          brick_count);
