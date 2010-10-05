@@ -1476,6 +1476,143 @@ mem_acct_init (xlator_t *this)
 }
 
 int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+        int32_t          cache_timeout;
+        int64_t          min_file_size = 0;
+        int64_t          max_file_size = 0;
+        char            *tmp = NULL;
+        uint64_t         cache_size;
+        char            *cache_size_string = NULL;
+        int              ret = 0;
+
+
+        if (dict_get (options, "cache-timeout")) {
+                cache_timeout = data_to_uint32 (dict_get (options,
+                                "cache-timeout"));
+                if (cache_timeout < 0){
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cache-timeout %d seconds invalid,"
+                                                " has to be  >=0", cache_timeout);
+                        *op_errstr = gf_strdup ("Error, should be >= 0");
+                        ret = -1;
+                        goto out;
+                }
+                
+
+                if (cache_timeout > 60){
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cache-timeout %d seconds invalid,"
+                                                " has to be  <=60", cache_timeout);
+                        *op_errstr = gf_strdup ("Error, should be <= 60");
+                        ret = -1;
+                        goto out;
+                }
+
+                        
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated cache-timeout revalidate cache");
+        }
+
+
+        if (dict_get (options, "cache-size"))
+                cache_size_string = data_to_str (dict_get (options, 
+                                "cache-size"));
+        if (cache_size_string) {
+                if (gf_string2bytesize (cache_size_string, 
+                    &cache_size) != 0) {
+                            gf_log ("io-cache", GF_LOG_ERROR, 
+                                    "invalid number format \"%s\" of "
+                                                    "\"option cache-size\" Defaulting"
+                                                    "to old value", cache_size_string);
+                            *op_errstr = gf_strdup ("Error, Invalid Format");       
+                            ret = -1;
+                            goto out;
+                    }
+
+                    if (cache_size < ( 4 * GF_UNIT_MB)) {
+                            gf_log(this->name, GF_LOG_WARNING, "Reconfiguration"
+                                            "'option cache-size %s' failed , Max value"
+                                                            "can be 4MiB, Defaulting to old value (%d)"
+                                                            , cache_size_string, cache_size);
+                            *op_errstr = gf_strdup ("Error, Cannot be less than 4MB");
+                            ret = -1;
+                            goto out;
+                    }
+
+                    if (cache_size > ( 6 * GF_UNIT_GB)) {
+                            gf_log(this->name, GF_LOG_WARNING, "Validation"
+                                            "'option cache-size %s' failed , Max value"
+                                                            "can be 6GiB, Defaulting to old value (%d)"
+                                                            , cache_size_string, cache_size);
+                            *op_errstr = gf_strdup ("Error, Cannot be more than 6GB");
+                            ret = -1;
+                            goto out;
+                    }
+                        
+
+                    gf_log (this->name, GF_LOG_DEBUG, "Validated "
+                                    " cache-size %"PRIu64"", cache_size);
+        }
+
+ 
+        tmp = data_to_str (dict_get (options, "min-file-size"));
+        if (tmp != NULL) {
+                if (gf_string2bytesize (tmp,
+                    (uint64_t *)&min_file_size)
+                    != 0) {
+                        gf_log ("io-cache", GF_LOG_WARNING, 
+                                "invalid number format \"%s\" of "
+                                                "\"option min-file-size\"", tmp);
+                        *op_errstr = gf_strdup ("Error, Invalid Format");
+                        ret = -1;
+                        goto out;
+                    }
+                
+                    gf_log (this->name, GF_LOG_DEBUG, 
+                            "Validated min-file-size %"PRIu64"", 
+                            min_file_size);
+        }
+
+
+        tmp = data_to_str (dict_get (options, "max-file-size"));
+        if (tmp != NULL) {
+                if (gf_string2bytesize (tmp,
+                    (uint64_t *)&max_file_size)
+                    != 0) {
+                        gf_log ("io-cache", GF_LOG_WARNING,
+                                "invalid number format \"%s\" of "
+                                                "\"option max-file-size\"", tmp);
+                        *op_errstr = gf_strdup ("Error, Invalid Format");
+                        ret = -1;       
+                        goto out;
+                    }
+
+                
+                    gf_log (this->name, GF_LOG_WARNING,
+                            "Validated max-file-size %"PRIu64"",
+                            max_file_size);
+        }
+  
+        if ((max_file_size >= 0) & (min_file_size > max_file_size)) {
+                gf_log ("io-cache", GF_LOG_WARNING, "minimum size (%"
+                                PRIu64") of a file that can be cached is "
+                                                "greater than maximum size (%"PRIu64"). ",
+                                                min_file_size, max_file_size);
+                *op_errstr = gf_strdup ("Error, min-file-size greater"
+                                "than max-file-size");
+                ret = -1;
+                goto out;
+        }
+
+
+out:    
+                return ret;
+
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	ioc_table_t     *table = NULL;
@@ -1518,6 +1655,9 @@ reconfigure (xlator_t *this, dict_t *options)
 				"Reconfiguring %d seconds to"
 				" revalidate cache", table->cache_timeout);
 		}
+                else 
+                        table->cache_timeout = 1;
+                        
 
 
 		if (dict_get (options, "cache-size"))
@@ -1557,6 +1697,8 @@ reconfigure (xlator_t *this, dict_t *options)
 				" cache-size %"PRIu64"", table->cache_size);
 			table->cache_size = cache_size;
 		}
+                else
+                        table->cache_size = IOC_CACHE_SIZE;
 
 	
 		if (dict_get (options, "priority")) {
@@ -1626,6 +1768,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
 		table->min_file_size = min_file_size;
 		table->max_file_size = max_file_size;
+                if (!data_to_str (dict_get (options, "min-file-size")))
+                    table->min_file_size = 0;
+                if (data_to_str (dict_get (options, "max-file-size")))
+                    table->max_file_size = 0;
 	}
 	
 	ioc_table_unlock (table);

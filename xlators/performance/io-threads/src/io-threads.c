@@ -2084,6 +2084,44 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+int
+validate_options ( xlator_t *this, dict_t *options, char **op_errstr)
+{
+        int              ret = 0;
+        int              thread_count;
+        
+
+        if (dict_get (options, "thread-count")) {
+                thread_count = data_to_int32 (dict_get (options,
+                                              "thread-count"));
+
+                if (thread_count < IOT_MIN_THREADS) {
+                        gf_log ("io-threads", GF_LOG_DEBUG,
+                                "volume set thread_count WRONG,it is lesser");
+                        ret = -1;
+                        *op_errstr = gf_strdup ("LESSER Than min. threads");
+                        goto out;
+                }
+
+                if (thread_count > IOT_MAX_THREADS) {
+                        gf_log ("io-threads", GF_LOG_DEBUG,
+                                "volume set thread_count WRONG,it is greater");
+                        *op_errstr = gf_strdup ("GREATER than max. threads");
+                        ret = -1;
+                        goto out;
+                }
+
+
+        }
+
+        ret = 0;
+
+out:
+                return ret;
+
+        
+}
+
 
 int
 reconfigure ( xlator_t *this, dict_t *options)
@@ -2095,6 +2133,8 @@ reconfigure ( xlator_t *this, dict_t *options)
         conf = this->private;
         if (!conf)
                 goto out;
+        
+        thread_count = conf->max_count;
 
 	if (dict_get (options, "thread-count")) {
                 thread_count = data_to_int32 (dict_get (options,
@@ -2116,6 +2156,8 @@ reconfigure ( xlator_t *this, dict_t *options)
 
 		conf->max_count = thread_count;
         }
+        else 
+                conf->max_count = thread_count;
 
 	ret = 0;
 

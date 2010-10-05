@@ -456,6 +456,84 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+int 
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+        int               inode_lru_limit = 0;
+        char              errstr[1024] = {0, };
+        dict_t           *auth_modules =  NULL;
+        int               ret = 0;
+        data_t           *data;
+        gf_boolean_t      trace;
+
+
+
+        if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
+                if (!(inode_lru_limit < (1 * GF_UNIT_MB)  && 
+                      inode_lru_limit >1 )) {
+                        gf_log (this->name, GF_LOG_DEBUG, "Validate inode-lru"
+                                        "-limit %d, was WRONG", inode_lru_limit);
+                        snprintf (errstr,1024, "Error, Greater than max value %d "
+                                        ,inode_lru_limit);
+
+                        *op_errstr = gf_strdup (errstr);
+                        ret = -1;
+                        goto out;
+                      }
+        }
+        
+        data = dict_get (options, "trace");
+        if (data) {
+                ret = gf_string2boolean (data->data, &trace);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "'trace' takes on only boolean values. "
+                                                "Neglecting option");
+                        snprintf (errstr,1024, "Error, trace takes only boolean"
+                                               "values");
+                        *op_errstr = gf_strdup (errstr);
+                        ret = -1;
+                        goto out;
+                }
+        }
+        
+        if (!auth_modules)
+                auth_modules = dict_new ();
+
+        dict_foreach (options, get_auth_types, auth_modules);
+        ret = validate_auth_options (this, options);
+        if (ret == -1) {
+                /* logging already done in validate_auth_options function. */
+                snprintf (errstr,1024, "authentication values are incorrect");
+                *op_errstr = gf_strdup (errstr);
+                goto out;
+        }
+
+        ret = gf_auth_init (this, auth_modules);
+        if (ret) {
+                dict_unref (auth_modules);
+                goto out;
+        }
+out:
+
+        return ret;
+}
+
+static void
+_copy_auth_opt (dict_t *unused,
+                char *key,
+                data_t *value,
+                void *xl_dict)
+{
+        char *auth_option_pattern[] = { "auth.addr.*.allow",
+                                        "auth.addr.*.reject"};
+        if (fnmatch ( auth_option_pattern[0], key, 0) != 0)
+                dict_set ((dict_t *)xl_dict, key, (value));
+        
+        if (fnmatch ( auth_option_pattern[1], key, 0) != 0)
+                dict_set ((dict_t *)xl_dict, key, (value));
+}
+
 
 int
 reconfigure (xlator_t *this, dict_t *options)
@@ -499,6 +577,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 /* logging already done in validate_auth_options function. */
                 goto out;
         }
+        dict_foreach (options, _copy_auth_opt, this->options); 
 
         ret = gf_auth_init (this, conf->auth_modules);
         if (ret) {

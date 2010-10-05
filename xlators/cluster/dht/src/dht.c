@@ -250,6 +250,45 @@ mem_acct_init (xlator_t *this)
 
         return ret;
 }
+int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+        char            *temp_str = NULL;
+        gf_boolean_t     search_unhashed;
+        int              ret = 0;
+        
+
+
+
+
+        if (dict_get_str (options, "lookup-unhashed", &temp_str) == 0) {
+                if (strcasecmp (temp_str, "auto")) {
+                        if (!gf_string2boolean (temp_str, &search_unhashed)) {
+                                gf_log(this->name, GF_LOG_DEBUG, "Validated"
+                                                " lookup-unahashed (%s)",
+                                                                temp_str);
+                        }
+                        else {
+                                gf_log(this->name, GF_LOG_ERROR, "Validation:"
+                                                " lookup-unahashed should be boolean,"
+                                                                " not (%s)",
+                                                                temp_str);
+                                *op_errstr = gf_strdup ("Error, lookup-"
+                                                "unhashed be boolean");
+                                ret = -1;
+                                goto out;
+                        }
+                
+                }
+        }
+
+        
+
+
+
+out:
+                return ret;
+}
 
 int
 reconfigure (xlator_t *this, dict_t *options)

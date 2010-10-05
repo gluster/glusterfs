@@ -1697,7 +1697,7 @@ gf_cli3_1_reset_volume (call_frame_t *frame, xlator_t *this,
                                            &req.dict.dict_val,
                                            (size_t *)&req.dict.dict_len);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_ERROR,
                         "failed to get serialized length of dict");
                 goto out;
         }

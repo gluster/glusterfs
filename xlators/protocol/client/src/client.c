@@ -1782,6 +1782,77 @@ out:
 }
 
 int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+        int     ret = 0;
+        int     timeout_ret=0;
+        int     ping_timeout;
+        int     frame_timeout;
+        
+        
+        timeout_ret = dict_get_int32 (options, "frame-timeout",
+                                      &frame_timeout);
+        if (timeout_ret == 0) {
+                if (frame_timeout < 5 ) {
+                        gf_log (this->name, GF_LOG_WARNING, "Validation"
+                                        "'option frame-timeout %d failed , Min value"
+                                                        " can be 5", frame_timeout);
+                        *op_errstr = gf_strdup ("Error, Min Value 5");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (frame_timeout > 86400 ) {
+                        gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
+                                        "'option frame-timeout %d failed , Max value"
+                                                        "can be 86400", frame_timeout );
+                        *op_errstr = gf_strdup ("Error, Max Value 86400");
+                        ret = -1;
+                        goto out;
+                }
+
+                
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "validation otion frame-timeout to %d",
+                        frame_timeout);
+
+        }
+
+        timeout_ret = dict_get_int32 (options, "ping-timeout",
+                                      &ping_timeout);
+        if (timeout_ret == 0) {
+
+                if (ping_timeout < 5 ) {
+                        gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
+                                        "'option ping-timeout %d failed , Min value"
+                                                        " can be 5", ping_timeout);
+                        *op_errstr = gf_strdup ("Error, Min Value 5");
+                        ret = -1;
+                        goto out;
+                }
+
+                if (ping_timeout > 1013 ) {
+                        gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
+                                        "'option frame-timeout %d failed , Max value"
+                                                        "can be 1013,", frame_timeout);
+                        *op_errstr =  gf_strdup ("Error, Max Value 1013");
+                        ret = -1;
+                        goto out;
+                }
+                
+                gf_log (this->name, GF_LOG_DEBUG, "Validated "
+                                "'option ping-timeout' to %d", ping_timeout);
+        
+        }
+
+        ret = 0;
+
+out:
+                return ret;
+        
+}
+
+int
 reconfigure (xlator_t *this, dict_t *options)
 {
 	int	ret = 0;

@@ -1054,7 +1054,7 @@ glusterd_store_retrieve_volume (char    *volname)
                                                                 key, value);
                         }
                         else
-                                gf_log ("", GF_LOG_DEBUG, "Unknown key: %s",
+                                gf_log ("", GF_LOG_ERROR, "Unknown key: %s",
                                         key);
                 }
 
