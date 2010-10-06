@@ -946,6 +946,11 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		}
 	}
 
+        trans->options = options;
+
+        pthread_mutex_init (&trans->lock, NULL);
+        trans->xl = THIS;
+
 	ret = trans->init (trans);
 	if (ret != 0) {
 		gf_log ("rpc-transport", GF_LOG_ERROR,
@@ -953,10 +958,6 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		goto fail;
 	}
 
-        trans->options = options;
-
-	pthread_mutex_init (&trans->lock, NULL);
-        trans->xl = THIS;
 	return_trans = trans;
 
         if (name) {
