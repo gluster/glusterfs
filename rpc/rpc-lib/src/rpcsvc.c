@@ -2016,7 +2016,9 @@ out:
 inline int
 rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
 {
-        int                      ret              = -1;
+        int               ret                = -1;
+        rpcsvc_program_t *newprog            = NULL;
+        char              already_registered = 0;
 
         if (!svc) {
                 goto out;
@@ -2026,18 +2028,43 @@ rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t *program)
                 goto out;
         }
 
-        INIT_LIST_HEAD (&program->program);
+        pthread_mutex_lock (&svc->rpclock);
+        {
+                list_for_each_entry (newprog, &svc->programs, program) {
+                        if ((newprog->prognum == program->prognum)
+                            && (newprog->progver == program->progver)) {
+                                already_registered = 1;
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&svc->rpclock);
+
+        if (already_registered) {
+                ret = 0;
+                goto out;
+        }
+
+        newprog = GF_CALLOC (1, sizeof(*newprog),gf_common_mt_rpcsvc_program_t);
+        if (newprog == NULL) {
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
+        memcpy (newprog, program, sizeof (*program));
+
+        INIT_LIST_HEAD (&newprog->program);
 
         pthread_mutex_lock (&svc->rpclock);
         {
-                list_add_tail (&program->program, &svc->programs);
+                list_add_tail (&newprog->program, &svc->programs);
         }
         pthread_mutex_unlock (&svc->rpclock);
 
         ret = 0;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "New program registered: %s, Num: %d,"
-                " Ver: %d, Port: %d", program->progname, program->prognum,
-                program->progver, program->progport);
+                " Ver: %d, Port: %d", newprog->progname, newprog->prognum,
+                newprog->progver, newprog->progport);
 
 out:
         if (ret == -1) {
