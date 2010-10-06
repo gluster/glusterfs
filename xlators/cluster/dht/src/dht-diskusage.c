@@ -52,7 +52,7 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (statvfs && statvfs->f_blocks) {
                 percent = (statvfs->f_bfree * 100) / statvfs->f_blocks;
-                bytes = (statvfs->f_bfree * statvfs->f_bsize);
+                bytes = (statvfs->f_bfree * statvfs->f_frsize);
         }
         
         LOCK (&conf->subvolume_lock);
