@@ -2432,13 +2432,37 @@ err:
 	return 0;
 }
 
+/*
+ * dht_normalize_stats -
+ */
+static void
+dht_normalize_stats (struct statvfs *buf, unsigned long bsize,
+                     unsigned long frsize)
+{
+        double factor = 0;
+
+        if (buf->f_bsize != bsize) {
+                buf->f_bsize = bsize;
+        }
+
+        if (buf->f_frsize != frsize) {
+                factor = ((double) buf->f_frsize) / frsize;
+                buf->f_frsize = frsize;
+                buf->f_blocks = (fsblkcnt_t) (factor * buf->f_blocks);
+                buf->f_bfree  = (fsblkcnt_t) (factor * buf->f_bfree);
+                buf->f_bavail = (fsblkcnt_t) (factor * buf->f_bavail);
+
+        }
+}
 
 int
 dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		int op_ret, int op_errno, struct statvfs *statvfs)
 {
-	dht_local_t  *local = NULL;
-	int           this_call_cnt = 0;
+	dht_local_t *local         = NULL;
+	int          this_call_cnt = 0;
+        int          bsize         = 0;
+        int          frsize        = 0;
 
 
 	local = frame->local;
@@ -2451,9 +2475,15 @@ dht_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		}
 		local->op_ret = 0;
 
-		/* TODO: normalize sizes */
-		local->statvfs.f_bsize    = statvfs->f_bsize;
-		local->statvfs.f_frsize   = statvfs->f_frsize;
+                if (local->statvfs.f_bsize != 0) {
+                        bsize = max(local->statvfs.f_bsize, statvfs->f_bsize);
+                        frsize = max(local->statvfs.f_frsize, statvfs->f_frsize);
+                        dht_normalize_stats(&local->statvfs, bsize, frsize);
+                        dht_normalize_stats(statvfs, bsize, frsize);
+                } else {
+                        local->statvfs.f_bsize    = statvfs->f_bsize;
+                        local->statvfs.f_frsize   = statvfs->f_frsize;
+                }
 
 		local->statvfs.f_blocks  += statvfs->f_blocks;
 		local->statvfs.f_bfree   += statvfs->f_bfree;
