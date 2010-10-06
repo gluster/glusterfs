@@ -688,6 +688,8 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                         if (brickinfo)
                                 *brickinfo = brickiter;
                         break;
+                } else {
+                        ret = -1;
                 }
         }
 
