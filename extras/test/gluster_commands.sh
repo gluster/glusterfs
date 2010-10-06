@@ -68,12 +68,12 @@ gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/ex
 
 
 echo "replcing brick for abort operation"
-gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 start
-gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
-gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 pause
-gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 status
-gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 start
-gluster volume replace-brick vol `hostname`:/exports/exp1 `hostname`:/exports/exp3 abort
+gluster volume replace-brick vol `hostname`:/exports/exp3 `hostname`:/exports/exp1 start
+gluster volume replace-brick vol `hostname`:/exports/exp3 `hostname`:/exports/exp1 status
+gluster volume replace-brick vol `hostname`:/exports/exp3 `hostname`:/exports/exp1 pause
+gluster volume replace-brick vol `hostname`:/exports/exp3 `hostname`:/exports/exp1 status
+gluster volume replace-brick vol `hostname`:/exports/exp3 `hostname`:/exports/exp1 start
+gluster volume replace-brick vol `hostname`:/exports/exp3 `hostname`:/exports/exp1 abort
 
 
 gluster volume info
@@ -82,14 +82,14 @@ df -h
 sleep 1
 
 echo "removing brick......."
-gluster volume remove-brick vol `hostname`:/exports/exp2
+gluster --mode=script volume remove-brick vol `hostname`:/exports/exp2
 gluster volume info
 sleep 1 
 df -h
 sleep 1
 
 echo "stopping distribute volume......"
-gluster volume stop vol
+gluster --mode=script volume stop vol
 gluster volume info
 sleep 1
 umount /mnt/client
@@ -126,22 +126,38 @@ echo "replacing-brick....."
 gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 start
 gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
 gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 pause
-gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 abort
+gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
+gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 start
+gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
 gluster volume replace-brick mirror `hostname`:/exports/exp1 `hostname`:/exports/exp5 commit
 gluster volume info
 sleep 1
 df -h
 sleep 1
 
+echo "replacing vrick for abort operation"
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 start
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 status
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 pause
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 status
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 start
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp1 status
+gluster volume replace-brick mirror `hostname`:/exports/exp5 `hostname`:/exports/exp5 abort
+
+gluster volume info
+sleep 1
+df -h
+sleep 1
+
 echo "removeing-brick....."
-gluster volume remove-brick mirror replica 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
+gluster --mode=script volume remove-brick mirror replica 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1 
 df -h
 sleep 1
 
 echo "stopping replicate volume....."
-gluster volume stop mirror
+gluster --mode=script volume stop mirror
 gluster volume info
 sleep 1 
 umount /mnt/client
@@ -179,21 +195,39 @@ echo "replacing brick....."
 gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 start
 gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
 gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 pause
-gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 abort
+gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
+gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 start
+gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 status
 gluster volume replace-brick str `hostname`:/exports/exp1 `hostname`:/exports/exp5 commit
+
 gluster volume info
 sleep 1
 df -h
+sleep 1
+
+echo "replacing brick for abort operation"
+gluster volume replace-brick str `hostname`:/exports/exp5 `hostname`:/exports/exp1 start
+gluster volume replace-brick str `hostname`:/exports/exp5 `hostname`:/exports/exp1 status
+gluster volume replace-brick str `hostname`:/exports/exp5 `hostname`:/exports/exp1 pause
+gluster volume replace-brick str `hostname`:/exports/exp5 `hostname`:/exports/exp1 status
+gluster volume replace-brick str `hostname`:/exports/exp5 `hostname`:/exports/exp1 start
+gluster volume replace-brick str `hostname`:/exports/exp5 `hostname`:/exports/exp1 status
+gluster volume replace-brick str `hostname`:/exports/exp5 `hostname`:/exports/exp1 abort
+
+gluster volume info
+sleep 1
+df -h
+sleep 1
 
 echo "removing-brick....."
-gluster volume remove-brick str stripe 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
+gluster --mode=script volume remove-brick str stripe 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1
 df -h
 sleep 1
 
 echo "stopping stripe volume....."
-gluster volume stop str
+gluster --mode=script volume stop str
 gluster volume info
 sleep 1
 umount /mnt/client
