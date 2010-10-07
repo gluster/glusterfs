@@ -975,25 +975,10 @@ server_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_stat_from_iatt (&rsp.preparent, preparent);
                 gf_stat_from_iatt (&rsp.postparent, postparent);
 
-                gf_log (state->conn->bound_xl->name, GF_LOG_TRACE,
-                        "%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s",
-                        frame->root->unique, inode->ino,
-                        state->loc2.parent->ino,
-                        state->loc2.name, state->loc.parent->ino,
-                        state->loc.name);
 
                 link_inode = inode_link (inode, state->loc2.parent,
                                          state->loc2.name, stbuf);
                 inode_unref (link_inode);
-        } else {
-                gf_log (state->conn->bound_xl->name, GF_LOG_DEBUG,
-                        "%"PRId64": LINK (%"PRId64") %"PRId64"/%s ==> %"PRId64"/%s "
-                        " ==> %"PRId32" (%s)",
-                        frame->root->unique, state->resolve2.ino,
-                        state->resolve2.par,
-                        state->resolve2.bname, state->resolve.par,
-                        state->resolve.bname,
-                        op_ret, strerror (op_errno));
         }
 
         server_submit_reply (frame, req, &rsp, NULL, 0, NULL,
