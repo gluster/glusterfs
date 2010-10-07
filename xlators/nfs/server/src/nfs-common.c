@@ -33,7 +33,6 @@
 #include "nfs-mem-types.h"
 #include "rpcsvc.h"
 #include "iatt.h"
-#include "nfs.h"
 
 #include <libgen.h>
 
@@ -393,45 +392,4 @@ err:
                 GF_FREE (resolvedpath);
 
         return ret;
-}
-
-
-int
-__is_nfs_subvolume_disabled (struct nfs_state *nfs, xlator_t *xl)
-{
-        int     x = 0;
-        int     notstarted = 0;
-
-        if ((!nfs) || (!xl))
-                return 1;
-
-        for (;x < nfs->allsubvols; ++x) {
-                if (!((&nfs->subvols[x])->subvol == xl))
-                        continue;
-
-                if (gf_nfs_subvolume_notstarted (&nfs->subvols[x])) {
-                        notstarted = 1;
-                        goto out;
-                }
-        }
-out:
-        return notstarted;
-}
-
-
-int
-is_nfs_subvolume_disabled (struct nfs_state *nfs, xlator_t *xl)
-{
-        int     notstarted = 0;
-
-        if ((!nfs) || (!xl))
-                return 1;
-
-        LOCK (&nfs->svinitlock);
-        {
-                notstarted = __is_nfs_subvolume_disabled (nfs, xl);
-        }
-        UNLOCK (&nfs->svinitlock);
-
-        return notstarted;
 }

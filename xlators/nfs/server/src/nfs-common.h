@@ -31,7 +31,6 @@
 #include "rpcsvc.h"
 #include "iatt.h"
 #include "uuid.h"
-#include "nfs.h"
 
 #define NFS_PATH_MAX    PATH_MAX
 #define NFS_NAME_MAX    NAME_MAX
@@ -77,10 +76,4 @@ nfs_entry_loc_fill (inode_table_t *itable, uuid_t pargfid, char *entry,
 
 extern int
 nfs_root_loc_fill (inode_table_t *itable, loc_t *loc);
-
-extern int
-is_nfs_subvolume_disabled (struct nfs_state *nfs, xlator_t *xl);
-
-extern int
-nfs_subvolume_lookup_again_later (struct nfs_state *nfs, xlator_t *xl);
 #endif
