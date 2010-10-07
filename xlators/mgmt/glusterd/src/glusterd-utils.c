@@ -1790,7 +1790,7 @@ glusterd_nfs_server_stop ()
         GLUSTERD_GET_NFS_DIR(path, priv);
         GLUSTERD_GET_NFS_PIDFILE(pidfile);
 
-        return glusterd_service_stop ("nfsd", pidfile, SIGTERM, _gf_true);
+        return glusterd_service_stop ("nfsd", pidfile, SIGKILL, _gf_true);
 }
 
 int
