@@ -2417,6 +2417,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         char         *str  = NULL;
         int32_t       ret  = -1;
         int32_t       cache_timeout;
+        uint64_t         cache_size;
  
         if (!this)
                 goto out;
@@ -2442,6 +2443,32 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         goto out;
                 }
         }
+        
+        ret = dict_get_str (this->options, "cache-size", &str);
+        if (ret == 0) {
+                ret = gf_string2bytesize (str, &cache_size);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid cache-size value %s", str);
+                        ret = -1;
+                        goto out;
+                } 
+                if (cache_size > 6 * GF_UNIT_GB) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid cache-size value %s", str);
+                        *op_errstr = "Range 4mb <= value <= 6gb";
+                        ret = -1;
+                        goto out;
+                }
+                if (cache_size < 4* GF_UNIT_MB) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid cache-size value %s", str);
+                        *op_errstr = "Range 4mb <= value <= 6gb";
+                        ret = -1;
+                        goto out;
+                }
+                        
+        }
 
 
         ret =0;
@@ -2461,6 +2488,7 @@ reconfigure (xlator_t *this, dict_t *options)
         qr_private_t *priv = NULL;
         qr_conf_t    *conf = NULL;
         int32_t       cache_timeout;
+        uint64_t         cache_size;
  
         if (!this)
                 goto out;
@@ -2474,7 +2502,7 @@ reconfigure (xlator_t *this, dict_t *options)
                 goto out;
         
         cache_timeout = conf->cache_timeout;
-        ret = dict_get_str (this->options, "cache-timeout", &str);
+        ret = dict_get_str (options, "cache-timeout", &str);
         if (ret == 0) {
                 ret = gf_string2uint_base10 (str, 
                                              (unsigned int *)&conf->cache_timeout);
@@ -2488,6 +2516,24 @@ reconfigure (xlator_t *this, dict_t *options)
         }
         else
                 conf->cache_timeout = 1;
+        
+        cache_size = conf->cache_size;
+        ret = dict_get_str (options, "cache-size", &str);
+        if (ret == 0) {
+                ret = gf_string2bytesize (str, &cache_size);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "invalid cache-size %s(old value used)", str);
+                        conf->cache_size = cache_size;
+                        ret = -1;
+                        goto out;
+                } 
+                gf_log (this->name, GF_LOG_DEBUG, 
+                        "Reconfiguring cache-siz to %d", cache_size);
+                conf->cache_size = cache_size;
+        }
+        else
+                conf->cache_size = QR_DEFAULT_CACHE_SIZE;
         
         ret = 0;
 out:

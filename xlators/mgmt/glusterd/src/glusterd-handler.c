@@ -254,6 +254,7 @@ out:
         return ret;
 }
 
+
 int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count)
@@ -264,6 +265,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         glusterd_brickinfo_t    *brickinfo = NULL;
         char                    *buf = NULL;
         int                     i = 1;
+        data_pair_t             *pairs = NULL;
+        char                    reconfig_key[256] = {0, };
+        dict_t                  *dict = NULL;
+        data_t                  *value = NULL;
+
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volumes);
@@ -309,6 +315,37 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                         goto out;
                 i++;
         }
+
+        dict = volinfo->dict;
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+        
+        pairs = dict->members_list;
+        if (!pairs) {
+                ret = -1;
+                goto out;
+        }
+
+        while (pairs) {
+                if (1 == glusterd_check_option_exists (pairs->key, NULL)) {
+                        value = pairs->value;
+                        if (!value) {
+                                ret = -1;
+                                goto out;
+                        }
+                        snprintf (reconfig_key, 256, "volume%d.option.%s", count, 
+                                 pairs->key);
+                        gf_log ("", GF_LOG_DEBUG, 
+                                "Setting dict with key=%s, value=%s", 
+                                reconfig_key, pairs->value->data);
+                        ret = dict_set_str  (volumes, gf_strdup (reconfig_key), 
+                                             value->data);
+                }
+                pairs = pairs->next;
+        }
+
 out:
         return ret;
 }

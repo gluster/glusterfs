@@ -110,6 +110,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.cache-priority",           "performance/io-cache",      "priority",}, /* NODOC */
         {"performance.cache-size",               "performance/io-cache",      },
         {"performance.cache-size",               "performance/quick-read",    },
+        {"performance.flush-behind",             "performance/write-behind",      "flush-behind",},
 
         {"performance.io-thread-count",          "performance/io-threads",    "thread-count",},
 
@@ -124,6 +125,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"auth.allow",                           "protocol/server",           "!server-auth", "*"},
         {"auth.reject",                          "protocol/server",           "!server-auth",},
+        
+        {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive",},
 
         {"performance.write-behind",             "performance/write-behind",  "!perf", "on"}, /* NODOC */
         {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on"}, /* NODOC */
