@@ -1885,6 +1885,9 @@ fini (xlator_t *this)
         posix_locks_private_t *priv = NULL;
 
         priv = this->private;
+        if (!priv)
+                return 0;
+        this->private = NULL;
         GF_FREE (priv);
 
         return 0;

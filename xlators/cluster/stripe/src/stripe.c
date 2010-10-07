@@ -3941,6 +3941,7 @@ fini (xlator_t *this)
 
         priv = this->private;
         if (priv) {
+                this->private = NULL;
                 if (priv->xl_array)
                         GF_FREE (priv->xl_array);
 

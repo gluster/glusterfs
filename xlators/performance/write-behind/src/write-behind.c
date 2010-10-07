@@ -3009,6 +3009,9 @@ fini (xlator_t *this)
 {
         wb_conf_t *conf = this->private;
 
+        if (!conf)
+                return;
+        this->private = NULL;
         GF_FREE (conf);
         return;
 }

@@ -1695,6 +1695,10 @@ fini (xlator_t *this)
 
         conf = this->private;
 
+        if (!conf)
+                return;
+        this->private = NULL;
+
         GF_FREE(conf);
 
         gf_log (this->name, GF_LOG_NORMAL,
