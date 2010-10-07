@@ -1553,6 +1553,8 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         /* Save the lock to the client lock cache to be able
            to recover in the case of server reboot.*/
+        /*
+          temporarily
         if (local->cmd == F_SETLK || local->cmd == F_SETLKW) {
                 ret = client_add_lock_for_recovery (local->fd, &lock,
                                                     local->owner, local->cmd);
@@ -1561,6 +1563,7 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         rsp.op_errno = -ret;
                 }
         }
+        */
 
         frame->local = NULL;
         client_local_wipe (local);
@@ -2059,7 +2062,7 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         frame = myframe;
         local = frame->local;
         conf  = frame->this->private;
-       
+
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
@@ -2078,37 +2081,42 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 "reopen on %s returned %d (%"PRId64")",
                 local->loc.path, rsp.op_ret, rsp.fd);
 
-        if (-1 != rsp.op_ret) {
-	  fdctx = local->fdctx;
-	  if(fdctx) { 
-                pthread_mutex_lock (&conf->lock);
-                {
-                        fdctx->remote_fd = rsp.fd;
+        if (rsp.op_ret == -1)
+                goto out;
 
-                        if (!fdctx->released) {
-                                list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+        fdctx = local->fdctx;
+
+        if (!fdctx)
+                goto out;
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                fdctx->remote_fd = rsp.fd;
+                if (!fdctx->released) {
+                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+                        if (!list_empty (&fdctx->lock_list))
                                 attempt_lock_recovery = _gf_true;
-                                fdctx = NULL;
-                        }
+                        fdctx = NULL;
                 }
-                pthread_mutex_unlock (&conf->lock);
-	      
-          }
         }
+        pthread_mutex_unlock (&conf->lock);
+
+        attempt_lock_recovery = _gf_false; /* temporarily */
 
         if (attempt_lock_recovery) {
                 ret = client_attempt_lock_recovery (frame->this, local->fdctx);
-                if (ret < 0)
+                if (ret < 0) {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "No locks on fd to recover");
-                else {
-                        fd_count = decrement_reopen_fd_count (frame->this, conf);
+                } else {
                         gf_log (frame->this->name, GF_LOG_DEBUG,
                                 "Need to attempt lock recovery on %lld open fds",
                                 (unsigned long long) fd_count);
-
                 }
+        } else {
+                fd_count = decrement_reopen_fd_count (frame->this, conf);
         }
+
 
 out:
         if (fdctx)
@@ -2140,7 +2148,7 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         local        = frame->local;
         frame->local = NULL;
         conf         = frame->this->private;
-       
+
         if (-1 == req->rpc_status) {
                 rsp.op_ret   = -1;
                 rsp.op_errno = ENOTCONN;
@@ -2172,7 +2180,7 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         }
                 }
                 pthread_mutex_unlock (&conf->lock);
-		
+
 	  }
         }
 
@@ -5049,5 +5057,3 @@ rpc_clnt_prog_t clnt3_1_fop_prog = {
         .proctable = clnt3_1_fop_actors,
         .procnames = clnt3_1_fop_names,
 };
-
-
