@@ -2329,7 +2329,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
 	afr_local_t *local = NULL;
 	afr_private_t *priv = NULL;
-        int            ret  = 0;
+/*        int            ret  = 0; */
 
         int child_index = -1;
 
@@ -2369,6 +2369,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
                 /* locking has succeeded on all nodes that are up */
 
+                /* temporarily
                 ret = afr_mark_locked_nodes (this, local->fd,
                                              local->cont.lk.locked_nodes);
                 if (ret)
@@ -2380,6 +2381,7 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Could not save locked fd");
 
+                */
 		AFR_STACK_UNWIND (lk, frame, local->op_ret, local->op_errno,
                                   &local->cont.lk.ret_flock);
         }
@@ -2539,10 +2541,9 @@ afr_notify (xlator_t *this, int32_t event,
         case GF_EVENT_CHILD_UP:
                 i = find_child_index (this, data);
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "child=%d up", i);
-
+                /* temporarily
                 afr_attempt_lock_recovery (this, i);
+                */
 
                 child_up[i] = 1;
 
