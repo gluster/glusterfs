@@ -1428,6 +1428,31 @@ rpc_clnt_ref (struct rpc_clnt *rpc)
         return rpc;
 }
 
+
+static void
+rpc_clnt_destroy (struct rpc_clnt *rpc)
+{
+        if (!rpc)
+                return;
+
+        if (rpc->conn.trans)
+                rpc_transport_unref (rpc->conn.trans);
+
+        rpc_clnt_connection_cleanup (&rpc->conn);
+        rpc_clnt_reconnect_cleanup (&rpc->conn);
+        saved_frames_destroy (rpc->conn.saved_frames);
+        pthread_mutex_destroy (&rpc->lock);
+        pthread_mutex_destroy (&rpc->conn.lock);
+
+        /* mem-pool should be destroyed, otherwise,
+           it will cause huge memory leaks */
+        mem_pool_destroy (rpc->reqpool);
+        mem_pool_destroy (rpc->saved_frames_pool);
+
+        GF_FREE (rpc);
+        return;
+}
+
 struct rpc_clnt *
 rpc_clnt_unref (struct rpc_clnt *rpc)
 {
@@ -1445,28 +1470,6 @@ rpc_clnt_unref (struct rpc_clnt *rpc)
                 return NULL;
         }
         return rpc;
-}
-
-void
-rpc_clnt_destroy (struct rpc_clnt *rpc)
-{
-        if (!rpc)
-                return;
-
-        rpc_transport_destroy (rpc->conn.trans);
-        rpc_clnt_connection_cleanup (&rpc->conn);
-        rpc_clnt_reconnect_cleanup (&rpc->conn);
-        saved_frames_destroy (rpc->conn.saved_frames);
-        pthread_mutex_destroy (&rpc->lock);
-        pthread_mutex_destroy (&rpc->conn.lock);
-
-        /* mem-pool should be destroyed, otherwise,
-           it will cause huge memory leaks */
-        mem_pool_destroy (rpc->reqpool);
-        mem_pool_destroy (rpc->saved_frames_pool);
-
-        GF_FREE (rpc);
-        return;
 }
 
 

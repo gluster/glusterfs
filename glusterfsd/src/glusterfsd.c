@@ -661,7 +661,7 @@ cleanup_and_exit (int signum)
         glusterfs_mgmt_pmap_signout (ctx);
 
         if (ctx->mgmt)
-                rpc_clnt_destroy (ctx->mgmt);
+                rpc_clnt_unref (ctx->mgmt);
 
         gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
 

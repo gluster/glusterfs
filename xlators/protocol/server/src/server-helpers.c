@@ -102,6 +102,10 @@ free_state (server_state_t *state)
                 state->conn = NULL;
         }
 
+        if (state->xprt) {
+                rpc_transport_unref (state->xprt);
+                state->xprt = NULL;
+        }
         if (state->fd) {
                 fd_unref (state->fd);
                 state->fd = NULL;
@@ -776,7 +780,7 @@ server_alloc_frame (rpcsvc_request_t *req)
         if (conn->bound_xl)
                 state->itable = conn->bound_xl->itable;
 
-        state->xprt  = req->trans;
+        state->xprt  = rpc_transport_ref (req->trans);
         state->conn  = conn;
 
         state->resolve.fd_no = -1;
