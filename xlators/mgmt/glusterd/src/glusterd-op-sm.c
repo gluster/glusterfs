@@ -57,6 +57,49 @@ static struct list_head gd_op_sm_queue;
 pthread_mutex_t       gd_op_sm_lock;
 glusterd_op_info_t    opinfo = {{0},};
 static int glusterfs_port = GLUSTERD_DEFAULT_PORT;
+static char *glusterd_op_sm_state_names[] = {
+        "Default",
+        "Lock sent",
+        "Locked",
+        "Stage op sent",
+        "Staged",
+        "Commit op sent",
+        "Commited",
+        "Unlock sent",
+        "Invalid",
+};
+
+static char *glusterd_op_sm_event_names[] = {
+        "GD_OP_EVENT_NONE",
+        "GD_OP_EVENT_START_LOCK",
+        "GD_OP_EVENT_LOCK",
+        "GD_OP_EVENT_RCVD_ACC",
+        "GD_OP_EVENT_ALL_ACC",
+        "GD_OP_EVENT_STAGE_ACC",
+        "GD_OP_EVENT_COMMIT_ACC",
+        "GD_OP_EVENT_RCVD_RJT",
+        "GD_OP_EVENT_STAGE_OP",
+        "GD_OP_EVENT_COMMIT_OP",
+        "GD_OP_EVENT_UNLOCK",
+        "GD_OP_EVENT_START_UNLOCK",
+        "GD_OP_EVENT_INVALID"
+};
+
+char*
+glusterd_op_sm_state_name_get (glusterd_op_sm_state_t state)
+{
+        if (state < 0 || state >= GD_OP_STATE_MAX)
+                return glusterd_op_sm_state_names[GD_OP_STATE_MAX];
+        return glusterd_op_sm_state_names[state];
+}
+
+char*
+glusterd_op_sm_event_name_get (glusterd_op_sm_event_type_t event)
+{
+        if (event < 0 || event >= GD_OP_EVENT_MAX)
+                return glusterd_op_sm_event_names[GD_OP_EVENT_MAX];
+        return glusterd_op_sm_event_names[event];
+}
 
 void
 glusterd_destroy_lock_ctx (glusterd_op_lock_ctx_t *ctx)
@@ -4565,10 +4608,12 @@ glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
         GF_ASSERT (state);
         GF_ASSERT (opinfo);
 
-        gf_log ("", GF_LOG_NORMAL, "Transitioning from %d to %d due to event %d",
-                     opinfo->state.state, state[event_type].next_state, event_type);
-        opinfo->state.state =
-                state[event_type].next_state;
+        gf_log ("", GF_LOG_NORMAL, "Transitioning from '%s' to '%s' due to "
+                "event '%s'",
+                glusterd_op_sm_state_name_get (opinfo->state.state),
+                glusterd_op_sm_state_name_get (state[event_type].next_state),
+                glusterd_op_sm_event_name_get (event_type));
+        opinfo->state.state = state[event_type].next_state;
         return 0;
 }
 
@@ -4884,8 +4929,8 @@ glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
 
         event->ctx = ctx;
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Enqueuing event: %d",
-                event->event);
+        gf_log ("glusterd", GF_LOG_NORMAL, "Enqueuing event: '%s'",
+                glusterd_op_sm_event_name_get (event->event));
         list_add_tail (&event->list, &gd_op_sm_queue);
 
 out:
@@ -4932,8 +4977,8 @@ glusterd_op_sm ()
 
                         list_del_init (&event->list);
                         event_type = event->event;
-                        gf_log ("", GF_LOG_DEBUG, "Dequeued event of type: %d",
-                                event_type);
+                        gf_log ("", GF_LOG_NORMAL, "Dequeued event of type: '%s'",
+                                glusterd_op_sm_event_name_get(event_type));
 
                         state = glusterd_op_state_table[opinfo.state.state];
 
@@ -4958,9 +5003,9 @@ glusterd_op_sm ()
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR,
                                         "Unable to transition"
-                                        "state from %d to %d",
-                                         opinfo.state.state,
-                                         state[event_type].next_state);
+                                        "state from '%s' to '%s'",
+                         glusterd_op_sm_state_name_get(opinfo.state.state),
+                         glusterd_op_sm_state_name_get(state[event_type].next_state));
                                 (void ) pthread_mutex_unlock (&gd_op_sm_lock);
                                 return ret;
                         }
