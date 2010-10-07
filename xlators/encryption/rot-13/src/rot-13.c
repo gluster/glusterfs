@@ -181,6 +181,9 @@ fini (xlator_t *this)
 {
 	rot_13_private_t *priv = this->private;
 
+        if (!priv)
+                return;
+        this->private = NULL;
 	GF_FREE (priv);
 
 	return;

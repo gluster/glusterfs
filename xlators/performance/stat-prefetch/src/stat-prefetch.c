@@ -777,7 +777,7 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
         sp_private_t *priv = NULL;
 
         this = cache->this;
-        if (this)
+        if (this && this->private)
                 priv = this->private;
 
         LOCK (&cache->lock);
@@ -3676,6 +3676,7 @@ fini (xlator_t *this)
                                 mem_pool_destroy (priv->mem_pool);
                         LOCK_DESTROY (&priv->lock);
                         GF_FREE (priv);
+                        this->private = NULL;
                 }
         }
 out:

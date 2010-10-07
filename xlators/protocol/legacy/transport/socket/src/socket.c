@@ -1547,6 +1547,9 @@ fini (transport_t *this)
 {
         socket_private_t *priv = this->private;
 
+        if (!priv)
+                return;
+        this->private = NULL;
         gf_log (this->xl->name, GF_LOG_TRACE,
                 "transport %p destroyed", this);
 

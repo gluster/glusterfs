@@ -4438,6 +4438,9 @@ void
 fini (xlator_t *this)
 {
         struct posix_private *priv = this->private;
+        if (!priv)
+                return;
+        this->private = NULL;
         sys_lremovexattr (priv->base_path, "trusted.glusterfs.test");
         GF_FREE (priv);
         return;
