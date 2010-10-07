@@ -100,11 +100,11 @@ nfs3_iatt_gfid_to_ino (struct iatt *buf)
                 return 0;
 
         if (buf->ia_ino != 1)
-                memcpy (&buf->ia_ino, &buf->ia_gfid[8], sizeof (uint64_t));
+                memcpy (&ino, &buf->ia_gfid[8], sizeof (uint64_t));
         else
                 ino = 1;
 
-        return buf->ia_ino;
+        return ino;
 }
 
 
