@@ -1110,8 +1110,7 @@ rpc_transport_unref (rpc_transport_t *this)
 	pthread_mutex_unlock (&this->lock);
 
 	if (refcount == 0) {
-		/* xlator_notify (this->xl, GF_EVENT_RPC_TRANSPORT_CLEANUP,
-                   this); */
+		this->notify (this, this->mydata, RPC_TRANSPORT_CLEANUP, NULL);
 		rpc_transport_destroy (this);
 	}
 

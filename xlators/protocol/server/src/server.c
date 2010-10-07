@@ -424,10 +424,15 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         case RPCSVC_EVENT_DISCONNECT:
                 conn = get_server_conn_state (this, xprt);
                 if (conn)
-                        server_connection_put (this, conn);
+                        server_connection_cleanup (this, conn);
 
                 list_del (&xprt->list);
 
+                break;
+        case RPCSVC_EVENT_TRANSPORT_DESTROY:
+                conn = get_server_conn_state (this, xprt);
+                if (conn)
+                        server_connection_put (this, conn);
                 break;
         default:
                 break;

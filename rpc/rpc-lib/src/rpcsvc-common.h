@@ -29,6 +29,7 @@
 typedef enum {
         RPCSVC_EVENT_ACCEPT,
         RPCSVC_EVENT_DISCONNECT,
+        RPCSVC_EVENT_TRANSPORT_DESTROY,
         RPCSVC_EVENT_LISTENER_DEAD,
 } rpcsvc_event_t;
 

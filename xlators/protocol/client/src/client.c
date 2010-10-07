@@ -2008,7 +2008,7 @@ fini (xlator_t *this)
 
         if (conf) {
                 if (conf->rpc)
-                       rpc_clnt_destroy (conf->rpc);
+                       rpc_clnt_unref (conf->rpc);
 
                 /* Saved Fds */
                 /* TODO: */

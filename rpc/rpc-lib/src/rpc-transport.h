@@ -248,9 +248,6 @@ int32_t
 rpc_transport_submit_reply (rpc_transport_t *this,
                             rpc_transport_reply_t *reply);
 
-int32_t
-rpc_transport_destroy (rpc_transport_t *this);
-
 rpc_transport_t *
 rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *name);
 

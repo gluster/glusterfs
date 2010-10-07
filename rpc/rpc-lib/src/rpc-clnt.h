@@ -223,8 +223,6 @@ rpc_clnt_ref (struct rpc_clnt *rpc);
 struct rpc_clnt *
 rpc_clnt_unref (struct rpc_clnt *rpc);
 
-void rpc_clnt_destroy (struct rpc_clnt *rpc);
-
 void rpc_clnt_set_connected (rpc_clnt_connection_t *conn);
 
 void rpc_clnt_unset_connected (rpc_clnt_connection_t *conn);

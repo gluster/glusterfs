@@ -1066,6 +1066,7 @@ rpcsvc_notify (rpc_transport_t *trans, void *mydata,
         rpc_transport_pollin_t *msg       = NULL;
         rpc_transport_t        *new_trans = NULL;
         rpcsvc_t               *svc       = NULL;
+        rpcsvc_listener_t      *listener  = NULL;
 
         svc = mydata;
         if (svc == NULL) {
@@ -1101,7 +1102,13 @@ rpcsvc_notify (rpc_transport_t *trans, void *mydata,
                 break;
 
         case RPC_TRANSPORT_CLEANUP:
-                /* FIXME: think about this later */
+                listener = rpcsvc_get_listener (svc, -1, trans);
+                if (listener == NULL) {
+                        goto out;
+                }
+
+                rpcsvc_program_notify (listener, RPCSVC_EVENT_TRANSPORT_DESTROY,
+                                       trans);
                 ret = 0;
                 break;
 
