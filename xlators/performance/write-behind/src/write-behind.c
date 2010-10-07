@@ -2751,7 +2751,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         goto out;
                 }
 
-                if (window_size < (524288)) {
+                if (window_size < (512 * GF_UNIT_KB)) {
                         gf_log(this->name, GF_LOG_WARNING, "Validation"
                                         "'option cache-size %s' failed , Min value"
                                                         "should be 512KiB ", str);
@@ -2760,7 +2760,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         goto out;
                 }
 
-                if (window_size > (1073741824)) {
+                if (window_size > (1 * GF_UNIT_GB)) {
                         gf_log(this->name, GF_LOG_WARNING, "Reconfiguration"
                                         "'option cache-size %s' failed , Max value"
                                                         "can be 1 GiB", str);
@@ -2840,6 +2840,27 @@ reconfigure (xlator_t *this, dict_t *options)
         }
         else
                 conf->window_size = WB_WINDOW_SIZE;
+        
+        ret = dict_get_str (options, "flush-behind", 
+                            &str);
+        if (ret == 0) {
+                ret = gf_string2boolean (str, 
+                                         &conf->flush_behind);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "'flush-behind' takes only boolean arguments");
+                        conf->flush_behind = 1;
+                        return -1;
+                }
+                if (conf->flush_behind) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "enabling flush-behind");
+                }
+                else
+                        gf_log (this->name, GF_LOG_DEBUG, 
+                                "disabling flush-behind");
+        }
+
                 
 out:
 	return 0;

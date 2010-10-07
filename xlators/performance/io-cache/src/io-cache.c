@@ -1674,7 +1674,7 @@ reconfigure (xlator_t *this, dict_t *options)
 				goto out;
 			}
 
-			if (cache_size < (4*(2^20))) {
+			if (cache_size < (4 * GF_UNIT_MB)) {
 	                        gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
 				      "'option cache-size %s' failed , Max value"
 				      "can be 4MiB, Defaulting to old value (%d)"
@@ -1683,8 +1683,8 @@ reconfigure (xlator_t *this, dict_t *options)
 				goto out;
        		        }
 
-			if (cache_size > (6 *(2^30))) {
-        	                gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
+			if (cache_size > (6 * GF_UNIT_GB)) {
+        	                gf_log (this->name, GF_LOG_ERROR, "Reconfiguration"
 				       "'option cache-size %s' failed , Max value"
 				       "can be 6GiB, Defaulting to old value (%d)"
 			  		, cache_size_string, table->cache_size);
@@ -1694,7 +1694,7 @@ reconfigure (xlator_t *this, dict_t *options)
 			
 
 			gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
-				" cache-size %"PRIu64"", table->cache_size);
+				" cache-size %"PRIu64"", cache_size);
 			table->cache_size = cache_size;
 		}
                 else

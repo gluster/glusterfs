@@ -25,6 +25,7 @@
 #include "config.h"
 #endif
 
+
 #include <inttypes.h>
 #ifdef GF_SOLARIS_HOST_OS
 #include <rpc/auth.h>
@@ -33,6 +34,7 @@
 #endif
 
 #include <rpc/rpc_msg.h>
+
 
 #ifndef MAX_IOVEC
 #define MAX_IOVEC 16
@@ -172,6 +174,8 @@ typedef struct rpc_transport_pollin rpc_transport_pollin_t;
 
 typedef int (*rpc_transport_notify_t) (rpc_transport_t *, void *mydata,
                                        rpc_transport_event_t, void *data, ...);
+
+
 struct rpc_transport {
 	struct rpc_transport_ops  *ops;
         rpc_transport_t           *listener; /* listener transport to which
@@ -179,6 +183,7 @@ struct rpc_transport {
                                               * transport came from. valid only
                                               * on server process.
                                               */
+        
 	void                      *private;
         void                      *xl_private;
         void                      *xl;       /* Used for THIS */
@@ -191,8 +196,12 @@ struct rpc_transport {
         char                      *name;
 	void                      *dnscache;
 	data_t                    *buf;
-	int32_t                  (*init)   (rpc_transport_t *this);
+ 	int32_t                  (*init)   (rpc_transport_t *this);
 	void                     (*fini)   (rpc_transport_t *this);
+        int32_t                  (*validate_options) (rpc_transport_t *this, 
+                                                      dict_t *options, 
+                                                      char **op_errstr);
+        int                      (*reconfigure) (rpc_transport_t *this, dict_t *options);
         rpc_transport_notify_t     notify;
         void                      *notify_data;
 	peer_info_t                peerinfo;

@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+
 #include "server.h"
 #include "server-helpers.h"
 #include "glusterfs3-xdr.h"
@@ -544,14 +545,20 @@ int
 reconfigure (xlator_t *this, dict_t *options)
 {
 
-	server_conf_t	 *conf =NULL;
-	int		  inode_lru_limit;
-	gf_boolean_t	  trace;
-	data_t		 *data;
-	int		  ret;
+	server_conf_t	         *conf =NULL;
+        rpcsvc_t                 *rpc_conf;
+        rpcsvc_listener_t        *listeners;
+	int		          inode_lru_limit;
+	gf_boolean_t	          trace;
+	data_t		         *data;
+	int		          ret = 0;
 
 	conf = this->private;
 
+        if (!conf) {
+                gf_log (this->name, GF_LOG_DEBUG, "conf == null!!!");
+                goto out;
+        }
 	if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
 		conf->inode_lru_limit = inode_lru_limit;
 		gf_log (this->name, GF_LOG_TRACE, "Reconfigured inode-lru-limit"
@@ -589,8 +596,27 @@ reconfigure (xlator_t *this, dict_t *options)
                 dict_unref (conf->auth_modules);
                 goto out;
         }
+        
+        rpc_conf = conf->rpc;
+        if (!rpc_conf) {
+                gf_log (this->name, GF_LOG_ERROR, "No rpc_conf !!!!");
+                goto out;
+        }
+
+        list_for_each_entry (listeners, &(rpc_conf->listeners), list) {
+                if (listeners->trans != NULL) {
+                        if (listeners->trans->reconfigure ) 
+                                listeners->trans->reconfigure (listeners->trans, options);
+                        else
+                               gf_log (this->name, GF_LOG_ERROR, 
+                                       "Reconfigure not found for transport" );
+                }
+        }
+        
+        
 
 out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 

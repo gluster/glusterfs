@@ -804,6 +804,8 @@ err:
         return NULL;
 }
 
+
+
 rpc_transport_t *
 rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 {
@@ -830,7 +832,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	type = str;
 
 	/* Backward compatibility */
-	ret = dict_get_str (options, "transport-type", &type);
+        ret = dict_get_str (options, "transport-type", &type);
 	if (ret < 0) {
 		ret = dict_set_str (options, "transport-type", "socket");
 		if (ret < 0)
@@ -922,6 +924,12 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 			"dlsym (gf_rpc_transport_fini) on %s", dlerror ());
 		goto fail;
 	}
+        
+        trans->reconfigure = dlsym (handle, "reconfigure");
+        if (trans->fini == NULL) {
+                gf_log ("rpc-transport", GF_LOG_DEBUG,
+                        "dlsym (gf_rpc_transport_reconfigure) on %s", dlerror());
+        }
 
 	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                              gf_common_mt_volume_opt_list_t);

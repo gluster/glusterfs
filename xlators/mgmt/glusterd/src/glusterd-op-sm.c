@@ -1087,10 +1087,10 @@ out:
 static int
 glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
-         int                                      ret           = 0;
-         dict_t                                  *dict          = NULL;
-         char                                    *volname       = NULL;
- 	gf_boolean_t                             exists        = _gf_false;
+        int                                      ret           = 0;
+        dict_t                                  *dict          = NULL;
+        char                                    *volname       = NULL;
+ 	int                                      exists        = 0;
  	char					*key	       = NULL;
         char                                    *value         = NULL;
  	char					 str[100]      = {0, };

@@ -319,6 +319,33 @@ out:
         return ret;
 }
 
+void 
+cli_out_options ( char *substr, char *optstr, char *valstr)
+{
+        char                    *ptr1 = NULL;
+        char                    *ptr2 = NULL;
+        
+        ptr1 = substr;
+        ptr2 = optstr;
+        
+        while (ptr1)
+        {
+                if (*ptr1 != *ptr2)
+                        break;
+                ptr1++;
+                ptr2++;
+                if (!ptr1)
+                        return;
+                if (!ptr2)
+                        return;
+        }
+        
+        if (*ptr2 == '\0')
+                return;
+        cli_out ("%s: %s",ptr2 , valstr);
+}
+
+
 int
 gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
@@ -338,6 +365,11 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                    j = 1;
         cli_local_t                *local = NULL;
         int32_t                    transport = 0;
+        data_pair_t                *pairs = NULL;
+        char                       *ptr = NULL;
+        data_t                     *value = NULL;
+ 
+
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -474,6 +506,28 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 cli_out ("Brick%d: %s", j, brick);
                                 j++;
                         }
+                        pairs = dict->members_list;
+                        if (!pairs) {
+                                ret = -1;
+                                goto out;
+                        }
+                        
+                        snprintf (key, 256, "volume%d.option.",i);
+                        cli_out ("Options Reconfigured:");
+                        while (pairs) {
+                                ptr = strstr (pairs->key, "option.");
+                                if (ptr) {
+                                        value = pairs->value;
+                                        if (!value) {
+                                                ret = -1;
+                                                goto out;
+                                        }
+                                        cli_out_options (key, pairs->key, 
+                                                         value->data); 
+                                }
+                                pairs = pairs->next;
+                        }
+
                         i++;
                 }
 
