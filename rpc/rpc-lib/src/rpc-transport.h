@@ -247,6 +247,9 @@ int32_t
 rpc_transport_disconnect (rpc_transport_t *this);
 
 int32_t
+rpc_transport_destroy (rpc_transport_t *this);
+
+int32_t
 rpc_transport_notify (rpc_transport_t *this, rpc_transport_event_t event,
                       void *data, ...);
 

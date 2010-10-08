@@ -823,7 +823,7 @@ rpc_clnt_notify (rpc_transport_t *trans, void *mydata,
         switch (event) {
         case RPC_TRANSPORT_DISCONNECT:
         {
-                rpc_clnt_connection_cleanup (&clnt->conn);
+                rpc_clnt_connection_cleanup (conn);
 
                 pthread_mutex_lock (&conn->lock);
                 {
@@ -1474,7 +1474,7 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
                 return;
 
         if (rpc->conn.trans)
-                rpc_transport_unref (rpc->conn.trans);
+                rpc_transport_destroy (rpc->conn.trans);
 
         rpc_clnt_connection_cleanup (&rpc->conn);
         rpc_clnt_reconnect_cleanup (&rpc->conn);
