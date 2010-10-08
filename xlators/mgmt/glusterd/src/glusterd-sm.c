@@ -129,10 +129,9 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
 {
         int                             ret = 0;
         rpc_clnt_procedure_t            *proc = NULL;
-        call_frame_t                    *frame = NULL;
         glusterd_conf_t                 *conf = NULL;
         xlator_t                        *this = NULL;
-        glusterd_friend_update_ctx_t    *ctx = NULL;
+        glusterd_friend_update_ctx_t    ctx = {{0},};
 
         this = THIS;
         conf = this->private;
@@ -140,27 +139,13 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
         GF_ASSERT (conf);
         GF_ASSERT (conf->mgmt);
 
-        ctx = GF_CALLOC (1, sizeof (*ctx),
-                         gf_gld_mt_friend_update_ctx_t);
-
-        if (!ctx) {
-                ret = -1;
-                goto out;
-        }
-
-        ctx->hostname = gf_strdup (hostname);
-        ctx->op = GD_FRIEND_UPDATE_DEL;
+        ctx.hostname = hostname;
+        ctx.op = GD_FRIEND_UPDATE_DEL;
         proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
         if (proc->fn) {
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame) {
-                        goto out;
-                }
-                frame->local = ctx;
-                ret = proc->fn (frame, this, ctx);
+                ret = proc->fn (NULL, this, &ctx);
         }
 
-out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
