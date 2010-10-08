@@ -1096,13 +1096,22 @@ out:
 int
 pump_execute_abort (call_frame_t *frame, xlator_t *this)
 {
-        afr_private_t *priv = NULL;
-        afr_local_t   *local = NULL;
+        afr_private_t  *priv      = NULL;
+        pump_private_t *pump_priv = NULL;
+        afr_local_t    *local     = NULL;
 
-        priv = this->private;
-        local = frame->local;
+        priv      = this->private;
+        pump_priv = priv->pump_private;
+        local     = frame->local;
 
         pump_change_state (this, PUMP_STATE_ABORT);
+
+        LOCK (&pump_priv->resume_path_lock);
+        {
+                pump_priv->number_files_pumped = 0;
+                pump_priv->current_file[0] = '\0';
+        }
+        UNLOCK (&pump_priv->resume_path_lock);
 
         local->op_ret = 0;
         pump_command_reply (frame, this);

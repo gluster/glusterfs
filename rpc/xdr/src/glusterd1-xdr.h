@@ -133,6 +133,10 @@ struct gd1_mgmt_stage_op_rsp {
 	int op_ret;
 	int op_errno;
 	char *op_errstr;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
 };
 typedef struct gd1_mgmt_stage_op_rsp gd1_mgmt_stage_op_rsp;
 

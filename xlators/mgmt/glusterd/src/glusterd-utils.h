@@ -215,4 +215,16 @@ glusterd_volume_brickinfo_get (uuid_t uuid, char *hostname, char *path,
 int
 glusterd_brickinfo_get (uuid_t uuid, char *hostname, char *path,
                        glusterd_brickinfo_t **brickinfo);
+int
+glusterd_is_rb_started (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_is_rb_paused (glusterd_volinfo_t *volinfo);
+
+int
+glusterd_set_rb_status (glusterd_volinfo_t *volinfo, gf_rb_status_t status);
+
+int
+glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
+                          glusterd_brickinfo_t *src_brick, glusterd_brickinfo_t *dst_brick);
 #endif

@@ -151,6 +151,13 @@ typedef enum gf_transport_type_ {
         GF_TRANSPORT_RDMA,
 } gf_transport_type;
 
+
+typedef enum gf_rb_status_ {
+        GF_RB_STATUS_NONE,
+        GF_RB_STATUS_STARTED,
+        GF_RB_STATUS_PAUSED,
+} gf_rb_status_t;
+
 struct glusterd_volinfo_ {
         char                    volname[GLUSTERD_MAX_VOLUME_NAME];
         int                     type;
@@ -168,6 +175,11 @@ struct glusterd_volinfo_ {
         uint64_t                rebalance_data;
         uint64_t                lookedup_files;
         glusterd_defrag_info_t  *defrag;
+
+        /* Replace brick status */
+        gf_rb_status_t          rb_status;
+        glusterd_brickinfo_t    *src_brick;
+        glusterd_brickinfo_t    *dst_brick;
 
         int                     version;
         uint32_t                cksum;
@@ -291,7 +303,8 @@ glusterd_op_unlock_send_resp (rpcsvc_request_t *req, int32_t status);
 
 int
 glusterd_op_stage_send_resp (rpcsvc_request_t *req,
-                             int32_t op, int32_t status, char *op_errstr);
+                             int32_t op, int32_t status,
+                             char *op_errstr, dict_t *rsp_dict);
 
 int
 glusterd_op_commmit_send_resp (rpcsvc_request_t *req,
