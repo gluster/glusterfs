@@ -924,7 +924,7 @@ The @acronym{TCP} client module accepts the following options:
 @table @code
 @item non-blocking-connect [no|off|on|yes] (on)
 Whether to make the connection attempt asynchronous.
-@item remote-port <n> (6996)
+@item remote-port <n> (24007)
 Server port to connect to.
 @cindex DNS round robin
 @item remote-host <hostname> *
@@ -941,7 +941,7 @@ The @acronym{TCP} server module accepts the following options:
 @item bind-address <address> (0.0.0.0)
 The local interface on which the server should listen to requests. Default is to
 listen on all interfaces.
-@item listen-port <n> (6996)
+@item listen-port <n> (24007)
 The local port to listen on.
 @end table
 @end cartouche
@@ -978,7 +978,7 @@ The @command{ib-verbs} client module accepts the following options:
 @table @code
 @item non-blocking-connect [no|off|on|yes] (on)
 Whether to make the connection attempt asynchronous.
-@item remote-port <n> (6996)
+@item remote-port <n> (24007)
 Server port to connect to.
 @cindex DNS round robin
 @item remote-host <hostname> *
@@ -995,7 +995,7 @@ The @command{ib-verbs} server module accepts the following options:
 @item bind-address <address> (0.0.0.0)
 The local interface on which the server should listen to requests. Default is to
 listen on all interfaces.
-@item listen-port <n> (6996)
+@item listen-port <n> (24007)
 The local port to listen on.
 @end table
 @end cartouche
@@ -2102,12 +2102,12 @@ connections and firewall settings. To check if the server is reachable,
 try:
 
 @example
-telnet IP-ADDRESS 6996
+telnet IP-ADDRESS 24007
 @end example
 
 If the server is accessible, your `telnet' command should connect and
 block. If not you will see an error message such as @command{telnet: Unable to
-connect to remote host: Connection refused}. 6996 is the default
+connect to remote host: Connection refused}. 24007 is the default
 GlusterFS port. If you have changed it, then use the corresponding
 port instead.
 

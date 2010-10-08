@@ -757,7 +757,7 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
                 goto out;
         ret = dict_get_int32 (dict, "port", &port);
         if (ret)
-                port = 6969;
+                port = GF_DEFAULT_BASE_PORT;
 
         ret = glusterd_friend_find (NULL, hostname, &peerinfo);
 

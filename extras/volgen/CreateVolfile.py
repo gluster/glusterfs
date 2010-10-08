@@ -45,8 +45,8 @@ class CreateVolfile:
             self.gfs_port    = options.port
             self.gfs_ib_port = options.port + 1
         else:
-            self.gfs_port    = 6969
-            self.gfs_ib_port = 6970
+            self.gfs_port    = 24007
+            self.gfs_ib_port = 24008
 
     def create_pmap_mount_volfile (self):
 

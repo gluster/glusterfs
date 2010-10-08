@@ -2,10 +2,7 @@ volume management
     type mgmt/glusterd
     option working-directory /etc/glusterd
     option transport-type socket,rdma
-    option transport.socket.listen-port 6969
-    option transport.rdma.listen-port 6968
     option transport.socket.keepalive-time 10
     option transport.socket.keepalive-interval 2
-    # option listen-port 6969
 end-volume
 

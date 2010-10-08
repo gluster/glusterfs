@@ -474,7 +474,7 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         struct rpc_clnt_config  rpc_cfg = {0,};
         dict_t                  *options = NULL;
         int                     ret = -1;
-        int                     port = 6969;
+        int                     port = GF_DEFAULT_BASE_PORT;
         char                    *host = NULL;
 
         cmd_args = &ctx->cmd_args;
