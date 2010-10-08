@@ -692,13 +692,19 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
 
         procnum = rpc_call_progproc (&rpcmsg);
 
-        list_for_each_entry (program, &clnt->programs, program) {
-                if ((program->prognum == rpc_call_program (&rpcmsg))
-                    && (program->progver == rpc_call_progver (&rpcmsg))) {
-                        found = 1;
-                        break;
+        pthread_mutex_lock (&clnt->lock);
+        {
+                list_for_each_entry (program, &clnt->programs, program) {
+                        if ((program->prognum == rpc_call_program (&rpcmsg))
+                            && (program->progver
+                                == rpc_call_progver (&rpcmsg))) {
+                                found = 1;
+                                break;
+                        }
                 }
         }
+        pthread_mutex_unlock (&clnt->lock);
+
         if (found && (procnum < program->numactors) &&
             (program->actors[procnum].actor)) {
                 program->actors[procnum].actor (&progmsg);
@@ -1241,7 +1247,9 @@ int
 rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
                               rpcclnt_cb_program_t *program)
 {
-        int ret = -1;
+        int                   ret                = -1;
+        char                  already_registered = 0;
+        rpcclnt_cb_program_t *tmp                = NULL;
 
         if (!clnt)
                 goto out;
@@ -1249,9 +1257,39 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
         if (program->actors == NULL)
                 goto out;
 
-        INIT_LIST_HEAD (&program->program);
+        pthread_mutex_lock (&clnt->lock);
+        {
+                list_for_each_entry (tmp, &clnt->programs, program) {
+                        if ((program->prognum == tmp->prognum)
+                            && (program->progver == tmp->progver)) {
+                                already_registered = 1;
+                                break;
+                        }
+                }
+        }
+        pthread_mutex_unlock (&clnt->lock);
 
-        list_add_tail (&program->program, &clnt->programs);
+        if (already_registered) {
+                gf_log ("rpc-clnt", GF_LOG_DEBUG, "already registered");
+                ret = 0;
+                goto out;
+        }
+
+        tmp = GF_CALLOC (1, sizeof (*tmp),
+                         gf_common_mt_rpcclnt_cb_program_t);
+        if (tmp == NULL) {
+                gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
+                goto out;
+        }
+
+        memcpy (tmp, program, sizeof (*tmp));
+        INIT_LIST_HEAD (&tmp->program);
+
+        pthread_mutex_lock (&clnt->lock);
+        {
+                list_add_tail (&tmp->program, &clnt->programs);
+        }
+        pthread_mutex_unlock (&clnt->lock);
 
         ret = 0;
         gf_log ("rpc-clnt", GF_LOG_DEBUG, "New program registered: %s, Num: %d,"
