@@ -1846,8 +1846,6 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
         fd = FH_TO_FD (ffi->fh);
         state->fd = fd;
-        if (fd)
-                fd->flush_unique = finh->unique;
 
         state->lk_owner = ffi->lock_owner;
 
@@ -1859,22 +1857,12 @@ fuse_flush (xlator_t *this, fuse_in_header_t *finh, void *msg)
         return;
 }
 
-static int
-fuse_release_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                  int32_t op_ret, int32_t op_errno)
-{
-        STACK_DESTROY (frame->root);
-
-        return 0;
-}
-
 static void
 fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
 {
         struct fuse_release_in *fri        = msg;
         fd_t                   *new_fd     = NULL;
         fd_t                   *fd         = NULL;
-        int                     do_flush   = 0;
         uint64_t                tmp_fd_ctx = 0;
         int                     ret        = 0;
         fuse_state_t           *state      = NULL;
@@ -1883,71 +1871,20 @@ fuse_release (xlator_t *this, fuse_in_header_t *finh, void *msg)
         fd = FH_TO_FD (fri->fh);
         state->fd = fd;
 
-#ifdef  GF_LINUX_HOST_OS
-        /* This is an ugly Linux specific hack, relying on subtle
-         * implementation details.
-         *
-         * The self-heal algorithm of replicate relies on being
-         * notified by means of a flush fop whenever a consumer
-         * of a file is done with that file. If this happens
-         * from userspace by means of close(2) or process termination,
-         * the kernel sends us a FLUSH message which we can handle with
-         * the flush fop (nb. this mechanism itself is Linux specific!!).
-         *
-         * However, if it happens from a kernel context, we get no FLUSH,
-         * just the final RELEASE when all references to the file are gone.
-         * We try to guess that this is the case by checking if the last FLUSH
-         * on the file was just the previous message. If not, we conjecture
-         * that this release is from a kernel context and call the flush fop
-         * here.
-         *
-         * Note #1: we check the above condition by means of looking at
-         * the "unique" values of the FUSE messages, relying on which is
-         * a big fat NO NO NO in any sane code.
-         *
-         * Note #2: there is no guarantee against false positives (in theory
-         * it's possible that the scheduler arranges an unrelated FUSE message
-         * in between FLUSH and RELEASE, although it seems to be unlikely), but
-         * extra flushes are not a problem.
-         *
-         * Note #3: cf. Bug #223.
-         */
-
-        if (fd && fd->flush_unique + 1 != finh->unique)
-                do_flush = 1;
-#endif
-
         /* TODO */
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
-                "%"PRIu64": RELEASE %p%s", finh->unique, fd,
-                do_flush ? " (FLUSH implied)" : "");
+                "%"PRIu64": RELEASE %p", finh->unique, state->fd);
 
-        if (do_flush) {
-                state->lk_owner = (uint64_t)-1;
-                ret = fd_ctx_get (fd, this, &tmp_fd_ctx);
-                if (!ret) {
-                        new_fd = (fd_t *)(long)tmp_fd_ctx;
-                        FUSE_FOP (state, fuse_release_cbk, GF_FOP_FLUSH, flush,
-                                  new_fd);
-                        fd_unref (new_fd);
-                }
-
-                FUSE_FOP (state, fuse_err_cbk, GF_FOP_FLUSH, flush, fd);
-
-                fd_unref (fd);
-        } else {
-                ret = fd_ctx_get (fd, this, &tmp_fd_ctx);
-                if (!ret) {
-                        new_fd = (fd_t *)(long)tmp_fd_ctx;
-                        fd_unref (new_fd);
-                }
-                fd_unref (fd);
-
-                send_fuse_err (this, finh, 0);
-
-                free_fuse_state (state);
+        ret = fd_ctx_get (fd, this, &tmp_fd_ctx);
+        if (!ret) {
+                new_fd = (fd_t *)(long)tmp_fd_ctx;
+                fd_unref (new_fd);
         }
+        fd_unref (fd);
 
+        send_fuse_err (this, finh, 0);
+
+        free_fuse_state (state);
         return;
 }
 
