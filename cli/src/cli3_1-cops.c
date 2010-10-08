@@ -368,6 +368,8 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         data_pair_t                *pairs = NULL;
         char                       *ptr = NULL;
         data_t                     *value = NULL;
+        int                        opt_count = 0;
+        int                        k = 0;
  
 
 
@@ -512,23 +514,36 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 goto out;
                         }
                         
-                        snprintf (key, 256, "volume%d.option.",i);
-                        cli_out ("Options Reconfigured:");
-                        while (pairs) {
-                                ptr = strstr (pairs->key, "option.");
-                                if (ptr) {
-                                        value = pairs->value;
-                                        if (!value) {
-                                                ret = -1;
-                                                goto out;
-                                        }
-                                        cli_out_options (key, pairs->key, 
-                                                         value->data); 
-                                }
-                                pairs = pairs->next;
-                        }
+                        snprintf (key, 256, "volume%d.opt_count",i);
+                        ret = dict_get_int32 (dict, key, &opt_count);
+                        if (ret)
+                            goto out;
 
-                        i++;
+                        if (!opt_count)
+                            goto out;
+
+                        cli_out ("Options Reconfigured:");
+                        k = 0;
+                        while ( k < opt_count) {
+
+                                snprintf (key, 256, "volume%d.option.",i);
+                                while (pairs) {
+                                        ptr = strstr (pairs->key, "option.");
+                                        if (ptr) {
+                                                value = pairs->value;
+                                                if (!value) {
+                                                        ret = -1;
+                                                        goto out;
+                                                }
+                                                cli_out_options (key, pairs->key,
+                                                                 value->data);
+                                        }
+                                        pairs = pairs->next;
+                                }
+                                k++;
+                       }
+
+                       i++;
                 }
 
 
