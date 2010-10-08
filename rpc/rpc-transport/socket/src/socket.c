@@ -363,7 +363,7 @@ __socket_nodelay (int fd)
 
 
 static int
-__socket_keepalive (int fd, int keepalive_intvl)
+__socket_keepalive (int fd, int keepalive_intvl, int keepalive_idle)
 {
         int     on = 1;
         int     ret = -1;
@@ -381,7 +381,7 @@ __socket_keepalive (int fd, int keepalive_intvl)
         if (ret == -1)
                 goto err;
 #else
-        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepalive_intvl,
+        ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepalive_idle,
                           sizeof (keepalive_intvl));
         if (ret == -1)
                 goto err;
@@ -394,7 +394,7 @@ __socket_keepalive (int fd, int keepalive_intvl)
 
 done:
         gf_log ("", GF_LOG_TRACE, "Keep-alive enabled for socket %d, interval "
-                "%d", fd, keepalive_intvl);
+                "%d, idle: %d", fd, keepalive_intvl, keepalive_idle);
 
 err:
         return ret;
@@ -1802,7 +1802,8 @@ socket_server_event_handler (int fd, int idx, void *data,
 
                         if (priv->keepalive) {
                                 ret = __socket_keepalive (new_sock,
-                                                          priv->keepaliveintvl);
+                                                          priv->keepaliveintvl,
+                                                          priv->keepaliveidle);
                                 if (ret == -1)
                                         gf_log (this->name, GF_LOG_ERROR,
                                                 "Failed to set keep-alive: %s",
@@ -2010,7 +2011,8 @@ socket_connect (rpc_transport_t *this, int port)
 
                 if (priv->keepalive) {
                         ret = __socket_keepalive (priv->sock,
-                                                  priv->keepaliveintvl);
+                                                  priv->keepaliveintvl,
+                                                  priv->keepaliveidle);
                         if (ret == -1)
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "Failed to set keep-alive: %s",
@@ -2600,6 +2602,12 @@ socket_init (rpc_transport_t *this)
                 priv->keepaliveintvl = keepalive;
         }
 
+        if (dict_get_uint32 (this->options,
+                             "transport.socket.keepalive-time",
+                             &keepalive) == 0) {
+                priv->keepaliveidle = keepalive;
+        }
+
         priv->windowsize = (int)windowsize;
 out:
         this->private = priv;
@@ -2697,6 +2705,9 @@ struct volume_options options[] = {
           .type  = GF_OPTION_TYPE_BOOL
         },
         { .key   = {"transport.socket.keepalive-interval"},
+          .type  = GF_OPTION_TYPE_INT
+        },
+        { .key   = {"transport.socket.keepalive-time"},
           .type  = GF_OPTION_TYPE_INT
         },
         { .key = {NULL} }

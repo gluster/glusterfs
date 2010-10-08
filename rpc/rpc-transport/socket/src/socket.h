@@ -189,6 +189,7 @@ typedef struct {
         char                   lowlat;
         char                   nodelay;
         int                    keepalive;
+        int                    keepaliveidle;
         int                    keepaliveintvl;
 } socket_private_t;
 
