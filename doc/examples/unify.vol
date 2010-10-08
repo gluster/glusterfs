@@ -24,7 +24,7 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp     # For TCP/IP transport
-  option transport.socket.listen-port 6996              # Default is 6996
+  option transport.socket.listen-port 24016              
 # option client-volume-filename /etc/glusterfs/glusterfs-client.vol
   subvolumes brick1
   option auth.addr.brick1.allow * 		# access to "brick" volume
@@ -50,7 +50,7 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp     # For TCP/IP transport
-  option transport.socket.listen-port 6997              # Default is 6996
+  option transport.socket.listen-port 24017              
   subvolumes brick2
   option auth.addr.brick2.allow * # Allow access to "brick" volume
 end-volume
@@ -76,7 +76,7 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp     # For TCP/IP transport
-  option transport.socket.listen-port 6998              # Default is 6996
+  option transport.socket.listen-port 24018              
   subvolumes brick3
   option auth.addr.brick3.allow * 		# access to "brick" volume
 end-volume
@@ -93,7 +93,7 @@ end-volume
 volume server
   type protocol/server
   option transport-type tcp     # For TCP/IP transport
-  option transport.socket.listen-port 6999              # Default is 6996
+  option transport.socket.listen-port 24019              
   subvolumes brick-ns
   option auth.addr.brick-ns.allow * 		# access to "brick" volume
 end-volume
@@ -109,7 +109,7 @@ volume client1
   option transport-type tcp     # for TCP/IP transport
 # option transport-type ib-sdp  # for Infiniband transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option transport.socket.remote-port 6996              # default server port is 6996
+  option transport.socket.remote-port 24016              
   option remote-subvolume brick1        # name of the remote volume
 end-volume
 
@@ -119,7 +119,7 @@ volume client2
   option transport-type tcp     # for TCP/IP transport
 # option transport-type ib-sdp  # for Infiniband transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option transport.socket.remote-port 6997              # default server port is 6996
+  option transport.socket.remote-port 24017              
   option remote-subvolume brick2        # name of the remote volume
 end-volume
 
@@ -128,7 +128,7 @@ volume client3
   option transport-type tcp     # for TCP/IP transport
 # option transport-type ib-sdp  # for Infiniband transport
   option remote-host 127.0.0.1      # IP address of the remote brick
-  option transport.socket.remote-port 6998              # default server port is 6996
+  option transport.socket.remote-port 24018              
   option remote-subvolume brick3        # name of the remote volume
 end-volume
 
@@ -138,7 +138,7 @@ volume client-ns
   option transport-type tcp     # for TCP/IP transport
 # option transport-type ib-sdp  # for Infiniband transport
   option remote-host 127.0.0.1         # IP address of the remote brick
-  option transport.socket.remote-port 6999              # default server port is 6996
+  option transport.socket.remote-port 24019              
   option remote-subvolume brick-ns     # name of the remote volume
 end-volume
 

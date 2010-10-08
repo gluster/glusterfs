@@ -20,6 +20,8 @@
 #ifndef _GLOBALS_H
 #define _GLOBALS_H
 
+#define GF_DEFAULT_BASE_PORT 24007
+
 /* This corresponds to the max 16 number of group IDs that are sent through an
  * RPC request. Since NFS is the only one going to set this, we can be safe
  * in keeping this size hardcoded.

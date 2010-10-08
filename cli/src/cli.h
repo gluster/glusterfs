@@ -30,7 +30,7 @@
 #include "protocol-common.h"
 
 #define DEFAULT_EVENT_POOL_SIZE            16384
-#define CLI_GLUSTERD_PORT                   6969
+#define CLI_GLUSTERD_PORT                  24007
 #define CLI_DEFAULT_CONN_TIMEOUT             120
 #define CLI_DEFAULT_CMD_TIMEOUT              120
 

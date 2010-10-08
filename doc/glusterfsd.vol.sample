@@ -28,11 +28,11 @@ volume server
 # option transport-type unix
 # option transport-type ib-sdp
 # option transport.socket.bind-address 192.168.1.10     # Default is to listen on all interfaces
-# option transport.socket.listen-port 6996              # Default is 6996
+# option transport.socket.listen-port 24016              
 
 # option transport-type ib-verbs
 # option transport.ib-verbs.bind-address 192.168.1.10     # Default is to listen on all interfaces
-# option transport.ib-verbs.listen-port 6996              # Default is 6996
+# option transport.ib-verbs.listen-port 24016              
 # option transport.ib-verbs.work-request-send-size  131072
 # option transport.ib-verbs.work-request-send-count 64
 # option transport.ib-verbs.work-request-recv-size  131072

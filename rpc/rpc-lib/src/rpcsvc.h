@@ -50,7 +50,7 @@
 #define RPCSVC_THREAD_STACK_SIZE ((size_t)(1024 * GF_UNIT_KB))
 
 #define RPCSVC_FRAGHDR_SIZE  4       /* 4-byte RPC fragment header size */
-#define RPCSVC_DEFAULT_LISTEN_PORT      6996
+#define RPCSVC_DEFAULT_LISTEN_PORT      GF_DEFAULT_BASE_PORT
 #define RPCSVC_DEFAULT_MEMFACTOR        15
 #define RPCSVC_EVENTPOOL_SIZE_MULT      1024
 #define RPCSVC_POOLCOUNT_MULT           35

@@ -77,7 +77,7 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         uuid_unparse (uuid, uuid_str);
         uuid_parse (uuid_str, friend_uuid);
         if (!port)
-                port = 6969; // TODO: use define values.
+                port = GF_DEFAULT_BASE_PORT;
 
         ret = glusterd_remote_hostname_get (req, rhost, sizeof (rhost));
         ret = glusterd_friend_find (uuid, rhost, &peerinfo);
@@ -156,7 +156,7 @@ glusterd_handle_unfriend_req (rpcsvc_request_t *req, uuid_t  uuid,
         glusterd_friend_req_ctx_t       *ctx = NULL;
 
         if (!port)
-                port = 6969; //TODO: use define'd macro
+                port = GF_DEFAULT_BASE_PORT;
 
         ret = glusterd_friend_find (uuid, hostname, &peerinfo);
 

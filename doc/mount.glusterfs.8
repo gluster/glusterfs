@@ -22,7 +22,7 @@
 mount.glusterfs - script to mount native GlusterFS volume
 .SH SYNOPSIS
 .B mount -t glusterfs
-.I [-o <options>] <volumeserver>:<volumeid/volumeport> <mountpoint>
+.I [-o <options>] <volumeserver>:<volumeid> <mountpoint>
 .TP
 .B mount -t glusterfs
 .I [-o <options>] <path/to/volumefile> <mountpoint>
@@ -55,9 +55,6 @@ Mount the filesystem read-only
 .TP
 \fBvolfile\-id=\fRKEY
 Volume key or name of the volume file to be fetched from server
-.TP
-\fBserver\-port=\fRPORT
-Port number of volfile server [default: 6996]
 .TP
 \fBtransport=\fRTRANSPORT-TYPE
 Transport type to get volume file from server [default: socket]
