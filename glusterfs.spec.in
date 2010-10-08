@@ -165,7 +165,6 @@ fi
 %{_includedir}/glusterfs
 %exclude %{_includedir}/glusterfs/y.tab.h
 %{_libdir}/*.so
-/sbin/mount.glusterfs
 
 %if 0%{!?_without_rdma:1}
 %files rdma
@@ -176,6 +175,7 @@ fi
 %files fuse
 %defattr(-,root,root)
 %{_libdir}/glusterfs/%{version}/xlator/mount/fuse*
+/sbin/mount.glusterfs
 
 %changelog
 * Wed Jul 01 2009 Harshavardhana <harsha@gluster.com> - 2.1
