@@ -3182,6 +3182,9 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         glusterd_peerctx_t     *peerctx = NULL;
 
         peerctx = mydata;
+        if (!peerctx)
+                return 0;
+
         peerinfo = peerctx->peerinfo;
         this = THIS;
         conf = this->private;
