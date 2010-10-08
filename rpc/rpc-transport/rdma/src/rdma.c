@@ -1682,6 +1682,8 @@ __rdma_ioq_churn_entry (rdma_peer_t *peer, rdma_ioq_t *entry)
                 if (ret != 0) {
                         __rdma_ioq_entry_free (entry);
                 }
+        } else {
+                ret = 0;
         }
 
 out:
@@ -1740,7 +1742,7 @@ rdma_writev (rpc_transport_t *this,
                 peer = &priv->peer;
                 if (list_empty (&peer->ioq)) {
                         ret = __rdma_ioq_churn_entry (peer, entry);
-                        if (ret > 0) {
+                        if (ret != 0) {
                                 need_append = 0;
                         }
                 }
