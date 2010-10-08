@@ -2337,3 +2337,53 @@ out:
         gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
+
+inline int
+glusterd_is_rb_started(glusterd_volinfo_t *volinfo)
+{
+        gf_log ("", GF_LOG_DEBUG,
+                "is_rb_started:status=%d", volinfo->rb_status);
+        return (volinfo->rb_status == GF_RB_STATUS_STARTED);
+
+}
+
+inline int
+glusterd_is_rb_paused ( glusterd_volinfo_t *volinfo)
+{
+        gf_log ("", GF_LOG_DEBUG,
+                "is_rb_paused:status=%d", volinfo->rb_status);
+
+        return (volinfo->rb_status == GF_RB_STATUS_PAUSED);
+}
+
+inline int
+glusterd_set_rb_status (glusterd_volinfo_t *volinfo, gf_rb_status_t status)
+{
+        gf_log ("", GF_LOG_DEBUG,
+                "setting status from %d to %d",
+                volinfo->rb_status,
+                status);
+
+        volinfo->rb_status = status;
+        return 0;
+}
+
+inline int
+glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
+                          glusterd_brickinfo_t *src, glusterd_brickinfo_t *dst)
+{
+        if (!volinfo->src_brick || !volinfo->dst_brick)
+                return -1;
+
+        if (strcmp (volinfo->src_brick->hostname, src->hostname) ||
+            strcmp (volinfo->src_brick->path, src->path)) {
+                gf_log("", GF_LOG_ERROR, "Replace brick src bricks differ");
+                return -1;
+        }
+        if (strcmp (volinfo->dst_brick->hostname, dst->hostname) ||
+            strcmp (volinfo->dst_brick->path, dst->path)) {
+                gf_log ("", GF_LOG_ERROR, "Replace brick dst bricks differ");
+                return -1;
+        }
+        return 0;
+}

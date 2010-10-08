@@ -1890,11 +1890,12 @@ out:
 
 int
 glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
-                             int32_t op, int32_t status, char *op_errstr)
+                             int32_t op, int32_t status,
+                             char *op_errstr, dict_t *rsp_dict)
 {
 
-        gd1_mgmt_stage_op_rsp           rsp = {{0},};
-        int                             ret = -1;
+        gd1_mgmt_stage_op_rsp           rsp      = {{0},};
+        int                             ret      = -1;
 
         GF_ASSERT (req);
         rsp.op_ret = status;
@@ -1904,6 +1905,15 @@ glusterd_op_stage_send_resp (rpcsvc_request_t   *req,
                 rsp.op_errstr = op_errstr;
         else
                 rsp.op_errstr = "";
+
+        ret = dict_allocate_and_serialize (rsp_dict,
+                                           &rsp.dict.dict_val,
+                                           (size_t *)&rsp.dict.dict_len);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "failed to get serialized length of dict");
+                return ret;
+        }
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_stage_op_rsp);

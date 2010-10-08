@@ -496,6 +496,63 @@ out:
         return ret;
 }
 
+static int32_t
+glusterd_rb_use_rsp_dict (dict_t *rsp_dict)
+{
+        int32_t  src_port = 0;
+        int32_t  dst_port = 0;
+        int      ret      = 0;
+        dict_t  *ctx      = NULL;
+
+
+        ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+        if (!ctx) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Operation Context is not present");
+                GF_ASSERT (0);
+        }
+
+        if (rsp_dict) {
+                ret = dict_get_int32 (rsp_dict, "src-brick-port", &src_port);
+                if (ret == 0) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "src-brick-port=%d found", src_port);
+                }
+
+                ret = dict_get_int32 (rsp_dict, "dst-brick-port", &dst_port);
+                if (ret == 0) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "dst-brick-port=%d found", dst_port);
+                }
+
+        }
+
+        if (src_port) {
+                ret = dict_set_int32 (ctx, "src-brick-port",
+                                      src_port);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not set src-brick");
+                        goto out;
+                }
+        }
+
+        if (dst_port) {
+                ret = dict_set_int32 (ctx, "dst-brick-port",
+                                      dst_port);
+                if (ret) {
+                        gf_log ("", GF_LOG_DEBUG,
+                                "Could not set dst-brick");
+                        goto out;
+                }
+
+        }
+
+out:
+        return ret;
+
+}
+
 int32_t
 glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
@@ -506,6 +563,7 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
         char                          str[50] = {0,};
+        dict_t                        *dict   = NULL;
 
         GF_ASSERT (req);
 
@@ -525,6 +583,24 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
         uuid_unparse (rsp.uuid, str);
+
+        if (rsp.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (rsp.dict.dict_val,
+                                        rsp.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize rsp-buffer to dictionary");
+			event_type = GD_OP_EVENT_RCVD_RJT;
+                        goto out;
+                } else {
+                        dict->extra_stdfree = rsp.dict.dict_val;
+                }
+        }
 
         op_ret = rsp.op_ret;
 
@@ -550,6 +626,12 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 }
         } else {
                 event_type = GD_OP_EVENT_RCVD_ACC;
+        }
+
+        switch (rsp.op) {
+        case GD_OP_REPLACE_BRICK:
+                glusterd_rb_use_rsp_dict (dict);
+                break;
         }
 
         ret = glusterd_op_sm_inject_event (event_type, NULL);
@@ -583,47 +665,6 @@ out:
 
 }
 
-static int32_t
-glusterd_rb_use_rsp_dict (dict_t *rsp_dict)
-{
-        int32_t  src_port = 0;
-        int      ret      = 0;
-        dict_t  *ctx      = NULL;
-
-
-        if (rsp_dict) {
-                ret = dict_get_int32 (rsp_dict, "src-brick-port", &src_port);
-                if (ret) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "src-brick-port not present");
-                        ret = 0;
-                        goto out;
-                }
-
-                if (src_port) {
-                        ctx = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-                        if (!ctx) {
-                                gf_log ("", GF_LOG_ERROR,
-                                        "Operation Context is not present");
-                                ret = 0;
-                                goto out;
-                        }
-
-                        ret = dict_set_int32 (ctx, "src-brick-port",
-                                              src_port);
-                        if (ret) {
-                                gf_log ("", GF_LOG_DEBUG,
-                                        "Could not set src-brick");
-                                goto out;
-                        }
-                }
-        }
-
-out:
-        return ret;
-
-}
-
 int32_t
 glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                           int count, void *myframe)
@@ -643,6 +684,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 rsp.op_errstr = "error";
+		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
 
@@ -652,6 +694,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 rsp.op_errstr = "error";
+		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
         uuid_unparse (rsp.uuid, str);
@@ -667,6 +710,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         gf_log ("glusterd", GF_LOG_ERROR,
                                 "failed to "
                                 "unserialize rsp-buffer to dictionary");
+			event_type = GD_OP_EVENT_RCVD_RJT;
                         goto out;
                 } else {
                         dict->extra_stdfree = rsp.dict.dict_val;
@@ -696,6 +740,7 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 }
         } else {
+                event_type = GD_OP_EVENT_RCVD_ACC;
                 switch (rsp.op) {
                 case GD_OP_REPLACE_BRICK:
                         ret = glusterd_rb_use_rsp_dict (dict);
@@ -710,9 +755,9 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 default:
                         break;
                 }
-                event_type = GD_OP_EVENT_RCVD_ACC;
         }
 
+out:
         ret = glusterd_op_sm_inject_event (event_type, NULL);
 
         if (!ret) {
@@ -720,7 +765,6 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                 glusterd_op_sm ();
         }
 
-out:
         if (dict)
                 dict_unref (dict);
         if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
@@ -1158,7 +1202,8 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = glusterd_op_stage_validate (req, &op_errstr);
+        /* rsp_dict NULL from source */
+        ret = glusterd_op_stage_validate (req, &op_errstr, NULL);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Staging failed");

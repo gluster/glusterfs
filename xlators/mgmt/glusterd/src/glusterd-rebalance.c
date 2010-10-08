@@ -408,6 +408,13 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                         goto out;
                 }
 
+                if (glusterd_is_rb_started (volinfo) ||
+                    glusterd_is_rb_paused (volinfo)) {
+                        gf_log ("glusterd", GF_LOG_DEBUG,
+                                "Replace brick is in progress on volume %s",
+                                cli_req.volname);
+                        goto out;
+                }
                 volinfo->defrag = GF_CALLOC (1, sizeof (glusterd_defrag_info_t),
                                              gf_gld_mt_defrag_info);
                 if (!volinfo->defrag)
