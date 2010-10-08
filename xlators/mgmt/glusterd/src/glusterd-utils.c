@@ -1575,6 +1575,8 @@ glusterd_import_friend_volume (dict_t *vols, int count)
 
         list_for_each_entry_safe (brickinfo, tmp, &volinfo->bricks,
                                    brick_list) {
+                glusterd_delete_volfile (volinfo, brickinfo);
+                glusterd_store_delete_brick (volinfo, brickinfo);
                 ret = glusterd_brickinfo_delete (brickinfo);
                 if (ret)
                         goto out;

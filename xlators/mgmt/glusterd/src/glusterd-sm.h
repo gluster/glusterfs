@@ -182,4 +182,6 @@ glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state);
 
 int
 glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid);
+void
+glusterd_destroy_friend_update_ctx (glusterd_friend_update_ctx_t *ctx);
 #endif

@@ -164,7 +164,7 @@ server_getspec (rpcsvc_request_t *req)
         }
 
         if (file_len) {
-                rsp.spec = CALLOC (file_len, sizeof (char));
+                rsp.spec = CALLOC (file_len+1, sizeof (char));
                 if (!rsp.spec) {
                         ret = -1;
                         op_errno = ENOMEM;

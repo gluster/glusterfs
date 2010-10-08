@@ -321,7 +321,7 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                 ret = -1;
                 goto out;
         }
-        
+
         pairs = dict->members_list;
         if (!pairs) {
                 ret = -1;
