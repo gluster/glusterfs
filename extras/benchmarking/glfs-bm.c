@@ -22,7 +22,6 @@
 
 #include <stdio.h>
 #include <argp.h>
-#include <libglusterfsclient.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -42,7 +41,6 @@ struct state {
         char need_iface_xattr:1;
 
         char need_mode_posix:1;
-        char need_mode_libglusterfsclient:1;
 
         char prefix[512];
         long int count;
@@ -50,7 +48,6 @@ struct state {
         size_t block_size;
 
         char *specfile;
-        void *libglusterfsclient_context;
 
         long int io_size;
 };
@@ -129,21 +126,6 @@ parse_opts (int key, char *arg,
                         state->need_iface_xattr = 1;
                 } else {
                         fprintf (stderr, "unknown interface: %s\n", arg);
-                        return -1;
-                }
-                break;
-        case 'm':
-                if (strcasecmp (arg, "posix") == 0) {
-                        state->need_mode_posix = 1;
-                        state->need_mode_libglusterfsclient = 0;
-                } else if (strcasecmp (arg, "libglusterfsclient") == 0) {
-                        state->need_mode_posix = 0;
-                        state->need_mode_libglusterfsclient = 1;
-                } else if (strcasecmp (arg, "both") == 0) {
-                        state->need_mode_posix = 1;
-                        state->need_mode_libglusterfsclient = 1;
-                } else {
-                        fprintf (stderr, "unknown mode: %s\n", arg);
                         return -1;
                 }
                 break;
@@ -342,176 +324,6 @@ do_mode_posix_iface_xattr (struct state *state)
         return 0;
 }
 
-
-int
-do_mode_libglusterfsclient_iface_fileio_write (struct state *state)
-{
-        long int i;
-        int ret = -1;
-        char block[state->block_size];
-
-        for (i=0; i<state->count; i++) {
-                glusterfs_file_t fd = 0;
-                char filename[512];
-
-                sprintf (filename, "/%s.%06ld", state->prefix, i);
-
-                fd = glusterfs_glh_open (state->libglusterfsclient_context,
-                                         filename, O_CREAT|O_WRONLY, 0);
-
-                if (fd == 0) {
-                        fprintf (stderr, "open(%s) => %s\n", filename, strerror (errno));
-                        break;
-                }
-                ret = glusterfs_write (fd, block, state->block_size);
-                if (ret == -1) {
-                        fprintf (stderr, "glusterfs_write(%s) => %s\n", filename, strerror (errno));
-                        glusterfs_close (fd);
-                        break;
-                }
-                glusterfs_close (fd);
-                state->io_size += ret;
-        }
-
-        return i;
-}
-
-
-int
-do_mode_libglusterfsclient_iface_fileio_read (struct state *state)
-{
-        long int i;
-        int ret = -1;
-        char block[state->block_size];
-
-        for (i=0; i<state->count; i++) {
-                glusterfs_file_t fd = 0;
-                char filename[512];
-
-                sprintf (filename, "/%s.%06ld", state->prefix, i);
-
-                fd = glusterfs_glh_open (state->libglusterfsclient_context,
-                                         filename, O_RDONLY, 0);
-
-                if (fd == 0) {
-                        fprintf (stderr, "glusterfs_glh_open(%s) => %s\n",
-                                 filename, strerror (errno));
-                        break;
-                }
-                ret = glusterfs_read (fd, block, state->block_size);
-                if (ret == -1) {
-                        fprintf (stderr, "glusterfs_read(%s) => %s\n", filename,
-                                 strerror (errno));
-                        glusterfs_close (fd);
-                        break;
-                }
-                glusterfs_close (fd);
-                state->io_size += ret;
-        }
-
-        return i;
-}
-
-
-int
-do_mode_libglusterfsclient_iface_fileio (struct state *state)
-{
-        if (state->need_op_write)
-                MEASURE (do_mode_libglusterfsclient_iface_fileio_write, state);
-
-        if (state->need_op_read)
-                MEASURE (do_mode_libglusterfsclient_iface_fileio_read, state);
-
-        return 0;
-}
-
-
-int
-do_mode_libglusterfsclient_iface_xattr_write (struct state *state)
-{
-        long int i;
-        int ret = -1;
-        char block[state->block_size];
-        char *dname = NULL, *dirc = NULL;
-        char *bname = NULL, *basec = NULL;
-
-        asprintf (&dirc, "/%s", state->prefix);
-        asprintf (&basec, "/%s", state->prefix);
-        dname = dirname (dirc);
-        bname = basename (basec);
-
-        for (i=0; i<state->count; i++) {
-                char key[512];
-
-                sprintf (key, "glusterfs.file.%s.%06ld", bname, i);
-
-                ret = glusterfs_glh_setxattr (state->libglusterfsclient_context,
-                                              dname, key, block,
-                                              state->block_size, 0);
-
-                if (ret < 0) {
-                        fprintf (stderr, "glusterfs_glh_setxattr (%s, %s, %p) "
-                                 "=> %s\n", dname, key, block,
-                                 strerror (errno));
-                        break;
-                }
-                state->io_size += state->block_size;
-        }
-
-        return i;
-
-}
-
-
-int
-do_mode_libglusterfsclient_iface_xattr_read (struct state *state)
-{
-        long int i;
-        int ret = -1;
-        char block[state->block_size];
-        char *dname = NULL, *dirc = NULL;
-        char *bname = NULL, *basec = NULL;
-
-        dirc = strdup (state->prefix);
-        basec = strdup (state->prefix);
-        dname = dirname (dirc);
-        bname = basename (basec);
-
-        for (i=0; i<state->count; i++) {
-                char key[512];
-
-                sprintf (key, "glusterfs.file.%s.%06ld", bname, i);
-
-                ret = glusterfs_glh_getxattr (state->libglusterfsclient_context,
-                                              dname, key, block,
-                                              state->block_size);
-
-                if (ret < 0) {
-                        fprintf (stderr, "glusterfs_glh_getxattr (%s, %s, %p) "
-                                 "=> %s\n", dname, key, block,
-                                 strerror (errno));
-                        break;
-                }
-                state->io_size += ret;
-        }
-
-        return i;
-}
-
-
-int
-do_mode_libglusterfsclient_iface_xattr (struct state *state)
-{
-        if (state->need_op_write)
-                MEASURE (do_mode_libglusterfsclient_iface_xattr_write, state);
-
-        if (state->need_op_read)
-                MEASURE (do_mode_libglusterfsclient_iface_xattr_read, state);
-
-        return 0;
-}
-
-
 int
 do_mode_posix (struct state *state)
 {
@@ -526,46 +338,8 @@ do_mode_posix (struct state *state)
 
 
 int
-do_mode_libglusterfsclient (struct state *state)
-{
-        glusterfs_init_params_t ctx = {
-                .logfile = "/dev/stderr",
-                .loglevel = "error",
-                .lookup_timeout = 60,
-                .stat_timeout = 60,
-        };
-
-	ctx.specfile = state->specfile;
-        if (state->specfile) {
-                state->libglusterfsclient_context = glusterfs_init (&ctx, 1);
-
-                if (!state->libglusterfsclient_context) {
-                        fprintf (stdout, "Unable to initialize glusterfs "
-                                 "context, skipping libglusterfsclient mode\n");
-                        return -1;
-                }
-        } else {
-                fprintf (stdout, "glusterfs volume specification file not "
-                         "provided, skipping libglusterfsclient mode\n");
-                return -1;
-        }
-
-        if (state->need_iface_fileio)
-                do_mode_libglusterfsclient_iface_fileio (state);
-
-        if (state->need_iface_xattr)
-                do_mode_libglusterfsclient_iface_xattr (state);
-
-        return 0;
-}
-
-
-int
 do_actions (struct state *state)
 {
-        if (state->need_mode_libglusterfsclient)
-                do_mode_libglusterfsclient (state);
-
         if (state->need_mode_posix)
                 do_mode_posix (state);
 
@@ -577,8 +351,6 @@ static struct argp_option options[] = {
          "WRITE|READ|BOTH - defaults to BOTH"},
         {"iface", 'i', "INTERFACE", 0,
          "FILEIO|XATTR|BOTH - defaults to FILEIO"},
-        {"mode", 'm', "MODE", 0,
-         "POSIX|LIBGLUSTERFSCLIENT|BOTH - defaults to POSIX"},
         {"block", 'b', "BLOCKSIZE", 0,
          "<NUM> - defaults to 4096"},
         {"specfile", 's', "SPECFILE", 0,
@@ -609,7 +381,6 @@ main (int argc, char *argv[])
         state.need_iface_xattr = 0;
 
         state.need_mode_posix = 1;
-        state.need_mode_libglusterfsclient = 0;
 
         state.block_size = 4096;
 
