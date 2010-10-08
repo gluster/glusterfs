@@ -58,6 +58,22 @@ static  char *glusterd_friend_sm_state_names[] = {
         "Invalid State"
 };
 
+static char *glusterd_friend_sm_event_names[] = {
+        "GD_FRIEND_EVENT_NONE",
+        "GD_FRIEND_EVENT_PROBE",
+        "GD_FRIEND_EVENT_INIT_FRIEND_REQ",
+        "GD_FRIEND_EVENT_RCVD_ACC",
+        "GD_FRIEND_EVENT_LOCAL_ACC",
+        "GD_FRIEND_EVENT_RCVD_RJT",
+        "GD_FRIEND_EVENT_LOCAL_RJT",
+        "GD_FRIEND_EVENT_RCVD_FRIEND_REQ",
+        "GD_FRIEND_EVENT_INIT_REMOVE_FRIEND",
+        "GD_FRIEND_EVENT_RCVD_REMOVE_FRIEND",
+        "GD_FRIEND_EVENT_REMOVE_FRIEND",
+        "GD_FRIEND_EVENT_CONNECTED",
+        "GD_FRIEND_EVENT_MAX"
+};
+
 char*
 glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state)
 {
@@ -65,6 +81,15 @@ glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state)
                 return glusterd_friend_sm_state_names[GD_FRIEND_STATE_MAX];
         return glusterd_friend_sm_state_names[state];
 }
+
+char*
+glusterd_friend_sm_event_name_get (glusterd_friend_sm_event_type_t event)
+{
+        if (event < 0 || event >= GD_FRIEND_EVENT_MAX)
+                return glusterd_friend_sm_event_names[GD_FRIEND_EVENT_MAX];
+        return glusterd_friend_sm_event_names[event];
+}
+
 void
 glusterd_destroy_probe_ctx (glusterd_probe_ctx_t *ctx)
 {
@@ -530,8 +555,12 @@ glusterd_friend_sm_transition_state (glusterd_peerinfo_t *peerinfo,
 
         //peerinfo->state.state = state;
 
-        gf_log ("", GF_LOG_NORMAL, "Transitioning from %d to %d",
-                        peerinfo->state.state, state[event_type].next_state);
+        gf_log ("", GF_LOG_NORMAL, "Transitioning from '%s' to '%s' due to "
+                "event '%s'",
+                glusterd_friend_sm_state_name_get (peerinfo->state.state),
+                glusterd_friend_sm_state_name_get (state[event_type].next_state),
+                glusterd_friend_sm_event_name_get (event_type));
+
         peerinfo->state.state = state[event_type].next_state;
         return 0;
 }
@@ -703,8 +732,8 @@ int
 glusterd_friend_sm_inject_event (glusterd_friend_sm_event_t *event)
 {
         GF_ASSERT (event);
-        gf_log ("glusterd", GF_LOG_NORMAL, "Enqueuing event: %d",
-                        event->event);
+        gf_log ("glusterd", GF_LOG_NORMAL, "Enqueuing event: '%s'",
+                glusterd_friend_sm_event_name_get (event->event));
         list_add_tail (&event->list, &gd_friend_sm_queue);
 
         return 0;
@@ -725,7 +754,7 @@ glusterd_destroy_friend_event_context (glusterd_friend_sm_event_t *event)
         case GD_FRIEND_EVENT_LOCAL_RJT:
         case GD_FRIEND_EVENT_RCVD_ACC:
         case GD_FRIEND_EVENT_RCVD_RJT:
-                glusterd_destroy_friend_update_ctx(event->ctx);
+                glusterd_destroy_friend_update_ctx (event->ctx);
                 break;
         default:
                 break;
@@ -782,12 +811,15 @@ glusterd_friend_sm ()
                                 continue;
                         }
 
-                        ret = glusterd_friend_sm_transition_state (peerinfo, state, event_type);
+                        ret = glusterd_friend_sm_transition_state (peerinfo,
+                                                            state, event_type);
 
                         if (ret) {
                                 gf_log ("glusterd", GF_LOG_ERROR, "Unable to transition"
-                                        "state from %d to %d", peerinfo->state.state,
-                                         state[event_type].next_state);
+                                        " state from '%s' to '%s' for event '%s'",
+                        glusterd_friend_sm_state_name_get(peerinfo->state.state),
+                        glusterd_friend_sm_state_name_get(state[event_type].next_state),
+                                glusterd_friend_sm_event_name_get(event_type));
                                 goto out;
                         }
 
@@ -801,7 +833,6 @@ glusterd_friend_sm ()
                 if (is_await_conn)
                         break;
         }
-
 
         ret = 0;
 out:

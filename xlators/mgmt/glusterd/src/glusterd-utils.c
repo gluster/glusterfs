@@ -2080,8 +2080,8 @@ glusterd_friend_find_by_uuid (uuid_t uuid,
                 if (!uuid_compare (entry->uuid, uuid)) {
 
                         gf_log ("glusterd", GF_LOG_NORMAL,
-                                 "Friend found.. state: %d",
-                                  entry->state.state);
+                                 "Friend found.. state: %s",
+                        glusterd_friend_sm_state_name_get (entry->state.state));
                         *peerinfo = entry;
                         return 0;
                 }
