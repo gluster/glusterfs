@@ -1590,6 +1590,14 @@ fuse_open_resume (fuse_state_t *state)
         fd_t *fd = NULL;
 
         fd = fd_create (state->loc.inode, state->finh->pid);
+        if (!fd) {
+                gf_log ("fuse", GF_LOG_ERROR,
+                        "fd is NULL");
+                send_fuse_err (state->this, state->finh, ENOENT);
+                free_fuse_state (state);
+                return;
+        }
+
         state->fd = fd;
         fd->flags = state->flags;
 
