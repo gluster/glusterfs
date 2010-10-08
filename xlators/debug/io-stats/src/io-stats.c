@@ -1586,11 +1586,7 @@ reconfigure (xlator_t *this, dict_t *options)
         if (!ctx)
                 return -1;
 
-        if (ctx->cmd_args.brick_name)
-                ret = dict_get_str (options, "log-level", &log_str);
-        else
-                ret = dict_get_str (options, "client-log-level", &log_str);
-
+        ret = dict_get_str (options, "log-level", &log_str);
         if (!ret) {
                 if (!is_gf_log_command(this, "trusted.glusterfs*set-log-level", log_str)) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -1760,9 +1756,6 @@ struct volume_options options[] = {
           .type = GF_OPTION_TYPE_BOOL,
         },
         { .key = {"log-level"},
-          .type = GF_OPTION_TYPE_STR,
-        },
-        { .key = {"client-log-level"},
           .type = GF_OPTION_TYPE_STR,
         },
         { .key  = {NULL} },

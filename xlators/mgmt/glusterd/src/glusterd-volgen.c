@@ -101,8 +101,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"diagnostics.latency-measurement",      "debug/io-stats",            },
         {"diagnostics.dump-fd-stats",            "debug/io-stats",            },
-        {"diagnostics.brick-log-level",          "debug/io-stats",            "log-level",},
-        {"diagnostics.client-log-level",         "debug/io-stats",            },
+        {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level",},
+        {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level",},
 
         {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size",},
         {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size",},
@@ -727,6 +727,36 @@ server_auth_option_handler (glusterfs_graph_t *graph,
 }
 
 static int
+loglevel_option_handler (glusterfs_graph_t *graph,
+                         struct volopt_map_entry *vme, void *param)
+{
+        char *role = param;
+        struct volopt_map_entry vme2 = {0,};
+
+        if (strcmp (vme->option, "!log-level") != 0 ||
+            !strstr (vme->key, role))
+                return 0;
+
+        memcpy (&vme2, vme, sizeof (vme2));
+        vme2.option = "log-level";
+
+        return basic_option_handler (graph, &vme2, NULL);
+}
+
+static int
+server_spec_option_handler (glusterfs_graph_t *graph,
+                            struct volopt_map_entry *vme, void *param)
+{
+        int ret = 0;
+
+        ret = server_auth_option_handler (graph, vme, NULL);
+        if (!ret)
+                ret = loglevel_option_handler (graph, vme, "brick");
+
+        return ret;
+}
+
+static int
 server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
@@ -809,7 +839,7 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 return -1;
 
         ret = volgen_graph_set_options_generic (graph, set_dict, NULL,
-                                                &server_auth_option_handler);
+                                                &server_spec_option_handler);
 
         return ret;
 }
@@ -999,7 +1029,10 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         if (!xl)
                 return -1;
 
-        return 0;
+        ret = volgen_graph_set_options_generic (graph, set_dict, "client",
+                                                &loglevel_option_handler);
+
+        return ret;
 }
 
 
