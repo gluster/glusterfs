@@ -355,7 +355,7 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (!dict)
                 goto out;
 
-        if (wordcount < 3)
+        if (wordcount < 4)
                 goto out;
 
         volname = (char *)words[2];
@@ -367,11 +367,12 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
         if (ret)
                 goto out;
 
+
         for (i = 3; i < wordcount; i+=2) {
 
 		key = (char *) words[i];
 		value = (char *) words[i+1];
-                
+
                 if ( key && !value ) {
                         if ( !strcmp (key, "history")) {
                                 ret = dict_set_str (dict, key, "history");
@@ -384,10 +385,9 @@ cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
                                 goto out;
                         }
                 }
-                
+
 		if ( !key || !value) {
 			ret = -1;
-			cli_out ("Usage: volume set <VOLNAME> <KEY> <VALUE>");
 			goto out;
         	}
 

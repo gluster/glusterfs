@@ -1191,13 +1191,12 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
          dict = dict_new ();
          if (!dict)
                  goto out;
-        
+
         val_dict = dict_new();
         if (!val_dict)
                 goto out;
  
  	ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-	ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
@@ -1217,46 +1216,48 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
                         "does not exist", volname);
                 snprintf (errstr, 2048, "Volume : %s does not exist",
-                          key);
+                          volname);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                 goto out;
         }
-        
+
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
                 goto out;
         }
-        
+
         ret = dict_get_int32 (dict, "count", &dict_count);
-        
+
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Count(dict),not set in Volume-Set");
                 goto out;
         }
-        
+
         if ( dict_count == 1 ) {
                 if (dict_get (dict, "history" )) {
                         ret = 0;
                         goto out;
                 }
-                
+
                 gf_log ("", GF_LOG_ERROR, "No options received ");
+                *op_errstr = gf_strdup ("Options not specified");
                 ret = -1;
                 goto out;
         }
 
-	
 
-	for ( count = 1; ret != -1 ; count++ ) {
+
+	for ( count = 1; ret != 1 ; count++ ) {
 
 		sprintf (str, "key%d", count);
 		ret = dict_get_str (dict, str, &key);
 
 		
 		if (ret) 
-			break;
+                        break;
+
 		
 		exists = glusterd_check_option_exists (key, NULL);
 
@@ -1270,7 +1271,7 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 			ret = -1;
 			goto out;
         	}
-                
+
                 sprintf (str, "value%d", count);
                 ret = dict_get_str (dict, str, &value);
  
@@ -1280,9 +1281,9 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
-                
+
                 ret = dict_set_str (val_dict, key, value);
-                        
+
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to set the options"
                                         "in 'volume set'");
@@ -1306,20 +1307,24 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         ret = 0;
 
 out:
-       if (dict)
+        if (dict)
                 dict_unref (dict);
-       if (ret) {
-               if (!(*op_errstr)) {
-                       *op_errstr = gf_strdup ("Error, Validation Failed");
-                       gf_log ("glsuterd", GF_LOG_DEBUG, 
-                               "Error, Cannot Validate option :%s",
-                               *op_errstr);
-               }
-               else
-                       gf_log ("glsuterd", GF_LOG_DEBUG,  
-                               "Error, Cannot Validate option");
-       }
-       return ret;
+
+        if (val_dict)
+                dict_unref (val_dict);
+
+        if (ret) {
+                if (!(*op_errstr)) {
+                        *op_errstr = gf_strdup ("Error, Validation Failed");
+                        gf_log ("glsuterd", GF_LOG_DEBUG,
+                                "Error, Cannot Validate option :%s",
+                                *op_errstr);
+                }
+                else
+                        gf_log ("glsuterd", GF_LOG_DEBUG,
+                        "Error, Cannot Validate option");
+        }
+return ret;
 }
 
 static int

@@ -2786,40 +2786,45 @@ _print (dict_t *unused, char *key, data_t *value, void *newdict)
 int
 glusterd_set_volume_history (rpcsvc_request_t *req,dict_t *dict)
 {
-//         dict_t                 *reply_dict = NULL;
         glusterd_volinfo_t     *volinfo    = NULL;
         gf1_cli_set_vol_rsp     rsp        = {0, };
         int                     ret        = -1;
         char                   *volname    = NULL;
-        
-        gf_log ("", GF_LOG_DEBUG, "'volume set history' command");
-        
+        char                    vol[256]   = {0, };
+
         ret = dict_get_str (dict, "volname", &volname);
 
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
         }
 
         ret = glusterd_volinfo_find (volname, &volinfo);
         if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "'volume set' Volume %s not found", volname);
+                snprintf (vol, 256, "Volume %s not present", volname);
+
+                rsp.op_errstr = gf_strdup (vol);
+                if (!rsp.op_errstr) {
+                        rsp.op_errstr = "";
+                        gf_log ("glusterd", GF_LOG_ERROR, "Out of memory");
+                }
                 goto out;
         }
-        
 
-        
         dict_foreach (volinfo->dict, _print, volinfo->dict);
-        
+
         ret = dict_allocate_and_serialize (volinfo->dict, &rsp.dict.dict_val,
                                            (size_t *)&rsp.dict.dict_len);
- 
+
 
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG, "FAILED: allocatea n serialize dict");
                 goto out;
         }
 
+out:
         if (!ret)
                 rsp.op_ret = 1;
         else
@@ -2827,12 +2832,12 @@ glusterd_set_volume_history (rpcsvc_request_t *req,dict_t *dict)
         if (!rsp.volname) 
                 rsp.volname = "";
         if (!rsp.op_errstr)
-                rsp.op_errstr = "";
+                rsp.op_errstr = "Error, Validation failed";
 
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gf_xdr_serialize_cli_set_vol_rsp);
 
-out:
+
                 gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
