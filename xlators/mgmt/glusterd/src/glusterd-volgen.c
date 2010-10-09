@@ -125,7 +125,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"auth.allow",                           "protocol/server",           "!server-auth", "*"},
         {"auth.reject",                          "protocol/server",           "!server-auth",},
-        
+
         {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive",},
 
         {"performance.write-behind",             "performance/write-behind",  "!perf", "on"}, /* NODOC */
@@ -186,6 +186,7 @@ xlator_instantiate_va (const char *type, const char *format, va_list arg)
         if (!xl->options)
                 goto error;
         xl->name = volname;
+        INIT_LIST_HEAD (&xl->volume_options);
 
         return xl;
 

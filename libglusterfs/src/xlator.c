@@ -1205,6 +1205,9 @@ xlator_list_destroy (xlator_list_t *list)
 int
 xlator_destroy (xlator_t *xl)
 {
+        volume_opt_list_t *vol_opt = NULL;
+        volume_opt_list_t *tmp     = NULL;
+
         if (!xl)
                 return 0;
 
@@ -1220,6 +1223,11 @@ xlator_destroy (xlator_t *xl)
         xlator_list_destroy (xl->children);
 
         xlator_list_destroy (xl->parents);
+
+        list_for_each_entry_safe (vol_opt, tmp, &xl->volume_options, list) {
+                list_del_init (&vol_opt->list);
+                GF_FREE (vol_opt);
+        }
 
         GF_FREE (xl);
 
