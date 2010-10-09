@@ -2265,6 +2265,7 @@ glusterd_friend_add (const char *hoststr, int port,
         glusterd_peer_hostname_t *name = NULL;
         char                    *hostname = NULL;
         glusterd_peerctx_t     *peerctx = NULL;
+        int32_t                 intvl = 0;
 
         priv = THIS->private;
 
@@ -2310,6 +2311,26 @@ glusterd_friend_add (const char *hoststr, int port,
                 if (!options) {
                         ret = -1;
                         goto out;
+                }
+
+                ret = dict_get_int32 (THIS->options,
+                                      "transport.socket.keepalive-interval",
+                                      &intvl);
+                if (!ret) {
+                        ret = dict_set_int32 (options,
+                                "transport.socket.keepalive-interval", intvl);
+                        if (ret)
+                                goto out;
+                }
+
+                ret = dict_get_int32 (THIS->options,
+                                      "transport.socket.keepalive-time",
+                                      &intvl);
+                if (!ret) {
+                        ret = dict_set_int32 (options,
+                                "transport.socket.keepalive-time", intvl);
+                        if (ret)
+                                goto out;
                 }
 
                 hostname = gf_strdup((char*)hoststr);
