@@ -1643,6 +1643,9 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         glusterd_volinfo_t     *volinfo = NULL;
         glusterd_brickinfo_t   *brickinfo = NULL;
         char                    tmp_str[PATH_MAX] = {0,};
+        char                   *tmp_brick = NULL;
+        uint32_t                found = 0;
+        glusterd_brickinfo_t   *tmpbrkinfo = NULL;
 
         GF_ASSERT (req);
 
@@ -1660,7 +1663,17 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         if (strchr (cli_req.brick, ':')) {
                 /* TODO: need to get info of only that brick and then
                    tell what is the exact location */
+                tmp_brick = gf_strdup (cli_req.brick);
+                if (!tmp_brick)
+                        goto out;
+
                 gf_log ("", GF_LOG_DEBUG, "brick : %s", cli_req.brick);
+                ret = glusterd_brickinfo_from_brick (tmp_brick, &tmpbrkinfo);
+                if (ret) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "Cannot get brickinfo from the brick");
+                        goto out;
+                }
         }
 
         ret = glusterd_volinfo_find (cli_req.volname, &volinfo);
@@ -1670,19 +1683,42 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
         }
 
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (tmpbrkinfo) {
+                        ret = glusterd_resolve_brick (tmpbrkinfo);
+                        if (ret) {
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "cannot resolve the brick");
+                                goto out;
+                        }
+                        if (uuid_compare (tmpbrkinfo->uuid, brickinfo->uuid) || strcmp (brickinfo->path, tmpbrkinfo->path))
+                                continue;
+                }
+
                 if (brickinfo->logfile) {
                         strcpy (tmp_str, brickinfo->logfile);
                         rsp.path = dirname (tmp_str);
+                        found = 1;
                 } else {
                         snprintf (tmp_str, PATH_MAX, "%s/logs/bricks/",
                                   priv->workdir);
                         rsp.path = tmp_str;
+                        found = 1;
                 }
                 break;
         }
 
+        if (!found) {
+                snprintf (tmp_str, PATH_MAX, "brick %s:%s does not exitst in the volume %s",
+                          tmpbrkinfo->hostname, tmpbrkinfo->path, cli_req.volname);
+                rsp.path = tmp_str;
+        }
+
         ret = 0;
 out:
+        if (tmp_brick)
+                GF_FREE (tmp_brick);
+        if (tmpbrkinfo)
+                glusterd_brickinfo_delete (tmpbrkinfo);
         rsp.op_ret = ret;
         if (!rsp.path)
                 rsp.path = "";
