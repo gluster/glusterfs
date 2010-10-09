@@ -340,36 +340,32 @@ out:
 int
 validate_auth_options (xlator_t *this, dict_t *dict)
 {
-        int            ret = -1;
         int            error = 0;
         xlator_list_t *trav = NULL;
         data_pair_t   *pair = NULL;
-        char          *saveptr = NULL;
-        char          *tmp = NULL;
-        char          *key_cpy = NULL;
+        char          *tail = NULL;
 
         trav = this->children;
         while (trav) {
                 error = -1;
                 for (pair = dict->members_list; pair; pair = pair->next) {
-                        key_cpy = gf_strdup (pair->key);
-                        tmp = strtok_r (key_cpy, ".", &saveptr);
-                        ret = strcmp (tmp, "auth");
-                        if (ret == 0) {
-                                /* for module type */
-                                tmp = strtok_r (NULL, ".", &saveptr);
-                                if (!tmp)
-                                        break;
-                                /* for volume name */
-                                tmp = strtok_r (NULL, ".", &saveptr);
-                        }
+                        tail = strtail (pair->key, "auth.");
+                        if (!tail)
+                                continue;
+                        /* fast fwd thru module type */
+                        tail = strchr (tail, '.');
+                        if (!tail)
+                                continue;
+                        tail++;
 
-                        if (strcmp (tmp, trav->xlator->name) == 0) {
+                        tail = strtail (tail, trav->xlator->name);
+                        if (!tail)
+                                continue;
+
+                        if (*tail == '.') {
                                 error = 0;
-                                GF_FREE (key_cpy);
                                 break;
                         }
-                        GF_FREE (key_cpy);
                 }
                 if (-1 == error) {
                         gf_log (this->name, GF_LOG_ERROR,
