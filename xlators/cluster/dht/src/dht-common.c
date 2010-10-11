@@ -4742,6 +4742,13 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
 		return -1;
 	}
 
+	conf->last_event = GF_CALLOC (cnt, sizeof (int),
+                                      gf_dht_mt_char);
+	if (!conf->last_event) {
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory");
+		return -1;
+	}
         return 0;
 }
 
@@ -4754,11 +4761,23 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 	int         i      = -1;
 	dht_conf_t *conf   = NULL;
 	int         ret    = -1;
+        int         propagate = 0;
+
+        int         had_heard_from_all = 0;
+        int         have_heard_from_all = 0;
 
 
 	conf = this->private;
         if (!conf)
                 return ret;
+
+        /* had all subvolumes reported status once till now? */
+        had_heard_from_all = 1;
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (!conf->last_event[i]) {
+                        had_heard_from_all = 0;
+                }
+        }
 
 	switch (event) {
 	case GF_EVENT_CHILD_UP:
@@ -4783,6 +4802,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 		LOCK (&conf->subvolume_lock);
 		{
 			conf->subvolume_status[cnt] = 1;
+                        conf->last_event[cnt] = event;
 		}
 		UNLOCK (&conf->subvolume_lock);
 
@@ -4811,13 +4831,76 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 		LOCK (&conf->subvolume_lock);
 		{
 			conf->subvolume_status[cnt] = 0;
+                        conf->last_event[cnt] = event;
+		}
+		UNLOCK (&conf->subvolume_lock);
+
+                break;
+
+	case GF_EVENT_CHILD_CONNECTING:
+		subvol = data;
+
+		for (i = 0; i < conf->subvolume_cnt; i++) {
+			if (subvol == conf->subvolumes[i]) {
+				cnt = i;
+				break;
+			}
+		}
+
+		if (cnt == -1) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"got GF_EVENT_CHILD_CONNECTING bad subvolume %s",
+				subvol->name);
+			break;
+		}
+
+		LOCK (&conf->subvolume_lock);
+		{
+                        conf->last_event[cnt] = event;
 		}
 		UNLOCK (&conf->subvolume_lock);
 
 		break;
+        default:
+                propagate = 1;
+                break;
 	}
 
-	ret = default_notify (this, event, data);
+
+        /* have all subvolumes reported status once by now? */
+        have_heard_from_all = 1;
+        for (i = 0; i < conf->subvolume_cnt; i++) {
+                if (!conf->last_event[i])
+                        have_heard_from_all = 0;
+        }
+
+        /* if all subvols have reported status, no need to hide anything
+           or wait for anything else. Just propagate blindly */
+        if (have_heard_from_all)
+                propagate = 1;
+
+        if (!had_heard_from_all && have_heard_from_all) {
+                /* This is the first event which completes aggregation
+                   of events from all subvolumes. If at least one subvol
+                   had come up, propagate CHILD_UP, but only this time
+                */
+                event = GF_EVENT_CHILD_DOWN;
+
+                for (i = 0; i < conf->subvolume_cnt; i++) {
+                        if (conf->last_event[i] == GF_EVENT_CHILD_UP) {
+                                event = GF_EVENT_CHILD_UP;
+                                break;
+                        }
+
+                        if (conf->last_event[i] == GF_EVENT_CHILD_CONNECTING) {
+                                event = GF_EVENT_CHILD_CONNECTING;
+                                /* continue to check other events for CHILD_UP */
+                        }
+                }
+        }
+
+        if (propagate)
+                ret = default_notify (this, event, data);
 
 	return ret;
 }
