@@ -74,6 +74,8 @@ nfs_fop_local_wipe (xlator_t *nfsx, struct nfs_fop_local *l)
         if (l->dictgfid)
                 dict_unref (l->dictgfid);
 
+        loc_wipe (&l->revalidate_loc);
+
         mem_put (nfs->foppool, l);
 
         return;
@@ -300,9 +302,27 @@ nfs_fop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *local = NULL;
         fop_lookup_cbk_t        progcbk;
+        inode_table_t           *itable = NULL;
+        xlator_t                *xl = NULL;
 
+        xl = cookie;
         nfl_to_prog_data (local, progcbk, frame);
         nfs_fop_restore_root_ino (local, buf, NULL, NULL, postparent);
+
+        if (op_ret == -1 && local->is_revalidate == 1) {
+                /* perform a fresh lookup if revalidate fails */
+                itable = local->revalidate_loc.inode->table;
+                inode_unref (local->revalidate_loc.inode);
+                local->revalidate_loc.inode = inode_new (itable);
+
+                local->is_revalidate = 2; /* prevent entering revalidate loops */
+
+                STACK_WIND_COOKIE (frame, nfs_fop_lookup_cbk, xl, xl,
+                                   xl->fops->lookup, &local->revalidate_loc,
+                                   local->dictgfid);
+                return 0;
+        }
+
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          xattr, postparent);
@@ -328,6 +348,11 @@ nfs_fop_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
         nfs_fop_gfid_setup (nfl, ret, err);
+
+        if (!uuid_is_null (loc->inode->gfid)) {
+                nfl->is_revalidate = 1;
+                loc_copy (&nfl->revalidate_loc, loc);
+        }
 
         STACK_WIND_COOKIE (frame, nfs_fop_lookup_cbk, xl, xl,
                            xl->fops->lookup, loc, nfl->dictgfid);
