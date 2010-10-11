@@ -336,6 +336,56 @@ err:
 
 
 int32_t
+nfs_inode_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, inode_t *inode,
+                      struct iatt *buf, dict_t *xattr,
+                      struct iatt *postparent)
+{
+        struct nfs_fop_local    *nfl = NULL;
+        fop_lookup_cbk_t         progcbk = NULL;
+        inode_t                 *linked_inode = NULL;
+
+        if (op_ret == -1)
+                goto do_not_link;
+
+        nfl = frame->local;
+        linked_inode = inode_link (inode, nfl->newparent, nfl->path, buf);
+
+        if (linked_inode)
+                inode_unref (linked_inode);
+
+do_not_link:
+        inodes_nfl_to_prog_data (nfl, progcbk, frame);
+        if (progcbk)
+                progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
+                         xattr, postparent);
+        return 0;
+}
+
+
+int
+nfs_inode_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
+                  fop_lookup_cbk_t cbk, void *local)
+{
+        struct nfs_fop_local            *nfl = NULL;
+        int                             ret = -EFAULT;
+
+        if ((!nfsx) || (!xl) || (!loc) || (!nfu))
+                return -EFAULT;
+
+        nfs_fop_handle_local_init (NULL, nfsx, nfl, cbk, local, ret, err);
+        nfl_inodes_init (nfl, NULL, NULL, loc->parent, loc->name, NULL);
+        ret = nfs_fop_lookup (nfsx, xl, nfu, loc, nfs_inode_lookup_cbk, nfl);
+
+err:
+        if (ret < 0)
+                nfs_fop_local_wipe (xl, nfl);
+
+        return ret;
+}
+
+
+int32_t
 nfs_inode_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                       struct iatt *postparent)
