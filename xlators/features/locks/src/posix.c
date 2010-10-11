@@ -71,6 +71,45 @@ pl_new_fdctx ()
 }
 
 static pl_fdctx_t *
+pl_check_n_create_fdctx (xlator_t *this, fd_t *fd)
+{
+        int         ret   = 0;
+        uint64_t    tmp   = 0;
+        pl_fdctx_t *fdctx = NULL;
+
+        if ((this == NULL) || (fd == NULL)) {
+                goto out;
+        }
+
+        LOCK (&fd->lock);
+        {
+                ret = __fd_ctx_get (fd, this, &tmp);
+                if ((ret != 0) || (tmp == 0)) {
+                        fdctx = pl_new_fdctx ();
+                        if (fdctx == NULL) {
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "out of memory");
+                                goto unlock;
+                        }
+                }
+
+                ret = __fd_ctx_set (fd, this, (uint64_t)(long)fdctx);
+                if (ret != 0) {
+                        GF_FREE (fdctx);
+                        fdctx = NULL;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "failed to set fd ctx");
+                }
+        }
+unlock:
+        UNLOCK (&fd->lock);
+
+out:
+        return fdctx;
+}
+
+/*
+static pl_fdctx_t *
 pl_get_fdctx (xlator_t *this, fd_t *fd)
 {
         int ret = 0;
@@ -109,6 +148,7 @@ out:
         return ret;
 
 }
+*/
 
 int
 pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -368,32 +408,17 @@ pl_opendir_cbk (call_frame_t *frame,
 		     fd_t *fd)
 {
         pl_fdctx_t *fdctx = NULL;
-        int ret = -1;
 
         if (op_ret < 0)
                 goto unwind;
 
-        fdctx = pl_get_fdctx (this, fd);
+        fdctx = pl_check_n_create_fdctx (this, fd);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "fdctx not present");
-                fdctx = pl_new_fdctx ();
-                if (!fdctx) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        op_errno = ENOMEM;
-                        op_ret   = -1;
-                        goto unwind;
-                }
-
-                ret = pl_set_fdctx (this, fd, fdctx);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "could not set fdctx");
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto unwind;
-                }
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                op_errno = ENOMEM;
+                op_ret   = -1;
+                goto unwind;
         }
 
 unwind:
@@ -481,32 +506,17 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
         pl_fdctx_t *fdctx = NULL;
-        int ret = -1;
 
         if (op_ret < 0)
                 goto unwind;
 
-        fdctx = pl_get_fdctx (this, fd);
+        fdctx = pl_check_n_create_fdctx (this, fd);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "fdctx not present");
-                fdctx = pl_new_fdctx ();
-                if (!fdctx) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        op_errno = ENOMEM;
-                        op_ret   = -1;
-                        goto unwind;
-                }
-
-                ret = pl_set_fdctx (this, fd, fdctx);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "could not set fdctx");
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto unwind;
-                }
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                op_errno = ENOMEM;
+                op_ret   = -1;
+                goto unwind;
         }
 
 unwind:
@@ -536,32 +546,17 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
                struct iatt *preparent, struct iatt *postparent)
 {
         pl_fdctx_t *fdctx = NULL;
-        int ret = -1;
 
         if (op_ret < 0)
                 goto unwind;
 
-        fdctx = pl_get_fdctx (this, fd);
+        fdctx = pl_check_n_create_fdctx (this, fd);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "fdctx not present");
-                fdctx = pl_new_fdctx ();
-                if (!fdctx) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
-                        op_errno = ENOMEM;
-                        op_ret   = -1;
-                        goto unwind;
-                }
-
-                ret = pl_set_fdctx (this, fd, fdctx);
-                if (ret) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "could not set fdctx");
-                        op_ret = -1;
-                        op_errno = ENOMEM;
-                        goto unwind;
-                }
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                op_errno = ENOMEM;
+                op_ret   = -1;
+                goto unwind;
         }
 
 unwind:
@@ -975,6 +970,7 @@ out:
 
         return ret;
 }
+
 static int
 pl_getlk_fd (xlator_t *this, pl_inode_t *pl_inode,
              fd_t *fd, posix_lock_t *reqlock)
@@ -996,7 +992,7 @@ pl_getlk_fd (xlator_t *this, pl_inode_t *pl_inode,
                         "There are active locks on fd");
 
                 ret = fd_ctx_get (fd, this, &tmp);
-                fdctx = (pl_fdctx_t *) tmp;
+                fdctx = (pl_fdctx_t *)(long) tmp;
 
                 if (list_empty (&fdctx->locks_list)) {
                         gf_log (this->name, GF_LOG_TRACE,
@@ -1330,6 +1326,12 @@ pl_release (xlator_t *this, fd_t *fd)
         pl_inode_t *pl_inode     = NULL;
         uint64_t    tmp_pl_inode = 0;
         int         ret          = -1;
+        uint64_t    tmp          = 0;
+        pl_fdctx_t *fdctx        = NULL;
+
+        if (fd == NULL) {
+                goto out;
+        }
 
 	ret = inode_ctx_get (fd->inode, this, &tmp_pl_inode);
         if (ret != 0)
@@ -1344,9 +1346,45 @@ pl_release (xlator_t *this, fd_t *fd)
 
         delete_locks_of_fd (this, pl_inode, fd);
 
+        ret = fd_ctx_del (fd, this, &tmp);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Could not get fdctx");
+                goto out;
+        }
+
+        fdctx = (pl_fdctx_t *)(long)tmp;
+
+        GF_FREE (fdctx);
 out:
         return ret;
 }
+
+int
+pl_releasedir (xlator_t *this, fd_t *fd)
+{
+        int         ret          = -1;
+        uint64_t    tmp          = 0;
+        pl_fdctx_t *fdctx        = NULL;
+
+        if (fd == NULL) {
+                goto out;
+        }
+
+        ret = fd_ctx_del (fd, this, &tmp);
+        if (ret) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Could not get fdctx");
+                goto out;
+        }
+
+        fdctx = (pl_fdctx_t *)(long)tmp;
+
+        GF_FREE (fdctx);
+out:
+        return ret;
+}
+
 static int32_t
 __get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
 {
@@ -1936,6 +1974,7 @@ struct xlator_dumpops dumpops = {
 struct xlator_cbks cbks = {
         .forget      = pl_forget,
         .release     = pl_release,
+        .releasedir  = pl_releasedir,
 };
 
 
