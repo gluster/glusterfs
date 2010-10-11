@@ -134,10 +134,6 @@ struct nfs3_state {
         int                     fdcount;
 };
 
-typedef enum nfs3_revalidate {
-        GF_NFS3_REVALIDATE = 1,
-        GF_NFS3_NONREVALIDATE
-} nfs3_revalidate_t;
 
 typedef int (*nfs3_resume_fn_t) (void *cs);
 /* Structure used to communicate state between a fop and its callback.
@@ -201,10 +197,7 @@ struct nfs3_local {
         int                     hashidx;
         fd_t                    *resolve_dir_fd;
         char                    *resolventry;
-        nfs3_revalidate_t       revalidate;
 };
-
-#define nfs3_is_revalidate_lookup(cst) ((cst)->revalidate == GF_NFS3_REVALIDATE)
 
 typedef struct nfs3_local nfs3_call_state_t;
 
