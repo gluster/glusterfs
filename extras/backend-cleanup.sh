@@ -7,7 +7,7 @@
 # This script has to be run on the servers, which are exporting the data to 
 # GlusterFS
 #
-# (c) 2009 Gluster Inc <http://www.gluster.com/> 
+# (c) 2010 Gluster Inc <http://www.gluster.com/> 
 
 set -e
 
