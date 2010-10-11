@@ -80,6 +80,6 @@ nfs_inode_mknod (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                  mode_t mode, dev_t dev, fop_mknod_cbk_t cbk, void *local);
 
 extern int
-nfs_inode_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
+nfs_inode_lookup (xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
                   fop_lookup_cbk_t cbk, void *local);
 #endif

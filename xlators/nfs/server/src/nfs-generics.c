@@ -83,8 +83,7 @@ nfs_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         if ((!nfsx) || (!xl) || (!pathloc) || (!nfu))
                 return ret;
 
-        ret = nfs_inode_lookup (nfsx, xl, nfu, pathloc, cbk, local);
-
+        ret = nfs_fop_lookup (nfsx, xl, nfu, pathloc, cbk, local);
         return ret;
 }
 
