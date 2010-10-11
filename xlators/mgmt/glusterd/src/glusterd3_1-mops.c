@@ -1493,7 +1493,7 @@ out:
         }
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
-        if (!ret)
+        if (ret)
                 gf_log ("", GF_LOG_WARNING, "Returning %d", ret);
 
         return ret;

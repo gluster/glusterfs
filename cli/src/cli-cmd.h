@@ -73,4 +73,7 @@ cli_cmd_submit (void *req, call_frame_t *frame,
                 int procnum, struct iobref *iobref,
                 cli_serialize_t sfunc, xlator_t *this,
                 fop_cbk_fn_t cbkfn);
+
+gf_answer_t
+cli_cmd_get_confirmation (struct cli_state *state, const char *question);
 #endif /* __CLI_CMD_H__ */

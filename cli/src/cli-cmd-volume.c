@@ -234,6 +234,9 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         char                    *volname = NULL;
+        gf_answer_t             answer = GF_ANSWER_NO;
+        const char              *question = "Deleting volume will erase all information about the volume."
+                                            "Do you want to continue?";
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_DELETE_VOLUME];
 
@@ -243,6 +246,13 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (wordcount != 3) {
                 cli_cmd_volume_delete_usage ();
+                goto out;
+        }
+
+        answer = cli_cmd_get_confirmation (state, question);
+
+        if (GF_ANSWER_NO == answer) {
+                ret = 0;
                 goto out;
         }
 
