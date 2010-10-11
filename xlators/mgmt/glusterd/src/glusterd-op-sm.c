@@ -4838,6 +4838,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr,
 
                 case GD_OP_RESET_VOLUME:
                         ret = glusterd_op_stage_reset_volume (req);
+                        break;
 
                 case GD_OP_REMOVE_BRICK:
                         ret = glusterd_op_stage_remove_brick (req);
