@@ -159,7 +159,6 @@ struct dht_conf {
         void          *private;     /* Can be used by wrapper xlators over
                                        dht */
         gf_boolean_t   use_readdirp;
-        int             upsubvols;      /* Count the number of online children*/
 };
 typedef struct dht_conf dht_conf_t;
 
