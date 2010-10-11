@@ -1898,6 +1898,8 @@ reconfigure (xlator_t *this, dict_t *options)
 
 		conf->rpc_conf.rpc_timeout = frame_timeout;
         }
+        else
+                conf->rpc_conf.rpc_timeout = 1800;
 
 	timeout_ret = dict_get_int32 (options, "ping-timeout",
 			              &ping_timeout);
@@ -1925,6 +1927,8 @@ reconfigure (xlator_t *this, dict_t *options)
 			"'option ping-timeout' to %d", ping_timeout);
 		conf->opt.ping_timeout = ping_timeout;
         }
+        else
+                conf->opt.ping_timeout = GF_UNIVERSAL_ANSWER;
 
         subvol_ret = dict_get_str (this->options, "remote-host",
                                    &old_remote_host);
