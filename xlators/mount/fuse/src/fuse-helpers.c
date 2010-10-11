@@ -221,7 +221,7 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                 if (ret <= 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "inode_path failed for %"PRId64"/%s",
-                                parent->ino, name);
+                                (parent)?parent->ino:0, name);
                         goto fail;
                 }
                 loc->path = path;
@@ -242,7 +242,7 @@ fuse_loc_fill (loc_t *loc, fuse_state_t *state, ino_t ino,
                 if (ret <= 0) {
                         gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                 "inode_path failed for %"PRId64,
-                                inode->ino);
+                                (inode)?inode->ino:0);
                         goto fail;
                 }
                 loc->path = path;
