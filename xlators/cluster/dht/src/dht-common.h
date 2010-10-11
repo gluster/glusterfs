@@ -144,6 +144,7 @@ struct dht_conf {
         int            subvolume_cnt;
         xlator_t     **subvolumes;
 	char          *subvolume_status;
+        int           *last_event;
 	dht_layout_t **file_layouts;
 	dht_layout_t **dir_layouts;
 	dht_layout_t  *default_dir_layout;
