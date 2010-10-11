@@ -438,7 +438,7 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_LOCK, ctx);
 
 out:
-        gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
@@ -2654,7 +2654,7 @@ glusterd_op_txn_begin ()
 
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_START_LOCK, NULL);
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
 
 out:
         if (locked && ret)

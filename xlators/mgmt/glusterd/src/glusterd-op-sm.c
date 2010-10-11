@@ -4578,7 +4578,7 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                 goto out;
 
 out:
-        gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -4657,7 +4657,7 @@ out:
         if (op_errstr && (strcmp (op_errstr, "")))
                 GF_FREE (op_errstr);
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Returning %d", ret);
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
@@ -5256,7 +5256,7 @@ glusterd_op_set_cli_op (gf_mgmt_procnum op)
         opinfo.cli_op = op;
 
 out:
-        gf_log ("", GF_LOG_NORMAL, "Returning %d", ret);
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
 
