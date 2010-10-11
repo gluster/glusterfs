@@ -262,13 +262,14 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
         }
 
         newvolfile_graph = glusterfs_graph_construct (newvolfile_fp);
-        if (!oldvolfile_graph) {
+        if (!newvolfile_graph) {
                 goto out;
         }
 
         if (!is_graph_topology_equal (oldvolfile_graph,
                                       newvolfile_graph)) {
 
+                ret = 1;
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                         "Graph topology not equal(should call INIT)");
                 goto out;
