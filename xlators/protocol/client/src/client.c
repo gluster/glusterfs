@@ -1862,6 +1862,8 @@ reconfigure (xlator_t *this, dict_t *options)
 	clnt_conf_t *conf = NULL;
         char    *old_remote_subvol = NULL;
         char    *new_remote_subvol = NULL;
+        char    *old_remote_host   = NULL;
+        char    *new_remote_host   = NULL;
         int     subvol_ret = 0;
 
 
@@ -1922,6 +1924,22 @@ reconfigure (xlator_t *this, dict_t *options)
                 gf_log (this->name, GF_LOG_DEBUG, "Reconfiguring "
 			"'option ping-timeout' to %d", ping_timeout);
 		conf->opt.ping_timeout = ping_timeout;
+        }
+
+        subvol_ret = dict_get_str (this->options, "remote-host",
+                                   &old_remote_host);
+
+        if (subvol_ret == 0) {
+
+                subvol_ret = dict_get_str (options, "remote-host",
+                                           &new_remote_host);
+
+                if (subvol_ret == 0) {
+                        if (strcmp (old_remote_host, new_remote_host)) {
+                                ret = 1;
+                                goto out;
+                        }
+                }
         }
 
         subvol_ret = dict_get_str (this->options, "remote-subvolume",
