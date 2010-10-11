@@ -738,6 +738,8 @@ loglevel_option_handler (glusterfs_graph_t *graph,
             !strstr (vme->key, role))
                 return 0;
 
+        if (glusterd_check_log_level(vme->value) == -1)
+                return -1;
         memcpy (&vme2, vme, sizeof (vme2));
         vme2.option = "log-level";
 
@@ -1387,4 +1389,32 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
 out:
                 gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
                 return ret;
+}
+
+int
+glusterd_check_log_level (const char *value)
+{
+        int log_level = -1;
+
+        if (!strcasecmp (value, "CRITICAL")) {
+                log_level = GF_LOG_CRITICAL;
+        } else if (!strcasecmp (value, "ERROR")) {
+                log_level = GF_LOG_ERROR;
+        } else if (!strcasecmp (value, "WARNING")) {
+                log_level = GF_LOG_WARNING;
+        } else if (!strcasecmp (value, "INFO")) {
+                log_level = GF_LOG_INFO;
+        } else if (!strcasecmp (value, "DEBUG")) {
+                log_level = GF_LOG_DEBUG;
+        } else if (!strcasecmp (value, "TRACE")) {
+                log_level = GF_LOG_TRACE;
+        } else if (!strcasecmp (value, "NONE")) {
+                log_level = GF_LOG_NONE;
+        }
+
+        if (log_level == -1)
+                gf_log ("", GF_LOG_ERROR, "Invalid log-level. possible values "
+                        "are DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
+
+        return log_level;
 }

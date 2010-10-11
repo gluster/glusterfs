@@ -41,4 +41,5 @@ int glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
 
 int glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value);
 
+int glusterd_check_log_level (const char *log_level);
 #endif
