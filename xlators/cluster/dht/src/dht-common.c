@@ -1841,6 +1841,13 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 
         conf   = this->private;
         layout = dht_layout_get (this, loc->inode);
+        if (!layout) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "layout is NULL");
+                op_errno = ENOENT;
+                goto err;
+        }
+
         if (key && (strcmp (key, GF_XATTR_PATHINFO_KEY) == 0)) {
                 hashed_subvol = dht_subvol_get_hashed (this, loc);
                 cached_subvol = dht_subvol_get_cached (this, loc->inode);
