@@ -188,7 +188,9 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
 
         if (ret) {
-                GF_ASSERT (0);
+                gf_log ("", GF_LOG_ERROR, "received friend add response from"
+                        " unknown peer uuid: %s", str);
+                goto out;
         }
 
         if (op_ret)
@@ -220,6 +222,7 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         if (ret)
                 goto out;
 
+out:
         ctx = ((call_frame_t *)myframe)->local;
         ((call_frame_t *)myframe)->local = NULL;
 
@@ -234,7 +237,6 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         }
         if (ctx)
                 glusterd_destroy_probe_ctx (ctx);
-out:
         if (rsp.hostname)
                 free (rsp.hostname);//malloced by xdr
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
@@ -284,9 +286,6 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received %s from uuid: %s, host: %s, port: %d",
                 (op_ret)?"RJT":"ACC", str, rsp.hostname, rsp.port);
-
-        if (op_ret)
-                goto respond;
 
 inject:
         ret = glusterd_friend_find (rsp.uuid, ctx->hostname, &peerinfo);
@@ -644,6 +643,14 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
                 free (rsp.op_errstr); //malloced by xdr
+        if (dict) {
+                if (!dict->extra_stdfree && rsp.dict.dict_val)
+                        free (rsp.dict.dict_val); //malloced by xdr
+                dict_unref (dict);
+        } else {
+                if (rsp.dict.dict_val)
+                        free (rsp.dict.dict_val); //malloced by xdr
+        }
         GLUSTERD_STACK_DESTROY (((call_frame_t *)myframe));
         return ret;
 }

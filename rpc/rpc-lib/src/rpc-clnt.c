@@ -328,7 +328,7 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                 if (!trav->rpcreq || !trav->rpcreq->prog)
                         continue;
 
-                gf_log ("rpc-clnt", GF_LOG_ERROR,
+                gf_log_callingfn ("rpc-clnt", GF_LOG_ERROR,
                         "forced unwinding frame type(%s) op(%s(%d)) "
                         "called at %s",
                         trav->rpcreq->prog->progname,

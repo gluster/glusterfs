@@ -121,6 +121,17 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                                          "with existing volumes in the "
                                          "cluster", rsp.hostname);
                                 break;
+                        case GF_PROBE_UNKNOWN_PEER:
+                                cli_out ("%s responded with 'unknown peer' error, "
+                                         "this could happen if %s doesn't have"
+                                         " localhost in its peer database",
+                                         rsp.hostname, rsp.hostname);
+                                break;
+                        case GF_PROBE_ADD_FAILED:
+                                cli_out ("Failed to add peer information "
+                                         "on %s" , rsp.hostname);
+                                break;
+
                         default:
                                 cli_out ("Probe returned with unknown errno %d",
                                         rsp.op_errno);

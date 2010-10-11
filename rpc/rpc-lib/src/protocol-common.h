@@ -161,7 +161,9 @@ enum gf_probe_resp {
 	GF_PROBE_LOCALHOST,
 	GF_PROBE_FRIEND,
         GF_PROBE_ANOTHER_CLUSTER,
-        GF_PROBE_VOLUME_CONFLICT
+        GF_PROBE_VOLUME_CONFLICT,
+        GF_PROBE_UNKNOWN_PEER,
+        GF_PROBE_ADD_FAILED
 };
 
 enum gf_deprobe_resp {

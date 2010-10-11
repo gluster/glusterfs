@@ -765,7 +765,12 @@ glusterd_friend_sm ()
                         event_type = event->event;
                         peerinfo = event->peerinfo;
                         if (!peerinfo) {
-                                GF_ASSERT (0);
+                                gf_log ("glusterd", GF_LOG_CRITICAL, "Received"
+                                        " event %s with empty peer info",
+                                glusterd_friend_sm_event_name_get(event_type));
+
+                                GF_FREE (event);
+                                continue;
                         }
 
                         state = glusterd_friend_state_table[peerinfo->state.state];
