@@ -748,8 +748,7 @@ glusterd_retrieve_uuid ()
                                              &uuid_str);
 
         if (ret) {
-                gf_log ("", GF_LOG_CRITICAL, "Retrieving uuid failed"
-                        " ret = %d", ret);
+                gf_log ("", GF_LOG_NORMAL, "No previous uuid is present");
                 goto out;
         }
 

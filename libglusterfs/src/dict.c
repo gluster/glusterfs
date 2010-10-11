@@ -1200,7 +1200,7 @@ char *
 data_to_str (data_t *data)
 {
 	if (!data) {
-		gf_log ("dict", GF_LOG_CRITICAL,
+		gf_log ("dict", GF_LOG_WARNING,
 			"@data=%p", data);
 		return NULL;
 	}
