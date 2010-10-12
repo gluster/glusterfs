@@ -74,6 +74,8 @@ nfs_fop_local_wipe (xlator_t *nfsx, struct nfs_fop_local *l)
         if (l->dictgfid)
                 dict_unref (l->dictgfid);
 
+        loc_wipe (&l->revalidate_loc);
+
         mem_put (nfs->foppool, l);
 
         return;
@@ -226,16 +228,21 @@ err:
         } while (0)                                                            \
 
 dict_t *
-nfs_gfid_dict ()
+nfs_gfid_dict (inode_t *inode)
 {
         uuid_t  newgfid = {0, };
         char    *dyngfid = NULL;
         dict_t  *dictgfid = NULL;
         int     ret = -1;
+        uuid_t  rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         dyngfid = GF_CALLOC (1, sizeof (uuid_t), gf_common_mt_char);
         uuid_generate (newgfid);
-        memcpy (dyngfid, newgfid, sizeof (uuid_t));
+
+        if (uuid_compare (inode->gfid, rootgfid) == 0)
+                memcpy (dyngfid, rootgfid, sizeof (uuid_t));
+        else
+                memcpy (dyngfid, newgfid, sizeof (uuid_t));
 
         dictgfid = dict_new ();
         if (!dictgfid) {
@@ -253,10 +260,10 @@ out:
         return dictgfid;
 }
 
-#define nfs_fop_gfid_setup(nflcl, retval, erlbl)                        \
+#define nfs_fop_gfid_setup(nflcl, inode, retval, erlbl)                 \
         do {                                                            \
                 if (nflcl) {                                            \
-                        (nflcl)->dictgfid = nfs_gfid_dict ();           \
+                        (nflcl)->dictgfid = nfs_gfid_dict (inode);      \
                                                                         \
                         if (!((nflcl)->dictgfid)) {                     \
                                 retval = -EFAULT;                       \
@@ -300,9 +307,29 @@ nfs_fop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *local = NULL;
         fop_lookup_cbk_t        progcbk;
+        inode_table_t           *itable = NULL;
+        xlator_t                *xl = NULL;
+
+        xl = cookie;
+
+        local = frame->local;
+        nfs_fop_restore_root_ino (local, buf, NULL, NULL, postparent);
+
+        if (op_ret == -1 && local->is_revalidate == 1) {
+                /* perform a fresh lookup if revalidate fails */
+                itable = local->revalidate_loc.inode->table;
+                inode_unref (local->revalidate_loc.inode);
+                local->revalidate_loc.inode = inode_new (itable);
+
+                local->is_revalidate = 2; /* prevent entering revalidate loops */
+
+                STACK_WIND_COOKIE (frame, nfs_fop_lookup_cbk, xl, xl,
+                                   xl->fops->lookup, &local->revalidate_loc,
+                                   local->dictgfid);
+                return 0;
+        }
 
         nfl_to_prog_data (local, progcbk, frame);
-        nfs_fop_restore_root_ino (local, buf, NULL, NULL, postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          xattr, postparent);
@@ -327,7 +354,12 @@ nfs_fop_lookup (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *loc,
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, loc);
-        nfs_fop_gfid_setup (nfl, ret, err);
+        nfs_fop_gfid_setup (nfl, loc->inode, ret, err);
+
+        if (!uuid_is_null (loc->inode->gfid)) {
+                nfl->is_revalidate = 1;
+                loc_copy (&nfl->revalidate_loc, loc);
+        }
 
         STACK_WIND_COOKIE (frame, nfs_fop_lookup_cbk, xl, xl,
                            xl->fops->lookup, loc, nfl->dictgfid);
@@ -650,7 +682,7 @@ nfs_fop_create (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
-        nfs_fop_gfid_setup (nfl, ret, err);
+        nfs_fop_gfid_setup (nfl, pathloc->inode, ret, err);
 
         STACK_WIND_COOKIE (frame, nfs_fop_create_cbk, xl, xl, xl->fops->create,
                            pathloc, flags, mode, fd, nfl->dictgfid);
@@ -748,7 +780,7 @@ nfs_fop_mkdir (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
-        nfs_fop_gfid_setup (nfl, ret, err);
+        nfs_fop_gfid_setup (nfl, pathloc->inode, ret, err);
 
         STACK_WIND_COOKIE  (frame, nfs_fop_mkdir_cbk, xl, xl, xl->fops->mkdir,
                             pathloc, mode, nfl->dictgfid);
@@ -796,7 +828,7 @@ nfs_fop_symlink (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, char *target,
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
-        nfs_fop_gfid_setup (nfl, ret, err);
+        nfs_fop_gfid_setup (nfl, pathloc->inode, ret, err);
 
         STACK_WIND_COOKIE  (frame, nfs_fop_symlink_cbk, xl, xl,
                             xl->fops->symlink, target, pathloc, nfl->dictgfid);
@@ -891,7 +923,7 @@ nfs_fop_mknod (xlator_t *nfsx, xlator_t *xl, nfs_user_t *nfu, loc_t *pathloc,
         nfs_fop_handle_frame_create (frame, nfsx, nfu, ret, err);
         nfs_fop_handle_local_init (frame, nfsx, nfl, cbk, local, ret, err);
         nfs_fop_save_root_ino (nfl, pathloc);
-        nfs_fop_gfid_setup (nfl, ret, err);
+        nfs_fop_gfid_setup (nfl, pathloc->inode, ret, err);
 
         STACK_WIND_COOKIE  (frame, nfs_fop_mknod_cbk, xl, xl, xl->fops->mknod,
                             pathloc, mode, dev, nfl->dictgfid);
