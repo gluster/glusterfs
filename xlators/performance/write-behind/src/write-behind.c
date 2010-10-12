@@ -2516,7 +2516,7 @@ wb_release (xlator_t *this, fd_t *fd)
         if (file != NULL) {
                 LOCK (&file->lock);
                 {
-                        assert (list_empty (&file->request));
+                        GF_ASSERT (list_empty (&file->request));
                 }
                 UNLOCK (&file->lock);
 

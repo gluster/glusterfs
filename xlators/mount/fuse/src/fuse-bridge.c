@@ -3558,7 +3558,7 @@ init (xlator_t *this_xl)
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
         if (ret == 0) {
                 ret = gf_string2boolean (value_string, &priv->direct_io_mode);
-                assert (ret == 0);
+                GF_ASSERT (ret == 0);
         }
 
         priv->strict_volfile_check = 0;
@@ -3566,7 +3566,7 @@ init (xlator_t *this_xl)
         if (ret == 0) {
                 ret = gf_string2boolean (value_string,
                                          &priv->strict_volfile_check);
-                assert (ret == 0);
+                GF_ASSERT (ret == 0);
         }
 
         priv->fuse_dump_fd = -1;

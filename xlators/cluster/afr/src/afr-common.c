@@ -2451,10 +2451,10 @@ afr_priv_dump (xlator_t *this)
         int   i = 0;
 
 
-        assert(this);
+        GF_ASSERT (this);
         priv = this->private;
 
-        assert(priv);
+        GF_ASSERT (priv);
         snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
         gf_proc_dump_add_section(key_prefix);
         gf_proc_dump_build_key(key, key_prefix, "child_count");

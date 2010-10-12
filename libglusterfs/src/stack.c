@@ -48,7 +48,7 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
         if (!call_frame)
                 return;
 
-        assert(key_buf);
+        GF_ASSERT (key_buf);
 
         memset(prefix, 0, sizeof(prefix));
         memset(&my_frame, 0, sizeof(my_frame));
@@ -91,7 +91,7 @@ gf_proc_dump_call_stack (call_stack_t *call_stack, const char *key_buf,...)
         if (!call_stack)
                 return;
 
-        assert(key_buf);
+        GF_ASSERT (key_buf);
 
         cnt = call_frames_count(&call_stack->frames);
 

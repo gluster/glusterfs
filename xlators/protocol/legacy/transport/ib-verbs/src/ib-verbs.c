@@ -500,7 +500,7 @@ ib_verbs_ioq_new (char *buf, int len, struct iovec *vector,
         /* TODO: use mem-pool */
         entry = GF_CALLOC (1, sizeof (*entry), gf_ibv_mt_ib_verbs_ioq_t);
 
-        assert (count <= (MAX_IOVEC-2));
+        GF_ASSERT (count <= (MAX_IOVEC-2));
 
         entry->header.colonO[0] = ':';
         entry->header.colonO[1] = 'O';

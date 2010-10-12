@@ -306,7 +306,7 @@ __inode_unref (inode_t *inode)
         if (inode->ino == 1)
                 return inode;
 
-        assert (inode->ref);
+        GF_ASSERT (inode->ref);
 
         --inode->ref;
 
@@ -501,7 +501,7 @@ __inode_forget (inode_t *inode, uint64_t nlookup)
         if (!inode)
                 return NULL;
 
-        assert (inode->nlookup >= nlookup);
+        GF_ASSERT (inode->nlookup >= nlookup);
 
         inode->nlookup -= nlookup;
 

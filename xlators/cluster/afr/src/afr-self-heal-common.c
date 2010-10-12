@@ -1639,7 +1639,7 @@ void
 afr_self_heal_type_str_get (afr_self_heal_t *self_heal_p, char *str,
                             size_t size)
 {
-        assert(str && (size > 0));
+        GF_ASSERT (str && (size > 0));
 
         if (self_heal_p->need_metadata_self_heal) {
                 snprintf(str, size, " meta-data");

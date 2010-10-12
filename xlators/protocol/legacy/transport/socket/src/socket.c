@@ -343,7 +343,7 @@ __socket_ioq_new (transport_t *this, char *buf, int len,
         if (!entry)
                 return NULL;
 
-        assert (count <= (MAX_IOVEC-2));
+        GF_ASSERT (count <= (MAX_IOVEC-2));
 
         entry->header.colonO[0] = ':';
         entry->header.colonO[1] = 'O';
@@ -423,7 +423,7 @@ __socket_ioq_churn_entry (transport_t *this, struct ioq *entry)
 
         if (ret == 0) {
                 /* current entry was completely written */
-                assert (entry->pending_count == 0);
+                GF_ASSERT (entry->pending_count == 0);
                 __socket_ioq_entry_free (entry);
         }
 

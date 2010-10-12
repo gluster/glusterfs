@@ -1835,7 +1835,7 @@ int
 pl_dump_inode (xlator_t *this)
 {
 
-        assert(this);
+        GF_ASSERT (this);
 
         if (this->itable) {
                 inode_table_dump(this->itable,

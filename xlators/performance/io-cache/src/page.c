@@ -779,7 +779,7 @@ ioc_frame_return (call_frame_t *frame)
 	int32_t wait_count = 0;
 
         local = frame->local;
-        assert (local->wait_count > 0);
+        GF_ASSERT (local->wait_count > 0);
 
 	ioc_local_lock (local);
 	{
