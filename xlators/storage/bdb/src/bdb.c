@@ -3230,7 +3230,7 @@ notify (xlator_t *this,
         case GF_EVENT_PARENT_UP:
         {
                 /* Tell the parent that bdb xlator is up */
-                assert ((this->private != NULL) &&
+                GF_ASSERT ((this->private != NULL) &&
                         (BDB_ENV(this) != NULL));
                 default_notify (this, GF_EVENT_CHILD_UP, data);
         }

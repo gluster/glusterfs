@@ -1938,10 +1938,10 @@ ioc_priv_dump (xlator_t *this)
         char            key_prefix[GF_DUMP_MAX_BUF_LEN];
         char            key[GF_DUMP_MAX_BUF_LEN];
 
-        assert (this);
+        GF_ASSERT (this);
         priv = this->private;
 
-        assert (priv);
+        GF_ASSERT (priv);
 
         gf_proc_dump_build_key (key_prefix, "xlator.performance.io-cache",
                                 "priv");

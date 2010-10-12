@@ -82,7 +82,7 @@ __iobuf_arena_destroy_iobufs (struct iobuf_arena *iobuf_arena)
 
         iobuf = iobuf_arena->iobufs;
         for (i = 0; i < iobuf_cnt; i++) {
-                assert (iobuf->ref == 0);
+                GF_ASSERT (iobuf->ref == 0);
 
                 list_del_init (&iobuf->list);
                 iobuf++;

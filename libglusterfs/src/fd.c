@@ -384,7 +384,7 @@ fd_ref (fd_t *fd)
 fd_t *
 _fd_unref (fd_t *fd)
 {
-	assert (fd->refcount);
+	GF_ASSERT (fd->refcount);
 
 	--fd->refcount;
 
@@ -503,7 +503,7 @@ fd_bind (fd_t *fd)
 void
 fd_unref_unbind (fd_t *fd)
 {
-        assert (fd->refcount);
+        GF_ASSERT (fd->refcount);
 
         LOCK (&fd->inode->lock);
         {
@@ -514,7 +514,7 @@ fd_unref_unbind (fd_t *fd)
                  * Make sure you only call this when you know there are
                  * pending refs on the fd.
                  */
-                assert (fd->refcount);
+                GF_ASSERT (fd->refcount);
 		list_del_init (&fd->inode_list);
         }
         UNLOCK (&fd->inode->lock);

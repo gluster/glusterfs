@@ -496,7 +496,7 @@ __socket_ioq_new (rpc_transport_t *this, rpc_transport_msg_t *msg)
 
         count = msg->rpchdrcount + msg->proghdrcount + msg->progpayloadcount;
 
-        assert (count <= (MAX_IOVEC - 1));
+        GF_ASSERT (count <= (MAX_IOVEC - 1));
 
         size = iov_length (msg->rpchdr, msg->rpchdrcount)
                 + iov_length (msg->proghdr, msg->proghdrcount)
@@ -595,7 +595,7 @@ __socket_ioq_churn_entry (rpc_transport_t *this, struct ioq *entry)
 
         if (ret == 0) {
                 /* current entry was completely written */
-                assert (entry->pending_count == 0);
+                GF_ASSERT (entry->pending_count == 0);
                 __socket_ioq_entry_free (entry);
         }
 

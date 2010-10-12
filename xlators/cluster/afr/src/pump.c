@@ -135,7 +135,7 @@ pump_set_resume_path (xlator_t *this, const char *path)
         priv = this->private;
         pump_priv = priv->pump_private;
 
-        assert (pump_priv);
+        GF_ASSERT (pump_priv);
 
         LOCK (&pump_priv->resume_path_lock);
         {
@@ -231,7 +231,7 @@ pump_save_path (xlator_t *this, const char *path)
         priv = this->private;
         pump_priv = priv->pump_private;
 
-        assert (priv->root_inode);
+        GF_ASSERT (priv->root_inode);
 
         build_root_loc (priv->root_inode, &loc);
 
@@ -424,7 +424,7 @@ gf_pump_traverse_directory (loc_t *loc)
         this = THIS;
         priv = this->private;
 
-        assert (loc->inode);
+        GF_ASSERT (loc->inode);
 
 	fd = fd_create (loc->inode, PUMP_PID);
         if (!fd) {
@@ -587,7 +587,7 @@ pump_complete_migration (xlator_t *this)
         priv = this->private;
         pump_priv = priv->pump_private;
 
-        assert (priv->root_inode);
+        GF_ASSERT (priv->root_inode);
 
         build_root_loc (priv->root_inode, &loc);
 
@@ -683,7 +683,7 @@ pump_task (void *data)
         this = THIS;
         priv = this->private;
 
-        assert (priv->root_inode);
+        GF_ASSERT (priv->root_inode);
 
         build_root_loc (priv->root_inode, &loc);
         xattr_req = dict_new ();

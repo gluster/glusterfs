@@ -1817,7 +1817,7 @@ rdma_ioq_new (rpc_transport_t *this, rpc_transport_data_t *data)
 
         count = msg->rpchdrcount + msg->proghdrcount + msg->progpayloadcount;
 
-        assert (count <= MAX_IOVEC);
+        GF_ASSERT (count <= MAX_IOVEC);
 
         if (msg->rpchdr != NULL) {
                 memcpy (&entry->rpchdr[0], msg->rpchdr,

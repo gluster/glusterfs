@@ -167,7 +167,7 @@ __bctx_activate (bctx_t *bctx)
 static bctx_t *
 __bdb_ctx_unref (bctx_t *bctx)
 {
-        assert (bctx->ref);
+        GF_ASSERT (bctx->ref);
 
         --bctx->ref;
 
