@@ -88,7 +88,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 return 0;
         }
 
-        if (dict) {
+        if ((op_ret >= 0) && dict) {
                 rsp.dict.dict_len = dict_serialized_length (dict);
                 if (rsp.dict.dict_len < 0) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -98,10 +98,9 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret   = -1;
                         op_errno = EINVAL;
                         rsp.dict.dict_len = 0;
+                        goto out;
                 }
-        }
 
-        if ((op_ret >= 0) && dict) {
                 rsp.dict.dict_val = GF_CALLOC (1, rsp.dict.dict_len,
                                                gf_server_mt_rsp_buf_t);
                 if (!rsp.dict.dict_val) {
@@ -118,6 +117,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         op_ret = -1;
                         op_errno = -ret;
                         rsp.dict.dict_len = 0;
+                        goto out;
                 }
         }
 
