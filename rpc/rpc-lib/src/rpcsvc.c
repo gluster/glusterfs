@@ -2132,10 +2132,11 @@ static int
 rpcsvc_dump (rpcsvc_request_t *req)
 {
         char         rsp_buf[8 * 1024] = {0,};
-        gf_dump_rsp  rsp      = {0,};
-        struct iovec iov      = {0,};
-        int          op_errno = EINVAL;
-        int          ret      = -1;
+        gf_dump_rsp  rsp               = {0,};
+        struct iovec iov               = {0,};
+        int          op_errno          = EINVAL;
+        int          ret               = -1;
+        uint32_t     dump_rsp_len      = 0;
 
         if (!req)
                 goto fail;
@@ -2150,8 +2151,11 @@ fail:
         rsp.op_errno = gf_errno_to_error (op_errno);
         rsp.op_ret   = ret;
 
+        dump_rsp_len = xdr_sizeof ((xdrproc_t) xdr_gf_dump_rsp,
+                                   &rsp);
+
         iov.iov_base = rsp_buf;
-        iov.iov_len  = (8 * 1024);
+        iov.iov_len  = dump_rsp_len;
 
         ret = xdr_serialize_dump_rsp (iov, &rsp);
         if (ret < 0) {
