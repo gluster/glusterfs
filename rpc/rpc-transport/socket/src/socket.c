@@ -1024,9 +1024,6 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
                 priv->incoming.frag.call_body.reply.accepted_success_state
                         = SP_STATE_READ_PROC_HEADER;
 
-                /* fall through */
-
-        case SP_STATE_READ_PROC_HEADER:
                 if (priv->incoming.payload_vector.iov_base == NULL) {
                         iobuf = iobuf_get (this->ctx->iobuf_pool);
                         if (iobuf == NULL) {
@@ -1053,6 +1050,9 @@ __socket_read_accepted_successful_reply (rpc_transport_t *this)
                 priv->incoming.frag.fragcurrent
                         = priv->incoming.payload_vector.iov_base;
 
+                /* fall through */
+
+        case SP_STATE_READ_PROC_HEADER:
                 /* now read the entire remaining msg into new iobuf */
                 ret = __socket_read_simple_msg (this);
                 if ((ret == -1)
