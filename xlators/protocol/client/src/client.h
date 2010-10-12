@@ -58,6 +58,7 @@ typedef struct clnt_conf {
         uint64_t               reopen_fd_count; /* Count of fds reopened after a
                                                    connection is established */
         gf_lock_t              rec_lock;
+        int                    skip_notify;
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {

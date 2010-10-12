@@ -1585,7 +1585,10 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
 
-                default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
+                if (!conf->skip_notify)
+                        default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
+                conf->skip_notify = 0;
+
                 break;
 
         default:
