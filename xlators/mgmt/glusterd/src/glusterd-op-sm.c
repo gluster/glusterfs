@@ -326,13 +326,11 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         glusterd_brickinfo_t                    *brick_info = NULL;
         int32_t                                 brick_count = 0;
         int32_t                                 i = 0;
-        struct stat                             st_buf = {0,};
         char                                    *brick = NULL;
         char                                    *tmpptr = NULL;
         char                                    cmd_str[1024];
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *priv = NULL;
-        char                                    msg[2048] = {0,};
 
         GF_ASSERT (req);
 
@@ -417,26 +415,11 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 }
 
                 if (!uuid_compare (brick_info->uuid, priv->uuid)) {
-                        ret = stat (cmd_str, &st_buf);
-                        if (ret == -1) {
-                                snprintf (msg, 2048,"Volume name %s, brick"
-                                        ": %s:%s, path %s not present", volname,
-                                          brick_info->hostname, brick_info->path, brick_info->path);
-                                gf_log ("glusterd",GF_LOG_ERROR, "%s", msg);
-                                *op_errstr = gf_strdup (msg);
+                        ret = glusterd_brick_create_path (brick_info->hostname,
+                                                          brick_info->path,
+                                                          0777, op_errstr);
+                        if (ret)
                                 goto out;
-                        }
-
-                        if (!S_ISDIR (st_buf.st_mode)) {
-                                snprintf (msg, 2048, "Volume name %s, brick"
-                                          ": %s, path %s is not a directory", volname,
-                                          brick, brick_info->path);
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "%s", msg);
-                                *op_errstr = gf_strdup (msg);
-                                ret = -1;
-                                goto out;
-                        }
                         brick_list = tmpptr;
                 }
                 glusterd_brickinfo_delete (brick_info);
@@ -496,7 +479,6 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
-        struct stat                             statbuf = {0,};
         char                                    msg[2048];
         glusterd_conf_t                         *priv = NULL;
 
@@ -545,16 +527,11 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 }
 
                 if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
-                        ret = stat (brickinfo->path, &statbuf);
-                        if (ret == -1) {
-                                snprintf (msg, 2048, "Volume name %s, brick"
-                                          ": %s:%s, path %s is not present",
-                                          volname, brickinfo->hostname, brickinfo->path, brickinfo->path);
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "%s", msg);
-                                *op_errstr = gf_strdup (msg);
+                        ret = glusterd_brick_create_path (brickinfo->hostname,
+                                                          brickinfo->path,
+                                                          0777, op_errstr);
+                        if (ret)
                                 goto out;
-                        }
                 }
 
                 if (!(flags & GF_CLI_FLAG_OP_FORCE)) {
@@ -694,7 +671,6 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
         char                                    *brick = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
-        struct stat                             st_buf = {0,};
         char                                    cmd_str[1024];
         glusterd_conf_t                         *priv = NULL;
         char                                    msg[2048] = {0,};
@@ -784,27 +760,11 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 }
 
                 if (!uuid_compare (brickinfo->uuid, priv->uuid)) {
-                        ret = stat (cmd_str, &st_buf);
-                        if (ret == -1) {
-                                snprintf (msg, 2048, "Volume name %s, brick"
-                                          ": %s, path %s not present", volname,
-                                          brick, brickinfo->path);
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "%s", msg);
-                                *op_errstr = gf_strdup (msg);
+                        ret = glusterd_brick_create_path (brickinfo->hostname,
+                                                          brickinfo->path,
+                                                          0777, op_errstr);
+                        if (ret)
                                 goto out;
-                        }
-
-                        if (!S_ISDIR (st_buf.st_mode)) {
-                                snprintf (msg, 2048, "Volume name %s, brick"
-                                          ": %s, path %s is not a directory", volname,
-                                          brick, brickinfo->path);
-                                gf_log ("glusterd", GF_LOG_ERROR,
-                                        "%s", msg);
-                                *op_errstr = gf_strdup (msg);
-                                ret = -1;
-                                goto out;
-                        }
                 }
 
                 glusterd_brickinfo_delete (brickinfo);
@@ -844,7 +804,6 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
         char                                    msg[2048]      = {0};
         char                                    *dup_dstbrick  = NULL;
         glusterd_peerinfo_t                     *peerinfo = NULL;
-        struct stat                             st_buf = {0,};
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
 
         GF_ASSERT (req);
@@ -1031,24 +990,9 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
                 goto out;
        }
         if (!glusterd_is_local_addr (host)) {
-                ret = stat (path, &st_buf);
-                if (ret == -1) {
-                        snprintf (msg, sizeof (msg) ,"path: %s for brick: %s"
-                        " does not exist", path, dst_brick);
-                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
-                        *op_errstr = gf_strdup (msg);
+                ret = glusterd_brick_create_path (host, path, 0777, op_errstr);
+                if (ret)
                         goto out;
-                }
-                if (!S_ISDIR (st_buf.st_mode)) {
-                        snprintf (msg, sizeof (msg), "Volume name %s, brick"
-                                  ": %s, path %s is not a directory", volname,
-                                  dst_brick, path);
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "%s", msg);
-                        *op_errstr = gf_strdup (msg);
-                        ret = -1;
-                        goto out;
-                }
         } else {
                 ret = glusterd_friend_find (NULL, host, &peerinfo);
                 if (ret) {

@@ -2387,3 +2387,39 @@ glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
         }
         return 0;
 }
+
+int
+glusterd_brick_create_path (char *host, char *path, mode_t mode,
+                            char **op_errstr)
+{
+        int     ret = -1;
+        char    msg[2048] = {0};
+        struct  stat st_buf = {0};
+
+        ret = stat (path, &st_buf);
+        if ((!ret) && (!S_ISDIR (st_buf.st_mode))) {
+                snprintf (msg, sizeof (msg), "brick %s:%s, "
+                          "path %s is not a directory", host, path, path);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+                ret = -1;
+                goto out;
+        } else if (!ret) {
+                goto out;
+        }
+
+        ret = mkdir (path, mode);
+        if ((ret == -1) && (EEXIST != errno)) {
+                snprintf (msg, sizeof (msg), "brick: %s:%s, path "
+                          "creation failed, reason: %s",
+                          host, path, strerror(errno));
+                gf_log ("glusterd",GF_LOG_ERROR, "%s", msg);
+                *op_errstr = gf_strdup (msg);
+        } else {
+                ret = 0;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}

@@ -227,4 +227,7 @@ glusterd_set_rb_status (glusterd_volinfo_t *volinfo, gf_rb_status_t status);
 int
 glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
                           glusterd_brickinfo_t *src_brick, glusterd_brickinfo_t *dst_brick);
+int
+glusterd_brick_create_path (char *host, char *path, mode_t mode,
+                            char **op_errstr);
 #endif
