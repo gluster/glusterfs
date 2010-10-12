@@ -1000,7 +1000,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
                 goto out;
         }
 
-        request_ctx = mem_get (priv->request_ctx_pool);
+        request_ctx = mem_get (priv->device->request_ctx_pool);
         if (request_ctx == NULL) {
                 ret = -1;
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
@@ -1009,7 +1009,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
 
         memset (request_ctx, 0, sizeof (*request_ctx));
 
-        request_ctx->pool = priv->request_ctx_pool;
+        request_ctx->pool = priv->device->request_ctx_pool;
         request_ctx->peer = peer;
 
         entry->msg.request.rpc_req->conn_private = request_ctx;
@@ -1586,14 +1586,14 @@ rdma_reply_info_alloc (rdma_peer_t *peer)
 
         priv = peer->trans->private;
 
-        reply_info = mem_get (priv->reply_info_pool);
+        reply_info = mem_get (priv->device->reply_info_pool);
         if (reply_info == NULL) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         memset (reply_info, 0, sizeof (*reply_info));
-        reply_info->pool = priv->reply_info_pool;
+        reply_info->pool = priv->device->reply_info_pool;
 
 out:
         return reply_info;
@@ -1771,13 +1771,13 @@ rdma_ioq_new (rpc_transport_t *this, rpc_transport_data_t *data)
 
         priv = this->private;
         /* TODO: use mem-pool */
-        entry = mem_get (priv->ioq_pool);
+        entry = mem_get (priv->device->ioq_pool);
         if (entry == NULL) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
         memset (entry, 0, sizeof (*entry));
-        entry->pool = priv->ioq_pool;
+        entry->pool = priv->device->ioq_pool;
 
         if (data->is_request) {
                 msg = &data->data.req.msg;
@@ -3671,9 +3671,34 @@ rdma_get_device (rpc_transport_t *this,
 					"Failed to find any active ports and "
 					"none specified in volume file,"
                                         " exiting");
+                                GF_FREE (trav);
 				return NULL;
 			}
 		}
+
+                trav->request_ctx_pool = mem_pool_new (rdma_request_context_t,
+                                                       RDMA_POOL_SIZE);
+                if (trav->request_ctx_pool == NULL) {
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
+                        return NULL;
+                }
+
+                trav->ioq_pool = mem_pool_new (rdma_ioq_t, RDMA_POOL_SIZE);
+                if (trav->ioq_pool == NULL) {
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
+                        return NULL;
+                }
+
+                trav->reply_info_pool = mem_pool_new (rdma_reply_info_t,
+                                                      RDMA_POOL_SIZE);
+                if (trav->reply_info_pool == NULL) {
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->ioq_pool);
+                        return NULL;
+                }
+
 
 		active_port = ret;
 
@@ -3704,12 +3729,22 @@ rdma_get_device (rpc_transport_t *this,
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "%s: could not create send completion channel",
                                 device_name);
-                        /* TODO: cleanup current mess */
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
                         return NULL;
                 }
     
                 trav->recv_chan = ibv_create_comp_channel (trav->context);
                 if (!trav->recv_chan) {
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        ibv_destroy_comp_channel (trav->send_chan);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "could not create recv completion channel");
                         /* TODO: cleanup current mess */
@@ -3717,6 +3752,13 @@ rdma_get_device (rpc_transport_t *this,
                 }
       
                 if (rdma_create_cq (this) < 0) {
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        ibv_destroy_comp_channel (trav->recv_chan);
+                        ibv_destroy_comp_channel (trav->send_chan);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "%s: could not create CQ",
                                 this->name);
@@ -3727,6 +3769,14 @@ rdma_get_device (rpc_transport_t *this,
                 trav->pd = ibv_alloc_pd (trav->context);
 
                 if (!trav->pd) {
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        rdma_destroy_cq (this);
+                        ibv_destroy_comp_channel (trav->recv_chan);
+                        ibv_destroy_comp_channel (trav->send_chan);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "%s: could not allocate protection domain",
                                 this->name);
@@ -3742,6 +3792,16 @@ rdma_get_device (rpc_transport_t *this,
                 trav->srq = ibv_create_srq (trav->pd, &attr);
 
                 if (!trav->srq) {
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        ibv_dealloc_pd (trav->pd);
+                        rdma_destroy_cq (this);
+                        ibv_destroy_comp_channel (trav->recv_chan);
+                        ibv_destroy_comp_channel (trav->send_chan);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
+
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "%s: could not create SRQ",
                                 this->name);
@@ -3753,6 +3813,16 @@ rdma_get_device (rpc_transport_t *this,
                 rdma_queue_init (&trav->recvq);
 
                 if (rdma_create_posts (this) < 0) {
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        ibv_dealloc_pd (trav->pd);
+                        rdma_destroy_cq (this);
+                        ibv_destroy_comp_channel (trav->recv_chan);
+                        ibv_destroy_comp_channel (trav->send_chan);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
+
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "%s: could not allocate posts",
                                 this->name);
@@ -3765,15 +3835,37 @@ rdma_get_device (rpc_transport_t *this,
                                       rdma_send_completion_proc,
                                       trav->send_chan);
                 if (ret) {
+                        rdma_destroy_posts (this);
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        ibv_dealloc_pd (trav->pd);
+                        rdma_destroy_cq (this);
+                        ibv_destroy_comp_channel (trav->recv_chan);
+                        ibv_destroy_comp_channel (trav->send_chan);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
+
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "could not create send completion thread");
                         return NULL;
                 }
+
                 ret = pthread_create (&trav->recv_thread,
                                       NULL,
                                       rdma_recv_completion_proc,
                                       trav->recv_chan);
                 if (ret) {
+                        rdma_destroy_posts (this);
+                        mem_pool_destroy (trav->ioq_pool);
+                        mem_pool_destroy (trav->request_ctx_pool);
+                        mem_pool_destroy (trav->reply_info_pool);
+                        ibv_dealloc_pd (trav->pd);
+                        rdma_destroy_cq (this);
+                        ibv_destroy_comp_channel (trav->recv_chan);
+                        ibv_destroy_comp_channel (trav->send_chan);
+                        GF_FREE ((char *)trav->device_name);
+                        GF_FREE (trav);
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "could not create recv completion thread");
                         return NULL;
@@ -3868,33 +3960,6 @@ rdma_init (rpc_transport_t *this)
         pthread_mutex_init (&priv->write_mutex, NULL);
         pthread_mutex_init (&priv->recv_mutex, NULL);
         pthread_cond_init (&priv->recv_cond, NULL);
-
-        priv->request_ctx_pool = mem_pool_new (rdma_request_context_t,
-                                               RDMA_POOL_SIZE);
-        if (priv->request_ctx_pool == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                GF_FREE (priv);
-                return -1;
-        }
-
-        priv->ioq_pool = mem_pool_new (rdma_ioq_t, RDMA_POOL_SIZE);
-        if (priv->ioq_pool == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                mem_pool_destroy (priv->request_ctx_pool);
-                GF_FREE (priv);
-                return -1;
-        }
-
-        priv->reply_info_pool = mem_pool_new (rdma_reply_info_t,
-                                              RDMA_POOL_SIZE);
-        if (priv->reply_info_pool == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                mem_pool_destroy (priv->request_ctx_pool);
-                mem_pool_destroy (priv->ioq_pool);
-                GF_FREE (priv);
-                return -1;
-        }
-
 
 cleanup:
 	if (-1 == ret) {
@@ -4555,33 +4620,8 @@ rdma_server_event_handler (int fd, int idx, void *data,
            as other than QP, all the values remain same */
         priv->device = trans_priv->device;
         priv->options = trans_priv->options;
-        priv->request_ctx_pool = mem_pool_new (rdma_request_context_t,
-                                               RDMA_POOL_SIZE);
         priv->is_server = 1;
         priv->listener = trans;
-        if (priv->request_ctx_pool == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                GF_FREE (priv);
-                return -1;
-        }
-
-        priv->ioq_pool = mem_pool_new (rdma_ioq_t, RDMA_POOL_SIZE);
-        if (priv->ioq_pool == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                mem_pool_destroy (priv->request_ctx_pool);
-                GF_FREE (priv);
-                return -1;
-        }
-
-        priv->reply_info_pool = mem_pool_new (rdma_reply_info_t,
-                                              RDMA_POOL_SIZE);
-        if (priv->reply_info_pool == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                mem_pool_destroy (priv->request_ctx_pool);
-                mem_pool_destroy (priv->ioq_pool);
-                GF_FREE (priv);
-                return -1;
-        }
 
         options = &priv->options;
 
@@ -4606,8 +4646,6 @@ rdma_server_event_handler (int fd, int idx, void *data,
                 gf_log ("rdma/server", GF_LOG_ERROR,
                         "accept() failed: %s",
                         strerror (errno));
-                mem_pool_destroy (priv->request_ctx_pool);
-                mem_pool_destroy (priv->ioq_pool);
                 GF_FREE (this->private);
                 GF_FREE (this);
                 return -1;
@@ -4759,10 +4797,6 @@ fini (struct rpc_transport *this)
                 pthread_mutex_destroy (&priv->recv_mutex);
                 pthread_mutex_destroy (&priv->write_mutex);
                 pthread_mutex_destroy (&priv->read_mutex);
-
-                mem_pool_destroy (priv->request_ctx_pool);
-                mem_pool_destroy (priv->ioq_pool);
-                mem_pool_destroy (priv->reply_info_pool);
 
                 /*  pthread_cond_destroy (&priv->recv_cond); */
                 if (priv->sock != -1) {

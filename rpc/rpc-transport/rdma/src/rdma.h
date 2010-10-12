@@ -313,6 +313,9 @@ struct __rdma_device {
         struct ibv_cq *send_cq, *recv_cq;
         rdma_queue_t sendq, recvq;
         pthread_t send_thread, recv_thread;
+        struct mem_pool *request_ctx_pool;
+        struct mem_pool *ioq_pool;
+        struct mem_pool *reply_info_pool;
 };
 typedef struct __rdma_device rdma_device_t;
 
@@ -376,10 +379,6 @@ struct __rdma_private {
 
         pthread_mutex_t recv_mutex;
         pthread_cond_t  recv_cond;
-
-        struct mem_pool *request_ctx_pool;
-        struct mem_pool *ioq_pool;
-        struct mem_pool *reply_info_pool;
 
         /* used during rdma_handshake */
         struct {
