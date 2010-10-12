@@ -3565,7 +3565,7 @@ rdma_options_init (rpc_transport_t *this)
         if (temp)
                 options->recv_count = data_to_int32 (temp);
 
-        options->port = 0;
+        options->port = 1;
         temp = dict_get (this->options,
                          "transport.rdma.port");
         if (temp)
