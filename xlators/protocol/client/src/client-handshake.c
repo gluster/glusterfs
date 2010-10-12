@@ -782,6 +782,7 @@ out:
                 STACK_DESTROY (frame->root);
 
         if (conf) {
+                conf->skip_notify = 1;
                 rpc_transport_disconnect (conf->rpc->conn.trans);
 
                 rpc_clnt_reconnect (conf->rpc->conn.trans);
