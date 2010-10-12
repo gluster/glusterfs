@@ -1013,41 +1013,6 @@ nfs3_lookup_reply (rpcsvc_request_t *req, nfsstat3 stat, struct nfs3_fh *newfh,
 
 
 int
-nfs3_lookup_resume (void *carg);
-
-
-int
-nfs3_revalidate_lookup (nfs3_call_state_t *cs)
-{
-        int     ret = -EFAULT;
-        char    *oldresolventry = NULL;
-
-        if (!cs)
-                return -1;
-
-        gf_log (GF_NFS3, GF_LOG_DEBUG, "inode needs revalidation");
-        inode_unlink (cs->resolvedloc.inode, cs->resolvedloc.parent,
-                      cs->resolventry);
-        inode_unref (cs->resolvedloc.inode);
-        nfs_loc_wipe (&cs->resolvedloc);
-
-        /* Store pointer to currently allocated resolventry because it gets over
-         * written in fh_resolve_and_resume.
-         */
-        oldresolventry = cs->resolventry;
-        cs->revalidate = GF_NFS3_REVALIDATE;
-        ret = nfs3_fh_resolve_and_resume (cs, &cs->resolvefh, cs->resolventry,
-                                          nfs3_lookup_resume);
-        /* Allocated in the previous call to fh_resolve_and_resume using the
-         * same call_state.
-         */
-        GF_FREE (oldresolventry);
-
-        return ret;
-}
-
-
-int
 nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, dict_t *xattr, struct iatt *postparent)
@@ -1065,18 +1030,11 @@ nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         nfs3_fh_build_child_fh (&cs->parent, buf, &newfh);
 
 xmit_res:
-        /* Only revalidate if it wasnt already a revalidation lookup. */
-        if ((op_errno == ESTALE) && (!nfs3_is_revalidate_lookup (cs))) {
-                op_ret = nfs3_revalidate_lookup (cs);
-                if (op_ret < 0)
-                        goto out;
-        }
-
         nfs3_log_newfh_res (nfs_rpcsvc_request_xid (cs->req), "LOOKUP", status,
                             op_errno, &newfh);
         nfs3_lookup_reply (cs->req, status, &newfh, buf, postparent);
         nfs3_call_state_wipe (cs);
-out:
+
         return 0;
 }
 
@@ -1253,7 +1211,6 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
-        cs->revalidate = GF_NFS3_NONREVALIDATE;
         if (!nfs3_is_parentdir_entry (name))
                 ret = nfs3_fh_resolve_and_resume (cs, fh, name,
                                                   nfs3_lookup_resume);
