@@ -3031,6 +3031,22 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
+        if (loc->inode && name && !strcmp (name, GLUSTERFS_OPEN_FD_COUNT)) {
+		if (!list_empty (&loc->inode->fd_list)) {
+			ret = dict_set_uint32 (dict, (char *)name, 1);
+                        if (ret < 0)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to set dictionary value for %s",
+                                        name);
+		} else {
+			ret = dict_set_uint32 (dict, (char *)name, 0);
+                        if (ret < 0)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Failed to set dictionary value for %s",
+                                        name);
+		}
+                goto done;
+        }
 	if (loc->inode && IA_ISREG (loc->inode->ia_type) && name &&
 	    (strcmp (name, GF_XATTR_PATHINFO_KEY) == 0)) {
                 snprintf (host_buf, 1024, "%s:%s", priv->hostname,
@@ -3169,6 +3185,15 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         if (!dict) {
                 gf_log (this->name, GF_LOG_ERROR, "Out of memory.");
                 goto out;
+        }
+
+        if (name && !strcmp (name, GLUSTERFS_OPEN_FD_COUNT)) {
+                ret = dict_set_uint32 (dict, (char *)name, 1);
+                if (ret < 0)
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Failed to set dictionary value for %s",
+                                name);
+                goto done;
         }
 
         size = sys_flistxattr (_fd, NULL, 0);
