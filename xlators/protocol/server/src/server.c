@@ -771,6 +771,7 @@ out:
 void
 fini (xlator_t *this)
 {
+#if 0
         server_conf_t *conf = NULL;
 
         conf = this->private;
@@ -794,7 +795,7 @@ fini (xlator_t *this)
         }
 
         this->private = NULL;
-
+#endif
         return;
 }
 
