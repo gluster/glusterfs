@@ -30,17 +30,9 @@ test -x $DAEMON || exit 0
 # Define LSB log_* functions.
 . /lib/lsb/init-functions
 
-check_config()
-{
-  if [ ! -f "$CONFIGFILE" ]; then
-    echo "Config file $CONFIGFILE is missing...exiting!"
-    exit 0
-  fi
-}
 
 do_start()
 {
-    check_config;
     pidofproc -p $PIDFILE $DAEMON >/dev/null
     status=$?
     if [ $status -eq 0 ]; then
