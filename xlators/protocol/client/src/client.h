@@ -99,7 +99,6 @@ typedef struct client_local {
         uint32_t           flags;
         uint32_t           wbflags;
         struct iobref     *iobref;
-        fop_cbk_fn_t       op;
 
         client_posix_lock_t *client_lock;
         uint64_t           owner;
@@ -178,4 +177,6 @@ int client_notify_parents_child_up (xlator_t *this);
 int32_t is_client_dump_locks_cmd (char *name);
 int32_t client_dump_locks (char *name, inode_t *inode,
                            dict_t *dict);
+int client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx);
+
 #endif /* !_CLIENT_H */

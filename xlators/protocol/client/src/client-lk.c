@@ -614,7 +614,7 @@ decrement_reopen_fd_count (xlator_t *this, clnt_conf_t *conf)
 
         if (fd_count == 0) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "All locks healed on the last fd - notifying CHILDUP");
+                        "last fd open'd/lock-self-heal'd - notifying CHILD-UP");
                 client_notify_parents_child_up (this);
         }
 
