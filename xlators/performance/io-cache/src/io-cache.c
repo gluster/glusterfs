@@ -198,8 +198,11 @@ ioc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
-        if (!this || !this->private)
+        if (!this || !this->private) {
+                op_ret = -1;
+                op_errno = EINVAL;
                 goto out;
+        }
 
         table = this->private;
 
@@ -529,6 +532,12 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 	uint32_t    weight = 0xffffffff;
 
         local = frame->local;
+        if (!this || !this->private) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
         table = this->private;
 
 	if (op_ret != -1) {
@@ -573,6 +582,7 @@ ioc_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 		}
 	}
 
+out:
 	GF_FREE (local);
 	frame->local = NULL;
 
@@ -607,6 +617,12 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	const char  *path = NULL;
 
         local = frame->local;
+        if (!this || !this->private) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
         table = this->private;
         path = local->file_loc.path;
 
@@ -649,7 +665,8 @@ ioc_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			fd_ctx_set (fd, this, 1);
 		}
 	}
-  
+
+out:
 	frame->local = NULL;
 	GF_FREE (local);
 
@@ -673,6 +690,12 @@ ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	const char  *path      = NULL;
 
         local = frame->local;
+        if (!this || !this->private) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
         table = this->private;
         path = local->file_loc.path;
 
@@ -693,7 +716,8 @@ ioc_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 inode_ctx_put (inode, this,
                                (uint64_t)(long)ioc_inode);
 	}
-  
+
+out:
 	frame->local = NULL;
 
         loc_wipe (&local->file_loc);
@@ -1624,6 +1648,9 @@ reconfigure (xlator_t *this, dict_t *options)
 	char		*cache_size_string = NULL;
 	int		 ret = 0;
 
+        if (!this || !this->private)
+                goto out;
+
 	table = this->private;
 
 	ioc_table_lock (table); 
@@ -1938,11 +1965,10 @@ ioc_priv_dump (xlator_t *this)
         char            key_prefix[GF_DUMP_MAX_BUF_LEN];
         char            key[GF_DUMP_MAX_BUF_LEN];
 
-        GF_ASSERT (this);
+        if (!this || !this->private)
+                goto out;
+       
         priv = this->private;
-
-        GF_ASSERT (priv);
-
         gf_proc_dump_build_key (key_prefix, "xlator.performance.io-cache",
                                 "priv");
         gf_proc_dump_add_section (key_prefix);
@@ -1956,6 +1982,7 @@ ioc_priv_dump (xlator_t *this)
         gf_proc_dump_build_key (key, key_prefix, "inode_count");
         gf_proc_dump_write (key, "%u", priv->inode_count);
 
+out:
         return 0;
 }
 
