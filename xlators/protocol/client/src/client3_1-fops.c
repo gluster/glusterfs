@@ -2184,6 +2184,8 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 	  }
         }
 
+        decrement_reopen_fd_count (frame->this, conf);
+
 out:
         if (fdctx)
                 client_fdctx_destroy (frame->this, fdctx);
