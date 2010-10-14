@@ -91,8 +91,8 @@ struct ios_local {
                 struct ios_conf  *conf = NULL;                          \
                                                                         \
                 conf = this->private;                                   \
-                if (conf->measure_latency) {                            \
-                        gettimeofday (&frame->end, NULL);        \
+                if (conf && conf->measure_latency) {                    \
+                        gettimeofday (&frame->end, NULL);               \
                         update_ios_latency (conf, frame, GF_FOP_##op);  \
                 }                                                       \
         } while (0)
@@ -102,8 +102,8 @@ struct ios_local {
                 struct ios_conf  *conf = NULL;                          \
                                                                         \
                 conf = this->private;                                   \
-                if (conf->measure_latency) {                            \
-                        gettimeofday (&frame->begin, NULL);      \
+                if (conf && conf->measure_latency) {                    \
+                        gettimeofday (&frame->begin, NULL);             \
                 }                                                       \
         } while (0)
 
@@ -113,6 +113,8 @@ struct ios_local {
                 struct ios_conf  *conf = NULL;                          \
                                                                         \
                 conf = this->private;                                   \
+                if (!conf)                                              \
+                        break;                                          \
                 LOCK (&conf->lock);                                     \
                 {                                                       \
                         conf->cumulative.fop_hits[GF_FOP_##op]++;       \
@@ -131,6 +133,8 @@ struct ios_local {
                 conf = this->private;                                   \
                 lb2 = log_base2 (len);                                  \
                 ios_fd_ctx_get (fd, this, &iosfd);                      \
+                if (!conf)                                              \
+                        break;                                          \
                                                                         \
                 LOCK (&conf->lock);                                     \
                 {                                                       \
@@ -157,6 +161,8 @@ struct ios_local {
                 conf = this->private;                                   \
                 lb2 = log_base2 (len);                                  \
                 ios_fd_ctx_get (fd, this, &iosfd);                      \
+                if (!conf)                                              \
+                        break;                                          \
                                                                         \
                 LOCK (&conf->lock);                                     \
                 {                                                       \
