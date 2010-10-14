@@ -142,6 +142,7 @@ struct dht_conf {
         gf_lock_t      layout_lock;
         void          *private;     /* Can be used by wrapper xlators over
                                        dht */
+        gf_boolean_t   use_readdirp;
 };
 typedef struct dht_conf dht_conf_t;
 
