@@ -317,20 +317,40 @@ out:
 gf_answer_t
 cli_cmd_get_confirmation (struct cli_state *state, const char *question)
 {
-        char                    answer = '\0';
+        char                    answer[5] = {'\0', };
         char                    flush = '\0';
+	int			len = 0;
 
         if (state->mode & GLUSTER_MODE_SCRIPT)
                 return GF_ANSWER_YES;
-        printf ("%s (y/n) ", question);
-        answer = getchar ();
-        flush = answer;
-        while ('\n' != flush)
-                flush = getchar ();
-        if ('y' != answer) {
-                return GF_ANSWER_NO;
-        }
-        return GF_ANSWER_YES;
+
+	printf ("%s (y/n) ", question);
+
+	fgets (answer, 4, stdin);
+
+	len = strlen (answer);
+
+	if (answer [len - 1] == '\n'){
+		answer [--len] = '\0';
+	} else {
+		do{
+			flush = getchar ();
+		}while (flush != '\n');
+	}
+
+	if (len > 3)
+		goto out;
+
+	if (!strcasecmp (answer, "y") || !strcasecmp (answer, "yes"))
+		return GF_ANSWER_YES;
+
+	else if (!strcasecmp (answer, "n") || !strcasecmp (answer, "no"))
+		return GF_ANSWER_NO;
+
+out:
+	cli_out ("Invalid input, please enter y/n");
+
+	return GF_ANSWER_NO;
 }
 
 int
