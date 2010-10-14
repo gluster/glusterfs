@@ -367,6 +367,300 @@ client_notify_parents_child_up (xlator_t *this)
 }
 
 int
+client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                      void           *myframe)
+{
+        int32_t        ret                   = -1;
+        gfs3_open_rsp  rsp                   = {0,};
+        int            attempt_lock_recovery = _gf_false;
+        uint64_t       fd_count              = 0;
+        clnt_local_t  *local                 = NULL;
+        clnt_conf_t   *conf                  = NULL;
+        clnt_fd_ctx_t *fdctx                 = NULL;
+        call_frame_t  *frame                 = NULL;
+
+        frame = myframe;
+        local = frame->local;
+        conf  = frame->this->private;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+
+        ret = xdr_to_open_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        gf_log (frame->this->name, GF_LOG_DEBUG,
+                "reopen on %s returned %d (%"PRId64")",
+                local->loc.path, rsp.op_ret, rsp.fd);
+
+        if (rsp.op_ret == -1)
+                goto out;
+
+        fdctx = local->fdctx;
+
+        if (!fdctx)
+                goto out;
+
+        pthread_mutex_lock (&conf->lock);
+        {
+                fdctx->remote_fd = rsp.fd;
+                if (!fdctx->released) {
+                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+                        if (!list_empty (&fdctx->lock_list))
+                                attempt_lock_recovery = _gf_true;
+                        fdctx = NULL;
+                }
+        }
+        pthread_mutex_unlock (&conf->lock);
+
+        attempt_lock_recovery = _gf_false; /* temporarily */
+
+        if (attempt_lock_recovery) {
+                ret = client_attempt_lock_recovery (frame->this, local->fdctx);
+                if (ret < 0) {
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                "No locks on fd to recover");
+                } else {
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                "Need to attempt lock recovery on %lld open fds",
+                                (unsigned long long) fd_count);
+                }
+        } else {
+                fd_count = decrement_reopen_fd_count (frame->this, conf);
+        }
+
+
+out:
+        if (fdctx)
+                client_fdctx_destroy (frame->this, fdctx);
+
+        frame->local = NULL;
+        STACK_DESTROY (frame->root);
+
+        client_local_wipe (local);
+
+        return 0;
+}
+
+int
+client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
+                         void           *myframe)
+{
+        int32_t        ret   = -1;
+        gfs3_open_rsp  rsp   = {0,};
+        clnt_local_t  *local = NULL;
+        clnt_conf_t   *conf  = NULL;
+        clnt_fd_ctx_t *fdctx = NULL;
+        call_frame_t  *frame = NULL;
+
+        frame = myframe;
+        if (!frame || !frame->this)
+                goto out;
+
+        local        = frame->local;
+        frame->local = NULL;
+        conf         = frame->this->private;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = ENOTCONN;
+                goto out;
+        }
+
+        ret = xdr_to_opendir_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                goto out;
+        }
+
+        gf_log (frame->this->name, GF_LOG_DEBUG,
+                "reopendir on %s returned %d (%"PRId64")",
+                local->loc.path, rsp.op_ret, rsp.fd);
+
+	if (-1 != rsp.op_ret) {
+                fdctx = local->fdctx;
+                if (fdctx) {
+                        pthread_mutex_lock (&conf->lock);
+                        {
+                                fdctx->remote_fd = rsp.fd;
+
+                                if (!fdctx->released) {
+                                        list_add_tail (&fdctx->sfd_pos, &conf->saved_fds);
+                                        fdctx = NULL;
+                                }
+                        }
+                        pthread_mutex_unlock (&conf->lock);
+                }
+        }
+
+        decrement_reopen_fd_count (frame->this, conf);
+
+out:
+        if (fdctx)
+                client_fdctx_destroy (frame->this, fdctx);
+
+        if (frame) {
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
+
+        client_local_wipe (local);
+
+        return 0;
+}
+
+int
+protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
+{
+        int               ret   = -1;
+        gfs3_opendir_req  req   = {{0,},};
+        clnt_local_t     *local = NULL;
+        inode_t          *inode = NULL;
+        char             *path  = NULL;
+        call_frame_t     *frame = NULL;
+        clnt_conf_t      *conf  = NULL;
+
+        if (!this || !fdctx)
+                goto out;
+
+        inode = fdctx->inode;
+        conf = this->private;
+
+        ret = inode_path (inode, NULL, &path);
+        if (ret < 0) {
+                goto out;
+        }
+
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        if (!local) {
+                goto out;
+        }
+
+        local->fdctx    = fdctx;
+        local->loc.path = path;
+        path            = NULL;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                goto out;
+        }
+
+        memcpy (req.gfid,  inode->gfid, 16);
+        req.path  = (char *)local->loc.path;
+
+        gf_log (frame->this->name, GF_LOG_DEBUG,
+                "attempting reopen on %s", local->loc.path);
+
+        frame->local = local; local = NULL;
+
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPENDIR,
+                                     client3_1_reopendir_cbk, NULL,
+                                     xdr_from_opendir_req, NULL, 0, NULL, 0,
+                                     NULL);
+        if (ret)
+                goto out;
+
+        return ret;
+
+out:
+        if (frame) {
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
+
+        if (local)
+                client_local_wipe (local);
+
+        if (path)
+                GF_FREE (path);
+
+        return 0;
+
+}
+
+int
+protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
+{
+        int            ret   = -1;
+        gfs3_open_req  req   = {{0,},};
+        clnt_local_t  *local = NULL;
+        inode_t       *inode = NULL;
+        char          *path  = NULL;
+        call_frame_t  *frame = NULL;
+        clnt_conf_t   *conf  = NULL;
+
+        if (!this || !fdctx)
+                goto out;
+
+        inode = fdctx->inode;
+        conf  = this->private;
+
+        ret = inode_path (inode, NULL, &path);
+        if (ret < 0) {
+                goto out;
+        }
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame) {
+                goto out;
+        }
+
+        local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
+        if (!local) {
+                goto out;
+        }
+
+        local->fdctx    = fdctx;
+        local->loc.path = path;
+        path            = NULL;
+        frame->local    = local;
+
+        memcpy (req.gfid,  inode->gfid, 16);
+        req.flags    = gf_flags_from_flags (fdctx->flags);
+        req.wbflags  = fdctx->wbflags;
+        req.path     = (char *)local->loc.path;
+
+        gf_log (frame->this->name, GF_LOG_DEBUG,
+                "attempting reopen on %s", local->loc.path);
+
+        local = NULL;
+        ret = client_submit_request (this, &req, frame, conf->fops,
+                                     GFS3_OP_OPEN, client3_1_reopen_cbk, NULL,
+                                     xdr_from_open_req, NULL, 0, NULL, 0, NULL);
+        if (ret)
+                goto out;
+
+        return ret;
+
+out:
+        if (frame) {
+                frame->local = NULL;
+                STACK_DESTROY (frame->root);
+        }
+
+        if (local)
+                client_local_wipe (local);
+
+        if (path)
+                GF_FREE (path);
+
+        return 0;
+
+}
+
+
+int
 client_post_handshake (call_frame_t *frame, xlator_t *this)
 {
         clnt_conf_t            *conf = NULL;
@@ -399,7 +693,7 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
         /* Delay notifying CHILD_UP to parents
            until all locks are recovered */
         if (count > 0) {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_INFO,
                         "%d fds open - Delaying child_up until they are re-opened",
                         count);
                 client_save_number_fds (conf, count);
@@ -413,7 +707,7 @@ client_post_handshake (call_frame_t *frame, xlator_t *this)
                                 protocol_client_reopen (this, fdctx);
                 }
         } else {
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_DEBUG,
                         "No open fds - notifying all parents child up");
                 client_notify_parents_child_up (this);
 
