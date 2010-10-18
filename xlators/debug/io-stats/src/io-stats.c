@@ -1588,7 +1588,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
         ret = dict_get_str (options, "log-level", &log_str);
         if (!ret) {
-                if (!is_gf_log_command(this, "trusted.glusterfs*set-log-level", log_str)) {
+                if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level", log_str)) {
                         gf_log (this->name, GF_LOG_DEBUG,
                                "changing log-level to %s", log_str);
                 }
@@ -1622,6 +1622,7 @@ init (xlator_t *this)
         struct ios_conf    *conf = NULL;
         char               *str = NULL;
         int                 ret = 0;
+        char               *log_str = NULL;
 
         if (!this)
                 return -1;
@@ -1673,6 +1674,14 @@ init (xlator_t *this)
                 if (conf->measure_latency)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "enabling latency measurement");
+        }
+
+        ret = dict_get_str (options, "log-level", &log_str);
+        if (!ret) {
+                if (!is_gf_log_command(this, "trusted.glusterfs.set-log-level", log_str)) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                               "changing log-level to %s", log_str);
+                }
         }
 
         this->private = conf;
