@@ -1702,6 +1702,23 @@ fini (xlator_t *this)
         return;
 }
 
+int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+        int             ret = -1;
+        char            *log_str = NULL;
+
+        ret = dict_get_str (options, "log-level", &log_str);
+        if (ret)
+                return 0;
+        ret = glusterd_check_log_level(log_str);
+        if (ret == -1)
+                *op_errstr = gf_strdup ("Invalid log level. possible option are"
+                                    " DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
+        else
+                ret = 0;
+        return ret;
+}
 
 struct xlator_fops fops = {
         .stat        = io_stats_stat,

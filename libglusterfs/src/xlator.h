@@ -864,6 +864,7 @@ int xlator_tree_reconfigure (xlator_t *old_xl, xlator_t *new_xl);
 int is_gf_log_command (xlator_t *trans, const char *name, char *value);
 int xlator_validate_rec (xlator_t *xlator, char **op_errstr);
 int graph_reconf_validateopt (glusterfs_graph_t *graph, char **op_errstr);
+int glusterd_check_log_level (const char *value);
 
 #define GF_STAT_PRINT_FMT_STR "%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx64",%"PRIx64",%"PRIx32",%"PRIx64",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32",%"PRIx32"\n"
 
