@@ -532,7 +532,6 @@ static void
 afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
                           int child_index, dict_t *xattr)
 {
-	uint32_t        open_fd_count = 0;
         uint32_t        inodelk_count = 0;
         uint32_t        entrylk_count = 0;
 
@@ -546,11 +545,6 @@ afr_lookup_collect_xattr (afr_local_t *local, xlator_t *this,
 
         if (afr_sh_has_data_pending (xattr, child_index, this))
                 local->self_heal.need_data_self_heal = _gf_true;
-
-        ret = dict_get_uint32 (xattr, GLUSTERFS_OPEN_FD_COUNT,
-                               &open_fd_count);
-        if (ret == 0)
-                local->open_fd_count += open_fd_count;
 
         ret = dict_get_uint32 (xattr, GLUSTERFS_INODELK_COUNT,
                                &inodelk_count);
@@ -644,9 +638,7 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct stat *lookup_buf)
             && ((!local->cont.lookup.is_revalidate)
                 || (local->op_ret != -1))) {
 
-                if (local->open_fd_count
-                    || local->inodelk_count
-                    || local->entrylk_count) {
+                if (local->inodelk_count || local->entrylk_count) {
 
                         /* Someone else is doing self-heal on this file.
                            So just make a best effort to set the read-subvolume
@@ -1044,7 +1036,6 @@ afr_lookup (call_frame_t *frame, xlator_t *this,
                 /* 3 = data+metadata+entry */
         }
 
-	ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_OPEN_FD_COUNT, 0);
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_INODELK_COUNT, 0);
         ret = dict_set_uint64 (local->xattr_req, GLUSTERFS_ENTRYLK_COUNT, 0);
 
