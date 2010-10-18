@@ -427,6 +427,10 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                 if (conn)
                         server_connection_cleanup (this, conn);
 
+                gf_log (this->name, GF_LOG_INFO,
+                        "disconnected connection from %s",
+                        xprt->peerinfo.identifier);
+
                 list_del (&xprt->list);
 
                 break;
