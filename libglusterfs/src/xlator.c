@@ -1260,22 +1260,7 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
         if (fnmatch ("trusted.glusterfs*set-log-level", name, FNM_NOESCAPE))
                 goto out;
 
-        if (!strcasecmp (value, "CRITICAL")) {
-                log_level = GF_LOG_CRITICAL;
-        } else if (!strcasecmp (value, "ERROR")) {
-                log_level = GF_LOG_ERROR;
-        } else if (!strcasecmp (value, "WARNING")) {
-                log_level = GF_LOG_WARNING;
-        } else if (!strcasecmp (value, "INFO")) {
-                log_level = GF_LOG_INFO;
-        } else if (!strcasecmp (value, "DEBUG")) {
-                log_level = GF_LOG_DEBUG;
-        } else if (!strcasecmp (value, "TRACE")) {
-                log_level = GF_LOG_TRACE;
-        } else if (!strcasecmp (value, "NONE")) {
-                log_level = GF_LOG_NONE;
-        }
-
+        log_level = glusterd_check_log_level (value);
         if (log_level == -1) {
                 ret = EOPNOTSUPP;
                 goto out;
@@ -1322,4 +1307,32 @@ is_gf_log_command (xlator_t *this, const char *name, char *value)
         }
 out:
         return ret;
+}
+
+int
+glusterd_check_log_level (const char *value)
+{
+        int log_level = -1;
+
+        if (!strcasecmp (value, "CRITICAL")) {
+                log_level = GF_LOG_CRITICAL;
+        } else if (!strcasecmp (value, "ERROR")) {
+                log_level = GF_LOG_ERROR;
+        } else if (!strcasecmp (value, "WARNING")) {
+                log_level = GF_LOG_WARNING;
+        } else if (!strcasecmp (value, "INFO")) {
+                log_level = GF_LOG_INFO;
+        } else if (!strcasecmp (value, "DEBUG")) {
+                log_level = GF_LOG_DEBUG;
+        } else if (!strcasecmp (value, "TRACE")) {
+                log_level = GF_LOG_TRACE;
+        } else if (!strcasecmp (value, "NONE")) {
+                log_level = GF_LOG_NONE;
+        }
+
+        if (log_level == -1)
+                gf_log ("", GF_LOG_ERROR, "Invalid log-level. possible values "
+                        "are DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
+
+        return log_level;
 }
