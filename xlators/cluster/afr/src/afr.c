@@ -1121,10 +1121,10 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
                         goto unlock;
                 }
 
-                fd_ctx->child_failed = CALLOC (sizeof (*fd_ctx->child_failed),
-                                               priv->child_count);
+                fd_ctx->pre_op_piggyback = CALLOC (sizeof (*fd_ctx->pre_op_piggyback),
+                                                   priv->child_count);
                 
-                if (!fd_ctx->child_failed) {
+                if (!fd_ctx->pre_op_piggyback) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "Out of memory");
 
@@ -1278,73 +1278,6 @@ afr_flush_done (call_frame_t *frame, xlator_t *this)
 
 
 int
-afr_plain_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-                     int32_t op_ret, int32_t op_errno)
-
-{
-	afr_local_t *local = NULL;
-
-	int call_count = -1;
-
-	local = frame->local;
-
-	LOCK (&frame->lock);
-	{
-		if (op_ret == 0)
-			local->op_ret = 0;
-
-		local->op_errno = op_errno;
-	}
-	UNLOCK (&frame->lock);
-
-	call_count = afr_frame_return (frame);
-
-	if (call_count == 0)
-		AFR_STACK_UNWIND (flush, frame, local->op_ret, local->op_errno);
-
-	return 0;
-}
-
-
-static int
-__no_pre_op_done (xlator_t *this, fd_t *fd)
-{
-        int i      = 0;
-        int op_ret = 1;
-
-        int _ret = 0;
-        uint64_t       ctx;
-        afr_fd_ctx_t * fd_ctx = NULL;
-
-        afr_private_t *priv = NULL;
-
-        priv = this->private;
-
-        LOCK (&fd->lock);
-        {
-                _ret = __fd_ctx_get (fd, this, &ctx);
-
-                if (_ret < 0) {
-                        goto out;
-                }
-
-                fd_ctx = (afr_fd_ctx_t *)(long) ctx;
-
-                for (i = 0; i < priv->child_count; i++) {
-                        if (fd_ctx->pre_op_done[i]) {
-                                op_ret = 0;
-                                break;
-                        }
-                }
-        }
-out:
-        UNLOCK (&fd->lock);
-
-        return op_ret;
-}
-
-
-int
 afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_private_t * priv  = NULL;
@@ -1357,7 +1290,6 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 	int op_ret   = -1;
 	int op_errno = 0;
 
-        int i          = 0;
         int call_count = 0;
 
 	VALIDATE_OR_GOTO (frame, out);
@@ -1376,45 +1308,29 @@ afr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         call_count = afr_up_children_count (priv->child_count, local->child_up);
 
-        if (__no_pre_op_done (this, fd)) {
-                frame->local = local;
-
-                for (i = 0; i < priv->child_count; i++) {
-                        if (local->child_up[i]) {
-                                STACK_WIND_COOKIE (frame, afr_plain_flush_cbk,
-                                                   (void *) (long) i,
-                                                   priv->children[i],
-                                                   priv->children[i]->fops->flush,
-                                                   fd);
-                                if (!--call_count)
-                                        break;
-                        }
-                }
-        } else {
-                transaction_frame = copy_frame (frame);
-                if (!transaction_frame) {
-                        op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory.");
-                        goto out;
-                }
-
-                transaction_frame->local = local;
-
-                local->op = GF_FOP_FLUSH;
-        
-                local->transaction.fop    = afr_flush_wind;
-                local->transaction.done   = afr_flush_done;
-                local->transaction.unwind = afr_flush_unwind;
-
-                local->fd                 = fd_ref (fd);
-
-                local->transaction.main_frame = frame;
-                local->transaction.start  = 0;
-                local->transaction.len    = 0;
-
-                afr_transaction (transaction_frame, this, AFR_FLUSH_TRANSACTION);
+        transaction_frame = copy_frame (frame);
+        if (!transaction_frame) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory.");
+                goto out;
         }
+
+        transaction_frame->local = local;
+
+        local->op = GF_FOP_FLUSH;
+        
+        local->transaction.fop    = afr_flush_wind;
+        local->transaction.done   = afr_flush_done;
+        local->transaction.unwind = afr_flush_unwind;
+
+        local->fd                 = fd_ref (fd);
+
+        local->transaction.main_frame = frame;
+        local->transaction.start  = 0;
+        local->transaction.len    = 0;
+
+        afr_transaction (transaction_frame, this, AFR_DATA_TRANSACTION);
 
 	op_ret = 0;
 out:
@@ -1446,8 +1362,8 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
         fd_ctx = (afr_fd_ctx_t *)(long) ctx;
 
         if (fd_ctx) {
-                if (fd_ctx->child_failed)
-                        FREE (fd_ctx->child_failed);
+                if (fd_ctx->pre_op_piggyback)
+                        FREE (fd_ctx->pre_op_piggyback);
 
                 if (fd_ctx->pre_op_done)
                         FREE (fd_ctx->pre_op_done);
