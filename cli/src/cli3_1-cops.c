@@ -770,6 +770,9 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         if (cmd == GF_DEFRAG_CMD_START) {
                 cli_out ("starting rebalance on volume %s has been %s", volname,
                          (rsp.op_ret) ? "unsuccessful": "successful");
+                if (rsp.op_ret && rsp.op_errno == EEXIST)
+                       cli_out ("Rebalance already started on volume %s", 
+                                volname);
         }
         if (cmd == GF_DEFRAG_CMD_STOP) {
                 if (rsp.op_ret == -1)
