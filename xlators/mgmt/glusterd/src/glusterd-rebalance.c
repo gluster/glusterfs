@@ -53,7 +53,6 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
         struct stat             new_stbuf          = {0,};
         char                    full_path[1024]    = {0,};
         char                    tmp_filename[1024] = {0,};
-        char                    value[16]          = {0,};
 
         if (!volinfo->defrag)
                 goto out;
@@ -81,12 +80,6 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
 
                 if (!(S_ISREG (stbuf.st_mode) &&
                       ((stbuf.st_mode & 01000) == 01000)))
-                        continue;
-
-                /* If the file is open, don't run rebalance on it */
-                ret = sys_lgetxattr (full_path, GLUSTERFS_OPEN_FD_COUNT,
-                                     &value, 16);
-                if ((ret < 0) || !strncmp (value, "1", 1))
                         continue;
 
                 /* If its a regular file, and sticky bit is set, we need to
