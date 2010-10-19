@@ -412,6 +412,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                         gf_log ("glusterd", GF_LOG_DEBUG,
                                 "rebalance on volume %s already started",
                                 cli_req.volname);
+                        rsp.op_errno = EEXIST;
                         goto out;
                 }
 
