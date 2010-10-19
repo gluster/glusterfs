@@ -140,9 +140,6 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("Detach failed");
-
         return ret;
 }
 
