@@ -624,15 +624,23 @@ glusterd_handle_cli_deprobe (rpcsvc_request_t *req)
                 goto out;
         }
 
-        ret = glusterd_all_volume_cond_check (glusterd_friend_brick_belongs,
-                                              -1, &uuid);
-        if (ret) {
-                op_errno = GF_DEPROBE_BRICK_EXIST;
-                goto out;
+        if (!uuid_is_null (uuid)) {
+                ret = glusterd_all_volume_cond_check (
+                                                glusterd_friend_brick_belongs,
+                                                -1, &uuid);
+                if (ret) {
+                        op_errno = GF_DEPROBE_BRICK_EXIST;
+                        goto out;
+                }
         }
 
-        ret = glusterd_deprobe_begin (req, cli_req.hostname,
-                                      cli_req.port, uuid);
+        if (!uuid_is_null (uuid)) {
+                ret = glusterd_deprobe_begin (req, cli_req.hostname,
+                                              cli_req.port, uuid);
+        } else {
+                ret = glusterd_deprobe_begin (req, cli_req.hostname,
+                                              cli_req.port, NULL);
+        }
 
         gf_cmd_log ("peer deprobe", "on host %s:%d %s", cli_req.hostname,
                     cli_req.port, (ret) ? "FAILED" : "SUCCESS");
@@ -641,6 +649,7 @@ out:
                 ret = glusterd_xfer_cli_deprobe_resp (req, ret, op_errno,
                                                       cli_req.hostname);
         }
+
         if (cli_req.hostname)
                 free (cli_req.hostname);//malloced by xdr
         return ret;

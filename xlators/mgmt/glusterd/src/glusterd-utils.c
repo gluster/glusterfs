@@ -1604,6 +1604,7 @@ glusterd_import_friend_volume (dict_t *vols, int count)
 
                 strcpy (brickinfo->path, path);
                 strcpy (brickinfo->hostname, hostname);
+                glusterd_resolve_brick (brickinfo);
 
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
 
@@ -2008,13 +2009,22 @@ int
 glusterd_friend_brick_belongs (glusterd_volinfo_t *volinfo,
                                glusterd_brickinfo_t *brickinfo, void* uuid)
 {
+        int             ret = -1;
+
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
         GF_ASSERT (uuid);
 
+        if (uuid_is_null (brickinfo->uuid)) {
+                ret = glusterd_resolve_brick (brickinfo);
+                if (ret) {
+                        GF_ASSERT (0);
+                        goto out;
+                }
+        }
         if (!uuid_compare (brickinfo->uuid, *((uuid_t *)uuid)))
                 return 0;
-
+out:
         return -1;
 }
 
