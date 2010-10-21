@@ -2380,6 +2380,96 @@ afr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 	return 0;
 }
 
+static int
+is_blocking_cmd (int32_t cmd)
+{
+	return (cmd == F_SETLKW);
+}
+
+static int32_t
+afr_do_real_lk (call_frame_t *frame, xlator_t *this)
+{
+	afr_private_t *priv  = NULL;
+	afr_local_t   *local = NULL;
+	int            i     = 0;
+
+	priv  = this->private;
+	local = frame->local;
+
+	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) 0,
+			   priv->children[i],
+			   priv->children[i]->fops->lk,
+			   local->fd, F_SETLKW,
+			   &local->cont.lk.user_flock);
+
+	return 0;
+}
+
+int32_t
+afr_lk_unlock_broadcast_cbk (call_frame_t *frame, void *cookie, xlator_t *this, 
+			     int32_t op_ret, int32_t op_errno, struct flock *lock)
+{
+	afr_local_t *local      = NULL;
+	int          call_count = -1;
+
+	local = frame->local;
+	call_count = afr_frame_return (frame);
+
+	if (call_count == 0) {
+		gf_log (this->name, GF_LOG_TRACE,
+			"Got last unlock broadcast reply");
+
+		afr_do_real_lk (frame, this);
+	}
+
+	return 0;
+
+}
+
+static int
+afr_lk_unlock_broadcast (call_frame_t *frame, xlator_t *this,
+			 struct flock *flock)
+{
+	afr_private_t *priv     = NULL;
+	afr_local_t   *local    = NULL;
+	struct flock unlock     = {0,};
+	int32_t      call_count = 0;
+	int          ret        = 0;
+	int          i          = 0;
+
+	priv  = this->private;
+	local = frame->local;
+
+	unlock.l_type   = F_UNLCK;
+	unlock.l_whence = flock->l_whence;
+	unlock.l_start  = flock->l_start;
+	unlock.l_len    = flock->l_len;
+	unlock.l_pid    = flock->l_pid;
+
+	call_count = afr_up_children_count (priv->child_count,
+					    local->child_up);
+	if (call_count == 0) {
+		ret = -1;
+		goto out;
+	}
+
+	local->call_count = call_count;
+
+	for (i = 0; i < priv->child_count; i++) {
+		if (local->child_up[i]) {
+			STACK_WIND_COOKIE (frame, afr_lk_unlock_broadcast_cbk,
+					   (void *) (long) 0,
+					   priv->children[i],
+					   priv->children[i]->fops->lk,
+					   local->fd, F_SETLK, &unlock);
+			if (!--call_count)
+				break;
+		}
+	}
+
+out:
+	return ret;
+}
 
 int
 afr_lk (call_frame_t *frame, xlator_t *this,
@@ -2389,7 +2479,8 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	afr_private_t *priv = NULL;
 	afr_local_t *local = NULL;
 
-	int i = 0;
+	int i   = 0;
+	int ret = 0;
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -2418,6 +2509,22 @@ afr_lk (call_frame_t *frame, xlator_t *this,
 	local->cont.lk.cmd   = cmd;
 	local->cont.lk.user_flock = *flock;
         local->cont.lk.ret_flock = *flock;
+
+	/* Send an unlock broadcast in the case of a blocking lock call
+	   to prevent deadlock due to blocking lock upgrades / downgrades
+	*/
+	if (is_blocking_cmd (cmd)) {
+		ret = afr_lk_unlock_broadcast (frame, this, flock);
+		if (ret) {
+			gf_log (this->name, GF_LOG_DEBUG,
+				"Could not send unlock broadcast");
+		} else {
+			op_ret = 0;
+			gf_log (this->name, GF_LOG_DEBUG,
+				"Sent unlock broadcast");
+			goto out;
+		}
+	}
 
 	STACK_WIND_COOKIE (frame, afr_lk_cbk, (void *) (long) 0,
 			   priv->children[i],

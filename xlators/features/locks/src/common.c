@@ -923,17 +923,17 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
         pthread_mutex_lock (&pl_inode->mutex);
         {
-                /* Send unlock before the actual lock to
-                   prevent lock upgrade / downgrade
-                   problems
+                /* Send unlock before the actual blocking lock
+		   to support lock upgrades / downgrades.
                 */
-
-                ret = pl_send_prelock_unlock (this, pl_inode,
-                                              lock);
-                if (ret)
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "Could not send pre-lock "
-                                "unlock");
+		if (can_block) {
+			ret = pl_send_prelock_unlock (this, pl_inode,
+						      lock);
+			if (ret)
+				gf_log (this->name, GF_LOG_DEBUG,
+					"Could not send pre-lock "
+					"unlock");
+		}
 
                 if (__is_lock_grantable (pl_inode, lock)) {
                         gf_log (this->name, GF_LOG_TRACE,
