@@ -17,8 +17,8 @@
   <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _RPC_CLNT_H
-#define _RPC_CLNT_H
+#ifndef __RPC_CLNT_H
+#define __RPC_CLNT_H
 
 #include "stack.h"
 #include "rpc-transport.h"
