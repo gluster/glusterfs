@@ -807,10 +807,6 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 ret = xlator_set_option (rbxl, "transport-type", transt);
                 if (ret)
                         return -1;
-                ret = xlator_set_option (rbxl, "remote-port", "34034");
-                if (ret)
-                        return -1;
-
                 xl = volgen_graph_add_nolink (graph, "cluster/pump", "%s-pump",
                                               volname);
                 if (!xl)
