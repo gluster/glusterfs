@@ -1378,27 +1378,31 @@ out:
 int
 rpcsvc_fill_reply (rpcsvc_request_t *req, struct rpc_msg *reply)
 {
+        int                      ret  = -1;
         rpcsvc_program_t        *prog = NULL;
         if ((!req) || (!reply))
-                return -1;
+                goto out;
+
+        ret = 0;
+        rpc_fill_empty_reply (reply, req->xid);
+        if (req->rpc_status == MSG_DENIED) {
+                rpc_fill_denied_reply (reply, req->rpc_err, req->auth_err);
+                goto out;
+        }
 
         prog = rpcsvc_request_program (req);
-        if (!prog)
-                return -1;
 
-        rpc_fill_empty_reply (reply, req->xid);
-
-        if (req->rpc_status == MSG_DENIED)
-                rpc_fill_denied_reply (reply, req->rpc_err, req->auth_err);
-        else if (req->rpc_status == MSG_ACCEPTED)
-                rpc_fill_accepted_reply (reply, req->rpc_err, prog->proglowvers,
-                                         prog->proghighvers, req->verf.flavour,
-                                         req->verf.datalen,
+        if (req->rpc_status == MSG_ACCEPTED)
+                rpc_fill_accepted_reply (reply, req->rpc_err,
+                                         (prog) ? prog->proglowvers : 0,
+                                         (prog) ? prog->proghighvers: 0,
+                                         req->verf.flavour, req->verf.datalen,
                                          req->verf.authdata);
         else
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Invalid rpc_status value");
 
-        return 0;
+out:
+        return ret;
 }
 
 
@@ -1538,14 +1542,17 @@ rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec *proghdr,
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "failed to submit message "
                         "(XID: 0x%lx, Program: %s, ProgVers: %d, Proc: %d) to "
-                        "rpc-transport (%s)", req->xid, req->prog->progname,
-                        req->prog->progver, req->procnum, trans->name);
+                        "rpc-transport (%s)", req->xid,
+                        req->prog ? req->prog->progname : "(not matched)",
+                        req->prog ? req->prog->progver : 0,
+                        req->procnum, trans->name);
         } else {
                 gf_log (GF_RPCSVC, GF_LOG_TRACE,
                         "submitted reply for rpc-message (XID: 0x%lx, "
                         "Program: %s, ProgVers: %d, Proc: %d) to rpc-transport "
-                        "(%s)", req->xid, req->prog->progname,
-                        req->prog->progver, req->procnum, trans->name);
+                        "(%s)", req->xid, req->prog ? req->prog->progname: "-",
+                        req->prog ? req->prog->progver : 0,
+                        req->procnum, trans->name);
         }
 
 disconnect_exit:
