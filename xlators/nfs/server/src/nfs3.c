@@ -250,12 +250,12 @@ out:
                         goto erl;                                       \
                 }                                                       \
                                                                         \
-                if ((gf_nfs_dvm_off (nfs_state (nfs3st->nfsx)))) {      \
+                (fhd)->gfid[15] = 1;                                    \
+                (enam) = NULL;                                          \
+                if ((gf_nfs_dvm_off (nfs_state (nfs3st->nfsx))))        \
                         (fhd)->exportid[15] = nfs_xlator_to_xlid ((nfs3st)->exportslist, fungexl);                                                 \
-                        (fhd)->gfid[15] = 1;                            \
-                        (enam) = NULL;                                  \
-                } else {                                                \
-                        if(!__nfs3_get_volume_id ((nfs3st), fungexl, (fhd)->exportid)) { \
+                else {                                                  \
+                        if(__nfs3_get_volume_id ((nfs3st), fungexl, (fhd)->exportid) < 0) { \
                                 (nfsst) = NFS3ERR_STALE;                \
                                 goto erl;                               \
                         }                                               \
