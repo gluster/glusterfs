@@ -27,6 +27,7 @@
 #define _PORTMAP_H_RPCGEN
 
 #include <rpc/rpc.h>
+#include <rpc/types.h>
 
 
 #ifdef __cplusplus

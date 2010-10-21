@@ -27,7 +27,7 @@
 #define _CLI1_H_RPCGEN
 
 #include <rpc/rpc.h>
-
+#include "xdr-common.h"
 
 #ifdef __cplusplus
 extern "C" {
