@@ -1945,20 +1945,7 @@ glusterd_restart_bricks (glusterd_conf_t *conf)
         glusterd_volinfo_t       *volinfo = NULL;
         glusterd_brickinfo_t     *brickinfo = NULL;
         int                      ret = -1;
-        struct                   timespec timeout;
-        sigset_t                 mask;
 
-        if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
-                perror ("sigprocmask");
-                return -1;
-        }
-
-        sigemptyset (&mask);
-
-        timeout.tv_sec = 5;
-        timeout.tv_nsec = 0;
-
-        sigtimedwait(&mask, NULL, &timeout);
         GF_ASSERT (conf);
 
         list_for_each_entry (volinfo, &conf->volumes, vol_list) {
