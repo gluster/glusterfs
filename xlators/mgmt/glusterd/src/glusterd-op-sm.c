@@ -46,6 +46,7 @@
 #include "glusterd-store.h"
 #include "cli1.h"
 #include "glusterd-volgen.h"
+#include "syscall.h"
 
 #include <sys/types.h>
 #include <signal.h>
@@ -2015,7 +2016,7 @@ rb_send_xattr_command (glusterd_volinfo_t *volinfo,
                  goto out;
          }
 
-        ret = lsetxattr (mount_point_path, xattr_key,
+        ret = sys_lsetxattr (mount_point_path, xattr_key,
                          value,
                          strlen (value) + 1,
                          0);

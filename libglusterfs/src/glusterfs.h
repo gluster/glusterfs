@@ -64,6 +64,10 @@
 #define O_DIRECTORY 0
 #endif
 
+#ifndef FNM_EXTMATCH
+#define FNM_EXTMATCH 0
+#endif
+
 #define GF_XATTR_PATHINFO_KEY   "trusted.glusterfs.pathinfo"
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 

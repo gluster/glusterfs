@@ -457,7 +457,7 @@ parse_opts (int key, char *arg, struct argp_state *state)
                         GF_FREE (cmd_args->volfile);
 
                 if (arg[0] != '/') {
-                        pwd = get_current_dir_name ();
+                        pwd = getcwd (NULL, 0);
                         snprintf (tmp_buf, 1024, "%s/%s", pwd, arg);
                         cmd_args->volfile = gf_strdup (tmp_buf);
                         free (pwd);
