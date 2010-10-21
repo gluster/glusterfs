@@ -794,7 +794,7 @@ struct volume_options options[] = {
                          " scheme for encoding file handles when DVM is being"
                          " used."
         },
-        { .key  = {"nfs3.%s.volume-id"},
+        { .key  = {"nfs3.*.volume-id"},
           .type = GF_OPTION_TYPE_STR,
           .description = "When nfs.dynamic-volumes is set, gnfs expects every "
                          "subvolume to have this option set for it, so that "
