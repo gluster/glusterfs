@@ -1000,22 +1000,25 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
                 goto out;
         }
 
-        request_ctx = mem_get (priv->device->request_ctx_pool);
-        if (request_ctx == NULL) {
-                ret = -1;
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                goto out;
-        }
+        if ((wtype != rdma_noch) || (rtype != rdma_noch)) {
+                request_ctx = mem_get (priv->device->request_ctx_pool);
+                if (request_ctx == NULL) {
+                        ret = -1;
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
+                        goto out;
+                }
 
-        memset (request_ctx, 0, sizeof (*request_ctx));
+                memset (request_ctx, 0, sizeof (*request_ctx));
 
-        request_ctx->pool = priv->device->request_ctx_pool;
-        request_ctx->peer = peer;
+                request_ctx->pool = priv->device->request_ctx_pool;
+                request_ctx->peer = peer;
 
-        entry->msg.request.rpc_req->conn_private = request_ctx;
-        if (entry->msg.request.rsp_iobref != NULL) {
-                request_ctx->rsp_iobref
-                        = iobref_ref (entry->msg.request.rsp_iobref);
+                entry->msg.request.rpc_req->conn_private = request_ctx;
+
+                if (entry->msg.request.rsp_iobref != NULL) {
+                        request_ctx->rsp_iobref
+                                = iobref_ref (entry->msg.request.rsp_iobref);
+                }
         }
 
         rpc_msg = (struct rpc_msg *) entry->rpchdr[0].iov_base;
@@ -1094,7 +1097,10 @@ out:
         if (ret == -1) {
                 rpc_req = entry->msg.request.rpc_req;
 
-                __rdma_request_context_destroy (rpc_req->conn_private);
+                if (request_ctx != NULL) {
+                        __rdma_request_context_destroy (rpc_req->conn_private);
+                }
+
                 rpc_req->conn_private = NULL;
         }
 
@@ -3054,11 +3060,13 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                 rpc_req->conn_private = NULL;
 
                 priv = peer->trans->private;
-                pthread_mutex_lock (&priv->write_mutex);
-                {
-                        __rdma_request_context_destroy (request_context);
+                if (request_context != NULL) {
+                        pthread_mutex_lock (&priv->write_mutex);
+                        {
+                                __rdma_request_context_destroy (request_context);
+                        }
+                        pthread_mutex_unlock (&priv->write_mutex);
                 }
-                pthread_mutex_unlock (&priv->write_mutex);
 
                 pollin->is_reply = 1;
         }
