@@ -313,7 +313,7 @@ _volume_option_value_validate (xlator_t *xl,
 		}
 		if ((input_size < opt->min) || 
 		    (input_size > opt->max)) {
-			gf_log (xl->name, GF_LOG_ERROR,
+			gf_log (xl->name, GF_LOG_WARNING,
 				"'%"PRId64"' in 'option %s %s' is "
 				"out of range [%"PRId64" - %"PRId64"]",
 				input_size, pair->key, 
