@@ -1123,6 +1123,7 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         char                                    *volname       = NULL;
  	int                                      exists        = 0;
  	char					*key	       = NULL;
+        char                                    *key_fixed     = NULL;
         char                                    *value         = NULL;
  	char					 str[100]      = {0, };
  	int					 count	       = 0;
@@ -1204,13 +1205,20 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         break;
 
 		
-		exists = glusterd_check_option_exists (key, NULL);
-
-		if (exists != 1) {
+		exists = glusterd_check_option_exists (key, &key_fixed);
+                if (exists == -1) {
+                        ret = -1;
+                        goto out;
+                }
+		if (!exists) {
                 	gf_log ("", GF_LOG_ERROR, "Option with name: %s "
                         	"does not exist", key);
-                        snprintf (errstr, 2048, "option : %s does not exist",
-                                  key);
+                        ret = snprintf (errstr, 2048,
+                                       "option : %s does not exist",
+                                       key);
+                        if (key_fixed)
+                                snprintf (errstr + ret, 2048 - ret,
+                                          "\nDid you mean %s?", key_fixed);
                         *op_errstr = gf_strdup (errstr);
 
 			ret = -1;
@@ -1227,6 +1235,8 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         goto out;
                 }
 
+                if (key_fixed)
+                        key = key_fixed;
                 ret = dict_set_str (val_dict, key, value);
 
                 if (ret) {
@@ -1236,7 +1246,10 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         goto out;
                 }
 
-
+                if (key_fixed) {
+                        GF_FREE (key_fixed);
+                        key_fixed = NULL;
+                }
 	}
 
         *op_errstr = NULL;
@@ -1258,6 +1271,9 @@ out:
         if (val_dict)
                 dict_unref (val_dict);
 
+        if (key_fixed)
+                GF_FREE (key_fixed);
+
         if (ret) {
                 if (!(*op_errstr)) {
                         *op_errstr = gf_strdup ("Error, Validation Failed");
@@ -1269,7 +1285,7 @@ out:
                         gf_log ("glsuterd", GF_LOG_DEBUG,
                         "Error, Cannot Validate option");
         }
-return ret;
+        return ret;
 }
 
 static int
@@ -3196,6 +3212,7 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
         glusterd_conf_t                         *priv = NULL;
 	int					 count = 1;
 	char					*key = NULL;
+	char					*key_fixed = NULL;
 	char					*value = NULL;
 	char					 str[50] = {0, };
         GF_ASSERT (req);
@@ -3234,7 +3251,15 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 
 		sprintf (str, "key%d", count);
 		ret = dict_get_str (dict, str, &key);
-
+                if (!ret) {
+                        ret = glusterd_check_option_exists (key, &key_fixed);
+                        GF_ASSERT (ret);
+                        if (ret == -1) {
+                                key_fixed = NULL;
+                                goto out;
+                        }
+                        ret = 0;
+                }
 
 		if (ret)
 			break;
@@ -3250,9 +3275,11 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
         	}
 
                 value = gf_strdup (value);
-                if (value)
+                if (value) {
+                        if (key_fixed)
+                                key = key_fixed;
 		        ret = dict_set_dynstr (volinfo->dict, key, value);
-                else
+                } else
                         ret = -1;
 
 		if (ret) {
@@ -3261,6 +3288,11 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 			ret = -1;
 			goto out;
         	}
+
+                if (key_fixed) {
+                        GF_FREE (key_fixed);
+                        key_fixed = NULL;
+                }
 	}
 
 	if ( count == 1 ) {
@@ -3294,6 +3326,8 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 out:
         if (dict)
                 dict_unref (dict);
+        if (key_fixed)
+                GF_FREE (key_fixed);
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }

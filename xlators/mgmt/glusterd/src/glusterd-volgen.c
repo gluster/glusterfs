@@ -31,6 +31,7 @@
 #include "logging.h"
 #include "dict.h"
 #include "graph-utils.h"
+#include "trie.h"
 #include "glusterd-mem-types.h"
 #include "cli1.h"
 #include "glusterd-volgen.h"
@@ -336,6 +337,193 @@ first_of (glusterfs_graph_t *graph)
 
 /**************************
  *
+ * Trie glue
+ *
+ *************************/
+
+
+static int
+volopt_selector (int lvl, char **patt, void *param,
+                     int (*optcbk)(char *word, void *param))
+{
+        struct volopt_map_entry *vme = NULL;
+        char *w = NULL;
+        int i = 0;
+        int len = 0;
+        int ret = 0;
+        char *dot = NULL;
+
+        for (vme = glusterd_volopt_map; vme->key; vme++) {
+                w = vme->key;
+
+                for (i = 0; i < lvl; i++) {
+                        if (patt[i]) {
+                                w = strtail (w, patt[i]);
+                                GF_ASSERT (!w || *w);
+                                if (!w || *w != '.')
+                                        goto next;
+                        } else {
+                                w = strchr (w, '.');
+                                GF_ASSERT (w);
+                        }
+                        w++;
+                }
+
+                dot = strchr (w, '.');
+                if (dot) {
+                        len = dot - w;
+                        w = gf_strdup (w);
+                        if (!w)
+                                return -1;
+                        w[len] = '\0';
+                }
+                ret = optcbk (w, param);
+                if (dot)
+                        GF_FREE (w);
+                if (ret)
+                        return -1;
+ next:
+                continue;
+        }
+
+        return 0;
+}
+
+static int
+volopt_trie_cbk (char *word, void *param)
+{
+        return trie_add ((trie_t *)param, word);
+}
+
+static int
+process_nodevec (struct trienodevec *nodevec, char **hint)
+{
+        int ret = 0;
+        char *hint1 = NULL;
+        char *hint2 = NULL;
+        char *hintinfx = "";
+        trienode_t **nodes = nodevec->nodes;
+
+        if (!nodes[0]) {
+                *hint = NULL;
+                return 0;
+        }
+
+#if 0
+        /* Limit as in git */
+        if (trienode_get_dist (nodes[0]) >= 6) {
+                *hint = NULL;
+                return 0;
+        }
+#endif
+
+        if (trienode_get_word (nodes[0], &hint1))
+                return -1;
+
+        if (nodevec->cnt < 2 || !nodes[1]) {
+                *hint = hint1;
+                return 0;
+        }
+
+        if (trienode_get_word (nodes[1], &hint2))
+                return -1;
+
+        if (*hint)
+                hintinfx = *hint;
+        ret = gf_asprintf (hint, "%s or %s%s", hint1, hintinfx, hint2);
+        if (ret > 0)
+                ret = 0;
+        return ret;
+}
+
+static int
+volopt_trie_section (int lvl, char **patt, char *word, char **hint, int hints)
+{
+        trienode_t *nodes[] = { NULL, NULL };
+        struct trienodevec nodevec = { nodes, 2};
+        trie_t *trie = NULL;
+        int ret = 0;
+
+        trie = trie_new ();
+        if (!trie)
+                return -1;
+
+        if (volopt_selector (lvl, patt, trie, &volopt_trie_cbk)) {
+                trie_destroy (trie);
+
+                return -1;
+        }
+
+        GF_ASSERT (hints <= 2);
+        nodevec.cnt = hints;
+        ret = trie_measure_vec (trie, word, &nodevec);
+        if (ret || !nodevec.nodes[0])
+                trie_destroy (trie);
+
+        ret = process_nodevec (&nodevec, hint);
+        trie_destroy (trie);
+
+        return ret;
+}
+
+static int
+volopt_trie (char *key, char **hint)
+{
+        char *patt[] = { NULL };
+        char *fullhint = NULL;
+        char *dot = NULL;
+        char *dom = NULL;
+        int   len = 0;
+        int   ret = 0;
+
+        *hint = NULL;
+
+        dot = strchr (key, '.');
+        if (!dot)
+                return volopt_trie_section (1, patt, key, hint, 2);
+
+        len = dot - key;
+        dom = gf_strdup (key);
+        if (!dom)
+                return -1;
+        dom[len] = '\0';
+
+        ret = volopt_trie_section (0, NULL, dom, patt, 1);
+        GF_FREE (dom);
+        if (ret) {
+                patt[0] = NULL;
+                goto out;
+        }
+        if (!patt[0])
+                goto out;
+
+        *hint = "...";
+        ret = volopt_trie_section (1, patt, dot + 1, hint, 2);
+        if (ret)
+                goto out;
+        if (*hint) {
+                ret = gf_asprintf (&fullhint, "%s.%s", patt[0], *hint);
+                GF_FREE (*hint);
+                if (ret >= 0) {
+                        ret = 0;
+                        *hint = fullhint;
+                }
+        }
+
+ out:
+        if (patt[0])
+                GF_FREE (patt[0]);
+        if (ret)
+                *hint = NULL;
+
+        return ret;
+}
+
+
+
+
+/**************************
+ *
  * Volume generation engine
  *
  **************************/
@@ -502,23 +690,35 @@ glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
         return 0;
 }
 
-static char *
-option_complete (char *key)
+static int
+option_complete (char *key, char **completion)
 {
         struct volopt_map_entry *vme = NULL;
-        char *completion = NULL;
 
+        *completion = NULL;
         for (vme = glusterd_volopt_map; vme->key; vme++) {
                 if (strcmp (strchr (vme->key, '.') + 1, key) != 0)
                         continue;
 
-                if (completion)
-                        return NULL;
-                else
-                        completion = vme->key;
+                if (*completion && strcmp (*completion, vme->key) != 0) {
+                        /* cancel on non-unique match */
+                        *completion = NULL;
+
+                        return 0;
+                } else
+                        *completion = vme->key;
         }
 
-        return completion;
+        if (*completion) {
+                /* For sake of unified API we want
+                 * have the completion to be a to-be-freed
+                 * string.
+                 */
+                *completion = gf_strdup (*completion);
+                return -!*completion;
+        }
+
+        return 0;
 }
 
 int
@@ -535,9 +735,17 @@ glusterd_check_option_exists (char *key, char **completion)
 
         if (!strchr (key, '.')) {
                 if (completion) {
-                        *completion = option_complete (key);
+                        ret = option_complete (key, completion);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "Out of memory");
+                                return -1;
+                        }
 
-                        return !!*completion;
+                        ret = !!*completion;
+                        if (ret)
+                                return ret;
+                        else
+                                goto trie;
                 } else
                         return 0;
         }
@@ -549,8 +757,6 @@ glusterd_check_option_exists (char *key, char **completion)
                         break;
                 }
         }
-
-        return ret;
 #else
         vme.key = key;
 
@@ -563,22 +769,35 @@ glusterd_check_option_exists (char *key, char **completion)
          * have to update the fnmatch in this comment also :P ]]
          */
         dict = get_new_dict ();
-        if (!dict || dict_set_str (dict, key, ""))
-                goto oom;
+        if (!dict || dict_set_str (dict, key, "")) {
+                gf_log ("", GF_LOG_ERROR, "Out of memory");
+
+                return -1;
+        }
 
         ret = volgen_graph_set_options_generic (NULL, dict, &vme,
                                                 &optget_option_handler);
         dict_destroy (dict);
-        if (ret)
-                goto oom;
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Out of memory");
 
-        return !!vme.value;
+                return -1;
+        }
 
- oom:
-        gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-        return -1;
+        ret = !!vme.value;
 #endif
+
+        if (ret || !completion)
+                return ret;
+
+ trie:
+        ret = volopt_trie (key, completion);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Some error occured during keyword hinting");
+        }
+
+        return ret;
 }
 
 static int
