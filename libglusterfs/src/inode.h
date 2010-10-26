@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#define DEFAULT_INODE_MEMPOOL_ENTRIES   16384
 struct _inode_table;
 typedef struct _inode_table inode_table_t;
 
