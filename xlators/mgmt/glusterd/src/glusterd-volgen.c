@@ -139,21 +139,6 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 };
 
 
-#define VOLGEN_GET_NFS_DIR(path)                                        \
-        do {                                                            \
-                glusterd_conf_t *priv = THIS->private;                  \
-                snprintf (path, PATH_MAX, "%s/nfs", priv->workdir);     \
-        } while (0);                                                    \
-
-#define VOLGEN_GET_VOLUME_DIR(path, volinfo)                            \
-        do {                                                            \
-                glusterd_conf_t *priv = THIS->private;                  \
-                snprintf (path, PATH_MAX, "%s/vols/%s", priv->workdir,  \
-                          volinfo->volname);                            \
-        } while (0);                                                    \
-
-
-
 
 /*********************************************
  *
@@ -1326,9 +1311,12 @@ get_brick_filepath (char *filename, glusterd_volinfo_t *volinfo,
 {
         char  path[PATH_MAX]   = {0,};
         char  brick[PATH_MAX]  = {0,};
+        glusterd_conf_t *priv  = NULL;
+
+        priv = THIS->private;
 
         GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, brick);
-        VOLGEN_GET_VOLUME_DIR (path, volinfo);
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
         snprintf (filename, PATH_MAX, "%s/%s.%s.%s.vol",
                   path, volinfo->volname,
@@ -1386,8 +1374,11 @@ static void
 get_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
 {
         char  path[PATH_MAX] = {0,};
+        glusterd_conf_t *priv = NULL;
 
-        VOLGEN_GET_VOLUME_DIR (path, volinfo);
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
 
         snprintf (filename, PATH_MAX, "%s/%s-fuse.vol",
                   path, volinfo->volname);
@@ -1455,8 +1446,11 @@ void
 glusterd_get_nfs_filepath (char *filename)
 {
         char  path[PATH_MAX] = {0,};
+        glusterd_conf_t *priv  = NULL;
 
-        VOLGEN_GET_NFS_DIR (path);
+        priv = THIS->private;
+
+        GLUSTERD_GET_NFS_DIR (path, priv);
 
         snprintf (filename, PATH_MAX, "%s/nfs-server.vol", path);
 }
