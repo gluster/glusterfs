@@ -24,9 +24,8 @@
 
 #define GF_MEM_TYPE_START (gf_common_mt_end + 1)
 
-enum gfd_mem_types_ {
+enum gf_graph_mem_types {
         gf_graph_mt_buf = GF_MEM_TYPE_START,
-        gfd_mt_end
+        gf_graph_mt_end
 };
 #endif
-
