@@ -3099,7 +3099,7 @@ fuse_thread_proc (void *data)
 
                 if (res == -1) {
                         if (errno == ENODEV || errno == EBADF) {
-                                gf_log ("glusterfs-fuse", GF_LOG_NORMAL,
+                                gf_log ("glusterfs-fuse", GF_LOG_DEBUG,
                                         "terminating upon getting %s when "
                                         "reading /dev/fuse",
                                         errno == ENODEV ? "ENODEV" : "EBADF");
