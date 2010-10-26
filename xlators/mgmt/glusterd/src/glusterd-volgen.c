@@ -878,12 +878,8 @@ static int
 client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                       dict_t *set_dict, void *param)
 {
-        int                      replicate_count    = 0;
-        int                      stripe_count       = 0;
         int                      dist_count         = 0;
-        int                      num_bricks         = 0;
         char                     transt[16]         = {0,};
-        int                      cluster_count      = 0;
         char                    *volname            = NULL;
         dict_t                  *dict               = NULL;
         glusterd_brickinfo_t    *brick = NULL;
@@ -904,56 +900,20 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         GF_ASSERT (dict);
         get_vol_transport_type (volinfo, transt);
 
-        list_for_each_entry (brick, &volinfo->bricks, brick_list)
-                num_bricks++;
+        if (volinfo->brick_count == 0) {
+                gf_log ("", GF_LOG_ERROR,
+                        "volume inconsistency: brick count is 0");
 
-        if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
-                if (volinfo->brick_count <= volinfo->sub_count) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Volfile is plain replicated");
-                        replicate_count = volinfo->sub_count;
-                        dist_count = num_bricks / replicate_count;
-                        if (!dist_count) {
-                                replicate_count = num_bricks;
-                                dist_count = num_bricks / replicate_count;
-                        }
-                } else {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Volfile is distributed-replicated");
-                        replicate_count = volinfo->sub_count;
-                        dist_count = num_bricks / replicate_count;
-                }
-
-        } else if (GF_CLUSTER_TYPE_STRIPE == volinfo->type) {
-                if (volinfo->brick_count == volinfo->sub_count) {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Volfile is plain striped");
-                        stripe_count = volinfo->sub_count;
-                        dist_count = num_bricks / stripe_count;
-                } else {
-                        gf_log ("", GF_LOG_DEBUG,
-                                "Volfile is distributed-striped");
-                        stripe_count = volinfo->sub_count;
-                        dist_count = num_bricks / stripe_count;
-                }
-        } else {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Volfile is plain distributed");
-                dist_count = num_bricks;
-        }
-
-        if (stripe_count && replicate_count) {
-                gf_log ("", GF_LOG_DEBUG,
-                        "Striped Replicate config not allowed");
                 return -1;
         }
-        if (replicate_count > 1) {
-                cluster_count = replicate_count;
-                cluster_args = replicate_args;
-        }
-        if (stripe_count > 1) {
-                cluster_count = stripe_count;
-                cluster_args = stripe_args;
+        if (volinfo->sub_count &&
+            volinfo->brick_count % volinfo->sub_count != 0) {
+                gf_log ("", GF_LOG_ERROR,
+                        "volume inconsistency: "
+                        "total number of bricks (%d) is not divisible with ",
+                        "number of bricks per cluster (%d)",
+                        volinfo->brick_count, volinfo->sub_count);
+                return -1;
         }
 
         i = 0;
@@ -974,14 +934,35 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 
                 i++;
         }
+        if (i != volinfo->brick_count) {
+                gf_log ("", GF_LOG_ERROR,
+                        "volume inconsistency: actual number of bricks (%d) "
+                        "differs from brick count (%d)", i,
+                        volinfo->brick_count);
 
-        if (cluster_count > 1) {
-                j = 0;
+                return -1;
+        }
+
+        if (volinfo->sub_count > 1) {
+                switch (volinfo->type) {
+                case GF_CLUSTER_TYPE_REPLICATE:
+                        cluster_args = replicate_args;
+                        break;
+                case GF_CLUSTER_TYPE_STRIPE:
+                        cluster_args = stripe_args;
+                        break;
+                default:
+                        gf_log ("", GF_LOG_ERROR, "volume inconsistency: "
+                                "unrecognized clustering type");
+                        return -1;
+                }
+
                 i = 0;
+                j = 0;
                 txl = first_of (graph);
                 for (trav = txl; trav->next; trav = trav->next);
                 for (;; trav = trav->prev) {
-                        if (i % cluster_count == 0) {
+                        if (i % volinfo->sub_count == 0) {
                                 xl = volgen_graph_add_nolink (graph,
                                                               cluster_args[0],
                                                               cluster_args[1],
@@ -1001,6 +982,10 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                 }
         }
 
+        if (volinfo->sub_count)
+                dist_count = volinfo->brick_count / volinfo->sub_count;
+        else
+                dist_count = volinfo->brick_count;
         if (dist_count > 1) {
                 xl = volgen_graph_add_nolink (graph, "cluster/distribute",
                                               "%s-dht", volname);
