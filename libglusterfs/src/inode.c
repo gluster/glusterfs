@@ -1047,14 +1047,18 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
 
         new->hashsize = 14057; /* TODO: Random Number?? */
 
-        new->inode_pool = mem_pool_new (inode_t, 204654);
+        /* In case FUSE is initing the inode table. */
+        if (lru_limit == 0)
+                lru_limit = DEFAULT_INODE_MEMPOOL_ENTRIES;
+
+        new->inode_pool = mem_pool_new (inode_t, lru_limit);
 
         if (!new->inode_pool) {
                 GF_FREE (new);
                 return NULL;
         }
 
-        new->dentry_pool = mem_pool_new (dentry_t, 204654);
+        new->dentry_pool = mem_pool_new (dentry_t, lru_limit);
 
         if (!new->dentry_pool) {
                 GF_FREE (new);
