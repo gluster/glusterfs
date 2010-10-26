@@ -559,7 +559,7 @@ out:
 }
 
 static int
-glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
         int                                     ret = -1;
         dict_t                                  *dict = NULL;
@@ -567,6 +567,7 @@ glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req)
         int                                     flags = 0;
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
+        char                                    msg[2048] = {0,};
 
         dict = dict_new ();
         if (!dict)
@@ -595,8 +596,11 @@ glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req)
                 ret = glusterd_is_volume_started (volinfo);
 
                 if (ret) {
+                        snprintf (msg, sizeof(msg), "Volume %s "
+                                  "is not in the started state", volname);
                         gf_log ("", GF_LOG_ERROR, "Volume %s "
                                 "has not been started", volname);
+                        *op_errstr = gf_strdup (msg);
                         goto out;
                 }
         }
@@ -4408,6 +4412,10 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.volname = "";
+                                if (op_errstr)
+                                        rsp.op_errstr = op_errstr;
+                                else
+                                        rsp.op_errstr = "";
                                 cli_rsp = &rsp;
                                 sfunc = gf_xdr_serialize_cli_stop_vol_rsp;
                                 break;
@@ -4795,7 +4803,7 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr,
                         break;
 
                 case GD_OP_STOP_VOLUME:
-                        ret = glusterd_op_stage_stop_volume (req);
+                        ret = glusterd_op_stage_stop_volume (req, op_errstr);
                         break;
 
                 case GD_OP_DELETE_VOLUME:
