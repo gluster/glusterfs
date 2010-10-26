@@ -1246,7 +1246,7 @@ nfs_rpcsvc_program_actor (rpcsvc_conn_t *conn, rpcsvc_request_t *req)
                 goto err;
 
         if (req->prognum != program->prognum) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC program not available");
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC program not available");
                 err = PROG_UNAVAIL;
                 goto err;
         }
