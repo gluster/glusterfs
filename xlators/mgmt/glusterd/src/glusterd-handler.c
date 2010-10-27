@@ -1092,8 +1092,8 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
                 if (!brick_count || !volinfo->sub_count)
                         goto brick_val;
 
-		/* If the brick count is less than sub_count then, allow add-brick only for 
-		   plain replicate volume since in plain stripe brick_count becoming less than 
+		/* If the brick count is less than sub_count then, allow add-brick only for
+		   plain replicate volume since in plain stripe brick_count becoming less than
 		   the sub_count is not allowed */
                 if (volinfo->brick_count < volinfo->sub_count && (volinfo->type == GF_CLUSTER_TYPE_REPLICATE) ) {
                         if ((volinfo->sub_count - volinfo->brick_count) == brick_count)
@@ -2915,7 +2915,7 @@ out:
                 rsp.op_ret = 1;
         else
                 rsp.op_ret = ret;
-        if (!rsp.volname) 
+        if (!rsp.volname)
                 rsp.volname = "";
         if (!rsp.op_errstr)
                 rsp.op_errstr = "Error, Validation failed";
@@ -2933,7 +2933,7 @@ glusterd_reset_volume (rpcsvc_request_t *req, dict_t *dict)
 {
         int ret = -1;
 
-        
+
         glusterd_op_set_op (GD_OP_RESET_VOLUME);
 
         glusterd_op_set_ctx (GD_OP_RESET_VOLUME, dict);
@@ -2945,7 +2945,7 @@ glusterd_reset_volume (rpcsvc_request_t *req, dict_t *dict)
         glusterd_op_set_req (req);
 
         ret = glusterd_op_txn_begin ();
-        
+
         return ret;
 }
 
@@ -2959,11 +2959,11 @@ glusterd_set_volume (rpcsvc_request_t *req, dict_t *dict)
 
         GF_ASSERT (req);
         GF_ASSERT (dict);
-        
+
         ret = dict_get_int32 (dict, "count", &dict_count);
         if (ret)
                goto out;
-        
+
         if (dict_count == 1) {
                 if (dict_get (dict, "history")) {
                         ret = glusterd_set_volume_history(req, dict);

@@ -1357,6 +1357,7 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
         int             ret = -1;
         gf_boolean_t    is_cli_req = _gf_false;
         char            *op_errstr = NULL;
+        int             lock_fail = 0;
 
         GF_ASSERT (req);
 
@@ -1368,6 +1369,7 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
                                 ret);
+                        lock_fail = 1;
                         goto out;
                 }
         }
@@ -1496,6 +1498,8 @@ out:
                    be 0, and we should not point to any RPC errors, because
                    otherwise rpcsvc.c will send an error reply for the same
                    request, which causes double replies */
+                if (!lock_fail)
+                        (void) glusterd_opinfo_unlock ();
                 ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL, op_errstr);
         }
         if (op_errstr && (strcmp (op_errstr, "")))
