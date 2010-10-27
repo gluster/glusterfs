@@ -965,7 +965,13 @@ gf_string2ulong (const char *str, unsigned long *n)
 int
 gf_string2int (const char *str, int *n)
 {
-	return _gf_string2long (str, (long *) n, 0);
+	long l = 0;
+	int  ret = 0;
+
+	ret = _gf_string2long (str, &l, 0);
+
+	*n = l;
+	return ret;
 }
 
 int
