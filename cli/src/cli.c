@@ -76,6 +76,9 @@
 
 extern int connected;
 /* using argp for command line parsing */
+static char gf_doc[] = "";
+
+static char argp_doc[] = "";
 
 const char *argp_program_version = ""                                 \
         PACKAGE_NAME" "PACKAGE_VERSION" built on "__DATE__" "__TIME__ \
@@ -88,7 +91,10 @@ const char *argp_program_version = ""                                 \
 
 const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
-
+static struct argp_option gf_options[] = {
+        {0, 0, 0, 0, "Basic options:"},
+        {0, }
+};
 
 struct rpc_clnt *global_rpc;
 
@@ -97,6 +103,39 @@ rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli3_1_prog;
 
+static error_t
+parse_opts (int key, char *arg, struct argp_state *argp_state)
+{
+        struct cli_state  *state = NULL;
+        char             **argv = NULL;
+
+        state = argp_state->input;
+
+        switch (key) {
+        case ARGP_KEY_ARG:
+                if (!state->argc) {
+                        argv = calloc (state->argc + 2,
+                                       sizeof (*state->argv));
+                } else {
+                        argv = realloc (state->argv, (state->argc + 2) *
+                                        sizeof (*state->argv));
+                }
+                if (!argv)
+                        return -1;
+
+                state->argv = argv;
+
+                argv[state->argc] = strdup (arg);
+                if (!argv[state->argc])
+                        return -1;
+                state->argc++;
+                argv[state->argc] = NULL;
+
+                break;
+        }
+
+        return 0;
+}
 
 
 
@@ -356,23 +395,28 @@ parse_cmdline (int argc, char *argv[], struct cli_state *state)
         int         i = 0;
         int         j = 0;
         char        *opt = NULL;
+        struct argp argp = { 0,};
 
-        state->argc=argc-1;
-        state->argv=&argv[1];
+        argp.options    = gf_options;
+        argp.parser     = parse_opts;
+        argp.args_doc   = argp_doc;
+        argp.doc        = gf_doc;
 
-        for (i = 0; i < state->argc; i++) {
-                opt = strtail (state->argv[i], "--");
+        for (i = 0; i < argc; i++) {
+                opt = strtail (argv[i], "--");
                 if (opt) {
                         ret = cli_opt_parse (opt, state);
                         if (ret == -1) {
-                                cli_out ("unrecognized option --%s", opt);
-                                return ret;
+                                break;
                         }
-                        for (j = i; j < state->argc - 1; j++)
-                                state->argv[j] = state->argv[j + 1];
-                        state->argc--;
+                        for (j = i; j < argc - 1; j++)
+                                argv[j] = argv[j + 1];
+                        argc--;
                 }
         }
+
+        ret = argp_parse (&argp, argc, argv,
+                          ARGP_IN_ORDER, NULL, state);
 
         return ret;
 }
@@ -524,11 +568,6 @@ main (int argc, char *argv[])
         int                ret = -1;
         glusterfs_ctx_t   *ctx = NULL;
 
-        if (geteuid ()) {
-                printf ("Only super user can run this command\n");
-                return EPERM;
-        }
-
         ret = glusterfs_globals_init ();
         if (ret)
                 return ret;
@@ -551,6 +590,11 @@ main (int argc, char *argv[])
         ret = parse_cmdline (argc, argv, &state);
         if (ret)
                 goto out;
+
+        if (geteuid ()) {
+                printf ("Only super user can run this command\n");
+                return EPERM;
+        }
 
         global_rpc = cli_rpc_init (&state);
         if (!global_rpc)
