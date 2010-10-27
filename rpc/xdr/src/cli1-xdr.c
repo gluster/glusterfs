@@ -24,7 +24,7 @@
  */
 
 #include "cli1.h"
-
+#include "compat.h"
 bool_t
 xdr_gf1_cluster_type (XDR *xdrs, gf1_cluster_type *objp)
 {

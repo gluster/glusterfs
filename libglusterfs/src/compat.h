@@ -351,4 +351,20 @@ dirent_size (struct dirent *entry)
 #define ST_CTIM_NSEC_SET(stbuf, val) do { } while (0);
 #endif
 
+#ifndef IXDR_GET_LONG
+#define IXDR_GET_LONG(buf) ((long)IXDR_GET_U_INT32(buf))
+#endif
+
+#ifndef IXDR_PUT_LONG
+#define IXDR_PUT_LONG(buf, v) ((long)IXDR_PUT_INT32(buf, (long)(v)))
+#endif
+
+#ifndef IXDR_GET_U_LONG
+#define IXDR_GET_U_LONG(buf)          ((u_long)IXDR_GET_LONG(buf))
+#endif
+
+#ifndef IXDR_PUT_U_LONG
+#define IXDR_PUT_U_LONG(buf, v)       IXDR_PUT_LONG(buf, (long)(v))
+#endif
+
 #endif /* __COMPAT_H__ */

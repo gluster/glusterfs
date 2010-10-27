@@ -23,6 +23,7 @@
  */
 
 #include "glusterd1.h"
+#include "compat.h"
 
 bool_t
 xdr_glusterd_volume_status (XDR *xdrs, glusterd_volume_status *objp)

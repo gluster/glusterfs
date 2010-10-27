@@ -24,6 +24,7 @@
  */
 
 #include "portmap-xdr.h"
+#include "compat.h"
 
 bool_t
 xdr_pmap_port_by_brick_req (XDR *xdrs, pmap_port_by_brick_req *objp)
