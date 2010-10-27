@@ -1477,6 +1477,8 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
                 list_add_tail (&brickinfo->brick_list, &volinfo->bricks);
                 brick = strtok_r (NULL, " \n", &saveptr);
                 i++;
+                volinfo->brick_count++;
+
         }
 
         brick_list = gf_strdup (bricks);
@@ -1505,8 +1507,6 @@ glusterd_op_perform_add_bricks (glusterd_volinfo_t  *volinfo, int32_t count,
                 i++;
                 brick = strtok_r (NULL, " \n", &saveptr);
         }
-
-        volinfo->brick_count += count;
 
 out:
         if (free_ptr1)
