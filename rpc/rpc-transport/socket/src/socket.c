@@ -2582,7 +2582,8 @@ socket_init (rpc_transport_t *this)
 
         /* Enable Keep-alive by default. */
         priv->keepalive = 1;
-        priv->keepaliveintvl = GF_USE_DEFAULT_KEEPALIVE;
+        priv->keepaliveintvl = 2;
+        priv->keepaliveidle = 20;
         if (dict_get_str (this->options, "transport.socket.keepalive",
                           &optstr) == 0) {
                 if (gf_string2boolean (optstr, &tmp_bool) == -1) {
