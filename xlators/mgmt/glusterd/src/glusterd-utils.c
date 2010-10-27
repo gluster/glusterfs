@@ -81,6 +81,43 @@ glusterd_unset_lock_owner (uuid_t owner)
         return 0;
 }
 
+gf_boolean_t
+glusterd_is_loopback_localhost (const struct sockaddr *sa, char *hostname)
+{
+        GF_ASSERT (sa);
+
+        gf_boolean_t is_local = _gf_false;
+        const struct in_addr *addr4 = NULL;
+        const struct in6_addr *addr6 = NULL;
+        uint8_t      *ap   = NULL;
+        struct in6_addr loopbackaddr6 = IN6ADDR_LOOPBACK_INIT;
+
+        switch (sa->sa_family) {
+                case AF_INET:
+                        addr4 = &(((struct sockaddr_in *)sa)->sin_addr);
+                        ap = (uint8_t*)&addr4->s_addr;
+                        if (ap[0] == 127)
+                                is_local = _gf_true;
+                        break;
+
+                case AF_INET6:
+                        addr6 = &(((struct sockaddr_in6 *)sa)->sin6_addr);
+                        if (memcmp (addr6, &loopbackaddr6,
+                                    sizeof (loopbackaddr6)) == 0)
+                                is_local = _gf_true;
+                        break;
+
+                default:
+                        if (hostname)
+                                gf_log ("glusterd", GF_LOG_ERROR,
+                                        "unknown address family %d for %s",
+                                        sa->sa_family, hostname);
+                        break;
+        }
+
+        return is_local;
+}
+
 int32_t
 glusterd_is_local_addr (char *hostname)
 {
@@ -89,22 +126,10 @@ glusterd_is_local_addr (char *hostname)
         struct          addrinfo *res = NULL;
         int32_t         found = 0;
         struct          ifconf buf = {0,};
-        char            nodename[256] = {0,};
-
-        if ((!strcmp (hostname, "localhost")) ||
-             (!strcmp (hostname, "127.0.0.1"))) {
-                found = 1;
-                goto out;
-        }
-
-        ret = gethostname (nodename, 256);
-        if (ret)
-                goto out;
-
-        if ((!strcmp (nodename, hostname))) {
-                found = 1;
-                goto out;
-        }
+        int             sd = -1;
+        struct ifreq    *ifr = NULL;
+        int32_t         size = 0;
+        int32_t         num_req = 0;
 
         ret = getaddrinfo (hostname, NULL, NULL, &result);
 
@@ -115,81 +140,65 @@ glusterd_is_local_addr (char *hostname)
         }
 
         for (res = result; res != NULL; res = res->ai_next) {
-                char hname[1024] = "";
-
-                ret = getnameinfo (res->ai_addr, res->ai_addrlen, hname,
-                                   NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-                if (ret)
+                found = glusterd_is_loopback_localhost (res->ai_addr, hostname);
+                if (found)
                         goto out;
+        }
 
-                if (!strncasecmp (hname, "127", 3)) {
-                        ret = 0;
-                        gf_log ("", GF_LOG_NORMAL, "local addr found");
-                        found = 1;
-                        break;
+
+        sd = socket (PF_UNIX, SOCK_DGRAM, 0);
+        if (sd == -1)
+                goto out;
+
+        buf.ifc_len = sizeof (struct ifreq);
+        buf.ifc_req = GF_CALLOC (1, sizeof (struct ifreq),
+                                 gf_gld_mt_ifreq);
+        size = buf.ifc_len;
+
+        ret = ioctl (sd, SIOCGIFCONF, &buf);
+        if (ret) {
+                goto out;
+        }
+
+        while (size <= buf.ifc_len) {
+                size += sizeof (struct ifreq);
+                buf.ifc_len = size;
+                buf.ifc_req = GF_REALLOC (buf.ifc_req, size);
+                ret = ioctl (sd, SIOCGIFCONF, &buf);
+                if (ret) {
+                        goto out;
                 }
         }
 
-        if (!found) {
-                int sd = -1;
-                struct ifreq  *ifr = NULL;
-                int32_t       size = 0;
-                int32_t       num_req = 0;
-                struct sockaddr_in sa = {0,};
-
-                sd = socket (PF_UNIX, SOCK_DGRAM, 0);
-                if (sd == -1)
-                        goto out;
-
-                buf.ifc_len = sizeof (struct ifreq);
-                buf.ifc_req = GF_CALLOC (1, sizeof (struct ifreq),
-                                         gf_gld_mt_ifreq);
-                size = buf.ifc_len;
-
-                ret = ioctl (sd, SIOCGIFCONF, &buf);
-                if (ret) {
-                        close (sd);
-                        goto out;
-                }
-
-                while (size <= buf.ifc_len) {
-                        size += sizeof (struct ifreq);
-                        buf.ifc_len = size;
-                        buf.ifc_req = GF_REALLOC (buf.ifc_req, size);
-                        ret = ioctl (sd, SIOCGIFCONF, &buf);
-                        if (ret) {
-                                close (sd);
-                                goto out;
-                        }
-                }
-
+        for (res = result; res != NULL; res = res->ai_next) {
                 ifr = buf.ifc_req;
                 num_req = size / sizeof (struct ifreq) - 1;
 
                 while (num_req--) {
-                        char *addr = inet_ntoa ( *(struct in_addr *)
-                                &ifr->ifr_addr.sa_data[sizeof(sa.sin_port)]);
-                        if (!strcmp (addr, hostname)) {
-                                gf_log ("", GF_LOG_DEBUG, "%s found as local",
-                                        addr);
+                        if ((ifr->ifr_addr.sa_family == res->ai_addr->sa_family)
+                            && (memcmp (&ifr->ifr_addr, res->ai_addr,
+                                        res->ai_addrlen) == 0)) {
                                 found = 1;
+                                goto out;
                         }
                         ifr++;
                 }
-
-                if (sd > 0)
-                        close (sd);
         }
 
-
-
-
 out:
+        if (sd >= 0)
+                close (sd);
+
         if (result)
                 freeaddrinfo (result);
 
         if (buf.ifc_req)
                 GF_FREE (buf.ifc_req);
+
+        if (found)
+                gf_log ("glusterd", GF_LOG_DEBUG, "%s is local", hostname);
+        else
+                gf_log ("glusterd", GF_LOG_DEBUG, "%s is not local", hostname);
 
         return !found;
 }
