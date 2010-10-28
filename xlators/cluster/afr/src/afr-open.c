@@ -359,6 +359,51 @@ out:
 }
 
 
+static int
+afr_prepare_loc (call_frame_t *frame, fd_t *fd)
+{
+        afr_local_t    *local = NULL;
+        char           *name = NULL;
+        char           *path = NULL;
+        int             ret = 0;
+
+        if (!fd)
+                return -1;
+
+        local = frame->local;
+        ret = inode_path (fd->inode, NULL, (char **)&path);
+        if (ret == -1)
+                return -1;
+
+        if (local->loc.path) {
+                if (strcmp (path, local->loc.path))
+                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                                "overwriting old loc->path %s with %s",
+                                local->loc.path, path);
+                GF_FREE ((char *)local->loc.path);
+        }
+        local->loc.path = path;
+
+        name = strrchr (local->loc.path, '/');
+        if (name)
+                name++;
+        local->loc.name = name;
+
+        if (local->loc.inode) {
+                inode_unref (local->loc.inode);
+        }
+        local->loc.inode = inode_ref (fd->inode);
+
+        if (local->loc.parent) {
+                inode_unref (local->loc.parent);
+        }
+
+        local->loc.parent = inode_parent (local->loc.inode, 0, NULL);
+
+        return 0;
+}
+
+
 int
 afr_openfd_sh (call_frame_t *frame, xlator_t *this)
 {
@@ -369,10 +414,7 @@ afr_openfd_sh (call_frame_t *frame, xlator_t *this)
         local = frame->local;
         sh    = &local->self_heal;
 
-        inode_path (local->fd->inode, NULL, (char **)&local->loc.path);
-        local->loc.name   = strrchr (local->loc.path, '/');
-        local->loc.inode  = inode_ref (local->fd->inode);
-        local->loc.parent = inode_parent (local->fd->inode, 0, NULL);
+        afr_prepare_loc (frame, local->fd);
 
         /* forcibly trigger missing-entries self-heal */
 
@@ -440,8 +482,9 @@ out:
 }
 
 
+
 int
-afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
+afr_openfd_xaction (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
 	afr_local_t   * local = NULL;
 
@@ -452,8 +495,6 @@ afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         local = frame->local;
 
         local->op = GF_FOP_FLUSH;
-
-        local->fd = fd_ref (fd);
 
         local->transaction.fop          = afr_openfd_sh;
         local->transaction.done         = afr_openfd_flush_done;
@@ -471,3 +512,131 @@ out:
 	return 0;
 }
 
+
+
+int
+afr_openfd_xaction_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                             int32_t op_ret, int32_t op_errno, fd_t *fd)
+{
+        afr_internal_lock_t *int_lock = NULL;
+        afr_local_t         *local    = NULL;
+        afr_private_t       *priv     = NULL;
+
+        int ret = 0;
+
+        uint64_t      ctx = 0;
+        afr_fd_ctx_t *fd_ctx = NULL;
+
+        int call_count  = 0;
+        int child_index = (long) cookie;
+
+        priv     = this->private;
+        local    = frame->local;
+        int_lock = &local->internal_lock;
+
+        LOCK (&frame->lock);
+        {
+                if (op_ret >= 0) {
+                        ret = fd_ctx_get (fd, this, &ctx);
+
+                        if (ret < 0) {
+                                goto out;
+                        }
+
+                        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+                        fd_ctx->opened_on[child_index] = 1;
+
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "fd for %s opened successfully on subvolume %s",
+                                local->loc.path, priv->children[child_index]->name);
+                }
+        }
+out:
+        UNLOCK (&frame->lock);
+
+        call_count = afr_frame_return (frame);
+
+        if (call_count == 0) {
+                afr_openfd_xaction (frame, this, local->fd);
+        }
+
+        return 0;
+}
+
+
+int
+afr_openfd_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
+{
+        afr_local_t *local  = NULL;
+        afr_private_t *priv = NULL;
+
+        uint64_t      ctx;
+        afr_fd_ctx_t *fd_ctx;
+
+        int no_open = 0;
+        int ret = 0;
+        int i;
+        int call_count = 0;
+
+        priv  = this->private;
+        local = frame->local;
+
+        /*
+         * Some subvolumes might have come up on which we never
+         * opened this fd in the first place. Re-open fd's on those
+         * subvolumes now.
+         */
+
+        local->fd = fd_ref (fd);
+
+        ret = fd_ctx_get (fd, this, &ctx);
+
+        if (ret < 0) {
+                no_open = 1;
+                goto out;
+        }
+
+        fd_ctx = (afr_fd_ctx_t *)(long) ctx;
+
+        LOCK (&local->fd->lock);
+        {
+                call_count = __unopened_count (priv->child_count,
+                                               fd_ctx->opened_on,
+                                               local->child_up);
+        }
+        UNLOCK (&local->fd->lock);
+
+        if (call_count == 0) {
+                no_open = 1;
+                goto out;
+        }
+
+        afr_prepare_loc (frame, fd);
+
+        local->call_count = call_count;
+
+        for (i = 0; i < priv->child_count; i++) {
+                if (!fd_ctx->opened_on[i] && local->child_up[i]) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "opening fd for %s on subvolume %s",
+                                local->loc.path, priv->children[i]->name);
+
+                        STACK_WIND_COOKIE (frame, afr_openfd_xaction_open_cbk,
+                                           (void *)(long) i,
+                                           priv->children[i],
+                                           priv->children[i]->fops->open,
+                                           &local->loc, fd_ctx->flags, fd,
+                                           fd_ctx->wbflags);
+
+                        if (!--call_count)
+                                break;
+                }
+        }
+
+out:
+        if (no_open)
+                afr_openfd_xaction (frame, this, fd);
+
+        return 0;
+}
