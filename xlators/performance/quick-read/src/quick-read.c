@@ -682,7 +682,7 @@ wind:
 }
 
 
-static inline char
+static inline time_t
 qr_time_elapsed (struct timeval *now, struct timeval *then)
 {
         return now->tv_sec - then->tv_sec;
@@ -743,7 +743,7 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         gettimeofday (&qr_inode->tv, NULL);
 
                         if ((qr_inode->stbuf.ia_mtime != buf->ia_mtime)
-                            && (qr_inode->stbuf.ia_mtime_nsec
+                            || (qr_inode->stbuf.ia_mtime_nsec
                                 != buf->ia_mtime_nsec)) {
                                 inode_ctx_del (local->fd->inode, this, NULL);
                                 __qr_inode_free (qr_inode);
