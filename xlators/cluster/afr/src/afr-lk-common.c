@@ -1236,6 +1236,13 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                 call_count = internal_lock_count (frame, this, fd_ctx);
                 int_lock->lk_call_count = call_count;
 
+                if (!call_count) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "fd not open on any subvolumes. aborting.");
+                        afr_unlock (frame, this);
+                        goto out;
+                }
+
                 /* Send non-blocking entrylk calls only on up children
                    and where the fd has been opened */
                 for (i = 0; i < priv->child_count; i++) {
@@ -1276,7 +1283,7 @@ afr_nonblocking_entrylk (call_frame_t *frame, xlator_t *this)
                         }
                 }
         }
-
+out:
         return 0;
 }
 
@@ -1393,6 +1400,13 @@ afr_nonblocking_inodelk (call_frame_t *frame, xlator_t *this)
 
                 call_count = internal_lock_count (frame, this, fd_ctx);
                 int_lock->lk_call_count = call_count;
+
+                if (!call_count) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "fd not open on any subvolumes. aborting.");
+                        afr_unlock (frame, this);
+                        goto out;
+                }
 
                 /* Send non-blocking inodelk calls only on up children
                    and where the fd has been opened */
