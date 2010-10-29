@@ -86,6 +86,8 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         if (ret) {
                 ret = glusterd_xfer_friend_add_resp (req, rhost, port, -1,
                                                      GF_PROBE_UNKNOWN_PEER);
+                if (friend_req->vols.vols_val)
+                        free (friend_req->vols.vols_val);
                 goto out;
         }
 
@@ -163,7 +165,6 @@ out:
         }
         return ret;
 }
-
 
 static int
 glusterd_handle_unfriend_req (rpcsvc_request_t *req, uuid_t  uuid,
@@ -1879,6 +1880,85 @@ out:
 }
 
 int
+glusterd_fsm_log_send_resp (rpcsvc_request_t *req, int op_ret,
+                            char *op_errstr, dict_t *dict)
+{
+
+        int                             ret = -1;
+        gf1_cli_fsm_log_rsp             rsp = {0};
+
+        GF_ASSERT (req);
+        GF_ASSERT (op_errstr);
+
+        rsp.op_ret = op_ret;
+        rsp.op_errstr = op_errstr;
+        if (rsp.op_ret == 0)
+                ret = dict_allocate_and_serialize (dict, &rsp.fsm_log.fsm_log_val,
+                                                (size_t *)&rsp.fsm_log.fsm_log_len);
+
+        ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
+                                     gf_xdr_from_cli_fsm_log_rsp);
+        if (rsp.fsm_log.fsm_log_val)
+                GF_FREE (rsp.fsm_log.fsm_log_val);
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Responded, ret: %d", ret);
+
+        return 0;
+}
+
+int
+glusterd_handle_fsm_log (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_fsm_log_req             cli_req = {0,};
+        dict_t                          *dict = NULL;
+        glusterd_sm_tr_log_t            *log = NULL;
+        xlator_t                        *this = NULL;
+        glusterd_conf_t                 *conf = NULL;
+        char                            msg[2048] = {0};
+        glusterd_peerinfo_t             *peerinfo = NULL;
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_fsm_log_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                snprintf (msg, sizeof (msg), "Garbage request");
+                goto out;
+        }
+
+        if (strcmp ("", cli_req.name) == 0) {
+                this = THIS;
+                conf = this->private;
+                log = &conf->op_sm_log;
+        } else {
+                ret = glusterd_friend_find_by_hostname (cli_req.name,
+                                                        &peerinfo);
+                if (ret) {
+                        snprintf (msg, sizeof (msg), "%s is not a peer",
+                                  cli_req.name);
+                        goto out;
+                }
+                log = &peerinfo->sm_log;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_sm_tr_log_add_to_dict (dict, log);
+out:
+        (void)glusterd_fsm_log_send_resp (req, ret, msg, dict);
+        if (cli_req.name)
+                free (cli_req.name);//malloced by xdr
+        if (dict)
+                dict_unref (dict);
+        return 0;//send 0 to avoid double reply
+}
+
+int
 glusterd_op_lock_send_resp (rpcsvc_request_t *req, int32_t status)
 {
 
@@ -2335,6 +2415,97 @@ out:
 }
 
 int
+glusterd_friend_rpc_create (struct rpc_clnt **rpc,
+                            const char *hoststr, int port,
+                            glusterd_peerctx_t *peerctx)
+{
+        struct rpc_clnt         *new_rpc = NULL;
+        dict_t                  *options = NULL;
+        struct rpc_clnt_config  rpc_cfg = {0,};
+        int                     ret = -1;
+        char                    *hostname = NULL;
+        int32_t                 intvl = 0;
+        xlator_t                *this = NULL;
+
+        GF_ASSERT (hoststr);
+        this = THIS;
+        GF_ASSERT (this);
+
+        options = dict_new ();
+        if (!options)
+                goto out;
+
+        ret = dict_get_int32 (this->options,
+                              "transport.socket.keepalive-interval",
+                              &intvl);
+        if (!ret) {
+                ret = dict_set_int32 (options,
+                        "transport.socket.keepalive-interval", intvl);
+                if (ret)
+                        goto out;
+        }
+
+        ret = dict_get_int32 (this->options,
+                              "transport.socket.keepalive-time",
+                              &intvl);
+        if (!ret) {
+                ret = dict_set_int32 (options,
+                        "transport.socket.keepalive-time", intvl);
+                if (ret)
+                        goto out;
+        }
+
+        hostname = gf_strdup((char*)hoststr);
+        if (!hostname) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (options, "remote-host", hostname);
+        if (ret)
+                goto out;
+
+        if (!port)
+                port = GLUSTERD_DEFAULT_PORT;
+
+        rpc_cfg.remote_host = (char *)hoststr;
+        rpc_cfg.remote_port = port;
+
+        ret = dict_set_int32 (options, "remote-port", port);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (options, "transport.address-family", "inet");
+        if (ret)
+                goto out;
+
+        new_rpc = rpc_clnt_init (&rpc_cfg, options, this->ctx, this->name);
+
+        if (!new_rpc) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "new_rpc init failed for peer: %s!", hoststr);
+                ret = -1;
+                goto out;
+        }
+
+        ret = rpc_clnt_register_notify (new_rpc, glusterd_rpc_notify,
+                                        peerctx);
+        *rpc = new_rpc;
+out:
+        if (ret) {
+                if (new_rpc) {
+                        (void) rpc_clnt_unref (new_rpc);
+                }
+                if (options)
+                        dict_unref (options);
+                *rpc = NULL;
+        }
+
+        gf_log ("", GF_LOG_DEBUG, "returning %d");
+        return ret;
+}
+
+int
 glusterd_friend_add (const char *hoststr, int port,
                      glusterd_friend_sm_state_t state,
                      uuid_t *uuid,
@@ -2344,138 +2515,57 @@ glusterd_friend_add (const char *hoststr, int port,
                      glusterd_peerctx_args_t *args)
 {
         int                     ret = 0;
-        glusterd_conf_t         *priv = NULL;
+        glusterd_conf_t         *conf = NULL;
         glusterd_peerinfo_t     *peerinfo = NULL;
-        dict_t                  *options = NULL;
-        struct rpc_clnt_config  rpc_cfg = {0,};
-        glusterd_peer_hostname_t *name = NULL;
-        char                    *hostname = NULL;
         glusterd_peerctx_t     *peerctx = NULL;
-        int32_t                 intvl = 0;
+        gf_boolean_t            is_allocated = _gf_false;
 
-        priv = THIS->private;
+        conf = THIS->private;
+        GF_ASSERT (conf)
 
         peerctx = GF_CALLOC (1, sizeof (*peerctx), gf_gld_mt_peerctx_t);
         if (!peerctx) {
                 ret = -1;
                 goto out;
         }
-        peerinfo = GF_CALLOC (1, sizeof (*peerinfo), gf_gld_mt_peerinfo_t);
-
-        if (!peerinfo) {
-                ret = -1;
-                goto out;
-        }
 
         if (args)
                 peerctx->args = *args;
+
+        ret = glusterd_peerinfo_new (&peerinfo, state, uuid, hoststr);
+        if (ret)
+                goto out;
         peerctx->peerinfo = peerinfo;
         if (friend)
                 *friend = peerinfo;
 
-        INIT_LIST_HEAD (&peerinfo->hostnames);
-        peerinfo->state.state = state;
         if (hoststr) {
-                ret =  glusterd_peer_hostname_new ((char *)hoststr, &name);
-                if (ret)
-                        goto out;
-                list_add_tail (&peerinfo->hostnames, &name->hostname_list);
-                rpc_cfg.remote_host = (char *)hoststr;
-                peerinfo->hostname = gf_strdup (hoststr);
-        }
-        INIT_LIST_HEAD (&peerinfo->uuid_list);
-
-        list_add_tail (&peerinfo->uuid_list, &priv->peers);
-
-        if (uuid) {
-                uuid_copy (peerinfo->uuid, *uuid);
-        }
-
-
-        if (hoststr) {
-                options = dict_new ();
-                if (!options) {
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_get_int32 (THIS->options,
-                                      "transport.socket.keepalive-interval",
-                                      &intvl);
-                if (!ret) {
-                        ret = dict_set_int32 (options,
-                                "transport.socket.keepalive-interval", intvl);
-                        if (ret)
-                                goto out;
-                }
-
-                ret = dict_get_int32 (THIS->options,
-                                      "transport.socket.keepalive-time",
-                                      &intvl);
-                if (!ret) {
-                        ret = dict_set_int32 (options,
-                                "transport.socket.keepalive-time", intvl);
-                        if (ret)
-                                goto out;
-                }
-
-                hostname = gf_strdup((char*)hoststr);
-                if (!hostname) {
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_set_dynstr (options, "remote-host", hostname);
-                if (ret)
-                        goto out;
-
-
-                if (!port)
-                        port = GLUSTERD_DEFAULT_PORT;
-
-                rpc_cfg.remote_port = port;
-
-                ret = dict_set_int32 (options, "remote-port", port);
-                if (ret)
-                        goto out;
-
-                ret = dict_set_str (options, "transport.address-family", "inet");
-                if (ret)
-                        goto out;
-
-                rpc = rpc_clnt_init (&rpc_cfg, options, THIS->ctx, THIS->name);
-
                 if (!rpc) {
-                        gf_log ("glusterd", GF_LOG_ERROR,
-                                "rpc init failed for peer: %s!", hoststr);
-                        ret = -1;
-                        goto out;
+                        ret = glusterd_friend_rpc_create (&rpc, hoststr, port,
+                                                          peerctx);
+                        if (ret)
+                                goto out;
+                        is_allocated = _gf_true;
                 }
-
-                ret = rpc_clnt_register_notify (rpc, glusterd_rpc_notify,
-                                                peerctx);
-
                 peerinfo->rpc = rpc;
-
         }
 
         if (!restore)
                 ret = glusterd_store_update_peerinfo (peerinfo);
 
+        list_add_tail (&peerinfo->uuid_list, &conf->peers);
 
 out:
         if (ret) {
                 if (peerctx)
                         GF_FREE (peerctx);
-                if (rpc) {
+                if (is_allocated && rpc) {
                         (void) rpc_clnt_unref (rpc);
                 }
                 if (peerinfo) {
                         peerinfo->rpc = NULL;
                         (void) glusterd_friend_cleanup (peerinfo);
                 }
-                if (options)
-                        dict_unref (options);
         }
 
         gf_log ("glusterd", GF_LOG_NORMAL, "connect returned %d", ret);

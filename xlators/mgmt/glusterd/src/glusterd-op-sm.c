@@ -87,7 +87,7 @@ static char *glusterd_op_sm_event_names[] = {
 };
 
 char*
-glusterd_op_sm_state_name_get (glusterd_op_sm_state_t state)
+glusterd_op_sm_state_name_get (int state)
 {
         if (state < 0 || state >= GD_OP_STATE_MAX)
                 return glusterd_op_sm_state_names[GD_OP_STATE_MAX];
@@ -95,7 +95,7 @@ glusterd_op_sm_state_name_get (glusterd_op_sm_state_t state)
 }
 
 char*
-glusterd_op_sm_event_name_get (glusterd_op_sm_event_type_t event)
+glusterd_op_sm_event_name_get (int event)
 {
         if (event < 0 || event >= GD_OP_EVENT_MAX)
                 return glusterd_op_sm_event_names[GD_OP_EVENT_MAX];
@@ -4772,15 +4772,19 @@ glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
                                  glusterd_op_sm_t *state,
                                  glusterd_op_sm_event_type_t event_type)
 {
+        glusterd_conf_t         *conf = NULL;
 
         GF_ASSERT (state);
         GF_ASSERT (opinfo);
 
-        gf_log ("", GF_LOG_NORMAL, "Transitioning from '%s' to '%s' due to "
-                "event '%s'",
-                glusterd_op_sm_state_name_get (opinfo->state.state),
-                glusterd_op_sm_state_name_get (state[event_type].next_state),
-                glusterd_op_sm_event_name_get (event_type));
+        conf = THIS->private;
+        GF_ASSERT (conf);
+
+        (void) glusterd_sm_tr_log_transition_add (&conf->op_sm_log,
+                                           opinfo->state.state,
+                                           state[event_type].next_state,
+                                           event_type);
+
         opinfo->state.state = state[event_type].next_state;
         return 0;
 }
@@ -5100,7 +5104,7 @@ glusterd_op_sm_inject_event (glusterd_op_sm_event_type_t event_type,
 
         event->ctx = ctx;
 
-        gf_log ("glusterd", GF_LOG_NORMAL, "Enqueuing event: '%s'",
+        gf_log ("glusterd", GF_LOG_DEBUG, "Enqueuing event: '%s'",
                 glusterd_op_sm_event_name_get (event->event));
         list_add_tail (&event->list, &gd_op_sm_queue);
 
@@ -5148,7 +5152,7 @@ glusterd_op_sm ()
 
                         list_del_init (&event->list);
                         event_type = event->event;
-                        gf_log ("", GF_LOG_NORMAL, "Dequeued event of type: '%s'",
+                        gf_log ("", GF_LOG_DEBUG, "Dequeued event of type: '%s'",
                                 glusterd_op_sm_event_name_get(event_type));
 
                         state = glusterd_op_state_table[opinfo.state.state];

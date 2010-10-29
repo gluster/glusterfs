@@ -330,15 +330,15 @@ out:
         return ret;
 }
 
-void 
+void
 cli_out_options ( char *substr, char *optstr, char *valstr)
 {
         char                    *ptr1 = NULL;
         char                    *ptr2 = NULL;
-        
+
         ptr1 = substr;
         ptr2 = optstr;
-        
+
         while (ptr1)
         {
                 if (*ptr1 != *ptr2)
@@ -350,7 +350,7 @@ cli_out_options ( char *substr, char *optstr, char *valstr)
                 if (!ptr2)
                         return;
         }
-        
+
         if (*ptr2 == '\0')
                 return;
         cli_out ("%s: %s",ptr2 , valstr);
@@ -2228,6 +2228,122 @@ out:
         return ret;
 }
 
+static int
+gf_cli3_1_fsm_log_cbk (struct rpc_req *req, struct iovec *iov,
+                       int count, void *myframe)
+{
+        gf1_cli_fsm_log_rsp        rsp   = {0,};
+        int                        ret   = -1;
+        dict_t                     *dict = NULL;
+        int                        tr_count = 0;
+        char                       key[256] = {0};
+        int                        i = 0;
+        char                       *old_state = NULL;
+        char                       *new_state = NULL;
+        char                       *event = NULL;
+        char                       *time = NULL;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_fsm_log_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        if (rsp.op_ret) {
+                if (strcmp (rsp.op_errstr, "")) {
+                        cli_out (rsp.op_errstr);
+                } else if (rsp.op_ret) {
+                        cli_out ("fsm log unsuccessful");
+                }
+                ret = rsp.op_ret;
+                goto out;
+        }
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.fsm_log.fsm_log_val,
+                                rsp.fsm_log.fsm_log_len,
+                                &dict);
+
+        if (ret) {
+                cli_out ("bad response");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &tr_count);
+        if (tr_count)
+                cli_out("number of transitions: %d", tr_count);
+        else
+                cli_out("No transitions");
+        for (i = 0; i < tr_count; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "log%d-old-state", i);
+                ret = dict_get_str (dict, key, &old_state);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "log%d-event", i);
+                ret = dict_get_str (dict, key, &event);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "log%d-new-state", i);
+                ret = dict_get_str (dict, key, &new_state);
+                if (ret)
+                        goto out;
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "log%d-time", i);
+                ret = dict_get_str (dict, key, &time);
+                if (ret)
+                        goto out;
+                cli_out ("Old State: [%s]\n"
+                         "New State: [%s]\n"
+                         "Event    : [%s]\n"
+                         "timestamp: [%s]\n", old_state, new_state, event, time);
+        }
+
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_fsm_log (call_frame_t *frame, xlator_t *this, void *data)
+{
+        int                        ret = -1;
+        gf1_cli_fsm_log_req        req = {0,};
+
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+        GF_ASSERT (data);
+
+        if (!frame || !this || !data)
+                goto out;
+        req.name = data;
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_FSM_LOG, NULL,
+                              gf_xdr_from_cli_fsm_log_req,
+                              this, gf_cli3_1_fsm_log_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
+
 struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
         [GF1_CLI_PROBE]  = { "PROBE_QUERY",  gf_cli3_1_probe},
@@ -2251,7 +2367,8 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_GETSPEC] = {"GETSPEC", gf_cli3_1_getspec},
         [GF1_CLI_PMAP_PORTBYBRICK] = {"PMAP PORTBYBRICK", gf_cli3_1_pmap_b2p},
         [GF1_CLI_SYNC_VOLUME] = {"SYNC_VOLUME", gf_cli3_1_sync_volume},
-        [GF1_CLI_RESET_VOLUME] = {"RESET_VOLUME", gf_cli3_1_reset_volume}
+        [GF1_CLI_RESET_VOLUME] = {"RESET_VOLUME", gf_cli3_1_reset_volume},
+        [GF1_CLI_FSM_LOG] = {"FSM_LOG", gf_cli3_1_fsm_log}
 };
 
 struct rpc_clnt_program cli3_1_prog = {

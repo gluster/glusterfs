@@ -49,6 +49,8 @@
 
 #define GLUSTERD_MAX_VOLUME_NAME        1000
 #define DEFAULT_LOG_FILE_DIRECTORY      DATADIR "/log/glusterfs"
+#define GLUSTERD_TR_LOG_SIZE            50
+
 
 typedef enum glusterd_op_ {
         GD_OP_NONE = 0,
@@ -96,6 +98,7 @@ typedef struct {
         struct list_head  xprt_list;
         glusterd_store_handle_t *handle;
         gf_timer_t *timer;
+        glusterd_sm_tr_log_t op_sm_log;
 } glusterd_conf_t;
 
 typedef enum gf_brick_status {
@@ -438,6 +441,9 @@ glusterd_handle_set_volume (rpcsvc_request_t *req);
 
 int
 glusterd_handle_reset_volume (rpcsvc_request_t *req);
+
+int
+glusterd_handle_fsm_log (rpcsvc_request_t *req);
 
 int
 glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,

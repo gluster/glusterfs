@@ -68,6 +68,22 @@ typedef struct glusterd_peer_hostname_ {
         struct list_head        hostname_list;
 }glusterd_peer_hostname_t;
 
+typedef struct glusterd_sm_transition_ {
+        int             old_state;
+        int             event;
+        int             new_state;
+        time_t          time;
+} glusterd_sm_transition_t;
+
+typedef struct glusterd_sm_tr_log_ {
+        glusterd_sm_transition_t    *transitions;
+        size_t                      current;
+        size_t                      size;
+        size_t                      count;
+        char*                       (*state_name_get) (int);
+        char*                       (*event_name_get) (int);
+} glusterd_sm_tr_log_t;
+
 struct glusterd_peerinfo_ {
         uuid_t                          uuid;
         char                            uuid_str[50];
@@ -80,6 +96,7 @@ struct glusterd_peerinfo_ {
         struct rpc_clnt                 *rpc;
         int                             connected;
         glusterd_store_handle_t         *shandle;
+        glusterd_sm_tr_log_t            sm_log;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
@@ -178,7 +195,10 @@ void
 glusterd_destroy_friend_req_ctx (glusterd_friend_req_ctx_t *ctx);
 
 char*
-glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state);
+glusterd_friend_sm_state_name_get (int state);
+
+char*
+glusterd_friend_sm_event_name_get (int event);
 
 int
 glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid);

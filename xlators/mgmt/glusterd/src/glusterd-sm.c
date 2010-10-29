@@ -75,7 +75,7 @@ static char *glusterd_friend_sm_event_names[] = {
 };
 
 char*
-glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state)
+glusterd_friend_sm_state_name_get (int state)
 {
         if (state < 0 || state >= GD_FRIEND_STATE_MAX)
                 return glusterd_friend_sm_state_names[GD_FRIEND_STATE_MAX];
@@ -83,7 +83,7 @@ glusterd_friend_sm_state_name_get (glusterd_friend_sm_state_t state)
 }
 
 char*
-glusterd_friend_sm_event_name_get (glusterd_friend_sm_event_type_t event)
+glusterd_friend_sm_event_name_get (int event)
 {
         if (event < 0 || event >= GD_FRIEND_EVENT_MAX)
                 return glusterd_friend_sm_event_names[GD_FRIEND_EVENT_MAX];
@@ -538,13 +538,10 @@ glusterd_friend_sm_transition_state (glusterd_peerinfo_t *peerinfo,
         GF_ASSERT (state);
         GF_ASSERT (peerinfo);
 
-        //peerinfo->state.state = state;
-
-        gf_log ("", GF_LOG_NORMAL, "Transitioning from '%s' to '%s' due to "
-                "event '%s'",
-                glusterd_friend_sm_state_name_get (peerinfo->state.state),
-                glusterd_friend_sm_state_name_get (state[event_type].next_state),
-                glusterd_friend_sm_event_name_get (event_type));
+        (void) glusterd_sm_tr_log_transition_add (&peerinfo->sm_log,
+                                           peerinfo->state.state,
+                                           state[event_type].next_state,
+                                           event_type);
 
         peerinfo->state.state = state[event_type].next_state;
         return 0;
@@ -717,7 +714,7 @@ int
 glusterd_friend_sm_inject_event (glusterd_friend_sm_event_t *event)
 {
         GF_ASSERT (event);
-        gf_log ("glusterd", GF_LOG_NORMAL, "Enqueuing event: '%s'",
+        gf_log ("glusterd", GF_LOG_DEBUG, "Enqueuing event: '%s'",
                 glusterd_friend_sm_event_name_get (event->event));
         list_add_tail (&event->list, &gd_friend_sm_queue);
 
@@ -767,11 +764,14 @@ glusterd_friend_sm ()
                         if (!peerinfo) {
                                 gf_log ("glusterd", GF_LOG_CRITICAL, "Received"
                                         " event %s with empty peer info",
-                                glusterd_friend_sm_event_name_get(event_type));
+                                glusterd_friend_sm_event_name_get (event_type));
 
                                 GF_FREE (event);
                                 continue;
                         }
+                        gf_log ("", GF_LOG_DEBUG, "Dequeued event of type: '%s'",
+                                glusterd_friend_sm_event_name_get (event_type));
+
 
                         state = glusterd_friend_state_table[peerinfo->state.state];
 

@@ -10,7 +10,8 @@
         GF_REPLACE_OP_COMMIT,
         GF_REPLACE_OP_PAUSE,
         GF_REPLACE_OP_ABORT,
-        GF_REPLACE_OP_STATUS
+        GF_REPLACE_OP_STATUS,
+        GF_REPLACE_OP_COMMIT_FORCE
 } ;
 
 enum gf1_cli_friends_list {
@@ -268,4 +269,15 @@ struct gf1_cli_sync_volume_rsp {
 	int op_ret;
 	int op_errno;
         string op_errstr<>;
+};
+
+struct gf1_cli_fsm_log_req {
+        string name<>;
+};
+
+struct gf1_cli_fsm_log_rsp {
+        int op_ret;
+        int op_errno;
+        string op_errstr<>;
+        opaque fsm_log<>;
 };

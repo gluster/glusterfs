@@ -43,6 +43,7 @@
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
+#include "glusterd-utils.h"
 
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
@@ -386,6 +387,12 @@ init (xlator_t *this)
         strncpy (conf->workdir, dirname, PATH_MAX);
 
         INIT_LIST_HEAD (&conf->xprt_list);
+        ret = glusterd_sm_tr_log_init (&conf->op_sm_log,
+                                       glusterd_op_sm_state_name_get,
+                                       glusterd_op_sm_event_name_get,
+                                       GLUSTERD_TR_LOG_SIZE);
+        if (ret)
+                goto out;
 
         this->private = conf;
         //this->ctx->top = this;
@@ -437,6 +444,7 @@ fini (xlator_t *this)
                 FREE (conf->pmap);
         if (conf->handle)
                 glusterd_store_handle_destroy (conf->handle);
+        glusterd_sm_tr_log_delete (&conf->op_sm_log);
         GF_FREE (conf);
         this->private = NULL;
 out:
