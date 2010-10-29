@@ -520,6 +520,25 @@ nfs_init_state (xlator_t *this)
                         nfs->dynamicvolumes = GF_NFS_DVM_ON;
         }
 
+        nfs->enable_ino32 = 0;
+        if (dict_get (this->options, "nfs.enable-ino32")) {
+                ret = dict_get_str (this->options, "nfs.enable-ino32",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2boolean (optstr, &boolt);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto free_foppool;
+                }
+
+                if (boolt == _gf_true)
+                        nfs->enable_ino32 = 1;
+        }
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
 
@@ -801,6 +820,13 @@ struct volume_options options[] = {
                          "gnfs can use this option to identify the volume. "
                          "If all subvolumes do not have this option set, an "
                          "error is reported."
+        },
+        { .key  = {"nfs.enable-ino32"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "For nfs clients or apps that do not support 64-bit "
+                         "inode numbers, use this option to make NFS return "
+                         "32-bit inode numbers instead. Disabled by default so "
+                         "NFS returns 64-bit inode numbers by default."
         },
 	{ .key  = {NULL} },
 };

@@ -76,4 +76,7 @@ nfs_entry_loc_fill (inode_table_t *itable, uuid_t pargfid, char *entry,
 
 extern int
 nfs_root_loc_fill (inode_table_t *itable, loc_t *loc);
+
+extern uint32_t
+nfs_hash_gfid (uuid_t gfid);
 #endif

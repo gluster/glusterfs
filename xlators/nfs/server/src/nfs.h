@@ -72,10 +72,14 @@ struct nfs_state {
         xlator_t                **initedxl;
         int                     subvols_started;
         int                     dynamicvolumes;
+        int                     enable_ino32;
 };
 
 #define gf_nfs_dvm_on(nfsstt)   (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_ON)
 #define gf_nfs_dvm_off(nfsstt)  (((struct nfs_state *)nfsstt)->dynamicvolumes == GF_NFS_DVM_OFF)
+#define __gf_nfs_enable_ino32(nfsstt)     (((struct nfs_state *)nfsstt)->enable_ino32)
+#define gf_nfs_this_private     ((struct nfs_state *)((xlator_t *)THIS)->private)
+#define gf_nfs_enable_ino32()     (__gf_nfs_enable_ino32(gf_nfs_this_private))
 
 /* We have one gid more than the glusterfs maximum since we pass the primary
  * gid as the first element of the array.

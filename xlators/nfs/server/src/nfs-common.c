@@ -393,3 +393,35 @@ err:
 
         return ret;
 }
+
+
+uint32_t
+nfs_hash_gfid (uuid_t gfid)
+{
+        uint32_t                hash = 0;
+        uint64_t                msb64 = 0;
+        uint64_t                lsb64 = 0;
+        uint32_t                a1 = 0;
+        uint32_t                a2 = 0;
+        uint32_t                a3 = 0;
+        uint32_t                a4 = 0;
+        uint32_t                b1 = 0;
+        uint32_t                b2 = 0;
+
+        memcpy (&msb64, &gfid[8], 8);
+        memcpy (&lsb64, &gfid[0], 8);
+
+        a1 = (msb64 << 32);
+        a2 = (msb64 >> 32);
+        a3 = (lsb64 << 32);
+        a4 = (lsb64 >> 32);
+
+        b1 = a1 ^ a4;
+        b2 = a2 ^ a3;
+
+        hash = b1 ^ b2;
+
+        return hash;
+}
+
+
