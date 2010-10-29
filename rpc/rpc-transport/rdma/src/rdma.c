@@ -2931,6 +2931,7 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
         }
 
         post->ctx.rdma_reads = i;
+        post->ctx.count += post->ctx.rdma_reads;
 
         if (size > peer->trans->ctx->page_size) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
@@ -2980,7 +2981,6 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
                                 goto unlock;
                         }
 
-                        post->ctx.count++;
                         ptr += readch[i].rc_target.rs_length;
                 }
 
