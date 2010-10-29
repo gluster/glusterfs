@@ -25,6 +25,7 @@
 
 #include "cli1.h"
 #include "compat.h"
+
 bool_t
 xdr_gf1_cluster_type (XDR *xdrs, gf1_cluster_type *objp)
 {
@@ -316,9 +317,9 @@ xdr_gf1_cli_stop_vol_rsp (XDR *xdrs, gf1_cli_stop_vol_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
-         if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-                 return FALSE;
-         return TRUE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	return TRUE;
 }
 
 bool_t
@@ -512,8 +513,8 @@ xdr_gf1_cli_set_vol_rsp (XDR *xdrs, gf1_cli_set_vol_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
-         if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-                 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
 		 return FALSE;
 	return TRUE;
@@ -615,6 +616,30 @@ xdr_gf1_cli_sync_volume_rsp (XDR *xdrs, gf1_cli_sync_volume_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->op_errno))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_fsm_log_req (XDR *xdrs, gf1_cli_fsm_log_req *objp)
+{
+
+	 if (!xdr_string (xdrs, &objp->name, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_fsm_log_rsp (XDR *xdrs, gf1_cli_fsm_log_rsp *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->fsm_log.fsm_log_val, (u_int *) &objp->fsm_log.fsm_log_len, ~0))
 		 return FALSE;
 	return TRUE;
 }

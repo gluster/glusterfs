@@ -765,7 +765,8 @@ glusterd_friend_cleanup (glusterd_peerinfo_t *peerinfo)
                 peerinfo->rpc->mydata = NULL;
                 peerinfo->rpc = rpc_clnt_unref (peerinfo->rpc);
                 peerinfo->rpc = NULL;
-                GF_FREE (peerctx);
+                if (peerctx)
+                        GF_FREE (peerctx);
         }
         glusterd_peer_destroy (peerinfo);
 
@@ -1051,43 +1052,6 @@ out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
-
-int32_t
-glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
-{
-        int32_t                         ret = -1;
-        glusterd_peer_hostname_t        *name = NULL;
-        glusterd_peer_hostname_t        *tmp = NULL;
-
-        if (!peerinfo)
-                goto out;
-
-        ret = glusterd_store_delete_peerinfo (peerinfo);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Deleting peer info failed");
-        }
-
-        list_del_init (&peerinfo->uuid_list);
-        list_for_each_entry_safe (name, tmp, &peerinfo->hostnames,
-                                  hostname_list) {
-                list_del_init (&name->hostname_list);
-                GF_FREE (name->hostname);
-                GF_FREE (name);
-        }
-
-        list_del_init (&peerinfo->hostnames);
-        if (peerinfo->hostname)
-                GF_FREE (peerinfo->hostname);
-        GF_FREE (peerinfo);
-        peerinfo = NULL;
-
-        ret = 0;
-
-out:
-        return ret;
-}
-
 
 gf_boolean_t
 glusterd_is_cli_op_req (int32_t op)
@@ -2427,5 +2391,261 @@ glusterd_brick_create_path (char *host, char *path, mode_t mode,
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_sm_tr_log_transition_add_to_dict (dict_t *dict,
+                                           glusterd_sm_tr_log_t *log, int i,
+                                           int count)
+{
+        int     ret = -1;
+        char    key[512] = {0};
+	char    timestr[256] = {0,};
+        char    *str = NULL;
+	struct tm   tm = {0};
+
+        GF_ASSERT (dict);
+        GF_ASSERT (log);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "log%d-old-state", count);
+        str = log->state_name_get (log->transitions[i].old_state);
+        ret = dict_set_str (dict, key, str);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "log%d-event", count);
+        str = log->event_name_get (log->transitions[i].event);
+        ret = dict_set_str (dict, key, str);
+        if (ret)
+                goto out;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "log%d-new-state", count);
+        str = log->state_name_get (log->transitions[i].new_state);
+        ret = dict_set_str (dict, key, str);
+        if (ret)
+                goto out;
+
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "log%d-time", count);
+	localtime_r ((const time_t*)&log->transitions[i].time, &tm);
+        memset (timestr, 0, sizeof (timestr));
+	strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", &tm);
+        str = gf_strdup (timestr);
+        ret = dict_set_dynstr (dict, key, str);
+        if (ret)
+                goto out;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_sm_tr_log_add_to_dict (dict_t *dict,
+                                glusterd_sm_tr_log_t *circular_log)
+{
+        int     ret = -1;
+        int     i = 0;
+        int     start = 0;
+        int     end     = 0;
+        int     index = 0;
+        char    key[256] = {0};
+        glusterd_sm_tr_log_t *log = NULL;
+        int     count = 0;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (circular_log);
+
+        log = circular_log;
+        if (!log->count)
+                return 0;
+
+        if (log->count == log->size)
+                start = log->current + 1;
+
+        end = start + log->count;
+        for (i = start; i < end; i++, count++) {
+                index = i % log->count;
+                ret = glusterd_sm_tr_log_transition_add_to_dict (dict, log, index,
+                                                                 count);
+                if (ret)
+                        goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "count");
+        ret = dict_set_int32 (dict, key, log->count);
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_sm_tr_log_init (glusterd_sm_tr_log_t *log,
+                         char * (*state_name_get) (int),
+                         char * (*event_name_get) (int),
+                         size_t  size)
+{
+        glusterd_sm_transition_t *transitions = NULL;
+        int                      ret = -1;
+
+        GF_ASSERT (size > 0);
+        GF_ASSERT (log && state_name_get && event_name_get);
+
+        if (!log || !state_name_get || !event_name_get || (size <= 0))
+                goto out;
+
+        transitions = GF_CALLOC (size, sizeof (*transitions),
+                                 gf_gld_mt_sm_tr_log_t);
+        if (!transitions)
+                goto out;
+
+        log->transitions = transitions;
+        log->size        = size;
+        log->state_name_get = state_name_get;
+        log->event_name_get = event_name_get;
+        ret = 0;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+void
+glusterd_sm_tr_log_delete (glusterd_sm_tr_log_t *log)
+{
+        if (!log)
+                return;
+        if (log->transitions)
+                GF_FREE (log->transitions);
+        return;
+}
+
+int
+glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
+                                   int old_state, int new_state,
+                                   int event)
+{
+        glusterd_sm_transition_t *transitions = NULL;
+        int                      ret = -1;
+        int                      next = 0;
+
+        GF_ASSERT (log);
+        if (!log)
+                goto out;
+
+        transitions = log->transitions;
+        if (!transitions)
+                goto out;
+
+        if (log->count)
+                next = (log->current + 1) % log->size;
+        else
+                next = 0;
+
+        transitions[next].old_state = old_state;
+        transitions[next].new_state = new_state;
+        transitions[next].event     = event;
+        time (&transitions[next].time);
+        log->current = next;
+        if (log->count < log->size)
+                log->count++;
+        ret = 0;
+        gf_log ("glusterd", GF_LOG_DEBUG, "Transitioning from '%s' to '%s' "
+                "due to event '%s'", log->state_name_get (old_state),
+                log->state_name_get (new_state), log->event_name_get (event));
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
+                       glusterd_friend_sm_state_t state,
+                       uuid_t *uuid, const char *hostname)
+{
+        glusterd_peerinfo_t      *new_peer = NULL;
+        glusterd_peer_hostname_t *name = NULL;
+        int                      ret = -1;
+
+        GF_ASSERT (peerinfo);
+        if (!peerinfo)
+                goto out;
+
+        new_peer = GF_CALLOC (1, sizeof (*new_peer), gf_gld_mt_peerinfo_t);
+        if (!new_peer)
+                goto out;
+
+        INIT_LIST_HEAD (&new_peer->hostnames);
+        new_peer->state.state = state;
+        if (hostname) {
+                ret =  glusterd_peer_hostname_new ((char *)hostname, &name);
+                if (ret)
+                        goto out;
+                list_add_tail (&new_peer->hostnames, &name->hostname_list);
+                new_peer->hostname = gf_strdup (hostname);
+        }
+
+        INIT_LIST_HEAD (&new_peer->uuid_list);
+
+        if (uuid) {
+                uuid_copy (new_peer->uuid, *uuid);
+        }
+
+        ret = glusterd_sm_tr_log_init (&new_peer->sm_log,
+                                       glusterd_friend_sm_state_name_get,
+                                       glusterd_friend_sm_event_name_get,
+                                       GLUSTERD_TR_LOG_SIZE);
+        if (ret)
+                goto out;
+
+        *peerinfo = new_peer;
+out:
+        if (ret && new_peer)
+                glusterd_friend_cleanup (new_peer);
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int32_t
+glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
+{
+        int32_t                         ret = -1;
+        glusterd_peer_hostname_t        *name = NULL;
+        glusterd_peer_hostname_t        *tmp = NULL;
+
+        if (!peerinfo)
+                goto out;
+
+        ret = glusterd_store_delete_peerinfo (peerinfo);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Deleting peer info failed");
+        }
+
+        list_del_init (&peerinfo->uuid_list);
+        list_for_each_entry_safe (name, tmp, &peerinfo->hostnames,
+                                  hostname_list) {
+                list_del_init (&name->hostname_list);
+                GF_FREE (name->hostname);
+                GF_FREE (name);
+        }
+
+        list_del_init (&peerinfo->hostnames);
+        if (peerinfo->hostname)
+                GF_FREE (peerinfo->hostname);
+        glusterd_sm_tr_log_delete (&peerinfo->sm_log);
+        GF_FREE (peerinfo);
+        peerinfo = NULL;
+
+        ret = 0;
+
+out:
         return ret;
 }

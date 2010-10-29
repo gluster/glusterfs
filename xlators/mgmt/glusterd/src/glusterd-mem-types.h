@@ -59,7 +59,8 @@ enum gf_gld_mem_types_ {
         gf_gld_mt_log_locate_ctx_t              = gf_common_mt_end + 33,
         gf_gld_mt_log_rotate_ctx_t              = gf_common_mt_end + 34,
         gf_gld_mt_peerctx_t                     = gf_common_mt_end + 35,
-        gf_gld_mt_end                           = gf_common_mt_end + 36
+        gf_gld_mt_sm_tr_log_t                = gf_common_mt_end + 36,
+        gf_gld_mt_end                           = gf_common_mt_end + 37
 };
 #endif
 

@@ -194,7 +194,7 @@ struct gf1_cli_stop_vol_rsp {
 	int op_ret;
 	int op_errno;
 	char *volname;
-        char *op_errstr;
+	char *op_errstr;
 };
 typedef struct gf1_cli_stop_vol_rsp gf1_cli_stop_vol_rsp;
 
@@ -314,7 +314,7 @@ struct gf1_cli_set_vol_rsp {
 	int op_ret;
 	int op_errno;
 	char *volname;
-        char *op_errstr;
+	char *op_errstr;
 	struct {
 		u_int dict_len;
 		char *dict_val;
@@ -376,6 +376,22 @@ struct gf1_cli_sync_volume_rsp {
 };
 typedef struct gf1_cli_sync_volume_rsp gf1_cli_sync_volume_rsp;
 
+struct gf1_cli_fsm_log_req {
+	char *name;
+};
+typedef struct gf1_cli_fsm_log_req gf1_cli_fsm_log_req;
+
+struct gf1_cli_fsm_log_rsp {
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	struct {
+		u_int fsm_log_len;
+		char *fsm_log_val;
+	} fsm_log;
+};
+typedef struct gf1_cli_fsm_log_rsp gf1_cli_fsm_log_rsp;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -423,6 +439,8 @@ extern  bool_t xdr_gf1_cli_log_locate_rsp (XDR *, gf1_cli_log_locate_rsp*);
 extern  bool_t xdr_gf1_cli_log_rotate_req (XDR *, gf1_cli_log_rotate_req*);
 extern  bool_t xdr_gf1_cli_log_rotate_rsp (XDR *, gf1_cli_log_rotate_rsp*);
 extern  bool_t xdr_gf1_cli_sync_volume_rsp (XDR *, gf1_cli_sync_volume_rsp*);
+extern  bool_t xdr_gf1_cli_fsm_log_req (XDR *, gf1_cli_fsm_log_req*);
+extern  bool_t xdr_gf1_cli_fsm_log_rsp (XDR *, gf1_cli_fsm_log_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf1_cluster_type ();
@@ -469,6 +487,8 @@ extern bool_t xdr_gf1_cli_log_locate_rsp ();
 extern bool_t xdr_gf1_cli_log_rotate_req ();
 extern bool_t xdr_gf1_cli_log_rotate_rsp ();
 extern bool_t xdr_gf1_cli_sync_volume_rsp ();
+extern bool_t xdr_gf1_cli_fsm_log_req ();
+extern bool_t xdr_gf1_cli_fsm_log_rsp ();
 
 #endif /* K&R C */
 

@@ -230,4 +230,23 @@ glusterd_rb_check_bricks (glusterd_volinfo_t *volinfo,
 int
 glusterd_brick_create_path (char *host, char *path, mode_t mode,
                             char **op_errstr);
+int
+glusterd_sm_tr_log_transition_add (glusterd_sm_tr_log_t *log,
+                                           int old_state, int new_state,
+                                           int event);
+int
+glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
+                       glusterd_friend_sm_state_t state,
+                       uuid_t *uuid, const char *hostname);
+int
+glusterd_sm_tr_log_init (glusterd_sm_tr_log_t *log,
+                         char * (*state_name_get) (int),
+                         char * (*event_name_get) (int),
+                         size_t  size);
+void
+glusterd_sm_tr_log_delete (glusterd_sm_tr_log_t *log);
+
+int
+glusterd_sm_tr_log_add_to_dict (dict_t *dict,
+                                glusterd_sm_tr_log_t *circular_log);
 #endif

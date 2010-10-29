@@ -129,6 +129,39 @@ out:
         return ret;
 }
 
+void
+cli_cmd_fsm_log_usage ()
+{
+	cli_out ("Usage: fsm log [<peer-name>]");
+}
+
+int
+cli_cmd_fsm_log (struct cli_state *state, struct cli_cmd_word *in_word,
+                 const char **words, int wordcount)
+{
+        int                             ret = -1;
+        rpc_clnt_procedure_t            *proc = NULL;
+        call_frame_t                    *frame = NULL;
+        char                            *name = "";
+
+        if ((wordcount != 3) && (wordcount != 2)) {
+                cli_cmd_fsm_log_usage ();
+                goto out;
+        }
+
+        if (wordcount == 3)
+                name = (char*)words[2];
+        proc = &cli_rpc_prog->proctable[GF1_CLI_FSM_LOG];
+        if (proc && proc->fn) {
+                frame = create_frame (THIS, THIS->ctx->pool);
+                if (!frame)
+                        goto out;
+                ret = proc->fn (frame, THIS, (void*)name);
+        }
+out:
+        return ret;
+}
+
 struct cli_cmd cli_system_cmds[] = {
         { GETSPEC_SYNTAX,
           cli_cmd_getspec_cbk,
@@ -141,6 +174,10 @@ struct cli_cmd cli_system_cmds[] = {
         { "system:: help",
            cli_cmd_system_help_cbk,
            "display help for system commands"},
+
+        { "fsm log [<peer-name>]",
+           cli_cmd_fsm_log,
+           "display fsm transitions"},
 
         { NULL, NULL, NULL }
 };

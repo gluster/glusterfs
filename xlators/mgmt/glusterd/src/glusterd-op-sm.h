@@ -228,4 +228,10 @@ void
 glusterd_do_replace_brick (void *data);
 int
 glusterd_options_reset (glusterd_volinfo_t *volinfo);
+
+char*
+glusterd_op_sm_state_name_get (int state);
+
+char*
+glusterd_op_sm_event_name_get (int event);
 #endif
