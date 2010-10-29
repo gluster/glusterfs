@@ -69,6 +69,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         loc_t             fresh_loc  = {0,};
         gfs3_lookup_rsp   rsp        = {0, };
         int32_t           ret        = -1;
+        uuid_t            rootgfid   = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         state = CALL_STATE(frame);
 
@@ -128,6 +129,7 @@ server_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (inode == root_inode) {
                         /* we just looked up root ("/") */
                         stbuf->ia_ino = 1;
+                        memcpy (stbuf->ia_gfid, rootgfid, 16);
                         if (inode->ia_type == 0)
                                 inode->ia_type = stbuf->ia_type;
                 }
