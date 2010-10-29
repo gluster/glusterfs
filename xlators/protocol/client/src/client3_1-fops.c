@@ -1890,6 +1890,15 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 buf = NULL;
         }
 
+        if ((!uuid_is_null (inode->gfid))
+            && (uuid_compare (stbuf.ia_gfid, inode->gfid) != 0)) {
+                gf_log (frame->this->name, GF_LOG_DEBUG,
+                        "gfid changed for %s", local->loc.path);
+                rsp.op_ret = -1;
+                rsp.op_errno = ESTALE;
+                goto out;
+        }
+
         rsp.op_ret = 0;
 
 out:
