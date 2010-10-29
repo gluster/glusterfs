@@ -2976,6 +2976,12 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                         "Received commit - will be adding dst brick and "
                         "removing src brick");
 
+		ret = glusterd_check_generate_start_nfs (volinfo);
+		if (ret) {
+			gf_log ("", GF_LOG_CRITICAL, "Failed to generate "
+				" nfs volume file");
+		}
+
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname) &&
                     replace_op != GF_REPLACE_OP_COMMIT_FORCE) {
                         gf_log ("", GF_LOG_NORMAL,
@@ -3015,13 +3021,6 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
 		ret = glusterd_volume_compute_cksum (volinfo);
 		if (ret)
 			goto out;
-
-		ret = glusterd_check_generate_start_nfs (volinfo);
-
-		if (ret) {
-			gf_log ("", GF_LOG_CRITICAL, "Failed to generate "
-				" nfs volume file");
-		}
 
 		ret = glusterd_fetchspec_notify (THIS);
                 glusterd_set_rb_status (volinfo, GF_RB_STATUS_NONE);
