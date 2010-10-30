@@ -574,6 +574,8 @@ glusterd_volinfo_delete (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
         dict_unref (volinfo->dict);
+        if (volinfo->logdir)
+                GF_FREE (volinfo->logdir);
 
         GF_FREE (volinfo);
         ret = 0;
@@ -971,7 +973,11 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         snprintf (volfile, PATH_MAX, "%s.%s.%s", volinfo->volname,
                   brickinfo->hostname, exp_path);
 
-        if (!brickinfo->logfile) {
+        if (!brickinfo->logfile && volinfo->logdir) {
+                snprintf (logfile, PATH_MAX, "%s/%s.log", volinfo->logdir,
+                                                          exp_path);
+                brickinfo->logfile = gf_strdup (logfile);
+        } else if (!brickinfo->logfile) {
                 snprintf (logfile, PATH_MAX, "%s/logs/bricks/%s.log",
                           priv->workdir, exp_path);
                 brickinfo->logfile = gf_strdup (logfile);

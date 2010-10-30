@@ -3559,9 +3559,20 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
         if (ret)
                 goto out;
 
-        if (!strchr (brick, ':'))
+        ret  = glusterd_volinfo_find (volname, &volinfo);
+        if (ret)
+                goto out;
+
+        if (!strchr (brick, ':')) {
                 brick = NULL;
-        else {
+                ret = stat (path, &stbuf);
+                if (ret || !S_ISDIR (stbuf.st_mode)) {
+                        ret = -1;
+                        gf_log ("", GF_LOG_ERROR, "not a directory");
+                        goto out;
+                }
+                volinfo->logdir = gf_strdup (path);
+        } else {
                 ret = glusterd_brickinfo_from_brick (brick, &tmpbrkinfo);
                 if (ret) {
                         gf_log ("glusterd", GF_LOG_ERROR,
@@ -3570,9 +3581,6 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
                 }
         }
 
-        ret  = glusterd_volinfo_find (volname, &volinfo);
-        if (ret)
-                goto out;
 
         ret = -1;
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
