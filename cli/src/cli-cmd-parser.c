@@ -285,6 +285,9 @@ out:
         if (trans_type)
                 GF_FREE (trans_type);
 
+        if (tmp_list)
+                free (tmp_list);
+
         return ret;
 }
 
@@ -585,6 +588,8 @@ out:
                 if (dict)
                         dict_destroy (dict);
         }
+        if (tmp_list)
+                free (tmp_list);
 
         return ret;
 }
