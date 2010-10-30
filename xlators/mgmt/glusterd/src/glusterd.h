@@ -192,6 +192,7 @@ struct glusterd_volinfo_ {
         dict_t                  *dict;
 
         uuid_t                  volume_id;
+        char                    *logdir;
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
