@@ -319,12 +319,11 @@ cli_submit_request (void *req, call_frame_t *frame,
                 pthread_mutex_unlock (&global_rpc->conn.lock);
         }
 
-        if (start_ping)
-                //client_start_ping ((void *) this);
-
         ret = 0;
 
 out:
+        if (new_iobref)
+                iobref_unref (iobref);
         return ret;
 }
 

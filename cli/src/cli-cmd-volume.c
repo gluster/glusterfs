@@ -629,6 +629,8 @@ out:
                         cli_out ("Adding brick to Volume %s failed",volname );
                 }
         }
+        if (options)
+                dict_unref (options);
         return ret;
 }
 
@@ -685,6 +687,8 @@ out:
                         cli_out ("Removing brick from Volume %s failed",volname );
                 }
         }
+        if (options)
+                dict_unref (options);
         return ret;
 
 }

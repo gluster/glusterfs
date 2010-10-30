@@ -592,13 +592,14 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
+        local = ((call_frame_t *) (myframe))->local;
+        ((call_frame_t *) (myframe))->local = NULL;
+
         ret = gf_xdr_to_cli_create_vol_rsp (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
         }
-
-        local = ((call_frame_t *) (myframe))->local;
 
         dict = local->u.create_vol.dict;
 
@@ -614,6 +615,14 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
+        if (dict)
+                dict_unref (dict);
+        if (local)
+                cli_local_wipe (local);
+        if (rsp.volname)
+                free (rsp.volname);
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
         return ret;
 }
 
@@ -639,6 +648,7 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
         local = frame->local;
+        frame->local = NULL;
 
         if (local)
                 volname = local->u.delete_vol.volname;
@@ -652,6 +662,9 @@ gf_cli3_1_delete_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
+        cli_local_wipe (local);
+        if (rsp.volname)
+                free (rsp.volname);
         gf_log ("", GF_LOG_NORMAL, "Returning with %d", ret);
         return ret;
 }
@@ -678,8 +691,10 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         frame = myframe;
 
-        if (frame)
+        if (frame) {
                 local = frame->local;
+                frame->local = NULL;
+        }
 
         if (local)
                 volname = local->u.start_vol.volname;
@@ -695,6 +710,12 @@ gf_cli3_1_start_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
+        if (local)
+                cli_local_wipe (local);
+        if (rsp.volname)
+                free (rsp.volname);
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
         return ret;
 }
 
@@ -737,6 +758,10 @@ gf_cli3_1_stop_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
+        if (rsp.volname)
+                free (rsp.volname);
         return ret;
 }
 
@@ -989,6 +1014,10 @@ gf_cli3_1_add_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
+        if (rsp.volname)
+                free (rsp.volname);
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
         return ret;
 }
 
@@ -1020,6 +1049,10 @@ gf_cli3_1_remove_brick_cbk (struct rpc_req *req, struct iovec *iov,
 
 out:
         cli_cmd_broadcast_response (ret);
+        if (rsp.volname)
+                free (rsp.volname);
+        if (rsp.op_errstr)
+                free (rsp.op_errstr);
         return ret;
 }
 
@@ -1558,6 +1591,9 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
 
 out:
         gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+
+        if (dict)
+                dict_unref (dict);
 
         if (req.bricks.bricks_val) {
                 GF_FREE (req.bricks.bricks_val);
