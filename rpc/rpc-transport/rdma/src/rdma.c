@@ -2911,7 +2911,7 @@ out:
 int32_t
 rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
 {
-        int32_t         ret    = -1, i = 0;
+        int32_t         ret    = -1, i = 0, count = 0;
         size_t          size   = 0;
         char           *ptr    = NULL;  
         struct iobuf   *iobuf  = NULL;
@@ -2931,7 +2931,6 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
         }
 
         post->ctx.rdma_reads = i;
-        post->ctx.count += post->ctx.rdma_reads;
 
         if (size > peer->trans->ctx->page_size) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
@@ -2970,12 +2969,13 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
                 }
 
                 for (i = 0; readch[i].rc_discrim != 0; i++) {
-                        post->ctx.vector[post->ctx.count].iov_base = ptr;
-                        post->ctx.vector[post->ctx.count].iov_len
+                        count = post->ctx.count++;
+                        post->ctx.vector[count].iov_base = ptr;
+                        post->ctx.vector[count].iov_len
                                 = readch[i].rc_target.rs_length;
 
                         ret = __rdma_read (peer, post,
-                                           &post->ctx.vector[post->ctx.count],
+                                           &post->ctx.vector[count],
                                            &readch[i]);
                         if (ret == -1) {
                                 goto unlock;
