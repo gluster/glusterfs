@@ -120,16 +120,25 @@ start_glusterfs ()
     fi
 
     cmd_line=$(echo "$cmd_line $mount_point");
+    err=0;
     $cmd_line;
 
     # retry the failover
     if [ $? != "0" ]; then
+        err=1;
         if [ -n "$cmd_line1" ]; then
             cmd_line1=$(echo "$cmd_line1 $mount_point");
             $cmd_line1
+            if [ $? != "0"]; then
+                err=1;
+            fi
         fi
     fi
 
+    if [ $err -eq "1" ]; then
+            echo "Mount failed. Please check the log file for more details."
+            exit 1;
+    fi
 }
 
 usage ()
