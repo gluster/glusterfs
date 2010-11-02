@@ -57,6 +57,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         char    *freeptr = NULL;
         char    *trans_type = NULL;
         int32_t index = 0;
+        char    *free_list_ptr = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -220,6 +221,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 }
                 GF_FREE (freeptr);
                 tmp_list = strdup(brick_list+1);
+                free_list_ptr = tmp_list;
                 j = 0;
                 while(( brick_count != 0) && (j < brick_count)) {
                         strtok_r (tmp_list, " ", &tmpptr);
@@ -227,6 +229,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                                 ret = -1;
                                 cli_out ("Found duplicate"
                                          " exports %s",words[brick_index]);
+                                if (free_list_ptr)
+                                        free (free_list_ptr);
                                 goto out;
                        }
                        tmp_list = tmpptr;
@@ -245,6 +249,8 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 if (ret)
                         goto out;
                 */
+                if (free_list_ptr)
+                        free (free_list_ptr);
         }
 
         /* If brick-count is not valid when replica or stripe is
@@ -284,9 +290,6 @@ out:
         }
         if (trans_type)
                 GF_FREE (trans_type);
-
-        if (tmp_list)
-                free (tmp_list);
 
         return ret;
 }
