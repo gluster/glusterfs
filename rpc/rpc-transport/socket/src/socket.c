@@ -1987,7 +1987,7 @@ socket_connect (rpc_transport_t *this, int port)
                 }
 
 
-                if (priv->nodelay && priv->lowlat) {
+                if (priv->nodelay) {
                         ret = __socket_nodelay (priv->sock);
                         if (ret == -1) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -2574,11 +2574,6 @@ socket_init (rpc_transport_t *this)
         }
 
         optstr = NULL;
-
-        if (dict_get_str (this->options, "transport.socket.lowlat",
-                          &optstr) == 0) {
-                priv->lowlat = 1;
-        }
 
         /* Enable Keep-alive by default. */
         priv->keepalive = 1;
