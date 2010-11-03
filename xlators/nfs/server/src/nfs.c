@@ -858,6 +858,13 @@ struct volume_options options[] = {
                          "32-bit inode numbers instead. Disabled by default so "
                          "NFS returns 64-bit inode numbers by default."
         },
+        { .key  = {"rpc.register-with-portmap"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "For systems that need to run multiple nfs servers, we"
+                         "need to prevent more than one from registering with "
+                         "portmap service. Use this option to turn off portmap "
+                         "registration for Gluster NFS. On by default"
+        },
 	{ .key  = {NULL} },
 };
 

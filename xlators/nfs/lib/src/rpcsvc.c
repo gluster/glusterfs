@@ -117,8 +117,39 @@ free_stg:
 int
 nfs_rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
 {
+        char            *optstr = NULL;
+        int             ret = -1;
+
+        if ((!svc) || (!options))
+                return -1;
+
         svc->memfactor = RPCSVC_DEFAULT_MEMFACTOR;
-        return 0;
+
+        svc->register_portmap = _gf_true;
+        if (dict_get (options, "rpc.register-with-portmap")) {
+                ret = dict_get_str (options, "rpc.register-with-portmap",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to parse "
+                                "dict");
+                        goto out;
+                }
+
+                ret = gf_string2boolean (optstr, &svc->register_portmap);
+                if (ret < 0) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to parse bool "
+                                "string");
+                        goto out;
+                }
+        }
+
+        if (!svc->register_portmap)
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Portmap registration "
+                        "disabled");
+
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -2614,10 +2645,13 @@ err:
 
 /* Register the program with the local portmapper service. */
 int
-nfs_rpcsvc_program_register_portmap (rpcsvc_program_t *newprog)
+nfs_rpcsvc_program_register_portmap (rpcsvc_t *svc, rpcsvc_program_t *newprog)
 {
         if (!newprog)
                 return -1;
+
+        if (!svc->register_portmap)
+                return 0;
 
         if (!(pmap_set(newprog->prognum, newprog->progver, IPPROTO_TCP,
                        newprog->progport))) {
@@ -2631,10 +2665,13 @@ nfs_rpcsvc_program_register_portmap (rpcsvc_program_t *newprog)
 
 
 int
-nfs_rpcsvc_program_unregister_portmap (rpcsvc_program_t *prog)
+nfs_rpcsvc_program_unregister_portmap (rpcsvc_t *svc, rpcsvc_program_t *prog)
 {
         if (!prog)
                 return -1;
+
+        if (!svc->register_portmap)
+                return 0;
 
         if (!(pmap_unset(prog->prognum, prog->progver))) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Could not unregister with"
@@ -2704,7 +2741,7 @@ nfs_rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
                 goto free_prog;
         }
 
-        ret = nfs_rpcsvc_program_register_portmap (newprog);
+        ret = nfs_rpcsvc_program_register_portmap (svc, newprog);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap registration of"
                         " program failed");
@@ -2753,7 +2790,7 @@ nfs_rpcsvc_program_unregister (rpcsvc_t *svc, rpcsvc_program_t prog)
                 return -1;
 
         /* TODO: De-init the listening connection for this program. */
-        ret = nfs_rpcsvc_program_unregister_portmap (&prog);
+        ret = nfs_rpcsvc_program_unregister_portmap (svc, &prog);
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "portmap unregistration of"
                         " program failed");
