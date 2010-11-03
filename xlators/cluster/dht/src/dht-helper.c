@@ -221,6 +221,10 @@ dht_local_wipe (xlator_t *this, dht_local_t *local)
                 GF_FREE (local->newpath);
         }
 
+        if (local->key) {
+               GF_FREE (local->key);
+        }
+           
 	GF_FREE (local);
 }
 

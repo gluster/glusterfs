@@ -1805,14 +1805,33 @@ int
 dht_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 		  int op_ret, int op_errno, dict_t *xattr)
 {
-        if (op_ret != -1) {
-                if (dict_get (xattr, "trusted.glusterfs.dht")) {
-                        dict_del (xattr, "trusted.glusterfs.dht");
-                }
+        int             this_call_cnt = 0;
+        dht_local_t     *local = NULL;
+
+        VALIDATE_OR_GOTO (frame, out);
+        VALIDATE_OR_GOTO (frame->local, out);
+
+        local = frame->local;
+
+        this_call_cnt = dht_frame_return (frame);
+
+        if (!xattr || (op_ret == -1))
+                goto out;
+
+        if (dict_get (xattr, "trusted.glusterfs.dht")) {
+                dict_del (xattr, "trusted.glusterfs.dht");
         }
+        local->op_ret = 0;
 
-        DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, xattr);
-
+        if (!local->xattr) {
+                local->xattr = dict_copy_with_ref (xattr, NULL);
+        } else {
+                local->xattr = dict_copy (xattr, local->xattr);
+        }
+out:
+        if (is_last_call (this_call_cnt)) {
+                DHT_STACK_UNWIND (getxattr, frame, local->op_ret, op_errno, local->xattr);
+        }
         return 0;
 }
 
@@ -1831,6 +1850,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         int           ret           = 0;
         int           flag          = 0;
         int           i             = 0;
+        int           cnt           = 0;
 
         VALIDATE_OR_GOTO (frame, err);
         VALIDATE_OR_GOTO (this, err);
@@ -1939,18 +1959,46 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 op_errno = ENODATA;
                 goto err;
         }
-	subvol = dht_subvol_get_cached (this, loc->inode);
-	if (!subvol) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"no cached subvolume for path=%s", loc->path);
-		op_errno = EINVAL;
-		goto err;
-	}
 
-	STACK_WIND (frame, dht_getxattr_cbk,
-		    subvol, subvol->fops->getxattr,
-		    loc, key);
+        local = dht_local_init (frame);
+        if (!local) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                       "Out of memory");
+                goto err;
+        }
 
+        ret = loc_dup (loc, &local->loc);
+        if (ret == -1) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                       "Out of memory");
+                goto err;
+        }
+
+        if (key) {
+                local->key = gf_strdup (key);
+                if (!local->key) {
+                        op_errno = ENOMEM;
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Out of memory");
+                        goto err;
+                }
+        } 
+        local->layout = layout;
+
+        if (loc->inode-> ia_type == IA_IFDIR) {
+                cnt = local->call_cnt = layout->cnt;
+        } else {
+                cnt = local->call_cnt  = 1;
+        }
+
+        for (i = 0; i < cnt; i++) {
+                subvol = layout->list[i].xlator;
+	        STACK_WIND (frame, dht_getxattr_cbk,
+		            subvol, subvol->fops->getxattr,
+		            loc, key);
+        }
 	return 0;
 
 err:
