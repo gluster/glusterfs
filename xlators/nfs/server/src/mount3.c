@@ -1078,11 +1078,15 @@ int
 __mnt3svc_umountall (struct mount3_state *ms)
 {
         struct mountentry       *me = NULL;
+        struct mountentry       *tmp = NULL;
 
         if (!ms)
                 return -1;
 
-        list_for_each_entry (me, &ms->mountlist, mlist) {
+        if (list_empty (&ms->mountlist))
+                return 0;
+
+        list_for_each_entry_safe (me, tmp, &ms->mountlist, mlist) {
                 list_del (&me->mlist);
                 GF_FREE (me);
         }
@@ -1111,18 +1115,17 @@ mnt3svc_umountall (struct mount3_state *ms)
 int
 mnt3svc_umntall (rpcsvc_request_t *req)
 {
-        int                     ret = -1;
+        int                     ret = RPCSVC_ACTOR_ERROR;
         struct mount3_state     *ms = NULL;
         mountstat3              mstat = MNT3_OK;
 
         if (!req)
-                return -1;
+                return ret;
 
         ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
         if (!ms) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
-                ret = -1;
                 goto rpcerr;
         }
 
@@ -1130,6 +1133,7 @@ mnt3svc_umntall (rpcsvc_request_t *req)
         mnt3svc_submit_reply (req, &mstat,
                               (mnt3_serializer)xdr_serialize_mountstat3);
 
+        ret = RPCSVC_ACTOR_SUCCESS;
 rpcerr:
         return ret;
 }
