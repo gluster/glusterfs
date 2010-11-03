@@ -301,5 +301,4 @@ int dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name
 int dht_filter_loc_subvol_key (xlator_t *this, loc_t *loc, loc_t *new_loc,
                                xlator_t **subvol);
 
-
 #endif /* _DHT_H */
