@@ -68,10 +68,12 @@ nfs3_fh_build_indexed_root_fh (xlator_list_t *cl, xlator_t *xl)
 {
         struct nfs3_fh  fh = {{0}, };
         struct iatt     buf = {0, };
+        uuid_t          root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+
         if ((!cl) || (!xl))
                 return fh;
 
-        buf.ia_gfid[15] = 1;
+        uuid_copy (buf.ia_gfid, root);
         nfs3_fh_init (&fh, &buf);
         fh.exportid [15] = nfs_xlator_to_xlid (cl, xl);
 
@@ -84,8 +86,9 @@ nfs3_fh_build_uuid_root_fh (uuid_t volumeid)
 {
         struct nfs3_fh  fh = {{0}, };
         struct iatt     buf = {0, };
+        uuid_t          root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-        buf.ia_gfid[15] = 1;
+        uuid_copy (buf.ia_gfid, root);
         nfs3_fh_init (&fh, &buf);
         uuid_copy (fh.exportid, volumeid);
 
@@ -96,12 +99,11 @@ nfs3_fh_build_uuid_root_fh (uuid_t volumeid)
 int
 nfs3_fh_is_root_fh (struct nfs3_fh *fh)
 {
-        uuid_t  rootgfid = {0, 1};
+        uuid_t  rootgfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         if (!fh)
                 return 0;
 
-        rootgfid[15] = 1;
         if (uuid_compare (fh->gfid, rootgfid) == 0)
                 return 1;
 

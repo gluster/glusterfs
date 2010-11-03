@@ -244,12 +244,14 @@ out:
 #define nfs3_funge_solaris_zerolen_fh(nfs3st, fhd, enam, nfsst, erl)    \
         do {                                                            \
                 xlator_t        *fungexl = NULL;                        \
+                uuid_t          zero = {0, };                           \
                 fungexl =nfs_mntpath_to_xlator ((nfs3st)->exportslist,enam);\
                 if (!fungexl) {                                         \
                         (nfsst) = NFS3ERR_NOENT;                        \
                         goto erl;                                       \
                 }                                                       \
                                                                         \
+                uuid_copy ((fhd)->gfid, zero);                          \
                 (fhd)->gfid[15] = 1;                                    \
                 (enam) = NULL;                                          \
                 if ((gf_nfs_dvm_off (nfs_state (nfs3st->nfsx))))        \
