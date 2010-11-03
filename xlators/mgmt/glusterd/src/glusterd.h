@@ -188,7 +188,6 @@ struct glusterd_volinfo_ {
         uint32_t                cksum;
         gf_transport_type       transport_type;
 
-        /* All xlator options */
         dict_t                  *dict;
 
         uuid_t                  volume_id;

@@ -560,6 +560,36 @@ free_nfs:
         return nfs;
 }
 
+int
+validate_options (xlator_t *this, dict_t *options, char **op_errstr)
+{
+        char         *str=NULL;
+        gf_boolean_t nfs_ino32;
+
+        int          ret = 0;
+
+
+
+        ret = dict_get_str (options, "nfs.enable-ino32", 
+                            &str);
+        if (ret == 0) {
+                ret = gf_string2boolean (str, 
+                                         &nfs_ino32);
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "'nfs.enable-ino32' takes only boolean"
+                                " arguments");
+                        *op_errstr = gf_strdup ("Error, should be boolean");
+                        ret = -1;
+                        goto out;
+                }
+        }
+        ret =0;
+out:
+                return ret;
+
+}
+
 
 int
 init (xlator_t *this) {
