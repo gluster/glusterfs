@@ -135,6 +135,8 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on"}, /* NODOC */
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf",},      /* NODOC */
 
+        {"nfs.enable-ino32",                      "nfs.enable-ino32",          "nfs.enable-ino32",},
+
         {NULL,                                                                }
 };
 
@@ -1231,6 +1233,75 @@ build_client_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                                     &client_graph_builder);
 }
 
+static int
+build_nfs_validation_graph (glusterfs_graph_t *graph, dict_t *dict)
+{
+        glusterfs_graph_t   cgraph        = {{0,},};
+        glusterd_volinfo_t *voliter       = NULL;
+        xlator_t           *this          = NULL;
+        glusterd_conf_t    *priv          = NULL;
+        xlator_t           *nfsxl         = NULL;
+        char               *skey          = NULL;
+        char                volume_id[64] = {0,};
+        int                 ret           = 0;
+        data_t             *data          = NULL;
+
+        this = THIS;
+        GF_ASSERT (this);
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        nfsxl = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
+        if (!nfsxl)
+                return -1;
+        ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
+        if (ret)
+                return -1;
+
+        list_for_each_entry (voliter, &priv->volumes, vol_list) {
+                ret = gf_asprintf (&skey, "rpc-auth.addr.%s.allow",
+                                   voliter->volname);
+                if (ret == -1)
+                        goto oom;
+                ret = xlator_set_option (nfsxl, skey, "*");
+                GF_FREE (skey);
+                if (ret)
+                        return -1;
+
+                ret = gf_asprintf (&skey, "nfs3.%s.volume-id",
+                                   voliter->volname);
+                if (ret == -1)
+                        goto oom;
+                uuid_unparse (voliter->volume_id, volume_id);
+                ret = xlator_set_option (nfsxl, skey, volume_id);
+                GF_FREE (skey);
+                if (ret)
+                        return -1;
+
+                data = dict_get (dict, "nfs.enable-ino32");
+                if (data) {
+                        ret = xlator_set_option (nfsxl, 
+                                                "nfs.enable-ino32",
+                                                data->data);
+                        if (ret)
+                                return -1;
+                }
+
+                memset (&cgraph, 0, sizeof (cgraph));
+                ret = build_client_graph (&cgraph, voliter, NULL);
+                if (ret)
+                        return -1;
+                ret = volgen_graph_merge_sub (graph, &cgraph);
+        }
+
+        return ret;
+
+ oom:
+        gf_log ("", GF_LOG_ERROR, "Out of memory");
+
+        return -1;
+
+}
 
 /* builds a graph for nfs server role */
 static int
@@ -1244,6 +1315,7 @@ build_nfs_graph (glusterfs_graph_t *graph)
         char               *skey          = NULL;
         char                volume_id[64] = {0,};
         int                 ret           = 0;
+        data_t             *data          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -1256,6 +1328,7 @@ build_nfs_graph (glusterfs_graph_t *graph)
         ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
         if (ret)
                 return -1;
+
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
@@ -1279,6 +1352,17 @@ build_nfs_graph (glusterfs_graph_t *graph)
                 GF_FREE (skey);
                 if (ret)
                         return -1;
+
+                data = dict_get (voliter->dict, "nfs.enable-ino32");
+                if (data) {
+                        if (!dict_get (nfsxl->options, "nfs.enable-ino32")) {
+                                ret = xlator_set_option (nfsxl, 
+                                                         "nfs.enable-ino32",
+                                                         data->data);
+                                if (ret)
+                                        return -1;
+                        }
+                }
 
                 memset (&cgraph, 0, sizeof (cgraph));
                 ret = build_client_graph (&cgraph, voliter, NULL);
@@ -1487,6 +1571,26 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
 }
 
 int
+validate_nfsopts (glusterd_volinfo_t *volinfo, 
+                    dict_t *val_dict, 
+                    char **op_errstr)
+{
+        glusterfs_graph_t graph = {{0,},};
+        int     ret = -1;
+
+        GF_ASSERT (volinfo);
+
+        ret = build_nfs_validation_graph (&graph, val_dict);
+        if (!ret)
+                ret = graph_reconf_validateopt (&graph, op_errstr);
+
+        volgen_graph_free (&graph);
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
+int
 validate_clientopts (glusterd_volinfo_t *volinfo, 
                     dict_t *val_dict, 
                     char **op_errstr)
@@ -1576,6 +1680,8 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
                         "Could not Validate client");
                 goto out;
         }
+
+        ret = validate_nfsopts (volinfo, val_dict, op_errstr);
 
 
 out:
