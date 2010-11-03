@@ -520,6 +520,8 @@ typedef struct rpc_svc_state {
         int                     allow_insecure;
 
         glusterfs_ctx_t         *ctx;
+
+        gf_boolean_t            register_portmap;
 } rpcsvc_t;
 
 
