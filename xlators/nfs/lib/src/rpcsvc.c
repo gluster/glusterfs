@@ -685,9 +685,6 @@ nfs_rpcsvc_conn_destroy (rpcsvc_conn_t *conn)
         mem_pool_destroy (conn->txpool);
         mem_pool_destroy (conn->rxpool);
 
-        if (conn->program->conn_destroy)
-                conn->program->conn_destroy (conn->program->private, conn);
-
         /* Need to destory record state, txlists etc. */
         GF_FREE (conn);
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Connection destroyed");
@@ -989,8 +986,6 @@ nfs_rpcsvc_conn_accept_init (rpcsvc_t *svc, int listenfd,
 
         nfs_rpcsvc_record_init (&newconn->rstate, svc->ctx->iobuf_pool);
         nfs_rpcsvc_conn_state_init (newconn);
-        if (destprog->conn_init)
-                destprog->conn_init (destprog->private, newconn);
         ret = 0;
 
 err:

@@ -448,8 +448,6 @@ typedef struct rpc_svc_actor_desc {
 
 } rpcsvc_actor_t;
 
-typedef int (*rpcsvc_conn_notify_fn) (void *progpriv, rpcsvc_conn_t *conn);
-
 /* Describes a program and its version along with the function pointers
  * required to handle the procedures/actors of each program/version.
  * Never changed ever by any thread so no need for a lock.
@@ -469,18 +467,6 @@ struct rpc_svc_program {
 
         /* Program specific state handed to actors */
         void                    *private;
-
-        /* This upcall is made when a connection's refcount reaches 0 and the
-         * connection is about to be destroyed. We want to let the RPC program
-         * know that it should also now free any state it is maintaining
-         * for this connection.
-         */
-        rpcsvc_conn_notify_fn   conn_destroy;
-
-        /* Used to tell RPC program to init the state it needs to associate
-         * with the new connection.
-         */
-        rpcsvc_conn_notify_fn   conn_init;
 
         /* An integer that identifies the min auth strength that is required
          * by this protocol, for eg. MOUNT3 needs AUTH_UNIX at least.

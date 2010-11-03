@@ -4855,8 +4855,6 @@ rpcsvc_program_t        nfs3prog = {
                         .proghost       = NULL,
                         .actors         = nfs3svc_actors,
                         .numactors      = NFS3_PROC_COUNT,
-                        .conn_destroy   = NULL,
-                        .conn_init      = NULL,
 
                         /* Requests like FSINFO are sent before an auth scheme
                          * is inited by client. See RFC 2623, Section 2.3.2. */
