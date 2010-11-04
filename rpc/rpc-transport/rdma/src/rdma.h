@@ -41,11 +41,12 @@
 
 /* FIXME: give appropriate values to these macros */
 #define GF_DEFAULT_RDMA_LISTEN_PORT (GF_DEFAULT_BASE_PORT + 1)
+
+/* If you are changing RDMA_MAX_SEGMENTS, please make sure to update
+ * GLUSTERFS_RDMA_MAX_HEADER_SIZE defined in glusterfs.h .
+ */
 #define RDMA_MAX_SEGMENTS           8
-#define RDMA_MAX_HEADER_SIZE        (sizeof (rdma_header_t)                 \
-                                     + RDMA_MAX_SEGMENTS                    \
-                                     * sizeof (rdma_read_chunk_t))
-#define RDMA_INLINE_THRESHOLD       (1024 * 128)
+
 #define RDMA_VERSION                1
 #define RDMA_POOL_SIZE              512
 
@@ -76,6 +77,9 @@ typedef enum rdma_chunktype {
         rdma_replych           /* entire reply through rdma write */
 }rdma_chunktype_t;
 
+/* If you are modifying __rdma_header, please make sure to change
+ * GLUSTERFS_RDMA_MAX_HEADER_SIZE defined in glusterfs.h to reflect your changes
+ */
 struct __rdma_header {
         uint32_t rm_xid;    /* Mirrors the RPC header xid */
         uint32_t rm_vers;   /* Version of this protocol */
@@ -102,6 +106,10 @@ struct __rdma_header {
 } __attribute__((packed));
 typedef struct __rdma_header rdma_header_t;
 
+/* If you are modifying __rdma_segment or __rdma_read_chunk, please make sure
+ * to change GLUSTERFS_RDMA_MAX_HEADER_SIZE defined in glusterfs.h to reflect
+ * your changes.
+ */
 struct __rdma_segment {
         uint32_t rs_handle;       /* Registered memory handle */
         uint32_t rs_length;       /* Length of the chunk in bytes */

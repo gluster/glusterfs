@@ -957,7 +957,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
 
         send_size = iov_length (entry->rpchdr, entry->rpchdr_count)
                 + iov_length (entry->proghdr, entry->proghdr_count)
-                + RDMA_MAX_HEADER_SIZE;
+                + GLUSTERFS_RDMA_MAX_HEADER_SIZE;
 
         if (entry->prog_payload_count != 0) {
                 prog_payload_length
@@ -965,9 +965,10 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
                                       entry->prog_payload_count);
         }
 
-        if (send_size > RDMA_INLINE_THRESHOLD) {
+        if (send_size > GLUSTERFS_RDMA_INLINE_THRESHOLD) {
                 rtype = rdma_areadch;
-        } else if ((send_size + prog_payload_length) < RDMA_INLINE_THRESHOLD) {
+        } else if ((send_size + prog_payload_length)
+                   < GLUSTERFS_RDMA_INLINE_THRESHOLD) {
                 rtype = rdma_noch;
         } else if (entry->prog_payload_count != 0) {
                 rtype = rdma_readch;
@@ -1151,7 +1152,7 @@ __rdma_send_reply_inline (rdma_peer_t *peer, rdma_ioq_t *entry,
                                            * reply
                                            */
 
-        if (send_size > RDMA_INLINE_THRESHOLD) {
+        if (send_size > GLUSTERFS_RDMA_INLINE_THRESHOLD) {
                 ret = __rdma_send_error (peer, entry, post, reply_info,
                                          ERR_CHUNK);
                 goto out;
@@ -1492,14 +1493,15 @@ __rdma_send_reply_type_msg (rdma_peer_t *peer, rdma_ioq_t *entry,
 
         send_size = iov_length (entry->rpchdr, entry->rpchdr_count)
                 + iov_length (entry->proghdr, entry->proghdr_count)
-                + RDMA_MAX_HEADER_SIZE;
+                + GLUSTERFS_RDMA_MAX_HEADER_SIZE;
 
-        if (send_size > RDMA_INLINE_THRESHOLD) {
+        if (send_size > GLUSTERFS_RDMA_INLINE_THRESHOLD) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
                         "client has provided only write chunks, but the "
                         "combined size of rpc and program header (%d) is "
                         "exceeding the size of msg that can be sent using "
-                        "RDMA send (%d)", send_size, RDMA_INLINE_THRESHOLD);
+                        "RDMA send (%d)", send_size,
+                        GLUSTERFS_RDMA_INLINE_THRESHOLD);
 
                 ret = __rdma_send_error (peer, entry, post, reply_info,
                                          ERR_CHUNK);
@@ -3550,8 +3552,8 @@ rdma_options_init (rpc_transport_t *this)
 
         /* TODO: validate arguments from options below */
 
-        options->send_size = this->ctx->page_size * 4; /* 512 KB */
-        options->recv_size = this->ctx->page_size * 4; /* 512 KB */
+        options->send_size = GLUSTERFS_RDMA_INLINE_THRESHOLD;/*this->ctx->page_size * 4;  512 KB*/
+        options->recv_size = GLUSTERFS_RDMA_INLINE_THRESHOLD;/*this->ctx->page_size * 4;  512 KB*/
         options->send_count = 32;
         options->recv_count = 32;
 
