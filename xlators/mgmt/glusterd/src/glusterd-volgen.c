@@ -1026,9 +1026,6 @@ server_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         xl = volgen_graph_add (graph, "performance/io-threads", volname);
         if (!xl)
                 return -1;
-        ret = xlator_set_option (xl, "thread-count", "16");
-        if (ret)
-                return -1;
 
         xl = volgen_graph_add_as (graph, "debug/io-stats", path);
         if (!xl)
