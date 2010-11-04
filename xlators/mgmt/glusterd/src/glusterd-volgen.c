@@ -1109,15 +1109,6 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 
                 return -1;
         }
-        if (volinfo->sub_count &&
-            volinfo->brick_count % volinfo->sub_count != 0) {
-                gf_log ("", GF_LOG_ERROR,
-                        "volume inconsistency: "
-                        "total number of bricks (%d) is not divisible with ",
-                        "number of bricks per cluster (%d)",
-                        volinfo->brick_count, volinfo->sub_count);
-                return -1;
-        }
 
         i = 0;
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
