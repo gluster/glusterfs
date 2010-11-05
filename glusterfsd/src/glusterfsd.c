@@ -918,6 +918,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args->fuse_direct_io_mode = GF_OPTION_DEFERRED;
 #endif
         cmd_args->fuse_attribute_timeout = -1;
+        cmd_args->fuse_entry_timeout = -1;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
 
