@@ -1823,8 +1823,20 @@ struct xlator_fops fops = {
         .link           = ac_link,
         .create         = ac_create,
         .open           = ac_open,
+/*
+ * Allow Writes and Reads to proceed without permission checks because:
+ * a. We expect that when the fds are opened, thats when the perm checks happen
+ * depending on the read/write mode used.
+ *
+ * b. In case of nfs clients, we expect the nfs clients to perform the checks
+ * based on getattr/access nfs requests.
+ *
+ * Keep these functions around in case we ever run into a nfs client that
+ * depends on nfs server to perform these checks. Till then, just remove the
+ * references from here instead.
         .readv          = ac_readv,
         .writev         = ac_writev,
+*/
         .opendir        = ac_opendir,
         .setattr        = ac_setattr,
         .fsetattr       = ac_fsetattr,
