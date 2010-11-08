@@ -660,17 +660,24 @@ cleanup_and_exit (int signum)
         ctx->cleanup_started = 1;
         glusterfs_mgmt_pmap_signout (ctx);
 
-        if (ctx->mgmt)
-                rpc_clnt_unref (ctx->mgmt);
-
-        gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
-
-        /* Call fini() of FUSE xlator first */
+        /* Call fini() of FUSE xlator first:
+         * so there are no more requests coming and
+         * 'umount' of mount point is done properly */
         trav = ctx->master;
         if (trav && trav->fini) {
                 THIS = trav;
                 trav->fini (trav);
         }
+
+        gf_log ("glusterfsd", GF_LOG_NORMAL, "shutting down");
+
+        glusterfs_pidfile_cleanup (ctx);
+
+        exit (0);
+#if 0
+        /* TODO: Properly do cleanup_and_exit(), with synchronisations */
+        if (ctx->mgmt)
+                rpc_clnt_unref (ctx->mgmt);
 
         /* call fini() of each xlator */
         trav = NULL;
@@ -683,11 +690,7 @@ cleanup_and_exit (int signum)
                 }
                 trav = trav->next;
         }
-
-
-        glusterfs_pidfile_cleanup (ctx);
-
-        exit (0);
+#endif
 }
 
 
