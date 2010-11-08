@@ -31,7 +31,6 @@
 
 #include "md5.h"
 
-#define SERVER_PATH_MAX  (16 * 1024)
 
 /* Callback function section */
 int
@@ -2607,14 +2606,13 @@ server_stat (rpcsvc_request_t *req)
         server_state_t *state                 = NULL;
         call_frame_t   *frame                 = NULL;
         gfs3_stat_req   args                  = {{0,},};
-        char            path[SERVER_PATH_MAX] = {0,};
         int             ret                   = -1;
 
         if (!req)
                 return 0;
 
         /* Initialize args first, then decode */
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_stat_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -2654,13 +2652,12 @@ server_setattr (rpcsvc_request_t *req)
         server_state_t   *state                 = NULL;
         call_frame_t     *frame                 = NULL;
         gfs3_setattr_req  args                  = {{0,},};
-        char              path[SERVER_PATH_MAX] = {0,};
         int               ret                   = -1;
 
         if (!req)
                 return 0;
 
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_setattr_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -2748,13 +2745,12 @@ server_readlink (rpcsvc_request_t *req)
         server_state_t    *state                 = NULL;
         call_frame_t      *frame                 = NULL;
         gfs3_readlink_req  args                  = {{0,},};
-        char               path[SERVER_PATH_MAX] = {0,};
         int                ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_readlink_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -2798,15 +2794,13 @@ server_create (rpcsvc_request_t *req)
         dict_t              *params                 = NULL;
         char                *buf                    = NULL;
         gfs3_create_req      args                   = {{0,},};
-        char                 path[SERVER_PATH_MAX]  = {0,};
-        char                 bname[SERVER_PATH_MAX] = {0,};
         int                  ret                    = -1;
 
         if (!req)
                 return ret;
 
-        args.path  = path;
-        args.bname = bname;
+        args.path  = alloca (req->msg[0].iov_len);
+        args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_create_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -2896,13 +2890,12 @@ server_open (rpcsvc_request_t *req)
         server_state_t *state                 = NULL;
         call_frame_t   *frame                 = NULL;
         gfs3_open_req   args                  = {{0,},};
-        char            path[SERVER_PATH_MAX] = {0,};
         int             ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_open_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3281,13 +3274,12 @@ server_truncate (rpcsvc_request_t *req)
         server_state_t    *state                 = NULL;
         call_frame_t      *frame                 = NULL;
         gfs3_truncate_req  args                  = {{0,},};
-        char               path[SERVER_PATH_MAX] = {0,};
         int                ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
         if (!xdr_to_truncate_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3328,15 +3320,13 @@ server_unlink (rpcsvc_request_t *req)
         server_state_t  *state                  = NULL;
         call_frame_t    *frame                  = NULL;
         gfs3_unlink_req  args                   = {{0,},};
-        char             path[SERVER_PATH_MAX]  = {0,};
-        char             bname[SERVER_PATH_MAX] = {0,};
         int              ret                    = -1;
 
         if (!req)
                 return ret;
 
-        args.path  = path;
-        args.bname = bname;
+        args.path  = alloca (req->msg[0].iov_len);
+        args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_unlink_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3380,8 +3370,6 @@ server_setxattr (rpcsvc_request_t *req)
         server_connection_t *conn                  = NULL;
         char                *buf                   = NULL;
         gfs3_setxattr_req    args                  = {{0,},};
-        char                 path[SERVER_PATH_MAX] = {0,};
-        char                 dict_val[(16 * 1024)] = {0, };
         int32_t              ret                   = -1;
 
         if (!req)
@@ -3389,8 +3377,8 @@ server_setxattr (rpcsvc_request_t *req)
 
         conn = req->trans->xl_private;
 
-        args.path = path;
-        args.dict.dict_val = dict_val;
+        args.path          = alloca (req->msg[0].iov_len);
+        args.dict.dict_val = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_setxattr_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3468,9 +3456,8 @@ server_fsetxattr (rpcsvc_request_t *req)
         dict_t              *dict                 = NULL;
         server_connection_t *conn                 = NULL;
         call_frame_t        *frame                = NULL;
-        char                *buf                   = NULL;
+        char                *buf                  = NULL;
         gfs3_fsetxattr_req   args                 = {{0,},};
-        char                 dict_val[(16 *1024)] = {0,};
         int32_t              ret                  = -1;
 
         if (!req)
@@ -3478,7 +3465,7 @@ server_fsetxattr (rpcsvc_request_t *req)
 
         conn = req->trans->xl_private;
 
-        args.dict.dict_val = dict_val;
+        args.dict.dict_val = alloca (req->msg[0].iov_len);
         if (!xdr_to_fsetxattr_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3550,7 +3537,6 @@ server_fxattrop (rpcsvc_request_t *req)
         call_frame_t        *frame                = NULL;
         char                *buf                   = NULL;
         gfs3_fxattrop_req    args                 = {{0,},};
-        char                 dict_val[(16 *1024)] = {0,};
         int32_t              ret                  = -1;
 
         if (!req)
@@ -3558,7 +3544,7 @@ server_fxattrop (rpcsvc_request_t *req)
 
         conn = req->trans->xl_private;
 
-        args.dict.dict_val = dict_val;
+        args.dict.dict_val = alloca (req->msg[0].iov_len);
         if (!xdr_to_fxattrop_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3632,16 +3618,15 @@ server_xattrop (rpcsvc_request_t *req)
         call_frame_t        *frame                 = NULL;
         char                *buf                   = NULL;
         gfs3_xattrop_req     args                  = {{0,},};
-        char                 dict_val[(16 *1024)]  = {0,};
-        char                 path[SERVER_PATH_MAX] = {0,};
         int32_t              ret                   = -1;
 
         if (!req)
                 return ret;
 
         conn = req->trans->xl_private;
-        args.dict.dict_val = dict_val;
-        args.path = path;
+
+        args.dict.dict_val = alloca (req->msg[0].iov_len);
+        args.path          = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_xattrop_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3711,15 +3696,13 @@ server_getxattr (rpcsvc_request_t *req)
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_getxattr_req    args                  = {{0,},};
-        char                 path[SERVER_PATH_MAX] = {0,};
-        char                 name[4096]            = {0,};
         int                  ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
-        args.name = name;
+        args.path = alloca (req->msg[0].iov_len);
+        args.name = alloca (4096);
 
         if (!xdr_to_getxattr_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -3765,13 +3748,12 @@ server_fgetxattr (rpcsvc_request_t *req)
         server_state_t      *state      = NULL;
         call_frame_t        *frame      = NULL;
         gfs3_fgetxattr_req   args       = {{0,},};
-        char                 name[4096] = {0,};
         int                  ret        = -1;
 
         if (!req)
                 return ret;
 
-        args.name = name;
+        args.name = alloca (4096);
         if (!xdr_to_fgetxattr_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3813,15 +3795,14 @@ server_removexattr (rpcsvc_request_t *req)
         server_state_t       *state                 = NULL;
         call_frame_t         *frame                 = NULL;
         gfs3_removexattr_req  args                  = {{0,},};
-        char                  path[SERVER_PATH_MAX] = {0,};
-        char                  name[4096]            = {0,};
         int                   ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
-        args.name = name;
+        args.path = alloca (req->msg[0].iov_len);
+        args.name = alloca (4096);
+
         if (!xdr_to_removexattr_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -3863,13 +3844,12 @@ server_opendir (rpcsvc_request_t *req)
         server_state_t   *state                 = NULL;
         call_frame_t     *frame                 = NULL;
         gfs3_opendir_req  args                  = {{0,},};
-        char              path[SERVER_PATH_MAX] = {0,};
         int               ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_opendir_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4063,15 +4043,13 @@ server_mknod (rpcsvc_request_t *req)
         dict_t              *params                 = NULL;
         char                *buf                    = NULL;
         gfs3_mknod_req       args                   = {{0,},};
-        char                 bname[SERVER_PATH_MAX] = {0,};
-        char                 path[SERVER_PATH_MAX]  = {0,};
         int                  ret                    = -1;
 
         if (!req)
                 return ret;
 
-        args.path  = path;
-        args.bname = bname;
+        args.path  = alloca (req->msg[0].iov_len);
+        args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_mknod_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4166,15 +4144,13 @@ server_mkdir (rpcsvc_request_t *req)
         dict_t              *params                 = NULL;
         char                *buf                    = NULL;
         gfs3_mkdir_req       args                   = {{0,},};
-        char                 bname[SERVER_PATH_MAX] = {0,};
-        char                 path[SERVER_PATH_MAX]  = {0,};
         int                  ret                    = -1;
 
         if (!req)
                 return ret;
 
-        args.path  = path;
-        args.bname = bname;
+        args.path  = alloca (req->msg[0].iov_len);
+        args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_mkdir_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4264,15 +4240,13 @@ server_rmdir (rpcsvc_request_t *req)
         server_state_t      *state                  = NULL;
         call_frame_t        *frame                  = NULL;
         gfs3_rmdir_req       args                   = {{0,},};
-        char                 bname[SERVER_PATH_MAX] = {0,};
-        char                 path[SERVER_PATH_MAX]  = {0,};
         int                  ret                    = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
-        args.bname = bname;
+        args.path  = alloca (req->msg[0].iov_len);
+        args.bname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_rmdir_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4316,16 +4290,14 @@ server_inodelk (rpcsvc_request_t *req)
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_inodelk_req     args                  = {{0,},};
-        char                 path[SERVER_PATH_MAX] = {0,};
-        char                 volume[4096]          = {0,};
         int                  cmd                   = 0;
         int                  ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
-        args.volume = volume;
+        args.path   = alloca (req->msg[0].iov_len);
+        args.volume = alloca (4096);
 
         if (!xdr_to_inodelk_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4394,13 +4366,12 @@ server_finodelk (rpcsvc_request_t *req)
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
         gfs3_finodelk_req    args         = {{0,},};
-        char                 volume[4096] = {0,};
         int                  ret          = -1;
 
         if (!req)
                 return ret;
 
-        args.volume = volume;
+        args.volume = alloca (4096);
         if (!xdr_to_finodelk_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -4468,17 +4439,14 @@ server_entrylk (rpcsvc_request_t *req)
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_entrylk_req     args                  = {{0,},};
-        char                 path[SERVER_PATH_MAX] = {0,};
-        char                 name[4096]            = {0,};
-        char                 volume[4096]          = {0,};
         int                  ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
-        args.volume = volume;
-        args.name = name;
+        args.path   = alloca (req->msg[0].iov_len);
+        args.volume = alloca (4096);
+        args.name   = alloca (4096);
 
         if (!xdr_to_entrylk_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4524,15 +4492,14 @@ server_fentrylk (rpcsvc_request_t *req)
         server_state_t      *state        = NULL;
         call_frame_t        *frame        = NULL;
         gfs3_fentrylk_req    args         = {{0,},};
-        char                 name[4096]   = {0,};
-        char                 volume[4096] = {0,};
         int                  ret          = -1;
 
         if (!req)
                 return ret;
 
-        args.name = name;
-        args.volume = volume;
+        args.name   = alloca (4096);
+        args.volume = alloca (4096);
+
         if (!xdr_to_fentrylk_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -4575,13 +4542,12 @@ server_access (rpcsvc_request_t *req)
         server_state_t      *state                 = NULL;
         call_frame_t        *frame                 = NULL;
         gfs3_access_req      args                  = {{0,},};
-        char                 path[SERVER_PATH_MAX] = {0,};
         int                  ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
         if (!xdr_to_access_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -4624,17 +4590,14 @@ server_symlink (rpcsvc_request_t *req)
         dict_t              *params                = NULL;
         char                *buf                   = NULL;
         gfs3_symlink_req     args                  = {{0,},};
-        char                 linkname[4096]        = {0,};
-        char                 path[SERVER_PATH_MAX] = {0,};
-        char                 bname[4096]           = {0,};
         int                  ret                   = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
-        args.bname = bname;
-        args.linkname = linkname;
+        args.path     = alloca (req->msg[0].iov_len);
+        args.bname    = alloca (req->msg[0].iov_len);
+        args.linkname = alloca (4096);
 
         if (!xdr_to_symlink_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4724,17 +4687,14 @@ server_link (rpcsvc_request_t *req)
         server_state_t      *state                     = NULL;
         call_frame_t        *frame                     = NULL;
         gfs3_link_req        args                      = {{0,},};
-        char                 oldpath[SERVER_PATH_MAX]  = {0,};
-        char                 newpath[SERVER_PATH_MAX]  = {0,};
-        char                 newbname[SERVER_PATH_MAX] = {0,};
         int                  ret                       = -1;
 
         if (!req)
                 return ret;
 
-        args.oldpath  = oldpath;
-        args.newpath  = newpath;
-        args.newbname = newbname;
+        args.oldpath  = alloca (req->msg[0].iov_len);
+        args.newpath  = alloca (req->msg[0].iov_len);
+        args.newbname = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_link_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -4779,19 +4739,16 @@ server_rename (rpcsvc_request_t *req)
         server_state_t      *state                     = NULL;
         call_frame_t        *frame                     = NULL;
         gfs3_rename_req      args                      = {{0,},};
-        char                 oldpath[SERVER_PATH_MAX]  = {0,};
-        char                 oldbname[SERVER_PATH_MAX] = {0,};
-        char                 newpath[SERVER_PATH_MAX]  = {0,};
-        char                 newbname[SERVER_PATH_MAX] = {0,};
         int                  ret                       = -1;
 
         if (!req)
                 return ret;
 
-        args.oldpath  = oldpath;
-        args.oldbname = oldbname;
-        args.newpath  = newpath;
-        args.newbname = newbname;
+        args.oldpath  = alloca (req->msg[0].iov_len);
+        args.oldbname = alloca (req->msg[0].iov_len);
+        args.newpath  = alloca (req->msg[0].iov_len);
+        args.newbname = alloca (req->msg[0].iov_len);
+
         if (!xdr_to_rename_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
@@ -4988,18 +4945,15 @@ server_lookup (rpcsvc_request_t *req)
         char                *buf                    = NULL;
         gfs3_lookup_req      args                   = {{0,},};
         int                  ret                    = -1;
-        char                 path[SERVER_PATH_MAX]  = {0,};
-        char                 bname[SERVER_PATH_MAX] = {0,};
-        char                 dict_val[(16 * 1024)]  = {0,};
 
         if (!req)
                 return ret;
 
         conn = req->trans->xl_private;
 
-        args.path = path;
-        args.bname = bname;
-        args.dict.dict_val = dict_val;
+        args.path          = alloca (req->msg[0].iov_len);
+        args.bname         = alloca (req->msg[0].iov_len);
+        args.dict.dict_val = alloca (req->msg[0].iov_len);
 
         if (!xdr_to_lookup_req (req->msg[0], &args)) {
                 //failed to decode msg;
@@ -5089,13 +5043,12 @@ server_statfs (rpcsvc_request_t *req)
         server_state_t      *state = NULL;
         call_frame_t        *frame = NULL;
         gfs3_statfs_req      args  = {{0,},};
-        char                 path[SERVER_PATH_MAX]  = {0,};
         int                  ret                    = -1;
 
         if (!req)
                 return ret;
 
-        args.path = path;
+        args.path = alloca (req->msg[0].iov_len);
         if (!xdr_to_statfs_req (req->msg[0], &args)) {
                 //failed to decode msg;
                 req->rpc_err = GARBAGE_ARGS;
