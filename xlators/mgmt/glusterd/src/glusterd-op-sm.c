@@ -680,6 +680,8 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
         glusterd_conf_t                         *priv = NULL;
         char                                    msg[2048] = {0,};
         gf_boolean_t                            brick_alloc = _gf_false;
+        char                                    *all_bricks = NULL;
+        char                                    *str_ret = NULL;
 
         GF_ASSERT (req);
 
@@ -733,11 +735,25 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
         if (bricks) {
                 brick_list = gf_strdup (bricks);
+                all_bricks = gf_strdup (bricks);
                 free_ptr = brick_list;
+        }
+
+        /* Check whether any of the bricks given is the destination brick of the
+           replace brick running */
+
+        str_ret = glusterd_check_brick_rb_part (all_bricks, count, volinfo);
+        if (str_ret) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "%s", str_ret);
+                *op_errstr = gf_strdup (str_ret);
+                ret = -1;
+                goto out;
         }
 
         if (count)
                 brick = strtok_r (brick_list+1, " \n", &saveptr);
+
 
         while ( i < count) {
                 ret = glusterd_volume_brickinfo_get_by_brick (brick, volinfo,
@@ -756,6 +772,7 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                         }
                         brick_alloc = _gf_true;
                 }
+
                 snprintf (cmd_str, 1024, "%s", brickinfo->path);
                 ret = glusterd_resolve_brick (brickinfo);
                 if (ret) {
@@ -786,10 +803,72 @@ out:
                 GF_FREE (free_ptr);
         if (brick_alloc && brickinfo)
                 glusterd_brickinfo_delete (brickinfo);
+        if (str_ret)
+                GF_FREE (str_ret);
+        if (all_bricks)
+                GF_FREE (all_bricks);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
+}
+
+char *
+glusterd_check_brick_rb_part (char *bricks, int count, glusterd_volinfo_t *volinfo)
+{
+        char                                    *saveptr = NULL;
+        char                                    *brick = NULL;
+        char                                    *brick_list = NULL;
+        int                                     ret = 0;
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+        uint32_t                                i = 0;
+        char                                    *str = NULL;
+        char                                    msg[2048] = {0,};
+
+        brick_list = gf_strdup (bricks);
+        if (!brick_list) {
+                gf_log ("glusterd", GF_LOG_ERROR,
+                        "Out of memory");
+                ret = -1;
+                goto out;
+        }
+
+        if (count)
+                brick = strtok_r (brick_list+1, " \n", &saveptr);
+
+
+        while ( i < count) {
+                ret = glusterd_brickinfo_from_brick (brick, &brickinfo);
+                if (ret) {
+                        snprintf (msg, sizeof(msg), "Unable to"
+                                  " get brickinfo");
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
+                        ret = -1;
+                        goto out;
+                }
+
+                if (glusterd_is_replace_running (volinfo, brickinfo)) {
+                        snprintf (msg, sizeof(msg), "Volume %s: replace brick is running"
+                          " and the brick %s:%s you are trying to add is the destination brick"
+                          " for replace brick", volinfo->volname, brickinfo->hostname, brickinfo->path);
+                        ret = -1;
+                        goto out;
+                }
+
+                glusterd_brickinfo_delete (brickinfo);
+                brickinfo = NULL;
+                brick = strtok_r (NULL, " \n", &saveptr);
+                i++;
+        }
+
+out:
+        if (brick_list)
+                GF_FREE(brick_list);
+        if (brickinfo)
+                glusterd_brickinfo_delete (brickinfo);
+        if (ret)
+                str = gf_strdup (msg);
+        return str;
 }
 
 static int
