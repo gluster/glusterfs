@@ -26,13 +26,48 @@
 #include "defaults.h"
 #include "call-stub.h"
 
+/* TODO: */
+/* Think about 'writev/_*_lk/setattr/xattrop/' fops to do re-transmittion */
+
+
 /* Quiesce Specific Functions */
+void
+gf_quiesce_local_wipe (xlator_t *this, quiesce_local_t *local)
+{
+        quiesce_priv_t  *priv  = NULL;
+
+        if (!local || !this || !this->private)
+                return;
+
+        priv  = this->private;
+
+        if (local->loc.inode)
+                loc_wipe (&local->loc);
+        if (local->fd)
+                fd_unref (local->fd);
+        if (local->name)
+                GF_FREE (local->name);
+        if (local->volname)
+                GF_FREE (local->volname);
+        if (local->dict)
+                dict_unref (local->dict);
+        if (local->iobref)
+                iobref_unref (local->iobref);
+        if (local->vector)
+                GF_FREE (local->vector);
+
+        mem_put (priv->local_pool, local);
+}
+
 call_stub_t *
-gf_quiesce_dequeue (quiesce_priv_t *priv)
+gf_quiesce_dequeue (xlator_t *this)
 {
         call_stub_t  *stub = NULL;
+        quiesce_priv_t *priv = NULL;
 
-        if (list_empty (&priv->req))
+        priv = this->private;
+
+        if (!priv || list_empty (&priv->req))
                 return NULL;
 
         LOCK (&priv->lock);
@@ -46,21 +81,6 @@ gf_quiesce_dequeue (quiesce_priv_t *priv)
         return stub;
 }
 
-
-void
-gf_quiesce_enqueue (quiesce_priv_t *priv, call_stub_t *stub)
-{
-        LOCK (&priv->lock);
-        {
-                list_add_tail (&stub->list, &priv->req);
-                priv->queue_size++;
-        }
-        UNLOCK (&priv->lock);
-
-        return;
-}
-
-
 void *
 gf_quiesce_dequeue_start (void *data)
 {
@@ -73,7 +93,7 @@ gf_quiesce_dequeue_start (void *data)
         THIS = this;
 
         while (!list_empty (&priv->req)) {
-                stub = gf_quiesce_dequeue (priv);
+                stub = gf_quiesce_dequeue (this);
                 if (stub) {
                         call_resume (stub);
                 }
@@ -106,36 +126,1027 @@ gf_quiesce_timeout (void *data)
         return;
 }
 
-/* FOP */
+void
+gf_quiesce_enqueue (xlator_t *this, call_stub_t *stub)
+{
+        quiesce_priv_t *priv    = NULL;
+        struct timeval  timeout = {0,};
+
+        priv = this->private;
+        if (!priv) {
+                gf_log_callingfn (this->name, GF_LOG_ERROR,
+                                  "this->private == NULL");
+                return;
+        }
+
+        LOCK (&priv->lock);
+        {
+                list_add_tail (&stub->list, &priv->req);
+                priv->queue_size++;
+        }
+        UNLOCK (&priv->lock);
+
+        if (!priv->timer) {
+                timeout.tv_sec = 20;
+                timeout.tv_usec = 0;
+
+                priv->timer = gf_timer_call_after (this->ctx,
+                                                   timeout,
+                                                   gf_quiesce_timeout,
+                                                   (void *) this);
+        }
+
+        return;
+}
+
+
+
+/* _CBK function section */
 
 int32_t
-quiesce_fgetxattr (call_frame_t *frame,
-                   xlator_t *this,
-                   fd_t *fd,
-                   const char *name)
+quiesce_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, inode_t *inode,
+                    struct iatt *buf, dict_t *dict, struct iatt *postparent)
 {
         quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_lookup_stub (frame, default_lookup_resume,
+                                        &local->loc, local->dict);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (lookup, frame, -1, ENOMEM,
+                                             NULL, NULL, NULL, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (lookup, frame, op_ret, op_errno, inode, buf,
+                             dict, postparent);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_stat_stub (frame, default_stat_resume,
+                                      &local->loc);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (stat, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (stat, frame, op_ret, op_errno, buf);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_access_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_access_stub (frame, default_access_resume,
+                                        &local->loc, local->flag);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (access, frame, -1, ENOMEM);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (access, frame, op_ret, op_errno);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, const char *path,
+                      struct iatt *buf)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_readlink_stub (frame, default_readlink_resume,
+                                          &local->loc, local->size);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (readlink, frame, -1, ENOMEM,
+                                             NULL, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (readlink, frame, op_ret, op_errno, path, buf);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, fd_t *fd)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_open_stub (frame, default_open_resume,
+                                      &local->loc, local->flag, local->fd,
+                                      local->wbflags);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (open, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iovec *vector,
+                   int32_t count, struct iatt *stbuf, struct iobref *iobref)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_readv_stub (frame, default_readv_resume,
+                                       local->fd, local->size, local->offset);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
+                                             NULL, 0, NULL, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vector, count,
+                             stbuf, iobref);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_flush_stub (frame, default_flush_resume,
+                                       local->fd);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (flush, frame, op_ret, op_errno);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+
+
+int32_t
+quiesce_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                   struct iatt *postbuf)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_fsync_stub (frame, default_fsync_resume,
+                                       local->fd, local->flag);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM,
+                                             NULL, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (fsync, frame, op_ret, op_errno, prebuf, postbuf);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, struct iatt *buf)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_fstat_stub (frame, default_fstat_resume,
+                                       local->fd);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (fstat, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (fstat, frame, op_ret, op_errno, buf);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, fd_t *fd)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_opendir_stub (frame, default_opendir_resume,
+                                         &local->loc, local->fd);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (opendir, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_fsyncdir_stub (frame, default_fsyncdir_resume,
+                                          local->fd, local->flag);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (fsyncdir, frame, -1, ENOMEM);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (fsyncdir, frame, op_ret, op_errno);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct statvfs *buf)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_statfs_stub (frame, default_statfs_resume,
+                                        &local->loc);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (statfs, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (statfs, frame, op_ret, op_errno, buf);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_fgetxattr_stub (frame, default_fgetxattr_resume,
+                                           local->fd, local->name);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (fgetxattr, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+
+int32_t
+quiesce_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_getxattr_stub (frame, default_getxattr_resume,
+                                          &local->loc, local->name);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (getxattr, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+
+int32_t
+quiesce_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                       int32_t op_ret, int32_t op_errno, uint32_t weak_checksum,
+                       uint8_t *strong_checksum)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_rchecksum_stub (frame, default_rchecksum_resume,
+                                           local->fd, local->offset, local->flag);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (rchecksum, frame, -1, ENOMEM,
+                                             0, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno, weak_checksum,
+                             strong_checksum);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+
+int32_t
+quiesce_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_readdir_stub (frame, default_readdir_resume,
+                                         local->fd, local->size, local->offset);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (readdir, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (readdir, frame, op_ret, op_errno, entries);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+
+int32_t
+quiesce_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, gf_dirent_t *entries)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_readdirp_stub (frame, default_readdirp_resume,
+                                          local->fd, local->size, local->offset);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (readdirp, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (readdirp, frame, op_ret, op_errno, entries);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+
+#if 0
+
+int32_t
+quiesce_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                    struct iatt *postbuf)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_writev_stub (frame, default_writev_resume,
+                                        local->fd, local->vector, local->flag,
+                                        local->offset, local->iobref);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM,
+                                             NULL, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_xattrop_stub (frame, default_xattrop_resume,
+                                         &local->loc, local->xattrop_flags,
+                                         local->dict);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (xattrop, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (xattrop, frame, op_ret, op_errno, dict);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_fxattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, dict_t *dict)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_fxattrop_stub (frame, default_fxattrop_resume,
+                                          local->fd, local->xattrop_flags,
+                                          local->dict);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (fxattrop, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (fxattrop, frame, op_ret, op_errno, dict);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                int32_t op_ret, int32_t op_errno, struct gf_flock *lock)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_lk_stub (frame, default_lk_resume,
+                                    local->fd, local->flag, &local->flock);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (lk, frame, -1, ENOMEM,
+                                             NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (lk, frame, op_ret, op_errno, lock);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_inodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_inodelk_stub (frame, default_inodelk_resume,
+                                         local->volname, &local->loc,
+                                         local->flag, &local->flock);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (inodelk, frame, -1, ENOMEM);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (inodelk, frame, op_ret, op_errno);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+
+int32_t
+quiesce_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_finodelk_stub (frame, default_finodelk_resume,
+                                         local->volname, local->fd,
+                                         local->flag, &local->flock);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (finodelk, frame, -1, ENOMEM);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (finodelk, frame, op_ret, op_errno);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_entrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_entrylk_stub (frame, default_entrylk_resume,
+                                         local->volname, &local->loc,
+                                         local->name, local->cmd, local->type);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (entrylk, frame, -1, ENOMEM);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (entrylk, frame, op_ret, op_errno);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_fentrylk_stub (frame, default_fentrylk_resume,
+                                          local->volname, local->fd,
+                                          local->name, local->cmd, local->type);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (fentrylk, frame, -1, ENOMEM);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (fentrylk, frame, op_ret, op_errno);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                     struct iatt *statpost)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_setattr_stub (frame, default_setattr_resume,
+                                         &local->loc, &local->stbuf, local->flag);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (setattr, frame, -1, ENOMEM,
+                                             NULL, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (setattr, frame, op_ret, op_errno, statpre,
+                             statpost);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+int32_t
+quiesce_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct iatt *statpre,
+                      struct iatt *statpost)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        local = frame->local;
+        frame->local = NULL;
+
+        if ((op_ret == -1) && (op_errno == ENOTCONN)) {
+                /* Re-transmit (by putting in the queue) */
+                stub = fop_fsetattr_stub (frame, default_fsetattr_resume,
+                                          local->fd, &local->stbuf, local->flag);
+                if (!stub) {
+                        STACK_UNWIND_STRICT (fsetattr, frame, -1, ENOMEM,
+                                             NULL, NULL);
+                        goto out;
+                }
+
+                gf_quiesce_enqueue (this, stub);
+                goto out;
+        }
+
+        STACK_UNWIND_STRICT (fsetattr, frame, op_ret, op_errno, statpre,
+                             statpost);
+out:
+        gf_quiesce_local_wipe (this, local);
+
+        return 0;
+}
+
+#endif /* if 0 */
+
+
+/* FOP */
+
+/* No retransmittion */
+
+int32_t
+quiesce_removexattr (call_frame_t *frame,
+		     xlator_t *this,
+		     loc_t *loc,
+		     const char *name)
+{
+	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
 
         priv = this->private;
 
         if (priv->pass_through) {
                 STACK_WIND (frame,
-                            default_fgetxattr_cbk,
+                            default_removexattr_cbk,
                             FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fgetxattr,
-                            fd,
+                            FIRST_CHILD(this)->fops->removexattr,
+                            loc,
                             name);
-                return 0;
+	        return 0;
         }
 
-        stub = fop_fgetxattr_stub (frame, default_fgetxattr_resume, fd, name);
+        stub = fop_removexattr_stub (frame, default_removexattr_resume,
+                                     loc, name);
         if (!stub) {
-                STACK_UNWIND_STRICT (fgetxattr, frame, -1, ENOMEM, NULL);
+                STACK_UNWIND_STRICT (removexattr, frame, -1, ENOMEM);
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_truncate (call_frame_t *frame,
+		  xlator_t *this,
+		  loc_t *loc,
+		  off_t offset)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+
+        priv = this->private;
+
+        if (priv->pass_through) {
+                STACK_WIND (frame,
+                            default_truncate_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->truncate,
+                            loc,
+                            offset);
+	        return 0;
+        }
+
+        stub = fop_truncate_stub (frame, default_truncate_resume, loc, offset);
+        if (!stub) {
+                STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -170,7 +1181,7 @@ quiesce_fsetxattr (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -205,299 +1216,7 @@ quiesce_setxattr (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_statfs (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_statfs_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->statfs,
-                            loc);
-	        return 0;
-        }
-
-        stub = fop_statfs_stub (frame, default_statfs_resume, loc);
-        if (!stub) {
-                STACK_UNWIND_STRICT (statfs, frame, -1, ENOMEM, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_fsyncdir (call_frame_t *frame,
-		  xlator_t *this,
-		  fd_t *fd,
-		  int32_t flags)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_fsyncdir_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fsyncdir,
-                            fd,
-                            flags);
-	        return 0;
-        }
-
-        stub = fop_fsyncdir_stub (frame, default_fsyncdir_resume, fd, flags);
-        if (!stub) {
-                STACK_UNWIND_STRICT (fsyncdir, frame, -1, ENOMEM);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_opendir (call_frame_t *frame,
-		 xlator_t *this,
-		 loc_t *loc, fd_t *fd)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_opendir_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->opendir,
-                            loc, fd);
-	        return 0;
-        }
-
-        stub = fop_opendir_stub (frame, default_opendir_resume, loc, fd);
-        if (!stub) {
-                STACK_UNWIND_STRICT (opendir, frame, -1, ENOMEM, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_fstat (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_fstat_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fstat,
-                            fd);
-	        return 0;
-        }
-
-        stub = fop_fstat_stub (frame, default_fstat_resume, fd);
-        if (!stub) {
-                STACK_UNWIND_STRICT (fstat, frame, -1, ENOMEM, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_fsync (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       int32_t flags)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_fsync_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->fsync,
-                            fd,
-                            flags);
-	        return 0;
-        }
-
-        stub = fop_fsync_stub (frame, default_fsync_resume, fd, flags);
-        if (!stub) {
-                STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_flush (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_flush_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->flush,
-                            fd);
-	        return 0;
-        }
-
-        stub = fop_flush_stub (frame, default_flush_resume, fd);
-        if (!stub) {
-                STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_writev (call_frame_t *frame,
-		xlator_t *this,
-		fd_t *fd,
-		struct iovec *vector,
-		int32_t count,
-		off_t off,
-                struct iobref *iobref)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_writev_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->writev,
-                            fd,
-                            vector,
-                            count,
-                            off,
-                            iobref);
-	        return 0;
-        }
-
-        stub = fop_writev_stub (frame, default_writev_resume,
-                                fd, vector, count, off, iobref);
-        if (!stub) {
-                STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_readv (call_frame_t *frame,
-	       xlator_t *this,
-	       fd_t *fd,
-	       size_t size,
-	       off_t offset)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_readv_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->readv,
-                            fd,
-                            size,
-                            offset);
-	        return 0;
-        }
-
-        stub = fop_readv_stub (frame, default_readv_resume, fd, size, offset);
-        if (!stub) {
-                STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
-                                     NULL, 0, NULL, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-
-int32_t
-quiesce_open (call_frame_t *frame,
-	      xlator_t *this,
-	      loc_t *loc,
-	      int32_t flags, fd_t *fd,
-              int32_t wbflags)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_open_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->open,
-                            loc, flags, fd, wbflags);
-	        return 0;
-        }
-
-        stub = fop_open_stub (frame, default_open_resume, loc,
-                              flags, fd, wbflags);
-        if (!stub) {
-                STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -513,22 +1232,24 @@ quiesce_create (call_frame_t *frame, xlator_t *this,
         priv = this->private;
 
         if (priv->pass_through) {
+                /* Don't send O_APPEND below, as write() re-transmittions can
+                   fail with O_APPEND */
                 STACK_WIND (frame, default_create_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->create,
-                            loc, flags, mode, fd, params);
+                            loc, (flags & ~O_APPEND), mode, fd, params);
 	        return 0;
         }
 
         stub = fop_create_stub (frame, default_create_resume,
-                                loc, flags, mode, fd, params);
+                                loc, (flags & ~O_APPEND), mode, fd, params);
         if (!stub) {
                 STACK_UNWIND_STRICT (create, frame, -1, ENOMEM,
                                      NULL, NULL, NULL, NULL, NULL);
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -560,7 +1281,7 @@ quiesce_link (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -592,7 +1313,7 @@ quiesce_rename (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -623,7 +1344,7 @@ quiesce_symlink (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -651,7 +1372,7 @@ quiesce_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -681,7 +1402,7 @@ quiesce_unlink (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -711,7 +1432,7 @@ quiesce_mkdir (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -742,72 +1463,7 @@ quiesce_mknod (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_readlink (call_frame_t *frame,
-		  xlator_t *this,
-		  loc_t *loc,
-		  size_t size)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_readlink_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->readlink,
-                            loc,
-                            size);
-	        return 0;
-        }
-
-        stub = fop_readlink_stub (frame, default_readlink_resume, loc, size);
-        if (!stub) {
-                STACK_UNWIND_STRICT (readlink, frame, -1, ENOMEM, NULL, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-
-int32_t
-quiesce_access (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc,
-		int32_t mask)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_access_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->access,
-                            loc,
-                            mask);
-	        return 0;
-        }
-
-        stub = fop_access_stub (frame, default_access_resume, loc, mask);
-        if (!stub) {
-                STACK_UNWIND_STRICT (access, frame, -1, ENOMEM);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -839,7 +1495,469 @@ quiesce_ftruncate (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+/* Re-transmittion */
+
+int32_t
+quiesce_readlink (call_frame_t *frame,
+		  xlator_t *this,
+		  loc_t *loc,
+		  size_t size)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                local->size = size;
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_readlink_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->readlink,
+                            loc,
+                            size);
+	        return 0;
+        }
+
+        stub = fop_readlink_stub (frame, default_readlink_resume, loc, size);
+        if (!stub) {
+                STACK_UNWIND_STRICT (readlink, frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+
+int32_t
+quiesce_access (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc,
+		int32_t mask)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                local->flag = mask;
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_access_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->access,
+                            loc,
+                            mask);
+	        return 0;
+        }
+
+        stub = fop_access_stub (frame, default_access_resume, loc, mask);
+        if (!stub) {
+                STACK_UNWIND_STRICT (access, frame, -1, ENOMEM);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_fgetxattr (call_frame_t *frame,
+                   xlator_t *this,
+                   fd_t *fd,
+                   const char *name)
+{
+        quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                if (name)
+                        local->name = gf_strdup (name);
+
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_fgetxattr_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fgetxattr,
+                            fd,
+                            name);
+                return 0;
+        }
+
+        stub = fop_fgetxattr_stub (frame, default_fgetxattr_resume, fd, name);
+        if (!stub) {
+                STACK_UNWIND_STRICT (fgetxattr, frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_statfs (call_frame_t *frame,
+		xlator_t *this,
+		loc_t *loc)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_statfs_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->statfs,
+                            loc);
+	        return 0;
+        }
+
+        stub = fop_statfs_stub (frame, default_statfs_resume, loc);
+        if (!stub) {
+                STACK_UNWIND_STRICT (statfs, frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_fsyncdir (call_frame_t *frame,
+		  xlator_t *this,
+		  fd_t *fd,
+		  int32_t flags)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->flag = flags;
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_fsyncdir_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsyncdir,
+                            fd,
+                            flags);
+	        return 0;
+        }
+
+        stub = fop_fsyncdir_stub (frame, default_fsyncdir_resume, fd, flags);
+        if (!stub) {
+                STACK_UNWIND_STRICT (fsyncdir, frame, -1, ENOMEM);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_opendir (call_frame_t *frame,
+		 xlator_t *this,
+		 loc_t *loc, fd_t *fd)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                local->fd = fd_ref (fd);
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_opendir_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->opendir,
+                            loc, fd);
+	        return 0;
+        }
+
+        stub = fop_opendir_stub (frame, default_opendir_resume, loc, fd);
+        if (!stub) {
+                STACK_UNWIND_STRICT (opendir, frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_fstat (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_fstat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fstat,
+                            fd);
+	        return 0;
+        }
+
+        stub = fop_fstat_stub (frame, default_fstat_resume, fd);
+        if (!stub) {
+                STACK_UNWIND_STRICT (fstat, frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_fsync (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       int32_t flags)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->flag = flags;
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_fsync_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsync,
+                            fd,
+                            flags);
+	        return 0;
+        }
+
+        stub = fop_fsync_stub (frame, default_fsync_resume, fd, flags);
+        if (!stub) {
+                STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_flush (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_flush_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->flush,
+                            fd);
+	        return 0;
+        }
+
+        stub = fop_flush_stub (frame, default_flush_resume, fd);
+        if (!stub) {
+                STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_writev (call_frame_t *frame,
+		xlator_t *this,
+		fd_t *fd,
+		struct iovec *vector,
+		int32_t count,
+		off_t off,
+                struct iobref *iobref)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                STACK_WIND (frame,
+                            default_writev_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->writev,
+                            fd,
+                            vector,
+                            count,
+                            off,
+                            iobref);
+	        return 0;
+        }
+
+        stub = fop_writev_stub (frame, default_writev_resume,
+                                fd, vector, count, off, iobref);
+        if (!stub) {
+                STACK_UNWIND_STRICT (writev, frame, -1, ENOMEM, NULL, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+int32_t
+quiesce_readv (call_frame_t *frame,
+	       xlator_t *this,
+	       fd_t *fd,
+	       size_t size,
+	       off_t offset)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->size = size;
+                local->offset = offset;
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_readv_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->readv,
+                            fd,
+                            size,
+                            offset);
+	        return 0;
+        }
+
+        stub = fop_readv_stub (frame, default_readv_resume, fd, size, offset);
+        if (!stub) {
+                STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM,
+                                     NULL, 0, NULL, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
+
+        return 0;
+}
+
+
+int32_t
+quiesce_open (call_frame_t *frame,
+	      xlator_t *this,
+	      loc_t *loc,
+	      int32_t flags, fd_t *fd,
+              int32_t wbflags)
+{
+	quiesce_priv_t *priv = NULL;
+        call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
+
+        priv = this->private;
+
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                local->fd = fd_ref (fd);
+
+                /* Don't send O_APPEND below, as write() re-transmittions can
+                   fail with O_APPEND */
+                local->flag = (flags & ~O_APPEND);
+                local->wbflags = wbflags;
+                frame->local = local;
+
+                STACK_WIND (frame,
+                            quiesce_open_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->open,
+                            loc, (flags & ~O_APPEND), fd, wbflags);
+	        return 0;
+        }
+
+        stub = fop_open_stub (frame, default_open_resume, loc,
+                              (flags & ~O_APPEND), fd, wbflags);
+        if (!stub) {
+                STACK_UNWIND_STRICT (open, frame, -1, ENOMEM, NULL);
+                return 0;
+        }
+
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -852,12 +1970,20 @@ quiesce_getxattr (call_frame_t *frame,
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                if (name)
+                        local->name = gf_strdup (name);
+
+                frame->local = local;
+
                 STACK_WIND (frame,
-                            default_getxattr_cbk,
+                            quiesce_getxattr_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->getxattr,
                             loc,
@@ -871,7 +1997,7 @@ quiesce_getxattr (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -889,7 +2015,7 @@ quiesce_xattrop (call_frame_t *frame,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame,
                             default_xattrop_cbk,
                             FIRST_CHILD(this),
@@ -907,7 +2033,7 @@ quiesce_xattrop (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -924,7 +2050,7 @@ quiesce_fxattrop (call_frame_t *frame,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame,
                             default_fxattrop_cbk,
                             FIRST_CHILD(this),
@@ -942,40 +2068,7 @@ quiesce_fxattrop (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
-
-int32_t
-quiesce_removexattr (call_frame_t *frame,
-		     xlator_t *this,
-		     loc_t *loc,
-		     const char *name)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_removexattr_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->removexattr,
-                            loc,
-                            name);
-	        return 0;
-        }
-
-        stub = fop_removexattr_stub (frame, default_removexattr_resume,
-                                     loc, name);
-        if (!stub) {
-                STACK_UNWIND_STRICT (removexattr, frame, -1, ENOMEM);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -992,7 +2085,7 @@ quiesce_lk (call_frame_t *frame,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame,
                             default_lk_cbk,
                             FIRST_CHILD(this),
@@ -1009,7 +2102,7 @@ quiesce_lk (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1025,7 +2118,7 @@ quiesce_inodelk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame,
                             default_inodelk_cbk,
                             FIRST_CHILD(this),
@@ -1041,7 +2134,7 @@ quiesce_inodelk (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1055,7 +2148,7 @@ quiesce_finodelk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame,
                             default_finodelk_cbk,
                             FIRST_CHILD(this),
@@ -1071,7 +2164,7 @@ quiesce_finodelk (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1086,7 +2179,7 @@ quiesce_entrylk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame, default_entrylk_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->entrylk,
@@ -1101,7 +2194,7 @@ quiesce_entrylk (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1116,7 +2209,7 @@ quiesce_fentrylk (call_frame_t *frame, xlator_t *this,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame, default_fentrylk_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->fentrylk,
@@ -1131,7 +2224,7 @@ quiesce_fentrylk (call_frame_t *frame, xlator_t *this,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1144,12 +2237,19 @@ quiesce_rchecksum (call_frame_t *frame,
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->offset = offset;
+                local->flag = len;
+                frame->local = local;
+
                 STACK_WIND (frame,
-                            default_rchecksum_cbk,
+                            quiesce_rchecksum_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->rchecksum,
                             fd, offset, len);
@@ -1163,7 +2263,7 @@ quiesce_rchecksum (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1178,12 +2278,19 @@ quiesce_readdir (call_frame_t *frame,
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->size = size;
+                local->offset = off;
+                frame->local = local;
+
                 STACK_WIND (frame,
-                            default_readdir_cbk,
+                            quiesce_readdir_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readdir,
                             fd, size, off);
@@ -1196,7 +2303,7 @@ quiesce_readdir (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1211,12 +2318,19 @@ quiesce_readdirp (call_frame_t *frame,
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                local->fd = fd_ref (fd);
+                local->size = size;
+                local->offset = off;
+                frame->local = local;
+
                 STACK_WIND (frame,
-                            default_readdirp_cbk,
+                            quiesce_readdirp_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readdirp,
                             fd, size, off);
@@ -1229,7 +2343,7 @@ quiesce_readdirp (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1246,7 +2360,7 @@ quiesce_setattr (call_frame_t *frame,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame,
                             default_setattr_cbk,
                             FIRST_CHILD (this),
@@ -1262,42 +2376,11 @@ quiesce_setattr (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
 
-int32_t
-quiesce_truncate (call_frame_t *frame,
-		  xlator_t *this,
-		  loc_t *loc,
-		  off_t offset)
-{
-	quiesce_priv_t *priv = NULL;
-        call_stub_t    *stub = NULL;
-
-        priv = this->private;
-
-        if (priv->pass_through) {
-                STACK_WIND (frame,
-                            default_truncate_cbk,
-                            FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->truncate,
-                            loc,
-                            offset);
-	        return 0;
-        }
-
-        stub = fop_truncate_stub (frame, default_truncate_resume, loc, offset);
-        if (!stub) {
-                STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL);
-                return 0;
-        }
-
-        gf_quiesce_enqueue (priv, stub);
-
-        return 0;
-}
 
 int32_t
 quiesce_stat (call_frame_t *frame,
@@ -1306,12 +2389,17 @@ quiesce_stat (call_frame_t *frame,
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                frame->local = local;
+
                 STACK_WIND (frame,
-                            default_stat_cbk,
+                            quiesce_stat_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->stat,
                             loc);
@@ -1324,7 +2412,7 @@ quiesce_stat (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1337,12 +2425,18 @@ quiesce_lookup (call_frame_t *frame,
 {
 	quiesce_priv_t *priv = NULL;
         call_stub_t    *stub = NULL;
+        quiesce_local_t *local = NULL;
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
+                local = mem_get0 (priv->local_pool);
+                loc_dup (loc, &local->loc);
+                local->dict = dict_ref (xattr_req);
+                frame->local = local;
+
                 STACK_WIND (frame,
-                            default_lookup_cbk,
+                            quiesce_lookup_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->lookup,
                             loc,
@@ -1357,7 +2451,7 @@ quiesce_lookup (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1374,7 +2468,7 @@ quiesce_fsetattr (call_frame_t *frame,
 
         priv = this->private;
 
-        if (priv->pass_through) {
+        if (priv && priv->pass_through) {
                 STACK_WIND (frame,
                             default_fsetattr_cbk,
                             FIRST_CHILD (this),
@@ -1390,7 +2484,7 @@ quiesce_fsetattr (call_frame_t *frame,
                 return 0;
         }
 
-        gf_quiesce_enqueue (priv, stub);
+        gf_quiesce_enqueue (this, stub);
 
         return 0;
 }
@@ -1426,6 +2520,9 @@ init (xlator_t *this)
         if (!priv)
                 goto out;
 
+        priv->local_pool =  mem_pool_new (quiesce_local_t,
+                                          GF_FOPS_EXPECTED_IN_PARALLEL);
+
         LOCK_INIT (&priv->lock);
         priv->pass_through = _gf_false;
 
@@ -1447,6 +2544,7 @@ fini (xlator_t *this)
                 goto out;
         this->private = NULL;
 
+        mem_pool_destroy (priv->local_pool);
         LOCK_DESTROY (&priv->lock);
         GF_FREE (priv);
 out:
@@ -1488,21 +2586,21 @@ notify (xlator_t *this, int event, void *data, ...)
                 }
                 UNLOCK (&priv->lock);
 
-                if (!priv->timer) {
-                        timeout.tv_sec = 20;
-                        timeout.tv_usec = 0;
+                if (priv->timer)
+                        break;
+                timeout.tv_sec = 20;
+                timeout.tv_usec = 0;
 
-                        gf_timer_call_cancel (this->ctx, priv->timer);
-                        priv->timer = gf_timer_call_after (this->ctx,
-                                                           timeout,
-                                                           gf_quiesce_timeout,
-                                                           (void *) this);
+                priv->timer = gf_timer_call_after (this->ctx,
+                                                   timeout,
+                                                   gf_quiesce_timeout,
+                                                   (void *) this);
 
-                        if (priv->timer == NULL) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Cannot create timer");
-                        }
+                if (priv->timer == NULL) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Cannot create timer");
                 }
+
                 break;
         default:
                 break;
@@ -1515,35 +2613,23 @@ out:
 
 
 struct xlator_fops fops = {
-	.lookup      = quiesce_lookup,
+        /* write/modifying fops */
 	.mknod       = quiesce_mknod,
 	.create      = quiesce_create,
-	.stat        = quiesce_stat,
-	.fstat       = quiesce_fstat,
 	.truncate    = quiesce_truncate,
 	.ftruncate   = quiesce_ftruncate,
-	.access      = quiesce_access,
-	.readlink    = quiesce_readlink,
 	.setxattr    = quiesce_setxattr,
-	.getxattr    = quiesce_getxattr,
 	.removexattr = quiesce_removexattr,
-	.open        = quiesce_open,
-	.readv       = quiesce_readv,
-	.writev      = quiesce_writev,
-	.flush       = quiesce_flush,
-	.fsync       = quiesce_fsync,
-	.statfs      = quiesce_statfs,
-	.lk          = quiesce_lk,
-	.opendir     = quiesce_opendir,
-	.readdir     = quiesce_readdir,
-	.readdirp    = quiesce_readdirp,
-	.fsyncdir    = quiesce_fsyncdir,
 	.symlink     = quiesce_symlink,
 	.unlink      = quiesce_unlink,
 	.link        = quiesce_link,
 	.mkdir       = quiesce_mkdir,
 	.rmdir       = quiesce_rmdir,
 	.rename      = quiesce_rename,
+
+        /* The below calls are known to change state, hence
+           re-transmittion is not advised */
+	.lk          = quiesce_lk,
 	.inodelk     = quiesce_inodelk,
 	.finodelk    = quiesce_finodelk,
 	.entrylk     = quiesce_entrylk,
@@ -1552,6 +2638,29 @@ struct xlator_fops fops = {
 	.fxattrop    = quiesce_fxattrop,
         .setattr     = quiesce_setattr,
         .fsetattr    = quiesce_fsetattr,
+
+        /* Special case, re-transmittion is not harmful *
+         * as offset is properly sent from above layers */
+        /* TODO: not re-transmitted as of now */
+	.writev      = quiesce_writev,
+
+        /* re-transmittable fops */
+	.lookup      = quiesce_lookup,
+	.stat        = quiesce_stat,
+	.fstat       = quiesce_fstat,
+	.access      = quiesce_access,
+	.readlink    = quiesce_readlink,
+	.getxattr    = quiesce_getxattr,
+	.open        = quiesce_open,
+	.readv       = quiesce_readv,
+	.flush       = quiesce_flush,
+	.fsync       = quiesce_fsync,
+	.statfs      = quiesce_statfs,
+	.opendir     = quiesce_opendir,
+	.readdir     = quiesce_readdir,
+	.readdirp    = quiesce_readdirp,
+	.fsyncdir    = quiesce_fsyncdir,
+
 };
 
 struct xlator_dumpops dumpops = {
