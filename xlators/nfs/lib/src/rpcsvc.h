@@ -244,9 +244,6 @@ typedef struct rpc_conn_state {
         pthread_mutex_t         connlock;
         int                     connstate;
 
-        /* The program that is listening for requests on this connection. */
-        rpcsvc_program_t        *program;
-
         /* List of buffers awaiting transmission */
         /* Accesses to txbufs between multiple threads calling
          * rpcsvc_submit is synced through connlock. Prefer spinlock over
@@ -365,10 +362,12 @@ struct rpcsvc_request {
          */
         void                    *private;
 
+        /* To save a ref to the program for which this request is. */
+        rpcsvc_program_t        *program;
 };
 
-#define nfs_rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->conn->program))
-#define nfs_rpcsvc_request_program_private(req) (((rpcsvc_program_t *)((req)->conn->program))->private)
+#define nfs_rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->program))
+#define nfs_rpcsvc_request_program_private(req) ((req)->program->private)
 #define nfs_rpcsvc_request_conn(req)        (req)->conn
 #define nfs_rpcsvc_program_xlator(prg)      ((prg)->actorxl)
 #define nfs_rpcsvc_request_actorxl(rq)      (nfs_rpcsvc_request_program(rq))->actorxl
@@ -453,6 +452,7 @@ typedef struct rpc_svc_actor_desc {
  * Never changed ever by any thread so no need for a lock.
  */
 struct rpc_svc_program {
+        struct list_head        proglist;
         char                    progname[RPCSVC_NAME_MAX];
         int                     prognum;
         int                     progver;
@@ -522,6 +522,8 @@ typedef struct rpc_svc_state {
         glusterfs_ctx_t         *ctx;
 
         gf_boolean_t            register_portmap;
+
+        struct list_head        allprograms;
 } rpcsvc_t;
 
 

@@ -173,6 +173,7 @@ nfs_rpcsvc_init (glusterfs_ctx_t *ctx, dict_t *options)
         pthread_mutex_init (&svc->rpclock, NULL);
         INIT_LIST_HEAD (&svc->stages);
         INIT_LIST_HEAD (&svc->authschemes);
+        INIT_LIST_HEAD (&svc->allprograms);
 
         ret = nfs_rpcsvc_init_options (svc, options);
         if (ret == -1) {
@@ -654,7 +655,7 @@ out:
 
 /* Initialize the core of a connection */
 rpcsvc_conn_t *
-nfs_rpcsvc_conn_init (rpcsvc_t *svc, rpcsvc_program_t *prog, int sockfd)
+nfs_rpcsvc_conn_init (rpcsvc_t *svc, int sockfd)
 {
         rpcsvc_conn_t  *conn = NULL;
         int             ret = -1;
@@ -667,7 +668,6 @@ nfs_rpcsvc_conn_init (rpcsvc_t *svc, rpcsvc_program_t *prog, int sockfd)
         }
 
         conn->sockfd = sockfd;
-        conn->program = (void *)prog;
         INIT_LIST_HEAD (&conn->txbufs);
         poolcount = RPCSVC_POOLCOUNT_MULT * svc->memfactor;
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "tx pool: %d", poolcount);
@@ -855,7 +855,7 @@ nfs_rpcsvc_conn_listen_init (rpcsvc_t *svc, rpcsvc_program_t *newprog)
         if (sock == -1)
                 goto err;
 
-        conn = nfs_rpcsvc_conn_init (svc, newprog, sock);
+        conn = nfs_rpcsvc_conn_init (svc, sock);
         if (!conn)
                 goto sock_close_err;
 
@@ -997,8 +997,7 @@ err:
 /* Inits a rpcsvc_conn_t after accepting the connection.
  */
 rpcsvc_conn_t *
-nfs_rpcsvc_conn_accept_init (rpcsvc_t *svc, int listenfd,
-                             rpcsvc_program_t *destprog)
+nfs_rpcsvc_conn_accept_init (rpcsvc_t *svc, int listenfd)
 {
         rpcsvc_conn_t   *newconn = NULL;
         int             sock = -1;
@@ -1008,7 +1007,7 @@ nfs_rpcsvc_conn_accept_init (rpcsvc_t *svc, int listenfd,
         if (sock == -1)
                 goto err;
 
-        newconn = nfs_rpcsvc_conn_init (svc, destprog, sock);
+        newconn = nfs_rpcsvc_conn_init (svc, sock);
         if (!newconn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to init conn object");
                 ret = -1;
@@ -1253,62 +1252,105 @@ nfs_rpcsvc_record_update_frag (rpcsvc_record_state_t *rs, ssize_t dataread)
 }
 
 
+
+/* This needs to change to returning errors, since
+ * we need to return RPC specific error messages when some
+ * of the pointers below are NULL.
+ */
+int
+__nfs_rpcsvc_program_actor (rpcsvc_request_t *req, rpcsvc_program_t **prg)
+{
+        rpcsvc_program_t        *program = NULL;
+        int                     ret = PROG_UNAVAIL;
+        rpcsvc_actor_t          *actor = NULL;
+        struct list_head        *prglist = NULL;
+
+        if (!req)
+                return ret;
+
+        prglist = &((nfs_rpcsvc_request_service (req))->allprograms);
+        if (list_empty (prglist))
+                return ret;
+
+        list_for_each_entry (program, prglist, proglist) {
+                ret = PROG_UNAVAIL;
+                if (req->prognum != program->prognum)
+                        continue;
+
+                if (!program->actors) {
+                        ret = SYSTEM_ERR;
+                        goto err;
+                }
+
+                ret = PROG_MISMATCH;
+                if (req->progver != program->progver)
+                        continue;
+
+                ret = PROC_UNAVAIL;
+                if ((req->procnum < 0) || (req->procnum >= program->numactors))
+                        goto err;
+
+                actor = &program->actors[req->procnum];
+                if (!actor->actor) {
+                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC Program procedure"
+                                " not defined");
+                        actor = NULL;
+                        goto err;
+                } else {
+                        ret = SUCCESS;
+                        break;
+                }
+        }
+
+        *prg = program;
+err:
+        switch (ret) {
+
+        case PROG_UNAVAIL:
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC program not available");
+                break;
+
+        case PROG_MISMATCH:
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC program version "
+                        "not available");
+                break;
+
+        case PROC_UNAVAIL:
+                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC Program procedure"
+                        " not available");
+                break;
+
+        case SUCCESS:
+                gf_log (GF_RPCSVC, GF_LOG_TRACE, "RPC Program found");
+                break;
+
+        default:
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "System error");
+                break;
+        }
+
+        req->rpc_err = ret;
+
+        return ret;
+}
+
 /* This needs to change to returning errors, since
  * we need to return RPC specific error messages when some
  * of the pointers below are NULL.
  */
 rpcsvc_actor_t *
-nfs_rpcsvc_program_actor (rpcsvc_conn_t *conn, rpcsvc_request_t *req)
+nfs_rpcsvc_program_actor (rpcsvc_request_t *req)
 {
-        rpcsvc_program_t        *program = NULL;
         int                     err = SYSTEM_ERR;
         rpcsvc_actor_t          *actor = NULL;
 
-        if ((!conn) || (!req))
+        if (!req)
                 goto err;
 
-        program = (rpcsvc_program_t *)conn->program;
-        if (!program)
-                goto err;
-
-        if (req->prognum != program->prognum) {
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC program not available");
-                err = PROG_UNAVAIL;
-                goto err;
-        }
-
-        if (!program->actors) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC System error");
-                err = SYSTEM_ERR;
-                goto err;
-        }
-
-        if (req->progver != program->progver) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC program version not"
-                        " available");
-                err = PROG_MISMATCH;
-                goto err;
-        }
-
-        if ((req->procnum < 0) || (req->procnum >= program->numactors)) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC Program procedure not"
-                        " available");
-                err = PROC_UNAVAIL;
-                goto err;
-        }
-
-        actor = &program->actors[req->procnum];
-        if (!actor->actor) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC Program procedure not"
-                        " available");
-                err = PROC_UNAVAIL;
-                actor = NULL;
-                goto err;
-        }
-
+        actor = &req->program->actors[req->procnum];
         err = SUCCESS;
         gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Actor found: %s - %s",
-                program->progname, actor->procname);
+                req->program->progname, actor->procname);
 err:
         if (req)
                 req->rpc_err = err;
@@ -1831,6 +1873,7 @@ nfs_rpcsvc_request_create (rpcsvc_conn_t *conn)
         struct iovec            progmsg;        /* RPC Program payload */
         rpcsvc_request_t        *req = NULL;
         int                     ret = -1;
+        rpcsvc_program_t        *program = NULL;
 
         if (!conn)
                 return NULL;
@@ -1873,6 +1916,11 @@ nfs_rpcsvc_request_create (rpcsvc_conn_t *conn)
                 goto err;
         }
 
+        ret = __nfs_rpcsvc_program_actor (req, &program);
+        if (ret != SUCCESS)
+                goto err;
+
+        req->program = program;
         ret = nfs_rpcsvc_authenticate (req);
         if (ret == RPCSVC_AUTH_REJECT) {
                 /* No need to set auth_err, that is the responsibility of
@@ -1918,7 +1966,7 @@ nfs_rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn)
         if (!nfs_rpcsvc_request_accepted (req))
                 goto err_reply;
 
-        actor = nfs_rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (req);
         if (!actor)
                 goto err_reply;
 
@@ -2015,7 +2063,7 @@ nfs_rpcsvc_handle_vectored_prep_rpc_call (rpcsvc_conn_t *conn)
         if (!nfs_rpcsvc_request_accepted (req))
                 goto err_reply;
 
-        actor = nfs_rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (req);
         if (!actor)
                 goto err_reply;
 
@@ -2157,7 +2205,7 @@ nfs_rpcsvc_handle_vectored_rpc_call (rpcsvc_conn_t *conn)
         if (!req)
                 goto err;
 
-        actor = nfs_rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (req);
         if (!actor)
                 goto err_reply;
 
@@ -2224,7 +2272,7 @@ nfs_rpcsvc_record_vectored_call_actor (rpcsvc_conn_t *conn)
         if (!req)
                 goto err;
 
-        actor = nfs_rpcsvc_program_actor (conn, req);
+        actor = nfs_rpcsvc_program_actor (req);
         if (!actor)
                 goto err_reply;
 
@@ -2600,16 +2648,14 @@ nfs_rpcsvc_conn_listening_handler (int fd, int idx, void *data, int poll_in,
         rpcsvc_stage_t          *selectedstage = NULL;
         int                     ret = -1;
         rpcsvc_conn_t           *conn = NULL;
-        rpcsvc_program_t        *prog = NULL;
         rpcsvc_t                *svc = NULL;
 
         if (!poll_in)
                 return 0;
 
         conn = (rpcsvc_conn_t *)data;
-        prog = (rpcsvc_program_t *)conn->program;
         svc = nfs_rpcsvc_conn_rpcsvc (conn);
-        newconn = nfs_rpcsvc_conn_accept_init (svc, fd, prog);
+        newconn = nfs_rpcsvc_conn_accept_init (svc, fd);
         if (!newconn) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "failed to accept connection");
                 goto err;
@@ -2630,9 +2676,7 @@ nfs_rpcsvc_conn_listening_handler (int fd, int idx, void *data, int poll_in,
                         " with new connection");
                 goto close_err;
         }
-        gf_log (GF_RPCSVC, GF_LOG_DEBUG, "New Connection: Program %s, Num: %d,"
-                " Ver: %d, Port: %d", prog->progname, prog->prognum,
-                prog->progver, prog->progport);
+        gf_log (GF_RPCSVC, GF_LOG_DEBUG, "New Connection");
         ret = 0;
 close_err:
         if (ret == -1)
@@ -2732,6 +2776,8 @@ nfs_rpcsvc_program_register (rpcsvc_t *svc, rpcsvc_program_t program)
                 goto free_prog;
 
         memcpy (newprog, &program, sizeof (program));
+        INIT_LIST_HEAD (&newprog->proglist);
+        list_add_tail (&newprog->proglist, &svc->allprograms);
         selectedstage = nfs_rpcsvc_select_stage (svc);
 
         ret = nfs_rpcsvc_stage_program_register (selectedstage, newprog);
