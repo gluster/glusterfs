@@ -44,6 +44,7 @@
 
 #define GF_NFS_DVM_ON                   1
 #define GF_NFS_DVM_OFF                  2
+#define GF_NFS_DEFAULT_PORT             38467
 
 /* Callback into a version-specific NFS protocol.
  * The return type is used by the nfs.c code to register the protocol.

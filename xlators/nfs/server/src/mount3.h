@@ -37,11 +37,11 @@
 #include "uuid.h"
 
 /* Registered with portmap */
-#define GF_MOUNTV3_PORT         38465
+#define GF_MOUNTV3_PORT         GF_NFS_DEFAULT_PORT
 #define GF_MOUNTV3_IOB          (2 * GF_UNIT_KB)
 #define GF_MOUNTV3_IOBPOOL      (GF_MOUNTV3_IOB * 50)
 
-#define GF_MOUNTV1_PORT         38466
+#define GF_MOUNTV1_PORT         GF_NFS_DEFAULT_PORT
 #define GF_MNT                  GF_NFS"-mount"
 
 extern rpcsvc_program_t *
