@@ -123,12 +123,11 @@ nfs_rpcsvc_socket_listen (int addrfam, char *listenhost, uint16_t listenport)
 
         ret = bind (sock, (struct sockaddr *)&sockaddr, sockaddr_len);
         if (ret == -1) {
-                gf_log (GF_RPCSVC_SOCK, GF_LOG_ERROR, "binding socket failed:"
-                        " %s", strerror (errno));
-                if (errno == EADDRINUSE)
-                        gf_log (GF_RPCSVC_SOCK, GF_LOG_ERROR, "Port is already"
-                                " in use");
-                goto close_err;
+                if (errno != EADDRINUSE) {
+                        gf_log (GF_RPCSVC_SOCK, GF_LOG_ERROR, "binding socket "
+                                "failed: %s", strerror (errno));
+                        goto close_err;
+                }
         }
 
         ret = listen (sock, 10);
