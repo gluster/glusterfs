@@ -120,6 +120,8 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                         goto err;
                 }
 
+                if (nfs->override_portnum)
+                        prog->progport = nfs->override_portnum;
                 gf_log (GF_NFS, GF_LOG_DEBUG, "Starting program: %s",
                         prog->progname);
                 ret = nfs_rpcsvc_program_register (nfs->rpcsvc, *prog);
@@ -539,6 +541,24 @@ nfs_init_state (xlator_t *this)
                 if (boolt == _gf_true)
                         nfs->enable_ino32 = 1;
         }
+
+        nfs->override_portnum = 0;
+        if (dict_get (this->options, "nfs.port")) {
+                ret = dict_get_str (this->options, "nfs.port",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2uint (optstr, &nfs->override_portnum);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse uint "
+                                "string");
+                        goto free_foppool;
+                }
+        }
+
         this->private = (void *)nfs;
         INIT_LIST_HEAD (&nfs->versions);
 
@@ -864,6 +884,11 @@ struct volume_options options[] = {
                          "need to prevent more than one from registering with "
                          "portmap service. Use this option to turn off portmap "
                          "registration for Gluster NFS. On by default"
+        },
+        { .key  = {"nfs.port"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Use this option on systems that need Gluster NFS to "
+                         "be associated with a non-default port number."
         },
 	{ .key  = {NULL} },
 };
