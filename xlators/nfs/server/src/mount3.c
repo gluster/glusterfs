@@ -767,10 +767,11 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         }
 
         ret = mnt3_check_client_net (ms, req, exp->vol);
-        if (ret == -1) {
+        if (ret == RPCSVC_AUTH_REJECT) {
                 mntstat = MNT3ERR_ACCES;
                 gf_log (GF_MNT, GF_LOG_DEBUG, "Client mount not allowed");
-                goto rpcerr;
+                ret = -1;
+                goto mnterr;
         }
 
         ret = mnt3svc_mount (req, ms, exp);
