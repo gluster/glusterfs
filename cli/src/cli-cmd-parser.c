@@ -435,9 +435,6 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         char    *volname = NULL;
         char    *delimiter = NULL;
         int     ret = -1;
-        gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
-        int     count = 0;
-        //char    key[50] = {0,};
         int     brick_count = 0, brick_index = 0;
         int     brick_list_size = 1;
         char    brick_list[120000] = {0,};
@@ -477,36 +474,7 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 goto out;
         }
 
-        if ((strcasecmp (words[3], "replica")) == 0) {
-                type = GF_CLUSTER_TYPE_REPLICATE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
-
-                errno = 0;
-                count = strtol (words[4], NULL, 0);
-                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
-                        goto out;
-
-                brick_index = 5;
-        } else if ((strcasecmp (words[3], "stripe")) == 0) {
-                type = GF_CLUSTER_TYPE_STRIPE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
-
-                errno = 0;
-                count = strtol (words[4], NULL, 0);
-                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
-                        goto out;
-
-                brick_index = 5;
-        } else {
-                brick_index = 3;
-        }
-
+        brick_index = 3;
         strcpy (brick_list, " ");
         while (brick_index < wordcount) {
                 delimiter = strchr (words[brick_index], ':');
@@ -610,8 +578,6 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
         char    *volname = NULL;
         char    *delimiter = NULL;
         int     ret = -1;
-        gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
-        int     count = 0;
         char    key[50];
         int     brick_count = 0, brick_index = 0;
         int32_t tmp_index = 0;
@@ -647,36 +613,7 @@ cli_cmd_volume_remove_brick_parse (const char **words, int wordcount,
                 goto out;
         }
 
-        if ((strcasecmp (words[3], "replica")) == 0) {
-                type = GF_CLUSTER_TYPE_REPLICATE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
-                errno = 0;
-                count = strtol (words[4], NULL, 0);
-                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
-                        goto out;
-
-                brick_index = 5;
-        } else if ((strcasecmp (words[3], "stripe")) == 0) {
-                type = GF_CLUSTER_TYPE_STRIPE;
-                if (wordcount < 5) {
-                        ret = -1;
-                        goto out;
-                }
-
-                errno = 0;
-                count = strtol (words[4], NULL, 0);
-                if (errno == ERANGE && (count == LONG_MAX || count == LONG_MIN))
-                        goto out;
-
-                brick_index = 5;
-        } else {
-                brick_index = 3;
-        }
-
-        ret = dict_set_int32 (dict, "type", type);
+        brick_index = 3;
 
         if (ret)
                 goto out;

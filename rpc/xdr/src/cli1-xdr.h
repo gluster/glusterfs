@@ -229,7 +229,6 @@ typedef struct gf1_cli_defrag_vol_rsp gf1_cli_defrag_vol_rsp;
 
 struct gf1_cli_add_brick_req {
 	char *volname;
-	gf1_cluster_type type;
 	int count;
 	struct {
 		u_int bricks_len;
@@ -248,7 +247,6 @@ typedef struct gf1_cli_add_brick_rsp gf1_cli_add_brick_rsp;
 
 struct gf1_cli_remove_brick_req {
 	char *volname;
-	gf1_cluster_type type;
 	int count;
 	struct {
 		u_int bricks_len;
