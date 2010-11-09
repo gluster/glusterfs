@@ -71,6 +71,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         gf_boolean_t metadata_change_log; 
         gf_boolean_t entry_change_log;      
         gf_boolean_t strict_readdir;
+        gf_boolean_t optimistic_change_log;
 
         xlator_list_t * trav        = NULL;
         
@@ -256,6 +257,26 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         "Validated 'option entry-"
                                         "change-log %s'.", change_log);
         }
+
+
+        dict_ret = dict_get_str (options, "optimistic-change-log",
+                                 &change_log);
+        if (dict_ret == 0) {
+                temp_ret = gf_string2boolean (change_log, &optimistic_change_log);
+                if (temp_ret < 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Validation faled for optimistic-change-log");
+                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        ret = -1;
+                        goto out;
+                }
+ 
+
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Validated 'option optimistic-"
+                                        "change-log %s'.", change_log);
+        }
+
 
         read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
 
@@ -674,6 +695,7 @@ init (xlator_t *this)
 	priv->data_change_log     = 1;
 	priv->metadata_change_log = 1;
 	priv->entry_change_log    = 1;
+        priv->optimistic_change_log = 1;
 
 	dict_ret = dict_get_str (this->options, "data-change-log",
 				 &change_log);
@@ -712,6 +734,19 @@ init (xlator_t *this)
 				"Defaulting to entry-change-log as 'on'.", 
 				change_log);
 			priv->entry_change_log = 1;
+		} 
+	}
+
+	dict_ret = dict_get_str (this->options, "optimistic-change-log",
+				 &change_log);
+	if (dict_ret == 0) {
+		ret = gf_string2boolean (change_log, &priv->optimistic_change_log);
+		if (ret < 0) {
+			gf_log (this->name, GF_LOG_WARNING,
+				"Invalid 'option optimistic-change-log %s'. "
+				"Defaulting to optimistic-change-log as 'on'.", 
+				change_log);
+			priv->optimistic_change_log = 1;
 		} 
 	}
 
@@ -992,6 +1027,9 @@ struct volume_options options[] = {
 	  .type = GF_OPTION_TYPE_BOOL
 	},
 	{ .key  = {"entry-change-log"},  
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {"optimistic-change-log"},  
 	  .type = GF_OPTION_TYPE_BOOL
 	},
 	{ .key  = {"data-lock-server-count"},  

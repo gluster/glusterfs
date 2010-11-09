@@ -513,6 +513,14 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 }
         }
 
+        index = afr_index_for_transaction_type (local->transaction.type);
+        if (local->optimistic_change_log &&
+            local->transaction.type != AFR_DATA_TRANSACTION) {
+                /* if nothing_failed, then local->pending[..] == {0 .. 0} */
+                for (i = 0; i < priv->child_count; i++)
+                        local->pending[i][index]++;
+        }
+
 	for (i = 0; i < priv->child_count; i++) {
 		if (!local->child_up[i])
                         continue;
@@ -568,6 +576,12 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
                 break;
                 case AFR_METADATA_TRANSACTION:
                 {
+                        if (nothing_failed) {
+                                afr_changelog_post_op_cbk (frame, (void *)(long)i,
+                                                          this, 1, 0, xattr[i]);
+                                break;
+                        }
+
                         if (local->fd)
                                 STACK_WIND (frame, afr_changelog_post_op_cbk,
                                             priv->children[i],
@@ -585,12 +599,17 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
                 case AFR_ENTRY_RENAME_TRANSACTION:
                 {
-                        STACK_WIND_COOKIE (frame, afr_changelog_post_op_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->xattrop,
-                                           &local->transaction.new_parent_loc,
-                                           GF_XATTROP_ADD_ARRAY, xattr[i]);
+                        if (nothing_failed) {
+                                afr_changelog_post_op_cbk (frame, (void *)(long)i,
+                                                          this, 1, 0, xattr[i]);
+                        } else {
+                                STACK_WIND_COOKIE (frame, afr_changelog_post_op_cbk,
+                                                   (void *) (long) i,
+                                                   priv->children[i],
+                                                   priv->children[i]->fops->xattrop,
+                                                   &local->transaction.new_parent_loc,
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                        }
                         call_count--;
                 }
 
@@ -613,6 +632,12 @@ afr_changelog_post_op (call_frame_t *frame, xlator_t *this)
 
                 case AFR_ENTRY_TRANSACTION:
                 {
+                        if (nothing_failed) {
+                                afr_changelog_post_op_cbk (frame, (void *)(long)i,
+                                                          this, 1, 0, xattr[i]);
+                                break;
+                        }
+
                         if (local->fd)
                                 STACK_WIND (frame, afr_changelog_post_op_cbk,
                                             priv->children[i],
@@ -808,6 +833,12 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
                 break;
                 case AFR_METADATA_TRANSACTION:
                 {
+                        if (local->optimistic_change_log) {
+                                afr_changelog_pre_op_cbk (frame, (void *)(long)i,
+                                                          this, 1, 0, xattr[i]);
+                                break;
+                        }
+
                         if (local->fd)
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_pre_op_cbk,
@@ -829,13 +860,18 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
                 case AFR_ENTRY_RENAME_TRANSACTION:
                 {
-                        STACK_WIND_COOKIE (frame,
-                                           afr_changelog_pre_op_cbk,
-                                           (void *) (long) i,
-                                           priv->children[i],
-                                           priv->children[i]->fops->xattrop,
-                                           &local->transaction.new_parent_loc,
-                                           GF_XATTROP_ADD_ARRAY, xattr[i]);
+                        if (local->optimistic_change_log) {
+                                afr_changelog_pre_op_cbk (frame, (void *)(long)i,
+                                                          this, 1, 0, xattr[i]);
+                        } else {
+                                STACK_WIND_COOKIE (frame,
+                                                   afr_changelog_pre_op_cbk,
+                                                   (void *) (long) i,
+                                                   priv->children[i],
+                                                   priv->children[i]->fops->xattrop,
+                                                   &local->transaction.new_parent_loc,
+                                                   GF_XATTROP_ADD_ARRAY, xattr[i]);
+                        }
 
                         call_count--;
                 }
@@ -860,6 +896,12 @@ afr_changelog_pre_op (call_frame_t *frame, xlator_t *this)
 
                 case AFR_ENTRY_TRANSACTION:
                 {
+                        if (local->optimistic_change_log) {
+                                afr_changelog_pre_op_cbk (frame, (void *)(long)i,
+                                                          this, 1, 0, xattr[i]);
+                                break;
+                        }
+
                         if (local->fd)
                                 STACK_WIND_COOKIE (frame,
                                                    afr_changelog_pre_op_cbk,

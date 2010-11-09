@@ -88,6 +88,7 @@ typedef struct _afr_private {
 
         pthread_mutex_t  mutex;
         struct list_head saved_fds;   /* list of fds on which locks have succeeded */
+        gf_boolean_t     optimistic_change_log;
 } afr_private_t;
 
 typedef struct {
@@ -312,6 +313,7 @@ typedef struct _afr_local {
         int32_t          lock_recovery_child;
 
         dict_t  *dict;
+        int      optimistic_change_log;
 
         int (*openfd_flush_cbk) (call_frame_t *frame, xlator_t *this);
 
@@ -805,6 +807,8 @@ AFR_BASENAME (const char *str)
 static inline int
 AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 {
+        int  child_up_count = 0;
+
 	local->child_up = GF_CALLOC (sizeof (*local->child_up),
                                      priv->child_count,
                                      gf_afr_mt_char);
@@ -815,6 +819,10 @@ AFR_LOCAL_INIT (afr_local_t *local, afr_private_t *priv)
 	memcpy (local->child_up, priv->child_up,
 		sizeof (*local->child_up) * priv->child_count);
 
+        child_up_count = afr_up_children_count (priv->child_count, local->child_up);
+
+        if (priv->optimistic_change_log && child_up_count == priv->child_count)
+                local->optimistic_change_log = 1;
 
 	local->call_count = afr_up_children_count (priv->child_count, local->child_up);
 	if (local->call_count == 0)
