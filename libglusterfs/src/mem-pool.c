@@ -29,15 +29,15 @@
 #define mem_pool_ptr2chunkhead(ptr)      ((ptr) - GF_MEM_POOL_PAD_BOUNDARY)
 #define is_mem_chunk_in_use(ptr)         (*ptr == 1)
 
-#define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4)
-#define GF_MEM_TRAILER_SIZE 4
+#define GF_MEM_HEADER_SIZE  (4 + sizeof (size_t) + sizeof (xlator_t *) + 4 + 8)
+#define GF_MEM_TRAILER_SIZE 8
 
 #define GF_MEM_HEADER_MAGIC  0xCAFEBABE
 #define GF_MEM_TRAILER_MAGIC 0xBAADF00D
 
 #define GLUSTERFS_ENV_MEM_ACCT_STR  "GLUSTERFS_DISABLE_MEM_ACCT"
 
-static int gf_mem_acct_enable = 1;
+static int gf_mem_acct_enable = 0;
 
 int
 gf_mem_acct_is_enabled ()
@@ -110,6 +110,7 @@ gf_mem_set_acct_info (xlator_t *xl, char **alloc_ptr,
         ptr += sizeof (xlator_t *);
         *(uint32_t *)(ptr) = GF_MEM_HEADER_MAGIC;
         ptr = ptr + 4;
+        ptr = ptr + 8; //padding
         *(uint32_t *) (ptr + size) = GF_MEM_TRAILER_MAGIC;
 
         *alloc_ptr = (void *)ptr;
@@ -174,10 +175,12 @@ __gf_realloc (void *ptr, size_t size)
         xlator_t        *xl = NULL;
         uint32_t        type = 0;
 
+        if (!gf_mem_acct_enable)
+                return realloc (ptr, size);
 
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
 
-        orig_ptr = (char *)ptr - 4;
+        orig_ptr = (char *)ptr - 8 - 4;
 
         GF_ASSERT (*(uint32_t *)orig_ptr == GF_MEM_HEADER_MAGIC);
 
@@ -256,8 +259,7 @@ __gf_free (void *free_ptr)
         if (!free_ptr)
                 return;
 
-
-        ptr = (char *)free_ptr - 4;
+        ptr = (char *)free_ptr - 8 - 4;
 
         if (GF_MEM_HEADER_MAGIC != *(uint32_t *)ptr) {
                 //Possible corruption, assert here
