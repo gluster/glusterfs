@@ -134,7 +134,7 @@ df -h
 sleep 1
 
 echo "adding-brick......."
-gluster volume add-brick mirror replica 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
+gluster volume add-brick mirror `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1 
 df -h
@@ -176,7 +176,7 @@ df -h
 sleep 1
 
 echo "removeing-brick....."
-gluster --mode=script volume remove-brick mirror replica 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
+gluster --mode=script volume remove-brick mirror `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1 
 df -h
@@ -211,7 +211,7 @@ df -h
 sleep 1
 
 echo "adding brick...."
-gluster volume add-brick str stripe 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
+gluster volume add-brick str `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1 
 df -h
@@ -254,7 +254,7 @@ df -h
 sleep 1
 
 echo "removing-brick....."
-gluster --mode=script volume remove-brick str stripe 2 `hostname`:/exports/exp3 `hostname`:/exports/exp4
+gluster --mode=script volume remove-brick str `hostname`:/exports/exp3 `hostname`:/exports/exp4
 gluster volume info
 sleep 1
 df -h
