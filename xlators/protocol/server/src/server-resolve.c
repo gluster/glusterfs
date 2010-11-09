@@ -114,7 +114,7 @@ resolve_loc_touchup (call_frame_t *frame)
                         ret = inode_path (loc->inode, NULL, &path);
                 }
                 if (ret)
-                        gf_log ("", GF_LOG_DEBUG,
+                        gf_log (frame->this->name, GF_LOG_TRACE,
                                 "return value inode_path %d", ret);
 
                 if (!path)
