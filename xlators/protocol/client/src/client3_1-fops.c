@@ -1730,7 +1730,7 @@ out:
         STACK_UNWIND_STRICT (rename, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno),
                              &stbuf, &preoldparent, &postoldparent,
-                             &preoldparent, &postoldparent);
+                             &prenewparent, &postnewparent);
 
         return 0;
 }
