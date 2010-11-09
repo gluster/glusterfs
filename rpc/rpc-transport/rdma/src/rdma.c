@@ -3564,8 +3564,8 @@ rdma_options_init (rpc_transport_t *this)
 
         options->send_size = GLUSTERFS_RDMA_INLINE_THRESHOLD;/*this->ctx->page_size * 4;  512 KB*/
         options->recv_size = GLUSTERFS_RDMA_INLINE_THRESHOLD;/*this->ctx->page_size * 4;  512 KB*/
-        options->send_count = 32;
-        options->recv_count = 32;
+        options->send_count = 128;
+        options->recv_count = 128;
 
         temp = dict_get (this->options,
                          "transport.rdma.work-request-send-count");
