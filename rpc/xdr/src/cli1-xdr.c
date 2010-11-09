@@ -382,8 +382,6 @@ xdr_gf1_cli_add_brick_req (XDR *xdrs, gf1_cli_add_brick_req *objp)
 
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
-	 if (!xdr_gf1_cluster_type (xdrs, &objp->type))
-		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->count))
 		 return FALSE;
 	 if (!xdr_bytes (xdrs, (char **)&objp->bricks.bricks_val, (u_int *) &objp->bricks.bricks_len, ~0))
@@ -411,8 +409,6 @@ xdr_gf1_cli_remove_brick_req (XDR *xdrs, gf1_cli_remove_brick_req *objp)
 {
 
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
-		 return FALSE;
-	 if (!xdr_gf1_cluster_type (xdrs, &objp->type))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->count))
 		 return FALSE;

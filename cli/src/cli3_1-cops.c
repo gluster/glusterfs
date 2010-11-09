@@ -1946,11 +1946,6 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = dict_get_int32 (dict, "type", (int32_t *)&req.type);
-
-        if (ret)
-                goto out;
-
         ret = dict_get_int32 (dict, "count", &req.count);
 
         if (ret)

@@ -155,7 +155,6 @@ struct gf1_cli_get_vol_rsp {
 
  struct gf1_cli_add_brick_req {
         string volname<>;
-        gf1_cluster_type type;
         int    count;
         opaque bricks<>;
 }  ;
@@ -169,7 +168,6 @@ struct gf1_cli_get_vol_rsp {
 
  struct gf1_cli_remove_brick_req {
         string volname<>;
-        gf1_cluster_type type;
         int    count;
         opaque bricks<>;
 }  ;
