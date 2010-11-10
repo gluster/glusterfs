@@ -1,5 +1,4 @@
 lib_LTLIBRARIES = libgfrpc.la
-libgfrpc_la_LDFLAGS = -module -avoidversion
 
 libgfrpc_la_SOURCES = auth-unix.c rpcsvc-auth.c rpcsvc.c auth-null.c \
 	rpc-transport.c xdr-rpc.c xdr-rpcclnt.c rpc-clnt.c auth-glusterfs.c \
