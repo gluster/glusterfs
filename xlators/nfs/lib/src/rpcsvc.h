@@ -635,7 +635,11 @@ extern int
 nfs_rpcsvc_conn_privport_check (rpcsvc_t *svc, char *volname,
                                 rpcsvc_conn_t *conn);
 #define nfs_rpcsvc_request_seterr(req, err)                 (req)->rpc_err = err
-#define nfs_rpcsvc_request_set_autherr(req, err)            (req)->auth_err = err
+#define nfs_rpcsvc_request_set_autherr(req, err)                        \
+        do {                                                            \
+                (req)->auth_err = err;                                  \
+                (req)->rpc_stat = MSG_DENIED;                           \
+        } while (0)                                                     \
 
 extern void
 nfs_rpcsvc_conn_deinit (rpcsvc_conn_t *conn);
