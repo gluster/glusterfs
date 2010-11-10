@@ -1270,7 +1270,7 @@ __nfs_rpcsvc_program_actor (rpcsvc_request_t *req, rpcsvc_program_t **prg)
 
         prglist = &((nfs_rpcsvc_request_service (req))->allprograms);
         if (list_empty (prglist))
-                return ret;
+                goto err;
 
         list_for_each_entry (program, prglist, proglist) {
                 ret = PROG_UNAVAIL;
@@ -1329,6 +1329,10 @@ err:
                 break;
         }
 
+        /* If the error is not RPC_MISMATCH, we consider the call as accepted
+         * since we are not handling authentication failures for now.
+         */
+        req->rpc_stat = MSG_ACCEPTED;
         req->rpc_err = ret;
 
         return ret;
@@ -1549,14 +1553,21 @@ nfs_rpcsvc_fill_reply (rpcsvc_request_t *req, struct rpc_msg *reply)
 
         if (req->rpc_stat == MSG_DENIED)
                 nfs_rpc_fill_denied_reply (reply, req->rpc_err, req->auth_err);
-        else if (req->rpc_stat == MSG_ACCEPTED)
-                nfs_rpc_fill_accepted_reply (reply, req->rpc_err,
-                                             prog->proglowvers,
-                                             prog->proghighvers,
-                                             req->verf.flavour,
-                                             req->verf.datalen,
-                                             req->verf.authdata);
-        else
+        else if (req->rpc_stat == MSG_ACCEPTED) {
+                if (!prog)
+                        nfs_rpc_fill_accepted_reply (reply, req->rpc_err, 0, 0,
+                                                     req->verf.flavour,
+                                                     req->verf.datalen,
+                                                     req->verf.authdata);
+                else
+                        nfs_rpc_fill_accepted_reply (reply, req->rpc_err,
+                                                     prog->proglowvers,
+                                                     prog->proghighvers,
+                                                     req->verf.flavour,
+                                                     req->verf.datalen,
+                                                     req->verf.authdata);
+
+        } else
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Invalid rpc_stat value");
 
         return 0;
@@ -1917,8 +1928,10 @@ nfs_rpcsvc_request_create (rpcsvc_conn_t *conn)
         }
 
         ret = __nfs_rpcsvc_program_actor (req, &program);
-        if (ret != SUCCESS)
+        if (ret != SUCCESS) {
+                ret = -1;
                 goto err;
+        }
 
         req->program = program;
         ret = nfs_rpcsvc_authenticate (req);
@@ -1933,11 +1946,6 @@ nfs_rpcsvc_request_create (rpcsvc_conn_t *conn)
                 goto err;
         }
 
-
-        /* If the error is not RPC_MISMATCH, we consider the call as accepted
-         * since we are not handling authentication failures for now.
-         */
-        req->rpc_stat = MSG_ACCEPTED;
         ret = 0;
 err:
         if (ret == -1) {
@@ -2804,6 +2812,7 @@ free_prog:
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Program registration failed:"
                         " %s, Num: %d, Ver: %d, Port: %d", newprog->progname,
                         newprog->prognum, newprog->progver, newprog->progport);
+                list_del (&newprog->proglist);
                 GF_FREE (newprog);
         }
 
