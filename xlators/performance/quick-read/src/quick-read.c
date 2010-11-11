@@ -82,7 +82,8 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
         int32_t  ret = -1;
         char    *parent = NULL;
 
-        if ((loc == NULL) || (inode == NULL) || (path == NULL)) {
+        if ((loc == NULL) || (inode == NULL) || (path == NULL)
+            || (inode->table == NULL)) {
                 ret = -1;
                 errno = EINVAL;
                 goto out;
@@ -103,7 +104,6 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
         loc->parent = inode_from_path (inode->table, parent);
         if (loc->parent == NULL) {
                 ret = -1;
-                errno = EINVAL;
                 goto out;
         }
 
@@ -1125,6 +1125,8 @@ out:
                 if (need_open) {
                         op_ret = qr_loc_fill (&loc, fd->inode, path);
                         if (op_ret == -1) {
+                                need_unwind = 1;
+                                op_errno = errno;
                                 qr_resume_pending_ops (qr_fd_ctx);
                                 goto out;
                         }
@@ -1262,6 +1264,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
+                        need_unwind = 1;
+                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
                         goto out;
                 }
@@ -1357,6 +1361,8 @@ out:
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
                         qr_resume_pending_ops (qr_fd_ctx);
+                        need_unwind = 1;
+                        op_errno = errno;
                         goto out;
                 }
 
@@ -1459,6 +1465,8 @@ out:
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
                         qr_resume_pending_ops (qr_fd_ctx);
+                        need_unwind = 1;
+                        op_errno = errno;
                         goto out;
                 }
 
@@ -1557,6 +1565,8 @@ out:
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
                         qr_resume_pending_ops (qr_fd_ctx);
+                        op_errno = errno;
+                        need_unwind = 1;
                         goto out;
                 }
 
@@ -1657,6 +1667,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
+                        need_unwind = 1;
+                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
                         goto out;
                 }
@@ -1829,6 +1841,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
+                        need_unwind = 1;
+                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
                         goto out;
                 }
@@ -1929,6 +1943,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
+                        need_unwind = 1;
+                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
                         goto out;
                 }
@@ -2023,6 +2039,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
+                        need_unwind = 1;
+                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
                         goto out;
                 }
@@ -2176,6 +2194,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
+                        need_unwind = 1;
+                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
                         goto out;
                 }
@@ -2273,6 +2293,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
+                        op_errno = errno;
+                        need_unwind = 1;
                         qr_resume_pending_ops (qr_fd_ctx);
                         goto out;
                 }
