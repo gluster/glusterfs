@@ -1307,16 +1307,16 @@ err:
         switch (ret) {
 
         case PROG_UNAVAIL:
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC program not available");
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC program not available");
                 break;
 
         case PROG_MISMATCH:
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC program version "
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC program version "
                         "not available");
                 break;
 
         case PROC_UNAVAIL:
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC Program procedure"
+                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "RPC Program procedure"
                         " not available");
                 break;
 
