@@ -226,7 +226,7 @@ glusterfs_ctx_defaults_init (glusterfs_ctx_t *ctx)
         cmd_args = &ctx->cmd_args;
 
         /* parsing command line arguments */
-        cmd_args->log_file  = "/dev/stderr";
+        cmd_args->log_file  = "/dev/null";
         cmd_args->log_level = GF_LOG_NONE;
 
         INIT_LIST_HEAD (&cmd_args->xlator_options);
