@@ -1751,7 +1751,6 @@ dht_pathinfo_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (local->pathinfo)
                         GF_FREE (local->pathinfo);
-                GF_FREE (local->key);
 
                 DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
 
