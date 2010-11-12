@@ -177,7 +177,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 trans_type = gf_strdup ("tcp");
         }
 
-        ret = dict_set_str (dict, "transport", trans_type);
+        ret = dict_set_dynstr (dict, "transport", trans_type);
         if (ret)
                 goto out;
 
@@ -288,9 +288,6 @@ out:
                 if (dict)
                         dict_destroy (dict);
         }
-        if (trans_type)
-                GF_FREE (trans_type);
-
         return ret;
 }
 
