@@ -2076,7 +2076,6 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         int                     ret = -1;
         glusterd_conf_t         *priv = NULL;
         glusterd_peerinfo_t     *entry = NULL;
-        glusterd_peer_hostname_t *name = NULL;
         struct addrinfo         *addr = NULL;
         struct addrinfo         *p = NULL;
         char                    *host = NULL;
@@ -2094,16 +2093,14 @@ glusterd_friend_find_by_hostname (const char *hoststr,
         GF_ASSERT (priv);
 
         list_for_each_entry (entry, &priv->peers, uuid_list) {
-                list_for_each_entry (name, &entry->hostnames, hostname_list) {
-                        if (!strncmp (name->hostname, hoststr,
-                                        1024)) {
+                if (!strncmp (entry->hostname, hoststr,
+                              1024)) {
 
                         gf_log ("glusterd", GF_LOG_NORMAL,
                                  "Friend %s found.. state: %d", hoststr,
                                   entry->state.state);
                         *peerinfo = entry;
                         return 0;
-                        }
                 }
         }
 
@@ -2135,18 +2132,15 @@ glusterd_friend_find_by_hostname (const char *hoststr,
                         goto out;
 
                 list_for_each_entry (entry, &priv->peers, uuid_list) {
-                        list_for_each_entry (name, &entry->hostnames,
-                                             hostname_list) {
-                                if (!strncmp (name->hostname, host,
-                                    1024) || !strncmp (name->hostname,hname,
-                                    1024)) {
-                                        gf_log ("glusterd", GF_LOG_NORMAL,
-                                                "Friend %s found.. state: %d",
-                                                hoststr, entry->state.state);
-                                        *peerinfo = entry;
-                                        freeaddrinfo (addr);
-                                        return 0;
-                                }
+                        if (!strncmp (entry->hostname, host,
+                            1024) || !strncmp (entry->hostname,hname,
+                            1024)) {
+                                gf_log ("glusterd", GF_LOG_NORMAL,
+                                        "Friend %s found.. state: %d",
+                                        hoststr, entry->state.state);
+                                *peerinfo = entry;
+                                freeaddrinfo (addr);
+                                return 0;
                         }
                 }
         }
@@ -2614,7 +2608,6 @@ glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
                        uuid_t *uuid, const char *hostname)
 {
         glusterd_peerinfo_t      *new_peer = NULL;
-        glusterd_peer_hostname_t *name = NULL;
         int                      ret = -1;
 
         GF_ASSERT (peerinfo);
@@ -2625,15 +2618,9 @@ glusterd_peerinfo_new (glusterd_peerinfo_t **peerinfo,
         if (!new_peer)
                 goto out;
 
-        INIT_LIST_HEAD (&new_peer->hostnames);
         new_peer->state.state = state;
-        if (hostname) {
-                ret =  glusterd_peer_hostname_new ((char *)hostname, &name);
-                if (ret)
-                        goto out;
-                list_add_tail (&new_peer->hostnames, &name->hostname_list);
+        if (hostname)
                 new_peer->hostname = gf_strdup (hostname);
-        }
 
         INIT_LIST_HEAD (&new_peer->uuid_list);
 
@@ -2660,8 +2647,6 @@ int32_t
 glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
 {
         int32_t                         ret = -1;
-        glusterd_peer_hostname_t        *name = NULL;
-        glusterd_peer_hostname_t        *tmp = NULL;
 
         if (!peerinfo)
                 goto out;
@@ -2673,14 +2658,6 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
         }
 
         list_del_init (&peerinfo->uuid_list);
-        list_for_each_entry_safe (name, tmp, &peerinfo->hostnames,
-                                  hostname_list) {
-                list_del_init (&name->hostname_list);
-                GF_FREE (name->hostname);
-                GF_FREE (name);
-        }
-
-        list_del_init (&peerinfo->hostnames);
         if (peerinfo->hostname)
                 GF_FREE (peerinfo->hostname);
         glusterd_sm_tr_log_delete (&peerinfo->sm_log);
