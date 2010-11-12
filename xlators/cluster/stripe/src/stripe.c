@@ -243,7 +243,7 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                         strerror (op_errno));
                         if (local->op_errno != ESTALE)
                                 local->op_errno = op_errno;
-                        if ((op_errno != ENOENT) ||
+                        if (((op_errno != ENOENT) && (op_errno != ENOTCONN)) ||
                             (prev->this == FIRST_CHILD (this)))
                                 local->failed = 1;
                         if (op_errno == ENOENT)
