@@ -444,7 +444,7 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
         switch (event) {
         case RPC_CLNT_CONNECT:
-                rpc_clnt_set_connected (ctx->mgmt);
+                rpc_clnt_set_connected (&((struct rpc_clnt*)ctx->mgmt)->conn);
 
                 ret = glusterfs_volfile_fetch (ctx);
                 if (ret && ctx && (ctx->active == NULL)) {
