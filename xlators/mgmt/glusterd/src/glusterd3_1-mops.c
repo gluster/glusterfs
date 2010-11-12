@@ -57,9 +57,7 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         int                   ret   = 0;
         char                  str[50] = {0,};
         glusterd_peerinfo_t           *peerinfo = NULL;
-        glusterd_peerinfo_t           *dup_peerinfo = NULL;
         glusterd_friend_sm_event_t    *event = NULL;
-        glusterd_peer_hostname_t      *name = NULL;
         glusterd_probe_ctx_t          *ctx = NULL;
 
         conf  = THIS->private;
@@ -102,18 +100,6 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 GF_ASSERT (0);
         }
 
-        if (list_empty (&peerinfo->hostnames)) {
-                glusterd_friend_find (NULL, rsp.hostname, &dup_peerinfo);
-                GF_ASSERT (dup_peerinfo);
-                peerinfo->hostname = gf_strdup (rsp.hostname);
-                glusterd_peer_hostname_new (rsp.hostname, &name);
-                list_add_tail (&name->hostname_list, &peerinfo->hostnames);
-                peerinfo->rpc = dup_peerinfo->rpc;
-                peerinfo->connected = dup_peerinfo->connected;
-                glusterd_peer_destroy  (dup_peerinfo);
-        }
-        if (!peerinfo->hostname)
-                peerinfo->hostname = gf_strdup (rsp.hostname);
         uuid_copy (peerinfo->uuid, rsp.uuid);
 
         ret = glusterd_friend_sm_new_event

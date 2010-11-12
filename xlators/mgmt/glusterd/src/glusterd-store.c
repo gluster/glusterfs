@@ -1312,8 +1312,6 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
         char                            filepath[PATH_MAX] = {0,};
         char                            str[512] = {0,};
         char                            buf[4096] = {0,};
-        glusterd_peer_hostname_t        *hname = NULL;
-        int                             i = 0;
         char                            hostname_path[PATH_MAX] = {0,};
 
 
@@ -1383,15 +1381,9 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
         if (ret)
                 goto out;
 
-        list_for_each_entry (hname, &peerinfo->hostnames, hostname_list) {
-                i++;
-                snprintf (buf, sizeof (buf), "%s%d",
-                          GLUSTERD_STORE_KEY_PEER_HOSTNAME, i);
-                ret = glusterd_store_save_value (peerinfo->shandle,
-                                                 buf, hname->hostname);
-                if (ret)
-                        goto out;
-        }
+        ret = glusterd_store_save_value (peerinfo->shandle,
+                                         GLUSTERD_STORE_KEY_PEER_HOSTNAME "1",
+                                         peerinfo->hostname);
 
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);

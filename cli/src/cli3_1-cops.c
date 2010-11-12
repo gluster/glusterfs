@@ -101,7 +101,7 @@ gf_cli3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
 		      		break;
 			case GF_PROBE_FRIEND:
 				cli_out ("Probe on host %s port %d already"
-					 " a friend",rsp.hostname, rsp.port);
+					 " in peer list", rsp.hostname, rsp.port);
 				break;
 		 	default:
 		      		cli_out ("Probe returned with unknown errno %d",

@@ -567,13 +567,13 @@ glusterd_handle_cli_probe (rpcsvc_request_t *req)
                                               cli_req.hostname, cli_req.port);
                 goto out;
         }
+
         if (!(ret = glusterd_friend_find_by_hostname(cli_req.hostname,
                                          &peerinfo))) {
-                if ((peerinfo->state.state != GD_FRIEND_STATE_REQ_RCVD)
-                    || (peerinfo->state.state != GD_FRIEND_STATE_DEFAULT)) {
+                if (strcmp (peerinfo->hostname, cli_req.hostname) == 0) {
 
-                        gf_log ("glusterd", GF_LOG_NORMAL, "Probe host %s port %d"
-                               "already a friend", cli_req.hostname, cli_req.port);
+                        gf_log ("glusterd", GF_LOG_DEBUG, "Probe host %s port %d"
+                               " already a peer", cli_req.hostname, cli_req.port);
                         glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND,
                                                       cli_req.hostname, cli_req.port);
                         goto out;
@@ -2196,6 +2196,31 @@ out:
         return ret;
 }
 
+int
+glusterd_friend_hostname_update (glusterd_peerinfo_t *peerinfo,
+                                char *hostname,
+                                gf_boolean_t store_update)
+{
+        char                    *new_hostname = NULL;
+        int                     ret = 0;
+
+        GF_ASSERT (peerinfo);
+        GF_ASSERT (hostname);
+
+        new_hostname = gf_strdup (hostname);
+        if (!new_hostname) {
+                ret = -1;
+                goto out;
+        }
+
+        GF_FREE (peerinfo->hostname);
+        peerinfo->hostname = new_hostname;
+        if (store_update)
+                ret = glusterd_store_update_peerinfo (peerinfo);
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 int
 glusterd_handle_friend_update (rpcsvc_request_t *req)
@@ -2295,6 +2320,10 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
                 ret = glusterd_friend_find (uuid, hostname, &tmp);
 
                 if (!ret) {
+                        if (strcmp (hostname, tmp->hostname) != 0) {
+                                glusterd_friend_hostname_update (tmp, hostname,
+                                                                 _gf_true);
+                        }
                         i++;
                         continue;
                 }
@@ -2410,7 +2439,7 @@ glusterd_friend_remove (uuid_t uuid, char *hostname)
 
         ret = glusterd_friend_cleanup (peerinfo);
 out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d");
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 
@@ -2501,7 +2530,7 @@ out:
                 *rpc = NULL;
         }
 
-        gf_log ("", GF_LOG_DEBUG, "returning %d");
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 
@@ -2572,14 +2601,13 @@ out:
         return ret;
 }
 
-
-
 int
 glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
 {
         int                             ret = -1;
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_peerctx_args_t         args = {0};
+        glusterd_friend_sm_event_t      *event = NULL;
 
         GF_ASSERT (hoststr);
 
@@ -2593,13 +2621,32 @@ glusterd_probe_begin (rpcsvc_request_t *req, const char *hoststr, int port)
                 ret = glusterd_friend_add ((char *)hoststr, port,
                                            GD_FRIEND_STATE_DEFAULT,
                                            NULL, NULL, &peerinfo, 0, &args);
+                if ((!ret) && (!peerinfo->connected)) {
+                        ret = GLUSTERD_CONNECTION_AWAITED;
+                }
+
+        } else if (peerinfo->connected &&
+                   (GD_FRIEND_STATE_BEFRIENDED == peerinfo->state.state)) {
+                ret = glusterd_friend_hostname_update (peerinfo, (char*)hoststr,
+                                                       _gf_false);
+                if (ret)
+                        goto out;
+                //this is just to rename so inject local acc for cluster update
+                ret = glusterd_friend_sm_new_event (GD_FRIEND_EVENT_LOCAL_ACC,
+                                                    &event);
+                if (!ret) {
+                        event->peerinfo = peerinfo;
+                        ret = glusterd_friend_sm_inject_event (event);
+                        glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_SUCCESS,
+                                                      (char*)hoststr, port);
+                }
+        } else {
+                glusterd_xfer_cli_probe_resp (req, 0, GF_PROBE_FRIEND,
+                                              (char*)hoststr, port);
         }
 
-        if ((!ret) && (!peerinfo->connected)) {
-                return  GLUSTERD_CONNECTION_AWAITED;
-        }
-
-
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
         return ret;
 }
 

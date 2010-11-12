@@ -362,10 +362,9 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
         int                     ret = 0;
         glusterd_peerinfo_t     *peerinfo = NULL;
         rpc_clnt_procedure_t    *proc = NULL;
-        call_frame_t            *frame = NULL;
         glusterd_conf_t         *conf = NULL;
         xlator_t                *this = NULL;
-        glusterd_friend_update_ctx_t    *ev_ctx = NULL;
+        glusterd_friend_update_ctx_t    ev_ctx = {{0}};
 
         GF_ASSERT (event);
         peerinfo = event->peerinfo;
@@ -375,23 +374,15 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 
         GF_ASSERT (conf);
         GF_ASSERT (conf->mgmt);
-        ev_ctx = ctx;
 
-        ev_ctx->op = GD_FRIEND_UPDATE_ADD;
+        ev_ctx.op = GD_FRIEND_UPDATE_ADD;
 
         proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
         if (proc->fn) {
-                frame = create_frame (this, this->ctx->pool);
-                if (!frame) {
-                        goto out;
-                }
-                frame->local = ctx;
-                ret = proc->fn (frame, this, ctx);
+                ret = proc->fn (NULL, this, &ev_ctx);
         }
 
-out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
-
         return ret;
 }
 
@@ -602,7 +593,7 @@ glusterd_sm_t  glusterd_state_befriended [] = {
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_PROBE,
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_ACC
-        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_send_friend_update}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_BEFRIENDED, glusterd_ac_handle_friend_add_req}, //EVENT_RCV_FRIEND_REQ
