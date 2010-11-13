@@ -1024,7 +1024,7 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
         if (!glusterd_is_local_addr (src_brickinfo->hostname)) {
                 gf_log ("", GF_LOG_DEBUG,
                         "I AM THE SOURCE HOST");
-                if (src_brickinfo->port) {
+                if (src_brickinfo->port && rsp_dict) {
                         ret = dict_set_int32 (rsp_dict, "src-brick-port",
                                               src_brickinfo->port);
                         if (ret) {
