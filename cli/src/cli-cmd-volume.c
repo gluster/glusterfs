@@ -978,10 +978,6 @@ cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
         for (cmd = volume_cmds; cmd->pattern; cmd++)
                 cli_out ("%s - %s", cmd->pattern, cmd->desc);
 
-
-        if (!state->rl_enabled)
-                exit (0);
-
         return 0;
 }
 

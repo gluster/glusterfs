@@ -199,15 +199,10 @@ cli_cmd_peer_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
 {
         struct cli_cmd        *cmd = NULL;
 
-   
+
 
         for (cmd = cli_probe_cmds; cmd->pattern; cmd++)
                 cli_out ("%s - %s", cmd->pattern, cmd->desc);
-
-      
-
-        if (!state->rl_enabled)
-                exit (0);
 
         return 0;
 }
