@@ -2045,10 +2045,17 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *src_brickinfo,
                       int activate_pump)
 {
-        int ret = 0;
+        int                     ret = 0;
 
         gf_log ("", GF_LOG_DEBUG,
                 "Attempting to kill src");
+
+        ret = glusterd_nfs_server_stop ();
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to stop nfs, ret: %d",
+                        ret);
+        }
 
         ret = glusterd_volume_stop_glusterfs (volinfo, src_brickinfo);
         if (ret) {
@@ -2084,8 +2091,12 @@ rb_src_brick_restart (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-
 out:
+        ret = glusterd_nfs_server_start ();
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to start nfs, ret: %d",
+                        ret);
+        }
         return ret;
 }
 
@@ -3055,12 +3066,6 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                         "Received commit - will be adding dst brick and "
                         "removing src brick");
 
-		ret = glusterd_check_generate_start_nfs (volinfo);
-		if (ret) {
-			gf_log ("", GF_LOG_CRITICAL, "Failed to generate "
-				" nfs volume file");
-		}
-
                 if (!glusterd_is_local_addr (dst_brickinfo->hostname) &&
                     replace_op != GF_REPLACE_OP_COMMIT_FORCE) {
                         gf_log ("", GF_LOG_NORMAL,
@@ -3080,17 +3085,30 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                 }
 
 
+                ret = glusterd_nfs_server_stop ();
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to stop nfs"
+                                                  "server, ret: %d", ret);
+                }
+
 		ret = glusterd_op_perform_replace_brick (volinfo, src_brick,
 							 dst_brick);
 		if (ret) {
 			gf_log ("", GF_LOG_CRITICAL, "Unable to add "
 				"dst-brick: %s to volume: %s",
 				dst_brick, volinfo->volname);
+		        (void) glusterd_check_generate_start_nfs (volinfo);
 			goto out;
 		}
 
 		volinfo->version++;
 		volinfo->defrag_status = 0;
+
+		ret = glusterd_check_generate_start_nfs (volinfo);
+		if (ret) {
+			gf_log ("", GF_LOG_CRITICAL, "Failed to generate "
+				" nfs volume file");
+		}
 
 		ret = glusterd_store_update_volume (volinfo);
 
