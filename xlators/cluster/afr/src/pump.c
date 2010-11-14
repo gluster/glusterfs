@@ -614,6 +614,8 @@ pump_complete_migration (xlator_t *this)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "setxattr failed - while notifying sink complete");
                 }
+
+                pump_save_path (this, "/");
         }
 
         return 0;
