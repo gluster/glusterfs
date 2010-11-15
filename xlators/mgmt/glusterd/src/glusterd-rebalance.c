@@ -275,8 +275,10 @@ glusterd_defrag_start (void *data)
 
         /* Step 1: Fix layout of all the directories */
         ret = gf_glusterd_rebalance_fix_layout (volinfo, defrag->mount);
-        if (ret)
+        if (ret) {
+                volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
                 goto out;
+        }
 
         /* Completed first step */
         volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE;
@@ -286,9 +288,14 @@ glusterd_defrag_start (void *data)
 
         /* Step 2: Iterate over directories to move data */
         ret = gf_glusterd_rebalance_move_data (volinfo, defrag->mount);
+        if (ret) {
+                volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
+        }
 
         /* Completed whole process */
-        volinfo->defrag_status   = GF_DEFRAG_STATUS_COMPLETE;
+        if (!ret) {
+                volinfo->defrag_status   = GF_DEFRAG_STATUS_COMPLETE;
+        }
         volinfo->rebalance_files = defrag->total_files;
         volinfo->rebalance_data  = defrag->total_data;
         volinfo->lookedup_files  = defrag->num_files_lookedup;
