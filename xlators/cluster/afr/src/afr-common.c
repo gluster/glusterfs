@@ -1439,6 +1439,9 @@ afr_cleanup_fd_ctx (xlator_t *this, fd_t *fd)
                 if (fd_ctx->locked_on)
                         GF_FREE (fd_ctx->locked_on);
 
+                if (fd_ctx->pre_op_piggyback)
+                        GF_FREE (fd_ctx->pre_op_piggyback);
+
                 GF_FREE (fd_ctx);
         }
 
