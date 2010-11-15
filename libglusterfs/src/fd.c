@@ -500,29 +500,6 @@ fd_bind (fd_t *fd)
 }
 
 
-void
-fd_unref_unbind (fd_t *fd)
-{
-        GF_ASSERT (fd->refcount);
-
-        LOCK (&fd->inode->lock);
-        {
-	        --fd->refcount;
-                /* Better know what you're doing with this function
-                 * because it does not do what fd_destroy does when
-                 * refcount goes to 0.
-                 * Make sure you only call this when you know there are
-                 * pending refs on the fd.
-                 */
-                GF_ASSERT (fd->refcount);
-		list_del_init (&fd->inode_list);
-        }
-        UNLOCK (&fd->inode->lock);
-
-        return;
-}
-
-
 fd_t *
 fd_create (inode_t *inode, pid_t pid)
 {
