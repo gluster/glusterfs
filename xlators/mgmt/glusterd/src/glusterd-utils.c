@@ -978,8 +978,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                                           exp_path);
                 brickinfo->logfile = gf_strdup (logfile);
         } else if (!brickinfo->logfile) {
-                snprintf (logfile, PATH_MAX, "%s/logs/bricks/%s.log",
-                          priv->workdir, exp_path);
+                snprintf (logfile, PATH_MAX, "%s/bricks/%s.log",
+                          DEFAULT_LOG_FILE_DIRECTORY, exp_path);
                 brickinfo->logfile = gf_strdup (logfile);
         }
 
@@ -1745,7 +1745,7 @@ glusterd_nfs_server_start ()
                 goto out;
         }
 
-        snprintf (logfile, PATH_MAX, "%s/logs/nfs.log", priv->workdir);
+        snprintf (logfile, PATH_MAX, "%s/nfs.log", DEFAULT_LOG_FILE_DIRECTORY);
 
         snprintf (cmd_str, 8192,
                   "%s/sbin/glusterfs -f %s -p %s -l %s",
