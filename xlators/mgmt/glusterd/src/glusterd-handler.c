@@ -1700,8 +1700,8 @@ glusterd_handle_log_locate (rpcsvc_request_t *req)
                         rsp.path = dirname (tmp_str);
                         found = 1;
                 } else {
-                        snprintf (tmp_str, PATH_MAX, "%s/logs/bricks/",
-                                  priv->workdir);
+                        snprintf (tmp_str, PATH_MAX, "%s/bricks/",
+                                  DEFAULT_LOG_FILE_DIRECTORY);
                         rsp.path = tmp_str;
                         found = 1;
                 }
