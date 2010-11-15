@@ -1775,7 +1775,7 @@ nfs3_dir_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto err;
         }
 
-        cs->fd = fd_ref (fd);
+        cs->fd = fd;     /* Gets unrefd when the call state is wiped. */
         nfs3_set_inode_opened (cs->nfsx, cs->resolvedloc.inode);
         gf_log (GF_NFS3, GF_LOG_TRACE, "FD_REF: %d", fd->refcount);
         nfs3_call_resume (cs);

@@ -169,6 +169,4 @@ _fd_ref (fd_t *fd);
 void
 fd_ctx_dump (fd_t *fd, char *prefix);
 
-extern void
-fd_unref_unbind (fd_t *fd);
 #endif /* _FD_H */
