@@ -1607,7 +1607,6 @@ int
 notify (xlator_t *this, int32_t event, void *data, ...)
 {
         clnt_conf_t *conf  = NULL;
-        void        *trans = NULL;
 
         conf = this->private;
         if (!conf)
@@ -1616,20 +1615,11 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         switch (event) {
         case GF_EVENT_PARENT_UP:
         {
-                if (conf->rpc)
-                        trans = conf->rpc->conn.trans;
-
-                if (!trans) {
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "transport init failed");
-                        return 0;
-                }
-
                 gf_log (this->name, GF_LOG_DEBUG,
                         "got GF_EVENT_PARENT_UP, attempting connect "
                         "on transport");
 
-                rpc_clnt_reconnect (trans);
+                rpc_clnt_start (conf->rpc);
         }
         break;
 
@@ -1761,7 +1751,7 @@ client_init_rpc (xlator_t *this)
                 goto out;
         }
 
-        conf->rpc = rpc_clnt_init (&conf->rpc_conf, this->options, this->ctx,
+        conf->rpc = rpc_clnt_new (&conf->rpc_conf, this->options, this->ctx,
                                    this->name);
         if (!conf->rpc)
                 goto out;
