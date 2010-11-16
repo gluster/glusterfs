@@ -959,8 +959,6 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
                 goto out;
         }
 
-        rpc_clnt_reconnect (conn->trans);
-
         ret = 0;
 
 out:
@@ -974,6 +972,7 @@ rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
 {
         int                    ret  = -1;
         struct rpc_clnt       *rpc  = NULL;
+        struct rpc_clnt_connection *conn = NULL;
 
         rpc = GF_CALLOC (1, sizeof (*rpc), gf_common_mt_rpcclnt_t);
         if (!rpc) {
@@ -1014,6 +1013,9 @@ rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
                         dict_unref (options);
                 goto out;
         }
+
+        conn = &rpc->conn;
+        rpc_clnt_reconnect (conn->trans);
 
         rpc = rpc_clnt_ref (rpc);
         INIT_LIST_HEAD (&rpc->programs);
