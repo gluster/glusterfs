@@ -1090,8 +1090,8 @@ nfs3_fill_fsstat3res (fsstat3res *res, nfsstat3 stat, struct statvfs *fsbuf,
         nfs3_map_deviceid_to_statdev (postbuf, deviceid);
         poa = nfs3_stat_to_post_op_attr (postbuf);
         resok.tbytes = (size3)(fsbuf->f_frsize * fsbuf->f_blocks);
-        resok.fbytes = (size3)(fsbuf->f_bsize * fsbuf->f_bfree);
-        resok.abytes = (size3)(fsbuf->f_bsize * fsbuf->f_bavail);
+        resok.fbytes = (size3)(fsbuf->f_frsize * fsbuf->f_bfree);
+        resok.abytes = (size3)(fsbuf->f_frsize * fsbuf->f_bavail);
         resok.tfiles = (size3)(fsbuf->f_files);
         resok.ffiles = (size3)(fsbuf->f_ffree);
         resok.afiles = (size3)(fsbuf->f_favail);
