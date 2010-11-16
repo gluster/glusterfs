@@ -191,6 +191,13 @@ struct rpc_clnt * rpc_clnt_init (struct rpc_clnt_config *config,
                                  dict_t *options, glusterfs_ctx_t *ctx,
                                  char *name);
 
+
+struct rpc_clnt *rpc_clnt_new (struct rpc_clnt_config *config,
+                               dict_t *options, glusterfs_ctx_t *ctx,
+                               char *name);
+
+int rpc_clnt_start (struct rpc_clnt *rpc);
+
 int rpc_clnt_register_notify (struct rpc_clnt *rpc, rpc_clnt_notify_t fn,
                               void *mydata);
 
