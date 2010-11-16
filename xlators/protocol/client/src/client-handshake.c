@@ -1070,13 +1070,14 @@ client_query_portmap_cbk (struct rpc_req *req, struct iovec *iov, int count, voi
 
         config.remote_port = rsp.port;
         rpc_clnt_reconfig (conf->rpc, &config);
+        conf->skip_notify = 1;
 
 out:
         if (frame)
                 STACK_DESTROY (frame->root);
 
         if (conf) {
-                conf->skip_notify = 1;
+
                 rpc_transport_disconnect (conf->rpc->conn.trans);
 
                 rpc_clnt_reconnect (conf->rpc->conn.trans);
