@@ -59,6 +59,11 @@ nfs_auth_unix_authenticate (rpcsvc_request_t *req, void *priv)
                 goto err;
         }
 
+        if (aup.aup_len > 16) {
+                ret = RPCSVC_AUTH_REJECT;
+                goto err;
+        }
+
         req->uid = aup.aup_uid;
         req->gid = aup.aup_gid;
         req->auxgidcount = aup.aup_len;
