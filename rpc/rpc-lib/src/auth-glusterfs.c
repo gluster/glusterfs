@@ -155,6 +155,7 @@ int auth_glusterfs_authenticate (rpcsvc_request_t *req, void *priv)
 {
         int                          ret = RPCSVC_AUTH_REJECT;
         struct auth_glusterfs_parms  au = {0,};
+        int                          gidcount = 0;
 
         if (!req)
                 return ret;
@@ -170,6 +171,9 @@ int auth_glusterfs_authenticate (rpcsvc_request_t *req, void *priv)
         req->gid = au.gid;
         req->lk_owner = au.lk_owner;
         req->auxgidcount = au.ngrps;
+
+        for (gidcount = 0; gidcount < au.ngrps; ++gidcount)
+                req->auxgids[gidcount] = au.groups[gidcount];
 
         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
                 ", gid: %d, owner: %"PRId64,
