@@ -58,6 +58,7 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         char    *trans_type = NULL;
         int32_t index = 0;
         char    *free_list_ptr = NULL;
+        char    *bricks = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -272,7 +273,13 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 goto out;
         }
 
-        ret = dict_set_str (dict, "bricks", brick_list);
+        bricks = gf_strdup (brick_list);
+        if (!bricks) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)
                 goto out;
 
@@ -442,6 +449,7 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         char    *tmp = NULL;
         char    *freeptr = NULL;
         char    *free_list_ptr = NULL;
+        char    *bricks = NULL;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -545,7 +553,14 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
                 if (free_list_ptr)
                         free (free_list_ptr);
         }
-        ret = dict_set_str (dict, "bricks", brick_list);
+
+        bricks = gf_strdup (brick_list);
+        if (!bricks) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)
                 goto out;
 
