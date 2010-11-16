@@ -3595,6 +3595,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         switch (event)
         {
         case GF_EVENT_CHILD_UP:
+        case GF_EVENT_CHILD_CONNECTING:
         {
                 /* get an index number to set */
                 for (i = 0; i < priv->child_count; i++) {
