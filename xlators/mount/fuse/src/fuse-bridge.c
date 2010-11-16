@@ -1016,10 +1016,12 @@ fuse_mknod_resume (fuse_state_t *state)
                 return;
         }
 
-        if (!state->loc.inode)
-                state->loc.inode = inode_new (state->loc.parent->table);
-        else
-                gf_log (state->this->name, GF_LOG_ERROR, "inode already present");
+        if (state->loc.inode) {
+                gf_log (state->this->name, GF_LOG_DEBUG, "inode already present");
+                inode_unref (state->loc.inode);
+        }
+
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": MKNOD %s", state->finh->unique,
@@ -1079,10 +1081,12 @@ fuse_mkdir_resume (fuse_state_t *state)
                 return;
         }
 
-        if (!state->loc.inode)
-                state->loc.inode = inode_new (state->loc.parent->table);
-        else
-                gf_log (state->this->name, GF_LOG_ERROR, "inode already present");
+        if (state->loc.inode) {
+                gf_log (state->this->name, GF_LOG_DEBUG, "inode already present");
+                inode_unref (state->loc.inode);
+        }
+
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": MKDIR %s", state->finh->unique,
@@ -1216,10 +1220,12 @@ fuse_symlink_resume (fuse_state_t *state)
                 return;
         }
 
-        if (!state->loc.inode)
-                state->loc.inode = inode_new (state->loc.parent->table);
-        else
-                gf_log (state->this->name, GF_LOG_ERROR, "inode already present");
+        if (state->loc.inode) {
+                gf_log (state->this->name, GF_LOG_DEBUG, "inode already present");
+                inode_unref (state->loc.inode);
+        }
+
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": SYMLINK %s -> %s", state->finh->unique,
@@ -1366,10 +1372,12 @@ fuse_rename (xlator_t *this, fuse_in_header_t *finh, void *msg)
 void
 fuse_link_resume (fuse_state_t *state)
 {
-        if (!state->loc.inode)
-                state->loc.inode = inode_ref (state->loc2.inode);
-        else
-                gf_log (state->this->name, GF_LOG_ERROR, "inode already present");
+        if (state->loc.inode) {
+                gf_log (state->this->name, GF_LOG_DEBUG, "inode already present");
+                inode_unref (state->loc.inode);
+        }
+
+        state->loc.inode = inode_ref (state->loc2.inode);
 
         gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                 "%"PRIu64": LINK() %s (%"PRId64") -> %s (%"PRId64")",
@@ -1523,10 +1531,12 @@ fuse_create_resume (fuse_state_t *state)
                 return;
         }
 
-        if (!state->loc.inode)
-                state->loc.inode = inode_new (state->loc.parent->table);
-        else
-                gf_log (state->this->name, GF_LOG_ERROR, "inode already present");
+        if (state->loc.inode) {
+                gf_log (state->this->name, GF_LOG_DEBUG, "inode already present");
+                inode_unref (state->loc.inode);
+        }
+
+        state->loc.inode = inode_new (state->loc.parent->table);
 
         fd = fd_create (state->loc.inode, state->finh->pid);
         state->fd = fd;
