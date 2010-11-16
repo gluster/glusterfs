@@ -172,6 +172,11 @@ int auth_glusterfs_authenticate (rpcsvc_request_t *req, void *priv)
         req->lk_owner = au.lk_owner;
         req->auxgidcount = au.ngrps;
 
+        if (req->auxgidcount > 16) {
+                ret = RPCSVC_AUTH_REJECT;
+                goto err;
+        }
+
         for (gidcount = 0; gidcount < au.ngrps; ++gidcount)
                 req->auxgids[gidcount] = au.groups[gidcount];
 
