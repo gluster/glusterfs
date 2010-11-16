@@ -135,7 +135,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on"}, /* NODOC */
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf",},      /* NODOC */
 
-        {"nfs.enable-ino32",                      "nfs.enable-ino32",          "nfs.enable-ino32",},
+        {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32",},
 
         {NULL,                                                                }
 };
@@ -1221,102 +1221,43 @@ build_client_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                                     &client_graph_builder);
 }
 
+/* builds a graph for nfs server role, with option overrides in mod_dict */
 static int
-build_nfs_validation_graph (glusterfs_graph_t *graph, dict_t *dict)
+build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
 {
         glusterfs_graph_t   cgraph        = {{0,},};
         glusterd_volinfo_t *voliter       = NULL;
         xlator_t           *this          = NULL;
         glusterd_conf_t    *priv          = NULL;
+        dict_t             *set_dict      = NULL;
         xlator_t           *nfsxl         = NULL;
         char               *skey          = NULL;
+        char               *enable_ino32  = NULL;
         char                volume_id[64] = {0,};
         int                 ret           = 0;
-        data_t             *data          = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
 
-        nfsxl = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
-        if (!nfsxl)
+        if (mod_dict)
+                set_dict = dict_copy (mod_dict, NULL);
+        else
+                set_dict = dict_new ();
+        if (!set_dict) {
+                gf_log ("", GF_LOG_ERROR, "Out of memory");
                 return -1;
-        ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
-        if (ret)
-                return -1;
-
-        list_for_each_entry (voliter, &priv->volumes, vol_list) {
-                ret = gf_asprintf (&skey, "rpc-auth.addr.%s.allow",
-                                   voliter->volname);
-                if (ret == -1)
-                        goto oom;
-                ret = xlator_set_option (nfsxl, skey, "*");
-                GF_FREE (skey);
-                if (ret)
-                        return -1;
-
-                ret = gf_asprintf (&skey, "nfs3.%s.volume-id",
-                                   voliter->volname);
-                if (ret == -1)
-                        goto oom;
-                uuid_unparse (voliter->volume_id, volume_id);
-                ret = xlator_set_option (nfsxl, skey, volume_id);
-                GF_FREE (skey);
-                if (ret)
-                        return -1;
-
-                data = dict_get (dict, "nfs.enable-ino32");
-                if (data) {
-                        ret = xlator_set_option (nfsxl, 
-                                                "nfs.enable-ino32",
-                                                data->data);
-                        if (ret)
-                                return -1;
-                }
-
-                memset (&cgraph, 0, sizeof (cgraph));
-                ret = build_client_graph (&cgraph, voliter, NULL);
-                if (ret)
-                        return -1;
-                ret = volgen_graph_merge_sub (graph, &cgraph);
         }
 
-        return ret;
-
- oom:
-        gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-        return -1;
-
-}
-
-/* builds a graph for nfs server role */
-static int
-build_nfs_graph (glusterfs_graph_t *graph)
-{
-        glusterfs_graph_t   cgraph        = {{0,},};
-        glusterd_volinfo_t *voliter       = NULL;
-        xlator_t           *this          = NULL;
-        glusterd_conf_t    *priv          = NULL;
-        xlator_t           *nfsxl         = NULL;
-        char               *skey          = NULL;
-        char                volume_id[64] = {0,};
-        int                 ret           = 0;
-        data_t             *data          = NULL;
-
-        this = THIS;
-        GF_ASSERT (this);
-        priv = this->private;
-        GF_ASSERT (priv);
-
         nfsxl = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
-        if (!nfsxl)
-                return -1;
+        if (!nfsxl) {
+                ret = -1;
+                goto out;
+        }
         ret = xlator_set_option (nfsxl, "nfs.dynamic-volumes", "on");
         if (ret)
-                return -1;
-
+                goto out;;
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
@@ -1324,47 +1265,56 @@ build_nfs_graph (glusterfs_graph_t *graph)
 
                 ret = gf_asprintf (&skey, "rpc-auth.addr.%s.allow",
                                    voliter->volname);
-                if (ret == -1)
-                        goto oom;
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        goto out;
+                }
                 ret = xlator_set_option (nfsxl, skey, "*");
                 GF_FREE (skey);
                 if (ret)
-                        return -1;
+                        goto out;
 
                 ret = gf_asprintf (&skey, "nfs3.%s.volume-id",
                                    voliter->volname);
-                if (ret == -1)
-                        goto oom;
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        goto out;
+                }
                 uuid_unparse (voliter->volume_id, volume_id);
                 ret = xlator_set_option (nfsxl, skey, volume_id);
                 GF_FREE (skey);
                 if (ret)
-                        return -1;
+                        goto out;
 
-                data = dict_get (voliter->dict, "nfs.enable-ino32");
-                if (data) {
-                        if (!dict_get (nfsxl->options, "nfs.enable-ino32")) {
-                                ret = xlator_set_option (nfsxl, 
-                                                         "nfs.enable-ino32",
-                                                         data->data);
+                if (!dict_get (set_dict, "nfs.enable-ino32")) {
+                        ret = glusterd_volinfo_get (voliter,
+                                                    "nfs.enable-ino32",
+                                                    &enable_ino32);
+                        if (ret)
+                                goto out;
+                        if (enable_ino32) {
+                                ret = dict_set_str (set_dict,
+                                                    "nfs.enable-ino32",
+                                                    enable_ino32);
                                 if (ret)
-                                        return -1;
+                                        goto out;
                         }
                 }
-
                 memset (&cgraph, 0, sizeof (cgraph));
                 ret = build_client_graph (&cgraph, voliter, NULL);
                 if (ret)
-                        return -1;
+                        goto out;;
                 ret = volgen_graph_merge_sub (graph, &cgraph);
+                if (ret)
+                        goto out;;
         }
 
+        ret = volgen_graph_set_options (graph, set_dict);
+
+ out:
+        dict_destroy (set_dict);
+
         return ret;
-
- oom:
-        gf_log ("", GF_LOG_ERROR, "Out of memory");
-
-        return -1;
 }
 
 
@@ -1536,7 +1486,7 @@ glusterd_create_nfs_volfile ()
 
         glusterd_get_nfs_filepath (filename);
 
-        ret = build_nfs_graph (&graph);
+        ret = build_nfs_graph (&graph, NULL);
         if (!ret)
                 ret = volgen_write_volfile (&graph, filename);
 
@@ -1568,7 +1518,7 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
 
         GF_ASSERT (volinfo);
 
-        ret = build_nfs_validation_graph (&graph, val_dict);
+        ret = build_nfs_graph (&graph, val_dict);
         if (!ret)
                 ret = graph_reconf_validateopt (&graph, op_errstr);
 
