@@ -1908,7 +1908,7 @@ reconfigure (xlator_t *this, dict_t *options)
 			              &ping_timeout);
         if (timeout_ret == 0) {
 
-		if (frame_timeout < 5 ) {
+		if (ping_timeout < 5 ) {
 			gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
 			      "'option ping-timeout %d failed , Min value"
 			      " can be 5, Defaulting to old value (%d)"
@@ -1917,11 +1917,11 @@ reconfigure (xlator_t *this, dict_t *options)
 			goto out;
 		}
 
-		if (frame_timeout > 1013 ) {
+		if (ping_timeout > 1013 ) {
 			gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-			      "'option frame-timeout %d failed , Max value"
+			      "'option ping-timeout %d failed , Max value"
 			      "can be 1013, Defaulting to old value (%d)"
-			      , frame_timeout, conf->opt.ping_timeout);
+			      , ping_timeout, conf->opt.ping_timeout);
 			ret = -1;
 			goto out;
 		}
