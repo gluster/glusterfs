@@ -1471,7 +1471,6 @@ fuse_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 inode_lookup (linked_inode);
 
-                inode_ref (state->loc.parent);
                 inode_unref (linked_inode);
 
                 fd_ref (fd);
