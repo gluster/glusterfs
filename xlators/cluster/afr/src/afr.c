@@ -188,8 +188,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         "validated data self-heal window size to %d",
                         window_size);
 
-                if (window_size < 0) {
-                        *op_errstr = gf_strdup ("Error, option should be >= 0");
+                if (window_size < 1) {
+                        *op_errstr = gf_strdup ("Error, option should be >= 1");
                         ret = -1;
                         goto out;
                 }
