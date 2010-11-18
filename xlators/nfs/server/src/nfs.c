@@ -662,6 +662,7 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 event);
         switch (event)
         {
+                case GF_EVENT_CHILD_CONNECTING:
                 case GF_EVENT_CHILD_UP:
                 {
                         nfs_startup_subvolume (this, subvol);
