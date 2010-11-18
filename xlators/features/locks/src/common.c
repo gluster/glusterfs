@@ -985,15 +985,20 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
         {
                 /* Send unlock before the actual lock to
                    prevent lock upgrade / downgrade
-                   problems
+                   problems only if:
+		   - it is a blocking call
+		   - it has other conflicting locks
                 */
 
-                ret = pl_send_prelock_unlock (this, pl_inode,
-                                              lock);
-                if (ret)
-                        gf_log (this->name, GF_LOG_DEBUG,
+		if (can_block &&
+		    !(__is_lock_grantable (pl_inode, lock))) {
+			ret = pl_send_prelock_unlock (this, pl_inode,
+						      lock);
+			if (ret)
+				gf_log (this->name, GF_LOG_DEBUG,
                                 "Could not send pre-lock "
-                                "unlock");
+					"unlock");
+		}
 
                 if (__is_lock_grantable (pl_inode, lock)) {
                         gf_log (this->name, GF_LOG_TRACE,
