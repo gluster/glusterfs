@@ -872,6 +872,23 @@ out:
 }
 
 static int
+glusterd_get_rb_dst_brickinfo (glusterd_volinfo_t *volinfo,
+                               glusterd_brickinfo_t **brickinfo)
+{
+        int32_t                 ret = -1;
+
+        if (!volinfo || !brickinfo)
+                goto out;
+
+        *brickinfo = volinfo->dst_brick;
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+static int
 glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
                                  dict_t *rsp_dict)
 {
@@ -1060,11 +1077,13 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
                 goto out;
         }
 
-        ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
         if ((volinfo->rb_status ==GF_RB_STATUS_NONE) &&
             (replace_op == GF_REPLACE_OP_START)) {
+                ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
                 volinfo->src_brick = src_brickinfo;
                 volinfo->dst_brick = dst_brickinfo;
+        } else {
+                ret = glusterd_get_rb_dst_brickinfo (volinfo, &dst_brickinfo);
         }
 
         if (glusterd_rb_check_bricks (volinfo, src_brickinfo, dst_brickinfo)) {
@@ -2912,6 +2931,8 @@ out:
         return ret;
 }
 
+
+
 static int
 glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
 {
@@ -2990,9 +3011,11 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                 goto out;
         }
 
-        ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
+
+        ret = glusterd_get_rb_dst_brickinfo (volinfo, &dst_brickinfo);
         if (ret) {
-                gf_log ("", GF_LOG_DEBUG, "Unable to get dst-brickinfo");
+                gf_log ("", GF_LOG_ERROR, "Unable to get "
+                         "replace brick destination brickinfo");
                 goto out;
         }
 
@@ -3121,6 +3144,7 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
 
 		ret = glusterd_fetchspec_notify (THIS);
                 glusterd_set_rb_status (volinfo, GF_RB_STATUS_NONE);
+                glusterd_brickinfo_delete (volinfo->dst_brick);
                 volinfo->src_brick = volinfo->dst_brick = NULL;
         }
         break;
@@ -3172,6 +3196,7 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                         }
                 }
                 glusterd_set_rb_status (volinfo, GF_RB_STATUS_NONE);
+                glusterd_brickinfo_delete (volinfo->dst_brick);
                 volinfo->src_brick = volinfo->dst_brick = NULL;
         }
         break;
@@ -4350,8 +4375,8 @@ glusterd_do_replace_brick (void *data)
                 goto out;
         }
 
-        ret = glusterd_brickinfo_from_brick (dst_brick, &dst_brickinfo);
-        if (ret) {
+        ret = glusterd_get_rb_dst_brickinfo (volinfo, &dst_brickinfo);
+        if (!dst_brickinfo) {
                 gf_log ("", GF_LOG_DEBUG, "Unable to get dst-brickinfo");
                 goto out;
         }
@@ -4405,6 +4430,9 @@ out:
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
         else
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
+
+        if (dict)
+                dict_unref (dict);
 
         glusterd_op_sm ();
 }
