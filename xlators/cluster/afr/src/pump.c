@@ -814,6 +814,7 @@ pump_cmd_start_setxattr_cbk (call_frame_t *frame,
                              int32_t op_errno)
 
 {
+        call_frame_t *prev = NULL;
         afr_local_t *local = NULL;
         int ret = 0;
 
@@ -830,6 +831,11 @@ pump_cmd_start_setxattr_cbk (call_frame_t *frame,
         gf_log (this->name, GF_LOG_DEBUG,
                 "Successfully initiated destination "
                 "brick connect");
+
+        /* send the PARENT_UP as pump is ready now */
+        prev = cookie;
+        if (prev && prev->this)
+                prev->this->notify (prev->this, GF_EVENT_PARENT_UP, this);
 
         pump_mark_start_pending (this);
 
