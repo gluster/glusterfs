@@ -83,8 +83,17 @@ prepare_components (call_frame_t *frame)
         i = 1;
         for (trav = resolved; *trav; trav++) {
                 if (*trav == '/') {
-                        components[i].basename = trav + 1;
                         *trav = 0;
+
+                        if (!(*(trav + 1))) {
+                                /* Skip trailing "/" in a path.
+                                   This is the check which prevents
+                                   inode_link'age of itable->root
+                                */
+                                break;
+                        }
+
+                        components[i].basename = trav + 1;
                         i++;
                 }
         }
@@ -238,7 +247,7 @@ resolve_path_deep (call_frame_t *frame)
         state = CALL_STATE (frame);
         resolve = state->resolve_now;
 
-        gf_log (BOUND_XL (frame)->name, GF_LOG_TRACE,
+        gf_log (BOUND_XL (frame)->name, GF_LOG_DEBUG,
                 "RESOLVE %s() seeking deep resolution of %s",
                 gf_fop_list[frame->root->op], resolve->path);
 
@@ -268,8 +277,8 @@ resolve_path_simple (call_frame_t *frame)
         server_resolve_t     *resolve = NULL;
         struct resolve_comp  *components = NULL;
         int                   ret = -1;
-        int                   par_idx = 0;
-        int                   ino_idx = 0;
+        int                   par_idx = -1;
+        int                   ino_idx = -1;
         int                   i = 0;
 
         state = CALL_STATE (frame);
@@ -287,11 +296,22 @@ resolve_path_simple (call_frame_t *frame)
                 ino_idx = i;
         }
 
+        if (ino_idx == -1) {
+                resolve->op_ret  = -1;
+                resolve->op_errno = EINVAL;
+                goto out;
+        }
+
+        if (par_idx == -1)
+                /* "/" will not have a parent */
+                goto noparent;
+
         if (!components[par_idx].inode) {
                 resolve->op_ret    = -1;
                 resolve->op_errno  = ENOENT;
                 goto out;
         }
+noparent:
 
         if (!components[ino_idx].inode &&
             (resolve->type == RESOLVE_MUST || resolve->type == RESOLVE_EXACT)) {
@@ -540,6 +560,9 @@ server_resolve (call_frame_t *frame)
 
         } else if (resolve->path) {
 
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "pure path resolution for %s (%s)",
+                        resolve->path, gf_fop_list[frame->root->op]);
                 resolve_path_deep (frame);
 
         } else  {
