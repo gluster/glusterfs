@@ -152,6 +152,75 @@ __dentry_unset (dentry_t *dentry)
 }
 
 
+static int
+__foreach_ancestor_dentry (dentry_t *dentry,
+                           int (per_dentry_fn) (dentry_t *dentry,
+                                                void *data),
+                           void *data)
+{
+        inode_t  *parent = NULL;
+        dentry_t *each = NULL;
+        int       ret = 0;
+
+        if (!dentry)
+                return 0;
+
+        ret = per_dentry_fn (dentry, data);
+        if (ret)
+                goto out;
+
+        parent = dentry->parent;
+        if (!parent)
+                goto out;
+
+        list_for_each_entry (each, &parent->dentry_list, inode_list) {
+                ret = __foreach_ancestor_dentry (each, per_dentry_fn, data);
+                if (ret)
+                        goto out;
+        }
+out:
+        return ret;
+}
+
+
+static int
+__check_cycle (dentry_t *a_dentry, void *data)
+{
+        inode_t *link_inode = NULL;
+
+        link_inode = data;
+
+        if (a_dentry->parent == link_inode)
+                return 1;
+
+        return 0;
+}
+
+
+static int
+__is_dentry_cyclic (dentry_t *dentry)
+{
+        int       ret = 0;
+        inode_t  *inode = NULL;
+        char      uuidbuf[64];
+        char     *name = "<nul>";
+
+        ret = __foreach_ancestor_dentry (dentry, __check_cycle,
+                                         dentry->inode);
+        if (ret) {
+                if (dentry->name)
+                        name = dentry->name;
+                uuid_unparse (inode->gfid, uuidbuf);
+
+                gf_log (dentry->inode->table->name, GF_LOG_CRITICAL,
+                        "detected cyclic loop formation during inode linkage.",
+                        " inode (%"PRId64"/%s) linking under itself as %s",
+                        inode->ino, uuidbuf, name);
+        }
+
+        return ret;
+}
+
 
 static void
 __inode_unhash (inode_t *inode)
@@ -674,6 +743,10 @@ __inode_link (inode_t *inode, inode_t *parent, const char *name,
 
                 if (!old_dentry || old_dentry->inode != link_inode) {
                         dentry = __dentry_create (link_inode, parent, name);
+                        if (old_inode && __is_dentry_cyclic (dentry)) {
+                                __dentry_unset (dentry);
+                                return NULL;
+                        }
                         __dentry_hash (dentry);
 
                         if (old_dentry)
