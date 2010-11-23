@@ -580,8 +580,10 @@ glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         exists = glusterd_check_volume_exists (volname);
 
         if (!exists) {
-                gf_log ("", GF_LOG_ERROR, "Volume with name %s does not exist",
-                        volname);
+                snprintf (msg, 2048, "Volume with name %s does not exist", volname);
+                gf_log ("", GF_LOG_ERROR, "%s",
+                        msg);
+                *op_errstr = gf_strdup (msg);
                 ret = -1;
         } else {
                 ret = 0;
