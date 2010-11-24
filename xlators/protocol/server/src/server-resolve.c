@@ -311,6 +311,7 @@ resolve_path_simple (call_frame_t *frame)
                 resolve->op_errno  = ENOENT;
                 goto out;
         }
+        state->loc_now->parent = inode_ref (components[par_idx].inode);
 noparent:
 
         if (!components[ino_idx].inode &&
@@ -328,7 +329,6 @@ noparent:
 
         if (components[ino_idx].inode)
                 state->loc_now->inode  = inode_ref (components[ino_idx].inode);
-        state->loc_now->parent = inode_ref (components[par_idx].inode);
 
         ret = 0;
 
