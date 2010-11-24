@@ -120,7 +120,7 @@ ia_minor (uint64_t ia_dev)
 static inline uint64_t
 ia_makedev (uint32_t ia_maj, uint32_t ia_min)
 {
-        return ((((uint64_t) ia_maj) << 32) & ia_min);
+        return ((((uint64_t) ia_maj) << 32) | ia_min);
 }
 
 
