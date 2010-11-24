@@ -632,6 +632,10 @@ rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin)
                 iobref_unref (pollin->iobref);
         }
  
+        if (pollin->hdr_iobuf) {
+                iobuf_unref (pollin->hdr_iobuf);
+        }
+
         if (pollin->private) {
                 /* */
                 GF_FREE (pollin->private);
@@ -645,7 +649,8 @@ out:
 
 rpc_transport_pollin_t *
 rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
-                            int count, struct iobref *iobref, void *private)
+                            int count, struct iobuf *hdr_iobuf,
+                            struct iobref *iobref, void *private)
 {
         rpc_transport_pollin_t *msg = NULL;
         msg = GF_CALLOC (1, sizeof (*msg), gf_common_mt_rpc_trans_pollin_t);
@@ -662,6 +667,7 @@ rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
         msg->count = count;
         msg->iobref = iobref_ref (iobref);
         msg->private = private;
+        msg->hdr_iobuf = iobuf_ref (hdr_iobuf);
 
 out:
         return msg;

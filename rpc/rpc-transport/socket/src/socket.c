@@ -1531,11 +1531,6 @@ __socket_proto_state_machine (rpc_transport_t *this,
 
                                 iobref = priv->incoming.iobref;
 
-                                iobref_add (iobref,
-                                            priv->incoming.iobuf);
-                                iobuf_unref (priv->incoming.iobuf);
-                                priv->incoming.iobuf = NULL; 
-
                                 count++;
 
                                 if (priv->incoming.payload_vector.iov_base
@@ -1548,8 +1543,12 @@ __socket_proto_state_machine (rpc_transport_t *this,
                                 *pollin = rpc_transport_pollin_alloc (this,
                                                                       vector,
                                                                       count,
+                                                                      priv->incoming.iobuf,
                                                                       iobref,
                                                                       priv->incoming.request_info);
+                                iobuf_unref (priv->incoming.iobuf);
+                                priv->incoming.iobuf = NULL;
+
                                 if (*pollin == NULL) {
                                         ret = -1;
                                         goto out;

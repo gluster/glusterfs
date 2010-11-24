@@ -264,6 +264,7 @@ struct __rdma_post_context {
         struct iovec       vector[MAX_IOVEC];
         int                count;
         struct iobref     *iobref;
+        struct iobuf      *hdr_iobuf;
         char               is_request;
         int                rdma_reads;
         rdma_reply_info_t *reply_info;

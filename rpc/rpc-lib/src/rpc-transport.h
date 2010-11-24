@@ -168,6 +168,7 @@ struct rpc_transport_pollin {
         char vectored;
         void *private;
         struct iobref *iobref;
+        struct iobuf  *hdr_iobuf;
         char is_reply;
 };
 typedef struct rpc_transport_pollin rpc_transport_pollin_t;
@@ -289,7 +290,8 @@ rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
 
 rpc_transport_pollin_t *
 rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
-                            int count, struct iobref *iobref, void *private);
+                            int count, struct iobuf *hdr_iobuf,
+                            struct iobref *iobref, void *private);
 void
 rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin);
 
