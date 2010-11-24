@@ -825,6 +825,10 @@ rdma_post_context_destroy (rdma_post_context_t *ctx)
                 iobref_unref (ctx->iobref);
         }
 
+        if (ctx->hdr_iobuf != NULL) {
+                iobuf_unref (ctx->hdr_iobuf);
+        }
+
         memset (ctx, 0, sizeof (*ctx));
 out:
         return;
@@ -2726,8 +2730,6 @@ rdma_decode_msg (rdma_peer_t *peer, rdma_post_t *post,
         char               *ptr        = NULL;
         rdma_write_array_t *write_ary  = NULL;
         size_t              header_len = 0; 
-        struct iobuf       *iobuf      = NULL;
-        struct iobref      *iobref     = NULL;
 
         header = (rdma_header_t *)post->buf;
 
@@ -2781,32 +2783,19 @@ rdma_decode_msg (rdma_peer_t *peer, rdma_post_t *post,
         /* skip terminator of reply chunk */
         ptr = ptr + sizeof (uint32_t);
         if (header->rm_type != RDMA_NOMSG) {
-                iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
-                if (iobuf == NULL) {
+                post->ctx.hdr_iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
+                if (post->ctx.hdr_iobuf == NULL) {
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         ret = -1;
                         goto out;
                 }
-
-                post->ctx.iobref = iobref = iobref_new ();
-                if (iobref == NULL) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
-                        ret = -1;
-                        goto out;
-                }
-
-                iobref_add (iobref, iobuf);
-                iobuf_unref (iobuf);
 
                 header_len = (long)ptr - (long)post->buf;
-                post->ctx.vector[0].iov_base = iobuf_ptr (iobuf);
+                post->ctx.vector[0].iov_base = iobuf_ptr (post->ctx.hdr_iobuf);
                 post->ctx.vector[0].iov_len = bytes_in_post - header_len;
                 memcpy (post->ctx.vector[0].iov_base, ptr,
                         post->ctx.vector[0].iov_len);
                 post->ctx.count = 1;
-
-                iobuf = NULL;
-                iobref = NULL;
         }
 
         post->ctx.reply_info = reply_info;
@@ -2819,14 +2808,6 @@ out:
 
                 if (write_ary != NULL) {
                         GF_FREE (write_ary);
-                }
-
-                if (iobuf != NULL) {
-                        iobuf_unref (iobuf);
-                }
-
-                if (iobref != NULL) {
-                        iobref_unref (iobref);
                 }
         }
 
@@ -3024,9 +3005,25 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                 goto out;
         }
 
+        if (post->ctx.iobref == NULL) {
+                post->ctx.iobref = iobref_new ();
+                if (post->ctx.iobref == NULL) {
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
+                        goto out;
+                }
+
+                /* handling the case where both hdr and payload of 
+                 * GF_FOP_READ_CBK were recieved in a single iobuf
+                 * because of server sending entire msg as inline without
+                 * doing rdma writes.
+                 */
+                iobref_add (post->ctx.iobref, post->ctx.hdr_iobuf);
+        }
+
         pollin = rpc_transport_pollin_alloc (peer->trans,
                                              post->ctx.vector,
                                              post->ctx.count,
+                                             post->ctx.hdr_iobuf,
                                              post->ctx.iobref,
                                              post->ctx.reply_info);
         if (pollin == NULL) {
@@ -3152,9 +3149,7 @@ rdma_recv_reply (rdma_peer_t *peer, rdma_post_t *post)
         }
 
         ctx = rpc_req->conn_private;
-        if ((post->ctx.iobref != NULL) && (ctx->rsp_iobref != NULL)) {
-                iobref_merge (post->ctx.iobref, ctx->rsp_iobref);
-        } else if (post->ctx.iobref == NULL) {
+        if (post->ctx.iobref == NULL) {
                 post->ctx.iobref = iobref_ref (ctx->rsp_iobref);
         }
 
