@@ -133,7 +133,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on"}, /* NODOC */
         {"performance.io-cache",                 "performance/io-cache",      "!perf", "on"}, /* NODOC */
         {"performance.quick-read",               "performance/quick-read",    "!perf", "on"}, /* NODOC */
-        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf",},      /* NODOC */
+        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on"},      /* NODOC */
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32",},
 
@@ -1260,6 +1260,11 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                 return -1;
         }
 
+        ret = dict_set_str (set_dict, "performance.stat-prefetch",
+                            "off");
+        if (ret)
+                goto out;
+
         nfsxl = volgen_graph_add_as (graph, "nfs/server", "nfs-server");
         if (!nfsxl) {
                 ret = -1;
@@ -1311,7 +1316,7 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                         }
                 }
                 memset (&cgraph, 0, sizeof (cgraph));
-                ret = build_client_graph (&cgraph, voliter, NULL);
+                ret = build_client_graph (&cgraph, voliter, set_dict);
                 if (ret)
                         goto out;;
                 ret = volgen_graph_merge_sub (graph, &cgraph);
@@ -1519,8 +1524,8 @@ glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
 }
 
 int
-validate_nfsopts (glusterd_volinfo_t *volinfo, 
-                    dict_t *val_dict, 
+validate_nfsopts (glusterd_volinfo_t *volinfo,
+                    dict_t *val_dict,
                     char **op_errstr)
 {
         glusterfs_graph_t graph = {{0,},};
@@ -1539,8 +1544,8 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
 }
 
 int
-validate_clientopts (glusterd_volinfo_t *volinfo, 
-                    dict_t *val_dict, 
+validate_clientopts (glusterd_volinfo_t *volinfo,
+                    dict_t *val_dict,
                     char **op_errstr)
 {
         glusterfs_graph_t graph = {{0,},};
@@ -1602,12 +1607,12 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
 
         ret = 0;
 out:
-        
+
                 return ret;
 }
 
 int
-glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, 
+glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
                               char **op_errstr)
 {
         int ret = -1;
@@ -1621,7 +1626,7 @@ glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
                         "Could not Validate  bricks");
                 goto out;
         }
-        
+
         ret = validate_clientopts (volinfo, val_dict, op_errstr);
         if (ret) {
                 gf_log ("", GF_LOG_DEBUG,
