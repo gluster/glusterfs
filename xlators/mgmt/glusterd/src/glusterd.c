@@ -274,7 +274,8 @@ init (xlator_t *this)
         gf_log (this->name, GF_LOG_NORMAL, "Using %s as working directory",
                 dirname);
 
-        snprintf (cmd_log_filename, PATH_MAX,"%s/.cmd_log_history",dirname);
+        snprintf (cmd_log_filename, PATH_MAX,"%s/.cmd_log_history",
+                  DEFAULT_LOG_FILE_DIRECTORY);
         ret = gf_cmd_log_init (cmd_log_filename);
 
         if (ret == -1) {
