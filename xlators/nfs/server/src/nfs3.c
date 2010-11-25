@@ -1055,6 +1055,7 @@ nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct nfs3_fh                  newfh = {{0}, };
         nfsstat3                        status = NFS3_OK;
         nfs3_call_state_t               *cs = NULL;
+        inode_t                         *oldinode = NULL;
 
         cs = frame->local;
         if (op_ret == -1) {
@@ -1063,7 +1064,8 @@ nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         nfs3_fh_build_child_fh (&cs->parent, buf, &newfh);
-
+        oldinode = inode_link (inode, cs->resolvedloc.parent, cs->resolvedloc.name, buf);
+        inode_unref (oldinode);
 xmit_res:
         /* Only send fresh lookup if it was a revalidate that failed. */
         if ((op_ret ==  -1) && (nfs3_is_revalidate_lookup (cs))) {

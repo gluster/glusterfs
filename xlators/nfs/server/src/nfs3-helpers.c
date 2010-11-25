@@ -3027,8 +3027,13 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
         if (ret == -2) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs lookup: %s",
                         cs->resolvedloc.path);
-                nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
-                            nfs3_fh_resolve_entry_lookup_cbk, cs);
+                if (nfs3_lookup_op (cs)) {
+                        cs->lookuptype = GF_NFS3_FRESH;
+                        cs->resolve_ret = 0;
+                        nfs3_call_resume (cs);
+                } else
+                        nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                                    nfs3_fh_resolve_entry_lookup_cbk, cs);
                 ret = 0;
         } else if (ret == -1) {
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry needs parent lookup: %s",
