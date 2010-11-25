@@ -607,7 +607,9 @@ gf_cli3_1_create_volume_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to create volume");
         cli_out ("Creation of volume %s has been %s", volname,
-                        (rsp.op_ret) ? "unsuccessful": "successful");
+                        (rsp.op_ret) ? "unsuccessful":
+                        "successful. Please start the volume to "
+                        "access data.");
 	 if (rsp.op_ret && rsp.op_errstr)
 		 cli_out ("%s", rsp.op_errstr);
 
