@@ -205,6 +205,7 @@ struct nfs3_local {
 };
 
 #define nfs3_is_revalidate_lookup(cst) ((cst)->lookuptype == GF_NFS3_REVALIDATE)
+#define nfs3_lookup_op(cst) (nfs_rpcsvc_request_procnum(cst->req) == NFS3_LOOKUP)
 typedef struct nfs3_local nfs3_call_state_t;
 
 /* Queue of ops waiting for open fop to return. */
