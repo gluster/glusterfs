@@ -44,14 +44,18 @@
 # WRITE
 # XATTROP
 
-set -e;
+#set -e;
 set -o pipefail;
+
+function fail() {
+    echo "$*: failed."; 
+    exit 1;
+}
 
 function test_mkdir()
 {
     mkdir -p $PFX/dir;
-
-    test $(stat -c '%F' $PFX/dir) == "directory";
+    test $(stat -c '%F' $PFX/dir) == "directory" || fail "mkdir"
 }
 
 
@@ -59,7 +63,7 @@ function test_create()
 {
     : > $PFX/dir/file;
 
-    test "$(stat -c '%F' $PFX/dir/file)" == "regular empty file";
+    test "$(stat -c '%F' $PFX/dir/file)" == "regular empty file" || fail "create"
 }
 
 
@@ -68,23 +72,21 @@ function test_statfs()
     local size;
 
     size=$(stat -f -c '%s' $PFX/dir/file);
-
-    test "x$size" != "x0";
+    test "x$size" != "x0" || fail "statfs"
 }
 
 
 function test_open()
 {
-    exec 4<$PFX/dir/file;
-    exec 4>&-;
+    exec 4<$PFX/dir/file || fail "open"
+    exec 4>&- || fail "open"
 }
 
 
 function test_write()
 {
     dd if=/dev/zero of=$PFX/dir/file bs=65536 count=16 2>/dev/null;
-
-    test $(stat -c '%s' $PFX/dir/file) == 1048576;
+    test $(stat -c '%s' $PFX/dir/file) == 1048576 || fail "open"
 }
 
 
@@ -93,20 +95,17 @@ function test_read()
     local count;
 
     count=$(dd if=$PFX/dir/file bs=64k count=16 2>/dev/null | wc -c);
-
-    test $count == 1048576;
+    test $count == 1048576 || fail "read"
 }
 
 
 function test_truncate()
 {
     truncate -s 512 $PFX/dir/file;
-
-    test $(stat -c '%s' $PFX/dir/file) == 512;
+    test $(stat -c '%s' $PFX/dir/file) == 512 || fail "truncate"
 
     truncate -s 0 $PFX/dir/file;
-
-    test $(stat -c '%s' $PFX/dir/file) == 0;
+    test $(stat -c '%s' $PFX/dir/file) == 0 || fail "truncate"
 }
 
 
@@ -116,24 +115,23 @@ function test_fstat()
 
     export PFX;
     msg=$(sh -c 'tail -f $PFX/dir/file --pid=$$ & sleep 1 && echo hooha > $PFX/dir/file && sleep 1');
-
-    test "x$msg" == "xhooha";
+    test "x$msg" == "xhooha" || fail "fstat"
 }
 
 
 function test_mknod()
 {
     mknod -m 0666 $PFX/dir/block b 13 42;
-
-    test "$(stat -c '%F %a %t %T' $PFX/dir/block)" == "block special file 666 d 2a";
+    test "$(stat -c '%F %a %t %T' $PFX/dir/block)" == "block special file 666 d 2a" \
+	|| fail "mknod for block device"
 
     mknod -m 0666 $PFX/dir/char c 13 42;
-
-    test "$(stat -c '%F %a %t %T' $PFX/dir/char)" == "character special file 666 d 2a";
+    test "$(stat -c '%F %a %t %T' $PFX/dir/char)" == "character special file 666 d 2a" \
+	|| fail "mknod for character device"
 
     mknod -m 0666 $PFX/dir/fifo p;
-
-    test "$(stat -c '%F %a' $PFX/dir/fifo)" == "fifo 666";
+    test "$(stat -c '%F %a' $PFX/dir/fifo)" == "fifo 666" || \
+	fail "mknod for fifo"
 }
 
 
@@ -142,12 +140,10 @@ function test_symlink()
     local msg;
 
     ln -s $PFX/dir/file $PFX/dir/symlink;
-
-    test "$(stat -c '%F' $PFX/dir/symlink)" == "symbolic link";
+    test "$(stat -c '%F' $PFX/dir/symlink)" == "symbolic link" || fail "Creation of symlink"
 
     msg=$(cat $PFX/dir/symlink);
-
-    test "x$msg" == "xhooha";
+    test "x$msg" == "xhooha" || fail "Content match for symlink"
 }
 
 
@@ -166,13 +162,13 @@ function test_hardlink()
     ino2=$(stat -c '%i' $PFX/dir/hardlink);
     nlink2=$(stat -c '%h' $PFX/dir/hardlink);
 
-    test $ino1 == $ino2;
-    test $nlink1 == 2;
-    test $nlink2 == 2;
+    test $ino1 == $ino2 || fail "Inode comparison for hardlink"
+    test $nlink1 == 2 || fail "Link count for hardlink"
+    test $nlink2 == 2 || fail "Link count for hardlink"
 
     msg=$(cat $PFX/dir/hardlink);
 
-    test "x$msg" == "xhooha";
+    test "x$msg" == "xhooha" || fail "Content match for hardlinks"
 }
 
 
@@ -187,35 +183,31 @@ function test_rename()
 
     ino1=$(stat -c '%i' $PFX/dir/file);
 
-    mv $PFX/dir/file $PFX/dir/file2;
-
+    mv $PFX/dir/file $PFX/dir/file2 || fail "mv"
     msg=$(cat $PFX/dir/file2);
-    test "x$msg" == "xhooha";
+    test "x$msg" == "xhooha" || fail "File contents comparison after mv"
 
     ino2=$(stat -c '%i' $PFX/dir/file2);
-    test $ino1 == $ino2;
+    test $ino1 == $ino2 || fail "Inode comparison after mv"
 
     mv $PFX/dir/file2 $PFX/dir/file;
-
     msg=$(cat $PFX/dir/file);
-    test "x$msg" == "xhooha";
+    test "x$msg" == "xhooha" || fail "File contents comparison after mv"
 
     ino3=$(stat -c '%i' $PFX/dir/file);
-    test $ino1 == $ino3;
+    test $ino1 == $ino3 || fail "Inode comparison after mv"
 
     #### dir
 
     ino1=$(stat -c '%i' $PFX/dir);
 
-    mv $PFX/dir $PFX/dir2;
-
+    mv $PFX/dir $PFX/dir2 || fail "Directory mv"
     ino2=$(stat -c '%i' $PFX/dir2);
-    test $ino1 == $ino2;
+    test $ino1 == $ino2 || fail "Inode comparison after directory mv"
 
-    mv $PFX/dir2 $PFX/dir;
-
+    mv $PFX/dir2 $PFX/dir || fail "Directory mv"
     ino3=$(stat -c '%i' $PFX/dir);
-    test $ino1 == $ino3;
+    test $ino1 == $ino3 || fail "Inode comparison after directory mv"
 }
 
 
@@ -229,32 +221,26 @@ function test_chmod()
     #### file
 
     mode0=$(stat -c '%a' $PFX/dir/file);
-
-    chmod 0753 $PFX/dir/file;
+    chmod 0753 $PFX/dir/file || fail "chmod"
 
     mode1=$(stat -c '%a' $PFX/dir/file);
-    test 0$mode1 == 0753;
+    test 0$mode1 == 0753 || fail "Mode comparison after chmod"
 
-    chmod 0$mode0 $PFX/dir/file;
-
+    chmod 0$mode0 $PFX/dir/file || fail "chmod"
     mode2=$(stat -c '%a' $PFX/dir/file);
-
-    test 0$mode2 == 0$mode0;
+    test 0$mode2 == 0$mode0 || fail "Mode comparison after chmod"
 
     #### dir
 
     mode0=$(stat -c '%a' $PFX/dir);
-
-    chmod 0753 $PFX/dir;
+    chmod 0753 $PFX/dir || fail "chmod"
 
     mode1=$(stat -c '%a' $PFX/dir);
-    test 0$mode1 == 0753;
+    test 0$mode1 == 0753 || fail "Mode comparison after chmod"
 
-    chmod 0$mode0 $PFX/dir;
-
+    chmod 0$mode0 $PFX/dir || fail "chmod"
     mode2=$(stat -c '%a' $PFX/dir);
-
-    test 0$mode2 == 0$mode0;
+    test 0$mode2 == 0$mode0  || fail "Mode comparison after chmod"
 }
 
 
@@ -270,42 +256,42 @@ function test_chown()
     user1=$(stat -c '%u' $PFX/dir/file);
     group1=$(stat -c '%g' $PFX/dir/file);
 
-    chown 13:42 $PFX/dir/file;
+    chown 13:42 $PFX/dir/file || fail "chown"
 
     user2=$(stat -c '%u' $PFX/dir/file);
     group2=$(stat -c '%g' $PFX/dir/file);
 
-    test $user2 == 13;
-    test $group2 == 42;
+    test $user2 == 13 || fail "User comparison after chown"
+    test $group2 == 42 || fail "Group comparison after chown"
 
-    chown $user1:$group1 $PFX/dir/file;
+    chown $user1:$group1 $PFX/dir/file || fail "chown"
 
     user2=$(stat -c '%u' $PFX/dir/file);
     group2=$(stat -c '%g' $PFX/dir/file);
 
-    test $user2 == $user1;
-    test $group2 == $group1;
+    test $user2 == $user1 || fail "User comparison after chown"
+    test $group2 == $group1 || fail "Group comparison after chown"
 
     #### dir
 
     user1=$(stat -c '%u' $PFX/dir);
     group1=$(stat -c '%g' $PFX/dir);
 
-    chown 13:42 $PFX/dir;
+    chown 13:42 $PFX/dir || fail "chown"
 
     user2=$(stat -c '%u' $PFX/dir);
     group2=$(stat -c '%g' $PFX/dir);
 
-    test $user2 == 13;
-    test $group2 == 42;
+    test $user2 == 13 || fail "User comparison after chown"
+    test $group2 == 42 || fail "Group comparison after chown"
 
-    chown $user1:$group1 $PFX/dir;
+    chown $user1:$group1 $PFX/dir || fail "chown"
 
     user2=$(stat -c '%u' $PFX/dir);
     group2=$(stat -c '%g' $PFX/dir);
 
-    test $user2 == $user1;
-    test $group2 == $group1;
+    test $user2 == $user1 || fail "User comparison after chown"
+    test $group2 == $group1 || fail "Group comparison after chown"
 }
 
 
@@ -324,21 +310,21 @@ function test_utimes()
     mod0=$(stat -c '%Y' $PFX/dir/file);
 
     sleep 1;
-    touch -a $PFX/dir/file;
+    touch -a $PFX/dir/file || fail "atime change on file"
 
     acc1=$(stat -c '%X' $PFX/dir/file);
     mod1=$(stat -c '%Y' $PFX/dir/file);
 
     sleep 1;
-    touch -m $PFX/dir/file;
+    touch -m $PFX/dir/file || fail "mtime change on file"
 
     acc2=$(stat -c '%X' $PFX/dir/file);
     mod2=$(stat -c '%Y' $PFX/dir/file);
 
-    test $acc0 != $acc1;
-    test $acc1 == $acc2;
-    test $mod0 == $mod1;
-    test $mod1 != $mod2;
+    test $acc0 != $acc1 || fail "atime mismatch comparison on file"
+    test $acc1 == $acc2 || fail "atime match comparison on file"
+    test $mod0 == $mod1 || fail "mtime match comparison on file"
+    test $mod1 != $mod2 || fail "mtime mismatch comparison on file"
 
     #### dir
 
@@ -346,85 +332,86 @@ function test_utimes()
     mod0=$(stat -c '%Y' $PFX/dir);
 
     sleep 1;
-    touch -a $PFX/dir;
+    touch -a $PFX/dir || fail "atime change on directory"
 
     acc1=$(stat -c '%X' $PFX/dir);
     mod1=$(stat -c '%Y' $PFX/dir);
 
     sleep 1;
-    touch -m $PFX/dir;
+    touch -m $PFX/dir || fail "mtime change on directory"
 
     acc2=$(stat -c '%X' $PFX/dir);
     mod2=$(stat -c '%Y' $PFX/dir);
 
-    test $acc0 != $acc1;
-    test $acc1 == $acc2;
-    test $mod0 == $mod1;
-    test $mod1 != $mod2;
+    test $acc0 != $acc1 || fail "atime mismatch comparison on directory"
+    test $acc1 == $acc2 || fail "atime match comparison on directory"
+    test $mod0 == $mod1 || fail "mtime match comparison on directory"
+    test $mod1 != $mod2 || fail "mtime mismatch comparison on directory"
 }
 
 
 function test_locks()
 {
-    exec 200>$PFX/dir/lockfile;
+    exec 200>$PFX/dir/lockfile || fail "exec"
 
     ## exclusive locks test
-    flock -e 200;
-    ! flock -n -e $PFX/dir/lockfile -c true;
-    ! flock -n -s $PFX/dir/lockfile -c true;
-    flock -u 200;
+    flock -e 200 || fail "flock -e"
+    ! flock -n -e $PFX/dir/lockfile -c true || fail "! flock -n -e"
+    ! flock -n -s $PFX/dir/lockfile -c true || fail "! flock -n -s"
+    flock -u 200 || fail "flock -u"
 
     ## shared locks test
-    flock -s 200;
-    ! flock -n -e $PFX/dir/lockfile -c true;
-    flock -n -s $PFX/dir/lockfile -c true;
-    flock -u 200;
+    flock -s 200 || fail "flock -s"
+    ! flock -n -e $PFX/dir/lockfile -c true || fail "! flock -n -e"
+    flock -n -s $PFX/dir/lockfile -c true || fail "! flock -n -s"
+    flock -u 200 || fail "flock -u"
 
-    exec 200>&-;
+    exec 200>&- || fail "exec"
 
 }
 
 
 function test_readdir()
 {
-    /bin/ls $PFX/dir >/dev/null
+    /bin/ls $PFX/dir >/dev/null || fail "ls"
 }
 
 
 function test_setxattr()
 {
-    setfattr -n trusted.testing -v c00k33 $PFX/dir/file;
+    setfattr -n trusted.testing -v c00k33 $PFX/dir/file || fail "setfattr"
 }
 
 
 function test_listxattr()
 {
-    getfattr -m trusted $PFX/dir/file 2>/dev/null | grep -q trusted.testing;
+    getfattr -m trusted $PFX/dir/file 2>/dev/null | grep -q trusted.testing || fail "getfattr"
 }
 
 
 function test_getxattr()
 {
-    getfattr -n trusted.testing $PFX/dir/file 2>/dev/null | grep -q c00k33;
+    getfattr -n trusted.testing $PFX/dir/file 2>/dev/null | grep -q c00k33 || fail "getfattr"
 }
 
 
 function test_removexattr()
 {
-    setfattr -x trusted.testing $PFX/dir/file;
-    getfattr -n trusted.testing $PFX/dir/file 2>&1 | grep -q 'No such attribute';
+    setfattr -x trusted.testing $PFX/dir/file || fail "setfattr remove"
+    getfattr -n trusted.testing $PFX/dir/file 2>&1 | grep -q 'No such attribute' \
+	|| fail "getfattr"
 }
 
 
 function test_unlink()
 {
-    rm $PFX/dir/file;
+    rm $PFX/dir/file || fail "rm"
 }
 
 
 function test_rmdir()
 {
-    rm -rf $PFX;
+    rm -rf $PFX || fail "rm -rf"
 }
 
 
