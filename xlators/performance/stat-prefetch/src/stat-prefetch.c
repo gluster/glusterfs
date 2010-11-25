@@ -27,7 +27,7 @@ typedef enum {
         SP_EXPECT,
         SP_DONT_EXPECT,
         SP_DONT_CARE
-}sp_expect_t;
+} sp_expect_t;
 
 
 void
@@ -787,6 +787,9 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
                                 continue;
                         }
 
+                        if (uuid_is_null (entry->d_stat.ia_gfid))
+                                continue;
+
                         new = gf_dirent_for_name (entry->d_name);
                         if (new == NULL) {
                                 goto unlock;
@@ -966,6 +969,9 @@ void
 sp_is_empty (dict_t *this, char *key, data_t *value, void *data)
 {
         char *ptr = data;
+
+        if (strcmp (key, "gfid-req") == 0)
+                return;
 
         if (ptr && *ptr) {
                 *ptr = 0;
