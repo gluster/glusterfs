@@ -4433,8 +4433,8 @@ out:
         else
                 ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_ACC, NULL);
 
-        if (dict)
-                dict_unref (dict);
+//        if (dict)
+//                dict_unref (dict);
 
         glusterd_op_sm ();
 }
