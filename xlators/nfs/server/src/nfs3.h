@@ -134,6 +134,10 @@ struct nfs3_state {
         int                     fdcount;
 };
 
+typedef enum nfs3_lookup_type {
+        GF_NFS3_REVALIDATE = 1,
+        GF_NFS3_FRESH,
+} nfs3_lookup_type_t;
 
 typedef int (*nfs3_resume_fn_t) (void *cs);
 /* Structure used to communicate state between a fop and its callback.
@@ -197,8 +201,10 @@ struct nfs3_local {
         int                     hashidx;
         fd_t                    *resolve_dir_fd;
         char                    *resolventry;
+        nfs3_lookup_type_t      lookuptype;
 };
 
+#define nfs3_is_revalidate_lookup(cst) ((cst)->lookuptype == GF_NFS3_REVALIDATE)
 typedef struct nfs3_local nfs3_call_state_t;
 
 /* Queue of ops waiting for open fop to return. */
