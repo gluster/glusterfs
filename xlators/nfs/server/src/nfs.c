@@ -639,6 +639,13 @@ init (xlator_t *this) {
                 goto err;
         }
 
+        ret = nfs_init_versions (nfs, this);
+        if (ret == -1) {
+                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to initialize "
+                        "protocols");
+                goto err;
+        }
+
         ret = 0;
 err:
         if (ret == 0)
@@ -653,7 +660,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 {
         struct nfs_state        *nfs = NULL;
         xlator_t                *subvol = NULL;
-        int                     ret = -1;
 
         nfs = (struct nfs_state *)this->private;
         subvol = (xlator_t *)data;
@@ -662,21 +668,9 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                 event);
         switch (event)
         {
-                case GF_EVENT_CHILD_CONNECTING:
                 case GF_EVENT_CHILD_UP:
                 {
                         nfs_startup_subvolume (this, subvol);
-                        if ((nfs->upsubvols == nfs->allsubvols) &&
-                            (!nfs->subvols_started)) {
-                                nfs->subvols_started = 1;
-                                gf_log (GF_NFS, GF_LOG_TRACE, "All children up,"
-                                " starting RPC");
-                                ret = nfs_init_versions (nfs, this);
-                                if (ret == -1)
-                                        gf_log (GF_NFS, GF_LOG_CRITICAL,
-                                                "Failed to initialize "
-                                                "protocols");
-                        }
                         break;
                 }
 

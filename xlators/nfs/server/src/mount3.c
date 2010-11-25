@@ -37,6 +37,7 @@
 #include "locking.h"
 #include "iatt.h"
 #include "nfs-mem-types.h"
+#include "nfs.h"
 
 
 #include <errno.h>
@@ -736,6 +737,7 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         struct mount3_state     *ms = NULL;
         mountstat3              mntstat = MNT3ERR_SERVERFAULT;
         struct mnt3_export      *exp = NULL;
+        struct nfs_state        *nfs = NULL;
 
         if (!req)
                 return -1;
@@ -761,6 +763,15 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
         exp = mnt3_mntpath_to_export (ms, path);
         if (!exp) {
+                ret = -1;
+                mntstat = MNT3ERR_NOENT;
+                goto mnterr;
+        }
+
+        nfs = (struct nfs_state *)ms->nfsx->private;
+        if (!nfs_subvolume_started (nfs, exp->vol)) {
+                gf_log (GF_MNT, GF_LOG_DEBUG, "Volume %s not started",
+                        exp->vol->name);
                 ret = -1;
                 mntstat = MNT3ERR_NOENT;
                 goto mnterr;
@@ -1150,11 +1161,20 @@ mnt3_xlchildren_to_exports (rpcsvc_t *svc, struct mount3_state *ms)
         int                     ret = -1;
         char                    *addrstr = NULL;
         struct mnt3_export      *ent = NULL;
+        struct nfs_state        *nfs = NULL;
 
         if ((!ms) || (!svc))
                 return NULL;
 
+        nfs = (struct nfs_state *)ms->nfsx->private;
         list_for_each_entry(ent, &ms->exportlist, explist) {
+
+                /* If volume is not started yet, do not list it for tools like
+                 * showmount.
+                 */
+                if (!nfs_subvolume_started (nfs, ent->vol))
+                        continue;
+
                 namelen = strlen (ent->expname) + 1;
                 elist = GF_CALLOC (1, sizeof (*elist), gf_nfs_mt_exportnode);
                 if (!elist) {
