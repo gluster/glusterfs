@@ -100,12 +100,6 @@ struct nfs_fop_local {
         char            newpath[NFS_NAME_MAX];
         xlator_t        *nfsx;
         dict_t          *dictgfid;
-
-        /* Determine whether the call was a lookup revalidate in cases where
-         * lookup fails. Mangle the copied loc_t to perform a fresh lookup
-         */
-        int             is_revalidate;
-        loc_t           revalidate_loc;
 };
 
 extern struct nfs_fop_local *
