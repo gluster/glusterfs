@@ -390,6 +390,7 @@ struct rpcsvc_request {
 #define nfs_rpcsvc_request_record_iob(rq)   ((rq)->recordiob)
 #define nfs_rpcsvc_request_record_ref(req)  (iobuf_ref ((req)->recordiob))
 #define nfs_rpcsvc_request_record_unref(req) (iobuf_unref ((req)->recordiob))
+#define nfs_rpcsvc_request_procnum(rq)      ((rq)->procnum)
 
 
 #define RPCSVC_ACTOR_SUCCESS    0
