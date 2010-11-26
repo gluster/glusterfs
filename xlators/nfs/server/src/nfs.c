@@ -641,15 +641,18 @@ init (xlator_t *this) {
 
         ret = nfs_init_versions (nfs, this);
         if (ret == -1) {
-                gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to initialize "
+                gf_log (GF_NFS, GF_LOG_ERROR, "Failed to initialize "
                         "protocols");
+                /* Do not return an error on this. If we dont return
+                 * an error, the process keeps running and it helps
+                 * to point out where the log is by doing ps ax|grep gluster.
+                 */
+                ret = 0;
                 goto err;
         }
 
-        ret = 0;
+        gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
 err:
-        if (ret == 0)
-                gf_log (GF_NFS, GF_LOG_INFO, "NFS service started");
 
         return ret;
 }
