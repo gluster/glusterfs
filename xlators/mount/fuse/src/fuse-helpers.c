@@ -289,7 +289,8 @@ gf_fuse_stat2attr (struct iatt *st, struct fuse_attr *fa)
         fa->nlink      = st->ia_nlink;
         fa->uid        = st->ia_uid;
         fa->gid        = st->ia_gid;
-        fa->rdev       = st->ia_rdev;
+        fa->rdev       = makedev (ia_major (st->ia_rdev),
+                                  ia_minor (st->ia_rdev));
 #if FUSE_KERNEL_MINOR_VERSION >= 9
         fa->blksize    = st->ia_blksize;
 #endif
