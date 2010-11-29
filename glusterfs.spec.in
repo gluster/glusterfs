@@ -97,7 +97,6 @@ is in userspace and easily manageable.
 
 This package provides support to FUSE based clients.
 
-
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -129,6 +128,12 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 %post core
 /sbin/ldconfig -n %{_libdir}
 /sbin/chkconfig --add glusterd
+#killall glusterfsd,glusterfs,glusterd
+/usr/bin/killall glusterfsd 2>/dev/null || true;
+/usr/bin/killall glusterfs 2>/dev/null || true;
+/usr/bin/killall glusterd 2>/dev/null || true;
+#start glusterd
+/usr/sbin/glusterd
 
 %postun core
 /sbin/ldconfig -n %{_libdir}
