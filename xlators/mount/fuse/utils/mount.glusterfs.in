@@ -82,7 +82,7 @@ start_glusterfs ()
     fi
 
     if [ -n "$direct_io_mode" ]; then
-	cmd_line=$(echo "$cmd_line --disable-direct-io-mode");
+	cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
 
     if [ -n "$volume_name" ]; then
