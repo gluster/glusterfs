@@ -208,6 +208,8 @@ __is_dentry_cyclic (dentry_t *dentry)
         ret = __foreach_ancestor_dentry (dentry, __check_cycle,
                                          dentry->inode);
         if (ret) {
+                inode = dentry->inode;
+
                 if (dentry->name)
                         name = dentry->name;
                 uuid_unparse (inode->gfid, uuidbuf);
