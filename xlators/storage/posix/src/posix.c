@@ -634,6 +634,18 @@ posix_do_utimes (xlator_t *this,
 {
         int32_t ret = -1;
         struct timeval tv[2]     = {{0,},{0,}};
+        struct stat stat;
+        int    is_symlink = 0;
+
+        ret = sys_lstat (path, &stat);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s (%s)", path, strerror (errno));
+                goto out;
+        }
+
+        if (S_ISLNK (stat.st_mode))
+                is_symlink = 1;
 
         tv[0].tv_sec  = stbuf->st_atime;
         tv[0].tv_usec = ST_ATIM_NSEC (stbuf) / 1000;
@@ -642,9 +654,14 @@ posix_do_utimes (xlator_t *this,
 
         ret = lutimes (path, tv);
         if ((ret == -1) && (errno == ENOSYS)) {
+                if (is_symlink) {
+                        ret = 0;
+                        goto out;
+                }
                 ret = utimes (path, tv);
         }
 
+out:
         return ret;
 }
 
