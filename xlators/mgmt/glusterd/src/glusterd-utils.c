@@ -128,8 +128,10 @@ glusterd_is_local_addr (char *hostname)
         struct          ifconf buf = {0,};
         int             sd = -1;
         struct ifreq    *ifr = NULL;
+        struct ifreq    *ifr_end = NULL;
         int32_t         size = 0;
-        int32_t         num_req = 0;
+        char            buff[1024] = {0,};
+        gf_boolean_t    need_free = _gf_false;
 
         ret = getaddrinfo (hostname, NULL, NULL, &result);
 
@@ -146,13 +148,12 @@ glusterd_is_local_addr (char *hostname)
         }
 
 
-        sd = socket (PF_UNIX, SOCK_DGRAM, 0);
+        sd = socket (AF_INET, SOCK_DGRAM, 0);
         if (sd == -1)
                 goto out;
 
-        buf.ifc_len = sizeof (struct ifreq);
-        buf.ifc_req = GF_CALLOC (1, sizeof (struct ifreq),
-                                 gf_gld_mt_ifreq);
+        buf.ifc_len = sizeof (buff);
+        buf.ifc_buf = buff;
         size = buf.ifc_len;
 
         ret = ioctl (sd, SIOCGIFCONF, &buf);
@@ -163,18 +164,21 @@ glusterd_is_local_addr (char *hostname)
         while (size <= buf.ifc_len) {
                 size += sizeof (struct ifreq);
                 buf.ifc_len = size;
-                buf.ifc_req = GF_REALLOC (buf.ifc_req, size);
+                if (need_free)
+                        GF_FREE (buf.ifc_req);
+                buf.ifc_req = GF_CALLOC (1, size, gf_gld_mt_ifreq);
+                need_free = 1;
                 ret = ioctl (sd, SIOCGIFCONF, &buf);
                 if (ret) {
                         goto out;
                 }
         }
 
+        ifr_end = (struct ifreq *)&buf.ifc_buf[buf.ifc_len];
+
         for (res = result; res != NULL; res = res->ai_next) {
                 ifr = buf.ifc_req;
-                num_req = size / sizeof (struct ifreq) - 1;
-
-                while (num_req--) {
+                while (ifr < ifr_end) {
                         if ((ifr->ifr_addr.sa_family == res->ai_addr->sa_family)
                             && (memcmp (&ifr->ifr_addr, res->ai_addr,
                                         res->ai_addrlen) == 0)) {
@@ -192,7 +196,7 @@ out:
         if (result)
                 freeaddrinfo (result);
 
-        if (buf.ifc_req)
+        if (need_free)
                 GF_FREE (buf.ifc_req);
 
         if (found)
