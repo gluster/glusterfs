@@ -397,9 +397,15 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        gf_log (frame->this->name, GF_LOG_DEBUG,
-                "reopen on %s returned %d (%"PRId64")",
-                local->loc.path, rsp.op_ret, rsp.fd);
+        if (rsp.op_ret < 0) {
+                gf_log (frame->this->name, GF_LOG_NORMAL,
+                        "reopen on %s failed (%s)",
+                        local->loc.path, rsp.op_ret, strerror (rsp.op_errno));
+        } else {
+                gf_log (frame->this->name, GF_LOG_NORMAL,
+                        "reopen on %s succeeded (%"PRId64")",
+                        local->loc.path, rsp.op_ret, rsp.fd);
+        }
 
         if (rsp.op_ret == -1)
                 goto out;
@@ -483,9 +489,15 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
         }
 
-        gf_log (frame->this->name, GF_LOG_DEBUG,
-                "reopendir on %s returned %d (%"PRId64")",
-                local->loc.path, rsp.op_ret, rsp.fd);
+        if (rsp.op_ret < 0) {
+                gf_log (frame->this->name, GF_LOG_NORMAL,
+                        "reopendir on %s failed (%s)",
+                        local->loc.path, rsp.op_ret, strerror (rsp.op_errno));
+        } else {
+                gf_log (frame->this->name, GF_LOG_NORMAL,
+                        "reopendir on %s succeeded (%"PRId64")",
+                        local->loc.path, rsp.op_ret, rsp.fd);
+        }
 
 	if (-1 != rsp.op_ret) {
                 fdctx = local->fdctx;

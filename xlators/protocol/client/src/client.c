@@ -1583,10 +1583,13 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
 
                 client_mark_fd_bad (this);
 
-                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
-
-                if (!conf->skip_notify)
+                if (!conf->skip_notify) {
+                        gf_log (this->name, GF_LOG_NORMAL, "disconnected");
                         default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
+                } else {
+                        gf_log (this->name, GF_LOG_TRACE, "disconnected (skipped notify)");
+                }
+
                 conf->skip_notify = 0;
 
                 break;
