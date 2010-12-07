@@ -2570,6 +2570,7 @@ nfs3_fh_resolve_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                                   struct iatt *postparent)
 {
         nfs3_call_state_t       *cs = NULL;
+        inode_t                 *linked_inode = NULL;
 
         cs = frame->local;
         cs->resolve_ret = op_ret;
@@ -2583,7 +2584,12 @@ nfs3_fh_resolve_entry_lookup_cbk (call_frame_t *frame, void *cookie,
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry looked up: %s",
                         cs->resolvedloc.path);
 
-        inode_link (inode, cs->resolvedloc.parent, cs->resolvedloc.name, buf);
+        linked_inode = inode_link (inode, cs->resolvedloc.parent,
+                                   cs->resolvedloc.name, buf);
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
 err:
         nfs3_call_resume (cs);
         return 0;
@@ -2634,6 +2640,7 @@ nfs3_fh_resolve_parent_lookup_cbk (call_frame_t *frame, void *cookie,
                                   struct iatt *postparent)
 {
         nfs3_call_state_t       *cs = NULL;
+        inode_t                 *linked_inode = NULL;
 
         cs = frame->local;
         cs->resolve_ret = op_ret;
@@ -2648,7 +2655,12 @@ nfs3_fh_resolve_parent_lookup_cbk (call_frame_t *frame, void *cookie,
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Entry looked up: %s",
                         cs->resolvedloc.path);
 
-        inode_link (inode, cs->resolvedloc.parent, cs->resolvedloc.name, buf);
+        linked_inode = inode_link (inode, cs->resolvedloc.parent,
+                                   cs->resolvedloc.name, buf);
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
         nfs3_fh_resolve_entry_hard (cs);
 
 err:
@@ -2749,6 +2761,7 @@ nfs3_fh_resolve_dir_lookup_cbk (call_frame_t *frame, void *cookie,
 {
         nfs3_call_state_t       *cs = NULL;
         nfs_user_t              nfu = {0, };
+        inode_t                 *linked_inode = NULL;
 
         cs = frame->local;
         cs->resolve_ret = op_ret;
@@ -2764,7 +2777,13 @@ nfs3_fh_resolve_dir_lookup_cbk (call_frame_t *frame, void *cookie,
                         cs->resolvedloc.path);
 
         nfs_user_root_create (&nfu);
-        inode_link (inode, cs->resolvedloc.parent, cs->resolvedloc.name, buf);
+        linked_inode = inode_link (inode, cs->resolvedloc.parent,
+                                   cs->resolvedloc.name, buf);
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
+
         nfs_opendir (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
                      nfs3_fh_resolve_opendir_cbk, cs);
 

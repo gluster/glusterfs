@@ -1029,7 +1029,6 @@ nfs3_fresh_lookup (nfs3_call_state_t *cs)
         gf_log (GF_NFS3, GF_LOG_DEBUG, "inode needs fresh lookup");
         inode_unlink (cs->resolvedloc.inode, cs->resolvedloc.parent,
                       cs->resolventry);
-        inode_unref (cs->resolvedloc.inode);
         nfs_loc_wipe (&cs->resolvedloc);
 
         /* Store pointer to currently allocated resolventry because it gets over
@@ -1065,7 +1064,6 @@ nfs3svc_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         nfs3_fh_build_child_fh (&cs->parent, buf, &newfh);
         oldinode = inode_link (inode, cs->resolvedloc.parent, cs->resolvedloc.name, buf);
-        inode_unref (oldinode);
 xmit_res:
         /* Only send fresh lookup if it was a revalidate that failed. */
         if ((op_ret ==  -1) && (nfs3_is_revalidate_lookup (cs))) {
@@ -1078,6 +1076,10 @@ xmit_res:
         nfs3_lookup_reply (cs->req, status, &newfh, buf, postparent);
         nfs3_call_state_wipe (cs);
 out:
+        if (oldinode) {
+                inode_lookup (oldinode);
+                inode_unref (oldinode);
+        }
         return 0;
 }
 
@@ -3188,11 +3190,6 @@ nfs3svc_remove_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 nfs3_fdcache_remove (nfs3, openfd);
          }
 
-         /* This is the unref equivalent of the ref done when the inode was
-          * created on a lookup or a create request.
-          * The inode is finally unrefed in call state wipe.
-          */
-        inode_unref (cs->resolvedloc.inode);
 do_not_unref_cached_fd:
         nfs3_log_common_res (nfs_rpcsvc_request_xid (cs->req), "REMOVE", stat,
                              op_errno);
@@ -3352,7 +3349,6 @@ nfs3svc_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (op_ret == -1)
                 stat = nfs3_errno_to_nfsstat3 (op_errno);
         else {
-                inode_unref (cs->resolvedloc.inode);
                 stat = NFS3_OK;
         }
 

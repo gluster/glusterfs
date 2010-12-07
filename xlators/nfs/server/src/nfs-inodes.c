@@ -74,11 +74,12 @@ nfs_inode_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = frame->local;
         fop_create_cbk_t        progcbk = NULL;
+        inode_t                 *linked_inode = NULL;
 
         if (op_ret == -1)
                 goto do_not_link;
 
-        inode_link (inode, nfl->parent, nfl->path, buf);
+        linked_inode = inode_link (inode, nfl->parent, nfl->path, buf);
 
 do_not_link:
         /* NFS does not need it, upper layers should not expect the pointer to
@@ -90,6 +91,12 @@ do_not_link:
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, fd, inode, buf,
                          preparent, postparent);
+
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
+
         return 0;
 }
 
@@ -139,17 +146,23 @@ nfs_inode_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = frame->local;
         fop_mkdir_cbk_t         progcbk = NULL;
+        inode_t                 *linked_inode = NULL;
 
         if (op_ret == -1)
                 goto do_not_link;
 
-        inode_link (inode, nfl->parent, nfl->path, buf);
+        linked_inode = inode_link (inode, nfl->parent, nfl->path, buf);
 
 do_not_link:
         inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
+
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
 
         return 0;
 }
@@ -296,18 +309,25 @@ nfs_inode_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = NULL;
         fop_link_cbk_t          progcbk = NULL;
+        inode_t                 *linked_inode = NULL;
 
         if (op_ret == -1)
                 goto do_not_link;
 
         nfl = frame->local;
-        inode_link (inode, nfl->newparent, nfl->path, buf);
+        linked_inode = inode_link (inode, nfl->newparent, nfl->path, buf);
 
 do_not_link:
         inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
+
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
+
         return 0;
 }
 
@@ -349,6 +369,7 @@ nfs_inode_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto do_not_unlink;
 
         inode_unlink (nfl->inode, nfl->parent, nfl->path);
+        inode_forget (nfl->inode, 0);
 
 do_not_unlink:
         inodes_nfl_to_prog_data (nfl, progcbk, frame);
@@ -396,6 +417,7 @@ nfs_inode_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto do_not_unlink;
 
         inode_unlink (nfl->inode, nfl->parent, nfl->path);
+        inode_forget (nfl->inode, 0);
 
 do_not_unlink:
         inodes_nfl_to_prog_data (nfl, progcbk, frame);
@@ -438,19 +460,26 @@ nfs_inode_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = NULL;
         fop_mknod_cbk_t         progcbk = NULL;
+        inode_t                 *linked_inode = NULL;
 
         nfl = frame->local;
 
         if (op_ret == -1)
                 goto do_not_link;
 
-        inode_link (inode, nfl->parent, nfl->path, buf);
+        linked_inode = inode_link (inode, nfl->parent, nfl->path, buf);
 
 do_not_link:
         inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
+
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
+
         return 0;
 }
 
@@ -488,18 +517,24 @@ nfs_inode_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         struct nfs_fop_local    *nfl = NULL;
         fop_symlink_cbk_t       progcbk = NULL;
+        inode_t                 *linked_inode = NULL;
 
         nfl = frame->local;
         if (op_ret == -1)
                 goto do_not_link;
 
-        inode_link (inode, nfl->parent, nfl->path, buf);
+        linked_inode = inode_link (inode, nfl->parent, nfl->path, buf);
 
 do_not_link:
         inodes_nfl_to_prog_data (nfl, progcbk, frame);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
+
+        if (linked_inode) {
+                inode_lookup (linked_inode);
+                inode_unref (linked_inode);
+        }
 
         return 0;
 }
