@@ -56,6 +56,8 @@
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
 
+#define GFID_XATTR_KEY "trusted.gfid"
+
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
 
@@ -216,7 +218,7 @@ posix_fill_gfid_path (xlator_t *this, const char *path, struct iatt *iatt)
         if (!iatt)
                 return 0;
 
-        ret = sys_lgetxattr (path, "trusted.gfid", iatt->ia_gfid, 16);
+        ret = sys_lgetxattr (path, GFID_XATTR_KEY, iatt->ia_gfid, 16);
         /* Return value of getxattr */
         if (ret == 16)
                 ret = 0;
@@ -233,7 +235,7 @@ posix_fill_gfid_fd (xlator_t *this, int fd, struct iatt *iatt)
         if (!iatt)
                 return 0;
 
-        ret = sys_fgetxattr (fd, "trusted.gfid", iatt->ia_gfid, 16);
+        ret = sys_fgetxattr (fd, GFID_XATTR_KEY, iatt->ia_gfid, 16);
         /* Return value of getxattr */
         if (ret == 16)
                 ret = 0;
@@ -388,7 +390,7 @@ posix_gfid_set (xlator_t *this, const char *path, dict_t *xattr_req)
         if (sys_lstat (path, &stat) != 0)
                 return 0;
 
-        ret = sys_lgetxattr (path, "trusted.gfid", uuid_curr, 16);
+        ret = sys_lgetxattr (path, GFID_XATTR_KEY, uuid_curr, 16);
 
         if (ret == 16)
                 return 0;
@@ -397,7 +399,7 @@ posix_gfid_set (xlator_t *this, const char *path, dict_t *xattr_req)
         if (ret)
                 goto out;
 
-        ret = sys_lsetxattr (path, "trusted.gfid", uuid_req, 16, XATTR_CREATE);
+        ret = sys_lsetxattr (path, GFID_XATTR_KEY, uuid_req, 16, XATTR_CREATE);
 
 out:
         return ret;
@@ -2903,6 +2905,8 @@ posix_setxattr (call_frame_t *frame, xlator_t *this,
 
         MAKE_REAL_PATH (real_path, this, loc->path);
 
+        dict_del (dict, GFID_XATTR_KEY);
+
         trav = dict->members_list;
 
         while (trav) {
@@ -3146,6 +3150,7 @@ posix_getxattr (call_frame_t *frame, xlator_t *this,
         op_ret = size;
 
         if (dict) {
+                dict_del (dict, GFID_XATTR_KEY);
                 dict_ref (dict);
         }
 
@@ -3277,6 +3282,7 @@ posix_fgetxattr (call_frame_t *frame, xlator_t *this,
         op_ret = size;
 
         if (dict) {
+                dict_del (dict, GFID_XATTR_KEY);
                 dict_ref (dict);
         }
 
@@ -3367,6 +3373,8 @@ posix_fsetxattr (call_frame_t *frame, xlator_t *this,
         }
 	pfd = (struct posix_fd *)(long)tmp_pfd;
         _fd = pfd->fd;
+
+        dict_del (dict, GFID_XATTR_KEY);
 
         trav = dict->members_list;
 
