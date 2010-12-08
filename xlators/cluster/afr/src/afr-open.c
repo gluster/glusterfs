@@ -372,7 +372,7 @@ afr_prepare_loc (call_frame_t *frame, fd_t *fd)
 
         local = frame->local;
         ret = inode_path (fd->inode, NULL, (char **)&path);
-        if (ret == -1)
+        if (ret <= 0)
                 return -1;
 
         if (local->loc.path) {

@@ -410,7 +410,7 @@ gf_resolve_fd (fuse_state_t *state)
         }
 
         ret = inode_path (fd->inode, 0, &path);
-        if (!ret || !path)
+        if (ret <= 0)
                 gf_log ("", GF_LOG_WARNING,
                         "failed to do inode-path on fd %d %s", ret, path);
 
