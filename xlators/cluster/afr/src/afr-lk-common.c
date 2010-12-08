@@ -1704,8 +1704,8 @@ afr_mark_locked_nodes (xlator_t *this, fd_t *fd,
 
         priv = this->private;
 
-        afr_fd_ctx_set (this, fd);
-        if (ret < 0)
+        ret = afr_fd_ctx_set (this, fd);
+        if (ret)
                 goto out;
 
         ret = fd_ctx_get (fd, this, &tmp);
