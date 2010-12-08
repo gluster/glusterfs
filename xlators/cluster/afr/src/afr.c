@@ -874,6 +874,13 @@ init (xlator_t *this)
 		goto out;
 	}
 
+        for (i = 0; i < child_count; i++)
+                priv->child_up[i] = -1; /* start with unknown state.
+                                           this initialization needed
+                                           for afr_notify() to work
+                                           reliably
+                                        */
+
 	priv->children = GF_CALLOC (sizeof (xlator_t *), child_count,
                                     gf_afr_mt_xlator_t);
 	if (!priv->children) {
