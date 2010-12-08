@@ -2532,6 +2532,7 @@ afr_notify (xlator_t *this, int32_t event,
 
         int i           = -1;
         int up_children = 0;
+        int down_children = 0;
 
         priv = this->private;
 
@@ -2562,7 +2563,7 @@ afr_notify (xlator_t *this, int32_t event,
                 */
 
                 for (i = 0; i < priv->child_count; i++)
-                        if (child_up[i])
+                        if (child_up[i] == 1)
                                 up_children++;
 
                 if (up_children == 1) {
@@ -2592,10 +2593,10 @@ afr_notify (xlator_t *this, int32_t event,
                 */
 
                 for (i = 0; i < priv->child_count; i++)
-                        if (child_up[i])
-                                up_children++;
+                        if (child_up[i] == 0)
+                                down_children++;
 
-                if (up_children == 0) {
+                if (down_children == priv->child_count) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "All subvolumes are down. Going offline "
                                 "until atleast one of them comes back up.");
