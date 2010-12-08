@@ -1137,7 +1137,7 @@ afr_fd_ctx_set (xlator_t *this, fd_t *fd)
 {
         afr_private_t * priv = NULL;
 
-        int ret    = 0;
+        int ret    = -1;
 
         uint64_t       ctx;
         afr_fd_ctx_t * fd_ctx = NULL;
