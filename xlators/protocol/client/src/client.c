@@ -1559,6 +1559,7 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         switch (event) {
         case RPC_CLNT_CONNECT:
         {
+                conf->connected = 1;
                 // connect happened, send 'get_supported_versions' mop
                 ret = dict_get_str (this->options, "disable-handshake",
                                     &handshake);
@@ -1584,12 +1585,17 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 client_mark_fd_bad (this);
 
                 if (!conf->skip_notify) {
-                        gf_log (this->name, GF_LOG_NORMAL, "disconnected");
+                        if (conf->connected)
+                                gf_log (this->name, GF_LOG_NORMAL,
+                                        "disconnected");
                         default_notify (this, GF_EVENT_CHILD_DOWN, NULL);
                 } else {
-                        gf_log (this->name, GF_LOG_TRACE, "disconnected (skipped notify)");
+                        if (conf->connected)
+                                gf_log (this->name, GF_LOG_DEBUG,
+                                        "disconnected (skipped notify)");
                 }
 
+                conf->connected = 0;
                 conf->skip_notify = 0;
 
                 break;
