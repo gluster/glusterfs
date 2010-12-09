@@ -358,7 +358,7 @@ rdma_post_send (struct ibv_qp *qp,
         }, *bad_wr;
 
         if (!qp)
-                return -1;
+                return EINVAL;
 
         return ibv_post_send (qp, &wr, &bad_wr);
 }
@@ -414,7 +414,9 @@ __rdma_send_error (rdma_peer_t *peer, rdma_ioq_t *entry, rdma_post_t *post,
                 ret = len;
         } else {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "ibv_post_send failed with ret = %d", ret);
+                        "rdma_post_send (to %s) failed with ret = %d (%s)",
+                        peer->trans->peerinfo.identifier, ret,
+                        (ret > 0) ? strerror (ret) : "");
                 rdma_post_unref (post);
                 __rdma_disconnect (peer->trans);
                 ret = -1;
@@ -1092,7 +1094,9 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
                 ret = len;
         } else {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "ibv_post_send failed with ret = %d", ret);
+                        "rdma_post_send (to %s) failed with ret = %d (%s)",
+                        peer->trans->peerinfo.identifier, ret,
+                        (ret > 0) ? strerror (ret) : "");
                 rdma_post_unref (post);
                 __rdma_disconnect (peer->trans);
                 ret = -1;
@@ -1199,7 +1203,9 @@ __rdma_send_reply_inline (rdma_peer_t *peer, rdma_ioq_t *entry,
                 ret = send_size;
         } else {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "ibv_post_send failed with ret = %d", ret);
+                        "rdma_post_send (to %s) failed with ret = %d (%s)",
+                        peer->trans->peerinfo.identifier, ret,
+                        (ret > 0) ? strerror (ret) : "");
                 rdma_post_unref (post);
                 __rdma_disconnect (peer->trans);
                 ret = -1;
@@ -1361,6 +1367,13 @@ __rdma_write (rdma_peer_t *peer, rdma_post_t *post, struct iovec *vec,
         wr.wr.rdma.remote_addr = writech->wc_target.rs_offset;
 
         ret = ibv_post_send(peer->qp, &wr, &bad_wr);
+        if (ret) {
+                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG, "rdma write to "
+                        "client (%s) failed with ret = %d (%s)",
+                        peer->trans->peerinfo.identifier, ret,
+                        (ret > 0) ? strerror (ret) : "");
+                ret = -1;
+        }
 
         GF_FREE (sg_list);
 out:
@@ -1467,16 +1480,17 @@ __rdma_send_reply_type_nomsg (rdma_peer_t *peer, rdma_ioq_t *entry,
         ret = __rdma_do_rdma_write (peer, post, vector, count, entry->iobref,
                                     reply_info);
         if (ret == -1) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "rdma write to client failed");
                 rdma_post_unref (post);
                 goto out;
         }
 
         ret = rdma_post_send (peer->qp, post, (buf - post->buf));
-        if (ret == -1) {
+        if (ret) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "rdma send to client failed");
+                        "rdma_post_send to client (%s) failed with "
+                        "ret = %d (%s)", peer->trans->peerinfo.identifier, ret, 
+                        (ret > 0) ? strerror (ret) : "");
+                ret = -1;
                 rdma_post_unref (post);
         } else {
                 ret = payload_size;
@@ -1546,8 +1560,6 @@ __rdma_send_reply_type_msg (rdma_peer_t *peer, rdma_ioq_t *entry,
                                     entry->prog_payload_count, entry->iobref,
                                     reply_info);
         if (ret == -1) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "rdma write to client failed");
                 rdma_post_unref (post);
                 goto out;
         }
@@ -1559,10 +1571,13 @@ __rdma_send_reply_type_msg (rdma_peer_t *peer, rdma_ioq_t *entry,
         ptr += iov_length (entry->proghdr, entry->proghdr_count);
 
         ret = rdma_post_send (peer->qp, post, (ptr - post->buf));
-        if (ret == -1) {
+        if (ret) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "rdma send to client failed");
+                        "rdma send to client (%s) failed with ret = %d (%s)",
+                        peer->trans->peerinfo.identifier, ret,
+                        (ret > 0) ? strerror (ret) : "");
                 rdma_post_unref (post);
+                ret = -1;
         } else {
                 ret = send_size + payload_size;
         }
@@ -2889,7 +2904,12 @@ __rdma_read (rdma_peer_t *peer, rdma_post_t *post, struct iovec *to,
         wr.wr.rdma.rkey = readch->rc_target.rs_handle;
 
         ret = ibv_post_send (peer->qp, &wr, &bad_wr);
-        if (ret == -1) {
+        if (ret) {
+                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG, "rdma read from client "
+                        "(%s) failed with ret = %d (%s)",
+                        peer->trans->peerinfo.identifier,
+                        ret, (ret > 0) ? strerror (ret) : "");
+                ret = -1;
                 rdma_post_unref (post);
         }
 out:
