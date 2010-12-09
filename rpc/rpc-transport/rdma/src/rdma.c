@@ -2043,10 +2043,16 @@ rdma_destroy_cq (rpc_transport_t *this)
 static int32_t
 rdma_create_cq (rpc_transport_t *this)
 {
-        rdma_private_t *priv = this->private;
-        rdma_options_t *options = &priv->options;
-        rdma_device_t *device = priv->device;
-        int32_t ret = 0;
+        rdma_private_t        *priv        = NULL;
+        rdma_options_t        *options     = NULL;
+        rdma_device_t         *device      = NULL;
+        uint64_t               send_cqe    = 0;
+        int32_t                ret         = 0;
+        struct ibv_device_attr device_attr = {{0}, };
+
+        priv = this->private;
+        options = &priv->options;
+        device = priv->device;
 
         device->recv_cq = ibv_create_cq (priv->device->context,
                                          options->recv_count * 2,
@@ -2054,45 +2060,56 @@ rdma_create_cq (rpc_transport_t *this)
                                          device->recv_chan,
                                          0);
         if (!device->recv_cq) {
-                gf_log (RDMA_LOG_NAME,
-                        GF_LOG_ERROR,
-                        "%s: creation of CQ failed",
-                        this->name);
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                        "%s: creation of CQ for device %s failed",
+                        this->name, device->device_name);
                 ret = -1;
+                goto out;
         } else if (ibv_req_notify_cq (device->recv_cq, 0)) {
-                gf_log (RDMA_LOG_NAME,
-                        GF_LOG_ERROR,
-                        "%s: ibv_req_notify_cq on CQ failed",
-                        this->name);
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                        "%s: ibv_req_notify_cq on recv CQ of device %s failed",
+                        this->name, device->device_name);
                 ret = -1;
+                goto out;
         }
     
         do {
+                ret = ibv_query_device (priv->device->context, &device_attr);
+                if (ret != 0) {
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                                "%s: ibv_query_device on %s returned %d (%s)",
+                                this->name, priv->device->device_name, ret,
+                                (ret > 0) ? strerror (ret) : "");
+                        ret = -1;
+                        goto out;
+                }
+
+                send_cqe = options->send_count * 128;
+                send_cqe = (send_cqe > device_attr.max_cqe)
+                        ? device_attr.max_cqe : send_cqe;
+
                 /* TODO: make send_cq size dynamically adaptive */
                 device->send_cq = ibv_create_cq (priv->device->context,
-                                                 options->send_count * 1024,
-                                                 device,
-                                                 device->send_chan,
-                                                 0);
+                                                 send_cqe, device,
+                                                 device->send_chan, 0);
                 if (!device->send_cq) {
-                        gf_log (RDMA_LOG_NAME,
-                                GF_LOG_ERROR,
-                                "%s: creation of send_cq failed",
-                                this->name);
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                                "%s: creation of send_cq for device %s failed",
+                                this->name, device->device_name);
                         ret = -1;
-                        break;
+                        goto out;
                 }
 
                 if (ibv_req_notify_cq (device->send_cq, 0)) {
-                        gf_log (RDMA_LOG_NAME,
-                                GF_LOG_ERROR,
-                                "%s: ibv_req_notify_cq on send_cq failed",
-                                this->name);
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                                "%s: ibv_req_notify_cq on send_cq for device %s"
+                                " failed", this->name, device->device_name);
                         ret = -1;
-                        break;
+                        goto out;
                 }
         } while (0);
 
+out:
         if (ret != 0)
                 rdma_destroy_cq (this);
 
@@ -2247,7 +2264,7 @@ rdma_create_qp (rpc_transport_t *this)
                 .cap            = {
                         .max_send_wr  = peer->send_count,
                         .max_recv_wr  = peer->recv_count,
-                        .max_send_sge = 1,
+                        .max_send_sge = 2,
                         .max_recv_sge = 1
                 },
                 .qp_type = IBV_QPT_RC
@@ -3579,8 +3596,8 @@ rdma_options_init (rpc_transport_t *this)
 
         options->send_size = GLUSTERFS_RDMA_INLINE_THRESHOLD;/*this->ctx->page_size * 4;  512 KB*/
         options->recv_size = GLUSTERFS_RDMA_INLINE_THRESHOLD;/*this->ctx->page_size * 4;  512 KB*/
-        options->send_count = 128;
-        options->recv_count = 128;
+        options->send_count = 4096;
+        options->recv_count = 4096;
 
         temp = dict_get (this->options,
                          "transport.rdma.work-request-send-count");
