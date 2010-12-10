@@ -400,7 +400,7 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (rsp.op_ret < 0) {
                 gf_log (frame->this->name, GF_LOG_NORMAL,
                         "reopen on %s failed (%s)",
-                        local->loc.path, rsp.op_ret, strerror (rsp.op_errno));
+                        local->loc.path, strerror (rsp.op_errno));
         } else {
                 gf_log (frame->this->name, GF_LOG_NORMAL,
                         "reopen on %s succeeded (%"PRId64")",
