@@ -1102,7 +1102,7 @@ rpcsvc_notify (rpc_transport_t *trans, void *mydata,
                 break;
 
         case RPC_TRANSPORT_CLEANUP:
-                listener = rpcsvc_get_listener (svc, -1, trans);
+                listener = rpcsvc_get_listener (svc, -1, trans->listener);
                 if (listener == NULL) {
                         goto out;
                 }
