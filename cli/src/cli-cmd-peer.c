@@ -40,24 +40,6 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 int cli_cmd_peer_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
                       const char **words, int wordcount);
 
-void
-cli_cmd_probe_usage ()
-{
-        cli_out ("Usage: probe <hostname>");
-}
-
-void
-cli_cmd_deprobe_usage ()
-{
-        cli_out ("Usage: detach <hostname>");
-}
-
-void
-cli_cmd_peer_status_usage ()
-{
-        cli_out ("Usage: peer status");
-}
-
 int
 cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
                    const char **words, int wordcount)
@@ -68,7 +50,7 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *dict = NULL;
 
         if (!(wordcount == 3)) {
-                cli_cmd_probe_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -113,7 +95,7 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t               *dict  = NULL;
 
         if (!(wordcount == 3) ) {
-                cli_cmd_deprobe_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -152,7 +134,7 @@ cli_cmd_peer_status_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
 
         if (wordcount != 2) {
-                cli_cmd_peer_status_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 

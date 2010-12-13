@@ -41,48 +41,6 @@ int
 cli_cmd_volume_help_cbk (struct cli_state *state, struct cli_cmd_word *in_word,
                       const char **words, int wordcount);
 
-void
-cli_cmd_volume_start_usage ()
-{
-        cli_out ("Usage: volume start <VOLNAME> [force]");
-}
-
-void
-cli_cmd_volume_stop_usage ()
-{
-        cli_out ("Usage: volume stop <VOLNAME> [force]");
-}
-
-void
-cli_cmd_volume_rename_usage ()
-{
-        cli_out ("Usage: volume rename <VOLNAME> <NEW-VOLNAME>");
-}
-
-void
-cli_cmd_volume_delete_usage ()
-{
-        cli_out ("Usage: volume delete <VOLNAME>");
-}
-
-void
-cli_cmd_volume_info_usage ()
-{
-        cli_out ("Usage: volume info [all|<VOLNAME>]");
-}
-
-void
-cli_cmd_volume_reset_usage ()
-{
-        cli_out ("Usage: volume reset <VOLNAME> ");
-}
-
-void
-cli_cmd_volume_set_usage ()
-{
-	cli_out ("Usage: volume set <VOLNAME> <KEY> <VALUE>");
-}
-
 int
 cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                          const char **words, int wordcount)
@@ -112,7 +70,7 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 }
                 proc = &cli_rpc_prog->proctable[GF1_CLI_GET_VOLUME];
         } else {
-                cli_cmd_volume_info_usage ();
+                cli_usage_out (word->pattern);
                 return -1;
         }
 
@@ -138,13 +96,6 @@ out:
 
 }
 
-
-void
-cli_cmd_sync_volume_usage ()
-{
-        cli_out ("Usage: volume sync <HOSTNAME> [all|<VOLNAME>]");
-}
-
 int
 cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
                          const char **words, int wordcount)
@@ -155,7 +106,7 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         gf1_cli_sync_volume_req req = {0,};
 
         if ((wordcount < 3) || (wordcount > 4)) {
-               cli_cmd_sync_volume_usage ();
+               cli_usage_out (word->pattern);
                goto out;
         }
 
@@ -184,13 +135,6 @@ out:
 
         return ret;
 }
-void
-cli_cmd_volume_create_usage ()
-{
-        cli_out ("Usage: volume create <NEW-VOLNAME> "
-                 "[stripe <COUNT>] [replica <COUNT>] [transport <tcp|rdma>] "
-                 "<NEW-BRICK> ...");
-}
 
 int
 cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
@@ -210,7 +154,7 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         ret = cli_cmd_volume_create_parse (words, wordcount, &options);
 
         if (ret) {
-                cli_cmd_volume_create_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -245,7 +189,7 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount != 3) {
-                cli_cmd_volume_delete_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -283,7 +227,7 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount < 3 || wordcount > 4) {
-               cli_cmd_volume_start_usage ();
+               cli_usage_out (word->pattern);
                goto out;
         }
 
@@ -296,7 +240,7 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         req.flags |= GF_CLI_FLAG_OP_FORCE;
                 } else {
                         ret = -1;
-                        cli_cmd_volume_start_usage ();
+                        cli_usage_out (word->pattern);
                         goto out;
                 }
         }
@@ -372,7 +316,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount < 3 || wordcount > 4) {
-               cli_cmd_volume_stop_usage ();
+               cli_usage_out (word->pattern);
                goto out;
         }
 
@@ -385,7 +329,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         flags |= GF_CLI_FLAG_OP_FORCE;
                 } else {
                         ret = -1;
-                        cli_cmd_volume_stop_usage ();
+                        cli_usage_out (word->pattern);
                         goto out;
                 }
         }
@@ -431,7 +375,7 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount != 4) {
-                cli_cmd_volume_rename_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -462,12 +406,6 @@ out:
         return ret;
 }
 
-void
-cli_cmd_volume_defrag_usage ()
-{
-        cli_out ("Usage: volume rebalance <VOLNAME> <start|stop|status>");
-}
-
 int
 cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
                            const char **words, int wordcount)
@@ -486,7 +424,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount != 4) {
-                cli_cmd_volume_defrag_usage();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -536,7 +474,7 @@ cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word,
         ret = cli_cmd_volume_reset_parse (words, wordcount, &options);
 
         if (ret) {
-                cli_cmd_volume_reset_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -572,7 +510,7 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
         ret = cli_cmd_volume_set_parse (words, wordcount, &options);
 
         if (ret) {
-                cli_cmd_volume_set_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -586,13 +524,6 @@ out:
 
         return ret;
 
-}
-
-void
-cli_cmd_volume_add_brick_usage ()
-{
-        cli_out ("Usage: volume add-brick <VOLNAME> "
-                 "<NEW-BRICK> ...");
 }
 
 int
@@ -612,7 +543,7 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         ret = cli_cmd_volume_add_brick_parse (words, wordcount, &options);
 
         if (ret) {
-                cli_cmd_volume_add_brick_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -635,13 +566,6 @@ out:
 }
 
 
-void
-cli_cmd_volume_remove_brick_usage ()
-{
-        cli_out ("Usage: volume remove-brick <VOLNAME> "
-                 "<BRICK> ...");
-}
-
 int
 cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
                                  struct cli_cmd_word *word, const char **words,
@@ -663,7 +587,7 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         ret = cli_cmd_volume_remove_brick_parse (words, wordcount, &options);
 
         if (ret) {
-                cli_cmd_volume_remove_brick_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -693,14 +617,6 @@ out:
 
 }
 
-void
-cli_cmd_volume_replace_brick_usage ()
-{
-        cli_out("Usage: volume replace-brick <VOLNAME> "
-                "<BRICK> <NEW-BRICK> start|pause|abort|commit|status");
-}
-
-
 int
 cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
                                   struct cli_cmd_word *word,
@@ -721,7 +637,7 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
         ret = cli_cmd_volume_replace_brick_parse (words, wordcount, &options);
 
         if (ret) {
-                cli_cmd_volume_replace_brick_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 
@@ -750,12 +666,6 @@ cli_cmd_volume_set_transport_cbk (struct cli_state *state,
         return 0;
 }
 
-void
-cli_cmd_log_filename_usage ()
-{
-        cli_out ("Usage: volume log filename <VOLNAME> [BRICK] <PATH>");
-}
-
 int
 cli_cmd_log_filename_cbk (struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
@@ -766,8 +676,8 @@ cli_cmd_log_filename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *options = NULL;
 
         if (!((wordcount == 5) || (wordcount == 6))) {
-               cli_cmd_log_filename_usage ();
-               goto out;
+                cli_usage_out (word->pattern);
+                goto out;
         }
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_LOG_FILENAME];
@@ -795,12 +705,6 @@ out:
 }
 
 
-void
-cli_cmd_log_locate_usage ()
-{
-        cli_out ("Usage: volume log locate <VOLNAME> [BRICK]");
-}
-
 int
 cli_cmd_log_locate_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         const char **words, int wordcount)
@@ -811,8 +715,8 @@ cli_cmd_log_locate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *options = NULL;
 
         if (!((wordcount == 4) || (wordcount == 5))) {
-               cli_cmd_log_locate_usage ();
-               goto out;
+                cli_usage_out (word->pattern);
+                goto out;
         }
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_LOG_LOCATE];
@@ -840,12 +744,6 @@ out:
         return ret;
 }
 
-void
-cli_cmd_log_rotate_usage ()
-{
-        cli_out ("Usage: volume log rotate <VOLNAME> [BRICK]");
-}
-
 int
 cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         const char **words, int wordcount)
@@ -856,8 +754,8 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t                  *options = NULL;
 
         if (!((wordcount == 4) || (wordcount == 5))) {
-               cli_cmd_log_rotate_usage ();
-               goto out;
+                cli_usage_out (word->pattern);
+                goto out;
         }
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_LOG_ROTATE];
@@ -918,19 +816,11 @@ struct cli_cmd volume_cmds[] = {
           cli_cmd_volume_remove_brick_cbk,
           "remove brick from volume <VOLNAME>"},
 
-        { "volume rebalance <VOLNAME> start",
+        { "volume rebalance <VOLNAME> {start|stop|status}",
           cli_cmd_volume_defrag_cbk,
-          "start rebalance of volume <VOLNAME>"},
+          "rebalance operations"},
 
-        { "volume rebalance <VOLNAME> stop",
-          cli_cmd_volume_defrag_cbk,
-          "stop rebalance of volume <VOLNAME>"},
-
-        { "volume rebalance <VOLNAME> status",
-          cli_cmd_volume_defrag_cbk,
-          "rebalance status of volume <VOLNAME>"},
-
-        { "volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status",
+        { "volume replace-brick <VOLNAME> <BRICK> <NEW-BRICK> {start|pause|abort|status}",
           cli_cmd_volume_replace_brick_cbk,
           "replace-brick operations"},
 

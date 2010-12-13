@@ -129,14 +129,8 @@ out:
         return ret;
 }
 
-void
-cli_cmd_fsm_log_usage ()
-{
-	cli_out ("Usage: fsm log [<peer-name>]");
-}
-
 int
-cli_cmd_fsm_log (struct cli_state *state, struct cli_cmd_word *in_word,
+cli_cmd_fsm_log (struct cli_state *state, struct cli_cmd_word *word,
                  const char **words, int wordcount)
 {
         int                             ret = -1;
@@ -145,7 +139,7 @@ cli_cmd_fsm_log (struct cli_state *state, struct cli_cmd_word *in_word,
         char                            *name = "";
 
         if ((wordcount != 3) && (wordcount != 2)) {
-                cli_cmd_fsm_log_usage ();
+                cli_usage_out (word->pattern);
                 goto out;
         }
 

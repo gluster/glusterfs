@@ -319,7 +319,7 @@ cli_cmd_newword (struct cli_cmd_word *word, const char *token)
 
 int
 cli_cmd_ingest (struct cli_cmd_tree *tree, char **tokens, cli_cmd_cbk_t *cbkfn,
-                const char *desc)
+                const char *desc, const char *pattern)
 {
         int                    ret = 0;
         char                 **tokenp = NULL;
@@ -351,6 +351,7 @@ cli_cmd_ingest (struct cli_cmd_tree *tree, char **tokens, cli_cmd_cbk_t *cbkfn,
 
         word->cbkfn = cbkfn;
         word->desc  = desc;
+        word->pattern = pattern;
 
         /* end of static strings in command template */
 
@@ -374,7 +375,7 @@ cli_cmd_register (struct cli_cmd_tree *tree, const char *template,
         if (!tokens)
                 return -1;
 
-        ret = cli_cmd_ingest (tree, tokens, cbk, desc);
+        ret = cli_cmd_ingest (tree, tokens, cbk, desc, template);
         if (ret)
                 goto err;
 
