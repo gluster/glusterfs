@@ -2940,7 +2940,7 @@ nfs3_fh_resolve_search_dir (nfs3_call_state_t *cs, gf_dirent_t *entries)
                 lastoff = candidate->d_off;
                 uuid_unparse (candidate->d_stat.ia_gfid, gfidstr);
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Candidate: %s, gfid: %s",
-                        PRIu64, candidate->d_name, gfidstr);
+                        candidate->d_name, gfidstr);
                 ret = nfs3_fh_resolve_check_entry (&cs->resolvefh, candidate,
                                                    cs->hashidx);
                 if (ret != GF_NFS3_FHRESOLVE_NOTFOUND)
@@ -3000,7 +3000,7 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
 
         nfs_user_root_create (&nfu);
         uuid_unparse (cs->resolvefh.gfid, gfidstr);
-        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution for: gfid 0x%s",
+        gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution for: gfid 0x%s"
                 ", hashcount: %d, current hashidx %d", gfidstr,
                 cs->resolvefh.hashcount, cs->hashidx);
         ret = nfs_root_loc_fill (cs->vol->itable, &cs->resolvedloc);
