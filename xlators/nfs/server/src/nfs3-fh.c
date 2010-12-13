@@ -200,8 +200,8 @@ nfs3_log_fh (struct nfs3_fh *fh)
 
         uuid_unparse (fh->gfid, gfidstr);
         uuid_unparse (fh->exportid, exportidstr);
-        gf_log ("nfs3-fh", GF_LOG_TRACE, "filehandle: hashcount %d, exportid %d"
-                ", gfid 0x%s", fh->hashcount, exportidstr, gfidstr);
+        gf_log ("nfs3-fh", GF_LOG_TRACE, "filehandle: hashcount %d, exportid "
+                "0x%s, gfid 0x%s", fh->hashcount, exportidstr, gfidstr);
 /*
         for (; x < fh->hashcount; ++x)
                 gf_log ("FILEHANDLE", GF_LOG_TRACE, "Hash %d: %d", x,
