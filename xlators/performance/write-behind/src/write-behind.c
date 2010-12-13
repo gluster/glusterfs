@@ -2808,35 +2808,35 @@ reconfigure (xlator_t *this, dict_t *options)
                 ret = gf_string2bytesize (str, &window_size);
                 if (ret != 0) {
                         gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
-			      "'option cache-size %s failed , Invalid"
-			      " number format, Defaulting to old value (%d)"
-			      , str, conf->window_size);
+                               "'option cache-size %s failed , Invalid"
+                               " number format, Defaulting to old value "
+                               "(%"PRIu64")", str, conf->window_size);
 			ret = -1;
 			goto out;
                 }
 
 		if (window_size < (512 * GF_UNIT_KB)) {
                         gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
-			      "'option cache-size %s' failed , Max value"
-			      "can be 512KiB, Defaulting to old value (%d)"
-			      , str, conf->window_size);
+                               "'option cache-size %s' failed , Max value"
+                               "can be 512KiB, Defaulting to old value "
+                               "(%"PRIu64")", str, conf->window_size);
 			ret = -1;
 			goto out;
                 }
 
 		if (window_size > (2 * GF_UNIT_GB)) {
                         gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
-			      "'option cache-size %s' failed , Max value"
-			      "can be 1 GiB, Defaulting to old value (%d)"
-			      , str, conf->window_size);
+                               "'option cache-size %s' failed , Max value"
+                               "can be 1 GiB, Defaulting to old value "
+                               "(%"PRIu64")", str, conf->window_size);
 			ret = -1;
 			goto out;
                 }
 
 		conf->window_size = window_size;
 		gf_log(this->name, GF_LOG_DEBUG, "Reconfiguring "
-			      "'option cache-size %s ' to %d"
-			      , str, conf->window_size);
+                       "'option cache-size %s ' to %"PRIu64, str,
+                       conf->window_size);
         }
         else
                 conf->window_size = WB_WINDOW_SIZE;
