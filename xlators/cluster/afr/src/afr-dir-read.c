@@ -259,7 +259,7 @@ afr_opendir_cbk (call_frame_t *frame, void *cookie,
                                 local->op_ret = -1;
                                 local->op_errno = -1;
                                 gf_log (this->name, GF_LOG_ERROR, " failed to "
-                                        "set fd ctx for fd %d", local->fd);
+                                        "set fd ctx for fd %p", local->fd);
                                 goto out;
                         }
                         if (!afr_is_opendir_done (this, local->fd->inode) &&

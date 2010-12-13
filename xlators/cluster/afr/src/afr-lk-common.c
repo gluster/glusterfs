@@ -1785,7 +1785,7 @@ afr_save_locked_fd (xlator_t *this, fd_t *fd)
                 ret = __afr_save_locked_fd (this, fd);
                 if (ret) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "fd=%p could not be saved");
+                                "fd=%p could not be saved", fd);
                         goto unlock;
                 }
         }
