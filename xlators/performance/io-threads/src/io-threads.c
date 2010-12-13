@@ -2142,15 +2142,17 @@ reconfigure ( xlator_t *this, dict_t *options)
 
                 if (thread_count < IOT_MIN_THREADS) {
                         gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted is less then min rest"
-                                "oring it to previous value",conf->max_count);
+                                "Number of threads opted (%d) is less then "
+                                "min (%d). Restoring it to previous value (%d)",
+                                thread_count, IOT_MIN_THREADS, conf->max_count);
 			goto out;
                 }
 
                 if (thread_count > IOT_MAX_THREADS) {
                         gf_log ("io-threads", GF_LOG_WARNING,
-                                "Number of threads opted is greater than max "
-                                "restoring it to previous value",conf->max_count);
+                                "Number of threads opted (%d) is greater than "
+                                "max (%d). Restoring it to previous value (%d)",
+                                thread_count, IOT_MAX_THREADS, conf->max_count);
 			goto out;
                 }
 
