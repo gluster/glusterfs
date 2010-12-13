@@ -1548,36 +1548,40 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                     &cache_size) != 0) {
                             gf_log ("io-cache", GF_LOG_ERROR, 
                                     "invalid number format \"%s\" of "
-                                                    "\"option cache-size\" Defaulting"
-                                                    "to old value", cache_size_string);
-                            *op_errstr = gf_strdup ("Error, Invalid Format");       
+                                    "\"option cache-size\" Defaulting"
+                                    "to old value", cache_size_string);
+                            *op_errstr = gf_strdup ("Error, Invalid Format");
                             ret = -1;
                             goto out;
                     }
 
                     if (cache_size < ( 4 * GF_UNIT_MB)) {
                             gf_log(this->name, GF_LOG_WARNING, "Reconfiguration"
-                                            "'option cache-size %s' failed , Max value"
-                                                            "can be 4MiB, Defaulting to old value (%d)"
-                                                            , cache_size_string, cache_size);
-                            *op_errstr = gf_strdup ("Error, Cannot be less than 4MB");
+                                   "'option cache-size %s' failed , Max value"
+                                   "can be 4MiB, Defaulting to old value "
+                                   "(%"PRIu64")", cache_size_string,
+                                   cache_size);
+                            *op_errstr = gf_strdup ("Error, "
+                                                    "Cannot be less than 4MB");
                             ret = -1;
                             goto out;
                     }
 
                     if (cache_size > ( 6 * GF_UNIT_GB)) {
                             gf_log(this->name, GF_LOG_WARNING, "Validation"
-                                            "'option cache-size %s' failed , Max value"
-                                                            "can be 6GiB, Defaulting to old value (%d)"
-                                                            , cache_size_string, cache_size);
-                            *op_errstr = gf_strdup ("Error, Cannot be more than 6GB");
+                                   "'option cache-size %s' failed , Max value"
+                                   "can be 6GiB, Defaulting to old value "
+                                   "(%"PRIu64")", cache_size_string,
+                                   cache_size);
+                            *op_errstr = gf_strdup ("Error, Cannot be more "
+                                                    "than 6GB");
                             ret = -1;
                             goto out;
                     }
                         
 
                     gf_log (this->name, GF_LOG_DEBUG, "Validated "
-                                    " cache-size %"PRIu64"", cache_size);
+                            " cache-size %"PRIu64"", cache_size);
         }
 
  
@@ -1702,19 +1706,23 @@ reconfigure (xlator_t *this, dict_t *options)
 			}
 
 			if (cache_size < (4 * GF_UNIT_MB)) {
-	                        gf_log(this->name, GF_LOG_ERROR, "Reconfiguration"
-				      "'option cache-size %s' failed , Max value"
-				      "can be 4MiB, Defaulting to old value (%d)"
-				      , cache_size_string, table->cache_size);
+	                        gf_log(this->name, GF_LOG_ERROR,
+                                       "Reconfiguration"
+                                       "'option cache-size %s' failed , "
+                                       "Max value can be 4MiB, Defaulting to "
+                                       "old value (%"PRIu64")",
+                                       cache_size_string, table->cache_size);
 				ret = -1;
 				goto out;
        		        }
 
 			if (cache_size > (6 * GF_UNIT_GB)) {
-        	                gf_log (this->name, GF_LOG_ERROR, "Reconfiguration"
-				       "'option cache-size %s' failed , Max value"
-				       "can be 6GiB, Defaulting to old value (%d)"
-			  		, cache_size_string, table->cache_size);
+        	                gf_log (this->name, GF_LOG_ERROR,
+                                        "Reconfiguration"
+                                        "'option cache-size %s' failed , "
+                                        "Max value can be 6GiB, Defaulting to "
+                                        "old value (%"PRIu64")",
+                                        cache_size_string, table->cache_size);
 				ret = -1;
 				goto out;
                 	}
