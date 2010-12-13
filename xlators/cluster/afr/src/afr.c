@@ -129,9 +129,10 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 temp_ret = gf_string2boolean (self_heal, &data_self_heal);
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "Validation failed for data self heal", 
-                                self_heal);
-                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                                "Validation failed for data self heal "
+                                "(given-string = %s)", self_heal);
+                        *op_errstr = gf_strdup ("Error, option should be "
+                                                "boolean");
                         ret = -1;
                         goto out;
                 } 
@@ -139,7 +140,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Reconfiguring 'option data"
-                                        "-self-heal %s'.", self_heal);
+                        "-self-heal %s'.", self_heal);
         }
 
         dict_ret = dict_get_str (options, "entry-self-heal",
@@ -148,9 +149,11 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 temp_ret = gf_string2boolean (self_heal, &entry_self_heal);
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "Validation faled for entry-self-heal", 
+                                "Validation faled for entry-self-heal"
+                                " (given string = %s)", 
                                 self_heal);
-                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        *op_errstr = gf_strdup ("Error, option should be "
+                                                "boolean");
                         ret = -1;
                         goto out;
                 } 
@@ -158,7 +161,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option entry"
-                                        "-self-heal %s'.", self_heal);
+                        "-self-heal %s'.", self_heal);
         }
 
 
@@ -168,9 +171,10 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 temp_ret = gf_string2boolean (str_readdir, &strict_readdir);
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
-                                "Validation faled for strict_readdir",
-                                str_readdir);
-                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                                "Validation faled for strict_readdir "
+                                "(given-string = %s)", str_readdir);
+                        *op_errstr = gf_strdup ("Error, option should be "
+                                                "boolean");
                         ret = -1;
                         goto out;
                 }
@@ -178,7 +182,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option strict"
-                                        "-readdir %s'.", str_readdir);
+                        "-readdir %s'.", str_readdir);
         }
 
         dict_ret = dict_get_int32 (options, "data-self-heal-window-size",
@@ -210,7 +214,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Validation faled for data-change-log");
-                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        *op_errstr = gf_strdup ("Error, option should be "
+                                                "boolean");
                         ret = -1;
                         goto out;
                 }
@@ -218,7 +223,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option data-"
-                                        "change-log %s'.", change_log);
+                        "change-log %s'.", change_log);
         }
 
         dict_ret = dict_get_str (options, "metadata-change-log",
@@ -229,7 +234,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Validation faild for metadata-change-log");
-                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        *op_errstr = gf_strdup ("Error, option should be "
+                                                "boolean");
                         ret = -1;
                         goto out;
                 } 
@@ -237,7 +243,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option metadata-"
-                                        "change-log %s'.", change_log);
+                        "change-log %s'.", change_log);
         }
 
         dict_ret = dict_get_str (options, "entry-change-log",
@@ -247,7 +253,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Validation faild for entr-change-log");
-                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        *op_errstr = gf_strdup ("Error, option should be "
+                                                "boolean");
                         ret = -1;
                         goto out;
                 } 
@@ -262,11 +269,13 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         dict_ret = dict_get_str (options, "optimistic-change-log",
                                  &change_log);
         if (dict_ret == 0) {
-                temp_ret = gf_string2boolean (change_log, &optimistic_change_log);
+                temp_ret = gf_string2boolean (change_log,
+                                              &optimistic_change_log);
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Validation faled for optimistic-change-log");
-                        *op_errstr = gf_strdup ("Error, option should be boolean");
+                        *op_errstr = gf_strdup ("Error, option should be "
+                                                "boolean");
                         ret = -1;
                         goto out;
                 }
@@ -274,7 +283,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option optimistic-"
-                                        "change-log %s'.", change_log);
+                        "change-log %s'.", change_log);
         }
 
 
