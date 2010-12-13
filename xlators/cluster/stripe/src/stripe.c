@@ -107,8 +107,7 @@ stripe_sh_chown_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
-                stripe_local_wipe (local);
-                STACK_DESTROY (frame->root);
+                STRIPE_STACK_DESTROY (frame);
         }
 out:
         return 0;
@@ -285,8 +284,7 @@ stripe_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->postparent.ia_size   = local->postparent_size;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (lookup, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (lookup, frame, local->op_ret,
                                      local->op_errno, local->inode,
                                      &local->stbuf, local->dict,
                                      &local->postparent);
@@ -341,7 +339,7 @@ stripe_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        STRIPE_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -398,8 +396,7 @@ stripe_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->stbuf.ia_blocks = local->stbuf_blocks;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (stat, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (stat, frame, local->op_ret,
                                      local->op_errno, &local->stbuf);
         }
 out:
@@ -448,7 +445,7 @@ stripe_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 
 err:
-        STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
+        STRIPE_STACK_UNWIND (stat, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -492,7 +489,7 @@ stripe_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
-                STACK_UNWIND_STRICT (statfs, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (statfs, frame, local->op_ret,
                                      local->op_errno, &local->statvfs_buf);
         }
 out:
@@ -534,7 +531,7 @@ stripe_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (statfs, frame, -1, op_errno, NULL);
+        STRIPE_STACK_UNWIND (statfs, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -601,8 +598,7 @@ stripe_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->post_buf.ia_size   = local->postbuf_size;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (truncate, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (truncate, frame, local->op_ret,
                                      local->op_errno, &local->pre_buf,
                                      &local->post_buf);
         }
@@ -651,7 +647,7 @@ stripe_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (truncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -717,8 +713,7 @@ stripe_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->post_buf.ia_size   = local->postbuf_size;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (setattr, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (setattr, frame, local->op_ret,
                                      local->op_errno, &local->pre_buf,
                                      &local->post_buf);
         }
@@ -770,7 +765,7 @@ stripe_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (setattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -811,7 +806,7 @@ stripe_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (fsetattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -878,8 +873,7 @@ stripe_stack_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->failed)
                         local->op_ret = -1;
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (rename, frame, local->op_ret, local->op_errno,
+                STRIPE_STACK_UNWIND (rename, frame, local->op_ret, local->op_errno,
                                      &local->stbuf, &local->preparent,
                                      &local->postparent,  &local->pre_buf,
                                      &local->post_buf);
@@ -929,8 +923,7 @@ stripe_first_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 unwind:
-        stripe_local_wipe (local);
-        STACK_UNWIND_STRICT (rename, frame, -1, op_errno, buf, preoldparent,
+        STRIPE_STACK_UNWIND (rename, frame, -1, op_errno, buf, preoldparent,
                              postoldparent, prenewparent, postnewparent);
         return 0;
 }
@@ -980,7 +973,7 @@ stripe_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL, NULL,
+        STRIPE_STACK_UNWIND (rename, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -1045,8 +1038,7 @@ stripe_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->postparent.ia_size   = local->postparent_size;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (unlink, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (unlink, frame, local->op_ret,
                                      local->op_errno, &local->preparent,
                                      &local->postparent);
         }
@@ -1102,7 +1094,7 @@ stripe_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (unlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1148,7 +1140,7 @@ stripe_first_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (rmdir, frame, op_ret, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (rmdir, frame, op_ret, op_errno, NULL, NULL);
         return 0;
 
 }
@@ -1194,7 +1186,7 @@ stripe_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (rmdir, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -1222,8 +1214,7 @@ stripe_mknod_ifreg_fail_unlink_cbk (call_frame_t *frame, void *cookie,
         UNLOCK (&frame->lock);
 
         if (!callcnt) {
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (mknod, frame, local->op_ret, local->op_errno,
+                STRIPE_STACK_UNWIND (mknod, frame, local->op_ret, local->op_errno,
                                      local->inode, &local->stbuf,
                                      &local->preparent, &local->postparent);
         }
@@ -1282,8 +1273,7 @@ stripe_mknod_ifreg_setxattr_cbk (call_frame_t *frame, void *cookie,
                         return 0;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (mknod, frame, local->op_ret, local->op_errno,
+                STRIPE_STACK_UNWIND (mknod, frame, local->op_ret, local->op_errno,
                                      local->inode, &local->stbuf,
                                      &local->preparent, &local->postparent);
         }
@@ -1420,8 +1410,7 @@ stripe_mknod_ifreg_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 /* Create itself has failed.. so return
                    without setxattring */
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (mknod, frame, local->op_ret, local->op_errno,
+                STRIPE_STACK_UNWIND (mknod, frame, local->op_ret, local->op_errno,
                                      local->inode, &local->stbuf,
                                      &local->preparent, &local->postparent);
         }
@@ -1436,7 +1425,7 @@ stripe_single_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                          struct iatt *buf, struct iatt *preparent,
                          struct iatt *postparent)
 {
-        STACK_UNWIND_STRICT (mknod, frame, op_ret, op_errno, inode, buf,
+        STRIPE_STACK_UNWIND (mknod, frame, op_ret, op_errno, inode, buf,
                              preparent, postparent);
         return 0;
 }
@@ -1513,7 +1502,7 @@ stripe_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        STRIPE_STACK_UNWIND (mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1588,7 +1577,7 @@ stripe_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->stbuf.ia_size        = local->stbuf_size;
                         local->stbuf.ia_blocks      = local->stbuf_blocks;
                 }
-                STACK_UNWIND_STRICT (mkdir, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (mkdir, frame, local->op_ret,
                                      local->op_errno, local->inode,
                                      &local->stbuf, &local->preparent,
                                      &local->postparent);
@@ -1645,7 +1634,7 @@ stripe_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        STRIPE_STACK_UNWIND (mkdir, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1720,7 +1709,7 @@ stripe_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->stbuf.ia_size        = local->stbuf_size;
                         local->stbuf.ia_blocks      = local->stbuf_blocks;
                 }
-                STACK_UNWIND_STRICT (link, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (link, frame, local->op_ret,
                                      local->op_errno, local->inode,
                                      &local->stbuf, &local->preparent,
                                      &local->postparent);
@@ -1777,7 +1766,7 @@ stripe_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+        STRIPE_STACK_UNWIND (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
 
@@ -1809,8 +1798,7 @@ stripe_create_fail_unlink_cbk (call_frame_t *frame, void *cookie,
                 local_inode = local->inode;
                 lfd = local->fd;
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (create, frame, local->op_ret, local->op_errno,
+                STRIPE_STACK_UNWIND (create, frame, local->op_ret, local->op_errno,
                                      local->fd, local->inode, &local->stbuf,
                                      &local->preparent, &local->postparent);
 
@@ -1878,8 +1866,7 @@ stripe_create_setxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 lfd = local->fd;
                 local_inode = local->inode;
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (create, frame, local->op_ret, local->op_errno,
+                STRIPE_STACK_UNWIND (create, frame, local->op_ret, local->op_errno,
                                      local->fd, local->inode, &local->stbuf,
                                      &local->preparent, &local->postparent);
 
@@ -2049,8 +2036,7 @@ unwind:
                 lfd = local->fd;
                 local_inode = local->inode;
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (create, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (create, frame, local->op_ret,
                                      local->op_errno, local->fd,
                                      local->inode, &local->stbuf,
                                      &local->preparent, &local->postparent);
@@ -2128,7 +2114,7 @@ stripe_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL,
+        STRIPE_STACK_UNWIND (create, frame, -1, op_errno, NULL, NULL, NULL,
                              NULL, NULL);
         return 0;
 }
@@ -2187,8 +2173,7 @@ stripe_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 lfd = local->fd;
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (open, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (open, frame, local->op_ret,
                                      local->op_errno, local->fd);
                 if (lfd)
                         fd_unref (lfd);
@@ -2381,8 +2366,7 @@ unlock:
 err:
         lfd = local->fd;
 
-        stripe_local_wipe (local);
-        STACK_UNWIND_STRICT (open, frame, local->op_ret, local->op_errno,
+        STRIPE_STACK_UNWIND (open, frame, local->op_ret, local->op_errno,
                              local->fd);
         if (lfd)
                 fd_unref (lfd);
@@ -2468,7 +2452,7 @@ stripe_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
         return 0;
 err:
-        STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL);
+        STRIPE_STACK_UNWIND (open, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2509,7 +2493,7 @@ stripe_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (!callcnt) {
                 local_fd = local->fd;
-                STACK_UNWIND_STRICT (opendir, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (opendir, frame, local->op_ret,
                                      local->op_errno, local->fd);
                 if (local_fd)
                         fd_unref (local_fd);
@@ -2560,7 +2544,7 @@ stripe_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (opendir, frame, -1, op_errno, NULL);
+        STRIPE_STACK_UNWIND (opendir, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2605,7 +2589,7 @@ stripe_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (!callcnt) {
                 if (local->failed)
                         local->op_ret = -1;
-                STACK_UNWIND_STRICT (lk, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (lk, frame, local->op_ret,
                                      local->op_errno, &local->lock);
         }
 out:
@@ -2648,7 +2632,7 @@ stripe_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (lk, frame, -1, op_errno, NULL);
+        STRIPE_STACK_UNWIND (lk, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2691,8 +2675,7 @@ stripe_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->failed)
                         local->op_ret = -1;
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (flush, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (flush, frame, local->op_ret,
                                      local->op_errno);
         }
 out:
@@ -2738,7 +2721,7 @@ stripe_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (flush, frame, -1, op_errno);
+        STRIPE_STACK_UNWIND (flush, frame, -1, op_errno);
         return 0;
 }
 
@@ -2803,8 +2786,7 @@ stripe_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->post_buf.ia_size   = local->postbuf_size;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (fsync, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (fsync, frame, local->op_ret,
                                      local->op_errno, &local->pre_buf,
                                      &local->post_buf);
         }
@@ -2847,7 +2829,7 @@ stripe_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2903,8 +2885,7 @@ stripe_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         local->stbuf.ia_blocks = local->stbuf_blocks;
                 }
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (fstat, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (fstat, frame, local->op_ret,
                                      local->op_errno, &local->stbuf);
         }
 
@@ -2949,7 +2930,7 @@ stripe_fstat (call_frame_t *frame,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (fstat, frame, -1, op_errno, NULL);
+        STRIPE_STACK_UNWIND (fstat, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -2989,7 +2970,7 @@ stripe_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -3032,8 +3013,7 @@ stripe_fsyncdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (local->failed)
                         local->op_ret = -1;
 
-                stripe_local_wipe (local);
-                STACK_UNWIND_STRICT (fsyncdir, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (fsyncdir, frame, local->op_ret,
                                      local->op_errno);
         }
 out:
@@ -3075,7 +3055,7 @@ stripe_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (fsyncdir, frame, -1, op_errno);
+        STRIPE_STACK_UNWIND (fsyncdir, frame, -1, op_errno);
         return 0;
 }
 
@@ -3163,7 +3143,7 @@ stripe_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 GF_FREE (local->replies);
                 tmp_iobref = local->iobref;
                 fd_unref (local->fd);
-                STACK_UNWIND_STRICT (readv, frame, op_ret, op_errno, vec,
+                STRIPE_STACK_UNWIND (readv, frame, op_ret, op_errno, vec,
                                      count, &tmp_stbuf, tmp_iobref);
 
                 iobref_unref (tmp_iobref);
@@ -3284,7 +3264,7 @@ stripe_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 GF_FREE (mlocal->replies);
                 tmp_iobref = mlocal->iobref;
                 fd_unref (mlocal->fd);
-                STACK_UNWIND_STRICT (readv, mframe, op_ret, op_errno, final_vec,
+                STRIPE_STACK_UNWIND (readv, mframe, op_ret, op_errno, final_vec,
                                      final_count, &tmp_stbuf, tmp_iobref);
 
                 iobref_unref (tmp_iobref);
@@ -3305,7 +3285,7 @@ check_size:
         }
 
 out:
-        STACK_DESTROY (frame->root);
+        STRIPE_STACK_DESTROY (frame);
 end:
         return 0;
 }
@@ -3410,7 +3390,7 @@ err:
         if (local && local->fd)
                 fd_unref (local->fd);
 
-        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
+        STRIPE_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
         return 0;
 }
 
@@ -3452,7 +3432,7 @@ stripe_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         UNLOCK (&frame->lock);
 
         if ((callcnt == local->wind_count) && local->unwind) {
-                STACK_UNWIND_STRICT (writev, frame, local->op_ret,
+                STRIPE_STACK_UNWIND (writev, frame, local->op_ret,
                                      local->op_errno, &local->pre_buf,
                                      &local->post_buf);
         }
@@ -3545,7 +3525,7 @@ stripe_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
 
         return 0;
 err:
-        STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);
+        STRIPE_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
