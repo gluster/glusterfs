@@ -1987,6 +1987,57 @@ out:
 }
 
 
+int32_t
+iot_rchecksum_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                   int32_t op_ret, int32_t op_errno, uint32_t weak_checksum,
+                   uint8_t *strong_checksum)
+{
+        STACK_UNWIND_STRICT (rchecksum, frame, op_ret, op_errno, weak_checksum,
+                             strong_checksum);
+        return 0;
+}
+
+
+int32_t
+iot_rchecksum_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
+                       off_t offset, int32_t len)
+{
+        STACK_WIND (frame, iot_rchecksum_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->rchecksum, fd, offset, len);
+        return 0;
+}
+
+
+int32_t
+iot_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+               int32_t len)
+{
+        call_stub_t     *stub = NULL;
+        int             ret = -1;
+
+        stub = fop_rchecksum_stub (frame, iot_rchecksum_wrapper, fd, offset,
+                                   len);
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create rchecksum stub"
+                        "(out of memory)");
+                ret = -ENOMEM;
+                goto out;
+        }
+
+        ret = iot_schedule_ordered ((iot_conf_t *)this->private, fd->inode,
+                                    stub);
+out:
+        if (ret < 0) {
+                STACK_UNWIND_STRICT (rchecksum, frame, -1, -ret, -1, NULL);
+                if (stub != NULL) {
+                        call_stub_destroy (stub);
+                }
+        }
+
+        return 0;
+}
+
+
 int
 __iot_workers_scale (iot_conf_t *conf)
 {
@@ -2299,6 +2350,7 @@ struct xlator_fops fops = {
         .readdirp    = iot_readdirp,    /* O */
         .xattrop     = iot_xattrop,     /* U */
 	.fxattrop    = iot_fxattrop,    /* O */
+        .rchecksum   = iot_rchecksum,   /* O */
 };
 
 struct xlator_cbks cbks = {
