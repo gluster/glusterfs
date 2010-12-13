@@ -2551,7 +2551,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         goto out;
                 }
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Reconfiguring cache-siz to %d", cache_size);
+                        "Reconfiguring cache-siz to %"PRIu64, cache_size);
                 conf->cache_size = cache_size;
         }
         else
