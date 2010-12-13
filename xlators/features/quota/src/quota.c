@@ -1086,7 +1086,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
 		_private->min_free_disk_limit = min_free_disk_limit;
 		gf_log (this->name, GF_LOG_TRACE,
-                        "Reconfiguring min-free-disk-limit %d \%",
+                        "Reconfiguring min-free-disk-limit to %d percent",
 			min_free_disk_limit);
 		
         }
