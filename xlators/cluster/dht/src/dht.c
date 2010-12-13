@@ -346,8 +346,8 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
 
 		gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
-			       " min-free-disk reconfigured to ",
-			       temp_str);
+                       " min-free-disk reconfigured to %s",
+                       temp_str);
 	}
 
 out:
