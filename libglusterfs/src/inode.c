@@ -215,7 +215,7 @@ __is_dentry_cyclic (dentry_t *dentry)
                 uuid_unparse (inode->gfid, uuidbuf);
 
                 gf_log (dentry->inode->table->name, GF_LOG_CRITICAL,
-                        "detected cyclic loop formation during inode linkage.",
+                        "detected cyclic loop formation during inode linkage."
                         " inode (%"PRId64"/%s) linking under itself as %s",
                         inode->ino, uuidbuf, name);
         }
