@@ -60,7 +60,7 @@ struct cli_cmd_word {
         cli_cmd_match_t       *match;
         cli_cmd_cbk_t         *cbkfn;
         const char            *desc;
-
+        const char            *pattern;
         int                    nextwords_cnt;
         struct cli_cmd_word  **nextwords;
 };
@@ -158,6 +158,7 @@ int cli_cmd_process_line (struct cli_state *state, const char *line);
 int cli_rl_enable (struct cli_state *state);
 int cli_rl_out (struct cli_state *state, const char *fmt, va_list ap);
 
+int cli_usage_out (const char *usage);
 int cli_out (const char *fmt, ...);
 
 int
