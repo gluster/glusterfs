@@ -37,6 +37,24 @@
 #include <signal.h>
 
 
+#define STRIPE_STACK_UNWIND(fop, frame, params ...) do {           \
+                stripe_local_t *__local = NULL;                    \
+                if (frame) {                                    \
+                        __local = frame->local;                 \
+                        frame->local = NULL;                    \
+                }                                               \
+                STACK_UNWIND_STRICT (fop, frame, params);       \
+                stripe_local_wipe(__local);                 \
+        } while (0)
+
+#define STRIPE_STACK_DESTROY(frame) do {                  \
+                stripe_local_t *__local = NULL;           \
+                __local = frame->local;                \
+                frame->local = NULL;                   \
+                STACK_DESTROY (frame->root);           \
+                stripe_local_wipe (__local);        \
+        } while (0)
+
 /**
  * struct stripe_options : This keeps the pattern and the block-size
  *     information, which is used for striping on a file.
