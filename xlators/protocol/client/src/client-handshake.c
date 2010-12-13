@@ -403,8 +403,8 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         local->loc.path, strerror (rsp.op_errno));
         } else {
                 gf_log (frame->this->name, GF_LOG_NORMAL,
-                        "reopen on %s succeeded (%"PRId64")",
-                        local->loc.path, rsp.op_ret, rsp.fd);
+                        "reopen on %s succeeded (remote-fd = %"PRId64")",
+                        local->loc.path, rsp.fd);
         }
 
         if (rsp.op_ret == -1)
@@ -492,11 +492,11 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (rsp.op_ret < 0) {
                 gf_log (frame->this->name, GF_LOG_NORMAL,
                         "reopendir on %s failed (%s)",
-                        local->loc.path, rsp.op_ret, strerror (rsp.op_errno));
+                        local->loc.path, strerror (rsp.op_errno));
         } else {
                 gf_log (frame->this->name, GF_LOG_NORMAL,
-                        "reopendir on %s succeeded (%"PRId64")",
-                        local->loc.path, rsp.op_ret, rsp.fd);
+                        "reopendir on %s succeeded (fd = %"PRId64")",
+                        local->loc.path, rsp.fd);
         }
 
 	if (-1 != rsp.op_ret) {

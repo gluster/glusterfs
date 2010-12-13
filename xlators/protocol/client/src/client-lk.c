@@ -35,10 +35,10 @@ __dump_client_lock (client_posix_lock_t *lock)
         this = THIS;
 
         gf_log (this->name, GF_LOG_TRACE,
-                "{fd=%lld}"
+                "{fd=%p}"
                 "{%s lk-owner:%"PRIu64" %"PRId64" - %"PRId64"}"
                 "{start=%"PRId64" end=%"PRId64"}",
-                (unsigned long long)lock->fd,
+                lock->fd,
                 lock->fl_type == F_WRLCK ? "Write-Lock" : "Read-Lock",
                 lock->owner,
                 lock->user_flock.l_start,
@@ -581,7 +581,7 @@ construct_reserve_unlock (struct gf_flock *lock, call_frame_t *frame,
         lock->l_start = 0;
         lock->l_whence = SEEK_SET;
         lock->l_len = 0; /* Whole file */
-        lock->l_pid = (uint64_t)frame->root;
+        lock->l_pid = (uint64_t)(unsigned long)frame->root;
 
         frame->root->lk_owner = client_lock->owner;
 
