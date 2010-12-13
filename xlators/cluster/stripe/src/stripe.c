@@ -41,10 +41,8 @@ stripe_local_wipe (stripe_local_t *local)
         if (!local)
                 goto out;
 
-        if (local->loc.path)
-                loc_wipe (&local->loc);
-        if (local->loc2.path)
-                loc_wipe (&local->loc2);
+        loc_wipe (&local->loc);
+        loc_wipe (&local->loc2);
 out:
         return;
 }
