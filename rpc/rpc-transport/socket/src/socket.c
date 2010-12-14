@@ -376,8 +376,13 @@ __socket_keepalive (int fd, int keepalive_intvl, int keepalive_idle)
                 goto done;
 
 #ifndef GF_LINUX_HOST_OS
+#ifdef GF_SOLARIS_HOST_OS
+        ret = setsockopt (fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive_intvl,
+                          sizeof (keepalive_intvl));
+#else
         ret = setsockopt (fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepalive_intvl,
                           sizeof (keepalive_intvl));
+#endif
         if (ret == -1)
                 goto err;
 #else
