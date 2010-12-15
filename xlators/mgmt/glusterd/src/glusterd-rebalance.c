@@ -395,8 +395,9 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 default:
                         break;
         }
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume on %s",
-                cli_req.volname);
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume %s on %s",
+                (cli_req.cmd == GF_DEFRAG_CMD_START)?"start":(cli_req.cmd == GF_DEFRAG_CMD_STOP)?"stop":"status"
+                , cli_req.volname);
 
         rsp.volname = cli_req.volname;
         rsp.op_ret = -1;
