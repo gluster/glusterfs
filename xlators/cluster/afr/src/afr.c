@@ -79,6 +79,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         char * self_heal       = NULL;
         char * change_log      = NULL;
         char * str_readdir     = NULL;
+        char * self_heal_algo  = NULL;
 
         int32_t background_count  = 0;
         int32_t window_size       = 0;
@@ -119,8 +120,6 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         goto out;
                 } 
         
-
-                
         }
 
         dict_ret = dict_get_str (options, "data-self-heal",
@@ -286,6 +285,24 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         "change-log %s'.", change_log);
         }
 
+        dict_ret = dict_get_str (options, "data-self-heal-algorithm",
+                                 &self_heal_algo);
+        if (dict_ret == 0) {
+                /* Handling both strcmp cases - s1 > s2 and s1 < s2 */
+
+                if (!strcmp (self_heal_algo, "full"))
+                        goto next;
+                if (!strcmp (self_heal_algo, "diff"))
+                        goto next;
+
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Invalid self-heal algorithm %s",
+                        self_heal_algo);
+                *op_errstr = gf_strdup ("Error, invalid self-heal "
+                                        "algorithm");
+                ret = -1;
+                goto out;
+        }
 
         read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
 
@@ -299,31 +316,27 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "Validated Subvolume '%s'  as read child.",
                                 trav->xlator->name);
-
                         flag = 1;
-                        ret = 0; 
+                        ret = 0;
                         goto out;
                 }
-
-                
                 trav = trav->next;
         }
 
         if (flag == 0 ) {
-
                 gf_log (this->name, GF_LOG_WARNING,
                         "Invalid 'option read-subvolume %s', no such subvolume"
-                                        , read_subvol);
+                        , read_subvol);
                 *op_errstr = gf_strdup ("Error, the sub-volume is not right");
                 ret = -1;
                 goto out;
         }
 
+
+
 next:
 out:
-                return ret;
-
-
+        return ret;
 }
 
 
@@ -346,6 +359,7 @@ reconfigure (xlator_t *this, dict_t *options)
 	char * self_heal       = NULL;
 	char * change_log      = NULL;
 	char * str_readdir     = NULL;
+        char * self_heal_algo  = NULL;
 
         int32_t background_count  = 0;
         int32_t window_size       = 0;
@@ -518,6 +532,35 @@ reconfigure (xlator_t *this, dict_t *options)
 			"change-log %s'.", change_log);
 	}
 
+        dict_ret = dict_get_str (options, "data-self-heal-algorithm",
+                                 &self_heal_algo);
+        if (dict_ret == 0) {
+                /* Handling both strcmp cases - s1 > s2 and s1 < s2 */
+
+                if (!strcmp (self_heal_algo, "full")) {
+                        priv->data_self_heal_algorithm = self_heal_algo;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Reconfiguring 'option data-self"
+                                "heal-algorithm %s'.", self_heal_algo);
+                        goto next;
+                }
+
+                if (!strcmp (self_heal_algo, "diff")) {
+                        priv->data_self_heal_algorithm = self_heal_algo;
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Reconfiguring 'option data-self"
+                                "heal-algorithm %s'.", self_heal_algo);
+                        goto next;
+                }
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "Invalid self-heal algorithm %s,"
+                        "defaulting back to old value",
+                        self_heal_algo);
+                ret = -1;
+                goto out;
+        }
+
 	read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
 
 	if (read_ret < 0) 
@@ -548,6 +591,7 @@ reconfigure (xlator_t *this, dict_t *options)
 		ret = -1;
 		goto out;
 	}
+
 
 next:
 out:

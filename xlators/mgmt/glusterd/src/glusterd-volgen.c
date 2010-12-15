@@ -97,6 +97,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size",},
         {"cluster.data-change-log",              "cluster/replicate",         }, /* NODOC */
         {"cluster.metadata-change-log",          "cluster/replicate",         }, /* NODOC */
+        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm"},
 
         {"cluster.stripe-block-size",            "cluster/stripe",            "block-size",},
 
