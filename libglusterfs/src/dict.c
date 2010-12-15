@@ -189,6 +189,7 @@ data_copy (data_t *old)
 		}
 	}
 
+        LOCK_INIT (&newdata->lock);
 	return newdata;
 
  err_out:
