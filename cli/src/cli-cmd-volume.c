@@ -50,6 +50,8 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t                    *frame = NULL;
         cli_cmd_volume_get_ctx_t        ctx = {0,};
         cli_local_t                     *local = NULL;
+        int                             sent = 0;
+        int                             parse_error = 0;
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_GET_VOLUME];
 
@@ -71,6 +73,7 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 proc = &cli_rpc_prog->proctable[GF1_CLI_GET_VOLUME];
         } else {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 return -1;
         }
 
@@ -90,8 +93,12 @@ cli_cmd_volume_info_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("Getting Volume information failed!");
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Getting Volume information failed!");
+        }
+
         return ret;
 
 }
@@ -104,10 +111,13 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         gf1_cli_sync_volume_req req = {0,};
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         if ((wordcount < 3) || (wordcount > 4)) {
-               cli_usage_out (word->pattern);
-               goto out;
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
         }
 
         if ((wordcount == 3) || !strcmp(words[3], "all")) {
@@ -130,8 +140,11 @@ cli_cmd_sync_volume_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("Volume sync failed");
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume sync failed");
+        }
 
         return ret;
 }
@@ -144,6 +157,8 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_CREATE_VOLUME];
 
@@ -155,6 +170,7 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (ret) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -165,6 +181,11 @@ cli_cmd_volume_create_cbk (struct cli_state *state, struct cli_cmd_word *word,
 out:
         if (options)
                 dict_unref (options);
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume create failed");
+        }
 
         return ret;
 }
@@ -179,9 +200,12 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
         call_frame_t            *frame = NULL;
         char                    *volname = NULL;
         gf_answer_t             answer = GF_ANSWER_NO;
-        const char              *question = "Deleting volume will erase all information about the volume."
-                                            "Do you want to continue?";
+        const char              *question = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
+        question = "Deleting volume will erase all information about the volume."
+                   "Do you want to continue?";
         proc = &cli_rpc_prog->proctable[GF1_CLI_DELETE_VOLUME];
 
         frame = create_frame (THIS, THIS->ctx->pool);
@@ -190,6 +214,7 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (wordcount != 3) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -207,8 +232,11 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret && volname)
-                cli_out ("Deleting Volume %s failed", volname);
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume delete failed");
+        }
 
         return ret;
 }
@@ -221,6 +249,8 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         gf1_cli_start_vol_req    req = {0,};
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -228,6 +258,7 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (wordcount < 3 || wordcount > 4) {
                cli_usage_out (word->pattern);
+                parse_error = 1;
                goto out;
         }
 
@@ -241,6 +272,7 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 } else {
                         ret = -1;
                         cli_usage_out (word->pattern);
+                        parse_error = 1;
                         goto out;
                 }
         }
@@ -252,8 +284,11 @@ cli_cmd_volume_start_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (!proc && ret && req.volname)
-                cli_out ("Starting Volume %s failed", req.volname);
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume start failed");
+        }
 
         return ret;
 }
@@ -307,6 +342,8 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     flags   = 0;
         gf1_cli_stop_vol_req    req = {0,};
         gf_answer_t             answer = GF_ANSWER_NO;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         const char *question = "Stopping volume will make its data inaccessible. "
                                "Do you want to Continue?";
@@ -316,8 +353,9 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
 
         if (wordcount < 3 || wordcount > 4) {
-               cli_usage_out (word->pattern);
-               goto out;
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
         }
 
         req.volname = (char *)words[2];
@@ -330,6 +368,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 } else {
                         ret = -1;
                         cli_usage_out (word->pattern);
+                        parse_error = 1;
                         goto out;
                 }
         }
@@ -349,8 +388,11 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (!proc && ret && req.volname)
-                cli_out ("Stopping Volume %s failed", req.volname);
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume stop failed", req.volname);
+        }
 
         return ret;
 }
@@ -364,6 +406,8 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *dict = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
 
         frame = create_frame (THIS, THIS->ctx->pool);
@@ -376,6 +420,7 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (wordcount != 4) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -396,11 +441,13 @@ cli_cmd_volume_rename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (!proc && ret) {
-                if (dict)
-                        dict_destroy (dict);
-                if (wordcount > 2)
-                        cli_out ("Renaming Volume %s failed", (char *)words[2]);
+        if (dict)
+                dict_destroy (dict);
+
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume rename failed", (char *)words[2]);
         }
 
         return ret;
@@ -414,6 +461,8 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t *proc    = NULL;
         call_frame_t         *frame   = NULL;
         dict_t               *dict = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -425,6 +474,7 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (wordcount != 4) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -443,22 +493,24 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (!proc && ret) {
-                if (dict)
-                        dict_destroy (dict);
+        if (dict)
+                dict_destroy (dict);
 
-                if (wordcount > 2)
-                        cli_out ("Rebalance of Volume %s failed",
-                                 (char *)words[2]);
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume rebalance failed");
         }
 
-        return 0;
+        return ret;
 }
 
 int
-cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word, 
+cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
 {
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
@@ -475,6 +527,7 @@ cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (ret) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -483,8 +536,14 @@ cli_cmd_volume_reset_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-                if (options)
+        if (options)
                 dict_unref (options);
+
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume reset failed");
+        }
 
         return ret;
 
@@ -495,6 +554,8 @@ int
 cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
                         const char **words, int wordcount)
 {
+        int                     sent = 0;
+        int                     parse_error = 0;
 
 	int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
@@ -511,6 +572,7 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
 
         if (ret) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -521,6 +583,12 @@ cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
 out:
         if (options)
                 dict_unref (options);
+
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume set failed");
+        }
 
         return ret;
 
@@ -535,6 +603,8 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -544,6 +614,7 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
 
         if (ret) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -554,14 +625,15 @@ cli_cmd_volume_add_brick_cbk (struct cli_state *state,
         }
 
 out:
-        if (!proc && ret) {
-                if (wordcount > 2) {
-                        char *volname = (char *) words[2];
-                        cli_out ("Adding brick to Volume %s failed",volname );
-                }
-        }
         if (options)
                 dict_unref (options);
+
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume add-brick failed");
+        }
+
         return ret;
 }
 
@@ -576,6 +648,8 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
         gf_answer_t             answer = GF_ANSWER_NO;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         const char *question = "Removing brick(s) can result in data loss. "
                                "Do you want to Continue?";
@@ -588,6 +662,7 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
 
         if (ret) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -605,12 +680,12 @@ cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
         }
 
 out:
-        if (!proc && ret) {
-                if (wordcount > 2) {
-                        char *volname = (char *) words[2];
-                        cli_out ("Removing brick from Volume %s failed",volname );
-                }
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume remove-brick failed");
         }
+
         if (options)
                 dict_unref (options);
         return ret;
@@ -627,6 +702,8 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         proc = &cli_rpc_prog->proctable[GF1_CLI_REPLACE_BRICK];
 
@@ -638,6 +715,7 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
 
         if (ret) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -646,14 +724,16 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
         }
 
 out:
-        if (ret) {
-                if (wordcount > 2) {
-                        char *volname = (char *) words[2];
-                        cli_out ("Replacing brick from Volume %s failed",volname );
-                }
-        }
-        return ret;
+        if (options)
+                dict_unref (options);
 
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume replace-brick failed");
+        }
+
+        return ret;
 }
 
 
@@ -674,9 +754,12 @@ cli_cmd_log_filename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         if (!((wordcount == 5) || (wordcount == 6))) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -695,11 +778,14 @@ cli_cmd_log_filename_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("setting log filename failed");
-
         if (options)
                 dict_destroy (options);
+
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume log filename failed");
+        }
 
         return ret;
 }
@@ -713,9 +799,12 @@ cli_cmd_log_locate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         if (!((wordcount == 4) || (wordcount == 5))) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -734,12 +823,14 @@ cli_cmd_log_locate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("getting log file location information failed");
-
         if (options)
                 dict_destroy (options);
 
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("getting log file location information failed");
+        }
 
         return ret;
 }
@@ -752,9 +843,12 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *options = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         if (!((wordcount == 4) || (wordcount == 5))) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -773,11 +867,14 @@ cli_cmd_log_rotate_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("log rotate failed");
-
         if (options)
                 dict_destroy (options);
+
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume log rotate failed");
+        }
 
         return ret;
 }
@@ -851,10 +948,10 @@ struct cli_cmd volume_cmds[] = {
         { "volume sync <HOSTNAME> [all|<VOLNAME>]",
           cli_cmd_sync_volume_cbk,
          "sync the volume information from a peer"},
-         
+
          { "volume reset <VOLNAME> ",
          cli_cmd_volume_reset_cbk,
-         "reset all the reconfigured options"}, 
+         "reset all the reconfigured options"},
 
         { NULL, NULL, NULL }
 };

@@ -76,4 +76,5 @@ cli_cmd_submit (void *req, call_frame_t *frame,
 
 gf_answer_t
 cli_cmd_get_confirmation (struct cli_state *state, const char *question);
+int cli_cmd_sent_status_get (int *status);
 #endif /* __CLI_CMD_H__ */
