@@ -503,8 +503,12 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 }
         }
         
-        if (!auth_modules)
-                auth_modules = dict_new ();
+        auth_modules = dict_new ();
+        if (!auth_modules) {
+                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
+                ret = -1;
+                goto out;
+        }
 
         dict_foreach (options, get_auth_types, auth_modules);
         ret = validate_auth_options (this, options);
@@ -516,11 +520,9 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         }
 
         ret = gf_auth_init (this, auth_modules);
-        if (ret) {
-                dict_unref (auth_modules);
-                goto out;
-        }
 out:
+        if (auth_modules)
+                dict_unref (auth_modules);
 
         return ret;
 }

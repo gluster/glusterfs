@@ -993,7 +993,7 @@ int
 xlator_validate_rec (xlator_t *xlator, char **op_errstr)
 {
         xlator_list_t *trav = NULL;
-       
+
         if (xlator == NULL )    {
                 gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
                 return -1;
@@ -1007,27 +1007,27 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
 
                 trav = trav->next;
         }
-        
+
         if (xlator_dynload (xlator))
                 gf_log ("", GF_LOG_DEBUG, "Did not load the symbols");
 
         if (xlator->validate_options) {
-                if (xlator->validate_options (xlator, xlator->options, 
+                if (xlator->validate_options (xlator, xlator->options,
                     op_errstr)) {
                         gf_log ("", GF_LOG_DEBUG, *op_errstr);
                         return -1;
                 }
                 gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");
-                
+
         }
-        
+
         gf_log (xlator->name, GF_LOG_DEBUG, "No validate_options() found");
 
         return 0;
 }
 
 int
-graph_reconf_validateopt (glusterfs_graph_t *graph, 
+graph_reconf_validateopt (glusterfs_graph_t *graph,
                           char **op_errstr)
 {
         xlator_t *xlator = NULL;

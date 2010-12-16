@@ -48,9 +48,12 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
         dict_t                  *dict = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         if (!(wordcount == 3)) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -79,8 +82,11 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("Probe failed");
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Peer probe failed");
+        }
         return ret;
 }
 
@@ -93,9 +99,12 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         rpc_clnt_procedure_t *proc  = NULL;
         call_frame_t         *frame = NULL;
         dict_t               *dict  = NULL;
+        int                  sent = 0;
+        int                  parse_error = 0;
 
         if (!(wordcount == 3) ) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -122,6 +131,12 @@ cli_cmd_peer_deprobe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Peer detach failed");
+        }
+
         return ret;
 }
 
@@ -132,9 +147,12 @@ cli_cmd_peer_status_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     ret = -1;
         rpc_clnt_procedure_t    *proc = NULL;
         call_frame_t            *frame = NULL;
+        int                     sent = 0;
+        int                     parse_error = 0;
 
         if (wordcount != 2) {
                 cli_usage_out (word->pattern);
+                parse_error = 1;
                 goto out;
         }
 
@@ -149,8 +167,11 @@ cli_cmd_peer_status_cbk (struct cli_state *state, struct cli_cmd_word *word,
         }
 
 out:
-        if (ret)
-                cli_out ("Command Execution failed");
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Peer status failed");
+        }
         return ret;
 }
 
@@ -166,11 +187,10 @@ struct cli_cmd cli_probe_cmds[] = {
         { "peer status",
           cli_cmd_peer_status_cbk,
           "list status of peers"},
-	
-	{ "peer help", 
-           cli_cmd_peer_help_cbk, 
-           "Help command for peer "},
 
+	{ "peer help",
+           cli_cmd_peer_help_cbk,
+           "Help command for peer "},
 
         { NULL, NULL, NULL }
 };

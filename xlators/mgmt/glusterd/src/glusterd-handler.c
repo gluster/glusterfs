@@ -133,7 +133,6 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         event->ctx = ctx;
 
         ret = glusterd_friend_sm_inject_event (event);
-
         if (ret) {
                 gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject event %d, "
                         "ret = %d", event->event, ret);
@@ -810,8 +809,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         gf_cmd_log ("Volume create", "on volname: %s attempted", volname);
 
         if ((ret = glusterd_check_volume_exists (volname))) {
-                snprintf(err_str, 2048, "Volname %s already exists",
-                         volname);
+                snprintf(err_str, 2048, "Volume %s already exists", volname);
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                 err_ret = 1;
                 goto out;
@@ -1074,8 +1072,7 @@ glusterd_handle_add_brick (rpcsvc_request_t *req)
         }
 
         if (!(ret = glusterd_check_volume_exists (volname))) {
-                snprintf(err_str, 2048, "Volname %s does not exist",
-                         volname);
+                snprintf(err_str, 2048, "Volume %s does not exist", volname);
                 gf_log ("glusterd", GF_LOG_ERROR, "%s", err_str);
                 err_ret = -1;
                 goto out;
@@ -1338,7 +1335,7 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req)
         ret = glusterd_reset_volume (req, dict);
 
 out:
-                if (cli_req.volname)
+        if (cli_req.volname)
                 free (cli_req.volname);//malloced by xdr
 
         return ret;
@@ -1454,7 +1451,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
         ret = glusterd_volinfo_find (cli_req.volname, &volinfo);
         if (ret) {
-                 snprintf (err_str, 2048, "volname %s not found",
+                 snprintf (err_str, 2048, "Volume %s does not exist",
                           cli_req.volname);
                  gf_log ("", GF_LOG_ERROR, "%s", err_str);
                  err_ret = 1;
@@ -1514,7 +1511,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
 
                 ret = glusterd_volume_brickinfo_get_by_brick(brick, volinfo, &brickinfo);
                 if (ret) {
-                        snprintf(err_str, 2048," Incorrect brick %s for volname"
+                        snprintf(err_str, 2048," Incorrect brick %s for volume"
                                 " %s", brick, cli_req.volname);
                         gf_log ("", GF_LOG_ERROR, "%s", err_str);
                         err_ret = 1;

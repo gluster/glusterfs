@@ -1566,7 +1566,7 @@ validate_clientopts (glusterd_volinfo_t *volinfo,
 }
 
 int
-validate_brickopts (glusterd_volinfo_t *volinfo, 
+validate_brickopts (glusterd_volinfo_t *volinfo,
                     char *brickinfo_path,
                     dict_t *val_dict,
                     char **op_errstr)
@@ -1595,12 +1595,12 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
 {
         glusterd_brickinfo_t *brickinfo = NULL;
         int                   ret = -1;
-        
+
         list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
                 gf_log ("", GF_LOG_DEBUG,
                         "Validating %s", brickinfo->hostname);
 
-                ret = validate_brickopts (volinfo, brickinfo->path, val_dict, 
+                ret = validate_brickopts (volinfo, brickinfo->path, val_dict,
                                           op_errstr);
                 if (ret)
                         goto out;
@@ -1609,7 +1609,7 @@ glusterd_validate_brickreconf (glusterd_volinfo_t *volinfo,
         ret = 0;
 out:
 
-                return ret;
+        return ret;
 }
 
 int
