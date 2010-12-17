@@ -51,10 +51,17 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <rpc/pmap_clnt.h>
 
 #ifdef GF_SOLARIS_HOST_OS
 #include <sys/sockio.h>
 #endif
+
+#define MOUNT_PROGRAM 100005
+#define NFS_PROGRAM 100003
+#define NFSV3_VERSION 3
+#define MOUNTV3_VERSION 3
+#define MOUNTV1_VERSION 1
 
 static glusterd_lock_t lock;
 
@@ -1760,6 +1767,26 @@ out:
         return ret;
 }
 
+void
+glusterd_nfs_pmap_deregister ()
+{
+        if (pmap_unset (MOUNT_PROGRAM, MOUNTV3_VERSION))
+                gf_log ("", GF_LOG_NORMAL, "De-registered MOUNTV3 successfully");
+        else
+                gf_log ("", GF_LOG_ERROR, "De-register MOUNTV3 is unsuccessful");
+
+        if (pmap_unset (MOUNT_PROGRAM, MOUNTV1_VERSION))
+                gf_log ("", GF_LOG_NORMAL, "De-registered MOUNTV1 successfully");
+        else
+                gf_log ("", GF_LOG_ERROR, "De-register MOUNTV1 is unsuccessful");
+
+        if (pmap_unset (NFS_PROGRAM, NFSV3_VERSION))
+                gf_log ("", GF_LOG_NORMAL, "De-registered NFSV3 successfully");
+        else
+                gf_log ("", GF_LOG_ERROR, "De-register NFSV3 is unsuccessful");
+
+}
+
 int32_t
 glusterd_nfs_server_stop ()
 {
@@ -1776,7 +1803,10 @@ glusterd_nfs_server_stop ()
         GLUSTERD_GET_NFS_DIR(path, priv);
         GLUSTERD_GET_NFS_PIDFILE(pidfile);
 
-        return glusterd_service_stop ("nfsd", pidfile, SIGKILL, _gf_true);
+        glusterd_service_stop ("nfsd", pidfile, SIGKILL, _gf_true);
+        glusterd_nfs_pmap_deregister ();
+
+        return 0;
 }
 
 int
