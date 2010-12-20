@@ -175,8 +175,10 @@ err:
 /* Use the state saved by the previous macro to funge the ino in the appropriate
  * structure.
  */
-#define nfs_fop_restore_root_ino(locl, preattr, postattr, prepar, postpar)  \
+#define nfs_fop_restore_root_ino(locl, fopret, preattr, postattr, prepar, postpar)  \
         do {                                                                \
+                if (fopret == -1)                                           \
+                        break;                                              \
                 if ((locl)->rootinode) {                                    \
                         if ((preattr)) {                                    \
                                 ((struct iatt *)(preattr))->ia_ino = 1;     \
@@ -210,8 +212,11 @@ err:
         } while (0)                                                            \
 
 
-#define nfs_fop_newloc_restore_root_ino(locl, preattr, postattr, prepar, postpar)  \
+#define nfs_fop_newloc_restore_root_ino(locl, fopret, preattr, postattr, prepar, postpar)  \
         do {                                                                   \
+                if (fopret == -1)                                              \
+                        break;                                                 \
+                                                                               \
                 if ((locl)->newrootinode) {                                    \
                         if ((preattr))                                         \
                                 ((struct iatt *)(preattr))->ia_ino = 1;        \
@@ -307,7 +312,7 @@ nfs_fop_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_lookup_cbk_t        progcbk;
 
         nfl_to_prog_data (local, progcbk, frame);
-        nfs_fop_restore_root_ino (local, buf, NULL, NULL, postparent);
+        nfs_fop_restore_root_ino (local, op_ret, buf, NULL, NULL, postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          xattr, postparent);
@@ -356,7 +361,7 @@ nfs_fop_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_stat_cbk_t          progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, buf);
 
@@ -402,7 +407,7 @@ nfs_fop_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_fstat_cbk_t         progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, buf);
 
@@ -629,7 +634,8 @@ nfs_fop_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_create_cbk_t        progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, preparent, postparent);
+        nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL, preparent,
+                                  postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, fd, inode, buf,
                          preparent, postparent);
@@ -680,7 +686,7 @@ nfs_fop_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_setattr_cbk_t       progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, pre, post, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, pre, post, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, pre, post);
         nfs_stack_destroy (nfl, frame);
@@ -729,7 +735,7 @@ nfs_fop_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_mkdir_cbk_t         progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, preparent, postparent);
+        nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL,preparent, postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -778,7 +784,7 @@ nfs_fop_symlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_symlink_cbk_t       progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, preparent, postparent);
+        nfs_fop_restore_root_ino (nfl, op_ret,buf, NULL, preparent, postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -825,7 +831,7 @@ nfs_fop_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_readlink_cbk_t      progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, path, buf);
         nfs_stack_destroy (nfl, frame);
@@ -872,7 +878,7 @@ nfs_fop_mknod_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_mknod_cbk_t         progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, preparent, postparent);
+        nfs_fop_restore_root_ino (nfl, op_ret,buf, NULL, preparent, postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -919,7 +925,8 @@ nfs_fop_rmdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_rmdir_cbk_t         progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, NULL, NULL, preparent, postparent);
+        nfs_fop_restore_root_ino (nfl, op_ret, NULL, NULL, preparent,
+                                  postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, preparent,
                          postparent);
@@ -968,7 +975,8 @@ nfs_fop_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_unlink_cbk_t         progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, NULL, NULL, preparent, postparent);
+        nfs_fop_restore_root_ino (nfl, op_ret, NULL, NULL, preparent,
+                                  postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, preparent,
                          postparent);
@@ -1017,7 +1025,8 @@ nfs_fop_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_link_cbk_t          progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, buf, NULL, preparent, postparent);
+        nfs_fop_restore_root_ino (nfl, op_ret, buf, NULL, preparent,
+                                  postparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, inode, buf,
                          preparent, postparent);
@@ -1072,8 +1081,9 @@ nfs_fop_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
          * possible that the new parent is not root whereas the source dir
          * could've been. That is handled in the next macro.
          */
-        nfs_fop_restore_root_ino (nfl, NULL, NULL, preoldparent, postoldparent);
-        nfs_fop_newloc_restore_root_ino (nfl, buf, NULL, prenewparent,
+        nfs_fop_restore_root_ino (nfl, op_ret, NULL, NULL, preoldparent,
+                                  postoldparent);
+        nfs_fop_newloc_restore_root_ino (nfl, op_ret, buf, NULL, prenewparent,
                                          postnewparent);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, buf,
@@ -1168,7 +1178,7 @@ nfs_fop_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_writev_cbk_t        progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, prebuf, postbuf, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, prebuf, postbuf, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, prebuf,postbuf);
 
@@ -1224,7 +1234,7 @@ nfs_fop_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_fsync_cbk_t         progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, prebuf, postbuf, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, prebuf, postbuf, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, prebuf,postbuf);
         nfs_stack_destroy (nfl, frame);
@@ -1270,7 +1280,7 @@ nfs_fop_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_readv_cbk_t         progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, stbuf, NULL, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, stbuf, NULL, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, vector, count,
                          stbuf, iobref);
@@ -1317,7 +1327,7 @@ nfs_fop_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fop_truncate_cbk_t      progcbk = NULL;
 
         nfl_to_prog_data (nfl, progcbk, frame);
-        nfs_fop_restore_root_ino (nfl, prebuf, postbuf, NULL, NULL);
+        nfs_fop_restore_root_ino (nfl, op_ret, prebuf, postbuf, NULL, NULL);
         if (progcbk)
                 progcbk (frame, cookie, this, op_ret, op_errno, prebuf,postbuf);
 
