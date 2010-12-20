@@ -4471,7 +4471,7 @@ rdma_event_handler (int fd, int idx, void *data,
                 ret = rdma_handshake_pollout (this);
         }
 
-        if (!ret && poll_in && priv->tcp_connected) {
+        if (!ret && !poll_err && poll_in && priv->tcp_connected) {
                 if (priv->handshake.incoming.state == RDMA_HANDSHAKE_COMPLETE) {
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "%s: pollin received on tcp socket (peer: %s) "
