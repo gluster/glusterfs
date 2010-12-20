@@ -1320,11 +1320,15 @@ nfs3_access_reply (rpcsvc_request_t *req, nfsstat3 status, struct iatt *buf,
 {
         access3res      res;
         uint64_t        deviceid = 0;
+        gid_t           *gidarr = NULL;
+        int             gids = 0;
 
         deviceid = nfs3_request_xlator_deviceid (req);
+        gidarr = nfs_rpcsvc_auth_unix_auxgids (req, &gids);
         nfs3_fill_access3res (&res, status, buf, accbits,
                               nfs_rpcsvc_request_uid (req),
-                              nfs_rpcsvc_request_gid (req), deviceid);
+                              nfs_rpcsvc_request_gid (req), deviceid, gidarr,
+                              gids);
         nfs3svc_submit_reply (req, &res,
                               (nfs3_serializer)xdr_serialize_access3res);
         return 0;

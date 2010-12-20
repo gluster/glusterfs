@@ -677,20 +677,33 @@ nfs3_superuser_accessbits (ia_prot_t prot, ia_type_t type, uint32_t request)
 
 uint32_t
 nfs3_stat_to_accessbits (struct iatt *buf, uint32_t request, uid_t uid,
-                         gid_t gid)
+                         gid_t gid, gid_t *auxgids, int gids)
 {
         uint32_t        accresult = 0;
         ia_prot_t       prot = {0, };
         ia_type_t       type = 0;
+        int             testgid = -1;
+        int             x = 0;
 
         prot = buf->ia_prot;
         type = buf->ia_type;
+
+        if (buf->ia_gid == gid)
+                testgid = gid;
+        else {
+                for (; x < gids; ++x) {
+                        if (buf->ia_gid == auxgids[x]) {
+                                testgid = buf->ia_gid;
+                                break;
+                        }
+                }
+        }
 
         if (uid == 0)
                 accresult = nfs3_superuser_accessbits (prot, type, request);
         else if (buf->ia_uid == uid)
                 accresult = nfs3_owner_accessbits (prot, type, request);
-        else if (buf->ia_gid == gid)
+        else if ((testgid != -1) && (buf->ia_gid == testgid))
                 accresult = nfs3_group_accessbits (prot, type, request);
         else
                 accresult = nfs3_other_accessbits (prot, type, request);
@@ -702,7 +715,7 @@ nfs3_stat_to_accessbits (struct iatt *buf, uint32_t request, uid_t uid,
 void
 nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
                       uint32_t accbits, uid_t uid, gid_t gid,
-                      uint64_t deviceid)
+                      uint64_t deviceid, gid_t *gidarr, int gids)
 {
         post_op_attr    objattr;
         uint32_t        accres = 0;
@@ -714,7 +727,7 @@ nfs3_fill_access3res (access3res *res, nfsstat3 status, struct iatt *buf,
 
         nfs3_map_deviceid_to_statdev (buf, deviceid);
         objattr = nfs3_stat_to_post_op_attr (buf);
-        accres = nfs3_stat_to_accessbits (buf, accbits, uid, gid);
+        accres = nfs3_stat_to_accessbits (buf, accbits, uid, gid, gidarr, gids);
 
         res->access3res_u.resok.obj_attributes = objattr;
         res->access3res_u.resok.access = accres;
