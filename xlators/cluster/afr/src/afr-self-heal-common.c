@@ -580,7 +580,7 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                                             &pending_raw);
                         if (ret < 0)
                                 gf_log ("afr_sh_pending_to_delta",
-                                        GF_LOG_WARNING,
+                                        GF_LOG_DEBUG,
                                         "Unable to get dict value.");
 
                         if (!success[j])
