@@ -764,6 +764,15 @@ struct volume_options options[] = {
                          "restrict exports only to the subdirectories specified"
                          " through this option. Must be an absolute path."
         },
+        { .key  = {"nfs3.export-dirs"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "By default, all subvolumes of nfs are exported as "
+                         "individual exports. There are cases where a "
+                         "subdirectory or subdirectories in the volume need to "
+                         "be exported separately. Enabling this option allows "
+                         "any directory on a volumes to be exported separately."
+                         " Directory exports are enabled by default."
+        },
         { .key  = {"nfs3.export-volumes"},
           .type = GF_OPTION_TYPE_BOOL,
           .description = "Enable or disable exporting whole volumes, instead "

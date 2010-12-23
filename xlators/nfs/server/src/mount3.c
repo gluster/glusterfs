@@ -399,9 +399,10 @@ err:
  * we need to strip out the volume name first.
  */
 char *
-__volume_subdir (char *dirpath)
+__volume_subdir (char *dirpath, char **volname)
 {
         char    *subdir = NULL;
+        int     volname_len = 0;
 
         if (!dirpath)
                 return NULL;
@@ -410,7 +411,19 @@ __volume_subdir (char *dirpath)
                 dirpath++;
 
         subdir = index (dirpath, (int)'/');
+        if (!subdir)
+                goto out;
 
+        if (!*volname)
+                goto out;
+
+        /* subdir points to the first / after the volume name while dirpath
+         * points to the first char of the volume name.
+         */
+        volname_len = subdir - dirpath;
+        strncpy (*volname, dirpath, volname_len);
+        *(*volname + volname_len) = '\0';
+out:
         return subdir;
 }
 
@@ -473,6 +486,7 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
         char            gfidstr[512];
+        uuid_t          gfid = {0, };
 
         if (!mres)
                 return ret;
@@ -482,9 +496,9 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
                 goto err;
 
         /* Wipe the contents of the previous component */
+        uuid_copy (gfid, mres->resolveloc.inode->gfid);
         nfs_loc_wipe (&mres->resolveloc);
-        ret = nfs_entry_loc_fill (mres->exp->vol->itable,
-                                  mres->resolveloc.inode->gfid, nextcomp,
+        ret = nfs_entry_loc_fill (mres->exp->vol->itable, gfid, nextcomp,
                                   &mres->resolveloc, NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
                 uuid_unparse (mres->resolveloc.inode->gfid, gfidstr);
@@ -572,7 +586,7 @@ err:
  * of the exported directory can be built.
  */
 int
-__mnt3_resolve_export_subdir (mnt3_resolve_t *mres)
+__mnt3_resolve_subdir (mnt3_resolve_t *mres)
 {
         char            dupsubdir[MNTPATHLEN];
         char            *firstcomp = NULL;
@@ -607,20 +621,15 @@ err:
 
 
 int
-mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
-                            struct mnt3_export *exp)
+mnt3_resolve_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
+                     struct mnt3_export *exp, char *subdir)
 {
         mnt3_resolve_t  *mres = NULL;
-        char            *volume_subdir = NULL;
         int             ret = -EFAULT;
         struct nfs3_fh  pfh = GF_NFS3FH_STATIC_INITIALIZER;
 
-        if ((!req) || (!ms) || (!exp))
+        if ((!req) || (!ms) || (!exp) || (!subdir))
                 return ret;
-
-        volume_subdir = __volume_subdir (exp->expname);
-        if (!volume_subdir)
-                goto err;
 
         mres = GF_CALLOC (1, sizeof (mnt3_resolve_t), gf_nfs_mt_mnt3_resolve);
         if (!mres) {
@@ -631,18 +640,44 @@ mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
         mres->exp = exp;
         mres->mstate = ms;
         mres->req = req;
-        strcpy (mres->remainingdir, volume_subdir);
+        strcpy (mres->remainingdir, subdir);
         if (gf_nfs_dvm_off (nfs_state (ms->nfsx)))
                 pfh = nfs3_fh_build_indexed_root_fh (mres->mstate->nfsx->children, mres->exp->vol);
         else
                 pfh = nfs3_fh_build_uuid_root_fh (exp->volumeid);
 
         mres->parentfh = pfh;
-        ret = __mnt3_resolve_export_subdir (mres);
+        ret = __mnt3_resolve_subdir (mres);
         if (ret < 0) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve export dir: %s"
                         , mres->exp->expname);
                 GF_FREE (mres);
+        }
+
+err:
+        return ret;
+}
+
+
+int
+mnt3_resolve_export_subdir (rpcsvc_request_t *req, struct mount3_state *ms,
+                            struct mnt3_export *exp)
+{
+        char            *volume_subdir = NULL;
+        int             ret = -EFAULT;
+
+        if ((!req) || (!ms) || (!exp))
+                return ret;
+
+        volume_subdir = __volume_subdir (exp->expname, NULL);
+        if (!volume_subdir)
+                goto err;
+
+        ret = mnt3_resolve_subdir (req, ms, exp, exp->expname);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve export dir: %s"
+                        , exp->expname);
+                goto err;
         }
 
 err:
@@ -729,6 +764,82 @@ err:
 
 
 int
+mnt3_parse_dir_exports (rpcsvc_request_t *req, struct mount3_state *ms,
+                        char *subdir)
+{
+        char                    volname[1024];
+        struct mnt3_export      *exp = NULL;
+        char                    *volname_ptr = NULL;
+        int                     ret = -1;
+
+        if ((!ms) || (!subdir))
+                return -1;
+
+        volname_ptr = volname;
+        subdir = __volume_subdir (subdir, &volname_ptr);
+        if (!subdir)
+                goto err;
+
+        exp = mnt3_mntpath_to_export (ms, volname);
+        if (!exp)
+                goto err;
+
+        ret = mnt3_resolve_subdir (req, ms, exp, subdir);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve export dir: %s"
+                        , subdir);
+                goto err;
+        }
+
+err:
+        return ret;
+}
+
+
+int
+mnt3_find_export (rpcsvc_request_t *req, char *path, struct mnt3_export **e)
+{
+        int                     ret = -EFAULT;
+        struct mount3_state     *ms = NULL;
+        struct mnt3_export      *exp = NULL;
+        struct nfs_state        *nfs = NULL;
+
+        if ((!req) || (!path) || (!e))
+                return -1;
+
+        ms = (struct mount3_state *)nfs_rpcsvc_request_program_private (req);
+        if (!ms) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Mount state not present");
+                nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
+                goto err;
+        }
+
+        nfs = (struct nfs_state *)ms->nfsx->private;
+        gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
+        exp = mnt3_mntpath_to_export (ms, path);
+        if (exp) {
+                ret = 0;
+                *e = exp;
+                goto err;
+        }
+
+        if (!gf_mnt3_export_dirs(ms)) {
+                ret = -1;
+                goto err;
+        }
+
+        ret = mnt3_parse_dir_exports (req, ms, path);
+        if (ret == 0) {
+                ret = -2;
+                goto err;
+        }
+
+err:
+        return ret;
+}
+
+
+int
 mnt3svc_mnt (rpcsvc_request_t *req)
 {
         struct iovec            pvec = {0, };
@@ -760,15 +871,18 @@ mnt3svc_mnt (rpcsvc_request_t *req)
         }
 
         ret = 0;
+        nfs = (struct nfs_state *)ms->nfsx->private;
         gf_log (GF_MNT, GF_LOG_DEBUG, "dirpath: %s", path);
-        exp = mnt3_mntpath_to_export (ms, path);
-        if (!exp) {
+        ret = mnt3_find_export (req, path, &exp);
+        if (ret == -2) {
+                ret = 0;
+                goto rpcerr;
+        } else if (ret < 0) {
                 ret = -1;
                 mntstat = MNT3ERR_NOENT;
                 goto mnterr;
         }
 
-        nfs = (struct nfs_state *)ms->nfsx->private;
         if (!nfs_subvolume_started (nfs, exp->vol)) {
                 gf_log (GF_MNT, GF_LOG_DEBUG, "Volume %s not started",
                         exp->vol->name);
@@ -1497,6 +1611,46 @@ err:
 
 
 int
+__mnt3_init_dir_export (struct mount3_state *ms, dict_t *opts)
+{
+        int                     ret = -1;
+        char                    *optstr  = NULL;
+        /* On by default. */
+        gf_boolean_t            boolt = _gf_true;
+
+        if ((!ms) || (!opts))
+                return -1;
+
+        if (!dict_get (opts, "nfs3.export-dirs")) {
+                ret = 0;
+                goto err;
+        }
+
+        ret = dict_get_str (opts, "nfs3.export-dirs", &optstr);
+        if (ret < 0) {
+                gf_log (GF_MNT, GF_LOG_ERROR, "Failed to read option: "
+                        "nfs3.export-dirs");
+                ret = -1;
+                goto err;
+        }
+
+        gf_string2boolean (optstr, &boolt);
+        ret = 0;
+
+err:
+        if (boolt == _gf_false) {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Dir exports disabled");
+                ms->export_dirs = 0;
+        } else {
+                gf_log (GF_MNT, GF_LOG_TRACE, "Dir exports enabled");
+                ms->export_dirs = 1;
+        }
+
+        return ret;
+}
+
+
+int
 mnt3_init_options (struct mount3_state *ms, dict_t *options)
 {
         xlator_list_t   *volentry = NULL;
@@ -1506,6 +1660,7 @@ mnt3_init_options (struct mount3_state *ms, dict_t *options)
                 return -1;
 
         __mnt3_init_volume_export (ms, options);
+        __mnt3_init_dir_export (ms, options);
         volentry = ms->nfsx->children;
         while (volentry) {
                 gf_log (GF_MNT, GF_LOG_TRACE, "Initing options for: %s",
