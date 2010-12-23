@@ -99,8 +99,10 @@ struct mount3_state {
 
         /* Set to 0 if exporting full volumes is disabled. On by default. */
         int                     export_volumes;
+        int                     export_dirs;
 };
 
+#define gf_mnt3_export_dirs(mst)        ((mst)->export_dirs)
 
 struct mount3_resolve_state {
         struct mnt3_export      *exp;
