@@ -637,13 +637,6 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                 local->cont.lookup.buf.ia_ino = local->cont.lookup.ino;
         }
 
-        up_count = afr_up_children_count (priv->child_count, priv->child_up);
-        if (up_count == 1) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Only 1 child up - do not attempt to detect self heal");
-                goto unwind;
-        }
-
         if (local->op_ret == 0) {
                 /* KLUDGE: assuming DHT will not itransform in
                    revalidate */
@@ -651,6 +644,13 @@ afr_lookup_done (call_frame_t *frame, xlator_t *this, struct iatt *lookup_buf)
                         local->cont.lookup.buf.ia_ino =
                                 local->cont.lookup.inode->ino;
                 }
+        }
+        up_count = afr_up_children_count (priv->child_count, priv->child_up);
+        if (up_count == 1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "Only 1 child up - do not attempt to detect self heal");
+
+                goto unwind;
         }
 
         if (local->success_count && local->enoent_count) {
