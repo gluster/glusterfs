@@ -187,6 +187,14 @@ nfs_loc_copy (loc_t *dst, loc_t *src)
 
 	ret = 0;
 out:
+        if (ret == -1) {
+                if (dst->inode)
+                        inode_unref (dst->inode);
+
+                if (dst->parent)
+                        inode_unref (dst->parent);
+        }
+
 	return ret;
 }
 
