@@ -203,6 +203,8 @@ stripe_entry_self_heal (call_frame_t *frame, xlator_t *this,
         }
 
 out:
+        if (rframe)
+                STRIPE_STACK_DESTROY (rframe);
         if (dict)
                 dict_unref (dict);
 
@@ -3389,6 +3391,8 @@ stripe_readv (call_frame_t *frame, xlator_t *this, fd_t *fd,
 err:
         if (local && local->fd)
                 fd_unref (local->fd);
+        if (rframe)
+                STRIPE_STACK_DESTROY (rframe);
 
         STRIPE_STACK_UNWIND (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
         return 0;

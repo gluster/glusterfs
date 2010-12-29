@@ -44,15 +44,21 @@
                         frame->local = NULL;                    \
                 }                                               \
                 STACK_UNWIND_STRICT (fop, frame, params);       \
-                stripe_local_wipe(__local);                 \
+                if (__local) {                                  \
+                        stripe_local_wipe(__local);             \
+                        GF_FREE (__local);                      \
+                }                                               \
         } while (0)
 
 #define STRIPE_STACK_DESTROY(frame) do {                  \
                 stripe_local_t *__local = NULL;           \
-                __local = frame->local;                \
-                frame->local = NULL;                   \
-                STACK_DESTROY (frame->root);           \
-                stripe_local_wipe (__local);        \
+                __local = frame->local;                   \
+                frame->local = NULL;                      \
+                STACK_DESTROY (frame->root);              \
+                if (__local) {                            \
+                        stripe_local_wipe (__local);      \
+                        GF_FREE (__local);                \
+                }                                         \
         } while (0)
 
 /**
