@@ -88,6 +88,7 @@ struct nfs3_export {
         int                     access;
         int                     trusted_sync;
         int                     trusted_write;
+        int                     rootlookedup;
 };
 
 #define GF_NFS3_DEFAULT_VOLACCESS       (GF_NFS3_VOLACCESS_RW)

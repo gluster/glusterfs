@@ -37,6 +37,13 @@
 #include "iatt.h"
 #include <string.h>
 
+extern int
+nfs3_set_root_looked_up (struct nfs3_state *nfs3, struct nfs3_fh *rootfh);
+
+extern int
+nfs3_is_root_looked_up (struct nfs3_state *nfs3, struct nfs3_fh *rootfh);
+
+
 #define nfs3_call_resume(cst)                                   \
         do {                                                    \
                 if (((cst)) && (cst)->resume_fn)                \
@@ -3116,6 +3123,85 @@ nfs3_fh_resolve_entry (nfs3_call_state_t *cs)
         return 0;
 }
 
+
+int
+nfs3_fh_resolve_resume (nfs3_call_state_t *cs)
+{
+        int     ret = -EFAULT;
+
+        if (!cs)
+                return ret;
+
+        if (cs->resolve_ret < 0)
+                goto err_resume_call;
+
+        if (!cs->resolventry)
+                ret = nfs3_fh_resolve_inode (cs);
+        else
+                ret = nfs3_fh_resolve_entry (cs);
+
+err_resume_call:
+        if (ret < 0)
+                nfs3_call_resume (cs);
+
+        return ret;
+}
+
+
+int32_t
+nfs3_fh_resolve_root_lookup_cbk (call_frame_t *frame, void *cookie,
+                                 xlator_t *this, int32_t op_ret,
+                                 int32_t op_errno, inode_t *inode,
+                                 struct iatt *buf, dict_t *xattr,
+                                 struct iatt *postparent)
+{
+        nfs3_call_state_t       *cs = NULL;
+
+        cs = frame->local;
+        cs->resolve_ret = op_ret;
+        cs->resolve_errno = op_errno;
+
+        if (op_ret == -1) {
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Lookup failed: %s: %s",
+                        cs->resolvedloc.path, strerror (op_errno));
+                goto err;
+        } else
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Entry looked up: %s",
+                        cs->resolvedloc.path);
+
+        nfs3_set_root_looked_up (cs->nfs3state, &cs->resolvefh);
+err:
+        nfs3_fh_resolve_resume (cs);
+        return 0;
+}
+
+
+int
+nfs3_fh_resolve_root (nfs3_call_state_t *cs)
+{
+        int             ret = -EFAULT;
+        nfs_user_t      nfu = {0, };
+
+        if (!cs)
+                return ret;
+
+        if (nfs3_is_root_looked_up (cs->nfs3state, &cs->resolvefh)) {
+                ret = nfs3_fh_resolve_resume (cs);
+                goto out;
+        }
+
+        nfs_user_root_create (&nfu);
+        gf_log (GF_NFS3, GF_LOG_TRACE, "Root needs lookup");
+        ret = nfs_root_loc_fill (cs->vol->itable, &cs->resolvedloc);
+
+        ret = nfs_lookup (cs->nfsx, cs->vol, &nfu, &cs->resolvedloc,
+                          nfs3_fh_resolve_root_lookup_cbk, cs);
+
+out:
+        return ret;
+}
+
+
 int
 nfs3_fh_resolve_and_resume (nfs3_call_state_t *cs, struct nfs3_fh *fh,
                             char *entry, nfs3_resume_fn_t resum_fn)
@@ -3136,18 +3222,13 @@ nfs3_fh_resolve_and_resume (nfs3_call_state_t *cs, struct nfs3_fh *fh,
          *
          * b. (fh, basename) resolution
          */
-        if (!entry)     /* a */
-                ret = nfs3_fh_resolve_inode (cs);
-        else {          /* b */
+        if (entry) {    /* b */
                 cs->resolventry = gf_strdup (entry);
                 if (!cs->resolventry)
                         goto err;
-
-                ret = nfs3_fh_resolve_entry (cs);
         }
 
+        ret = nfs3_fh_resolve_root (cs);
 err:
         return ret;
 }
-
-

@@ -174,6 +174,44 @@ out:
 }
 
 
+int
+nfs3_is_root_looked_up (struct nfs3_state *nfs3, struct nfs3_fh *rootfh)
+{
+        struct nfs3_export      *exp = NULL;
+        int                     ret = 0;
+
+        if ((!nfs3) || (!rootfh))
+                return 0;
+
+        exp = __nfs3_get_export_by_exportid (nfs3, rootfh->exportid);
+        if (!exp)
+                goto out;
+
+        ret = exp->rootlookedup;
+out:
+        return ret;
+}
+
+
+int
+nfs3_set_root_looked_up (struct nfs3_state *nfs3, struct nfs3_fh *rootfh)
+{
+        struct nfs3_export      *exp = NULL;
+        int                     ret = 0;
+
+        if ((!nfs3) || (!rootfh))
+                return 0;
+
+        exp = __nfs3_get_export_by_exportid (nfs3, rootfh->exportid);
+        if (!exp)
+                goto out;
+
+        exp->rootlookedup = 1;
+out:
+        return ret;
+}
+
+
 #define nfs3_map_fh_to_volume(nfs3state, handle, rqst, volume, status, label) \
         do {                                                            \
                 volume = nfs3_fh_to_xlator ((nfs3state), handle);       \
