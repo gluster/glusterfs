@@ -44,12 +44,11 @@ struct _locker {
 };
 
 struct _lock_table {
-	struct list_head  file_lockers;
-	struct list_head  dir_lockers;
+	struct list_head  inodelk_lockers;
+	struct list_head  entrylk_lockers;
 	gf_lock_t         lock;
 	size_t            count;
 };
-
 
 /* private structure per connection (transport object)
  * used as transport_t->xl_private

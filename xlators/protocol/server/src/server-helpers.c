@@ -149,11 +149,11 @@ free_state (server_state_t *state)
 
 int
 gf_add_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc, fd_t *fd, pid_t pid, uint64_t owner)
+               loc_t *loc, fd_t *fd, pid_t pid, uint64_t owner,
+               glusterfs_fop_t type)
 {
         int32_t         ret = -1;
         struct _locker *new = NULL;
-        uint8_t         dir = 0;
 
         new = GF_CALLOC (1, sizeof (struct _locker), gf_server_mt_locker_t);
         if (new == NULL) {
@@ -167,10 +167,8 @@ gf_add_locker (struct _lock_table *table, const char *volume,
 
         if (fd == NULL) {
                 loc_copy (&new->loc, loc);
-                dir = IA_ISDIR (new->loc.inode->ia_type);
         } else {
                 new->fd = fd_ref (fd);
-                dir = IA_ISDIR (fd->inode->ia_type);
         }
 
         new->pid   = pid;
@@ -178,10 +176,10 @@ gf_add_locker (struct _lock_table *table, const char *volume,
 
         LOCK (&table->lock);
         {
-                if (dir)
-                        list_add_tail (&new->lockers, &table->dir_lockers);
+                if (type == GF_FOP_ENTRYLK)
+                        list_add_tail (&new->lockers, &table->entrylk_lockers);
                 else
-                        list_add_tail (&new->lockers, &table->file_lockers);
+                        list_add_tail (&new->lockers, &table->inodelk_lockers);
         }
         UNLOCK (&table->lock);
 out:
@@ -191,29 +189,22 @@ out:
 
 int
 gf_del_locker (struct _lock_table *table, const char *volume,
-               loc_t *loc, fd_t *fd, uint64_t owner)
+               loc_t *loc, fd_t *fd, uint64_t owner, glusterfs_fop_t type)
 {
         struct _locker    *locker = NULL;
         struct _locker    *tmp = NULL;
         int32_t            ret = 0;
-        uint8_t            dir = 0;
         struct list_head  *head = NULL;
         struct list_head   del;
 
         INIT_LIST_HEAD (&del);
 
-        if (fd) {
-                dir = IA_ISDIR (fd->inode->ia_type);
-        } else {
-                dir = IA_ISDIR (loc->inode->ia_type);
-        }
-
         LOCK (&table->lock);
         {
-                if (dir) {
-                        head = &table->dir_lockers;
+                if (type == GF_FOP_ENTRYLK) {
+                        head = &table->entrylk_lockers;
                 } else {
-                        head = &table->file_lockers;
+                        head = &table->inodelk_lockers;
                 }
 
                 list_for_each_entry_safe (locker, tmp, head, lockers) {
@@ -260,8 +251,8 @@ gf_lock_table_new (void)
                         "failed to allocate memory for new lock table");
                 goto out;
         }
-        INIT_LIST_HEAD (&new->dir_lockers);
-        INIT_LIST_HEAD (&new->file_lockers);
+        INIT_LIST_HEAD (&new->entrylk_lockers);
+        INIT_LIST_HEAD (&new->inodelk_lockers);
         LOCK_INIT (&new->lock);
 out:
         return new;
@@ -285,23 +276,25 @@ int
 do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                        call_frame_t *frame, struct _lock_table *ltable)
 {
-        struct list_head  file_lockers, dir_lockers;
+        struct list_head  inodelk_lockers, entrylk_lockers;
         call_frame_t     *tmp_frame = NULL;
         struct gf_flock      flock = {0, };
         xlator_t         *bound_xl = NULL;
         struct _locker   *locker = NULL, *tmp = NULL;
         int               ret = -1;
+        char             *path = NULL;
+        char              gfid [40] = {0, };
 
         bound_xl = conn->bound_xl;
-        INIT_LIST_HEAD (&file_lockers);
-        INIT_LIST_HEAD (&dir_lockers);
+        INIT_LIST_HEAD (&inodelk_lockers);
+        INIT_LIST_HEAD (&entrylk_lockers);
 
         LOCK (&ltable->lock);
         {
-                list_splice_init (&ltable->file_lockers,
-                                  &file_lockers);
+                list_splice_init (&ltable->inodelk_lockers,
+                                  &inodelk_lockers);
 
-                list_splice_init (&ltable->dir_lockers, &dir_lockers);
+                list_splice_init (&ltable->entrylk_lockers, &entrylk_lockers);
         }
         UNLOCK (&ltable->lock);
 
@@ -311,7 +304,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         flock.l_start = 0;
         flock.l_len   = 0;
         list_for_each_entry_safe (locker,
-                                  tmp, &file_lockers, lockers) {
+                                  tmp, &inodelk_lockers, lockers) {
                 tmp_frame = copy_frame (frame);
                 if (tmp_frame == NULL) {
                         gf_log (this->name, GF_LOG_ERROR,
@@ -327,12 +320,31 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                 tmp_frame->root->trans    = conn;
 
                 if (locker->fd) {
+                        GF_ASSERT (locker->fd->inode);
+
+                        ret = inode_path (locker->fd->inode, NULL, &path);
+
+                        if (ret > 0) {
+                                gf_log (this->name, GF_LOG_INFO, "finodelk "
+                                        "released on %s", path);
+                                GF_FREE (path);
+                        } else {
+                                uuid_unparse (locker->fd->inode->gfid, gfid);
+
+                                gf_log (this->name, GF_LOG_INFO, "finodelk "
+                                        "released on ino %"PRId64" with gfid %s",
+                                        locker->fd->inode->ino, gfid);
+                        }
+
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->finodelk,
                                     locker->volume,
                                     locker->fd, F_SETLK, &flock);
                         fd_unref (locker->fd);
                 } else {
+                        gf_log (this->name, GF_LOG_INFO, "inodelk released "
+                                "on %s", locker->loc.path);
+
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->inodelk,
                                     locker->volume,
@@ -348,7 +360,7 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
 
         tmp = NULL;
         locker = NULL;
-        list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
+        list_for_each_entry_safe (locker, tmp, &entrylk_lockers, lockers) {
                 tmp_frame = copy_frame (frame);
 
                 tmp_frame->root->lk_owner = 0;
@@ -356,6 +368,21 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                 tmp_frame->root->trans    = conn;
 
                 if (locker->fd) {
+                        GF_ASSERT (locker->fd->inode);
+
+                        ret = inode_path (locker->fd->inode, NULL, &path);
+
+                        if (ret > 0) {
+                                gf_log (this->name, GF_LOG_INFO, "fentrylk "
+                                        "released on %s", path);
+                                GF_FREE (path);
+                        }  else {
+                                uuid_unparse (locker->fd->inode->gfid, gfid);
+
+                                gf_log (this->name, GF_LOG_INFO, "fentrylk "
+                                        "released on ino %lu", locker->fd->inode->ino);
+                        }
+
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->fentrylk,
                                     locker->volume,
@@ -363,6 +390,9 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                     ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
                         fd_unref (locker->fd);
                 } else {
+                        gf_log (this->name, GF_LOG_INFO, "entrylk released "
+                                "on %s", locker->loc.path);
+
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                     bound_xl->fops->entrylk,
                                     locker->volume,
@@ -408,6 +438,8 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
         int                 i = 0, ret = -1;
         call_frame_t       *tmp_frame = NULL;
         xlator_t           *bound_xl = NULL;
+        char               *path     = NULL;
+        char                gfid [40] = {0, };
 
         bound_xl = conn->bound_xl;
         for (i = 0;i < fd_count; i++) {
@@ -420,6 +452,23 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                                         "out of memory");
                                 goto out;
                         }
+
+                        GF_ASSERT (fd->inode);
+
+                        ret = inode_path (fd->inode, NULL, &path);
+
+                        if (ret > 0) {
+                                gf_log (this->name, GF_LOG_INFO, "fd cleanup on "
+                                        "%s", path);
+                                GF_FREE (path);
+                        }  else {
+                                uuid_unparse (fd->inode->gfid, gfid);
+
+                                gf_log (this->name, GF_LOG_INFO, "fd cleanup on "
+                                        "ino %"PRId64" with gfid %s",
+                                        fd->inode->ino, gfid);
+                        }
+
                         tmp_frame->local = fd;
 
                         tmp_frame->root->pid = 0;
@@ -520,8 +569,8 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         xlator_t           *bound_xl = NULL;
         int32_t             ret = -1;
         server_state_t     *state = NULL;
-        struct list_head    file_lockers;
-        struct list_head    dir_lockers;
+        struct list_head    inodelk_lockers;
+        struct list_head    entrylk_lockers;
         struct _lock_table *ltable = NULL;
         struct _locker     *locker = NULL, *tmp = NULL;
         struct gf_flock        flock = {0,};
@@ -529,6 +578,8 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         int32_t             i = 0;
         fdentry_t          *fdentries = NULL;
         uint32_t             fd_count = 0;
+        char               *path      = NULL;
+        char                gfid [40] = {0, };
 
         if (conn == NULL) {
                 ret = 0;
@@ -552,16 +603,16 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 }
                 pthread_mutex_unlock (&conn->lock);
 
-                INIT_LIST_HEAD (&file_lockers);
-                INIT_LIST_HEAD (&dir_lockers);
+                INIT_LIST_HEAD (&inodelk_lockers);
+                INIT_LIST_HEAD (&entrylk_lockers);
 
                 if (ltable) {
                         LOCK (&ltable->lock);
                         {
-                                list_splice_init (&ltable->file_lockers,
-                                                  &file_lockers);
+                                list_splice_init (&ltable->inodelk_lockers,
+                                                  &inodelk_lockers);
 
-                                list_splice_init (&ltable->dir_lockers, &dir_lockers);
+                                list_splice_init (&ltable->entrylk_lockers, &entrylk_lockers);
                         }
                         UNLOCK (&ltable->lock);
                         GF_FREE (ltable);
@@ -571,7 +622,7 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                 flock.l_start = 0;
                 flock.l_len   = 0;
                 list_for_each_entry_safe (locker,
-                                          tmp, &file_lockers, lockers) {
+                                          tmp, &inodelk_lockers, lockers) {
                         tmp_frame = copy_frame (frame);
                         /*
                            lock_owner = 0 is a special case that tells posix-locks
@@ -581,12 +632,31 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                         tmp_frame->root->trans = conn;
 
                         if (locker->fd) {
+                                GF_ASSERT (locker->fd->inode);
+
+                                ret = inode_path (locker->fd->inode, NULL, &path);
+
+                                if (ret > 0) {
+                                        gf_log (this->name, GF_LOG_INFO, "finodelk "
+                                                "released on %s", path);
+                                        GF_FREE (path);
+                                } else {
+                                        uuid_unparse (locker->fd->inode->gfid, gfid);
+
+                                        gf_log (this->name, GF_LOG_INFO, "finodelk "
+                                                "released on ino %"PRId64 "with gfid %s",
+                                                locker->fd->inode->ino, gfid);
+                                }
+
                                 STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                             bound_xl->fops->finodelk,
                                             locker->volume,
                                             locker->fd, F_SETLK, &flock);
                                 fd_unref (locker->fd);
                         } else {
+                                gf_log (this->name, GF_LOG_INFO, "inodelk "
+                                        "released on %s", locker->loc.path);
+
                                 STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                             bound_xl->fops->inodelk,
                                             locker->volume,
@@ -602,13 +672,30 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 
                 tmp = NULL;
                 locker = NULL;
-                list_for_each_entry_safe (locker, tmp, &dir_lockers, lockers) {
+                list_for_each_entry_safe (locker, tmp, &entrylk_lockers, lockers) {
                         tmp_frame = copy_frame (frame);
 
                         tmp_frame->root->lk_owner = 0;
                         tmp_frame->root->trans = conn;
 
                         if (locker->fd) {
+                                GF_ASSERT (locker->fd->inode);
+
+                                ret = inode_path (locker->fd->inode, NULL, &path);
+
+                                if (ret > 0) {
+                                        gf_log (this->name, GF_LOG_INFO, "fentrylk "
+                                                "released on %s", path);
+
+                                        GF_FREE (path);
+                                } else {
+                                        uuid_unparse (locker->fd->inode->gfid, gfid);
+
+                                        gf_log (this->name, GF_LOG_INFO, "fentrylk "
+                                                "released on ino %"PRId64" and gfid= %s",
+                                                locker->fd->inode->ino, gfid);
+                                }
+
                                 STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                             bound_xl->fops->fentrylk,
                                             locker->volume,
@@ -616,6 +703,9 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                             ENTRYLK_UNLOCK, ENTRYLK_WRLCK);
                                 fd_unref (locker->fd);
                         } else {
+                                gf_log (this->name, GF_LOG_INFO, "entrylk "
+                                        "released on %s", locker->loc.path);
+
                                 STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
                                             bound_xl->fops->entrylk,
                                             locker->volume,
