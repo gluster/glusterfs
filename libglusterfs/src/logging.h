@@ -75,7 +75,11 @@ typedef enum {
 extern gf_loglevel_t gf_log_loglevel;
 extern char gf_log_xl_log_set;
 
+#define FMT_WARN(fmt...) do { if (0) printf (fmt); } while (0)
+
 #define gf_log(dom, levl, fmt...) do {					\
+                FMT_WARN (fmt);                                         \
+                                                                        \
                 if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
                         break;                                          \
                 _gf_log (dom, __FILE__, __FUNCTION__, __LINE__,         \
@@ -83,6 +87,8 @@ extern char gf_log_xl_log_set;
         } while (0)
 
 #define gf_log_callingfn(dom, levl, fmt...) do {                        \
+                FMT_WARN (fmt);                                         \
+                                                                        \
                 if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
                         break;                                          \
                 _gf_log_callingfn (dom, __FILE__, __FUNCTION__, __LINE__, \
