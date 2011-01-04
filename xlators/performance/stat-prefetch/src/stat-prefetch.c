@@ -128,7 +128,7 @@ sp_update_inode_ctx (xlator_t *this, inode_t *inode, int32_t *op_ret,
                         inode_ctx->lookup_in_progress = *lookup_in_progress;
                 }
 
-                if ((op_ret == 0) && (stbuf != NULL)
+                if ((op_ret != NULL ) && (*op_ret == 0) && (stbuf != NULL)
                     && IA_ISDIR (stbuf->ia_type)) {
                         memcpy (&inode_ctx->stbuf, stbuf,
                                 sizeof (*stbuf));
