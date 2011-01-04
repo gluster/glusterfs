@@ -1014,7 +1014,7 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
         if (xlator->validate_options) {
                 if (xlator->validate_options (xlator, xlator->options,
                     op_errstr)) {
-                        gf_log ("", GF_LOG_DEBUG, *op_errstr);
+                        gf_log ("", GF_LOG_DEBUG, "%s", *op_errstr);
                         return -1;
                 }
                 gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");

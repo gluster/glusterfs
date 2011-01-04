@@ -2336,7 +2336,7 @@ brick_validation:
         if (!ret) {
                 snprintf(op_errstr, len, "Brick: %s already in use",
                          brick);
-                gf_log ("", GF_LOG_ERROR, op_errstr);
+                gf_log ("", GF_LOG_ERROR, "%s", op_errstr);
                 ret = -1;
                 goto out;
         } else {
