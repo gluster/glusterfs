@@ -373,7 +373,7 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (exists) {
                 snprintf (msg, sizeof (msg), "Volume %s already exists",
                           volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -585,7 +585,7 @@ glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
         if (!exists) {
                 snprintf (msg, sizeof (msg), "Volume %s does not exist", volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -639,7 +639,7 @@ glusterd_op_stage_delete_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (!exists) {
                 snprintf (msg, sizeof (msg), "Volume %s does not exist",
                           volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -658,7 +658,7 @@ glusterd_op_stage_delete_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 snprintf (msg, sizeof (msg), "Volume %s has been started."
                           "Volume needs to be stopped before deletion.",
                           volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -1180,7 +1180,7 @@ glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (!exists || ret) {
                 snprintf (msg, sizeof (msg), "Volume %s does not exist",
                           volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -1196,7 +1196,7 @@ glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Incorrect brick %s "
                                   "for volume %s", brick, volname);
-                        gf_log ("", GF_LOG_ERROR, msg);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
                         *op_errstr = gf_strdup (msg);
                         goto out;
                 }
@@ -1212,7 +1212,7 @@ glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (ret) {
                 snprintf (msg, sizeof (msg), "Failed to get hostname, error:%s",
                 strerror (errno));
-                gf_log ("glusterd", GF_LOG_ERROR, "%s");
+                gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 goto out;
         }
@@ -1262,7 +1262,7 @@ glusterd_op_stage_log_rotate (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (!exists) {
                 snprintf (msg, sizeof (msg), "Volume %s does not exist",
                           volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -1273,7 +1273,7 @@ glusterd_op_stage_log_rotate (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (ret) {
                 snprintf (msg, sizeof (msg), "Volume %s needs to be started before"
                           " log rotate.", volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -1289,7 +1289,7 @@ glusterd_op_stage_log_rotate (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Incorrect brick %s "
                                   "for volume %s", brick, volname);
-                        gf_log ("", GF_LOG_ERROR, msg);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
                         *op_errstr = gf_strdup (msg);
                         goto out;
                 }
@@ -1348,7 +1348,7 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (!exists) {
                 snprintf (errstr, sizeof (errstr), "Volume %s does not exist",
                           volname);
-                gf_log ("", GF_LOG_ERROR, errstr);
+                gf_log ("", GF_LOG_ERROR, "%s", errstr);
                 *op_errstr = gf_strdup (errstr);
                 ret = -1;
                 goto out;
@@ -1505,7 +1505,7 @@ glusterd_op_stage_reset_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (!exists) {
                 snprintf (msg, sizeof (msg), "Volume %s does not "
                           "exist", volname);
-                gf_log ("", GF_LOG_ERROR, msg);
+                gf_log ("", GF_LOG_ERROR, "%s", msg);
                 *op_errstr = gf_strdup (msg);
                 ret = -1;
                 goto out;
@@ -4095,7 +4095,7 @@ glusterd_op_sync_volume (gd1_mgmt_stage_op_req *req, char **op_errstr,
                 if (ret) {
                         snprintf (msg, sizeof (msg), "Volume %s does not exist",
                                   volname);
-                        gf_log ("", GF_LOG_ERROR, msg);
+                        gf_log ("", GF_LOG_ERROR, "%s", msg);
                         *op_errstr = gf_strdup (msg);
                         goto out;
                 }
