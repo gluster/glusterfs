@@ -1987,6 +1987,8 @@ nfs_rpcsvc_handle_rpc_call (rpcsvc_conn_t *conn)
 err_reply:
         if (ret == RPCSVC_ACTOR_ERROR)
                 ret = nfs_rpcsvc_error_reply (req);
+        else if (ret == RPCSVC_ACTOR_IGNORE)
+                mem_put (conn->rxpool, req);
 
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */
@@ -2297,6 +2299,8 @@ nfs_rpcsvc_record_vectored_call_actor (rpcsvc_conn_t *conn)
 err_reply:
         if (ret == RPCSVC_ACTOR_ERROR)
                 ret = nfs_rpcsvc_error_reply (req);
+        else if (ret == RPCSVC_ACTOR_IGNORE)
+                mem_put (conn->rxpool, req);
 
         /* No need to propagate error beyond this function since the reply
          * has now been queued. */

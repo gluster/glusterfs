@@ -37,6 +37,7 @@
 #include "nfs-generics.h"
 #include "nfs3-helpers.h"
 #include "nfs-mem-types.h"
+#include "nfs.h"
 
 
 #include <sys/socket.h>
@@ -302,6 +303,16 @@ out:
                 }                                                       \
         } while (0)                                                     \
 
+
+#define nfs3_volume_started_check(nf3stt, vlm, rtval, erlbl)            \
+        do {                                                            \
+              if ((!nfs_subvolume_started (nfs_state (nf3stt->nfsx), vlm))){\
+                      gf_log (GF_NFS3, GF_LOG_ERROR, "Volume is disabled: %s",\
+                              vlm->name);                               \
+                      rtval = RPCSVC_ACTOR_IGNORE;                      \
+                      goto erlbl;                                       \
+              }                                                         \
+        } while (0)                                                     \
 
 
 int
@@ -711,6 +722,7 @@ nfs3_getattr (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cstate, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cstate, fh, NULL,nfs3_getattr_resume);
@@ -725,7 +737,7 @@ nfs3err:
                 ret = 0;
                 nfs3_call_state_wipe (cstate);
         }
-
+out:
         return ret;
 }
 
@@ -748,7 +760,7 @@ nfs3svc_getattr (rpcsvc_request_t *req)
         }
 
         ret = nfs3_getattr (req, &fh);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "GETATTR procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -967,6 +979,7 @@ nfs3_setattr (rpcsvc_request_t *req, struct nfs3_fh *fh, sattr3 *sattr,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -1002,7 +1015,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1026,7 +1039,7 @@ nfs3svc_setattr (rpcsvc_request_t *req)
         }
 
         ret = nfs3_setattr (req, &fh, &args.new_attributes, &args.guard);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "SETATTR procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -1292,6 +1305,7 @@ nfs3_lookup (rpcsvc_request_t *req, struct nfs3_fh *fh, int fhlen, char *name)
                 nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->lookuptype = GF_NFS3_REVALIDATE;
@@ -1317,7 +1331,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1341,7 +1355,7 @@ nfs3svc_lookup (rpcsvc_request_t *req)
         }
 
         ret = nfs3_lookup (req, &fh, args.what.dir.data.data_len, name);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "LOOKUP procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -1442,6 +1456,7 @@ nfs3_access (rpcsvc_request_t *req, struct nfs3_fh *fh, uint32_t accbits)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
         cs->accessbits = accbits;
 
@@ -1457,7 +1472,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1480,7 +1495,7 @@ nfs3svc_access (rpcsvc_request_t *req)
         }
 
         ret = nfs3_access (req, &fh, args.access);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "ACCESS procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -1582,6 +1597,7 @@ nfs3_readlink (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_readlink_resume);
@@ -1599,7 +1615,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1622,7 +1638,7 @@ nfs3svc_readlink (rpcsvc_request_t *req)
         }
 
         ret = nfs3_readlink (req, &fh);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "READLINK procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -1773,6 +1789,7 @@ nfs3_read (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->datacount = count;
@@ -1789,7 +1806,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -1812,7 +1829,7 @@ nfs3svc_read (rpcsvc_request_t *req)
         }
 
         ret = nfs3_read (req, &fh, args.offset, args.count);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "READ procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -2096,6 +2113,7 @@ nfs3_write (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
         cs->datacount = count;
@@ -2117,7 +2135,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2197,7 +2215,7 @@ nfs3svc_write_vec (rpcsvc_request_t *req, struct iobuf *iob)
                           payload,iob);
         xdr_free_write3args_nocopy (args);
         GF_FREE (args);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "WRITE procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -2233,7 +2251,7 @@ nfs3svc_write (rpcsvc_request_t *req)
         nfs_rpcsvc_request_record_ref (req);
         ret = nfs3_write (req, &fh, args.offset, args.count, args.stable,
                           payload, nfs_rpcsvc_request_record_iob (req));
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "WRITE procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -2489,6 +2507,7 @@ nfs3_create (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -2510,7 +2529,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2537,7 +2556,7 @@ nfs3svc_create (rpcsvc_request_t *req)
         cverf = *(uint64_t *)args.how.createhow3_u.verf;
         ret = nfs3_create (req, &dirfh, name, args.how.mode,
                            &args.how.createhow3_u.obj_attributes, cverf);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "CREATE procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -2696,6 +2715,7 @@ nfs3_mkdir (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -2714,7 +2734,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2737,7 +2757,7 @@ nfs3svc_mkdir (rpcsvc_request_t *req)
         }
 
         ret = nfs3_mkdir (req, &dirfh, name, &args.attributes);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "MKDIR procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -2846,6 +2866,7 @@ nfs3_symlink (rpcsvc_request_t *req, struct nfs3_fh *dirfh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -2872,7 +2893,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -2897,7 +2918,7 @@ nfs3svc_symlink (rpcsvc_request_t *req)
 
         ret = nfs3_symlink (req, &dirfh, name, target,
                             &args.symlink.symlink_attributes);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "SYMLINK procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -3118,6 +3139,7 @@ nfs3_mknod (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3157,7 +3179,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3180,7 +3202,7 @@ nfs3svc_mknod (rpcsvc_request_t *req)
         }
 
         ret = nfs3_mknod (req, &fh, name, &args.what);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "MKNOD procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -3312,6 +3334,7 @@ nfs3_remove (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3330,7 +3353,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3353,7 +3376,7 @@ nfs3svc_remove (rpcsvc_request_t *req)
         }
 
         ret = nfs3_remove (req, &fh, name);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "REMOVE procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -3454,6 +3477,7 @@ nfs3_rmdir (rpcsvc_request_t *req, struct nfs3_fh *fh, char *name)
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto (name, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3472,7 +3496,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3495,7 +3519,7 @@ nfs3svc_rmdir (rpcsvc_request_t *req)
         }
 
         ret = nfs3_rmdir (req, &fh, name);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "RMDIR procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -3657,6 +3681,7 @@ nfs3_rename (rpcsvc_request_t *req, struct nfs3_fh *olddirfh, char *oldname,
         nfs3_validate_strlen_or_goto(oldname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_validate_strlen_or_goto(newname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, olddirfh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, olddirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3687,7 +3712,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3712,7 +3737,7 @@ nfs3svc_rename (rpcsvc_request_t *req)
         }
 
         ret = nfs3_rename (req, &olddirfh, oldname, &newdirfh, newname);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "RENAME procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -3846,6 +3871,7 @@ nfs3_link (rpcsvc_request_t *req, struct nfs3_fh *targetfh,
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_validate_strlen_or_goto(newname, NFS_NAME_MAX, nfs3err, stat, ret);
         nfs3_map_fh_to_volume (nfs3, dirfh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, dirfh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -3873,7 +3899,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -3896,7 +3922,7 @@ nfs3svc_link (rpcsvc_request_t *req)
         }
 
         ret = nfs3_link (req, &targetfh, &dirfh, newpath);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "LINK procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -4160,6 +4186,7 @@ nfs3_readdir (rpcsvc_request_t *req, struct nfs3_fh *fh, cookie3 cookie,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         cs->cookieverf = cverf;
@@ -4191,7 +4218,7 @@ nfs3err:
                 ret = 0;
                 nfs3_call_state_wipe (cs);
         }
-
+out:
         return ret;
 }
 
@@ -4215,7 +4242,7 @@ nfs3svc_readdir (rpcsvc_request_t *req)
 
         verf = *(uint64_t *)ra.cookieverf;
         ret = nfs3_readdir (req, &fh, ra.cookie, verf, ra.count, 0);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "READDIR procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -4246,7 +4273,7 @@ nfs3svc_readdirp (rpcsvc_request_t *req)
         cverf = *(uint64_t *)ra.cookieverf;
         ret = nfs3_readdir (req, &fh, ra.cookie, cverf, ra.dircount,
                             ra.maxcount);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "READDIRP procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -4382,6 +4409,7 @@ nfs3_fsstat (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_fsstat_resume);
@@ -4399,7 +4427,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4421,7 +4449,7 @@ nfs3svc_fsstat (rpcsvc_request_t *req)
         }
 
         ret = nfs3_fsstat (req, &fh);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "FSTAT procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -4524,6 +4552,7 @@ nfs3_fsinfo (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_fsinfo_resume);
@@ -4538,7 +4567,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4561,7 +4590,7 @@ nfs3svc_fsinfo (rpcsvc_request_t *req)
         }
 
         ret = nfs3_fsinfo (req, &root);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "FSINFO procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -4661,6 +4690,7 @@ nfs3_pathconf (rpcsvc_request_t *req, struct nfs3_fh *fh)
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
         ret = nfs3_fh_resolve_and_resume (cs, fh, NULL, nfs3_pathconf_resume);
@@ -4678,7 +4708,7 @@ nfs3err:
                  */
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4700,7 +4730,7 @@ nfs3svc_pathconf (rpcsvc_request_t *req)
         }
 
         ret = nfs3_pathconf (req, &fh);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "PATHCONF procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
@@ -4839,6 +4869,7 @@ nfs3_commit (rpcsvc_request_t *req, struct nfs3_fh *fh, offset3 offset,
         nfs3_validate_gluster_fh (fh, stat, nfs3err);
         nfs3_validate_nfs3_state (req, nfs3, stat, nfs3err, ret);
         nfs3_map_fh_to_volume (nfs3, fh, req, vol, stat, nfs3err);
+        nfs3_volume_started_check (nfs3, vol, ret, out);
         nfs3_check_rw_volaccess (nfs3, fh->exportid, stat, nfs3err);
         nfs3_handle_call_state_init (nfs3, cs, req, vol, stat, nfs3err);
 
@@ -4857,7 +4888,7 @@ nfs3err:
                 nfs3_call_state_wipe (cs);
                 ret = 0;
         }
-
+out:
         return ret;
 }
 
@@ -4880,7 +4911,7 @@ nfs3svc_commit (rpcsvc_request_t *req)
         }
 
         ret = nfs3_commit (req, &fh, args.offset, args.count);
-        if (ret < 0) {
+        if ((ret < 0) && (ret != RPCSVC_ACTOR_IGNORE)) {
                 gf_log (GF_NFS3, GF_LOG_ERROR, "COMMIT procedure failed");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 ret = RPCSVC_ACTOR_ERROR;
