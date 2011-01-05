@@ -395,6 +395,7 @@ struct rpcsvc_request {
 
 #define RPCSVC_ACTOR_SUCCESS    0
 #define RPCSVC_ACTOR_ERROR      (-1)
+#define RPCSVC_ACTOR_IGNORE     (-2)
 
 /* Functor for every type of protocol actor
  * must be defined like this.
