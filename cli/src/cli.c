@@ -482,6 +482,7 @@ cli_out (const char *fmt, ...)
 
         ret = vprintf (fmt, ap);
         printf ("\n");
+        va_end (ap);
 
         return ret;
 }
