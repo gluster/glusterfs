@@ -122,12 +122,27 @@ afr_sh_entry_erase_pending_cbk (call_frame_t *frame, void *cookie,
 				xlator_t *this, int32_t op_ret,
 				int32_t op_errno, dict_t *xattr)
 {
-	int             call_count = 0;
+	int                  call_count = 0;
+        afr_local_t         *local      = NULL;
+        afr_self_heal_t     *sh         = NULL;
+        afr_local_t         *orig_local = NULL;
+        call_frame_t        *orig_frame = NULL;
 
 	call_count = afr_frame_return (frame);
 
-	if (call_count == 0)
-		afr_sh_entry_finish (frame, this);
+	if (call_count == 0) {
+                local = frame->local;
+                sh = &local->self_heal;
+
+                orig_frame = sh->orig_frame;
+                orig_local = orig_frame->local;
+
+                if (sh->source != -1) {
+                        orig_local->cont.lookup.buf.ia_nlink = sh->buf[sh->source].ia_nlink;
+                }
+
+                afr_sh_entry_finish (frame, this);
+        }
 
 	return 0;
 }
