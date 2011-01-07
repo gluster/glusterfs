@@ -897,7 +897,7 @@ posix_opendir (call_frame_t *frame, xlator_t *this,
 		goto out;
 	}
 
-        pfd = GF_CALLOC (1, sizeof (*fd), gf_posix_mt_posix_fd);
+        pfd = GF_CALLOC (1, sizeof (*pfd), gf_posix_mt_posix_fd);
         if (!pfd) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
