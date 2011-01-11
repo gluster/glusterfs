@@ -844,6 +844,9 @@ glusterd_store_iter_get_next (glusterd_store_iter_t *iter,
                 *value = gf_strdup (iter_val);
         *key   = gf_strdup (iter_key);
 
+        if (!iter_key || !iter_val)
+                goto out;
+
         ret = 0;
 
 out:
@@ -1438,6 +1441,11 @@ glusterd_store_retrieve_peers (xlator_t *this)
                         goto out;
 
                 ret = glusterd_store_iter_get_next (iter, &key, &value);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "key: %p, and value: %p",
+                                key, value);
+                        goto out;
+                }
 
                 while (!ret) {
 
