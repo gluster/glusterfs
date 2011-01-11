@@ -1125,10 +1125,8 @@ out:
                 if (need_open) {
                         op_ret = qr_loc_fill (&loc, fd->inode, path);
                         if (op_ret == -1) {
-                                need_unwind = 1;
-                                op_errno = errno;
                                 qr_resume_pending_ops (qr_fd_ctx);
-                                goto out;
+                                goto ret;
                         }
 
                         STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1145,6 +1143,7 @@ out:
 
         }
 
+ret:
         if (vector) {
                 GF_FREE (vector);
         }
@@ -1253,7 +1252,6 @@ qr_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (writev, frame, op_ret, op_errno, NULL,
                                      NULL);
@@ -1264,10 +1262,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        need_unwind = 1;
-                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1277,6 +1273,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -1351,7 +1348,6 @@ qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fstat, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
@@ -1361,9 +1357,7 @@ out:
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
                         qr_resume_pending_ops (qr_fd_ctx);
-                        need_unwind = 1;
-                        op_errno = errno;
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1373,6 +1367,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -1453,7 +1448,6 @@ qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, NULL,
                                      NULL);
@@ -1465,9 +1459,7 @@ out:
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
                         qr_resume_pending_ops (qr_fd_ctx);
-                        need_unwind = 1;
-                        op_errno = errno;
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1477,6 +1469,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -1554,7 +1547,6 @@ qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno);
         } else if (can_wind) {
@@ -1565,9 +1557,7 @@ out:
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
                         qr_resume_pending_ops (qr_fd_ctx);
-                        op_errno = errno;
-                        need_unwind = 1;
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1577,6 +1567,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -1658,7 +1649,6 @@ qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (open, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
@@ -1667,10 +1657,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        need_unwind = 1;
-                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1680,6 +1668,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -1831,7 +1820,6 @@ qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fentrylk, frame, op_ret, op_errno);
         } else if (can_wind) {
@@ -1841,10 +1829,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        need_unwind = 1;
-                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1854,6 +1840,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -1933,7 +1920,6 @@ qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (finodelk, frame, op_ret, op_errno);
         } else if (can_wind) {
@@ -1943,10 +1929,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        need_unwind = 1;
-                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -1956,6 +1940,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -2029,7 +2014,6 @@ qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fsync, frame, op_ret, op_errno, NULL,
                                      NULL);
@@ -2039,10 +2023,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        need_unwind = 1;
-                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -2052,6 +2034,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -2194,10 +2177,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        need_unwind = 1;
-                        op_errno = errno;
                         qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -2207,6 +2188,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
@@ -2284,7 +2266,6 @@ qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 can_wind = 1;
         }
 
-out:
         if (need_unwind) {
                 QR_STACK_UNWIND (lk, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
@@ -2293,10 +2274,8 @@ out:
         } else if (need_open) {
                 op_ret = qr_loc_fill (&loc, fd->inode, path);
                 if (op_ret == -1) {
-                        op_errno = errno;
-                        need_unwind = 1;
                         qr_resume_pending_ops (qr_fd_ctx);
-                        goto out;
+                        goto ret;
                 }
 
                 STACK_WIND (frame, qr_open_cbk, FIRST_CHILD(this),
@@ -2306,6 +2285,7 @@ out:
                 qr_loc_wipe (&loc);
         }
 
+ret:
         return 0;
 }
 
