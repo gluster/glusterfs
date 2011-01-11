@@ -493,6 +493,22 @@ nfs_init_state (xlator_t *this)
         }
 
         nfs->memfactor = GF_NFS_DEFAULT_MEMFACTOR;
+        if (dict_get (this->options, "nfs.mem-factor")) {
+                ret = dict_get_str (this->options, "nfs.mem-factor",
+                                    &optstr);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse dict");
+                        goto free_foppool;
+                }
+
+                ret = gf_string2uint (optstr, &nfs->memfactor);
+                if (ret < 0) {
+                        gf_log (GF_NFS, GF_LOG_ERROR, "Failed to parse uint "
+                                "string");
+                        goto free_foppool;
+                }
+        }
+
         fopspoolsize = nfs->memfactor * GF_NFS_CONCURRENT_OPS_MULT;
         /* FIXME: Really saddens me to see this as xlator wide. */
         nfs->foppool = mem_pool_new (struct nfs_fop_local, fopspoolsize);
@@ -897,6 +913,16 @@ struct volume_options options[] = {
           .description = "Use this option on systems that need Gluster NFS to "
                          "be associated with a non-default port number."
         },
-	{ .key  = {NULL} },
+        { .key  = {"nfs.mem-factor"},
+          .type = GF_OPTION_TYPE_INT,
+          .description = "Use this option to make NFS be faster on systems by "
+                         "using more memory. This option specifies a multiple "
+                         "that determines the total amount of memory used. "
+                         "Default value is 15. Increase to use more memory in "
+                         "order to improve performance for certain use cases."
+                         "Please consult gluster-users list before using this "
+                         "option."
+        },
+        { .key  = {NULL} },
 };
 
