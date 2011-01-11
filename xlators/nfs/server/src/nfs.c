@@ -600,9 +600,10 @@ int
 validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 {
         char         *str=NULL;
-        gf_boolean_t nfs_ino32;
-
-        int          ret = 0;
+        gf_boolean_t  nfs_ino32;
+        data_t       *data = NULL;
+        long long     lng = 0;
+        int           ret = 0;
 
 
 
@@ -620,6 +621,20 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         goto out;
                 }
         }
+
+        data = dict_get (options, "nfs.mem-factor");
+        if (data) {
+                if (gf_string2longlong (data->data, &lng) != 0) {
+                        gf_log (this->name, GF_LOG_ERROR, "invalid number format"
+                                                        "\"%s\" in option "
+                                                        "\"nfs.mem-factor\" ",
+                                data->data );
+                        *op_errstr = gf_strdup ("Error, Invalid number format");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
         ret =0;
 out:
                 return ret;

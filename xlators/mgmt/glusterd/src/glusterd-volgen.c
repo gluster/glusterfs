@@ -137,6 +137,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on"},      /* NODOC */
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32",},
+        {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor",},
 
         {NULL,                                                                }
 };
@@ -1244,6 +1245,7 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
         xlator_t           *nfsxl         = NULL;
         char               *skey          = NULL;
         char               *enable_ino32  = NULL;
+        char               *mem_factor     = NULL;
         char                volume_id[64] = {0,};
         int                 ret           = 0;
 
@@ -1312,6 +1314,21 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                                 ret = dict_set_str (set_dict,
                                                     "nfs.enable-ino32",
                                                     enable_ino32);
+                                if (ret)
+                                        goto out;
+                        }
+                }
+
+                if (!dict_get (set_dict, "nfs.mem-factor")) {
+                        ret = glusterd_volinfo_get (voliter,
+                                                    "nfs.mem-factor",
+                                                    &mem_factor);
+                        if (ret)
+                                goto out;
+                        if (mem_factor) {
+                                ret = dict_set_str (set_dict,
+                                                    "nfs.mem-factor",
+                                                    mem_factor);
                                 if (ret)
                                         goto out;
                         }
