@@ -321,7 +321,7 @@ gf_cli3_1_list_friends_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         cli_cmd_broadcast_response (ret);
         if (ret)
-                cli_out ("Command Execution Failed");
+                cli_out ("Peer status unsuccessful");
 
         if (dict)
                 dict_destroy (dict);
@@ -380,9 +380,9 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
         data_t                     *value = NULL;
         int                        opt_count = 0;
         int                        k = 0;
- 
+        char                       err_str[2048] = {0};
 
-
+        snprintf (err_str, sizeof (err_str), "Volume info unsuccessful");
         if (-1 == req->rpc_status) {
                 goto out;
         }
@@ -440,9 +440,10 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         goto out;
                 } else if (!count && (local->u.get_vol.flags ==
                                         GF_CLI_GET_VOLUME)) {
-                        cli_out ("Volume %s not present",
+                        snprintf (err_str, sizeof (err_str),
+                                  "Volume %s does not exist",
                                   local->u.get_vol.volname);
-                        ret = 0;
+                        ret = -1;
                         goto out;
                 }
 
@@ -523,7 +524,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 ret = -1;
                                 goto out;
                         }
-                        
+
                         snprintf (key, 256, "volume%d.opt_count",i);
                         ret = dict_get_int32 (dict, key, &opt_count);
                         if (ret)
@@ -568,7 +569,7 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
 out:
         cli_cmd_broadcast_response (ret);
         if (ret)
-                cli_out ("Command Execution Failed");
+                cli_out (err_str);
 
         if (dict)
                 dict_destroy (dict);
