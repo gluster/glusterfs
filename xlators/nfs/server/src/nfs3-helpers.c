@@ -3116,11 +3116,7 @@ nfs3_fh_resolve_entry (nfs3_call_state_t *cs)
         if (!cs)
                 return ret;
 
-        ret = nfs3_fh_resolve_entry_hard (cs);
-        if (ret < 0)
-		nfs3_call_resume_estale (cs);
-
-        return 0;
+        return nfs3_fh_resolve_entry_hard (cs);
 }
 
 
@@ -3141,8 +3137,12 @@ nfs3_fh_resolve_resume (nfs3_call_state_t *cs)
                 ret = nfs3_fh_resolve_entry (cs);
 
 err_resume_call:
-        if (ret < 0)
+        if (ret < 0) {
+                cs->resolve_ret = -1;
+                cs->resolve_errno = EFAULT;
                 nfs3_call_resume (cs);
+                ret = 0;
+        }
 
         return ret;
 }
@@ -3162,11 +3162,11 @@ nfs3_fh_resolve_root_lookup_cbk (call_frame_t *frame, void *cookie,
         cs->resolve_errno = op_errno;
 
         if (op_ret == -1) {
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Lookup failed: %s: %s",
-                        cs->resolvedloc.path, strerror (op_errno));
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Root lookup failed: %s",
+                        strerror (op_errno));
                 goto err;
         } else
-                gf_log (GF_NFS3, GF_LOG_TRACE, "Entry looked up: %s",
+                gf_log (GF_NFS3, GF_LOG_TRACE, "Root looked up: %s",
                         cs->resolvedloc.path);
 
         nfs3_set_root_looked_up (cs->nfs3state, &cs->resolvefh);
