@@ -25,9 +25,9 @@
 #include "fuse-bridge.h"
 
 static int
-gf_resolve_all (fuse_state_t *state);
+fuse_resolve_all (fuse_state_t *state);
 static int
-resolve_path_simple (fuse_state_t *state);
+fuse_resolve_path_simple (fuse_state_t *state);
 
 static int
 component_count (const char *path)
@@ -48,9 +48,9 @@ static int
 prepare_components (fuse_state_t *state)
 {
         xlator_t               *active_xl  = NULL;
-        gf_resolve_t           *resolve    = NULL;
+        fuse_resolve_t           *resolve    = NULL;
         char                   *resolved   = NULL;
-        struct gf_resolve_comp *components = NULL;
+        struct fuse_resolve_comp *components = NULL;
         char                   *trav       = NULL;
         int                     count      = 0;
         int                     i          = 0;
@@ -87,9 +87,9 @@ out:
 
 
 static int
-resolve_loc_touchup (fuse_state_t *state)
+fuse_resolve_loc_touchup (fuse_state_t *state)
 {
-        gf_resolve_t *resolve = NULL;
+        fuse_resolve_t *resolve = NULL;
         loc_t        *loc     = NULL;
         char         *path    = NULL;
         int           ret     = 0;
@@ -129,7 +129,7 @@ fuse_resolve_newfd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, fd_t *fd)
 {
         fuse_state_t *state      = NULL;
-        gf_resolve_t *resolve    = NULL;
+        fuse_resolve_t *resolve    = NULL;
         fd_t         *old_fd     = NULL;
         fd_t         *tmp_fd     = NULL;
         uint64_t      tmp_fd_ctx = 0;
@@ -163,14 +163,14 @@ fuse_resolve_newfd_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 gf_log ("resolve", GF_LOG_WARNING,
                         "failed to set the fd ctx with resolved fd");
 out:
-        gf_resolve_all (state);
+        fuse_resolve_all (state);
         return 0;
 }
 
 static void
-gf_resolve_new_fd (fuse_state_t *state)
+fuse_resolve_new_fd (fuse_state_t *state)
 {
-        gf_resolve_t *resolve = NULL;
+        fuse_resolve_t *resolve = NULL;
         fd_t         *new_fd  = NULL;
         fd_t         *fd      = NULL;
 
@@ -189,9 +189,9 @@ gf_resolve_new_fd (fuse_state_t *state)
 }
 
 static int
-resolve_deep_continue (fuse_state_t *state)
+fuse_resolve_deep_continue (fuse_state_t *state)
 {
-        gf_resolve_t     *resolve = NULL;
+        fuse_resolve_t     *resolve = NULL;
         int               ret = 0;
 
         resolve = state->resolve_now;
@@ -200,32 +200,32 @@ resolve_deep_continue (fuse_state_t *state)
         resolve->op_errno = 0;
 
         if (resolve->path)
-                ret = resolve_path_simple (state);
+                ret = fuse_resolve_path_simple (state);
         if (ret)
                 gf_log ("resolve", GF_LOG_TRACE,
                         "return value of resolve_*_simple %d", ret);
 
-        resolve_loc_touchup (state);
+        fuse_resolve_loc_touchup (state);
 
         /* This function is called by either fd resolve or inode resolve */
         if (!resolve->fd)
-                gf_resolve_all (state);
+                fuse_resolve_all (state);
         else
-                gf_resolve_new_fd (state);
+                fuse_resolve_new_fd (state);
 
         return 0;
 }
 
 
 static int
-resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+fuse_resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int op_ret, int op_errno, inode_t *inode, struct iatt *buf,
                   dict_t *xattr, struct iatt *postparent)
 {
         xlator_t               *active_xl = NULL;
         fuse_state_t           *state      = NULL;
-        gf_resolve_t           *resolve    = NULL;
-        struct gf_resolve_comp *components = NULL;
+        fuse_resolve_t           *resolve    = NULL;
+        struct fuse_resolve_comp *components = NULL;
         inode_t                *link_inode = NULL;
         int                     i          = 0;
 
@@ -269,22 +269,22 @@ resolve_deep_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         resolve->deep_loc.inode  = inode_new (active_xl->itable);
         resolve->deep_loc.name   = components[i].basename;
 
-        FUSE_FOP_COOKIE (state, active_xl, resolve_deep_cbk, (void *)(long)i,
+        FUSE_FOP_COOKIE (state, active_xl, fuse_resolve_deep_cbk, (void *)(long)i,
                          GF_FOP_LOOKUP, lookup, &resolve->deep_loc, NULL);
         return 0;
 
 get_out_of_here:
-        resolve_deep_continue (state);
+        fuse_resolve_deep_continue (state);
         return 0;
 }
 
 
 static int
-resolve_path_deep (fuse_state_t *state)
+fuse_resolve_path_deep (fuse_state_t *state)
 {
         xlator_t               *active_xl  = NULL;
-        gf_resolve_t           *resolve    = NULL;
-        struct gf_resolve_comp *components = NULL;
+        fuse_resolve_t           *resolve    = NULL;
+        struct fuse_resolve_comp *components = NULL;
         inode_t                *inode      = NULL;
         long                    i          = 0;
 
@@ -317,21 +317,21 @@ resolve_path_deep (fuse_state_t *state)
         resolve->deep_loc.inode  = inode_new (active_xl->itable);
         resolve->deep_loc.name   = components[i].basename;
 
-        FUSE_FOP_COOKIE (state, active_xl, resolve_deep_cbk, (void *)(long)i,
+        FUSE_FOP_COOKIE (state, active_xl, fuse_resolve_deep_cbk, (void *)(long)i,
                          GF_FOP_LOOKUP, lookup, &resolve->deep_loc, NULL);
 
         return 0;
 resolved:
-        resolve_deep_continue (state);
+        fuse_resolve_deep_continue (state);
         return 0;
 }
 
 
 static int
-resolve_path_simple (fuse_state_t *state)
+fuse_resolve_path_simple (fuse_state_t *state)
 {
-        gf_resolve_t           *resolve    = NULL;
-        struct gf_resolve_comp *components = NULL;
+        fuse_resolve_t           *resolve    = NULL;
+        struct fuse_resolve_comp *components = NULL;
         int                     ret        = -1;
         int                     par_idx    = 0;
         int                     ino_idx    = 0;
@@ -387,10 +387,140 @@ out:
   > 0  - indecisive, need to perform deep resolution
 */
 
-static int
-gf_resolve_fd (fuse_state_t *state)
+int
+fuse_resolve_entry_simple (fuse_state_t *state)
 {
-        gf_resolve_t  *resolve    = NULL;
+        xlator_t     *active_xl = NULL;
+        xlator_t     *this      = NULL;
+        fuse_resolve_t *resolve   = NULL;
+        inode_t      *parent    = NULL;
+        inode_t      *inode     = NULL;
+        int           ret       = 0;
+
+        this  = state->this;
+        resolve = state->resolve_now;
+
+        active_xl = fuse_active_subvol (state->this);
+
+        parent = inode_find (active_xl->itable, resolve->pargfid);
+        if (!parent) {
+                /* simple resolution is indecisive. need to perform
+                   deep resolution */
+                resolve->op_ret   = -1;
+                resolve->op_errno = ENOENT;
+                ret = 1;
+                goto out;
+        }
+
+        /* expected @parent was found from the inode cache */
+        state->loc_now->parent = inode_ref (parent);
+
+        inode = inode_grep (active_xl->itable, parent, resolve->bname);
+        if (!inode) {
+                resolve->op_ret   = -1;
+                resolve->op_errno = ENOENT;
+                ret = 1;
+                goto out;
+        }
+
+        ret = 0;
+
+        state->loc_now->inode  = inode_ref (inode);
+
+out:
+        if (parent)
+                inode_unref (parent);
+
+        if (inode)
+                inode_unref (inode);
+
+        return ret;
+}
+
+
+int
+fuse_resolve_entry (fuse_state_t *state)
+{
+        int    ret = 0;
+        loc_t *loc = NULL;
+
+        loc  = state->loc_now;
+
+        ret = fuse_resolve_entry_simple (state);
+        if (ret > 0) {
+                loc_wipe (loc);
+                fuse_resolve_path_deep (state);
+                return 0;
+        }
+
+        if (ret == 0)
+                fuse_resolve_loc_touchup (state);
+
+        fuse_resolve_all (state);
+
+        return 0;
+}
+
+
+int
+fuse_resolve_inode_simple (fuse_state_t *state)
+{
+        xlator_t     *active_xl = NULL;
+        fuse_resolve_t *resolve   = NULL;
+        inode_t      *inode     = NULL;
+        int           ret       = 0;
+
+        resolve = state->resolve_now;
+        active_xl = fuse_active_subvol (state->this);
+
+        inode = inode_find (active_xl->itable, resolve->gfid);
+        if (!inode) {
+                resolve->op_ret   = -1;
+                resolve->op_errno = ENOENT;
+                ret = 1;
+                goto out;
+        }
+
+        ret = 0;
+
+        state->loc_now->inode = inode_ref (inode);
+
+out:
+        if (inode)
+                inode_unref (inode);
+
+        return ret;
+}
+
+
+int
+fuse_resolve_inode (fuse_state_t *state)
+{
+        int                 ret = 0;
+        loc_t              *loc = NULL;
+
+        loc  = state->loc_now;
+
+        ret = fuse_resolve_inode_simple (state);
+
+        if (ret > 0) {
+                loc_wipe (loc);
+                fuse_resolve_path_deep (state);
+                return 0;
+        }
+
+        if (ret == 0)
+                fuse_resolve_loc_touchup (state);
+
+        fuse_resolve_all (state);
+
+        return 0;
+}
+
+static int
+fuse_resolve_fd (fuse_state_t *state)
+{
+        fuse_resolve_t  *resolve    = NULL;
         fd_t          *fd         = NULL;
         int            ret        = 0;
         uint64_t       tmp_fd_ctx = 0;
@@ -405,7 +535,7 @@ gf_resolve_fd (fuse_state_t *state)
         if (!ret) {
                 state->fd = (fd_t *)(long)tmp_fd_ctx;
                 fd_ref (state->fd);
-                gf_resolve_all (state);
+                fuse_resolve_all (state);
                 goto out;
         }
 
@@ -423,7 +553,7 @@ gf_resolve_fd (fuse_state_t *state)
 
         state->loc_now     = &state->loc;
 
-        resolve_path_deep (state);
+        fuse_resolve_path_deep (state);
 
 out:
         return 0;
@@ -431,26 +561,34 @@ out:
 
 
 static int
-gf_resolve (fuse_state_t *state)
+fuse_resolve (fuse_state_t *state)
  {
-        gf_resolve_t   *resolve = NULL;
+        fuse_resolve_t   *resolve = NULL;
 
         resolve = state->resolve_now;
 
-        if (resolve->path) {
+        if (resolve->fd) {
 
-                resolve_path_deep (state);
+                fuse_resolve_fd (state);
 
-        } else if (resolve->fd) {
+        } else if (!uuid_is_null (resolve->pargfid)) {
 
-                gf_resolve_fd (state);
+                fuse_resolve_entry (state);
+
+        } else if (!uuid_is_null (resolve->gfid)) {
+
+                fuse_resolve_inode (state);
+
+        } else if (resolve->path) {
+
+                fuse_resolve_path_deep (state);
 
         } else {
 
                 resolve->op_ret = 0;
                 resolve->op_errno = EINVAL;
 
-                gf_resolve_all (state);
+                fuse_resolve_all (state);
         }
 
         return 0;
@@ -458,7 +596,7 @@ gf_resolve (fuse_state_t *state)
 
 
 static int
-gf_resolve_done (fuse_state_t *state)
+fuse_resolve_done (fuse_state_t *state)
 {
         fuse_resume_fn_t fn = NULL;
 
@@ -482,25 +620,25 @@ out:
  * state->resolve_now is used to decide which location/fd is to be resolved now
  */
 static int
-gf_resolve_all (fuse_state_t *state)
+fuse_resolve_all (fuse_state_t *state)
 {
         if (state->resolve_now == NULL) {
 
                 state->resolve_now = &state->resolve;
                 state->loc_now     = &state->loc;
 
-                gf_resolve (state);
+                fuse_resolve (state);
 
         } else if (state->resolve_now == &state->resolve) {
 
                 state->resolve_now = &state->resolve2;
                 state->loc_now     = &state->loc2;
 
-                gf_resolve (state);
+                fuse_resolve (state);
 
         } else if (state->resolve_now == &state->resolve2) {
 
-                gf_resolve_done (state);
+                fuse_resolve_done (state);
 
         } else {
                 gf_log ("fuse-resolve", GF_LOG_ERROR,
@@ -563,31 +701,14 @@ fuse_resolve_and_resume (fuse_state_t *state, fuse_resume_fn_t fn)
         if (state->fd)
                 goto resume;
 
-        if (state->loc.path) {
-                state->resolve.path = gf_strdup (state->loc.path);
-                state->resolve.bname = gf_strdup (state->loc.name);
-                /* TODO: make sure there is no leaks in inode refs */
-                //loc_wipe (&state->loc);
-                state->loc.inode = NULL;
-                state->loc.parent = NULL;
-        }
-
-        /* Needed for rename and link */
-        if (state->loc2.path) {
-                state->resolve2.path = gf_strdup (state->loc2.path);
-                state->resolve2.bname = gf_strdup (state->loc2.name);
-                //loc_wipe (&state->loc2);
-                state->loc2.inode = NULL;
-                state->loc2.parent = NULL;
-        }
-
+        /*
         if (state->fd) {
                 state->resolve.fd = state->fd;
-                /* TODO: check if its a leak, if yes, then do 'unref' */
-                state->fd = NULL;
+                state->fd = NULL; // TODO: we may need a 'fd_unref()' here, not very sure'
         }
+        */
 
-        gf_resolve_all (state);
+        fuse_resolve_all (state);
 
         return 0;
 resume:

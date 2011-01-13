@@ -208,9 +208,9 @@ typedef enum {
         RESOLVE_MAY,
         RESOLVE_DONTCARE,
         RESOLVE_EXACT
-} gf_resolve_type_t;
+} fuse_resolve_type_t;
 
-struct gf_resolve_comp {
+struct fuse_resolve_comp {
         char      *basename;
         ino_t      ino;
         uint64_t   gen;
@@ -218,20 +218,22 @@ struct gf_resolve_comp {
 };
 
 typedef struct {
-        gf_resolve_type_t      type;
+        fuse_resolve_type_t    type;
         ino_t                  ino;
         uint64_t               gen;
         ino_t                  par;
         fd_t                  *fd;
         char                  *path;
         char                  *bname;
+        u_char                 gfid[16];
+        u_char                 pargfid[16];
 	char                  *resolved;
         int                    op_ret;
         int                    op_errno;
         loc_t                  deep_loc;
-        struct gf_resolve_comp *components;
+        struct fuse_resolve_comp *components;
         int                    comp_count;
-} gf_resolve_t;
+} fuse_resolve_t;
 
 
 typedef struct {
@@ -255,11 +257,11 @@ typedef struct {
 
         /* used within resolve_and_resume */
         /* */
-        gf_resolve_t resolve;
-        gf_resolve_t resolve2;
+        fuse_resolve_t resolve;
+        fuse_resolve_t resolve2;
 
         loc_t        *loc_now;
-        gf_resolve_t *resolve_now;
+        fuse_resolve_t *resolve_now;
 
         void *resume_fn;
 

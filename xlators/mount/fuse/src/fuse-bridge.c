@@ -258,8 +258,7 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
-
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": LOOKUP %"PRIu64"/%s (fuse_loc_fill() failed)",
                         finh->unique, finh->nodeid, name);
@@ -273,12 +272,17 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "%"PRIu64": LOOKUP %s(%"PRId64")", finh->unique,
                         state->loc.path, state->loc.inode->ino);
                 state->is_revalidate = 1;
+                memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": LOOKUP %s", finh->unique,
                         state->loc.path);
                 uuid_generate (state->gfid);
         }
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_lookup_resume);
 
@@ -513,6 +517,8 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 state->fd = NULL;
         }
 
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
         fuse_resolve_and_resume (state, fuse_getattr_resume);
 }
 
@@ -804,6 +810,9 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 state->size = fsi->size;
         }
 
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_setattr_resume);
 }
 
@@ -936,6 +945,9 @@ fuse_access (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->mask = fai->mask;
 
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_access_resume);
         return;
 }
@@ -1004,6 +1016,9 @@ fuse_readlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_readlink_resume);
 
         return;
@@ -1057,7 +1072,7 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
         uuid_generate (state->gfid);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64" MKNOD %s (fuse_loc_fill() failed)",
                         finh->unique, state->loc.path);
@@ -1068,6 +1083,10 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->mode = fmi->mode;
         state->rdev = fmi->rdev;
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_mknod_resume);
 
@@ -1114,7 +1133,7 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         uuid_generate (state->gfid);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64" MKDIR %s (fuse_loc_fill() failed)",
                         finh->unique, state->loc.path);
@@ -1124,6 +1143,10 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->mode = fmi->mode;
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_mkdir_resume);
 
@@ -1158,7 +1181,7 @@ fuse_unlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": UNLINK %s (fuse_loc_fill() returned NULL inode)",
                         finh->unique, state->loc.path);
@@ -1166,6 +1189,10 @@ fuse_unlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 free_fuse_state (state);
                 return;
         }
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_unlink_resume);
 
@@ -1200,7 +1227,7 @@ fuse_rmdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         GET_STATE (this, finh, state);
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64": RMDIR %s (fuse_loc_fill() failed)",
                         finh->unique, state->loc.path);
@@ -1208,6 +1235,10 @@ fuse_rmdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 free_fuse_state (state);
                 return;
         }
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_rmdir_resume);
         return;
@@ -1253,7 +1284,7 @@ fuse_symlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
         uuid_generate (state->gfid);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64" SYMLINK %s -> %s (fuse_loc_fill() failed)",
                         finh->unique, state->loc.path, linkname);
@@ -1263,6 +1294,11 @@ fuse_symlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->name = gf_strdup (linkname);
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_symlink_resume);
         return;
 }
@@ -1345,7 +1381,7 @@ fuse_rename (xlator_t *this, fuse_in_header_t *finh, void *msg)
         GET_STATE (this, finh, state);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, oldname);
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "for %s %"PRIu64": RENAME `%s' -> `%s' (fuse_loc_fill() failed)",
                         state->loc.path, finh->unique, state->loc.path,
@@ -1357,7 +1393,7 @@ fuse_rename (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         ret = fuse_loc_fill (&state->loc2, state, 0, fri->newdir, newname);
-        if (ret < 0) {
+        if (!state->loc2.parent && (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "for %s %"PRIu64": RENAME `%s' -> `%s' (fuse_loc_fill() failed)",
                         state->loc.path, finh->unique, state->loc.path,
@@ -1367,6 +1403,14 @@ fuse_rename (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 free_fuse_state (state);
                 return;
         }
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (oldname);
+        state->resolve.path = gf_strdup (state->loc.path);
+
+        memcpy (state->resolve2.pargfid, state->loc2.parent->gfid, 16);
+        state->resolve2.bname = gf_strdup (newname);
+        state->resolve2.path = gf_strdup (state->loc2.path);
 
         fuse_resolve_and_resume (state, fuse_rename_resume);
 
@@ -1408,16 +1452,21 @@ fuse_link (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 ret = fuse_loc_fill (&state->loc2, state, fli->oldnodeid, 0,
                                      NULL);
 
-        if ((state->loc2.inode == NULL) ||
-            (ret < 0)) {
+        if (!state->loc2.inode || (ret < 0) || !state->loc.parent) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
-                        "fuse_loc_fill() failed for %s %"PRIu64": LINK %s %s",
-                        state->loc2.path, finh->unique,
-                        state->loc2.path, state->loc.path);
+                        "fuse_loc_fill() failed %"PRIu64": LINK %s %s",
+                        finh->unique, state->loc2.path, state->loc.path);
                 send_fuse_err (this, finh, ENOENT);
                 free_fuse_state (state);
                 return;
         }
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
+
+        memcpy (state->resolve2.gfid, state->loc2.inode->gfid, 16);
+        state->resolve2.path = gf_strdup (state->loc2.path);
 
         fuse_resolve_and_resume (state, fuse_link_resume);
 
@@ -1580,7 +1629,7 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
         uuid_generate (state->gfid);
 
         ret = fuse_loc_fill (&state->loc, state, 0, finh->nodeid, name);
-        if (ret < 0) {
+        if (!state->loc.parent || (ret < 0)) {
                 gf_log ("glusterfs-fuse", GF_LOG_WARNING,
                         "%"PRIu64" CREATE %s (fuse_loc_fill() failed)",
                         finh->unique, state->loc.path);
@@ -1591,6 +1640,10 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->mode = fci->mode;
         state->flags = fci->flags;
+
+        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        state->resolve.bname = gf_strdup (name);
+        state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_create_resume);
 
@@ -1645,6 +1698,10 @@ fuse_open (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->flags = foi->flags;
+
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_open_resume);
 
         return;
@@ -1966,6 +2023,9 @@ fuse_opendir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 free_fuse_state (state);
                 return;
         }
+
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_opendir_resume);
 }
@@ -2331,6 +2391,9 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->flags = fsi->flags;
         state->name = gf_strdup (name);
 
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_setxattr_resume);
 
         return;
@@ -2517,6 +2580,9 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->size = fgxi->size;
         state->name = gf_strdup (name);
 
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_getxattr_resume);
         return;
 }
@@ -2555,6 +2621,9 @@ fuse_listxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->size = fgxi->size;
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_listxattr_resume);
 
         return;
@@ -2594,6 +2663,9 @@ fuse_removexattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->name = gf_strdup (name);
+        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_removexattr_resume);
         return;
 }
