@@ -50,9 +50,9 @@ fuse_active_subvol (xlator_t *fuse)
 
 
 static void
-fuse_resolve_wipe (gf_resolve_t *resolve)
+fuse_resolve_wipe (fuse_resolve_t *resolve)
 {
-        struct gf_resolve_comp *comp = NULL;
+        struct fuse_resolve_comp *comp = NULL;
 
         if (resolve->path)
                 GF_FREE ((void *)resolve->path);
