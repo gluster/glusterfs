@@ -1342,7 +1342,6 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
 {
         int             ret = -1;
         gf_boolean_t    is_cli_req = _gf_false;
-        char            *op_errstr = NULL;
         int             lock_fail = 0;
 
         GF_ASSERT (req);
@@ -1490,10 +1489,9 @@ out:
                    request, which causes double replies */
                 if (!lock_fail)
                         (void) glusterd_opinfo_unlock ();
-                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL, op_errstr);
+                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL, "operation failed");
         }
-        if (op_errstr && (strcmp (op_errstr, "")))
-                GF_FREE (op_errstr);
+
         if (ret)
                 gf_log ("", GF_LOG_WARNING, "Returning %d", ret);
 
