@@ -443,6 +443,14 @@ mgmt_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         ctx = this->ctx;
 
         switch (event) {
+        case RPC_CLNT_DISCONNECT:
+                if (!ctx->active) {
+                        gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                                "failed to connect with remote-host: %s",
+                                strerror (errno));
+                        cleanup_and_exit (1);
+                }
+                break;
         case RPC_CLNT_CONNECT:
                 rpc_clnt_set_connected (&((struct rpc_clnt*)ctx->mgmt)->conn);
 
