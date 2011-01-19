@@ -198,7 +198,7 @@ data_copy (data_t *old)
 		FREE (newdata->data);
 	if (newdata->vec)
 		FREE (newdata->vec);
-	FREE (newdata);
+	GF_FREE (newdata);
 
 	gf_log ("dict", GF_LOG_CRITICAL,
 		"@newdata->data || @newdata->vec got NULL from CALLOC()");
@@ -272,7 +272,7 @@ _dict_set (dict_t *this,
 	if (!pair->key) {
 		gf_log ("dict", GF_LOG_CRITICAL,
 			"@pair->key - NULL returned by CALLOC");
-		FREE (pair);
+		GF_FREE (pair);
 
                 if (key_free)
                         GF_FREE (key);
