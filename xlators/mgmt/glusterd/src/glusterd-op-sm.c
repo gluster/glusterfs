@@ -1709,6 +1709,7 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
         glusterd_volinfo_t                      *volinfo = NULL;
         dict_t                                  *ctx     = NULL;
         char                                    *errstr  = NULL;
+        int32_t                                 brick_count = 0;
 
         GF_ASSERT (req);
 
@@ -1758,7 +1759,13 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
                 goto out;
         }
 
-        if (volinfo->brick_count == 1) {
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get brick count");
+                goto out;
+        }
+
+        if (volinfo->brick_count == brick_count) {
                 ctx = glusterd_op_get_ctx (GD_OP_REMOVE_BRICK);
                 if (!ctx) {
                         gf_log ("", GF_LOG_ERROR,
@@ -1766,7 +1773,7 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
                         ret = -1;
                         goto out;
                 }
-                errstr = gf_strdup ("Deleting the last brick of the "
+                errstr = gf_strdup ("Deleting all the bricks of the "
                                     "volume is not allowed");
                 if (!errstr) {
                         gf_log ("", GF_LOG_ERROR, "Out of memory");
