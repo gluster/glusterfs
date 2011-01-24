@@ -521,7 +521,7 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
-        rpc = rpc_clnt_init (&rpc_cfg, options, THIS->ctx, THIS->name);
+        rpc = rpc_clnt_new (&rpc_cfg, options, THIS->ctx, THIS->name);
         if (!rpc) {
                 ret = -1;
                 goto out;
@@ -537,6 +537,7 @@ glusterfs_mgmt_init (glusterfs_ctx_t *ctx)
         if (ret)
                 goto out;
 
+        rpc_clnt_start (rpc);
 out:
         return ret;
 }
