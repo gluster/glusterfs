@@ -45,6 +45,7 @@ typedef struct _call_pool_t call_pool_t;
 #include "common-utils.h"
 #include "globals.h"
 
+#define NFS_PID 1
 typedef int32_t (*ret_fn_t) (call_frame_t *frame,
 			     call_frame_t *prev_frame,
 			     xlator_t *this,
@@ -363,4 +364,6 @@ create_frame (xlator_t *xl, call_pool_t *pool)
 void
 gf_proc_dump_pending_frames(call_pool_t *call_pool);
 
+gf_boolean_t
+__is_fuse_call (call_frame_t *frame);
 #endif /* _STACK_H */
