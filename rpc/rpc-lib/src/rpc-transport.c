@@ -1124,7 +1124,8 @@ rpc_transport_unref (rpc_transport_t *this)
 	pthread_mutex_unlock (&this->lock);
 
 	if (refcount == 0) {
-		this->notify (this, this->mydata, RPC_TRANSPORT_CLEANUP, NULL);
+                if (this->mydata)
+                        this->notify (this, this->mydata, RPC_TRANSPORT_CLEANUP, NULL);
 		rpc_transport_destroy (this);
 	}
 
