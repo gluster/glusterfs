@@ -522,11 +522,18 @@ cli_rpc_init (struct cli_state *state)
         if (ret)
                 goto out;
 
-        rpc = rpc_clnt_init (&rpc_cfg, options, this->ctx, this->name);
+        rpc = rpc_clnt_new (&rpc_cfg, options, this->ctx, this->name);
 
-        if (rpc) {
-                ret = rpc_clnt_register_notify (rpc, cli_rpc_notify, this);
+        if (!rpc)
+                goto out;
+
+        ret = rpc_clnt_register_notify (rpc, cli_rpc_notify, this);
+        if (ret) {
+                gf_log ("cli", GF_LOG_ERROR, "failed to register notify");
+                goto out;
         }
+
+        rpc_clnt_start (rpc);
 out:
         return rpc;
 }
