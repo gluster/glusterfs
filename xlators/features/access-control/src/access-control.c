@@ -52,7 +52,6 @@ __get_frame_stub (call_frame_t *fr)
         return st;
 }
 
-
 int
 ac_test_owner_access (struct iatt *ia, uid_t uid, int accesstest)
 {
@@ -372,6 +371,10 @@ ac_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
 
+        if (__is_fuse_call (frame)) {
+                ac_truncate_resume (frame, this, loc, offset);
+                return 0;
+        }
         stub = fop_truncate_stub (frame, ac_truncate_resume, loc, offset);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -459,6 +462,10 @@ ac_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
 
+        if (__is_fuse_call (frame)) {
+                ac_access_resume (frame, this, loc, mask);
+                return 0;
+        }
         stub = fop_access_stub (frame, ac_access_resume, loc, mask);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -524,6 +531,10 @@ ac_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
 
+        if (__is_fuse_call (frame)) {
+                ac_readlink_resume (frame, this, loc, size);
+                return 0;
+        }
         stub = fop_readlink_stub (frame, ac_readlink_resume, loc, size);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -594,6 +605,10 @@ ac_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_mknod_resume (frame, this, loc, mode, rdev, params);
+                return 0;
+        }
         stub = fop_mknod_stub (frame, ac_mknod_resume, loc, mode, rdev, params);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -679,6 +694,10 @@ ac_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_mkdir_resume (frame, this, loc, mode, params);
+                return 0;
+        }
         stub = fop_mkdir_stub (frame, ac_mkdir_resume, loc, mode, params);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -757,6 +776,10 @@ ac_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_unlink_resume (frame, this, loc);
+                return 0;
+        }
         stub = fop_unlink_stub (frame, ac_unlink_resume, loc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -834,6 +857,10 @@ ac_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_rmdir_resume (frame, this, loc, flags);
+                return 0;
+        }
         stub = fop_rmdir_stub (frame, ac_rmdir_resume, loc, flags);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -914,6 +941,10 @@ ac_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_symlink_resume (frame, this, linkname, loc, params);
+                return 0;
+        }
         stub = fop_symlink_stub (frame, ac_symlink_resume, linkname, loc,
                                  params);
 	if (!stub) {
@@ -1040,6 +1071,10 @@ ac_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_rename_resume (frame, this, oldloc, newloc);
+                return 0;
+        }
         stub = fop_rename_stub (frame, ac_rename_resume, oldloc, newloc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -1125,6 +1160,10 @@ ac_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_link_resume (frame, this, oldloc, newloc);
+                return 0;
+        }
         stub = fop_link_stub (frame, ac_link_resume, oldloc, newloc);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -1207,6 +1246,10 @@ ac_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         int             ret = -EFAULT;
         loc_t           parentloc = {0, };
 
+        if (__is_fuse_call (frame)) {
+                ac_create_resume (frame, this, loc, flags, mode, fd, params);
+                return 0;
+        }
         stub = fop_create_stub (frame, ac_create_resume, loc, flags, mode,
                                 fd, params);
 	if (!stub) {
@@ -1366,6 +1409,11 @@ ac_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
 
+        if (__is_fuse_call (frame)) {
+                ret = ac_open_resume (frame, this, loc, flags, fd, wbflags);
+                return 0;
+        }
+
         stub = fop_open_stub (frame, ac_open_resume, loc, flags, fd, wbflags);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -1443,6 +1491,11 @@ ac_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
 
+        if (__is_fuse_call (frame)) {
+                ret = ac_readv_resume (frame, this, fd, size, offset);
+                return 0;
+        }
+
         stub = fop_readv_stub (frame, ac_readv_resume, fd, size, offset);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -1514,6 +1567,12 @@ ac_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
 
+        if (__is_fuse_call (frame)) {
+                ret = ac_writev_resume (frame, this, fd, vector, count,
+                                        offset, iobref);
+                return 0;
+        }
+
         stub = fop_writev_stub (frame, ac_writev_resume, fd, vector, count,
                                 offset, iobref);
 	if (!stub) {
@@ -1577,6 +1636,11 @@ ac_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 {
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
+
+        if (__is_fuse_call (frame)) {
+                ret = ac_opendir_resume (frame, this, loc, fd);
+                return 0;
+        }
 
         stub = fop_opendir_stub (frame, ac_opendir_resume, loc, fd);
 	if (!stub) {
@@ -1683,6 +1747,11 @@ ac_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *buf,
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
 
+        if (__is_fuse_call (frame)) {
+                ret = ac_setattr_resume (frame, this, loc, buf, valid);
+                return 0;
+        }
+
         stub = fop_setattr_stub (frame, ac_setattr_resume, loc, buf, valid);
 	if (!stub) {
 		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
@@ -1788,6 +1857,11 @@ ac_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *buf,
 {
         call_stub_t     *stub = NULL;
         int             ret = -EFAULT;
+
+        if (__is_fuse_call (frame)) {
+                ret = ac_fsetattr_resume (frame, this, fd, buf, valid);
+                return 0;
+        }
 
         stub = fop_fsetattr_stub (frame, ac_fsetattr_resume, fd, buf, valid);
 	if (!stub) {

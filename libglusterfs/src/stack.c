@@ -163,3 +163,14 @@ gf_proc_dump_pending_frames (call_pool_t *call_pool)
 	UNLOCK (&(call_pool->lock));
 }
 
+gf_boolean_t
+__is_fuse_call (call_frame_t *frame)
+{
+        gf_boolean_t    is_fuse_call = _gf_false;
+        GF_ASSERT (frame);
+        GF_ASSERT (frame->root);
+
+        if (NFS_PID != frame->root->pid)
+                is_fuse_call = _gf_true;
+        return is_fuse_call;
+}
