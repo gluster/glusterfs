@@ -1546,8 +1546,11 @@ rpc_clnt_destroy (struct rpc_clnt *rpc)
         if (!rpc)
                 return;
 
-        if (rpc->conn.trans)
-                rpc_transport_destroy (rpc->conn.trans);
+        if (rpc->conn.trans) {
+                rpc->conn.trans->mydata = NULL;
+                rpc_transport_unref (rpc->conn.trans);
+                //rpc_transport_destroy (rpc->conn.trans);
+        }
 
         rpc_clnt_connection_cleanup (&rpc->conn);
         rpc_clnt_reconnect_cleanup (&rpc->conn);
