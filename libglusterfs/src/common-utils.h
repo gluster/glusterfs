@@ -338,5 +338,10 @@ int gf_system (const char *command);
 int get_checksum_for_path (char *path, uint32_t *checksum);
 
 char *strtail (char *str, const char *pattern);
+
+char valid_host_name (char *address, int length);
+char valid_ipv4_address (char *address, int length);
+char valid_ipv6_address (char *address, int length);
+char valid_internet_address (char *address);
 #endif /* _COMMON_UTILS_H */
 
