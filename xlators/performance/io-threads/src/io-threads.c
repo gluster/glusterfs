@@ -1958,6 +1958,7 @@ iot_fxattrop_wrapper (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+
 int
 iot_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
               gf_xattrop_flags_t optype, dict_t *xattr)
@@ -2114,6 +2115,7 @@ set_stack_size (iot_conf_t *conf)
         }
 }
 
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
@@ -2123,24 +2125,23 @@ mem_acct_init (xlator_t *this)
                 return ret;
 
         ret = xlator_mem_acct_init (this, gf_iot_mt_end + 1);
-        
+
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                                 "failed");
                 return ret;
         }
 
-	
-
         return ret;
 }
+
 
 int
 validate_options ( xlator_t *this, dict_t *options, char **op_errstr)
 {
         int              ret = 0;
         int              thread_count;
-        
+
 
         if (dict_get (options, "thread-count")) {
                 thread_count = data_to_int32 (dict_get (options,
@@ -2161,16 +2162,12 @@ validate_options ( xlator_t *this, dict_t *options, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
-
-
         }
 
         ret = 0;
 
 out:
-                return ret;
-
-        
+        return ret;
 }
 
 
@@ -2184,7 +2181,7 @@ reconfigure ( xlator_t *this, dict_t *options)
         conf = this->private;
         if (!conf)
                 goto out;
-        
+
         thread_count = conf->max_count;
 
 	if (dict_get (options, "thread-count")) {
@@ -2208,8 +2205,7 @@ reconfigure ( xlator_t *this, dict_t *options)
                 }
 
 		conf->max_count = thread_count;
-        }
-        else 
+        } else
                 conf->max_count = thread_count;
 
 	ret = 0;
@@ -2217,6 +2213,7 @@ reconfigure ( xlator_t *this, dict_t *options)
 out:
 	return ret;
 }
+
 
 int
 init (xlator_t *this)
