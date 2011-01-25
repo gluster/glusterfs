@@ -42,22 +42,33 @@ call_stub_t *
 __iot_dequeue (iot_conf_t *conf)
 {
         call_stub_t  *stub = NULL;
+        int           i = 0;
 
-        if (list_empty (&conf->req))
+        for (i = 0; i < IOT_PRI_MAX; i++) {
+                if (list_empty (&conf->reqs[i]))
+                        continue;
+                stub = list_entry (conf->reqs[i].next, call_stub_t, list);
+                break;
+        }
+
+        if (!stub)
                 return NULL;
 
-        stub = list_entry (conf->req.next, call_stub_t, list);
-        list_del_init (&stub->list);
         conf->queue_size--;
+        list_del_init (&stub->list);
 
         return stub;
 }
 
 
 void
-__iot_enqueue (iot_conf_t *conf, call_stub_t *stub)
+__iot_enqueue (iot_conf_t *conf, call_stub_t *stub, int pri)
 {
-        list_add_tail (&stub->list, &conf->req);
+        if (pri < 0 || pri >= IOT_PRI_MAX)
+                pri = IOT_PRI_MAX-1;
+
+        list_add_tail (&stub->list, &conf->reqs[pri]);
+
         conf->queue_size++;
 
         return;
@@ -84,7 +95,7 @@ iot_worker (void *data)
 
                 pthread_mutex_lock (&conf->mutex);
                 {
-                        while (list_empty (&conf->req)) {
+                        while (conf->queue_size == 0) {
                                 conf->sleep_count++;
 
                                 ret = pthread_cond_timedwait (&conf->cond,
@@ -126,13 +137,13 @@ iot_worker (void *data)
 
 
 int
-iot_schedule (iot_conf_t *conf, call_stub_t *stub)
+do_iot_schedule (iot_conf_t *conf, call_stub_t *stub, int pri)
 {
         int   ret = 0;
 
         pthread_mutex_lock (&conf->mutex);
         {
-                __iot_enqueue (conf, stub);
+                __iot_enqueue (conf, stub, pri);
 
                 pthread_cond_signal (&conf->cond);
 
@@ -145,9 +156,29 @@ iot_schedule (iot_conf_t *conf, call_stub_t *stub)
 
 
 int
+iot_schedule_slow (iot_conf_t *conf, call_stub_t *stub)
+{
+        return do_iot_schedule (conf, stub, IOT_PRI_LO);
+}
+
+
+int
+iot_schedule_fast (iot_conf_t *conf, call_stub_t *stub)
+{
+        return do_iot_schedule (conf, stub, IOT_PRI_HI);
+}
+
+int
+iot_schedule (iot_conf_t *conf, call_stub_t *stub)
+{
+        return do_iot_schedule (conf, stub, IOT_PRI_NORMAL);
+}
+
+
+int
 iot_schedule_unordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
 {
-        return iot_schedule (conf, stub);
+        return do_iot_schedule (conf, stub, 0);
 }
 
 
@@ -155,7 +186,7 @@ int
 iot_schedule_ordered (iot_conf_t *conf, inode_t *inode, call_stub_t *stub)
 {
 
-        return iot_schedule (conf, stub);
+        return do_iot_schedule (conf, stub, 0);
 }
 
 
@@ -2223,6 +2254,7 @@ init (xlator_t *this)
         int              thread_count = IOT_DEFAULT_THREADS;
         int              idle_time = IOT_DEFAULT_IDLE;
         int              ret = -1;
+        int              i = 0;
 
 	if (!this->children || this->children->next) {
 		gf_log ("io-threads", GF_LOG_ERROR,
@@ -2275,7 +2307,9 @@ init (xlator_t *this)
 
         conf->this = this;
 
-        INIT_LIST_HEAD (&conf->req);
+        for (i = 0; i < IOT_PRI_MAX; i++) {
+                INIT_LIST_HEAD (&conf->reqs[i]);
+        }
 
 	ret = iot_workers_scale (conf);
 

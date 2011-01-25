@@ -53,6 +53,14 @@ struct iot_conf;
 #define IOT_THREAD_STACK_SIZE   ((size_t)(1024*1024))
 
 
+typedef enum {
+        IOT_PRI_HI = 0, /* low latency */
+        IOT_PRI_NORMAL, /* normal */
+        IOT_PRI_LO,     /* bulk */
+        IOT_PRI_MAX,
+} iot_pri_t;
+
+
 struct iot_conf {
         pthread_mutex_t      mutex;
         pthread_cond_t       cond;
@@ -63,7 +71,8 @@ struct iot_conf {
 
         int32_t              idle_time;   /* in seconds */
 
-        struct list_head     req;
+        struct list_head     reqs[IOT_PRI_MAX];
+
         int                  queue_size;
         pthread_attr_t       w_attr;
 
