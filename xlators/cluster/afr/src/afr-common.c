@@ -852,16 +852,6 @@ afr_fresh_lookup_cbk (call_frame_t *frame, void *cookie,
                                 local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
-
-                                if (priv->read_child >= 0) {
-                                        afr_set_read_child (this,
-                                                            local->cont.lookup.inode,
-                                                            priv->read_child);
-                                } else {
-                                        afr_set_read_child (this,
-                                                            local->cont.lookup.inode,
-                                                            local->read_child_index);
-                                }
                         }
 
                 }
@@ -980,16 +970,6 @@ afr_revalidate_lookup_cbk (call_frame_t *frame, void *cookie,
                                 local->cont.lookup.postparent          = *postparent;
 
                                 *lookup_buf = *buf;
-
-                                if (priv->read_child >= 0) {
-                                        afr_set_read_child (this,
-                                                            local->cont.lookup.inode,
-                                                            priv->read_child);
-                                } else {
-                                        afr_set_read_child (this,
-                                                            local->cont.lookup.inode,
-                                                            local->read_child_index);
-                                }
                         }
 
                 }
