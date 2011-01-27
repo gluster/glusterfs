@@ -34,6 +34,7 @@
  */
 
 #include "stripe.h"
+#include "libxlator.h"
 
 void
 stripe_local_wipe (stripe_local_t *local)
@@ -3896,6 +3897,7 @@ init (xlator_t *this)
         priv->nodes_down = priv->child_count;
         this->private = priv;
 
+
         ret = 0;
 out:
         if (ret) {
@@ -3942,6 +3944,110 @@ out:
         return;
 }
 
+int32_t
+stripe_getxattr_unwind (void *getxattr, call_frame_t *frame,
+                        int op_ret, int op_errno, dict_t *dict)
+
+{
+        STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
+        return 0;
+}
+
+int32_t
+stripe_getxattr (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, const char *name)
+{
+        stripe_local_t     *local = NULL;
+        xlator_list_t      *trav = NULL;
+        stripe_private_t   *priv = NULL;
+        int32_t             op_errno = EINVAL;
+        int                 i = 0;
+        xlator_t          **sub_volumes;
+
+        VALIDATE_OR_GOTO (frame, err);
+        VALIDATE_OR_GOTO (this, err);
+        VALIDATE_OR_GOTO (loc, err);
+        VALIDATE_OR_GOTO (loc->path, err);
+        VALIDATE_OR_GOTO (loc->inode, err);
+
+        priv = this->private;
+        trav = this->children;
+
+        /* Initialization */
+        local = GF_CALLOC (1, sizeof (stripe_local_t),
+                           gf_stripe_mt_stripe_local_t);
+        if (!local) {
+                op_errno = ENOMEM;
+                goto err;
+        }
+        local->op_ret = -1;
+        frame->local = local;
+        loc_copy (&local->loc, loc);
+
+
+        if (name && (strcmp (GF_XATTR_MARKER_KEY, name) == 0)
+                 && (-1 == frame->root->pid)) {
+                local->marker.call_count = priv->child_count;
+
+                sub_volumes = alloca ( priv->child_count *
+                                       sizeof (xlator_t *));
+                for (i = 0, trav = this->children; trav ;
+                                trav = trav->next, i++) {
+
+                        *(sub_volumes + i)  = trav->xlator;
+
+                }
+
+                if (cluster_getmarkerattr (frame, this, loc, name,
+                                           local, stripe_getxattr_unwind,
+                                           sub_volumes, priv->child_count,
+                                           MARKER_UUID_TYPE, priv->vol_uuid)) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                return 0;
+        }
+
+        if (*priv->vol_uuid) {
+                if ((match_uuid_local (name, priv->vol_uuid) == 0)
+                    && (-1 == frame->root->pid)) {
+                        local->marker.call_count = priv->child_count;
+
+                        sub_volumes = alloca ( priv->child_count *
+                                               sizeof (xlator_t *));
+                        for (i = 0, trav = this->children; trav ;
+                                        trav = trav->next, i++) {
+
+                                *(sub_volumes + i) = trav->xlator;
+
+                        }
+
+                        if (cluster_getmarkerattr (frame, this, loc, name,
+                                                   local, stripe_getxattr_unwind,
+                                                   sub_volumes,
+                                                   priv->child_count,
+                                                   MARKER_XTIME_TYPE,
+                                                   priv->vol_uuid)) {
+                                op_errno = EINVAL;
+                                goto err;
+                        }
+                        return 0;
+                }
+        }
+
+
+        STACK_WIND (frame, default_getxattr_cbk, FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->getxattr, loc, name);
+
+        return 0;
+
+err:
+        STACK_UNWIND_STRICT (getxattr, frame, -1, op_errno, NULL);
+        return 0;
+}
+
+
 
 struct xlator_fops fops = {
         .stat        = stripe_stat,
@@ -3967,6 +4073,8 @@ struct xlator_fops fops = {
         .fsetattr    = stripe_fsetattr,
         .lookup      = stripe_lookup,
         .mknod       = stripe_mknod,
+
+        .getxattr    = stripe_getxattr,
 };
 
 struct xlator_cbks cbks = {

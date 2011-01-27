@@ -27,11 +27,13 @@
 
 #include "glusterfs.h"
 #include "xlator.h"
+#include "libxlator.h"
 #include "dht-common.h"
 #include "defaults.h"
 
 #include <sys/time.h>
 #include <libgen.h>
+
 
 /* TODO:
    - use volumename in xattr instead of "dht"
@@ -1834,6 +1836,14 @@ out:
         return 0;
 }
 
+int32_t
+dht_getxattr_unwind (void *getxattr, call_frame_t *frame,
+                        int op_ret, int op_errno, dict_t *dict)
+{
+        DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
+        return 0;
+}
+
 
 int
 dht_getxattr (call_frame_t *frame, xlator_t *this,
@@ -1845,6 +1855,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
 	dht_conf_t   *conf          = NULL;
 	dht_local_t  *local         = NULL;
         dht_layout_t *layout        = NULL;
+        xlator_t     **sub_volumes  = NULL;
         int           op_errno      = -1;
         int           ret           = 0;
         int           flag          = 0;
@@ -1864,6 +1875,14 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 gf_log (this->name, GF_LOG_ERROR,
                         "layout is NULL");
                 op_errno = ENOENT;
+                goto err;
+        }
+
+        local = dht_local_init (frame);
+        if (!local) {
+                op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_ERROR,
+                       "Out of memory");
                 goto err;
         }
 
@@ -1959,12 +1978,52 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 goto err;
         }
 
-        local = dht_local_init (frame);
-        if (!local) {
-                op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                       "Out of memory");
-                goto err;
+        if (key && (!strcmp (GF_XATTR_MARKER_KEY, key))
+                && (-1 == frame->root->pid)) {
+
+                if (loc->inode-> ia_type == IA_IFDIR) {
+                        cnt = layout->cnt;
+                } else {
+                        cnt = 1;
+                }
+                sub_volumes = alloca ( cnt * sizeof (xlator_t *));
+                for (i = 0; i < cnt; i++)
+                        *(sub_volumes + i) = layout->list[i].xlator;
+
+                if (cluster_getmarkerattr (frame, this, loc, key,
+                                           local, dht_getxattr_unwind,
+                                           sub_volumes, cnt,
+                                           MARKER_UUID_TYPE, conf->vol_uuid)) {
+                        op_errno = EINVAL;
+                        goto err;
+                }
+
+                return 0;
+        }
+
+        if (key && *conf->vol_uuid) {
+                if ((match_uuid_local (key, conf->vol_uuid) == 0) &&
+                    (-1 == frame->root->pid)) {
+                        if (loc->inode-> ia_type == IA_IFDIR) {
+                                cnt = layout->cnt;
+                        } else {
+                                cnt = 1;
+                        }
+                        sub_volumes = alloca ( cnt * sizeof (xlator_t *));
+                        for (i = 0; i < cnt; i++)
+                                sub_volumes[i] = layout->list[i].xlator;
+
+                        if (cluster_getmarkerattr (frame, this, loc, key,
+                                                   local, dht_getxattr_unwind,
+                                                   sub_volumes, cnt,
+                                                   MARKER_XTIME_TYPE,
+                                                   conf->vol_uuid)) {
+                                op_errno = EINVAL;
+                                goto err;
+                        }
+
+                        return 0;
+                }
         }
 
         ret = loc_dup (loc, &local->loc);
