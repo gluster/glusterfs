@@ -21,7 +21,7 @@ AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER([config.h])
 
 AC_CONFIG_FILES([Makefile
-		libglusterfs/Makefile 
+		libglusterfs/Makefile
 		libglusterfs/src/Makefile
 		glusterfsd/Makefile
 		glusterfsd/src/Makefile
@@ -91,6 +91,8 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/trash/src/Makefile
 		xlators/features/quota/Makefile
 		xlators/features/quota/src/Makefile
+                xlators/features/marker/Makefile
+                xlators/features/marker/src/Makefile
 		xlators/features/read-only/Makefile
 		xlators/features/read-only/src/Makefile
 		xlators/features/mac-compat/Makefile
