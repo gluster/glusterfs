@@ -93,6 +93,9 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/quota/src/Makefile
                 xlators/features/marker/Makefile
                 xlators/features/marker/src/Makefile
+                xlators/features/marker/utils/Makefile
+                xlators/features/marker/utils/gsyncd
+                xlators/features/marker/utils/syncdaemon/Makefile
 		xlators/features/read-only/Makefile
 		xlators/features/read-only/src/Makefile
 		xlators/features/mac-compat/Makefile
@@ -281,6 +284,36 @@ AC_SUBST(RDMA_SUBDIR)
 # end IBVERBS section
 
 
+# SYNCDAEMON section
+AC_ARG_ENABLE([georeplication],
+	      AC_HELP_STRING([--disable-georeplication],
+			     [Do not install georeplication components]))
+
+BUILD_SYNCDAEMON=no
+if test "x$enable_georeplication" != "xno"; then
+  SYNCDAEMON_SUBDIR=utils
+  BUILD_SYNCDAEMON="yes"
+  AM_PATH_PYTHON([2.4])
+  echo -n "checking if python is python 2.x... "
+  if echo $PYTHON_VERSION | grep ^2; then
+    :
+  else
+    echo no
+    AC_MSG_ERROR([only python 2.x is supported])
+  fi
+  echo -n "checking if python has ctypes support... "
+  if "$PYTHON" -c 'import ctypes' 2>/dev/null; then
+    echo yes
+  else
+    echo no
+    AC_MSG_ERROR([python does not have ctypes support])
+  fi
+fi
+
+AC_SUBST(SYNCDAEMON_SUBDIR)
+# end SYNCDAEMON section
+
+
 dnl FreeBSD > 5 has execinfo as a Ported library for giving a workaround
 dnl solution to GCC backtrace functionality
 
@@ -430,4 +463,5 @@ echo "epoll IO multiplex : $BUILD_EPOLL"
 echo "argp-standalone    : $BUILD_ARGP_STANDALONE"
 echo "fusermount         : $BUILD_FUSERMOUNT"
 echo "readline           : $BUILD_READLINE"
+echo "georeplication     : $BUILD_SYNCDAEMON"
 echo
