@@ -204,7 +204,7 @@ cli_cmd_volume_delete_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     sent = 0;
         int                     parse_error = 0;
 
-        question = "Deleting volume will erase all information about the volume."
+        question = "Deleting volume will erase all information about the volume. "
                    "Do you want to continue?";
         proc = &cli_rpc_prog->proctable[GF1_CLI_DELETE_VOLUME];
 
@@ -346,7 +346,7 @@ cli_cmd_volume_stop_cbk (struct cli_state *state, struct cli_cmd_word *word,
         int                     parse_error = 0;
 
         const char *question = "Stopping volume will make its data inaccessible. "
-                               "Do you want to Continue?";
+                               "Do you want to continue?";
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
