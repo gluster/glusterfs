@@ -141,10 +141,12 @@ get_call_frame_for_req (fuse_state_t *state)
         fuse_in_header_t      *finh = NULL;
         call_frame_t          *frame = NULL;
         xlator_t              *this = NULL;
+        fuse_private_t        *priv = NULL;
 
         pool = state->pool;
         finh = state->finh;
         this = state->this;
+        priv = this->private;
 
         frame = create_frame (this, pool);
         if (!frame)
@@ -157,6 +159,9 @@ get_call_frame_for_req (fuse_state_t *state)
                 frame->root->lk_owner = state->lk_owner;
                 frame->root->unique   = finh->unique;
         }
+
+        if (priv && priv->client_pid_set)
+                frame->root->pid = priv->client_pid;
 
         frame->root->type = GF_OP_TYPE_FOP;
 

@@ -75,6 +75,7 @@ enum argp_option_keys {
         ARGP_DUMP_FUSE_KEY = 150,
         ARGP_BRICK_NAME_KEY = 151,
         ARGP_BRICK_PORT_KEY = 152,
+        ARGP_CLIENT_PID_KEY = 153,
 };
 
 int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);

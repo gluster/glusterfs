@@ -3503,6 +3503,10 @@ init (xlator_t *this_xl)
         if (ret != 0)
                 priv->entry_timeout = 1.0; /* default */
 
+        ret = dict_get_int32 (options, "client-pid",
+                              &priv->client_pid);
+        if (ret == 0)
+                priv->client_pid_set = _gf_true;
 
         priv->direct_io_mode = 2;
         ret = dict_get_str (options, ZR_DIRECT_IO_OPT, &value_string);
@@ -3655,6 +3659,9 @@ struct volume_options options[] = {
         },
         { .key  = {ZR_STRICT_VOLFILE_CHECK},
           .type = GF_OPTION_TYPE_BOOL
+        },
+        { .key  = {"client-pid"},
+          .type = GF_OPTION_TYPE_INT
         },
         { .key = {NULL} },
 };
