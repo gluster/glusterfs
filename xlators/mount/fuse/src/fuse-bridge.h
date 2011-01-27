@@ -105,6 +105,9 @@ struct fuse_private {
 
         glusterfs_graph_t   *next_graph;
         xlator_t            *active_subvol;
+
+        pid_t                client_pid;
+        gf_boolean_t         client_pid_set;
 };
 typedef struct fuse_private fuse_private_t;
 

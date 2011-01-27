@@ -171,6 +171,8 @@ static struct argp_option gf_options[] = {
         {"attribute-timeout", ARGP_ATTRIBUTE_TIMEOUT_KEY, "SECONDS", 0,
          "Set attribute timeout to SECONDS for inodes in fuse kernel module "
          "[default: 1]"},
+        {"client-pid", ARGP_CLIENT_PID_KEY, "PID", OPTION_HIDDEN,
+         "client will authenticate itself with process id PID to server"},
         {"dump-fuse", ARGP_DUMP_FUSE_KEY, "PATH", 0,
          "Dump fuse traffic to PATH"},
         {"volfile-check", ARGP_VOLFILE_CHECK_KEY, 0, 0,
@@ -239,6 +241,16 @@ create_fuse_mount (glusterfs_ctx_t *ctx)
         if (cmd_args->fuse_entry_timeout >= 0) {
                 ret = dict_set_double (master->options, ZR_ENTRY_TIMEOUT_OPT,
                                        cmd_args->fuse_entry_timeout);
+                if (ret < 0) {
+                        gf_log ("glusterfsd", GF_LOG_ERROR,
+                                "failed to set dict value.");
+                        goto err;
+                }
+        }
+
+        if (cmd_args->client_pid_set) {
+                ret = dict_set_int32 (master->options, "client-pid",
+                                      cmd_args->client_pid);
                 if (ret < 0) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "failed to set dict value.");
@@ -596,6 +608,16 @@ parse_opts (int key, char *arg, struct argp_state *state)
 
                 argp_failure (state, -1, 0,
                               "unknown attribute timeout %s", arg);
+                break;
+
+        case ARGP_CLIENT_PID_KEY:
+                if (gf_string2int (arg, &cmd_args->client_pid) == 0) {
+                        cmd_args->client_pid_set = 1;
+                        break;
+                }
+
+                argp_failure (state, -1, 0,
+                              "unknown client pid %s", arg);
                 break;
 
         case ARGP_VOLFILE_CHECK_KEY:

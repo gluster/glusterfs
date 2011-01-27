@@ -270,6 +270,8 @@ struct _cmd_args {
 	int              fuse_nodev;
 	int              fuse_nosuid;
 	char            *dump_fuse;
+        pid_t            client_pid;
+        int              client_pid_set;
 
 	/* key args */
 	char            *mount_point;
