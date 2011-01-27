@@ -797,6 +797,7 @@ ioc_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 	local->flags = flags;
 	local->file_loc.path = loc->path;
 	local->file_loc.inode = loc->inode;
+        local->wbflags = wbflags;
   
 	frame->local = local;
         
