@@ -23,6 +23,7 @@
 #endif
 
 #include "dht-mem-types.h"
+#include "libxlator.h"
 
 #ifndef _DHT_H
 #define _DHT_H
@@ -128,6 +129,9 @@ struct dht_local {
 
         /* gfid related */
         uuid_t  gfid;
+
+        /*Marker Related*/
+        struct marker_str    marker;
 };
 typedef struct dht_local dht_local_t;
 
@@ -160,6 +164,7 @@ struct dht_conf {
         void          *private;     /* Can be used by wrapper xlators over
                                        dht */
         gf_boolean_t   use_readdirp;
+        char           vol_uuid[UUID_SIZE + 1];
 };
 typedef struct dht_conf dht_conf_t;
 

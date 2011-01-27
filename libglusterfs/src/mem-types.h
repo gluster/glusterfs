@@ -97,6 +97,7 @@ enum gf_common_mem_types_ {
         gf_common_mt_rdma_context_t     =       72,
         gf_common_mt_sge                =       73,
         gf_common_mt_rpcclnt_cb_program_t =     74,
-        gf_common_mt_end                =       75
+        gf_common_mt_libxl_marker_local =       75,
+        gf_common_mt_end                =       76
 };
 #endif

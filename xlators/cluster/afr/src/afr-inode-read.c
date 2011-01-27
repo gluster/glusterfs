@@ -657,6 +657,15 @@ out:
 }
 
 int32_t
+afr_getxattr_unwind (void *arg, call_frame_t *frame,
+                        int op_ret, int op_errno, dict_t *dict)
+
+{
+        AFR_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
+        return 0;
+}
+
+int32_t
 afr_getxattr (call_frame_t *frame, xlator_t *this,
 	      loc_t *loc, const char *name)
 {
@@ -664,8 +673,11 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	xlator_t **       children   = NULL;
 	int               call_child = 0;
 	afr_local_t     * local      = NULL;
+        xlator_list_t   * trav       = NULL;
+        xlator_t       ** sub_volumes= NULL;
 
         int               read_child = -1;
+        int               i          = 0;
 
 	int32_t op_ret   = -1;
 	int32_t op_errno = 0;
@@ -683,12 +695,71 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
 	ALLOC_OR_GOTO (local, afr_local_t, out);
 	frame->local = local;
 
+        loc_copy (&local->loc, loc);
+        if (name)
+                local->cont.getxattr.name       = gf_strdup (name);
+
+
         if (name) {
                 if (!strncmp (name, AFR_XATTR_PREFIX,
                               strlen (AFR_XATTR_PREFIX))) {
 
                         op_errno = ENODATA;
                         goto out;
+                }
+                if ((strcmp (GF_XATTR_MARKER_KEY, name) == 0)
+                    && (-1 == frame->root->pid)) {
+
+                        local->marker.call_count = priv->child_count;
+
+                        sub_volumes = alloca ( priv->child_count * sizeof (xlator_t *));
+                        for (i = 0, trav = this->children; trav ;
+                                                trav = trav->next, i++) {
+
+                                *(sub_volumes + i)  = trav->xlator;
+                        }
+
+                        if (cluster_getmarkerattr (frame, this, loc, name,
+                                                   local, afr_getxattr_unwind,
+                                                   sub_volumes,
+                                                   priv->child_count,
+                                                   MARKER_UUID_TYPE,
+                                                   priv->vol_uuid)) {
+
+                                op_errno = EINVAL;
+                                goto out;
+                       }
+
+                        return 0;
+                }
+
+                if (*priv->vol_uuid) {
+                        if ((match_uuid_local (name, priv->vol_uuid) == 0)
+                            && (-1 == frame->root->pid)) {
+
+                                local->marker.call_count = priv->child_count;
+
+                                sub_volumes = alloca ( priv->child_count * sizeof (xlator_t *));
+                                for (i = 0, trav = this->children; trav ;
+                                                trav = trav->next, i++) {
+
+                                        *(sub_volumes + i)  = trav->xlator;
+
+                                }
+
+                                if (cluster_getmarkerattr (frame, this, loc,
+                                                           name, local,
+                                                           afr_getxattr_unwind,
+                                                           sub_volumes,
+                                                           priv->child_count,
+                                                           MARKER_XTIME_TYPE,
+                                                           priv->vol_uuid)) {
+                                        op_errno = EINVAL;
+                                        goto out;
+                                }
+
+                                return 0;
+                        }
                 }
 
         }
@@ -712,9 +783,6 @@ afr_getxattr (call_frame_t *frame, xlator_t *this,
                 local->cont.getxattr.last_tried = call_child;
         }
 
-	loc_copy (&local->loc, loc);
-	if (name)
-	  local->cont.getxattr.name       = gf_strdup (name);
 
 	STACK_WIND_COOKIE (frame, afr_getxattr_cbk,
 			   (void *) (long) call_child,

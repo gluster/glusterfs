@@ -33,6 +33,7 @@
 #include "compat.h"
 #include "compat-errno.h"
 #include "stripe-mem-types.h"
+#include "libxlator.h"
 #include <fnmatch.h>
 #include <signal.h>
 
@@ -84,6 +85,7 @@ struct stripe_private {
         int8_t                  child_count;
         int8_t                 *state; /* Current state of child node */
         gf_boolean_t            xattr_supported;  /* default yes */
+        char                    vol_uuid[UUID_SIZE + 1];
 };
 
 /**
@@ -163,6 +165,8 @@ struct stripe_local {
         /* For File I/O fops */
         dict_t              *dict;
 
+        struct marker_str    marker;
+
         /* General usage */
         off_t                offset;
         off_t                stripe_size;
@@ -179,5 +183,6 @@ struct stripe_local {
 
 typedef struct stripe_local   stripe_local_t;
 typedef struct stripe_private stripe_private_t;
+
 
 #endif /* _STRIPE_H_ */

@@ -30,6 +30,8 @@
 #include "compat-errno.h"
 #include "afr-mem-types.h"
 
+#include "libxlator.h"
+
 #define AFR_XATTR_PREFIX "trusted.afr"
 
 struct _pump_private;
@@ -89,6 +91,8 @@ typedef struct _afr_private {
         pthread_mutex_t  mutex;
         struct list_head saved_fds;   /* list of fds on which locks have succeeded */
         gf_boolean_t     optimistic_change_log;
+
+        char                   vol_uuid[UUID_SIZE + 1];
 } afr_private_t;
 
 typedef struct {
@@ -616,6 +620,8 @@ typedef struct _afr_local {
 	} transaction;
 
 	afr_self_heal_t self_heal;
+
+        struct marker_str     marker;
 } afr_local_t;
 
 
@@ -926,5 +932,9 @@ afr_transaction_local_init (afr_local_t *local, afr_private_t *priv)
 
 	return 0;
 }
+
+int32_t
+afr_marker_getxattr (call_frame_t *frame, xlator_t *this,
+              loc_t *loc, const char *name,afr_local_t *local, afr_private_t *priv );
 
 #endif /* __AFR_H__ */
