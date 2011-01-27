@@ -83,8 +83,6 @@ struct volopt_map_entry {
         char *value;
 };
 
-#define MARKER_VOL_KEY "monitor.xtime-marker"
-
 static struct volopt_map_entry glusterd_volopt_map[] = {
         {"cluster.lookup-unhashed",              "cluster/distribute",        }, /* NODOC */
         {"cluster.min-free-disk",                "cluster/distribute",        }, /* NODOC */

@@ -3421,6 +3421,52 @@ out:
 }
 
 static int
+glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
+{
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (glusterd_brick_stop (volinfo, brickinfo))
+                        return -1;
+        }
+
+        return 0;
+}
+
+static int
+glusterd_start_bricks (glusterd_volinfo_t *volinfo)
+{
+        glusterd_brickinfo_t                    *brickinfo = NULL;
+
+        list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                if (glusterd_brick_start (volinfo, brickinfo))
+                        return -1;
+        }
+
+        return 0;
+}
+
+static int
+glusterd_restart_brick_servers (glusterd_volinfo_t *volinfo)
+{
+        if (!volinfo)
+                return -1;
+        if (glusterd_stop_bricks (volinfo)) {
+                gf_log ("", GF_LOG_ERROR, "Restart Failed: Unable to "
+                                          "stop brick servers");
+                return -1;
+        }
+        usleep (500000);
+        if (glusterd_start_bricks (volinfo)) {
+                gf_log ("", GF_LOG_ERROR, "Restart Failed: Unable to "
+                                          "start brick servers");
+                return -1;
+        }
+        return 0;
+}
+
+
+static int
 glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 {
         int                                      ret = 0;
@@ -3430,10 +3476,12 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
         xlator_t                                *this = NULL;
         glusterd_conf_t                         *priv = NULL;
 	int					 count = 1;
+        int                                      restart_flag = 0;
 	char					*key = NULL;
 	char					*key_fixed = NULL;
 	char					*value = NULL;
 	char					 str[50] = {0, };
+
         GF_ASSERT (req);
 
         this = THIS;
@@ -3501,6 +3549,12 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
                 } else
                         ret = -1;
 
+                if (strcmp (key, MARKER_VOL_KEY) == 0 &&
+                    GLUSTERD_STATUS_STARTED == volinfo->status) {
+
+                        restart_flag = 1;
+                }
+
 		if (ret) {
                         gf_log ("", GF_LOG_ERROR,
                                 "Unable to set the options in 'volume set'");
@@ -3527,6 +3581,13 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
                         " 'volume set'");
 		ret = -1;
 		goto out;
+        }
+
+        if (restart_flag) {
+                if (glusterd_restart_brick_servers (volinfo)) {
+                        ret = -1;
+                        goto out;
+                }
         }
 
         ret = glusterd_store_update_volume (volinfo);
@@ -3997,6 +4058,7 @@ out:
 
         return ret;
 }
+
 
 static int
 glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
