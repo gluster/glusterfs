@@ -1472,7 +1472,7 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
         get_vol_tstamp_file (tstamp_file, volinfo);
 
         if (marker) {
-                ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL);
+                ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0644);
                 if (ret == -1 && errno == EEXIST)
                         ret = 0;
                 if (ret == -1) {
