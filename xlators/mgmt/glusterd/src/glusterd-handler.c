@@ -72,11 +72,9 @@ glusterd_handle_friend_req (rpcsvc_request_t *req, uuid_t  uuid,
         glusterd_friend_req_ctx_t       *ctx = NULL;
         char                            rhost[UNIX_PATH_MAX + 1] = {0};
         uuid_t                          friend_uuid = {0};
-        char                            uuid_str[50] = {0,};
         dict_t                          *dict = NULL;
 
-        uuid_unparse (uuid, uuid_str);
-        uuid_parse (uuid_str, friend_uuid);
+        uuid_parse (uuid_utoa (uuid), friend_uuid);
         if (!port)
                 port = GF_DEFAULT_BASE_PORT;
 
@@ -246,7 +244,7 @@ glusterd_add_peer_detail_to_dict (glusterd_peerinfo_t   *peerinfo,
         GF_ASSERT (friends);
 
         snprintf (key, 256, "friend%d.uuid", count);
-        uuid_unparse (peerinfo->uuid, peerinfo->uuid_str);
+        uuid_utoa_r (peerinfo->uuid, peerinfo->uuid_str);
         ret = dict_set_str (friends, key, peerinfo->uuid_str);
         if (ret)
                 goto out;
@@ -409,7 +407,6 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
 {
         gd1_mgmt_cluster_lock_req       lock_req = {{0},};
         int32_t                         ret = -1;
-        char                            str[50] = {0,};
         glusterd_op_lock_ctx_t          *ctx = NULL;
 
         GF_ASSERT (req);
@@ -419,10 +416,9 @@ glusterd_handle_cluster_lock (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        uuid_unparse (lock_req.uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received LOCK from uuid: %s", str);
+                "Received LOCK from uuid: %s", uuid_utoa (lock_req.uuid));
 
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
@@ -447,7 +443,6 @@ int
 glusterd_handle_stage_op (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        char                            str[50] = {0,};
         gd1_mgmt_stage_op_req           stage_req = {{0,}};
         glusterd_op_stage_ctx_t         *ctx = NULL;
 
@@ -459,9 +454,8 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
                 goto out;
         }
 
-        uuid_unparse (stage_req.uuid, str);
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received stage op from uuid: %s", str);
+                "Received stage op from uuid: %s", uuid_utoa (stage_req.uuid));
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_stage_ctx_t);
 
@@ -496,7 +490,6 @@ int
 glusterd_handle_commit_op (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        char                            str[50] = {0,};
         gd1_mgmt_commit_op_req          commit_req = {{0},};
         glusterd_op_commit_ctx_t        *ctx = NULL;
 
@@ -508,10 +501,9 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
                 goto out;
         }
 
-        uuid_unparse (commit_req.uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received commit op from uuid: %s", str);
+                "Received commit op from uuid: %s", uuid_utoa (commit_req.uuid));
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_commit_ctx_t);
 
@@ -762,7 +754,6 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         char                   *free_ptr    = NULL;
         char                   *trans_type  = NULL;
         uuid_t                  volume_id   = {0,};
-        char                    volid[64]   = {0,};
         glusterd_brickinfo_t    *tmpbrkinfo = NULL;
         glusterd_volinfo_t      tmpvolinfo = {{0},};
 
@@ -833,8 +824,7 @@ glusterd_handle_create_volume (rpcsvc_request_t *req)
         }
 
         uuid_generate (volume_id);
-        uuid_unparse (volume_id, volid);
-        free_ptr = gf_strdup (volid);
+        free_ptr = gf_strdup (uuid_utoa (volume_id));
         ret = dict_set_dynstr (dict, "volume-id", free_ptr);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "unable to set volume-id");
@@ -1524,7 +1514,7 @@ glusterd_handle_remove_brick (rpcsvc_request_t *req)
                 if ((volinfo->type == GF_CLUSTER_TYPE_NONE) ||
                     (volinfo->brick_count <= volinfo->sub_count))
                         continue;
- 
+
                 pos = 0;
                 list_for_each_entry (tmp, &volinfo->bricks, brick_list) {
 
@@ -2000,7 +1990,6 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
 {
         gd1_mgmt_cluster_unlock_req     unlock_req = {{0}, };
         int32_t                         ret = -1;
-        char                            str[50] = {0, };
         glusterd_op_lock_ctx_t          *ctx = NULL;
 
         GF_ASSERT (req);
@@ -2011,10 +2000,9 @@ glusterd_handle_cluster_unlock (rpcsvc_request_t *req)
                 goto out;
         }
 
-        uuid_unparse (unlock_req.uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received UNLOCK from uuid: %s", str);
+                "Received UNLOCK from uuid: %s", uuid_utoa (unlock_req.uuid));
 
         ctx = GF_CALLOC (1, sizeof (*ctx), gf_gld_mt_op_lock_ctx_t);
 
@@ -2114,7 +2102,6 @@ glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gd1_mgmt_friend_req     friend_req = {{0},};
-        char                    str[50] = {0,};
 
         GF_ASSERT (req);
         if (!gd_xdr_to_mgmt_friend_req (req->msg[0], &friend_req)) {
@@ -2122,10 +2109,9 @@ glusterd_handle_incoming_friend_req (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        uuid_unparse (friend_req.uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received probe from uuid: %s", str);
+                "Received probe from uuid: %s", uuid_utoa (friend_req.uuid));
         ret = glusterd_handle_friend_req (req, friend_req.uuid,
                                           friend_req.hostname, friend_req.port,
                                           &friend_req);
@@ -2142,7 +2128,6 @@ glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gd1_mgmt_friend_req     friend_req = {{0},};
-        char                    str[50];
         char               remote_hostname[UNIX_PATH_MAX + 1] = {0,};
 
         GF_ASSERT (req);
@@ -2151,10 +2136,9 @@ glusterd_handle_incoming_unfriend_req (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        uuid_unparse (friend_req.uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received unfriend from uuid: %s", str);
+                "Received unfriend from uuid: %s", uuid_utoa (friend_req.uuid));
 
         ret = glusterd_remote_hostname_get (req, remote_hostname,
                                             sizeof (remote_hostname));
@@ -2224,7 +2208,6 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
 {
         int32_t                 ret = -1;
         gd1_mgmt_friend_update     friend_req = {{0},};
-        char                    str[50] = {0,};
         glusterd_peerinfo_t     *peerinfo = NULL;
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
@@ -2252,16 +2235,15 @@ glusterd_handle_friend_update (rpcsvc_request_t *req)
                 req->rpc_err = GARBAGE_ARGS;
                 goto out;
         }
-        uuid_unparse (friend_req.uuid, str);
 
         ret = glusterd_friend_find (friend_req.uuid, NULL, &tmp);
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Received friend update request "
-                        "from unknown peer %s", str);
+                        "from unknown peer %s", uuid_utoa (friend_req.uuid));
                 goto out;
         }
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received friend update from uuid: %s", str);
+                "Received friend update from uuid: %s", uuid_utoa (friend_req.uuid));
 
         if (friend_req.friends.friends_len) {
                 /* Unserialize the dictionary */
@@ -2352,7 +2334,6 @@ int
 glusterd_handle_probe_query (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
-        char                            str[50];
         xlator_t                        *this = NULL;
         glusterd_conf_t                 *conf = NULL;
         gd1_mgmt_probe_req              probe_req = {{0},};
@@ -2374,14 +2355,13 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         this = THIS;
 
         conf = this->private;
-        uuid_unparse (probe_req.uuid, str);
         if (probe_req.port)
                 port = probe_req.port;
         else
                 port = GF_DEFAULT_BASE_PORT;
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                "Received probe from uuid: %s", str);
+                "Received probe from uuid: %s", uuid_utoa (probe_req.uuid));
 
         ret = glusterd_remote_hostname_get (req, remote_hostname,
                                             sizeof (remote_hostname));

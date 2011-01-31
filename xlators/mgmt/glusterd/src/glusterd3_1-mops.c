@@ -33,6 +33,7 @@
 #include "glusterd.h"
 #include "protocol-common.h"
 #include "glusterd-utils.h"
+#include "common-utils.h"
 #include <sys/uio.h>
 
 
@@ -55,7 +56,6 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
         gd1_mgmt_probe_rsp    rsp   = {{0},};
         glusterd_conf_t       *conf = NULL;
         int                   ret   = 0;
-        char                  str[50] = {0,};
         glusterd_peerinfo_t           *peerinfo = NULL;
         glusterd_friend_sm_event_t    *event = NULL;
         glusterd_probe_ctx_t          *ctx = NULL;
@@ -73,11 +73,10 @@ glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
                 //rsp.op_errno = EINVAL;
                 goto out;
         }
-        uuid_unparse (rsp.uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received probe resp from uuid: %s, host: %s",
-                str, rsp.hostname);
+                uuid_utoa (rsp.uuid), rsp.hostname);
         if (rsp.op_ret != 0) {
                 ctx = ((call_frame_t *)myframe)->local;
                 ((call_frame_t *)myframe)->local = NULL;
@@ -141,7 +140,6 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
         glusterd_friend_sm_event_t        *event = NULL;
         glusterd_friend_sm_event_type_t    event_type = GD_FRIEND_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
-        char                          str[50] = {0,};
         int32_t                       op_ret = -1;
         int32_t                       op_errno = -1;
         glusterd_probe_ctx_t          *ctx = NULL;
@@ -162,20 +160,19 @@ glusterd3_1_friend_add_cbk (struct rpc_req * req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
                 goto out;
         }
-        uuid_unparse (rsp.uuid, str);
 
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received %s from uuid: %s, host: %s, port: %d",
-                (op_ret)?"RJT":"ACC", str, rsp.hostname, rsp.port);
+                (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid), rsp.hostname, rsp.port);
 
         ret = glusterd_friend_find (rsp.uuid, rsp.hostname, &peerinfo);
 
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "received friend add response from"
-                        " unknown peer uuid: %s", str);
+                        " unknown peer uuid: %s", uuid_utoa (rsp.uuid));
                 goto out;
         }
 
@@ -239,7 +236,6 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
         glusterd_friend_sm_event_t      *event = NULL;
         glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
         glusterd_peerinfo_t             *peerinfo = NULL;
-        char                            str[50] = {0,};
         int32_t                         op_ret = -1;
         int32_t                         op_errno = -1;
         glusterd_probe_ctx_t            *ctx = NULL;
@@ -264,14 +260,13 @@ glusterd3_1_friend_remove_cbk (struct rpc_req * req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
                 goto respond;
         }
-        uuid_unparse (rsp.uuid, str);
 
         op_ret = rsp.op_ret;
         op_errno = rsp.op_errno;
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received %s from uuid: %s, host: %s, port: %d",
-                (op_ret)?"RJT":"ACC", str, rsp.hostname, rsp.port);
+                (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid), rsp.hostname, rsp.port);
 
 inject:
         ret = glusterd_friend_find (rsp.uuid, ctx->hostname, &peerinfo);
@@ -369,7 +364,6 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
-        char                          str[50] = {0,};
 
         GF_ASSERT (req);
 
@@ -386,19 +380,18 @@ glusterd3_1_cluster_lock_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
                 goto out;
         }
-        uuid_unparse (rsp.uuid, str);
 
         op_ret = rsp.op_ret;
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received %s from uuid: %s",
-                (op_ret)?"RJT":"ACC", str);
+                (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Lock response received from "
-                        "unknown peer: %s", str);
+                        "unknown peer: %s", uuid_utoa (rsp.uuid));
         }
 
         if (op_ret) {
@@ -429,7 +422,6 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
-        char                          str[50] = {0,};
 
 
         GF_ASSERT (req);
@@ -447,19 +439,18 @@ glusterd3_1_cluster_unlock_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_errno = EINVAL;
                 goto out;
         }
-        uuid_unparse (rsp.uuid, str);
 
         op_ret = rsp.op_ret;
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received %s from uuid: %s",
-                (op_ret)?"RJT":"ACC", str);
+                (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Unlock response received from "
-                        "unknown peer %s", str);
+                        "unknown peer %s", uuid_utoa (rsp.uuid));
         }
 
         if (op_ret) {
@@ -547,7 +538,6 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
-        char                          str[50] = {0,};
         dict_t                        *dict   = NULL;
 
         GF_ASSERT (req);
@@ -567,7 +557,6 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
                 rsp.op_errstr = "error";
                 goto out;
         }
-        uuid_unparse (rsp.uuid, str);
 
         if (rsp.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -591,13 +580,13 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received %s from uuid: %s",
-                (op_ret)?"RJT":"ACC", str);
+                (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Stage response received from "
-                        "unknown peer: %s", str);
+                        "unknown peer: %s", uuid_utoa (rsp.uuid));
         }
 
         if (op_ret) {
@@ -667,7 +656,6 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
         int32_t                       op_ret = -1;
         glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
         glusterd_peerinfo_t           *peerinfo = NULL;
-        char                          str[50] = {0,};
         dict_t                        *dict = NULL;
 
 
@@ -690,7 +678,6 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 		event_type = GD_OP_EVENT_RCVD_RJT;
                 goto out;
         }
-        uuid_unparse (rsp.uuid, str);
 
         if (rsp.dict.dict_len) {
                 /* Unserialize the dictionary */
@@ -714,13 +701,13 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
 
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Received %s from uuid: %s",
-                (op_ret)?"RJT":"ACC", str);
+                (op_ret)?"RJT":"ACC", uuid_utoa (rsp.uuid));
 
         ret = glusterd_friend_find (rsp.uuid, NULL, &peerinfo);
 
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Commit response received from "
-                        "unknown peer: %s", str);
+                        "unknown peer: %s", uuid_utoa (rsp.uuid));
         }
 
         if (op_ret) {
@@ -957,7 +944,6 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         glusterd_friend_update_ctx_t     *ctx = NULL;
         dict_t                          *friends = NULL;
         char                            key[100] = {0,};
-        char                            uuid_buf[50] = {0,};
         char                            *dup_buf = NULL;
         int32_t                         count = 0;
         char                            *dict_buf = NULL;
@@ -987,9 +973,8 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         if (GD_FRIEND_UPDATE_ADD == ctx->op) {
                 list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                         count++;
-                        uuid_unparse (peerinfo->uuid, uuid_buf);
                         snprintf (key, sizeof (key), "friend%d.uuid", count);
-                        dup_buf = gf_strdup (uuid_buf);
+                        dup_buf = gf_strdup (uuid_utoa (peerinfo->uuid));
                         ret = dict_set_dynstr (friends, key, dup_buf);
                         if (ret)
                                 goto out;

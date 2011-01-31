@@ -44,6 +44,7 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
+#include "common-utils.h"
 
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
@@ -73,7 +74,6 @@ static int
 glusterd_uuid_init (int flag)
 {
         int             ret = -1;
-        char            str[50] = {0,};
         glusterd_conf_t *priv = NULL;
 
         priv = THIS->private;
@@ -81,19 +81,17 @@ glusterd_uuid_init (int flag)
         if (!flag) {
                 ret = glusterd_retrieve_uuid ();
                 if (!ret) {
-                        uuid_unparse (priv->uuid, str);
                         uuid_copy (glusterd_uuid, priv->uuid);
                         gf_log ("glusterd", GF_LOG_NORMAL,
-                                "retrieved UUID: %s", str);
+                                "retrieved UUID: %s", uuid_utoa (priv->uuid));
                         return 0;
                 }
         }
 
         uuid_generate (glusterd_uuid);
-        uuid_unparse (glusterd_uuid, str);
 
         gf_log ("glusterd", GF_LOG_NORMAL,
-                        "generated UUID: %s",str);
+                        "generated UUID: %s", uuid_utoa (glusterd_uuid));
         uuid_copy (priv->uuid, glusterd_uuid);
 
         ret = glusterd_store_uuid ();

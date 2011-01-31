@@ -224,15 +224,14 @@ glusterd_lock (uuid_t   uuid)
         int     ret = -1;
 
         GF_ASSERT (uuid);
-        uuid_unparse (uuid, new_owner_str);
 
         glusterd_get_lock_owner (&owner);
 
         if (!uuid_is_null (owner)) {
-                uuid_unparse (owner, owner_str);
                 gf_log ("glusterd", GF_LOG_ERROR, "Unable to get lock"
-                        " for uuid: %s, lock held by: %s", new_owner_str,
-                        owner_str);
+                        " for uuid: %s, lock held by: %s",
+                        uuid_utoa_r (uuid, new_owner_str),
+                        uuid_utoa_r (owner, owner_str));
                 goto out;
         }
 
@@ -240,7 +239,7 @@ glusterd_lock (uuid_t   uuid)
 
         if (!ret) {
                 gf_log ("glusterd", GF_LOG_NORMAL, "Cluster lock held by"
-                         " %s", new_owner_str);
+                         " %s", uuid_utoa (uuid));
         }
 
 out:
@@ -257,7 +256,6 @@ glusterd_unlock (uuid_t uuid)
         int32_t ret = -1;
 
         GF_ASSERT (uuid);
-        uuid_unparse (uuid, new_owner_str);
 
         glusterd_get_lock_owner (&owner);
 
@@ -269,9 +267,9 @@ glusterd_unlock (uuid_t uuid)
         ret = uuid_compare (uuid, owner);
 
         if (ret) {
-               uuid_unparse (owner, owner_str);
                gf_log ("glusterd", GF_LOG_ERROR, "Cluster lock held by %s"
-                        " ,unlock req from %s!", owner_str, new_owner_str);
+                        " ,unlock req from %s!", uuid_utoa_r (owner ,owner_str)
+                        , uuid_utoa_r (uuid, new_owner_str));
                goto out;
         }
 
@@ -1224,7 +1222,6 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         char                    key[512] = {0,};
         glusterd_brickinfo_t    *brickinfo = NULL;
         int32_t                 i = 1;
-        char                    uuid_str[50] = {0,};
         char                    *volume_id_str = NULL;
         glusterd_volopt_ctx_t   ctx = {0};
 
@@ -1272,8 +1269,7 @@ glusterd_add_volume_to_dict (glusterd_volinfo_t *volinfo,
         if (ret)
                 goto out;
 
-        uuid_unparse (volinfo->volume_id, uuid_str);
-        volume_id_str = gf_strdup (uuid_str);
+        volume_id_str = gf_strdup (uuid_utoa (volinfo->volume_id));
         if (!volume_id_str)
                 goto out;
 

@@ -35,6 +35,7 @@
 #include "nfs3-helpers.h"
 #include "nfs-mem-types.h"
 #include "iatt.h"
+#include "common-utils.h"
 #include <string.h>
 
 extern int
@@ -2542,7 +2543,6 @@ nfs3_fh_resolve_check_entry (struct nfs3_fh *fh, gf_dirent_t *candidate,
         struct iatt             *ia = NULL;
         int                     ret = GF_NFS3_FHRESOLVE_NOTFOUND;
         nfs3_hash_entry_t       entryhash = 0;
-        char                    gfidstr[512];
 
         if ((!fh) || (!candidate))
                 return ret;
@@ -2553,10 +2553,10 @@ nfs3_fh_resolve_check_entry (struct nfs3_fh *fh, gf_dirent_t *candidate,
 
         ia = &candidate->d_stat;
         if ((uuid_compare (candidate->d_stat.ia_gfid, fh->gfid)) == 0) {
-                uuid_unparse (candidate->d_stat.ia_gfid, gfidstr);
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Found entry: gfid: %s, "
-                        "name: %s, hashcount %d", gfidstr, candidate->d_name,
-                        hashidx);
+                        "name: %s, hashcount %d",
+                         uuid_utoa (candidate->d_stat.ia_gfid),
+                         candidate->d_name, hashidx);
                 ret = GF_NFS3_FHRESOLVE_FOUND;
                 goto found_entry;
         }
@@ -2854,7 +2854,6 @@ nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uuid_t dirgfid, char *entry)
 {
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
-        char            gfidstr[512];
 
         if (!cs)
                 return ret;
@@ -2869,9 +2868,9 @@ nfs3_fh_resolve_dir_hard (nfs3_call_state_t *cs, uuid_t dirgfid, char *entry)
         }
 
         nfs_user_root_create (&nfu);
-        uuid_unparse (dirgfid, gfidstr);
         gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard dir resolution: gfid: %s, "
-                "entry: %s, next hashcount: %d", gfidstr, entry, cs->hashidx);
+                "entry: %s, next hashcount: %d", uuid_utoa (dirgfid), entry,
+                cs->hashidx);
         ret = nfs_entry_loc_fill (cs->vol->itable, dirgfid, entry,
                                   &cs->resolvedloc, NFS_RESOLVE_CREATE);
 
@@ -2948,7 +2947,6 @@ nfs3_fh_resolve_search_dir (nfs3_call_state_t *cs, gf_dirent_t *entries)
         gf_dirent_t     *candidate = NULL;
         int             ret = GF_NFS3_FHRESOLVE_NOTFOUND;
         off_t           lastoff = 0;
-        char            gfidstr[512];
 
         if ((!cs) || (!entries))
                 return -EFAULT;
@@ -2958,9 +2956,9 @@ nfs3_fh_resolve_search_dir (nfs3_call_state_t *cs, gf_dirent_t *entries)
 
         list_for_each_entry (candidate, &entries->list, list) {
                 lastoff = candidate->d_off;
-                uuid_unparse (candidate->d_stat.ia_gfid, gfidstr);
                 gf_log (GF_NFS3, GF_LOG_TRACE, "Candidate: %s, gfid: %s",
-                        candidate->d_name, gfidstr);
+                        candidate->d_name,
+                        uuid_utoa (candidate->d_stat.ia_gfid));
                 ret = nfs3_fh_resolve_check_entry (&cs->resolvefh, candidate,
                                                    cs->hashidx);
                 if (ret != GF_NFS3_FHRESOLVE_NOTFOUND)
@@ -3004,7 +3002,6 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
 {
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
-        char            gfidstr[512];
 
         if (!cs)
                 return ret;
@@ -3019,9 +3016,9 @@ nfs3_fh_resolve_inode_hard (nfs3_call_state_t *cs)
         }
 
         nfs_user_root_create (&nfu);
-        uuid_unparse (cs->resolvefh.gfid, gfidstr);
         gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution for: gfid 0x%s"
-                ", hashcount: %d, current hashidx %d", gfidstr,
+                ", hashcount: %d, current hashidx %d",
+                uuid_utoa (cs->resolvefh.gfid),
                 cs->resolvefh.hashcount, cs->hashidx);
         ret = nfs_root_loc_fill (cs->vol->itable, &cs->resolvedloc);
 
@@ -3047,17 +3044,15 @@ nfs3_fh_resolve_entry_hard (nfs3_call_state_t *cs)
 {
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
-        char            gfidstr[512];
 
         if (!cs)
                 return ret;
 
         nfs_loc_wipe (&cs->resolvedloc);
         nfs_user_root_create (&nfu);
-        uuid_unparse (cs->resolvefh.gfid, gfidstr);
         gf_log (GF_NFS3, GF_LOG_TRACE, "FH hard resolution: gfid: %s "
-                ", entry: %s, hashidx: %d", gfidstr, cs->resolventry,
-                cs->hashidx);
+                ", entry: %s, hashidx: %d", uuid_utoa (cs->resolvefh.gfid),
+                cs->resolventry, cs->hashidx);
 
         ret = nfs_entry_loc_fill (cs->vol->itable, cs->resolvefh.gfid,
                                   cs->resolventry, &cs->resolvedloc,

@@ -38,6 +38,7 @@
 #include "iatt.h"
 #include "nfs-mem-types.h"
 #include "nfs.h"
+#include "common-utils.h"
 
 
 #include <errno.h>
@@ -485,7 +486,6 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         char            *nextcomp = NULL;
         int             ret = -EFAULT;
         nfs_user_t      nfu = {0, };
-        char            gfidstr[512];
         uuid_t          gfid = {0, };
 
         if (!mres)
@@ -501,9 +501,8 @@ __mnt3_resolve_export_subdir_comp (mnt3_resolve_t *mres)
         ret = nfs_entry_loc_fill (mres->exp->vol->itable, gfid, nextcomp,
                                   &mres->resolveloc, NFS_RESOLVE_CREATE);
         if ((ret < 0) && (ret != -2)) {
-                uuid_unparse (mres->resolveloc.inode->gfid, gfidstr);
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to resolve and create "
-                        "inode: parent gfid %s, entry %s", gfidstr, nextcomp);
+                        "inode: parent gfid %s, entry %s", uuid_utoa (mres->resolveloc.inode->gfid), nextcomp);
                 ret = -EFAULT;
                 goto err;
         }

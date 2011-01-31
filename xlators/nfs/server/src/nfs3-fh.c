@@ -31,6 +31,7 @@
 #include "nfs3-fh.h"
 #include "nfs-common.h"
 #include "iatt.h"
+#include "common-utils.h"
 
 
 int
@@ -171,7 +172,6 @@ nfs3_fh_hash_entry (uuid_t gfid)
 
 }
 
-
 void
 nfs3_fh_to_str (struct nfs3_fh *fh, char *str)
 {
@@ -181,12 +181,10 @@ nfs3_fh_to_str (struct nfs3_fh *fh, char *str)
         if ((!fh) || (!str))
                 return;
 
-        uuid_unparse (fh->gfid, gfid);
-        uuid_unparse (fh->exportid, exportid);
         sprintf (str, "FH: hashcount %d, exportid %s, gfid %s",
-                 fh->hashcount, exportid, gfid);
+                 fh->hashcount, uuid_utoa_r (fh->exportid, exportid),
+                 uuid_utoa_r (fh->gfid, gfid));
 }
-
 
 void
 nfs3_log_fh (struct nfs3_fh *fh)
@@ -198,17 +196,16 @@ nfs3_log_fh (struct nfs3_fh *fh)
         if (!fh)
                 return;
 
-        uuid_unparse (fh->gfid, gfidstr);
-        uuid_unparse (fh->exportid, exportidstr);
         gf_log ("nfs3-fh", GF_LOG_TRACE, "filehandle: hashcount %d, exportid "
-                "0x%s, gfid 0x%s", fh->hashcount, exportidstr, gfidstr);
+                "0x%s, gfid 0x%s", fh->hashcount,
+                 uuid_utoa_r (fh->exportid, exportidstr),
+                 uuid_utoa_r (fh->gfid, gfidstr));
 /*
         for (; x < fh->hashcount; ++x)
                 gf_log ("FILEHANDLE", GF_LOG_TRACE, "Hash %d: %d", x,
                         fh->entryhash[x]);
 */
 }
-
 
 int
 nfs3_fh_build_parent_fh (struct nfs3_fh *child, struct iatt *newstat,
