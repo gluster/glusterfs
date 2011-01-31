@@ -1284,7 +1284,6 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
         char               *skey          = NULL;
         char               *enable_ino32  = NULL;
         char               *mem_factor     = NULL;
-        char                volume_id[64] = {0,};
         int                 ret           = 0;
 
         this = THIS;
@@ -1336,8 +1335,7 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                         gf_log ("", GF_LOG_ERROR, "Out of memory");
                         goto out;
                 }
-                uuid_unparse (voliter->volume_id, volume_id);
-                ret = xlator_set_option (nfsxl, skey, volume_id);
+                ret = xlator_set_option (nfsxl, skey, uuid_utoa (voliter->volume_id));
                 GF_FREE (skey);
                 if (ret)
                         goto out;

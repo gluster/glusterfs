@@ -202,7 +202,6 @@ __is_dentry_cyclic (dentry_t *dentry)
 {
         int       ret = 0;
         inode_t  *inode = NULL;
-        char      uuidbuf[64];
         char     *name = "<nul>";
 
         ret = __foreach_ancestor_dentry (dentry, __check_cycle,
@@ -212,12 +211,11 @@ __is_dentry_cyclic (dentry_t *dentry)
 
                 if (dentry->name)
                         name = dentry->name;
-                uuid_unparse (inode->gfid, uuidbuf);
 
                 gf_log (dentry->inode->table->name, GF_LOG_CRITICAL,
                         "detected cyclic loop formation during inode linkage."
                         " inode (%"PRId64"/%s) linking under itself as %s",
-                        inode->ino, uuidbuf, name);
+                        inode->ino, uuid_utoa (inode->gfid), name);
         }
 
         return ret;
@@ -1438,7 +1436,6 @@ inode_dump (inode_t *inode, char *prefix)
         int                ret       = -1;
         xlator_t          *xl        = NULL;
         int                i         = 0;
-        char               uuidbuf[256];
         fd_t              *fd        = NULL;
         struct _inode_ctx *inode_ctx = NULL;
         struct  fd_wrapper {
@@ -1461,9 +1458,8 @@ inode_dump (inode_t *inode, char *prefix)
         }
 
         {
-                uuid_unparse (inode->gfid, uuidbuf);
                 gf_proc_dump_build_key(key, prefix, "gfid");
-                gf_proc_dump_write(key, "%s", uuidbuf);
+                gf_proc_dump_write(key, "%s", uuid_utoa (inode->gfid));
                 gf_proc_dump_build_key(key, prefix, "nlookup");
                 gf_proc_dump_write(key, "%ld", inode->nlookup);
                 gf_proc_dump_build_key(key, prefix, "ref");

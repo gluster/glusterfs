@@ -47,6 +47,7 @@
 #include "glusterd1.h"
 #include "cli1.h"
 #include "rpc-clnt.h"
+#include "common-utils.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -381,9 +382,9 @@ glusterd_store_create_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        uuid_unparse (volinfo->volume_id, buf);
         ret = glusterd_store_save_value (volinfo->shandle,
-                                        GLUSTERD_STORE_KEY_VOL_ID, buf);
+                                         GLUSTERD_STORE_KEY_VOL_ID,
+                                         uuid_utoa (volinfo->volume_id));
         if (ret)
                 goto out;
 
@@ -676,15 +677,12 @@ glusterd_store_handle_truncate (glusterd_store_handle_t *handle)
 int32_t
 glusterd_store_uuid ()
 {
-        char            str[GLUSTERD_UUID_LEN] = {0,};
         glusterd_conf_t *priv = NULL;
         char            path[PATH_MAX] = {0,};
         int32_t         ret = -1;
         glusterd_store_handle_t *handle = NULL;
 
         priv = THIS->private;
-
-        uuid_unparse (priv->uuid, str);
 
         snprintf (path, PATH_MAX, "%s/%s", priv->workdir,
                   GLUSTERD_INFO_FILE);
@@ -702,7 +700,7 @@ glusterd_store_uuid ()
         }
 
         ret = glusterd_store_save_value (priv->handle, GLUSTERD_STORE_UUID_KEY,
-                                         str);
+                                         uuid_utoa (priv->uuid));
 
         if (ret) {
                 gf_log ("", GF_LOG_CRITICAL, "Storing uuid failed"
@@ -874,7 +872,7 @@ glusterd_store_iter_get_matching (glusterd_store_iter_t *iter,
                 }
                 GF_FREE (tmp_key);
                 GF_FREE (tmp_value);
-                ret = glusterd_store_iter_get_next (iter, &tmp_key, 
+                ret = glusterd_store_iter_get_next (iter, &tmp_key,
                                                     &tmp_value);
         }
 out:
@@ -1224,9 +1222,9 @@ glusterd_store_update_volume (glusterd_volinfo_t *volinfo)
         if (ret)
                 goto out;
 
-        uuid_unparse (volinfo->volume_id, buf);
         ret = glusterd_store_save_value (volinfo->shandle,
-                                        GLUSTERD_STORE_KEY_VOL_ID, buf);
+                                        GLUSTERD_STORE_KEY_VOL_ID,
+                                        uuid_utoa (volinfo->volume_id));
         if (ret)
                 goto out;
 
@@ -1256,7 +1254,6 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
         glusterd_conf_t                 *priv = NULL;
         char                            peerdir[PATH_MAX] = {0,};
         char                            filepath[PATH_MAX] = {0,};
-        char                            str[512] = {0,};
         char                            hostname_path[PATH_MAX] = {0,};
 
 
@@ -1280,9 +1277,9 @@ glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo)
                        goto out;
                 }
         } else {
-                uuid_unparse (peerinfo->uuid, str);
 
-                snprintf (filepath, PATH_MAX, "%s/%s", peerdir, str);
+                snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
+                          uuid_utoa (peerinfo->uuid));
                 snprintf (hostname_path, PATH_MAX, "%s/%s",
                           peerdir, peerinfo->hostname);
 
@@ -1313,7 +1310,6 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
         glusterd_conf_t                 *priv = NULL;
         char                            peerdir[PATH_MAX] = {0,};
         char                            filepath[PATH_MAX] = {0,};
-        char                            str[512] = {0,};
         char                            buf[4096] = {0,};
         char                            hostname_path[PATH_MAX] = {0,};
 
@@ -1345,9 +1341,9 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
                        goto out;
                 }
         } else {
-                uuid_unparse (peerinfo->uuid, str);
 
-                snprintf (filepath, PATH_MAX, "%s/%s", peerdir, str);
+                snprintf (filepath, PATH_MAX, "%s/%s", peerdir,
+                          uuid_utoa (peerinfo->uuid));
                 snprintf (hostname_path, PATH_MAX, "%s/%s",
                           peerdir, peerinfo->hostname);
 
@@ -1374,7 +1370,8 @@ glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo)
         }
 
         ret = glusterd_store_save_value (peerinfo->shandle,
-                                         GLUSTERD_STORE_KEY_PEER_UUID, str);
+                                         GLUSTERD_STORE_KEY_PEER_UUID,
+                                         uuid_utoa (peerinfo->uuid));
         if (ret)
                 goto out;
 

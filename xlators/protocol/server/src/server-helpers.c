@@ -283,7 +283,6 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         struct _locker   *locker = NULL, *tmp = NULL;
         int               ret = -1;
         char             *path = NULL;
-        char              gfid [40] = {0, };
 
         bound_xl = conn->bound_xl;
         INIT_LIST_HEAD (&inodelk_lockers);
@@ -329,11 +328,11 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                         "released on %s", path);
                                 GF_FREE (path);
                         } else {
-                                uuid_unparse (locker->fd->inode->gfid, gfid);
 
                                 gf_log (this->name, GF_LOG_INFO, "finodelk "
                                         "released on ino %"PRId64" with gfid %s",
-                                        locker->fd->inode->ino, gfid);
+                                        locker->fd->inode->ino,
+                                        uuid_utoa (locker->fd->inode->gfid));
                         }
 
                         STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
@@ -377,7 +376,6 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                         "released on %s", path);
                                 GF_FREE (path);
                         }  else {
-                                uuid_unparse (locker->fd->inode->gfid, gfid);
 
                                 gf_log (this->name, GF_LOG_INFO, "fentrylk "
                                         "released on ino %lu", locker->fd->inode->ino);
@@ -439,7 +437,6 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
         call_frame_t       *tmp_frame = NULL;
         xlator_t           *bound_xl = NULL;
         char               *path     = NULL;
-        char                gfid [40] = {0, };
 
         bound_xl = conn->bound_xl;
         for (i = 0;i < fd_count; i++) {
@@ -462,11 +459,11 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                                         "%s", path);
                                 GF_FREE (path);
                         }  else {
-                                uuid_unparse (fd->inode->gfid, gfid);
 
                                 gf_log (this->name, GF_LOG_INFO, "fd cleanup on "
                                         "ino %"PRId64" with gfid %s",
-                                        fd->inode->ino, gfid);
+                                        fd->inode->ino,
+                                        uuid_utoa (fd->inode->gfid));
                         }
 
                         tmp_frame->local = fd;
@@ -579,7 +576,6 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         fdentry_t          *fdentries = NULL;
         uint32_t             fd_count = 0;
         char               *path      = NULL;
-        char                gfid [40] = {0, };
 
         if (conn == NULL) {
                 ret = 0;
@@ -641,11 +637,11 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                                 "released on %s", path);
                                         GF_FREE (path);
                                 } else {
-                                        uuid_unparse (locker->fd->inode->gfid, gfid);
 
                                         gf_log (this->name, GF_LOG_INFO, "finodelk "
                                                 "released on ino %"PRId64 "with gfid %s",
-                                                locker->fd->inode->ino, gfid);
+                                                locker->fd->inode->ino,
+                                                uuid_utoa (locker->fd->inode->gfid));
                                 }
 
                                 STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
@@ -689,11 +685,11 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
 
                                         GF_FREE (path);
                                 } else {
-                                        uuid_unparse (locker->fd->inode->gfid, gfid);
 
                                         gf_log (this->name, GF_LOG_INFO, "fentrylk "
                                                 "released on ino %"PRId64" and gfid= %s",
-                                                locker->fd->inode->ino, gfid);
+                                                locker->fd->inode->ino,
+                                                uuid_utoa (locker->fd->inode->gfid));
                                 }
 
                                 STACK_WIND (tmp_frame, server_nop_cbk, bound_xl,
