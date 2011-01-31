@@ -46,10 +46,10 @@
 #include "revision.h"
 #include "glusterfs.h"
 #include "stack.h"
+#include "globals.h"
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
-
 
 struct dnscache6 {
 	struct addrinfo *first;
@@ -1693,3 +1693,21 @@ out:
         return ret;
 }
 
+/*Thread safe conversion function*/
+char *
+uuid_utoa (uuid_t uuid)
+{
+        char *uuid_buffer = glusterfs_uuid_buf_get();
+        uuid_unparse (uuid, uuid_buffer);
+        return uuid_buffer;
+}
+
+/*Re-entrant conversion function*/
+char *
+uuid_utoa_r (uuid_t uuid, char *dst)
+{
+        if(!dst)
+                return NULL;
+        uuid_unparse (uuid, dst);
+        return dst;
+}

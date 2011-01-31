@@ -34,7 +34,7 @@
 #include <pthread.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
-#endif 
+#endif
 
 void trap (void);
 
@@ -47,6 +47,7 @@ void trap (void);
 #include "glusterfs.h"
 #include "locking.h"
 #include "mem-pool.h"
+#include "uuid.h"
 
 
 #define min(a,b) ((a)<(b)?(a):(b))
@@ -68,9 +69,9 @@ void trap (void);
 #define GF_UNIT_PB_STRING    "PB"
 
 
-enum _gf_boolean 
+enum _gf_boolean
 {
-	_gf_false = 0, 
+	_gf_false = 0,
 	_gf_true = 1
 };
 
@@ -292,7 +293,7 @@ memdup (const void *ptr, size_t size)
 
 
 char *gf_trim (char *string);
-int gf_strsplit (const char *str, const char *delim, 
+int gf_strsplit (const char *str, const char *delim,
 		 char ***tokens, int *token_count);
 int gf_volume_name_validate (const char *volume_name);
 
@@ -343,5 +344,8 @@ char valid_host_name (char *address, int length);
 char valid_ipv4_address (char *address, int length);
 char valid_ipv6_address (char *address, int length);
 char valid_internet_address (char *address);
+
+char *uuid_utoa (uuid_t uuid);
+char *uuid_utoa_r (uuid_t uuid, char *dst);
 #endif /* _COMMON_UTILS_H */
 

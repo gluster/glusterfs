@@ -305,6 +305,42 @@ synctask_set (void *synctask)
         return ret;
 }
 
+//UUID_BUFFER
+
+static pthread_key_t uuid_buf_key;
+static char global_uuid_buf[GF_UUID_BUF_SIZE];
+void
+glusterfs_uuid_buf_destroy (void *ptr)
+{
+        if (ptr)
+                FREE (ptr);
+}
+
+int
+glusterfs_uuid_buf_init ()
+{
+        int ret = 0;
+
+        ret = pthread_key_create (&uuid_buf_key,
+                                  glusterfs_uuid_buf_destroy);
+        return ret;
+}
+
+char *
+glusterfs_uuid_buf_get ()
+{
+        char *buf;
+        int ret = 0;
+
+        buf = pthread_getspecific (uuid_buf_key);
+        if(!buf) {
+                buf = MALLOC (GF_UUID_BUF_SIZE);
+                ret = pthread_setspecific (uuid_buf_key, (void *) buf);
+                if(ret)
+                        buf = global_uuid_buf;
+        }
+        return buf;
+}
 
 int
 glusterfs_globals_init ()
@@ -323,6 +359,10 @@ glusterfs_globals_init ()
 
         ret = glusterfs_central_log_flag_init ();
         if (ret)
+                goto out;
+
+        ret = glusterfs_uuid_buf_init ();
+        if(ret)
                 goto out;
 
         gf_mem_acct_enable_set ();
