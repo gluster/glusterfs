@@ -40,6 +40,8 @@ glusterfs_ctx_t *glusterfs_ctx_get ();
 /* THIS */
 #define THIS (*__glusterfs_this_location())
 
+#define GF_UUID_BUF_SIZE 50
+
 xlator_t **__glusterfs_this_location ();
 xlator_t *glusterfs_this_get ();
 int glusterfs_this_set (xlator_t *);
@@ -53,6 +55,9 @@ void glusterfs_central_log_flag_unset ();
 /* task */
 void *synctask_get ();
 int synctask_set (void *);
+
+/* uuid_buf */
+char *glusterfs_uuid_buf_get();
 
 /* init */
 int glusterfs_globals_init (void);
