@@ -69,7 +69,37 @@ sh_full_private_cleanup (call_frame_t *frame, xlator_t *this)
 
 
 static int
-sh_full_loop_driver (call_frame_t *frame, xlator_t *this);
+sh_full_loop_driver (call_frame_t *frame, xlator_t *this, gf_boolean_t is_first_call);
+
+static int
+sh_full_loop_driver_done (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t * priv = NULL;
+        afr_local_t * local  = NULL;
+        afr_self_heal_t *sh  = NULL;
+        afr_sh_algo_full_private_t *sh_priv = NULL;
+
+        priv    = this->private;
+        local   = frame->local;
+        sh      = &local->self_heal;
+        sh_priv = sh->private;
+
+        sh_full_private_cleanup (frame, this);
+        if (sh->op_failed) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "full self-heal aborting on %s",
+                        local->loc.path);
+
+                local->self_heal.algo_abort_cbk (frame, this);
+        } else {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "full self-heal completed on %s",
+                        local->loc.path);
+
+                local->self_heal.algo_completion_cbk (frame, this);
+        }
+        return 0;
+}
 
 static int
 sh_full_loop_return (call_frame_t *rw_frame, xlator_t *this, off_t offset)
@@ -90,18 +120,9 @@ sh_full_loop_return (call_frame_t *rw_frame, xlator_t *this, off_t offset)
         sh       = &sh_local->self_heal;
         sh_priv  = sh->private;
 
-        LOCK (&sh_priv->lock);
-        {
-                sh_priv->loops_running--;
-        }
-        UNLOCK (&sh_priv->lock);
-
-        gf_log (this->name, GF_LOG_TRACE,
-                "loop for offset %"PRId64" returned", offset);
-
         AFR_STACK_DESTROY (rw_frame);
 
-        sh_full_loop_driver (sh_frame, this);
+        sh_full_loop_driver (sh_frame, this, _gf_false);
 
         return 0;
 }
@@ -279,90 +300,67 @@ sh_full_read_write (call_frame_t *frame, xlator_t *this, off_t offset)
 out:
         sh->op_failed = 1;
 
-        sh_full_loop_driver (frame, this);
+        sh_full_loop_driver (frame, this, _gf_false);
 
 	return 0;
 }
 
 
 static int
-sh_full_loop_driver (call_frame_t *frame, xlator_t *this)
+sh_full_loop_driver (call_frame_t *frame, xlator_t *this, gf_boolean_t is_first_call)
 {
 	afr_private_t * priv = NULL;
 	afr_local_t * local  = NULL;
 	afr_self_heal_t *sh  = NULL;
         afr_sh_algo_full_private_t *sh_priv = NULL;
+        gf_boolean_t    is_driver_done = _gf_false;
+        blksize_t       block_size = 0;
+        off_t offset  = 0;
 
         int   loop    = 0;
-        int   recurse = 0;
-
-        off_t offset  = 0;
 
 	priv    = this->private;
 	local   = frame->local;
 	sh      = &local->self_heal;
         sh_priv = sh->private;
 
-	if (sh->op_failed) {
-                if (sh_priv->loops_running == 0) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "full self-heal aborting on %s",
-                                local->loc.path);
-
-                        sh_full_private_cleanup (frame, this);
-                        local->self_heal.algo_abort_cbk (frame, this);
-                }
-
-		goto out;
-	}
-
-	if (sh_priv->offset >= sh->file_size) {
-                if (sh_priv->loops_running == 0) {
-
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "full self-heal completed on %s",
-                                local->loc.path);
-
-                        sh_full_private_cleanup (frame, this);
-                        local->self_heal.algo_completion_cbk (frame, this);
-                }
-
-		goto out;
-	}
-
-spawn:
-        loop    = 0;
-        recurse = 0;
-
         LOCK (&sh_priv->lock);
         {
-                if ((sh_priv->loops_running < priv->data_self_heal_window_size)
+                if (_gf_false == is_first_call)
+                        sh_priv->loops_running--;
+                offset           = sh_priv->offset;
+                block_size       = sh->block_size;
+                while ((sh->op_failed == 0) &&
+                    (sh_priv->loops_running < priv->data_self_heal_window_size)
                     && (sh_priv->offset < sh->file_size)) {
 
+                        loop++;
                         gf_log (this->name, GF_LOG_TRACE,
                                 "spawning a loop for offset %"PRId64,
                                 sh_priv->offset);
 
-                        offset           = sh_priv->offset;
                         sh_priv->offset += sh->block_size;
-
                         sh_priv->loops_running++;
 
-                        loop = 1;
+                        if (_gf_false == is_first_call)
+                                break;
 
-                        if (sh_priv->offset < sh->file_size)
-                                recurse = 1;
+                }
+                if (0 == sh_priv->loops_running) {
+                        is_driver_done = _gf_true;
                 }
         }
         UNLOCK (&sh_priv->lock);
 
-        if (loop) {
+        while (loop--) {
                 sh_full_read_write (frame, this, offset);
-                if (recurse)
-                        goto spawn;
+                offset += block_size;
         }
 
-out:
+        if (is_driver_done) {
+                sh_full_loop_driver_done (frame, this);
+        }
+
 	return 0;
 }
 
@@ -386,7 +384,7 @@ afr_sh_algo_full (call_frame_t *frame, xlator_t *this)
 
         local->call_count = 0;
 
-        sh_full_loop_driver (frame, this);
+        sh_full_loop_driver (frame, this, _gf_true);
         return 0;
 }
 
@@ -488,8 +486,48 @@ sh_diff_number_of_writes_needed (unsigned char *write_needed, int child_count)
 
 
 static int
-sh_diff_loop_driver (call_frame_t *frame, xlator_t *this);
+sh_diff_loop_driver_done (call_frame_t *frame, xlator_t *this)
+{
+        afr_private_t *   priv  = NULL;
+        afr_local_t *     local = NULL;
+        afr_self_heal_t * sh    = NULL;
+        afr_sh_algo_diff_private_t *sh_priv = NULL;
 
+
+        priv    = this->private;
+        local   = frame->local;
+        sh      = &local->self_heal;
+        sh_priv = sh->private;
+
+        sh_diff_private_cleanup (frame, this);
+        if (sh->op_failed) {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "diff self-heal aborting on %s",
+                        local->loc.path);
+
+                local->self_heal.algo_abort_cbk (frame, this);
+        } else {
+                gf_log (this->name, GF_LOG_TRACE,
+                        "diff self-heal completed on %s",
+                        local->loc.path);
+
+
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "diff self-heal on %s: %d blocks of %d were different (%.2f%%)",
+                        local->loc.path, sh_priv->diff_blocks,
+                        sh_priv->total_blocks,
+                        ((sh_priv->diff_blocks * 1.0)/sh_priv->total_blocks) * 100);
+
+                local->self_heal.algo_completion_cbk (frame, this);
+        }
+
+        return 0;
+}
+
+static int
+sh_diff_loop_driver (call_frame_t *frame, xlator_t *this,
+                     gf_boolean_t is_first_call,
+                     struct sh_diff_loop_state *loop_state);
 
 static int
 sh_diff_loop_return (call_frame_t *rw_frame, xlator_t *this,
@@ -517,16 +555,9 @@ sh_diff_loop_return (call_frame_t *rw_frame, xlator_t *this,
         gf_log (this->name, GF_LOG_TRACE,
                 "loop for offset %"PRId64" returned", loop_state->offset);
 
-        LOCK (&sh_priv->lock);
-        {
-                sh_priv->loops_running--;
-                sh_diff_loop_state_reset (loop_state, priv->child_count);
-        }
-        UNLOCK (&sh_priv->lock);
-
         AFR_STACK_DESTROY (rw_frame);
 
-        sh_diff_loop_driver (sh_frame, this);
+        sh_diff_loop_driver (sh_frame, this, _gf_false, loop_state);
 
         return 0;
 }
@@ -922,26 +953,29 @@ sh_diff_checksum (call_frame_t *frame, xlator_t *this, off_t offset)
 out:
         sh->op_failed = 1;
 
-        sh_diff_loop_driver (frame, this);
+        sh_diff_loop_driver (frame, this, _gf_false, loop_state);
 
         return 0;
 }
 
 
 static int
-sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
+sh_diff_loop_driver (call_frame_t *frame, xlator_t *this,
+                     gf_boolean_t is_first_call,
+                     struct sh_diff_loop_state *loop_state)
 {
 	afr_private_t *   priv  = NULL;
 	afr_local_t *     local = NULL;
 	afr_self_heal_t * sh    = NULL;
         afr_sh_algo_diff_private_t *sh_priv = NULL;
+        gf_boolean_t      is_driver_done = _gf_false;
+        blksize_t         block_size = 0;
 
         int   loop    = 0;
-        int   recurse = 0;
 
         off_t offset = 0;
         char  sh_type_str[256] = {0,};
- 
+
 	priv    = this->private;
 	local   = frame->local;
 	sh      = &local->self_heal;
@@ -949,72 +983,44 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this)
 
         afr_self_heal_type_str_get(sh, sh_type_str, sizeof(sh_type_str));
 
-	if (sh->op_failed) {
-                if (sh_priv->loops_running == 0) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "diff %s self-heal aborting on %s",
-                                sh_type_str, local->loc.path);
-
-                        sh_diff_private_cleanup (frame, this);
-                        local->self_heal.algo_abort_cbk (frame, this);
-                }
-
-		goto out;
-	}
-
-	if (sh_priv->offset >= sh->file_size) {
-                if (sh_priv->loops_running == 0) {
-                        gf_log (this->name, GF_LOG_TRACE,
-                                "diff %s self-heal completed on %s",
-                                sh_type_str, local->loc.path);
-
-
-                        gf_log (this->name, GF_LOG_NORMAL,
-                                "diff %s self-heal on %s: %d blocks of %d were different (%.2f%%)",
-                                sh_type_str, local->loc.path,
-                                sh_priv->diff_blocks, sh_priv->total_blocks,
-                                ((sh_priv->diff_blocks * 1.0)/sh_priv->total_blocks) * 100);
-
-                        sh_diff_private_cleanup (frame, this);
-                        local->self_heal.algo_completion_cbk (frame, this);
-                }
-
-		goto out;
-	}
-
-spawn:
-        loop    = 0;
-        recurse = 0;
-
         LOCK (&sh_priv->lock);
         {
-                if ((sh_priv->loops_running < priv->data_self_heal_window_size)
+                if (loop_state)
+                        sh_diff_loop_state_reset (loop_state, priv->child_count);
+                if (_gf_false == is_first_call)
+                        sh_priv->loops_running--;
+                offset = sh_priv->offset;
+                block_size = sh_priv->block_size;
+                while ((0 == sh->op_failed) &&
+                    (sh_priv->loops_running < priv->data_self_heal_window_size)
                     && (sh_priv->offset < sh->file_size)) {
 
+                        loop++;
                         gf_log (this->name, GF_LOG_TRACE,
                                 "spawning a loop for offset %"PRId64,
                                 sh_priv->offset);
 
-                        offset           = sh_priv->offset;
                         sh_priv->offset += sh_priv->block_size;
-
                         sh_priv->loops_running++;
 
-                        loop = 1;
+                        if (_gf_false == is_first_call)
+                                break;
 
-                        if (sh_priv->offset < sh->file_size)
-                                recurse = 1;
+                }
+                if (0 == sh_priv->loops_running) {
+                        is_driver_done = _gf_true;
                 }
         }
         UNLOCK (&sh_priv->lock);
 
-        if (loop) {
+        while (loop--) {
                 sh_diff_checksum (frame, this, offset);
-                if (recurse)
-                    goto spawn;
+                offset += block_size;
         }
 
-out:
+        if (is_driver_done) {
+                sh_diff_loop_driver_done (frame, this);
+        }
         return 0;
 }
 
@@ -1059,7 +1065,7 @@ afr_sh_algo_diff (call_frame_t *frame, xlator_t *this)
                                                              gf_afr_mt_char);
         }
 
-        sh_diff_loop_driver (frame, this);
+        sh_diff_loop_driver (frame, this, _gf_true, NULL);
 
         return 0;
 }
