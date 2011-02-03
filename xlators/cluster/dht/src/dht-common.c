@@ -55,7 +55,7 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 	local = frame->local;
 	ret = op_ret;
 
-        dht_frame_su_undo (frame);
+        FRAME_SU_UNDO (frame, dht_local_t);
 
 	if (ret == 0) {
 		layout = local->selfheal.layout;
@@ -196,7 +196,7 @@ unlock:
 	return 0;
 
 selfheal:
-        dht_frame_su_do (frame);
+        FRAME_SU_DO (frame, dht_local_t);
 	ret = dht_selfheal_directory (frame, dht_lookup_selfheal_cbk,
 				      &local->loc, layout);
 

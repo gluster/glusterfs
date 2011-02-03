@@ -298,8 +298,6 @@ void dht_layout_unref (xlator_t *this, dht_layout_t *layout);
 dht_layout_t *dht_layout_ref (xlator_t *this, dht_layout_t *layout);
 xlator_t *dht_first_up_subvol (xlator_t *this);
 xlator_t *dht_last_up_subvol (xlator_t *this);
-int dht_frame_su_do (call_frame_t *frame);
-int dht_frame_su_undo (call_frame_t *frame);
 
 int dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name);
 

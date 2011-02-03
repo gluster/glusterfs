@@ -461,37 +461,6 @@ dht_iatt_merge (xlator_t *this, struct iatt *to,
 }
 
 int
-dht_frame_su_do (call_frame_t *frame)
-{
-        dht_local_t     *local = NULL;
-
-        local = frame->local;
-
-        local->uid = frame->root->uid;
-        local->gid = frame->root->gid;
-
-        frame->root->uid = 0;
-        frame->root->gid = 0;
-
-        return 0;
-}
-
-
-int
-dht_frame_su_undo (call_frame_t *frame)
-{
-        dht_local_t     *local = NULL;
-
-        local = frame->local;
-
-        frame->root->uid = local->uid;
-        frame->root->gid = local->gid;
-
-        return 0;
-}
-
-
-int
 dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
 {
         if (!child) {
