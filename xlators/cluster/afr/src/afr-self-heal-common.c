@@ -1500,7 +1500,6 @@ afr_local_t *afr_local_copy (afr_local_t *l, xlator_t *this)
         return lc;
 }
 
-
 int
 afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 {
@@ -1524,6 +1523,7 @@ afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
         gf_log (this->name, GF_LOG_NORMAL,
                 "background %s self-heal completed on %s", sh_type_str,
                 local->loc.path);
+        FRAME_SU_UNDO (bgsh_frame, afr_local_t);
 
         if (!sh->unwound) {
                 sh->unwind (sh->orig_frame, this);
@@ -1622,6 +1622,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
                                                  gf_afr_mt_int32_t);
 	}
 
+        FRAME_SU_DO (sh_frame, afr_local_t);
 	if (local->success_count && local->enoent_count) {
 		afr_self_heal_missing_entries (sh_frame, this);
 	} else {
