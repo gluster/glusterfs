@@ -646,7 +646,8 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         if (!content_cached || ((flags & O_ACCMODE) == O_WRONLY)
             || ((flags & O_TRUNC) == O_TRUNC)
-            || ((flags & O_DIRECT) == O_DIRECT)) {
+            || ((flags & O_DIRECT) == O_DIRECT)
+            || ((wbflags & GF_OPEN_NOWB) != 0)) {
                 LOCK (&qr_fd_ctx->lock);
                 {
                         /*
@@ -655,7 +656,8 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                          */
 
                         qr_fd_ctx->open_in_transit = 1;
-                        if ((flags & O_DIRECT) == O_DIRECT) {
+                        if (((flags & O_DIRECT) == O_DIRECT)
+                            || ((wbflags & GF_OPEN_NOWB)) != 0) {
                                 qr_fd_ctx->disabled = 1;
                         }
                 }
