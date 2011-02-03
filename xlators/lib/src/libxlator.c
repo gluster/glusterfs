@@ -252,11 +252,15 @@ cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                    ((volmark->sec == marker->volmark->sec)
                                       && (volmark->usec >= marker->volmark->usec))) {
 
-                                marker->volmark = volmark;
+                                GF_FREE (marker->volmark);
+                                marker->volmark = memdup (volmark, sizeof (struct volume_mark));
+                                VALIDATE_OR_GOTO (marker->volmark, done);
                         }
 
                 } else {
-                        marker->volmark = volmark;
+                        marker->volmark = memdup (volmark, sizeof (struct volume_mark));
+                        VALIDATE_OR_GOTO (marker->volmark, done);
+
                         uuid_unparse (volmark->uuid, vol_uuid);
                         if (volmark->retval)
                                 callcnt = 0;
@@ -277,7 +281,7 @@ done:
                                         goto out;
                                 }
                         }
-                        if (dict_set_static_bin (dict, GF_XATTR_MARKER_KEY,
+                        if (dict_set_bin (dict, GF_XATTR_MARKER_KEY,
                                           marker->volmark,
                                           sizeof (struct volume_mark))) {
                                 op_ret = -1;
