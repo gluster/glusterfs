@@ -47,6 +47,10 @@ struct marker_str {
         unsigned               has_xtime:1;
         int32_t                enoent_count;
         int32_t                enotconn_count;
+        int32_t                enodata_count;
+        int32_t                noxtime_count;
+
+        int                    esomerr;
 
         xlator_specf_unwind_t  xl_specf_unwind;
         void                  *xl_local;

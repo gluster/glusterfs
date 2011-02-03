@@ -64,7 +64,24 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto out;
         }
 
+        if (local->esomerr) {
+                 LOCK (&frame->lock);
+                {
+                        callcnt = --local->call_count;
+                }
+                goto done;
+        }
+
         vol_uuid = local->vol_uuid;
+
+        if (op_ret && op_errno == ENODATA) {
+                LOCK (&frame->lock);
+                {
+                        callcnt = --local->call_count;
+                        local->enodata_count++;
+                }
+                goto done;
+        }
 
         if (op_ret && op_errno == ENOENT) {
                 LOCK (&frame->lock);
@@ -84,6 +101,17 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 goto done;
         }
 
+        if (op_ret) {
+                LOCK (&frame->lock);
+                {
+                        callcnt = --local->call_count;
+                        local->esomerr = op_errno;
+                }
+                goto done;
+        }
+
+
+
 
         LOCK (&frame->lock);
         {
@@ -91,14 +119,14 @@ cluster_markerxtime_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!gf_asprintf (& marker_xattr, "%s.%s.%s",
                                 MARKER_XATTR_PREFIX, vol_uuid, XTIME)) {
                         op_errno = ENOMEM;
-                        goto out;
+                        goto done;
                 }
 
 
                 if (dict_get_ptr (dict, marker_xattr, (void **)&net_timebuf)) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Unable to get <uuid>.xtime attr");
-
+                        local->noxtime_count++;
                         goto done;
                 }
 
@@ -147,21 +175,30 @@ done:
                                 op_errno = ENOMEM;
                                 goto out;
                         }
+                        goto out;
+                }
+
+                if (local->noxtime_count)
+                        goto out;
+
+                if (local->enodata_count) {
+                        op_ret = -1;
+                        op_errno = ENODATA;
+                        goto out;
+                }
+                if (local->enotconn_count) {
+                        op_ret = -1;
+                        op_errno = ENOTCONN;
+                        goto out;
+                }
+                if (local->enoent_count) {
+                        op_ret = -1;
+                        op_errno = ENOENT;
+                        goto out;
                 }
                 else {
-                        op_ret = -1;
-                        if (local->enotconn_count) {
-                                op_errno = ENOTCONN;
-                                goto out;
-                        }
-                        if (local->enoent_count) {
-                                op_errno = ENOENT;
-                                goto out;
-                        }
-                        else {
-                                op_errno = EINVAL;
-                                goto out;
-                        }
+                        op_errno = local->esomerr;
+                        goto out;
                 }
 out:
                 if (local->xl_specf_unwind) {
@@ -241,7 +278,7 @@ cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             (marker->volmark->minor != volmark->minor)) {
                                 op_ret = -1;
                                 op_errno = EINVAL;
-                                goto out;
+                                goto done;
                         }
                         else if (volmark->retval) {
                                 data_unref ((data_t *) marker->volmark);
