@@ -276,6 +276,8 @@ typedef struct _afr_locked_fd {
 } afr_locked_fd_t;
 
 typedef struct _afr_local {
+        int     uid;
+        int     gid;
 	unsigned int call_count;
 	unsigned int success_count;
 	unsigned int enoent_count;

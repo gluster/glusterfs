@@ -182,6 +182,22 @@ STACK_DESTROY (call_stack_t *stack)
 
 #define cbk(x) cbk_##x
 
+#define FRAME_SU_DO(frm, local_type)                                   \
+        do {                                                           \
+                local_type *__local = (frm)->local;                 \
+                __local->uid = frm->root->uid;                         \
+                __local->gid = frm->root->gid;                         \
+                frm->root->uid = 0;                                    \
+                frm->root->gid = 0;                                    \
+        } while (0);                                                   \
+
+#define FRAME_SU_UNDO(frm, local_type)                                 \
+        do {                                                           \
+                local_type *__local = (frm)->local;                 \
+                frm->root->uid = __local->uid;                         \
+                frm->root->gid = __local->gid;                         \
+        } while (0);                                                   \
+
 
 /* make a call */
 #define STACK_WIND(frame, rfn, obj, fn, params ...)			\
