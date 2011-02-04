@@ -503,16 +503,14 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	if (down) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%d subvolumes down -- not fixing", down);
-                ret = -1;
-                local->op_errno = ESTALE;
+		ret = 0;
 		goto sorry_no_fix;
 	}
 
 	if (misc) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"%d subvolumes have unrecoverable errors", misc);
-                ret = -1;
-                local->op_errno = ESTALE;
+		ret = 0;
 		goto sorry_no_fix;
 	}
 
@@ -522,8 +520,6 @@ dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 	if (ret == -1) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"not able to form layout for the directory");
-                ret = -1;
-                local->op_errno = ESTALE;
 		goto sorry_no_fix;
 	}
 
