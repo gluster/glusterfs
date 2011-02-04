@@ -235,6 +235,7 @@ nfs_start_subvol_lookup_cbk (call_frame_t *frame, void *cookie,
                 goto err;
         }
 
+        nfs_subvolume_set_started (this->private, ((xlator_t *)cookie));
         gf_log (GF_NFS, GF_LOG_TRACE, "Started %s", ((xlator_t *)cookie)->name);
 err:
         return 0;
@@ -258,7 +259,6 @@ nfs_startup_subvolume (xlator_t *nfsx, xlator_t *xl)
                 goto err;
         }
 
-        nfs_subvolume_set_started (nfsx->private, xl);
         ret = nfs_inode_loc_fill (xl->itable->root, &rootloc);
         if (ret == -1) {
                 gf_log (GF_NFS, GF_LOG_CRITICAL, "Failed to init root loc");
