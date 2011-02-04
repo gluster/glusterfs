@@ -191,6 +191,66 @@ dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 	return 0;
 }
 
+int
+dht_selfheal_dir_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                              int op_ret, int op_errno, struct iatt *statpre,
+                              struct iatt *statpost)
+{
+        dht_local_t   *local = NULL;
+        dht_layout_t  *layout = NULL;
+        int            this_call_cnt = 0;
+
+        local  = frame->local;
+        layout = local->selfheal.layout;
+
+        this_call_cnt = dht_frame_return (frame);
+
+        if (is_last_call (this_call_cnt)) {
+                dht_selfheal_dir_xattr (frame, &local->loc, layout);
+        }
+
+        return 0;
+}
+
+
+int
+dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
+                          int32_t valid, dht_layout_t *layout)
+{
+        int           missing_attr = 0;
+        int           i     = 0;
+        dht_local_t  *local = NULL;
+        xlator_t     *this = NULL;
+
+        local = frame->local;
+        this = frame->this;
+
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err == -1)
+                        missing_attr++;
+        }
+
+        if (missing_attr == 0) {
+                dht_selfheal_dir_xattr (frame, loc, layout);
+                return 0;
+        }
+
+        local->call_cnt = missing_attr;
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err == -1) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "setattr %s on subvol %s",
+                                loc->path, layout->list[i].xlator->name);
+
+                        STACK_WIND (frame, dht_selfheal_dir_setattr_cbk,
+                                    layout->list[i].xlator,
+                                    layout->list[i].xlator->fops->setattr,
+                                    loc, stbuf, valid);
+                }
+        }
+
+        return 0;
+}
 
 int
 dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -235,7 +295,7 @@ out:
 	this_call_cnt = dht_frame_return (frame);
 
 	if (is_last_call (this_call_cnt)) {
-		dht_selfheal_dir_xattr (frame, &local->loc, layout);
+		dht_selfheal_dir_setattr (frame, &local->loc, &local->stbuf, 0xffffff, layout);
 	}
 
 	return 0;
@@ -244,7 +304,7 @@ out:
 
 int
 dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
-			dht_layout_t *layout, int force)
+                       dht_layout_t *layout, int force)
 {
 	int           missing_dirs = 0;
 	int           i     = 0;
@@ -262,7 +322,7 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
 	}
 
 	if (missing_dirs == 0) {
-		dht_selfheal_dir_xattr (frame, loc, layout);
+		dht_selfheal_dir_setattr (frame, loc, &local->stbuf, 0xffffffff, layout);
 		return 0;
 	}
 
