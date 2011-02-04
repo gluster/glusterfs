@@ -1364,11 +1364,15 @@ mnt3svc_export (rpcsvc_request_t *req)
         /* Using the children translator names, build the export list */
         elist = mnt3_xlchildren_to_exports (nfs_rpcsvc_request_service (req),
                                             ms);
+        /* Do not return error when exports list is empty. An exports list can
+         * be empty when no subvolumes have come up. No point returning error
+         * and confusing the user.
         if (!elist) {
                 gf_log (GF_MNT, GF_LOG_ERROR, "Failed to build exports list");
                 nfs_rpcsvc_request_seterr (req, SYSTEM_ERR);
                 goto err;
         }
+        */
 
         /* Note how the serializer is passed to the generic reply function. */
         mnt3svc_submit_reply (req, &elist,
