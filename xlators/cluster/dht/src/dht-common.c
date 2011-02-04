@@ -1030,7 +1030,7 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		local->inode    = inode_ref (loc->inode);
 		local->ia_ino   = loc->inode->ino;
 		
-		local->call_cnt = layout->cnt;
+		local->call_cnt = 1;
 		call_cnt = local->call_cnt;
 		
 		/* NOTE: we don't require 'trusted.glusterfs.dht.linkto' attribute,
@@ -1039,16 +1039,12 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
 		ret = dict_set_uint32 (local->xattr_req, 
 				       "trusted.glusterfs.dht", 4 * 4);
 
-		for (i = 0; i < layout->cnt; i++) {
-			subvol = layout->list[i].xlator;
-			
-			STACK_WIND (frame, dht_revalidate_cbk,
-				    subvol, subvol->fops->lookup,
-				    &local->loc, local->xattr_req);
+                subvol = local->cached_subvol;
 
-			if (!--call_cnt)
-				break;
-		}
+                STACK_WIND (frame, dht_revalidate_cbk,
+                            subvol, subvol->fops->lookup,
+                            &local->loc, local->xattr_req);
+
         } else {
         do_fresh_lookup:
 		/* TODO: remove the hard-coding */
