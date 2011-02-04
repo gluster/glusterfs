@@ -128,6 +128,20 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (new_stbuf.st_mtime != stbuf.st_mtime)
                         continue;
 
+                ret = fchmod (dst_fd, stbuf.st_mode);
+                if (ret) {
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to set the mode of file %s: %s",
+                                tmp_filename, strerror (errno));
+                }
+
+                ret = fchown (dst_fd, stbuf.st_uid, stbuf.st_gid);
+                if (ret) {
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to set the uid/gid of file %s: %s",
+                                tmp_filename, strerror (errno));
+                }
+
                 ret = rename (tmp_filename, full_path);
                 if (ret != -1) {
                         LOCK (&defrag->lock);
