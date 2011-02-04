@@ -1218,6 +1218,7 @@ default_notify (xlator_t *this, int32_t event, void *data, ...)
         }
         break;
         case GF_EVENT_CHILD_CONNECTING:
+        case GF_EVENT_CHILD_MODIFIED:
         case GF_EVENT_CHILD_UP:
         {
                 xlator_list_t *parent = this->parents;

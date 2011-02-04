@@ -2552,6 +2552,8 @@ afr_notify (xlator_t *this, int32_t event,
                                 "going online.", ((xlator_t *)data)->name);
 
                         default_notify (this, event, data);
+                } else {
+                        default_notify (this, GF_EVENT_CHILD_MODIFIED, data);
                 }
 
                 break;
@@ -2582,6 +2584,8 @@ afr_notify (xlator_t *this, int32_t event,
                                 "until atleast one of them comes back up.");
 
                         default_notify (this, event, data);
+                } else {
+                        default_notify (this, GF_EVENT_CHILD_MODIFIED, data);
                 }
 
                 break;

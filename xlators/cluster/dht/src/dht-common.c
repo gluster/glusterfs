@@ -5046,6 +5046,13 @@ dht_notify (xlator_t *this, int event, void *data, ...)
 
 		break;
 
+	case GF_EVENT_CHILD_MODIFIED:
+		subvol = data;
+
+		conf->gen++;
+
+		break;
+
 	case GF_EVENT_CHILD_DOWN:
 		subvol = data;
 
@@ -5134,7 +5141,7 @@ dht_notify (xlator_t *this, int event, void *data, ...)
                 }
         }
 
-        if (propagate)
+        if (propagate || event == GF_EVENT_CHILD_MODIFIED)
                 ret = default_notify (this, event, data);
 
 	return ret;
