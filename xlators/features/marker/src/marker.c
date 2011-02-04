@@ -143,6 +143,10 @@ marker_free_local (marker_local_t *local)
 {
         loc_wipe (&local->loc);
 
+        if (local->oplocal) {
+                loc_wipe (&local->oplocal->loc);
+                GF_FREE (local->oplocal);
+        }
         GF_FREE (local);
 
         return 0;
@@ -696,6 +700,7 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         int32_t             ret     = 0;
         marker_local_t     *local   = NULL;
+        marker_local_t	   *oplocal = NULL;
 
         if (op_ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR, "%s occured while "
@@ -710,6 +715,11 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         STACK_UNWIND_STRICT (rename, frame, op_ret, op_errno, buf, preoldparent,
                              postoldparent, prenewparent, postnewparent);
 
+        oplocal = local->oplocal;
+        local->oplocal = NULL;
+
+        //update marks on oldpath
+        update_marks (this, oplocal, ret);
         update_marks (this, local, ret);
 
         return 0;
@@ -717,17 +727,29 @@ marker_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 marker_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
-                loc_t *newloc)
+               loc_t *newloc)
 {
-        int32_t          ret   = 0;
-        marker_local_t  *local = NULL;
+        int32_t          ret     = 0;
+        marker_local_t  *local   = NULL;
+        marker_local_t	*oplocal = NULL;
 
         ALLOCATE_OR_GOTO (local, marker_local_t, err);
 
         MARKER_INIT_LOCAL (frame, local);
 
-        ret = loc_copy (&local->loc, newloc);
+        ALLOCATE_OR_GOTO (oplocal, marker_local_t, err);
 
+        MARKER_INIT_LOCAL (frame, oplocal);
+
+        frame->local = local;
+
+        local->oplocal = oplocal;
+
+        ret = loc_copy (&local->loc, newloc);
+        if (ret == -1)
+                goto err;
+
+        ret = loc_copy (&oplocal->loc, oldloc);
         if (ret == -1)
                 goto err;
 

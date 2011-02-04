@@ -36,6 +36,7 @@
                 _frame->local = _local;                         \
                 _local->pid = _frame->root->pid;                \
                 memset (&_local->loc, 0, sizeof (loc_t));       \
+                _local->oplocal = NULL;                         \
         } while (0)
 
 /* try alloc and if it fails, goto label */
@@ -53,6 +54,8 @@ struct marker_local{
         uint32_t        timebuf[2];
         pid_t           pid;
         loc_t           loc;
+
+        struct marker_local *oplocal;
 };
 typedef struct marker_local marker_local_t;
 
