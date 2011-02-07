@@ -166,6 +166,10 @@ class Server(object):
         cls.lastping += 1
         return cls.lastping
 
+    @staticmethod
+    def version():
+        return 1.0
+
 
 class SlaveLocal(object):
 
@@ -208,6 +212,10 @@ class SlaveRemote(object):
 
     def start_fd_client(self, i, o, **opts):
         self.server = RepceClient(i, o)
+        rv = self.server.__version__()
+        exrv = {'proto': repce.repce_version, 'object': Server.version()}
+        if rv != exrv:
+            raise RuntimeError("RePCe version mismatch: local %s, remote %s" % (exrv, rv))
         if gconf.timeout and int(gconf.timeout) > 0:
             def pinger():
                 while True:
@@ -350,7 +358,7 @@ class SSH(AbstractUrl, SlaveRemote):
         deferred = go_daemon == 'postconn'
         ret = sup(self, gconf.ssh_command.split() + gconf.ssh_ctl_args + [self.remote_addr], slave=self.inner_rsc.url, deferred=deferred)
         if deferred:
-            # send a ping to peer so that we can wait for
+            # send a message to peer so that we can wait for
             # the answer from which we know connection is
             # established and we can proceed with daemonization
             # (doing that too early robs the ssh passwd prompt...)
@@ -359,7 +367,7 @@ class SSH(AbstractUrl, SlaveRemote):
             # in daemon), we just do a an ad-hoc linear put/get.
             i, o = ret
             inf = os.fdopen(i)
-            repce.send(o, None, 'ping')
+            repce.send(o, None, '__version__')
             select.select((inf,), (), ())
             repce.recv(inf)
             # hack hack hack: store a global reference to the file

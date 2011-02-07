@@ -21,6 +21,7 @@ except ImportError:
     import pickle
 
 pickle_proto = -1
+repce_version = 1.0
 
 def ioparse(i, o):
     if isinstance(i, int):
@@ -148,3 +149,11 @@ class RepceClient(object):
 
     def __getattr__(self, meth):
         return self.mprx(self, meth)
+
+    def __version__(self):
+        d = {'proto': repce_version}
+        try:
+            d['object'] = self('version')
+        except AttributeError:
+            pass
+        return d
