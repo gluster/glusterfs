@@ -194,14 +194,20 @@ def main_i():
         remote = resource.parse_url(args[1])
     if not local.can_connect_to(remote):
         raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
-    peers = [x.url for x in [local, remote] if x]
+    pa = ([], [])
+    canon = [False, True]
+    for x in (local, remote):
+        if x:
+            for i in range(2):
+                pa[i].append(x.get_url(canonical=canon[i]))
+    peers, canon_peers = pa
 
     gconf.__dict__.update(defaults.__dict__)
     if not 'config_file' in rconf:
         rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd.conf")
     cfg = ConfigParser.RawConfigParser({}, dict)
     cfg.read(rconf['config_file'])
-    for sect in ('global', 'peers ' + ' '.join(peers)):
+    for sect in ('global', 'peers ' + ' '.join(canon_peers)):
         if cfg.has_section(sect):
             gconf.__dict__.update(cfg._sections[sect])
     gconf.__dict__.update(opts.__dict__)

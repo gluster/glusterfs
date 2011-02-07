@@ -6,6 +6,7 @@ import time
 import errno
 import struct
 import select
+import socket
 import logging
 import tempfile
 import threading
@@ -263,9 +264,19 @@ class AbstractUrl(object):
     def scheme(self):
         return type(self).__name__.lower()
 
+    def canonical_path(self):
+        return self.path
+
+    def get_url(self, canonical=False):
+        if canonical:
+            pa = self.canonical_path()
+        else:
+            pa = self.path
+        return "://".join((self.scheme(), pa))
+
     @property
     def url(self):
-        return "://".join((self.scheme(), self.path))
+        return self.get_url()
 
 
   ### Concrete resource classes ###
@@ -307,6 +318,9 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
 
     def __init__(self, path):
         self.host, self.volume = sup(self, path, '^(%s):(.+)' % HostRX.pattern)
+
+    def canonical_path(self):
+        return ':'.join([socket.gethostbyname(self.host), self.volume])
 
     def can_connect_to(self, remote):
         return True
@@ -352,6 +366,15 @@ class SSH(AbstractUrl, SlaveRemote):
         self.remote_addr, inner_url = sup(self, path,
                                           '^((?:%s@)?%s):(.+)' % tuple([ r.pattern for r in (UserRX, HostRX) ]))
         self.inner_rsc = parse_url(inner_url)
+
+    def canonical_path(self):
+        m = re.match('([^@]+)@(.+)', self.remote_addr)
+        if m:
+            u, h = m.groups()
+        else:
+            u, h = os.getlogin(), self.remote_addr
+        remote_addr = '@'.join([u, socket.gethostbyname(h)])
+        return ':'.join([remote_addr, self.inner_rsc.get_url(canonical=True)])
 
     def can_connect_to(self, remote):
         return False
