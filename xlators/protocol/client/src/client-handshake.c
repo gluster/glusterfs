@@ -407,13 +407,17 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         local->loc.path, rsp.fd);
         }
 
-        if (rsp.op_ret == -1)
+        if (rsp.op_ret == -1) {
+                ret = -1;
                 goto out;
+        }
 
         fdctx = local->fdctx;
 
-        if (!fdctx)
+        if (!fdctx) {
+                ret = -1;
                 goto out;
+        }
 
         pthread_mutex_lock (&conf->lock);
         {
@@ -447,6 +451,9 @@ client3_1_reopen_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         if (fdctx)
                 client_fdctx_destroy (frame->this, fdctx);
+
+        if ((ret < 0) && frame && frame->this && conf)
+                decrement_reopen_fd_count (frame->this, conf);
 
         frame->local = NULL;
         STACK_DESTROY (frame->root);
@@ -516,10 +523,14 @@ client3_1_reopendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
         decrement_reopen_fd_count (frame->this, conf);
+        ret = 0;
 
 out:
         if (fdctx)
                 client_fdctx_destroy (frame->this, fdctx);
+
+        if ((ret < 0) && frame && frame->this && conf)
+                decrement_reopen_fd_count (frame->this, conf);
 
         if (frame) {
                 frame->local = NULL;
@@ -555,6 +566,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
+                ret = -1;
                 goto out;
         }
 
@@ -564,6 +576,7 @@ protocol_client_reopendir (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
+                ret = -1;
                 goto out;
         }
 
@@ -596,6 +609,9 @@ out:
 
         if (path)
                 GF_FREE (path);
+        if ((ret < 0) && this && conf) {
+                decrement_reopen_fd_count (this, conf);
+        }
 
         return 0;
 
@@ -625,11 +641,13 @@ protocol_client_reopen (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
+                ret = -1;
                 goto out;
         }
 
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
+                ret = -1;
                 goto out;
         }
 
@@ -666,6 +684,10 @@ out:
 
         if (path)
                 GF_FREE (path);
+
+        if ((ret < 0) && this && conf) {
+                decrement_reopen_fd_count (this, conf);
+        }
 
         return 0;
 
