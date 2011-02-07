@@ -67,7 +67,7 @@ class GMaster(object):
             self.jobtab[path] = []
         self.jobtab[path].append((label, a, lambda : job(*a, **kw)))
 
-    def wait(self, path, mark):
+    def wait(self, path, *args):
         jobs = self.jobtab.pop(path, [])
         succeed = True
         for j in jobs:
@@ -75,10 +75,12 @@ class GMaster(object):
             if not ret:
                 succeed = False
         if succeed:
-            self.sendmark(path, mark)
+            self.sendmark(path, *args)
         return succeed
 
-    def sendmark(self, path, mark):
+    def sendmark(self, path, mark, adct=None):
+        if adct:
+            self.slave.server.setattr(path, adct)
         self.slave.server.set_xtime(path, self.uuid, mark)
 
     def crawl(self, path='.', xtl=None):
@@ -141,12 +143,15 @@ class GMaster(object):
                 else:
                     raise
         for e, xte in chld:
-            mo = indulgently(e, lambda e: os.lstat(e).st_mode)
-            if mo == False:
+            st = indulgently(e, lambda e: os.lstat(e))
+            if st == False:
                 continue
+            mo = st.st_mode
+            adct = {'own': (st.st_uid, st.st_gid)}
             if stat.S_ISLNK(mo):
-                self.slave.server.symlink(os.readlink(e), e)
-                self.sendmark(e, xte)
+                if indulgently(e, lambda e: self.slave.server.symlink(os.readlink(e), e)) == False:
+                    continue
+                self.sendmark(e, xte, adct)
             elif stat.S_ISREG(mo):
                 logging.debug("syncing %s ..." % e)
                 pb = self.syncer.add(e)
@@ -159,7 +164,8 @@ class GMaster(object):
                         logging.error("failed to sync " + e)
                 self.add_job(path, 'reg', regjob, e, xte, pb)
             elif stat.S_ISDIR(mo):
-                if indulgently(e, lambda e: (self.add_job(path, 'cwait', self.wait, e, xte),
+                adct['mode'] = mo
+                if indulgently(e, lambda e: (self.add_job(path, 'cwait', self.wait, e, xte, adct),
                                              self.crawl(e, xte),
                                              True)[-1], blame=e) == False:
                     continue

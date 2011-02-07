@@ -1,6 +1,7 @@
 import re
 import os
 import sys
+import stat
 import time
 import errno
 import struct
@@ -155,6 +156,18 @@ class Server(object):
     @classmethod
     def set_xtime(cls, path, uuid, mark):
         Xattr.lsetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), struct.pack('!II', *mark))
+
+    @staticmethod
+    def setattr(path, adct):
+        own = adct.get('own')
+        if own:
+            os.lchown(path, *own)
+        mode = adct.get('mode')
+        if mode:
+            os.chmod(path, stat.S_IMODE(mode))
+        times = adct.get('times')
+        if times:
+            os.utime(path, times)
 
     @staticmethod
     def pid():
