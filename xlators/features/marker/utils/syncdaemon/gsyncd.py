@@ -139,9 +139,11 @@ def main():
             if exc != SystemExit:
                 logging.exception("FAIL: ")
                 sys.stderr.write("failed with %s.\n" % exc.__name__)
-                exit(1)
+                sys.exit(1)
     finally:
         finalize()
+        # force exit in non-main thread too
+        os._exit(1)
 
 def main_i():
     rconf = {'go_daemon': 'should'}
