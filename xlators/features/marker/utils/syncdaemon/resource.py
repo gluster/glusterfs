@@ -227,8 +227,13 @@ class SlaveRemote(object):
         self.server = RepceClient(i, o)
         rv = self.server.__version__()
         exrv = {'proto': repce.repce_version, 'object': Server.version()}
-        if rv != exrv:
-            raise RuntimeError("RePCe version mismatch: local %s, remote %s" % (exrv, rv))
+        da0 = (rv, exrv)
+        da1 = ({}, {})
+        for i in range(2):
+            for k, v in da0[i].iteritems():
+                da1[i][k] = int(v)
+        if da1[0] != da1[1]:
+            raise RuntimeError("RePCe major version mismatch: local %s, remote %s" % (exrv, rv))
         if gconf.timeout and int(gconf.timeout) > 0:
             def pinger():
                 while True:
