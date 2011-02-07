@@ -8,13 +8,13 @@ import logging
 import signal
 import select
 import shutil
-import ConfigParser
 import optparse
 from optparse import OptionParser, SUPPRESS_HELP
 from logging import Logger
 from errno import EEXIST, ENOENT
 
 from gconf import gconf
+from configinterface import GConffile
 import resource
 
 class GLogger(Logger):
@@ -177,23 +177,30 @@ def main_i():
     op.add_option('--debug', dest="go_daemon",              action='callback', callback=lambda *a: (store_local_curry('dont')(*a),
                                                                                                     a[-1].values.__dict__.get('log_level') or \
                                                                                                      a[-1].values.__dict__.update(log_level='DEBUG')))
+    op.add_option('--config-get',           metavar='OPT',  type=str, dest='config', action='callback', callback=store_local)
+    op.add_option('--config-get-all', dest='config', action='callback', callback=store_local_curry(True))
+    op.add_option('--config-set',           metavar='OPT VAL', type=str, nargs=2, dest='config', action='callback', callback=store_local)
+    op.add_option('--config-del',           metavar='OPT',  type=str, dest='config', action='callback', callback=lambda o, oo, vx, p:
+                                                                                                                    store_local(o, oo, (vx, False), p))
+
     # precedence for sources of values: 1) commandline, 2) cfg file, 3) defaults
     # -- for this to work out we need to tell apart defaults from explicitly set
     # options... so churn out the defaults here and call the parser with virgin
     # values container.
     defaults = op.get_default_values()
     opts, args = op.parse_args(values=optparse.Values())
-    if not (len(args) == 2 or (len(args) == 1 and rconf.get('listen'))):
+    if not (len(args) == 2 or (len(args) == 1 and rconf.get('listen')) or (len(args) <= 2 and rconf.get('config'))):
         sys.stderr.write("error: incorrect number of arguments\n\n")
         sys.stderr.write(op.get_usage() + "\n")
         sys.exit(1)
 
-    local = resource.parse_url(args[0])
-    remote = None
-    if len(args) > 1:
-        remote = resource.parse_url(args[1])
-    if not local.can_connect_to(remote):
-        raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
+    local = remote = None
+    if args:
+      local = resource.parse_url(args[0])
+      if len(args) > 1:
+          remote = resource.parse_url(args[1])
+      if not local.can_connect_to(remote):
+          raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
     pa = ([], [])
     canon = [False, True]
     for x in (local, remote):
@@ -201,15 +208,25 @@ def main_i():
             for i in range(2):
                 pa[i].append(x.get_url(canonical=canon[i]))
     peers, canon_peers = pa
-
-    gconf.__dict__.update(defaults.__dict__)
     if not 'config_file' in rconf:
         rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd.conf")
-    cfg = ConfigParser.RawConfigParser({}, dict)
-    cfg.read(rconf['config_file'])
-    for sect in ('global', 'peers ' + ' '.join(canon_peers)):
-        if cfg.has_section(sect):
-            gconf.__dict__.update(cfg._sections[sect])
+    gcnf = GConffile(rconf['config_file'], canon_peers)
+
+    confdata = rconf.get('config')
+    if confdata:
+        if isinstance(confdata, tuple):
+            if confdata[1]:
+                gcnf.set(*confdata)
+            else:
+                gcnf.delete(confdata[0])
+        else:
+            if confdata == True:
+                confdata = None
+            gcnf.get(confdata)
+        return
+
+    gconf.__dict__.update(defaults.__dict__)
+    gcnf.update_to(gconf.__dict__)
     gconf.__dict__.update(opts.__dict__)
 
     go_daemon = rconf['go_daemon']
