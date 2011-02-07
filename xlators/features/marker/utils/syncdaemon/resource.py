@@ -10,7 +10,7 @@ import tempfile
 import threading
 from ctypes import *
 from ctypes.util import find_library
-from errno import EEXIST, ENOENT, ENODATA, ENOTDIR
+from errno import EEXIST, ENOENT, ENODATA, ENOTDIR, ELOOP
 
 from gconf import gconf
 import repce
@@ -107,7 +107,7 @@ class Server(object):
                 entries = os.listdir(path)
             except OSError:
                 ex = sys.exc_info()[1]
-                if ex.errno in (ENOTDIR, ENOENT):
+                if ex.errno in (ENOTDIR, ENOENT, ELOOP):
                     try:
                         os.unlink(path)
                         return
