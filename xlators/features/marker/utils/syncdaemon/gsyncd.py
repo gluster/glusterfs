@@ -36,8 +36,12 @@ class GLogger(Logger):
 
     @classmethod
     def setup(cls, **kw):
+        if kw.get('slave'):
+            sls = "(slave)"
+        else:
+            sls = ""
         lprm = {'datefmt': "%Y-%m-%d %H:%M:%S",
-                'format': "[%(asctime)s.%(nsecs)d] %(lvlnam)s [%(module)s:%(lineno)s:%(funcName)s] %(ctx)s: %(message)s"}
+                'format': "[%(asctime)s.%(nsecs)d] %(lvlnam)s [%(module)s" + sls + ":%(lineno)s:%(funcName)s] %(ctx)s: %(message)s"}
         lprm.update(kw)
         lvl = kw.get('level', logging.INFO)
         if isinstance(lvl, str):
@@ -93,7 +97,7 @@ def startup(**kw):
     lkw = {'level': gconf.log_level}
     if kw.get('log_file'):
         lkw['filename'] = kw['log_file']
-    GLogger.setup(**lkw)
+    GLogger.setup(slave=kw.get('slave'), **lkw)
 
 def finalize(*a):
     if getattr(gconf, 'pid_file', None):
@@ -211,7 +215,7 @@ def main_i():
         log_file = None
     else:
         log_file = gconf.log_file
-    startup(go_daemon=go_daemon, log_file=log_file)
+    startup(go_daemon=go_daemon, log_file=log_file, slave=(not remote))
 
     logging.info("syncing: %s" % " -> ".join([x.url for x in [local, remote] if x]))
     if remote:

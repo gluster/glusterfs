@@ -303,7 +303,7 @@ class GLUSTER(AbstractUrl, SlaveLocal, SlaveRemote):
             try:
                 os.rmdir(d)
             except:
-                logging.warn('stale mount left behind on ' + d)
+                logging.warn('stale mount possibly left behind on ' + d)
         logging.debug('auxiliary glusterfs mount prepared')
 
     def connect_remote(self, *a, **kw):
