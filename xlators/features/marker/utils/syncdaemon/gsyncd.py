@@ -8,6 +8,7 @@ import logging
 import signal
 import select
 import shutil
+import ConfigParser
 import optparse
 from optparse import OptionParser, SUPPRESS_HELP
 from logging import Logger
@@ -15,7 +16,6 @@ from errno import EEXIST, ENOENT
 
 from gconf import gconf
 import resource
-from simplecfg import SimpleCfg
 
 class GLogger(Logger):
 
@@ -188,27 +188,23 @@ def main_i():
         sys.stderr.write(op.get_usage() + "\n")
         sys.exit(1)
 
-    gconf.__dict__.update(defaults.__dict__)
-    # XXX add global config support
-    if not 'config_file' in rconf:
-        rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd.conf")
-    try:
-        cfg = SimpleCfg()
-        cfg.read(rconf['config_file'])
-        gconf.__dict__.update(cfg)
-    except IOError:
-        ex = sys.exc_info()[1]
-        if ex.errno != ENOENT:
-            raise
-    gconf.__dict__.update(opts.__dict__)
-
     local = resource.parse_url(args[0])
     remote = None
     if len(args) > 1:
         remote = resource.parse_url(args[1])
-
     if not local.can_connect_to(remote):
         raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
+    peers = [x.url for x in [local, remote] if x]
+
+    gconf.__dict__.update(defaults.__dict__)
+    if not 'config_file' in rconf:
+        rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd.conf")
+    cfg = ConfigParser.RawConfigParser({}, dict)
+    cfg.read(rconf['config_file'])
+    for sect in ('global', 'peers ' + ' '.join(peers)):
+        if cfg.has_section(sect):
+            gconf.__dict__.update(cfg._sections[sect])
+    gconf.__dict__.update(opts.__dict__)
 
     go_daemon = rconf['go_daemon']
 
@@ -219,7 +215,7 @@ def main_i():
         log_file = gconf.log_file
     startup(go_daemon=go_daemon, log_file=log_file, slave=(not remote))
 
-    logging.info("syncing: %s" % " -> ".join([x.url for x in [local, remote] if x]))
+    logging.info("syncing: %s" % " -> ".join(peers))
     if remote:
         go_daemon = remote.connect_remote(go_daemon=go_daemon)
         if go_daemon:
