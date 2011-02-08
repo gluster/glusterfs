@@ -978,11 +978,12 @@ call_from_sp_client_to_reset_tmfile (call_frame_t *frame,
                                      xlator_t     *this,
                                      dict_t       *dict)
 {
-        int32_t          fd       = 0;
-        int32_t          op_ret   = 0;
-        int32_t          op_errno = 0;
-        data_t          *data     = NULL;
-        marker_conf_t   *priv     = NULL;
+        int32_t          ret           = 0;
+        int32_t          op_ret        = 0;
+        int32_t          op_errno      = 0;
+        data_t          *data          = NULL;
+        marker_conf_t   *priv          = NULL;
+        char             cmd_str[8192] = {0,};
 
         if (frame == NULL || this == NULL || dict == NULL)
                 return -1;
@@ -1002,24 +1003,18 @@ call_from_sp_client_to_reset_tmfile (call_frame_t *frame,
 
         if (data->len == 0 || (data->len == 5 &&
             memcmp (data->data, "RESET", 5) == 0)) {
-                fd = open (priv->timestamp_file, O_WRONLY);
-                if (fd != -1) {
-                        /* this call is needed because of the unsurity
-                         * whether the O_TRUNC would update the timestamps
-                         * on a zero length file as well. Hence updating it
-                         * manually.
-                         */
-                        futimens (fd, NULL);
-                        close (fd);
-                }
 
-                if (fd != -1 || errno == ENOENT) {
-                        op_ret = 0;
-                        op_errno = 0;
-                } else {
+                snprintf (cmd_str, 8192,"touch %s", priv->timestamp_file);
+                ret = system (cmd_str);
+
+                if (-1 == ret) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "Could not touch TimeStamp file of marker");
                         op_ret = -1;
                         op_errno = errno;
+                        goto out;
                 }
+
         } else {
                 op_ret = -1;
                 op_errno = EINVAL;
