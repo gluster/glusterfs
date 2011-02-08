@@ -219,7 +219,6 @@ sh_full_read_cbk (call_frame_t *rw_frame, void *cookie,
 
 	if (op_ret <= 0) {
                 sh->op_failed = 1;
-
                 sh_full_loop_return (rw_frame, this, offset);
 		return 0;
 	}
@@ -353,8 +352,13 @@ sh_full_loop_driver (call_frame_t *frame, xlator_t *this, gf_boolean_t is_first_
         UNLOCK (&sh_priv->lock);
 
         while (loop--) {
-                sh_full_read_write (frame, this, offset);
-                offset += block_size;
+                if (sh->op_failed) {
+                        // op failed in other loop, stop spawning more loops
+                        sh_full_loop_driver (frame, this, _gf_false);
+                } else {
+                        sh_full_read_write (frame, this, offset);
+                        offset += block_size;
+                }
         }
 
         if (is_driver_done) {
@@ -492,12 +496,16 @@ sh_diff_loop_driver_done (call_frame_t *frame, xlator_t *this)
         afr_local_t *     local = NULL;
         afr_self_heal_t * sh    = NULL;
         afr_sh_algo_diff_private_t *sh_priv = NULL;
+        int32_t total_blocks = 0;
+        int32_t diff_blocks = 0;
 
 
-        priv    = this->private;
-        local   = frame->local;
-        sh      = &local->self_heal;
-        sh_priv = sh->private;
+        priv         = this->private;
+        local        = frame->local;
+        sh           = &local->self_heal;
+        sh_priv      = sh->private;
+        total_blocks = sh_priv->total_blocks;
+        diff_blocks  = sh_priv->diff_blocks;
 
         sh_diff_private_cleanup (frame, this);
         if (sh->op_failed) {
@@ -514,9 +522,8 @@ sh_diff_loop_driver_done (call_frame_t *frame, xlator_t *this)
 
                 gf_log (this->name, GF_LOG_NORMAL,
                         "diff self-heal on %s: %d blocks of %d were different (%.2f%%)",
-                        local->loc.path, sh_priv->diff_blocks,
-                        sh_priv->total_blocks,
-                        ((sh_priv->diff_blocks * 1.0)/sh_priv->total_blocks) * 100);
+                        local->loc.path, diff_blocks, total_blocks,
+                        ((diff_blocks * 1.0)/total_blocks) * 100);
 
                 local->self_heal.algo_completion_cbk (frame, this);
         }
@@ -1014,8 +1021,13 @@ sh_diff_loop_driver (call_frame_t *frame, xlator_t *this,
         UNLOCK (&sh_priv->lock);
 
         while (loop--) {
-                sh_diff_checksum (frame, this, offset);
-                offset += block_size;
+                if (sh->op_failed) {
+                        // op failed in other loop, stop spawning more loops
+                        sh_diff_loop_driver (frame, this, _gf_false, NULL);
+                } else {
+                        sh_diff_checksum (frame, this, offset);
+                        offset += block_size;
+                }
         }
 
         if (is_driver_done) {
