@@ -113,13 +113,12 @@ nfs_init_versions (struct nfs_state *nfs, xlator_t *this)
                 }
 
                 prog = version->init (this);
-                prog->actorxl = this;
-                version->program = prog;
                 if (!prog) {
                         ret = -1;
                         goto err;
                 }
-
+                prog->actorxl = this;
+                version->program = prog;
                 if (nfs->override_portnum)
                         prog->progport = nfs->override_portnum;
                 gf_log (GF_NFS, GF_LOG_DEBUG, "Starting program: %s",
