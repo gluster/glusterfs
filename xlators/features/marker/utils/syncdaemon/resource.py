@@ -156,7 +156,12 @@ class Server(object):
 
     @classmethod
     def set_xtime(cls, path, uuid, mark):
-        Xattr.lsetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), struct.pack('!II', *mark))
+	try:
+	    Xattr.lsetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), struct.pack('!II', *mark))
+	except OSError:
+	    ex = sys.exc_info()[1]
+	    if ex.errno == ENOENT:
+		logging.error ("File for which the setxattr to be done is not present")
 
     @staticmethod
     def setattr(path, adct):
