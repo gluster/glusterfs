@@ -151,17 +151,14 @@ fi
 %{_bindir}/fusermount-glusterfs 
 %endif
 %{_datadir}/glusterfs
-%{_bindir}/glusterfs-volgen
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*
-%{_bindir}/glusterfs-defrag
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
 %{_mandir}/man8/*glusterfs.8*
 %{_mandir}/man8/*gluster.8*
 %{_mandir}/man8/*glusterd.8*
-%{_mandir}/man8/*glusterfs-volgen.8*
 %dir /var/log/glusterfs
 %if 0%{!?_without_rdma:1}
 %exclude %{_libdir}/glusterfs/%{version}/rpc-transport/rdma*
