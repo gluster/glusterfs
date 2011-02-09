@@ -111,15 +111,12 @@ AC_CONFIG_FILES([Makefile
 		doc/examples/Makefile
 		doc/hacker-guide/Makefile
 		extras/Makefile
-                extras/glusterfs-defrag
 		extras/init.d/Makefile
 		extras/init.d/glusterd.plist
                 extras/init.d/glusterd-Debian
                 extras/init.d/glusterd-Redhat
                 extras/init.d/glusterd-SuSE
 		extras/benchmarking/Makefile
-                extras/volgen/Makefile
-                extras/volgen/glusterfs-volgen
 		contrib/fuse-util/Makefile
                 xlators/features/access-control/Makefile
                 xlators/features/access-control/src/Makefile
