@@ -81,6 +81,14 @@ xdr_gf1_cli_op_flags (XDR *xdrs, gf1_cli_op_flags *objp)
 }
 
 bool_t
+xdr_gf1_cli_gsync_set (XDR *xdrs, gf1_cli_gsync_set *objp)
+{
+         if (!xdr_enum (xdrs, (enum_t *) objp))
+                 return FALSE;
+        return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_probe_req (XDR *xdrs, gf1_cli_probe_req *objp)
 {
 
@@ -640,4 +648,24 @@ xdr_gf1_cli_fsm_log_rsp (XDR *xdrs, gf1_cli_fsm_log_rsp *objp)
 	 if (!xdr_bytes (xdrs, (char **)&objp->fsm_log.fsm_log_val, (u_int *) &objp->fsm_log.fsm_log_len, ~0))
 		 return FALSE;
 	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_gsync_set_req (XDR *xdrs, gf1_cli_gsync_set_req *objp)
+{
+         if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.         dict_len, ~0))
+                 return FALSE;
+        return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_gsync_set_rsp (XDR *xdrs, gf1_cli_gsync_set_rsp *objp)
+{
+         if (!xdr_int (xdrs, &objp->op_ret))
+                 return FALSE;
+         if (!xdr_int (xdrs, &objp->op_errno))
+                 return FALSE;
+         if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+                 return FALSE;
+        return TRUE;
 }

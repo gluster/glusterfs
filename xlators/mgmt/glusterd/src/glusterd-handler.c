@@ -1332,6 +1332,42 @@ out:
 }
 
 int
+glusterd_handle_gsync_set (rpcsvc_request_t *req)
+{
+        int32_t                 ret     = 0;
+        dict_t                  *dict   = NULL;
+        gf1_cli_gsync_set_req   cli_req;// = {0, };
+
+        GF_ASSERT (req);
+
+        if (!gf_xdr_to_cli_gsync_set_req (req->msg[0], &cli_req)) {
+                req->rpc_err = GARBAGE_ARGS;
+                ret = -1;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                dict = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "failed to "
+                                "unserialize req-buffer to dictionary");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+                }
+        }
+
+        ret = glusterd_gsync_set (req, dict);
+
+out:
+        return ret;
+}
+
+int
 glusterd_handle_set_volume (rpcsvc_request_t *req)
 {
         int32_t                           ret = -1;
@@ -3066,6 +3102,25 @@ glusterd_reset_volume (rpcsvc_request_t *req, dict_t *dict)
         return ret;
 }
 
+int32_t
+glusterd_gsync_set (rpcsvc_request_t *req, dict_t *dict)
+{
+        int     ret     = -1;
+
+        glusterd_op_set_op (GD_OP_GSYNC_SET);
+
+        glusterd_op_set_ctx (GD_OP_GSYNC_SET, dict);
+
+        glusterd_op_set_ctx_free (GD_OP_GSYNC_SET, _gf_true);
+
+        glusterd_op_set_cli_op (GD_MGMT_CLI_GSYNC_SET);
+
+        glusterd_op_set_req (req);
+
+        ret = glusterd_op_txn_begin ();
+
+        return ret;
+}
 
 
 int32_t

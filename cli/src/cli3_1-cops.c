@@ -2396,6 +2396,76 @@ out:
         return ret;
 }
 
+int
+gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
+                         int count, void *myframe)
+{
+        int                     ret     = 0;
+        gf1_cli_gsync_set_rsp   rsp     = {0, };
+
+        if (req->rpc_status == -1) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_gsync_set_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR,
+                        "Unable to get response structure");
+                goto out;
+        }
+
+        if (rsp.op_errstr)
+                cli_out ("%s", rsp.op_errstr);
+        else if (rsp.op_ret)
+                cli_out ("command unsuccessful");
+        else
+                cli_out ("command executed successfully");
+
+out:
+        ret = rsp.op_ret;
+
+        cli_cmd_broadcast_response (ret);
+
+        return ret;
+}
+
+int32_t
+gf_cli3_1_gsync_set (call_frame_t *frame, xlator_t *this,
+                     void *data)
+{
+        int                      ret    = 0;
+        dict_t                  *dict   = NULL;
+        gf1_cli_gsync_set_req    req;
+
+        if (!frame || !this || !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_allocate_and_serialize (dict,
+                                           &req.dict.dict_val,
+                                           (size_t *) &req.dict.dict_len);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to serialize the data");
+
+                goto out;
+        }
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GD_MGMT_CLI_GSYNC_SET, NULL,
+                              gf_xdr_from_cli_gsync_set_req,
+                              this, gf_cli3_1_gsync_set_cbk);
+
+out:
+        return ret;
+}
+
+
+
 struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_NULL]        = {"NULL", NULL },
         [GF1_CLI_PROBE]  = { "PROBE_QUERY",  gf_cli3_1_probe},
@@ -2420,6 +2490,7 @@ struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
         [GF1_CLI_PMAP_PORTBYBRICK] = {"PMAP PORTBYBRICK", gf_cli3_1_pmap_b2p},
         [GF1_CLI_SYNC_VOLUME] = {"SYNC_VOLUME", gf_cli3_1_sync_volume},
         [GF1_CLI_RESET_VOLUME] = {"RESET_VOLUME", gf_cli3_1_reset_volume},
+        [GF1_CLI_GSYNC_SET] = {"GSYNC_SET", gf_cli3_1_gsync_set},
         [GF1_CLI_FSM_LOG] = {"FSM_LOG", gf_cli3_1_fsm_log}
 };
 

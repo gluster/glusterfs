@@ -32,6 +32,17 @@ enum gf1_cli_op_flags {
         GF_CLI_FLAG_OP_FORCE = 1
 };
 
+enum gf1_cli_gsync_set {
+        GF_GSYNC_OPTION_TYPE_NONE,
+        GF_GSYNC_OPTION_TYPE_START,
+        GF_GSYNC_OPTION_TYPE_STOP,
+        GF_GSYNC_OPTION_TYPE_CONFIGURE,
+        GF_GSYNC_OPTION_TYPE_CONFIG_SET,
+        GF_GSYNC_OPTION_TYPE_CONFIG_DEL,
+        GF_GSYNC_OPTION_TYPE_CONFIG_GET,
+        GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL
+};
+
  struct gf1_cli_probe_req {
         string  hostname<>;
 	int	port;
@@ -279,4 +290,14 @@ struct gf1_cli_fsm_log_rsp {
         int op_errno;
         string op_errstr<>;
         opaque fsm_log<>;
+};
+
+struct gf1_cli_gsync_set_req {
+        opaque dict<>;
+};
+
+struct gf1_cli_gsync_set_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  op_errstr<>;
 };

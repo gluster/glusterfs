@@ -86,6 +86,9 @@ static char *glusterd_op_sm_event_names[] = {
         "GD_OP_EVENT_INVALID"
 };
 
+static int
+glusterd_restart_brick_servers (glusterd_volinfo_t *);
+
 char*
 glusterd_op_sm_state_name_get (int state)
 {
@@ -292,6 +295,7 @@ glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
                 case GD_OP_LOG_FILENAME:
                 case GD_OP_LOG_ROTATE:
                 case GD_OP_SYNC_VOLUME:
+                case GD_OP_GSYNC_SET:
                         {
                                 dict_t  *dict = ctx;
                                 ret = dict_allocate_and_serialize (dict,
@@ -1875,6 +1879,158 @@ out:
         return ret;
 }
 
+char *
+volname_from_master (char *master)
+{
+        if (master == NULL)
+                return NULL;
+
+        return gf_strdup (master+1);
+}
+
+/* status: return 0 when gsync is running
+ * return -1 when not running
+ */
+int
+gsync_status (char *master, char *slave)
+{
+        int     ret             = 0;
+        char    pidfile[1024]   = {0,};
+        FILE    *file            = NULL;
+
+        ret = snprintf (pidfile, 1024, "/etc/glusterd/gsync/%s/%s.pid",
+                        master, slave);
+        if (ret <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        file = fopen (pidfile, "r+");
+        if (file) {
+                ret = lockf (fileno (file), F_TLOCK, 0);
+                if (ret && ((EAGAIN == errno) || (EACCES == errno)))
+                        ret = 0;
+        }
+out:
+        return ret;
+}
+
+static int
+glusterd_op_stage_gsync_set (gd1_mgmt_stage_op_req *req, char **op_errstr)
+{
+        int             ret     = 0;
+        int             type    = 0;
+        dict_t          *dict   = NULL;
+        char            *volname = NULL;
+        char            *master  = NULL;
+        char            *slave   = NULL;
+        gf_boolean_t    exists   = _gf_false;
+        glusterd_volinfo_t *volinfo = NULL;
+
+        GF_ASSERT (req);
+
+        dict = dict_new ();
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "master", &master);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "master not found");
+                *op_errstr = gf_strdup ("master not found");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "slave", &slave);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "slave not found");
+                *op_errstr = gf_strdup ("slave not found");
+                ret = -1;
+                goto out;
+        }
+
+        volname = volname_from_master (master);
+        if (volname == NULL) {
+                gf_log ("", GF_LOG_WARNING, "volname couldn't be found");
+                *op_errstr = gf_strdup ("volname not found");
+                ret = -1;
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+        if (!exists) {
+                gf_log ("", GF_LOG_WARNING, "volname doesnot exist");
+                *op_errstr = gf_strdup ("volname doesnot exist");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "command type not found");
+                *op_errstr = gf_strdup ("command unsuccessful");
+                ret = -1;
+                goto out;
+        }
+
+        if (type == GF_GSYNC_OPTION_TYPE_START) {
+                ret = glusterd_volinfo_find (volname, &volinfo);
+                if (ret) {
+                         gf_log ("", GF_LOG_WARNING, "volinfo not found "
+                                 "for %s", volname);
+                         *op_errstr = gf_strdup ("command unsuccessful");
+                         ret = -1;
+                         goto out;
+                }
+                if (GLUSTERD_STATUS_STARTED != volinfo->status) {
+                        gf_log ("", GF_LOG_WARNING, "%s volume not started",
+                                volname);
+                        *op_errstr = gf_strdup ("please start the volume");
+                        ret = -1;
+                        goto out;
+                }
+                //check if the gsync is already started
+                ret = gsync_status (master, slave);
+                if (ret == 0) {
+                        gf_log ("", GF_LOG_WARNING, "gsync already started");
+                        *op_errstr = gf_strdup ("gsync already started");
+                        ret = -1;
+                        goto out;
+                }
+                ret = 0;
+                goto out;
+        }
+
+        if (type == GF_GSYNC_OPTION_TYPE_STOP) {
+                ret = gsync_status (master, slave);
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_WARNING, "gsync not running");
+                        *op_errstr = gf_strdup ("gsync not running");
+                        ret = -1;
+                        goto out;
+                }
+                ret = 0;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        if (dict)
+                dict_unref (dict);
+        if (volname)
+                GF_FREE (volname);
+
+        return ret;
+}
+
 static int
 glusterd_op_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 {
@@ -3420,6 +3576,541 @@ out:
 
 }
 
+int
+start_gsync (char *master, char *slave, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        char            cmd[1024] = {0,};
+        char            pidfile[1024] = {0,};
+
+        ret = snprintf (pidfile, 1024, "/etc/glusterd/gsync/%s/%s.pid",
+                        master, slave);
+
+        if (ret <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = gsync_status (master, slave);
+        if (ret == 0) {
+                gf_log ("", GF_LOG_WARNING, "gsync %s:%s"
+                        "already started", master, slave);
+
+                *op_errstr = gf_strdup ("gsync is running");
+                ret = -1;
+                goto out;
+        }
+
+        ret = snprintf (cmd, 1024, "mkdir -p /etc/glusterd/gsyncd/%s",
+                        master);
+        if (ret <= 0) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to construct the "
+                        "pid path");
+                goto out;
+        }
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to create the "
+                        "pid path for %s %s", master, slave);
+                goto out;
+        }
+
+        ret = snprintf (cmd, 1024, GFS_PREFIX
+                        "/sbin/gsyncd/gsyncd.py %s %s --config-set "
+                        "-p %s", master, slave, pidfile);
+        if (ret <= 0) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to construct the  "
+                        "config set command for %s %s", master, slave);
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to set the pid "
+                        "option for %s %s", master, slave);
+                goto out;
+        }
+
+        ret = snprintf (cmd, 1024, GFS_PREFIX
+                        "/sbin/gsyncd/gsyncd.py "
+                        "%s %s", master, slave);
+        if (ret <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1)
+                goto out;
+
+        ret = 0;
+
+        *op_errstr = gf_strdup ("gsync started successfully");
+
+out:
+        if (ret < 0 && *op_errstr == NULL)
+                *op_errstr = gf_strdup ("gsync start unsuccessful");
+
+        return ret;
+}
+
+int
+stop_gsync (char *master, char *slave, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        pid_t           pid     = 0;
+        FILE            *file   = NULL;
+        char            pidfile[1024] = {0,};
+        char            buf [256] = {0,};
+
+        ret = gsync_status (master, slave);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "gsync is not running");
+                *op_errstr = gf_strdup ("gsync is not running");
+                goto out;
+        }
+
+        ret = snprintf (pidfile, 1024, "/etc/glusterd/gsync/%s/%s.pid",
+                        master, slave);
+        if (ret <= 0) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to create the pidfile");
+                goto out;
+        }
+
+        file = fopen (pidfile, "r+");
+        if (!file) {
+                gf_log ("", GF_LOG_WARNING, "cannot open pid file");
+                *op_errstr = gf_strdup ("stop unsuccessful");
+                ret = -1;
+                goto out;
+        }
+
+        ret = read (fileno(file), buf, 1024);
+        if (ret > 0) {
+                pid = strtol (buf, NULL, 10);
+                ret = kill (pid, SIGTERM);
+                if (ret) {
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to stop gsyncd");
+                        goto out;
+                }
+        }
+        ret = 0;
+
+        *op_errstr = gf_strdup ("gsync stopped successfully");
+
+out:
+        return ret;
+}
+
+int
+gsync_config_set (char *master, char *slave,
+                  dict_t *dict, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        char            *op_name = NULL;
+        char            *op_value = NULL;
+        char            cmd[1024] = {0,};
+
+        ret = dict_get_str (dict, "op_name", &op_name);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to get the "
+                        "option name for %s %s", master, slave);
+
+                *op_errstr = gf_strdup ("configure command failed, "
+                                        "please check the log-file\n");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "op_value", &op_value);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to get "
+                        "the option value for %s %s",
+                        master, slave);
+
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+
+        ret = snprintf (cmd, 1024, GFS_PREFIX
+                        "/sbin/gsyncd/gsyncd.py %s %s "
+                        "--config-set %s %s", master,
+                        slave, op_name, op_value);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to "
+                        "construct the gsyncd command");
+
+                *op_errstr = gf_strdup ("configure command failed, "
+                                        "please check the log-file\n");
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "gsyncd failed to "
+                        "set %s option for %s %s peer",
+                        op_name, master, slave);
+
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+        ret = 0;
+        *op_errstr = gf_strdup ("config-set successful");
+
+out:
+        return ret;
+}
+
+int
+gsync_config_del (char *master, char *slave,
+                  dict_t *dict, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        char            *op_name = NULL;
+        char            cmd[1024] = {0,};
+
+        ret = dict_get_str (dict, "op_name", &op_name);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to get "
+                        "the option for %s %s", master, slave);
+
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+
+        ret = snprintf (cmd, 4096, GFS_PREFIX
+                        "/sbin/gsyncd/gsyncd.py %s %s "
+                        "--config-del %s", master,
+                        slave, op_name);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to "
+                        "construct the gsyncd command");
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to delete "
+                        "%s option for %s %s peer", op_name,
+                        master, slave);
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+        ret = 0;
+        *op_errstr = gf_strdup ("config-del successful");
+out:
+        return ret;
+}
+
+int
+gsync_config_get (char *master, char *slave,
+                  dict_t *dict, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        char            *op_name = NULL;
+        char            cmd[1024] = {0,};
+
+        ret = dict_get_str (dict, "op_name", &op_name);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to get "
+                        "the option for %s %s", master, slave);
+
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+
+        ret = snprintf (cmd, 4096, GFS_PREFIX
+                        "/sbin/gsyncd/gsyncd.py %s %s "
+                        "--config-get %s", master,
+                        slave, op_name);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to "
+                        "construct the gsyncd command");
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to get "
+                        "%s option for %s %s peer", op_name,
+                        master, slave);
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+        ret = 0;
+        *op_errstr = gf_strdup ("config-get successful");
+out:
+        return ret;
+}
+
+int
+gsync_config_get_all (char *master, char *slave, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        char            cmd[1024] = {0,};
+
+        ret = snprintf (cmd, 4096, GFS_PREFIX
+                        "/sbin/gsyncd/gsyncd.py %s %s "
+                        "--config-get-all", master, slave);
+        if (ret <= 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to "
+                        "construct the gsyncd command "
+                        "for config-get-all");
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to get  "
+                        "all options for %s %s peer", master,
+                        slave);
+                *op_errstr = gf_strdup ("configure command "
+                                        "failed, please check "
+                                        "the log-file\n");
+                goto out;
+        }
+        ret = 0;
+        *op_errstr = gf_strdup ("config-get successful");
+out:
+        return ret;
+}
+
+int
+gsync_configure (char *master, char *slave,
+                 dict_t *dict, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        int32_t         config_type = 0;
+
+        ret = dict_get_int32 (dict, "config_type", &config_type);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_WARNING, "couldn't get the "
+                        "config-type for %s %s", master, slave);
+                *op_errstr = gf_strdup ("configure command failed, "
+                                        "please check the log-file\n");
+                goto out;
+        }
+
+        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_SET) {
+                ret = gsync_config_set (master, slave, dict, op_errstr);
+                goto out;
+        }
+
+        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_DEL) {
+                ret = gsync_config_del (master, slave, dict, op_errstr);
+                goto out;
+        }
+
+        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
+                ret = gsync_config_get (master, slave, dict, op_errstr);
+                goto out;
+        }
+
+        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
+                ret = gsync_config_get_all (master, slave, op_errstr);
+                goto out;
+        } else {
+                gf_log ("", GF_LOG_WARNING, "Invalid config type");
+                *op_errstr = gf_strdup ("Invalid config type");
+                ret = -1;
+        }
+
+out:
+        return ret;
+}
+
+int
+gsync_command_exec (dict_t *dict, char **op_errstr)
+{
+        char            *master = NULL;
+        char            *slave  = NULL;
+        int32_t         ret     = -1;
+        int32_t         type    = -1;
+
+        GF_VALIDATE_OR_GOTO ("gsync", dict, out);
+        GF_VALIDATE_OR_GOTO ("gsync", op_errstr, out);
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret < 0)
+                goto out;
+
+        ret = dict_get_str (dict, "master", &master);
+        if (ret < 0)
+                goto out;
+
+        ret = dict_get_str (dict, "slave", &slave);
+        if (ret < 0)
+                goto out;
+
+        if (type == GF_GSYNC_OPTION_TYPE_START) {
+                ret = start_gsync (master, slave, op_errstr);
+                goto out;
+        }
+
+        if (type == GF_GSYNC_OPTION_TYPE_STOP) {
+                ret = stop_gsync (master, slave, op_errstr);
+                goto out;
+        }
+
+        if (type == GF_GSYNC_OPTION_TYPE_CONFIGURE) {
+                ret = gsync_configure (master, slave, dict, op_errstr);
+                goto out;
+        } else {
+                gf_log ("", GF_LOG_WARNING, "Invalid config type");
+                *op_errstr = gf_strdup ("Invalid config type");
+                ret = -1;
+        }
+out:
+        return ret;
+}
+
+int
+glusterd_set_marker_gsync (char *master, char *value)
+{
+        char                    *volname = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        int                      ret     = -1;
+
+        volname = volname_from_master (master);
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Volume not Found");
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_str (volinfo->dict, MARKER_VOL_KEY, value);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Setting dict failed");
+                goto out;
+        }
+
+        ret = glusterd_create_volfiles (volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to create volfile"
+                        " for setting of marker while 'gsync start'");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_restart_brick_servers (volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to restart bricks"
+                        " for setting of marker while 'gsync start'");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_store_update_volume (volinfo);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
+
+        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+                ret = glusterd_check_generate_start_nfs (volinfo);
+
+out:
+        return ret;
+
+}
+
+int
+glusterd_op_gsync_set (gd1_mgmt_stage_op_req *req)
+{
+        char            *master = NULL;
+        int32_t         ret     = -1;
+        int32_t         type    = -1;
+        dict_t          *dict   = NULL;
+        dict_t          *ctx    = NULL;
+        char            *op_errstr = NULL;
+
+        GF_ASSERT (req);
+
+        dict = dict_new ();
+        if (dict == NULL)
+                goto out;
+
+        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "Unable to unserialize dict");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "type", &type);
+        if (ret < 0)
+                goto out;
+
+        ret = dict_get_str (dict, "master", &master);
+        if (ret < 0)
+                goto out;
+
+        if (type == GF_GSYNC_OPTION_TYPE_START) {
+                ret = glusterd_set_marker_gsync (master, "on");
+                if (ret != 0) {
+                        gf_log ("", GF_LOG_WARNING, "marker start failed");
+                        op_errstr = gf_strdup ("gsync start failed");
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        if (type == GF_GSYNC_OPTION_TYPE_STOP) {
+                ret = glusterd_set_marker_gsync (master, "off");
+                if (ret != 0) {
+                        gf_log ("", GF_LOG_WARNING, "marker stop failed");
+                        op_errstr = gf_strdup ("gsync start failed");
+                        ret = -1;
+                        goto out;
+                }
+        }
+out:
+        ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
+        if (ctx) {
+                ret = gsync_command_exec (dict, &op_errstr);
+                if (op_errstr) {
+                        ret = dict_set_str (ctx, "errstr", op_errstr);
+                        if (ret) {
+                                GF_FREE (op_errstr);
+                                gf_log ("", GF_LOG_WARNING, "failed to set "
+                                        "error message in ctx");
+                        }
+                }
+        }
+
+        if (dict)
+                dict_unref (dict);
+
+        return ret;
+}
+
 static int
 glusterd_stop_bricks (glusterd_volinfo_t *volinfo)
 {
@@ -4866,6 +5557,25 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                                 sfunc = gf_xdr_from_cli_sync_volume_rsp;
                                 break;
                         }
+                case GD_MGMT_CLI_GSYNC_SET:
+                        {
+                                char    *str = NULL;
+                                gf1_cli_gsync_set_rsp rsp = {0,};
+                                ctx = op_ctx;
+                                rsp.op_ret = op_ret;
+                                rsp.op_errno = op_errno;
+                                rsp.op_errstr = "";
+                                if (ctx) {
+                                        ret = dict_get_str (ctx, "errstr",
+                                                            &str);
+                                        if (ret == 0)
+                                                rsp.op_errstr = gf_strdup (str);
+                                } else if (op_errstr)
+                                        rsp.op_errstr = op_errstr;
+                                cli_rsp = &rsp;
+                                sfunc = gf_xdr_from_cli_sync_volume_rsp;
+                                break;
+                        }
         }
 
         ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
@@ -5157,6 +5867,10 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr,
                         ret = glusterd_op_stage_sync_volume (req, op_errstr);
                         break;
 
+                case GD_OP_GSYNC_SET:
+                        ret = glusterd_op_stage_gsync_set (req, op_errstr);
+                        break;
+
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
                                 req->op);
@@ -5223,6 +5937,10 @@ glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr,
 
                 case GD_OP_SYNC_VOLUME:
                         ret = glusterd_op_sync_volume (req, op_errstr, rsp_dict);
+                        break;
+
+                case GD_OP_GSYNC_SET:
+                        ret = glusterd_op_gsync_set (req);
                         break;
 
                 default:

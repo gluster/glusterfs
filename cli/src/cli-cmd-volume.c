@@ -879,6 +879,47 @@ out:
         return ret;
 }
 
+int
+cli_cmd_volume_gsync_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                              const char **words, int wordcount)
+{
+        int                      ret     = 0;
+        int                      parse_err = 0;
+        dict_t                  *options = NULL;
+        rpc_clnt_procedure_t    *proc    = NULL;
+        call_frame_t            *frame   = NULL;
+
+        proc = &cli_rpc_prog->proctable [GF1_CLI_GSYNC_SET];
+        if (proc == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (frame == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_gsync_set_parse (words, wordcount, &options);
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_err = 1;
+                goto out;
+        }
+
+        if (proc->fn)
+                ret = proc->fn (frame, THIS, options);
+
+out:
+        if (options)
+                dict_unref (options);
+
+        if (ret && parse_err == 0)
+                cli_out ("Gsync command failed");
+
+        return ret;
+}
 
 struct cli_cmd volume_cmds[] = {
         { "volume info [all|<VOLNAME>]",
@@ -952,6 +993,10 @@ struct cli_cmd volume_cmds[] = {
          { "volume reset <VOLNAME> ",
          cli_cmd_volume_reset_cbk,
          "reset all the reconfigured options"},
+
+        {"volume gsync <start|stop|configure> <MASTER> <SLAVE> [options]",
+         cli_cmd_volume_gsync_set_cbk,
+         "Geo-sync operations"},
 
         { NULL, NULL, NULL }
 };
