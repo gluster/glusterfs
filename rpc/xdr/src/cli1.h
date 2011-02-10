@@ -186,6 +186,18 @@ ssize_t
 gf_xdr_from_cli_reset_vol_req (struct iovec outmsg, void *req);
 
 ssize_t
+gf_xdr_serialize_cli_gsync_set_rsp (struct iovec outmsg, void *rsp);
+
+ssize_t
+gf_xdr_to_cli_gsync_set_req (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_to_cli_gsync_set_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gf_xdr_from_cli_gsync_set_req (struct iovec outmsg, void *req);
+
+ssize_t
 gf_xdr_serialize_cli_set_vol_rsp (struct iovec outmsg, void *rsp);
 
 ssize_t

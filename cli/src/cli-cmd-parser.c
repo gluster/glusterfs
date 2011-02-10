@@ -1011,3 +1011,99 @@ out:
 
         return ret;
 }
+
+int32_t
+cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **options)
+{
+        int32_t            ret     = 0;
+        int32_t            config_type = 0;
+        dict_t            *dict   = NULL;
+        gf1_cli_gsync_set type    = GF_GSYNC_OPTION_TYPE_NONE;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "gsync")) == 0);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount < 5)
+                goto out;
+
+        ret = dict_set_str (dict, "master", (char *)words[3]);
+        if (ret < 0)
+                goto out;
+
+        ret = dict_set_str (dict, "slave", (char *)words[4]);
+        if (ret < 0)
+                goto out;
+
+        if ((strcmp (words[2], "start")) == 0) {
+                type = GF_GSYNC_OPTION_TYPE_START;
+
+                goto set_type;
+        }
+
+        if ((strcmp (words[2], "stop")) == 0) {
+                type = GF_GSYNC_OPTION_TYPE_STOP;
+
+                goto set_type;
+        }
+
+        if ((strcmp (words[2], "configure")) == 0) {
+                type = GF_GSYNC_OPTION_TYPE_CONFIGURE;
+
+                if (strcmp (words [5], "config-set") == 0) {
+                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_SET;
+
+                        ret = dict_set_str (dict, "op_name", (char *)words[6]);
+                        if (ret < 0)
+                                goto out;
+
+                        ret = dict_set_str (dict, "op_value", (char *)words[7]);
+                        if (ret < 0)
+                                goto out;
+                }
+
+                if ((strcmp (words [5], "config-del")) == 0) {
+                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_DEL;
+
+                        ret = dict_set_str (dict, "op_name", (char *)words[6]);
+                        if (ret < 0)
+                                goto out;
+                }
+
+                if ((strcmp (words [5], "config-get")) == 0) {
+                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET;
+
+                        ret = dict_set_str (dict, "op_name", (char *)words[6]);
+                        if (ret < 0)
+                                goto out;
+                }
+
+                if ((strcmp (words [5], "config-get-all")) == 0) {
+                        config_type = GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL;
+                }
+
+                ret = dict_set_int32 (dict, "config_type", config_type);
+                if (ret < 0)
+                        goto out;
+        }
+
+set_type:
+        ret = dict_set_int32 (dict, "type", type);
+        if (ret < 0)
+                goto out;
+
+        *options = dict;
+out:
+        if (ret)
+                if (dict)
+                        dict_destroy (dict);
+
+        return ret;
+}
+

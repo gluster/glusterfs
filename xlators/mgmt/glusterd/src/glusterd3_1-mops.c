@@ -1457,6 +1457,10 @@ glusterd_handle_rpc_msg (rpcsvc_request_t *req)
                         ret = glusterd_handle_fsm_log (req);
                         break;
 
+                case GD_MGMT_CLI_GSYNC_SET:
+                        ret = glusterd_handle_gsync_set (req);
+                        break;
+
                 default:
 			gf_log("", GF_LOG_ERROR, "Recieved Invalid procnum:%d",
 			       req->procnum);
@@ -1512,7 +1516,8 @@ rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_CLI_SET_VOLUME] = { "SET_VOLUME", GD_MGMT_CLI_SET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_SYNC_VOLUME] = { "SYNC_VOLUME", GD_MGMT_CLI_SYNC_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
         [GD_MGMT_CLI_RESET_VOLUME] = { "RESET_VOLUME", GD_MGMT_CLI_RESET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_FSM_LOG] = { "FSM_LOG", GD_MGMT_CLI_FSM_LOG, glusterd_handle_rpc_msg, NULL, NULL}
+        [GD_MGMT_CLI_FSM_LOG] = { "FSM_LOG", GD_MGMT_CLI_FSM_LOG, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_GSYNC_SET] = {"GSYNC_SET", GD_MGMT_CLI_GSYNC_SET, glusterd_handle_rpc_msg, NULL, NULL},
 };
 
 /*rpcsvc_actor_t glusterd1_mgmt_actors[] = {
