@@ -172,14 +172,14 @@ struct _log_msg {
 
 
 
-void 
+void
 gf_log_lock (void)
 {
 	pthread_mutex_lock (&logfile_mutex);
 }
 
 
-void 
+void
 gf_log_unlock (void)
 {
 	pthread_mutex_unlock (&logfile_mutex);
@@ -413,7 +413,7 @@ log:
 	{
 		va_start (ap, fmt);
 
-		strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm); 
+		strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
                 snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, tv.tv_usec);
 
@@ -505,7 +505,7 @@ client_log_init (struct _client_log *cl, char *identifier)
         }
         cl->file = fopen (path, "a");
         GF_FREE (path);
-        
+
         INIT_LIST_HEAD (&cl->list);
 }
 
@@ -560,17 +560,17 @@ gf_log_from_client (const char *msg, char *identifier)
 }
 
 int
-gf_cmd_log_init (const char *filename) 
+gf_cmd_log_init (const char *filename)
 {
         if (!filename){
-                gf_log ("glusterd",GF_LOG_CRITICAL, "gf_cmd_log_init: no "
+                gf_log ("glusterd", GF_LOG_CRITICAL, "gf_cmd_log_init: no "
                         "filename specified\n");
                 return -1;
         }
 
         cmd_log_filename = gf_strdup (filename);
-        if (!filename) {
-                gf_log ("glusterd",GF_LOG_CRITICAL, "gf_cmd_log_init: strdup"
+        if (!cmd_log_filename) {
+                gf_log ("glusterd", GF_LOG_CRITICAL, "gf_cmd_log_init: strdup"
                         " error\n");
                 return -1;
         }
@@ -653,5 +653,4 @@ out:
                 FREE (str2);
 
         return (0);
-                                                  
 }
