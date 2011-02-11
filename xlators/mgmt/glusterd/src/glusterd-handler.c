@@ -1336,7 +1336,7 @@ glusterd_handle_gsync_set (rpcsvc_request_t *req)
 {
         int32_t                 ret     = 0;
         dict_t                  *dict   = NULL;
-        gf1_cli_gsync_set_req   cli_req;// = {0, };
+        gf1_cli_gsync_set_req   cli_req = {{0},};
 
         GF_ASSERT (req);
 
