@@ -653,7 +653,7 @@ xdr_gf1_cli_fsm_log_rsp (XDR *xdrs, gf1_cli_fsm_log_rsp *objp)
 bool_t
 xdr_gf1_cli_gsync_set_req (XDR *xdrs, gf1_cli_gsync_set_req *objp)
 {
-         if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.         dict_len, ~0))
+         if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
                  return FALSE;
         return TRUE;
 }
