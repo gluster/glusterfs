@@ -16,8 +16,11 @@ class GConffile(object):
     def update_to(self, dct):
         for sect in set([DEF_SECT, self.section]):
             if self.config.has_section(sect):
-                dct.update(self.config._sections[sect])
-
+                for k, v in self.config._sections[sect].iteritems():
+                    if k == '__name__':
+                        continue
+                    k = k.replace('-', '_')
+                    dct[k] = v
     def get(self, opt=None):
         d = {}
         self.update_to(d)
