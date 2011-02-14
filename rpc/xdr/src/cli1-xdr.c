@@ -669,6 +669,8 @@ xdr_gf1_cli_gsync_set_rsp (XDR *xdrs, gf1_cli_gsync_set_rsp *objp)
                 return FALSE;
         if (!xdr_int (xdrs, &objp->type))
                 return FALSE;
+        if (!xdr_int (xdrs, &objp->config_type))
+                return FALSE;
         if (!xdr_string (xdrs, &objp->op_name, ~0))
                 return FALSE;
         if (!xdr_string (xdrs, &objp->master, ~0))

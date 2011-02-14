@@ -15,7 +15,8 @@ AM_CFLAGS = -fPIC -Wall -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)\
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src\
 	-I$(top_srcdir)/rpc/xdr/src\
 	-DDATADIR=\"$(localstatedir)\" \
-	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS)
+	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS)\
+	-DGSYNCD_PREFIX=\"$(libexecdir)\"
 
 
 CLEANFILES =
