@@ -661,11 +661,21 @@ xdr_gf1_cli_gsync_set_req (XDR *xdrs, gf1_cli_gsync_set_req *objp)
 bool_t
 xdr_gf1_cli_gsync_set_rsp (XDR *xdrs, gf1_cli_gsync_set_rsp *objp)
 {
-         if (!xdr_int (xdrs, &objp->op_ret))
-                 return FALSE;
-         if (!xdr_int (xdrs, &objp->op_errno))
-                 return FALSE;
-         if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-                 return FALSE;
+        if (!xdr_int (xdrs, &objp->op_ret))
+                return FALSE;
+        if (!xdr_int (xdrs, &objp->op_errno))
+                return FALSE;
+        if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+                return FALSE;
+        if (!xdr_int (xdrs, &objp->type))
+                return FALSE;
+        if (!xdr_string (xdrs, &objp->op_name, ~0))
+                return FALSE;
+        if (!xdr_string (xdrs, &objp->master, ~0))
+                return FALSE;
+        if (!xdr_string (xdrs, &objp->slave, ~0))
+                return FALSE;
+        if (!xdr_string (xdrs, &objp->gsync_prefix, ~0))
+                return FALSE;
         return TRUE;
 }

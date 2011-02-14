@@ -300,4 +300,9 @@ struct gf1_cli_gsync_set_rsp {
         int     op_ret;
         int     op_errno;
         string  op_errstr<>;
+        int     type;
+        string  op_name<>;
+        string  master<>;
+        string  slave<>;
+        string  gsync_prefix<>;
 };

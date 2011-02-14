@@ -415,6 +415,11 @@ struct gf1_cli_gsync_set_rsp {
         int op_ret;
         int op_errno;
         char *op_errstr;
+        int   type;
+        char *op_name;
+        char *master;
+        char *slave;
+        char *gsync_prefix;
 };
 typedef struct gf1_cli_gsync_set_rsp gf1_cli_gsync_set_rsp;
 

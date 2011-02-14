@@ -2397,6 +2397,39 @@ out:
 }
 
 int
+gsync_get_command (gf1_cli_gsync_set_rsp rsp)
+{
+        char  cmd[1024] = {0,};
+
+        if (rsp.op_ret < 0)
+                return 0;
+
+        if (!rsp.gsync_prefix || !rsp.master || !rsp.slave)
+                return -1;
+
+        if (rsp.type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
+                if (!rsp.op_name)
+                        return -1;
+
+                snprintf (cmd, 1024, "%s/gsyncd.py %s %s --config-get %s ",
+                          rsp.gsync_prefix, rsp.master, rsp.slave,
+                          rsp.op_name);
+                system (cmd);
+                goto out;
+        }
+        if (rsp.type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
+                snprintf (cmd, 1024, "%s/gsyncd.py %s %s --config-get-all ",
+                        rsp.gsync_prefix, rsp.master, rsp.slave);
+
+                system (cmd);
+
+                goto out;
+        }
+out:
+        return 0;
+}
+
+int
 gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                          int count, void *myframe)
 {
@@ -2422,6 +2455,7 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
         else
                 cli_out ("command executed successfully");
 
+        gsync_get_command (rsp);
 out:
         ret = rsp.op_ret;
 
