@@ -63,27 +63,7 @@ def startup(**kw):
             if fd:
                 os.close(fd)
 
-    if kw.get('go_daemon') == 'should':
-        x, y = os.pipe()
-        gconf.cpid = os.fork()
-        if gconf.cpid:
-            os.close(x)
-            sys.exit()
-        os.close(y)
-        # wait for parent to terminate
-        # so we can start up with
-        # no messing from the dirty
-        # ol' bustard
-        select.select((x,), (), ())
-        os.close(x)
-        if getattr(gconf, 'pid_file', None):
-            write_pid(gconf.pid_file + '.tmp')
-            os.rename(gconf.pid_file + '.tmp', gconf.pid_file)
-        os.setsid()
-        dn = os.open(os.devnull, os.O_RDWR)
-        for f in (sys.stdin, sys.stdout, sys.stderr):
-            os.dup2(dn, f.fileno())
-    elif getattr(gconf, 'pid_file', None):
+    if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
         try:
             write_pid(gconf.pid_file)
         except OSError:
@@ -93,6 +73,27 @@ def startup(**kw):
                 sys.stderr.write("pidfile is taken, exiting.\n")
                 exit(2)
             raise
+
+    if kw.get('go_daemon') == 'should':
+        x, y = os.pipe()
+        gconf.cpid = os.fork()
+        if gconf.cpid:
+            os.close(x)
+            sys.exit()
+        os.close(y)
+        os.setsid()
+        dn = os.open(os.devnull, os.O_RDWR)
+        for f in (sys.stdin, sys.stdout, sys.stderr):
+            os.dup2(dn, f.fileno())
+        if getattr(gconf, 'pid_file', None):
+            write_pid(gconf.pid_file + '.tmp')
+            os.rename(gconf.pid_file + '.tmp', gconf.pid_file)
+        # wait for parent to terminate
+        # so we can start up with
+        # no messing from the dirty
+        # ol' bustard
+        select.select((x,), (), ())
+        os.close(x)
 
     lkw = {'level': gconf.log_level}
     if kw.get('log_file'):
