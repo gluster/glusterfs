@@ -416,6 +416,7 @@ struct gf1_cli_gsync_set_rsp {
         int op_errno;
         char *op_errstr;
         int   type;
+        int   config_type;
         char *op_name;
         char *master;
         char *slave;

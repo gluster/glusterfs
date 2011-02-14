@@ -2397,7 +2397,7 @@ out:
 }
 
 int
-gsync_get_command (gf1_cli_gsync_set_rsp rsp)
+gf_cli3_1_gsync_get_command (gf1_cli_gsync_set_rsp rsp)
 {
         char  cmd[1024] = {0,};
 
@@ -2407,19 +2407,19 @@ gsync_get_command (gf1_cli_gsync_set_rsp rsp)
         if (!rsp.gsync_prefix || !rsp.master || !rsp.slave)
                 return -1;
 
-        if (rsp.type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
+        if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
                 if (!rsp.op_name)
                         return -1;
 
-                snprintf (cmd, 1024, "%s/gsyncd.py %s %s --config-get %s ",
+                snprintf (cmd, 1024, "%s/gsyncd %s %s --config-get %s ",
                           rsp.gsync_prefix, rsp.master, rsp.slave,
                           rsp.op_name);
                 system (cmd);
                 goto out;
         }
-        if (rsp.type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
-                snprintf (cmd, 1024, "%s/gsyncd.py %s %s --config-get-all ",
-                        rsp.gsync_prefix, rsp.master, rsp.slave);
+        if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
+                snprintf (cmd, 1024, "%s/gsyncd %s %s --config-get-all ",
+                          rsp.gsync_prefix, rsp.master, rsp.slave);
 
                 system (cmd);
 
@@ -2427,6 +2427,149 @@ gsync_get_command (gf1_cli_gsync_set_rsp rsp)
         }
 out:
         return 0;
+}
+
+int
+gf_cli3_1_gsync_get_pid_file (char *pidfile, char *master, char *slave)
+{
+        int     ret      = -1;
+        int     i        = 0;
+        char    str[256] = {0, };
+
+        GF_VALIDATE_OR_GOTO ("gsync", pidfile, out);
+        GF_VALIDATE_OR_GOTO ("gsync", master, out);
+        GF_VALIDATE_OR_GOTO ("gsync", slave, out);
+
+        i = 0;
+        //change '/' to '-'
+        while (slave[i]) {
+                (slave[i] == '/') ? (str[i] = '-') : (str[i] = slave[i]);
+                i++;
+        }
+
+        ret = snprintf (pidfile, 1024, "/etc/glusterd/gsync/%s/%s.pid",
+                        master, str);
+        if (ret <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return ret;
+}
+
+/* status: 0 when gsync is running
+ * -1 when not running
+ */
+int
+gf_cli3_1_gsync_status (char *master, char *slave,
+                        char *pidfile, int *status)
+{
+        int     ret             = -1;
+        FILE    *file           = NULL;
+
+        GF_VALIDATE_OR_GOTO ("gsync", master, out);
+        GF_VALIDATE_OR_GOTO ("gsync", slave, out);
+        GF_VALIDATE_OR_GOTO ("gsync", pidfile, out);
+        GF_VALIDATE_OR_GOTO ("gsync", status, out);
+
+        file = fopen (pidfile, "r+");
+        if (file) {
+                //ret = lockf (fileno (file), F_TLOCK, 0);
+                //if (ret == 0) {
+                //        lockf (fileno (file), F_ULOCK, 0);
+                //        *status = -1;
+                //}
+                //else
+                *status = 0;
+        } else
+                *status = -1;
+
+out:
+        return ret;
+}
+
+int
+gf_cli3_1_start_gsync (char *master, char *slave)
+{
+        int32_t         ret     = -1;
+        int32_t         status  = 0;
+        char            cmd[1024] = {0,};
+        char            pidfile[1024] = {0,};
+
+        ret = gf_cli3_1_gsync_get_pid_file (pidfile, master, slave);
+        if (ret == -1) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to construct the "
+                        "pidfile string");
+                goto out;
+        }
+
+        ret = gf_cli3_1_gsync_status (master, slave, pidfile, &status);
+        if ((ret == 0 && status == 0)) {
+                gf_log ("", GF_LOG_WARNING, "gsync %s:%s"
+                        "already started", master, slave);
+
+                cli_out ("gsyncd is already running");
+
+                ret = -1;
+                goto out;
+        }
+
+        unlink (pidfile);
+
+        ret = snprintf (cmd, 1024, "mkdir -p /etc/glusterd/gsync/%s",
+                        master);
+        if (ret <= 0) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to construct the "
+                        "pid path");
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to create the "
+                        "pid path for %s %s", master, slave);
+                goto out;
+        }
+
+        memset (cmd, 0, sizeof (cmd));
+        ret = snprintf (cmd, 1024, GSYNCD_PREFIX "/gsyncd %s %s "
+                        "--config-set pid-file %s", master, slave, pidfile);
+        if (ret <= 0) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to construct the  "
+                        "config set command for %s %s", master, slave);
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to set the pid "
+                        "option for %s %s", master, slave);
+                goto out;
+        }
+
+        memset (cmd, 0, sizeof (cmd));
+        ret = snprintf (cmd, 1024, GSYNCD_PREFIX "/gsyncd "
+                        "%s %s", master, slave);
+        if (ret <= 0) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = system (cmd);
+        if (ret == -1)
+                goto out;
+
+        cli_out ("gsync started");
+        ret = 0;
+
+out:
+
+        return ret;
 }
 
 int
@@ -2448,14 +2591,19 @@ gf_cli3_1_gsync_set_cbk (struct rpc_req *req, struct iovec *iov,
                 goto out;
         }
 
-        if (rsp.op_errstr)
-                cli_out ("%s", rsp.op_errstr);
-        else if (rsp.op_ret)
-                cli_out ("command unsuccessful");
-        else
-                cli_out ("command executed successfully");
-
-        gsync_get_command (rsp);
+        if (rsp.op_ret) {
+                cli_out ("%s", rsp.op_errstr ? rsp.op_errstr :
+                         "command unsuccessful");
+                goto out;
+        }
+        else {
+                if (rsp.type == GF_GSYNC_OPTION_TYPE_START)
+                        ret = gf_cli3_1_start_gsync (rsp.master, rsp.slave);
+                else if (rsp.config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL)
+                        ret = gf_cli3_1_gsync_get_command (rsp);
+                else
+                        cli_out ("command executed successfully");
+        }
 out:
         ret = rsp.op_ret;
 
