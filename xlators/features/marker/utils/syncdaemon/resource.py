@@ -400,7 +400,7 @@ class SSH(AbstractUrl, SlaveRemote):
         return False
 
     def start_fd_client(self, *a, **opts):
-        if opts['deferred']:
+        if opts.get('deferred'):
             return a
         sup(self, *a)
         ityp = type(self.inner_rsc)
