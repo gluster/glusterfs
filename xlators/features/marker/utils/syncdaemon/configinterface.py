@@ -1,4 +1,9 @@
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    # py 3
+    import configparser as ConfigParser
+
 
 DEF_SECT = 'global'
 
@@ -10,17 +15,18 @@ class GConffile(object):
         else:
             self.section = DEF_SECT
         self.path = path
-        self.config = ConfigParser.RawConfigParser({}, dict)
+        self.config = ConfigParser.RawConfigParser()
         self.config.read(path)
 
     def update_to(self, dct):
         for sect in set([DEF_SECT, self.section]):
             if self.config.has_section(sect):
-                for k, v in self.config._sections[sect].iteritems():
+                for k, v in self.config._sections[sect].items():
                     if k == '__name__':
                         continue
                     k = k.replace('-', '_')
                     dct[k] = v
+
     def get(self, opt=None):
         d = {}
         self.update_to(d)
