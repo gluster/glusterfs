@@ -5684,21 +5684,51 @@ glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
                         }
                 case GD_MGMT_CLI_GSYNC_SET:
                         {
+                                int     config_type;
                                 char    *str = NULL;
+                                char    *master = NULL;
+                                char    *slave  = NULL;
+                                char    *op_name = NULL;
                                 gf1_cli_gsync_set_rsp rsp = {0,};
                                 ctx = op_ctx;
                                 rsp.op_ret = op_ret;
                                 rsp.op_errno = op_errno;
                                 rsp.op_errstr = "";
+                                rsp.op_name = "";
+                                rsp.master = "";
+                                rsp.slave = "";
+                                rsp.gsync_prefix = gf_strdup (GSYNCD_PREFIX);
                                 if (ctx) {
                                         ret = dict_get_str (ctx, "errstr",
                                                             &str);
                                         if (ret == 0)
                                                 rsp.op_errstr = gf_strdup (str);
+                                        ret = dict_get_int32 (ctx, "config_type",
+                                                              &config_type);
+                                        if (ret == 0)
+                                                rsp.type = config_type;
+                                        ret = dict_get_str (ctx, "master",
+                                                            &master);
+                                        if (ret == 0)
+                                                rsp.master = gf_strdup (master);
+
+                                        ret = dict_get_str (ctx, "slave",
+                                                            &slave);
+                                        if (ret == 0)
+                                                rsp.slave = gf_strdup (slave);
+
+                                        if (config_type ==
+                                            GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
+                                                ret = dict_get_str (ctx, "op_name",
+                                                                    &op_name);
+                                                if (ret == 0)
+                                                        rsp.op_name =
+                                                        gf_strdup (op_name);
+                                        }
                                 } else if (op_errstr)
                                         rsp.op_errstr = op_errstr;
                                 cli_rsp = &rsp;
-                                sfunc = gf_xdr_from_cli_sync_volume_rsp;
+                                sfunc = gf_xdr_serialize_cli_gsync_set_rsp;
                                 break;
                         }
         }
