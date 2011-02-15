@@ -433,7 +433,7 @@ class SSH(AbstractUrl, SlaveRemote):
             repce.recv(inf)
             # hack hack hack: store a global reference to the file
             # to save it from getting GC'd which implies closing it
-            gconf._in_fd_reference = inf
+            gconf.permanent_handles.append(inf)
             self.fd_pair = (i, o)
             return 'should'
 
