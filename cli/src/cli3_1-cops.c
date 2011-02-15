@@ -2476,16 +2476,15 @@ gf_cli3_1_gsync_status (char *master, char *slave,
 
         file = fopen (pidfile, "r+");
         if (file) {
-                //ret = lockf (fileno (file), F_TLOCK, 0);
-                //if (ret == 0) {
-                //        lockf (fileno (file), F_ULOCK, 0);
-                //        *status = -1;
-                //}
-                //else
+                ret = lockf (fileno (file), F_TEST, 0);
+                if (ret == 0) {
+                        *status = -1;
+                }
+                else
                 *status = 0;
         } else
                 *status = -1;
-
+        ret = 0;
 out:
         return ret;
 }

@@ -1952,13 +1952,14 @@ gsync_status (char *master, char *slave, int *status)
 
         file = fopen (pidfile, "r+");
         if (file) {
-               // ret = lockf (fileno (file), F_TEST, 0);
-                //if (ret == 0)
-                //*status = -1;
-                //else
-                *status = 0;
+                ret = lockf (fileno (file), F_TEST, 0);
+                if (ret == 0)
+                        *status = -1;
+                else
+                        *status = 0;
         } else
                 *status = -1;
+        ret = 0;
 out:
         return ret;
 }
