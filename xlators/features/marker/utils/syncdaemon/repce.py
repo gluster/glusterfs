@@ -65,12 +65,15 @@ class RepceServer(object):
             rid = in_data[0]
             rmeth = in_data[1]
             exc = False
-            try:
-                res = getattr(self.obj, rmeth)(*in_data[2:])
-            except:
-                res = sys.exc_info()[1]
-                exc = True
-                logging.exception("call failed: ")
+            if rmeth == '__repce_version__':
+                res = repce_version
+            else:
+              try:
+                  res = getattr(self.obj, rmeth)(*in_data[2:])
+              except:
+                  res = sys.exc_info()[1]
+                  exc = True
+                  logging.exception("call failed: ")
             send(self.out, rid, exc, res)
 
 
@@ -151,7 +154,7 @@ class RepceClient(object):
         return self.mprx(self, meth)
 
     def __version__(self):
-        d = {'proto': repce_version}
+        d = {'proto': self('__repce_version__')}
         try:
             d['object'] = self('version')
         except AttributeError:
