@@ -1002,14 +1002,11 @@ call_from_sp_client_to_reset_tmfile (call_frame_t *frame,
 
         if (data->len == 0 || (data->len == 5 &&
             memcmp (data->data, "RESET", 5) == 0)) {
-                fd = open (priv->timestamp_file, O_WRONLY);
+                fd = open (priv->timestamp_file, O_WRONLY|O_TRUNC);
                 if (fd != -1) {
-                        /* this call is needed because of the unsurity
-                         * whether the O_TRUNC would update the timestamps
-                         * on a zero length file as well. Hence updating it
-                         * manually.
+                        /* TODO check  whether the O_TRUNC would update the
+                         * timestamps on a zero length file on all machies.
                          */
-                        futimens (fd, NULL);
                         close (fd);
                 }
 
