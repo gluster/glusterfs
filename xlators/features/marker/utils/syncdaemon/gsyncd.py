@@ -9,9 +9,10 @@ import signal
 import select
 import shutil
 import optparse
+import fcntl
 from optparse import OptionParser, SUPPRESS_HELP
 from logging import Logger
-from errno import EEXIST, ENOENT
+from errno import EEXIST, ENOENT, EACCES, EAGAIN
 
 from gconf import gconf
 from configinterface import GConffile
@@ -53,26 +54,42 @@ class GLogger(Logger):
         logging.basicConfig(**lprm)
 
 
-def startup(**kw):
-    def write_pid(fn):
-        fd = None
+def grabfile(fname, content=None):
+    # damn those messy open() mode codes
+    fd = os.open(fname, os.O_CREAT|os.O_RDWR)
+    f = os.fdopen(fd, 'r+b', 0)
+    try:
+        fcntl.lockf(f, fcntl.LOCK_EX|fcntl.LOCK_NB)
+    except:
+        ex = sys.exc_info()[1]
+        f.close()
+        if isinstance(ex, IOError) and ex.errno in (EACCES, EAGAIN):
+            # cannot grab, it's taken
+            return
+        raise
+    if content:
         try:
-            fd = os.open(fn, os.O_CREAT|os.O_TRUNC|os.O_WRONLY|os.O_EXCL)
-            os.write(fd, str(os.getpid()) + '\n')
-        finally:
-            if fd:
-                os.close(fd)
-
-    if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
-        try:
-            write_pid(gconf.pid_file)
-        except OSError:
-            gconf.pid_file = None
-            ex = sys.exc_info()[1]
-            if ex.errno == EEXIST:
-                sys.stderr.write("pidfile is taken, exiting.\n")
-                exit(2)
+            f.truncate()
+            f.write(content)
+        except:
+            f.close()
             raise
+    gconf.permanent_handles.append(f)
+    return f
+
+def grabpidfile(fname=None, setpid=True):
+    if not fname:
+        fname = gconf.pid_file
+    content = None
+    if setpid:
+        content = str(os.getpid()) + '\n'
+    return grabfile(fname, content=content)
+
+def startup(**kw):
+    if getattr(gconf, 'pid_file', None) and kw.get('go_daemon') != 'postconn':
+        if not grabpidfile():
+            sys.stderr.write("pidfile is taken, exiting.\n")
+            exit(2)
 
     if kw.get('go_daemon') == 'should':
         x, y = os.pipe()
@@ -86,7 +103,8 @@ def startup(**kw):
         for f in (sys.stdin, sys.stdout, sys.stderr):
             os.dup2(dn, f.fileno())
         if getattr(gconf, 'pid_file', None):
-            write_pid(gconf.pid_file + '.tmp')
+            if not grabpidfile(gconf.pid_file + '.tmp'):
+                raise RuntimeError("cannot grap temporary pidfile")
             os.rename(gconf.pid_file + '.tmp', gconf.pid_file)
         # wait for parent to terminate
         # so we can start up with
@@ -102,20 +120,21 @@ def startup(**kw):
 
 def finalize(*a):
     if getattr(gconf, 'pid_file', None):
+        rm_pidf = True
         if gconf.cpid:
+            # exit path from parent branch of daemonization
+            rm_pidf = False
             while True:
-                f = open(gconf.pid_file)
-                pid = f.read()
-                f.close()
-                pid = int(pid.strip())
-                if pid == gconf.cpid:
+                f = grabpidfile(setpid=False)
+                if not f:
+                    # child has already taken over pidfile
                     break
-                if pid != os.getpid():
-                    raise RuntimeError("corrupt pidfile")
                 if os.waitpid(gconf.cpid, os.WNOHANG)[0] == gconf.cpid:
+                    # child has terminated
+                    rm_pidf = True
                     break;
                 time.sleep(0.1)
-        else:
+        if rm_pidf:
             try:
                 os.unlink(gconf.pid_file)
             except:

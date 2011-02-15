@@ -4,6 +4,7 @@ class GConf(object):
     ssh_ctl_dir = None
     ssh_ctl_args = None
     cpid = None
+    permanent_handles = []
 
     @classmethod
     def setup_ssh_ctl(cls, ctld):
