@@ -2051,11 +2051,19 @@ glusterd_op_stage_gsync_set (gd1_mgmt_stage_op_req *req, char **op_errstr)
         int             type    = 0;
         int             status  = 0;
         dict_t          *dict   = NULL;
+        dict_t          *ctx    = NULL;
         char            *volname = NULL;
         char            *master  = NULL;
         char            *slave   = NULL;
         gf_boolean_t    exists   = _gf_false;
         glusterd_volinfo_t *volinfo = NULL;
+
+        ctx = glusterd_op_get_ctx (GD_OP_GSYNC_SET);
+        if (!ctx) {
+                gf_log ("gsync", GF_LOG_DEBUG, "gsync command doesn't "
+                        "correspond to this glusterd");
+                goto out;
+        }
 
         GF_ASSERT (req);
 
