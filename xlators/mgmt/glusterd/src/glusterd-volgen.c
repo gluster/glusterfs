@@ -1474,14 +1474,17 @@ generate_brick_volfiles (glusterd_volinfo_t *volinfo)
 
         if (marker) {
                 ret = open (tstamp_file, O_WRONLY|O_CREAT|O_EXCL, 0644);
-                if (ret == -1 && errno == EEXIST)
-                        ret = 0;
+                if (ret == -1 && errno == EEXIST) {
+                        gf_log ("", GF_LOG_DEBUG, "timestamp file exist");
+                        ret = -2;
+                }
                 if (ret == -1) {
                         gf_log ("", GF_LOG_ERROR, "failed to create %s (%s)",
                                 tstamp_file, strerror (errno));
                         return -1;
                 }
-                close (ret);
+                if (ret >= 0)
+                        close (ret);
         } else {
                 ret = unlink (tstamp_file);
                 if (ret == -1 && errno == ENOENT)
