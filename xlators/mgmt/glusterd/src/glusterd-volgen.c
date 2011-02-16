@@ -837,6 +837,7 @@ volgen_write_volfile (glusterfs_graph_t *graph, char *filename)
 
         if (fclose (f) == -1)
                 goto error;
+        f = NULL;
 
         if (rename (ftmp, filename) == -1)
                 goto error;
