@@ -2596,8 +2596,8 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 		}
 		value = get_new_data ();
 		value->len  = vallen;
-		value->data = buf;
-		value->is_static = 1;
+		value->data = memdup (buf, vallen);
+		value->is_static = 0;
 		buf += vallen;
 
 		dict_set (*fill, key, value);
