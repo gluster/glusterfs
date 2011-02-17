@@ -287,6 +287,16 @@ AC_ARG_ENABLE([georeplication],
 			     [Do not install georeplication components]))
 
 BUILD_SYNCDAEMON=no
+case $host_os in
+     linux*)
+#do nothing
+       ;;
+     *)
+#disabling geo replication for non-linux platforms
+	enable_georeplication=no
+        ;;
+esac
+
 if test "x$enable_georeplication" != "xno"; then
   SYNCDAEMON_SUBDIR=utils
   BUILD_SYNCDAEMON="yes"
@@ -394,7 +404,7 @@ case $host_os in
 	;;
      solaris*)
         GF_HOST_OS="GF_SOLARIS_HOST_OS"
-	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -O0"
+	GF_CFLAGS="${ARGP_STANDALONE_CPPFLAGS} -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -O0 -m64"
 	GF_LDFLAGS=""
 	GF_GLUSTERFS_CFLAGS="${GF_CFLAGS}"
 	GF_LDADD="${ARGP_STANDALONE_LDADD}"

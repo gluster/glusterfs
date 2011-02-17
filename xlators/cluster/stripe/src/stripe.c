@@ -3945,7 +3945,7 @@ out:
 }
 
 int32_t
-stripe_getxattr_unwind (void *getxattr, call_frame_t *frame,
+stripe_getxattr_unwind (call_frame_t *frame,
                         int op_ret, int op_errno, dict_t *dict)
 
 {

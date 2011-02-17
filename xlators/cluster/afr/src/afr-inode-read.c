@@ -657,7 +657,7 @@ out:
 }
 
 int32_t
-afr_getxattr_unwind (void *arg, call_frame_t *frame,
+afr_getxattr_unwind (call_frame_t *frame,
                         int op_ret, int op_errno, dict_t *dict)
 
 {

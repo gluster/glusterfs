@@ -24,7 +24,7 @@
 #define MARKER_XTIME_TYPE   2
 
 
-typedef int32_t (*xlator_specf_unwind_t) (void *getxattr, call_frame_t *frame,
+typedef int32_t (*xlator_specf_unwind_t) (call_frame_t *frame,
                                          int op_ret, int op_errno, dict_t *dict);
 
 
