@@ -203,7 +203,7 @@ done:
 out:
                 if (local->xl_specf_unwind) {
                         frame->local = local->xl_local;
-                        local->xl_specf_unwind (getxattr, frame, op_ret,
+                        local->xl_specf_unwind (frame, op_ret,
                                                  op_errno, dict);
                         return 0;
                 }
@@ -224,7 +224,6 @@ cluster_markeruuid_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         struct volume_mark  *volmark = NULL;
         struct marker_str   *marker = NULL;
         char                *vol_uuid;
-
 
         if (!this || !frame || !cookie) {
                 gf_log (this->name, GF_LOG_DEBUG, "possible NULL deref");
@@ -343,7 +342,7 @@ done:
  out:
                 if (marker->xl_specf_unwind) {
                         frame->local = marker->xl_local;
-                        marker->xl_specf_unwind (getxattr, frame, op_ret,
+                        marker->xl_specf_unwind (frame, op_ret,
                                                  op_errno, dict);
                         return 0;
                 }

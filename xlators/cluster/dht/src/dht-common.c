@@ -1837,7 +1837,7 @@ out:
 }
 
 int32_t
-dht_getxattr_unwind (void *getxattr, call_frame_t *frame,
+dht_getxattr_unwind (call_frame_t *frame,
                         int op_ret, int op_errno, dict_t *dict)
 {
         DHT_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
