@@ -158,6 +158,7 @@ fi
 %{_sbindir}/gluster
 %{_sbindir}/glusterd
 %{_mandir}/man8/*glusterfs.8*
+%{_mandir}/man8/*glusterfsd.8*
 %{_mandir}/man8/*gluster.8*
 %{_mandir}/man8/*glusterd.8*
 %dir /var/log/glusterfs
