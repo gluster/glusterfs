@@ -614,32 +614,3 @@ struct gfs3_readdirp_rsp {
        struct gfs3_dirplist *reply;
 };
 
-struct gf_dump_req {
-};
-
-struct gf_prog_detail {
-       string progname<>;
-       unsigned hyper prognum;
-       unsigned hyper progver;
-       struct gf_prog_detail *next;
-};
-
-struct gf_dump_rsp {
-       struct gf_prog_detail *prog;
-};
-
-struct auth_glusterfs_parms {
-       unsigned int pid;
-       unsigned int uid;
-       unsigned int gid;
-
-        /* Number of groups being sent through the array above. */
-        unsigned int ngrps;
-
-        /* Array of groups to which the uid belongs apart from the primary group
-         * in gid.
-         */
-        unsigned int groups[GF_REQUEST_MAXGROUPS];
-
-        unsigned hyper lk_owner;
-};

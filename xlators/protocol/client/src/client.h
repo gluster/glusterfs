@@ -28,7 +28,7 @@
 #include "inode.h"
 #include "client-mem-types.h"
 #include "protocol-common.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs3.h"
 
 /* FIXME: Needs to be defined in a common file */
 #define CLIENT_CMD_CONNECT "trusted.glusterfs.client-connect"

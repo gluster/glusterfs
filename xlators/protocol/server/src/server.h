@@ -27,7 +27,7 @@
 #include "fd.h"
 #include "protocol-common.h"
 #include "server-mem-types.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs3.h"
 
 #define DEFAULT_BLOCK_SIZE         4194304   /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH   CONFDIR "/glusterfs.vol"
