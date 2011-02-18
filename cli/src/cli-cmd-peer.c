@@ -71,6 +71,14 @@ cli_cmd_peer_probe_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret)
                 goto out;
 
+        ret = valid_internet_address ((char *) words[2]);
+        if (ret == 1) {
+                ret = 0;
+        } else {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
 /*        if (words[3]) {
                 ret = dict_set_str (dict, "port", (char *)words[3]);
                 if (ret)
