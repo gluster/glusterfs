@@ -907,9 +907,17 @@ build_graph_generic (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 static void
 get_vol_transport_type (glusterd_volinfo_t *volinfo, char *tt)
 {
-        volinfo->transport_type == GF_TRANSPORT_RDMA ?
-        strcpy (tt, "rdma"):
-        strcpy (tt, "tcp");
+        switch (volinfo->transport_type) {
+        case GF_TRANSPORT_RDMA:
+                strcpy (tt, "rdma");
+                break;
+        case GF_TRANSPORT_TCP:
+                strcpy (tt, "tcp");
+                break;
+        case GF_TRANSPORT_BOTH_TCP_RDMA:
+                strcpy (tt, "tcp,rdma");
+                break;
+        }
 }
 
 static int
@@ -1124,6 +1132,7 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
 {
         int                      dist_count         = 0;
         char                     transt[16]         = {0,};
+        char                    *tt                 = NULL;
         char                    *volname            = NULL;
         dict_t                  *dict               = NULL;
         glusterd_brickinfo_t    *brick = NULL;
@@ -1142,7 +1151,6 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         volname = volinfo->volname;
         dict    = volinfo->dict;
         GF_ASSERT (dict);
-        get_vol_transport_type (volinfo, transt);
 
         if (volinfo->brick_count == 0) {
                 gf_log ("", GF_LOG_ERROR,
@@ -1160,6 +1168,12 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                         volinfo->brick_count, volinfo->sub_count);
                 return -1;
         }
+
+        ret = dict_get_str (set_dict, "client-transport-type", &tt);
+        if (ret)
+                get_vol_transport_type (volinfo, transt);
+        if (!ret)
+                strcpy (transt, tt);
 
         i = 0;
         list_for_each_entry (brick, &volinfo->bricks, brick_list) {
@@ -1370,6 +1384,16 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                                         goto out;
                         }
                 }
+
+                /* If both RDMA and TCP are the transport_type, use RDMA
+                   for NFS client protocols */
+                if (voliter->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
+                        ret = dict_set_str (set_dict, "client-transport-type",
+                                            "rdma");
+                        if (ret)
+                                goto out;
+                }
+
                 memset (&cgraph, 0, sizeof (cgraph));
                 ret = build_client_graph (&cgraph, voliter, set_dict);
                 if (ret)
@@ -1528,21 +1552,65 @@ get_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
                   path, volinfo->volname);
 }
 
+static void
+get_rdma_client_filepath (char *filename, glusterd_volinfo_t *volinfo)
+{
+        char  path[PATH_MAX] = {0,};
+        glusterd_conf_t *priv = NULL;
+
+        priv = THIS->private;
+
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+
+        snprintf (filename, PATH_MAX, "%s/%s-rdma-fuse.vol",
+                  path, volinfo->volname);
+}
+
 static int
 generate_client_volfile (glusterd_volinfo_t *volinfo)
 {
         glusterfs_graph_t graph = {{0,},};
         char    filename[PATH_MAX] = {0,};
         int     ret = -1;
+        dict_t *dict = NULL;
 
         get_client_filepath (filename, volinfo);
 
-        ret = build_client_graph (&graph, volinfo, NULL);
+        if (volinfo->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
+                dict = dict_new ();
+                if (!dict)
+                        goto out;
+                ret = dict_set_str (dict, "client-transport-type", "tcp");
+                if (ret)
+                        goto out;
+        }
+
+        ret = build_client_graph (&graph, volinfo, dict);
         if (!ret)
                 ret = volgen_write_volfile (&graph, filename);
 
         volgen_graph_free (&graph);
 
+        if (dict) {
+                /* This means, transport type is both RDMA and TCP */
+
+                memset (&graph, 0, sizeof (graph));
+                get_rdma_client_filepath (filename, volinfo);
+
+                ret = dict_set_str (dict, "client-transport-type", "rdma");
+                if (ret)
+                        goto out;
+
+                ret = build_client_graph (&graph, volinfo, dict);
+                if (!ret)
+                        ret = volgen_write_volfile (&graph, filename);
+
+                volgen_graph_free (&graph);
+
+                dict_unref (dict);
+        }
+
+out:
         return ret;
 }
 

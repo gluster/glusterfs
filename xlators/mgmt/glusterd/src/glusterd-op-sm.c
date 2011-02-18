@@ -2302,9 +2302,12 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
         if (strcasecmp (trans_type, "rdma") == 0) {
                 volinfo->transport_type = GF_TRANSPORT_RDMA;
-        } else {
+        } else if (strcasecmp (trans_type, "tcp") == 0) {
                 volinfo->transport_type = GF_TRANSPORT_TCP;
+        } else {
+                volinfo->transport_type = GF_TRANSPORT_BOTH_TCP_RDMA;
         }
+
         volinfo->sub_count = sub_count;
 
         if (bricks) {
