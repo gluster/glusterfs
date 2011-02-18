@@ -1,5 +1,5 @@
 .\"
-.\"  Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
+.\"  Copyright (c) 2006-2011 Gluster, Inc. <http://www.gluster.com>
 .\"  This file is part of GlusterFS.
 .\"
 .\"  GlusterFS is GF_FREE software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ Gluster \- Gluster command line tool.
 To enter gluster prompt 
 .PP
 (or)
-.pp
+.PP
 
 .B gluster
 .I [commands] [options]
@@ -61,11 +61,11 @@ stop volume specified by \fB\<VOLNAME>\fR
 \fB\ volume rename <VOLNAME> <NEW-VOLNAME> \fR
 rename volume \fB\<VOLNAME>\fR to \fB\<NEW-VOLNAME>\fR
 .TP
-\fB\ volume add-brick <VOLNAME> [(replica <COUNT>)|(stripe <COUNT>)] <NEW-BRICK> ... \fR
-add brick to volume \fB\<VOLNAME>\fR
+\fB\ volume add-brick <VOLNAME> <NEW-BRICK> ... \fR
+add brick to volume. if the volume is of the type replicate or stripe, then one need to provide bricks in multiple of replica count, or stripe count.\fB\<VOLNAME>\fR
 .TP
-\fB\ volume remove-brick <VOLNAME> [(replica <COUNT>)|(stripe <COUNT>)] <BRICK> ... \fR
-remove brick from volume \fB\<VOLNAME>\fR
+\fB\ volume remove-brick <VOLNAME> <BRICK> ... \fR
+remove brick from volume. if the volume is of the type replicate or stripe, then one need to provide bricks in multiple of replica count, or stripe count. Note that with this option, your data in the bricks which are removed is not going to available. If you need to migrate data, then refer to 'replace-brick' option. \fB\<VOLNAME>\fR
 .TP
 \fB\ volume rebalance <VOLNAME> start \fR
 start rebalance of volume \fB\<VOLNAME>\fR
@@ -76,15 +76,11 @@ stop rebalance of volume \fB\<VOLNAME>\fR
 \fB\ volume rebalance <VOLNAME> status \fR
 rebalance status of volume \fB<VOLNAME>\fR
 .TP
-\fB\ volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status \fR
+\fB\ volume replace-brick <VOLNAME> (<BRICK> <NEW-BRICK>) start|pause|abort|status|commit \fR
 replace-brick operations
 .TP
-\fB\ volume set-transport <VOLNAME> <TRANSPORT-TYPE> [<TRANSPORT-TYPE>] ... \fR
+\fB\ volume set <VOLNAME> <OPTION> <VALUE> [<OPTION> <VALUE>] ... \fR
 set transport type for volume \fB\<VOLNAME>\fR
-.TP
-\fB\ volume set-transport <VOLNAME> <TRANSPORT-TYPE> [<TRANSPORT-TYPE>] ... \fR
-set transport type for volume \fB\<VOLNAME>\fR
-\fR
 .TP
 \fB\ volume help \fB
 display help for the volume command
@@ -122,12 +118,11 @@ quit
 
 .SH SEE ALSO
 .nf
-\fBfusermount\fR(1), \fBmount.glusterfs\fR(8), \fBglusterfs-volgen\fR(8)
-\fBglusterfs\fR(8), \fBglusterd\fR(8)
+\fBfusermount\fR(1), \fBmount.glusterfs\fR(8), \fBglusterfs\fR(8), \fBglusterd\fR(8)
 \fR
 .fi
 .SH COPYRIGHT
 .nf
-Copyright(c) 2006-2010  Gluster, Inc.  <http://www.gluster.com>
+Copyright(c) 2006-2011  Gluster, Inc.  <http://www.gluster.com>
 
 .fi
