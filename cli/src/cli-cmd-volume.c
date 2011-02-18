@@ -463,6 +463,10 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
         dict_t               *dict = NULL;
         int                     sent = 0;
         int                     parse_error = 0;
+#ifdef GF_SOLARIS_HOST_OS
+        cli_out ("Command not supported on Solaris");
+        goto out;
+#endif
 
         frame = create_frame (THIS, THIS->ctx->pool);
         if (!frame)
@@ -705,6 +709,10 @@ cli_cmd_volume_replace_brick_cbk (struct cli_state *state,
         int                     sent = 0;
         int                     parse_error = 0;
 
+#ifdef GF_SOLARIS_HOST_OS
+        cli_out ("Command not supported on Solaris");
+        goto out;
+#endif
         proc = &cli_rpc_prog->proctable[GF1_CLI_REPLACE_BRICK];
 
         frame = create_frame (THIS, THIS->ctx->pool);
