@@ -829,6 +829,8 @@ struct volume_options options[] = {
           .value = {"rpc", "rpc-over-rdma", "tcp", "socket", "ib-verbs",
                     "unix", "ib-sdp", "tcp/server", "ib-verbs/server", "rdma",
                     "rdma*([ \t]),*([ \t])socket",
+                    "rdma*([ \t]),*([ \t])tcp",
+                    "tcp*([ \t]),*([ \t])rdma",
                     "socket*([ \t]),*([ \t])rdma"},
           .type  = GF_OPTION_TYPE_STR
         },

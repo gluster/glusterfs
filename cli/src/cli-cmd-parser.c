@@ -170,6 +170,9 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                         trans_type = gf_strdup ("tcp");
                 } else if ((strcasecmp (words[index+1], "rdma") == 0)) {
                         trans_type = gf_strdup ("rdma");
+                } else if ((strcasecmp (words[index+1], "tcp,rdma") == 0) ||
+                           (strcasecmp (words[index+1], "rdma,tcp") == 0)) {
+                        trans_type = gf_strdup ("tcp,rdma");
                 } else {
                         gf_log ("", GF_LOG_ERROR, "incorrect transport"
                                        " protocol specified");
