@@ -1321,203 +1321,36 @@ out:
         return ret;
 }
 
-
-int
-glusterd_handle_rpc_msg (rpcsvc_request_t *req)
-{
-        int             ret = -1;
-        gf_boolean_t    is_cli_req = _gf_false;
-        int             lock_fail = 0;
-
-        GF_ASSERT (req);
-
-        is_cli_req = glusterd_is_cli_op_req (req->procnum);
-
-        if (is_cli_req) {
-                ret = glusterd_op_set_cli_op (req->procnum);
-
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
-                                ret);
-                        lock_fail = 1;
-                        goto out;
-                }
-        }
-
-        switch (req->procnum) {
-                case GD_MGMT_PROBE_QUERY:
-                        ret = glusterd_handle_probe_query (req);
-                        break;
-
-                case GD_MGMT_FRIEND_ADD:
-                        ret = glusterd_handle_incoming_friend_req (req);
-                        if (ret == GLUSTERD_CONNECTION_AWAITED)
-                                return 0;
-                        break;
-
-                case GD_MGMT_CLUSTER_LOCK:
-                        ret = glusterd_handle_cluster_lock (req);
-                        break;
-
-                case GD_MGMT_CLUSTER_UNLOCK:
-                        ret = glusterd_handle_cluster_unlock (req);
-                        break;
-
-                case GD_MGMT_STAGE_OP:
-                        ret = glusterd_handle_stage_op (req);
-                        break;
-
-                case GD_MGMT_COMMIT_OP:
-                        ret = glusterd_handle_commit_op (req);
-                        break;
-
-                case GD_MGMT_CLI_PROBE:
-                        ret = glusterd_handle_cli_probe (req);
-                        if (ret == GLUSTERD_CONNECTION_AWAITED)
-                                return 0;
-                        break;
-
-                case GD_MGMT_CLI_CREATE_VOLUME:
-                        ret = glusterd_handle_create_volume (req);
-                        break;
-
-                case GD_MGMT_CLI_DEPROBE:
-                        ret = glusterd_handle_cli_deprobe (req);
-                        break;
-
-                case GD_MGMT_FRIEND_REMOVE:
-                        ret = glusterd_handle_incoming_unfriend_req (req);
-                        break;
-
-                case GD_MGMT_CLI_LIST_FRIENDS:
-                        ret = glusterd_handle_cli_list_friends (req);
-                        break;
-
-                case GD_MGMT_CLI_START_VOLUME:
-                        ret = glusterd_handle_cli_start_volume (req);
-                        break;
-
-                case GD_MGMT_CLI_STOP_VOLUME:
-                        ret = glusterd_handle_cli_stop_volume (req);
-                        break;
-
-                case GD_MGMT_CLI_DELETE_VOLUME:
-                        ret = glusterd_handle_cli_delete_volume (req);
-                        break;
-
-                case GD_MGMT_FRIEND_UPDATE:
-                        ret = glusterd_handle_friend_update (req);
-                        break;
-
-                case GD_MGMT_CLI_GET_VOLUME:
-                        ret = glusterd_handle_cli_get_volume (req);
-                        break;
-
-                case GD_MGMT_CLI_DEFRAG_VOLUME:
-                        ret = glusterd_handle_defrag_volume (req);
-                        break;
-
-                case GD_MGMT_CLI_ADD_BRICK:
-                        ret = glusterd_handle_add_brick (req);
-                        break;
-
-                case GD_MGMT_CLI_REPLACE_BRICK:
-                        ret = glusterd_handle_replace_brick (req);
-                        break;
-
-                case GD_MGMT_CLI_REMOVE_BRICK:
-                        ret = glusterd_handle_remove_brick (req);
-                        break;
-
-                case GD_MGMT_CLI_LOG_FILENAME:
-                        ret = glusterd_handle_log_filename (req);
-                        break;
-
-                case GD_MGMT_CLI_LOG_LOCATE:
-                        ret = glusterd_handle_log_locate (req);
-                        break;
-
-                case GD_MGMT_CLI_LOG_ROTATE:
-                        ret = glusterd_handle_log_rotate (req);
-                        break;
-
-                case GD_MGMT_CLI_SET_VOLUME:
-                        ret = glusterd_handle_set_volume (req);
-			break;
-
-                case GD_MGMT_CLI_SYNC_VOLUME:
-                        ret = glusterd_handle_sync_volume (req);
-                        break;
-
-                case GD_MGMT_CLI_RESET_VOLUME:
-                        ret = glusterd_handle_reset_volume (req);
-                        break;
-
-                case GD_MGMT_CLI_FSM_LOG:
-                        ret = glusterd_handle_fsm_log (req);
-                        break;
-
-                case GD_MGMT_CLI_GSYNC_SET:
-                        ret = glusterd_handle_gsync_set (req);
-                        break;
-
-                default:
-			gf_log("", GF_LOG_ERROR, "Recieved Invalid procnum:%d",
-			       req->procnum);
-                        GF_ASSERT (0);
-        }
-
-        glusterd_friend_sm ();
-        glusterd_op_sm ();
-
-out:
-        if (ret && is_cli_req) {
-                /* if we are sending a reply here, then return value should
-                   be 0, and we should not point to any RPC errors, because
-                   otherwise rpcsvc.c will send an error reply for the same
-                   request, which causes double replies */
-                if (!lock_fail)
-                        (void) glusterd_opinfo_unlock ();
-                ret = glusterd_op_send_cli_response (req->procnum, ret, 0, req, NULL, "operation failed");
-        }
-
-        if (ret)
-                gf_log ("", GF_LOG_WARNING, "Returning %d", ret);
-
-        return ret;
-}
-
-
 rpcsvc_actor_t glusterd1_mgmt_actors[] = {
         [GD_MGMT_NULL]        = { "NULL",       GD_MGMT_NULL, glusterd_null, NULL, NULL},
-        [GD_MGMT_PROBE_QUERY] = { "PROBE_QUERY", GD_MGMT_PROBE_QUERY, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_FRIEND_ADD] = { "FRIEND_ADD", GD_MGMT_FRIEND_ADD, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_FRIEND_REMOVE] = { "FRIEND_REMOVE", GD_MGMT_FRIEND_REMOVE, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_FRIEND_UPDATE] = { "FRIEND_UPDATE", GD_MGMT_FRIEND_UPDATE, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLUSTER_LOCK] = { "CLUSTER_LOCK", GD_MGMT_CLUSTER_LOCK, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLUSTER_UNLOCK] = { "CLUSTER_UNLOCK", GD_MGMT_CLUSTER_UNLOCK, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_STAGE_OP] = { "STAGE_OP", GD_MGMT_STAGE_OP, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_COMMIT_OP] = { "COMMIT_OP", GD_MGMT_COMMIT_OP, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_PROBE] = { "CLI_PROBE", GD_MGMT_CLI_PROBE, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_CREATE_VOLUME] = { "CLI_CREATE_VOLUME", GD_MGMT_CLI_CREATE_VOLUME, glusterd_handle_rpc_msg, NULL,NULL},
+        [GD_MGMT_PROBE_QUERY] = { "PROBE_QUERY", GD_MGMT_PROBE_QUERY, glusterd_handle_probe_query, NULL, NULL},
+        [GD_MGMT_FRIEND_ADD] = { "FRIEND_ADD", GD_MGMT_FRIEND_ADD, glusterd_handle_incoming_friend_req, NULL, NULL},
+        [GD_MGMT_FRIEND_REMOVE] = { "FRIEND_REMOVE", GD_MGMT_FRIEND_REMOVE, glusterd_handle_incoming_unfriend_req, NULL, NULL},
+        [GD_MGMT_FRIEND_UPDATE] = { "FRIEND_UPDATE", GD_MGMT_FRIEND_UPDATE, glusterd_handle_friend_update, NULL, NULL},
+        [GD_MGMT_CLUSTER_LOCK] = { "CLUSTER_LOCK", GD_MGMT_CLUSTER_LOCK, glusterd_handle_cluster_lock, NULL, NULL},
+        [GD_MGMT_CLUSTER_UNLOCK] = { "CLUSTER_UNLOCK", GD_MGMT_CLUSTER_UNLOCK, glusterd_handle_cluster_unlock, NULL, NULL},
+        [GD_MGMT_STAGE_OP] = { "STAGE_OP", GD_MGMT_STAGE_OP, glusterd_handle_stage_op, NULL, NULL},
+        [GD_MGMT_COMMIT_OP] = { "COMMIT_OP", GD_MGMT_COMMIT_OP, glusterd_handle_commit_op, NULL, NULL},
+        [GD_MGMT_CLI_PROBE] = { "CLI_PROBE", GD_MGMT_CLI_PROBE, glusterd_handle_cli_probe, NULL, NULL},
+        [GD_MGMT_CLI_CREATE_VOLUME] = { "CLI_CREATE_VOLUME", GD_MGMT_CLI_CREATE_VOLUME, glusterd_handle_create_volume, NULL,NULL},
         [GD_MGMT_CLI_DEFRAG_VOLUME] = { "CLI_DEFRAG_VOLUME", GD_MGMT_CLI_DEFRAG_VOLUME, glusterd_handle_defrag_volume, NULL,NULL},
-        [GD_MGMT_CLI_DEPROBE] = { "FRIEND_REMOVE", GD_MGMT_CLI_DEPROBE, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_LIST_FRIENDS] = { "LIST_FRIENDS", GD_MGMT_CLI_LIST_FRIENDS, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_START_VOLUME] = { "START_VOLUME", GD_MGMT_CLI_START_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_STOP_VOLUME] = { "STOP_VOLUME", GD_MGMT_CLI_STOP_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GD_MGMT_CLI_DELETE_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_GET_VOLUME] = { "GET_VOLUME", GD_MGMT_CLI_GET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_ADD_BRICK] = { "ADD_BRICK", GD_MGMT_CLI_ADD_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_REPLACE_BRICK] = { "REPLACE_BRICK", GD_MGMT_CLI_REPLACE_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_REMOVE_BRICK] = { "REMOVE_BRICK", GD_MGMT_CLI_REMOVE_BRICK, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_LOG_FILENAME] = { "LOG FILENAME", GD_MGMT_CLI_LOG_FILENAME, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_DEPROBE] = { "FRIEND_REMOVE", GD_MGMT_CLI_DEPROBE, glusterd_handle_cli_deprobe, NULL, NULL},
+        [GD_MGMT_CLI_LIST_FRIENDS] = { "LIST_FRIENDS", GD_MGMT_CLI_LIST_FRIENDS, glusterd_handle_cli_list_friends, NULL, NULL},
+        [GD_MGMT_CLI_START_VOLUME] = { "START_VOLUME", GD_MGMT_CLI_START_VOLUME, glusterd_handle_cli_start_volume, NULL, NULL},
+        [GD_MGMT_CLI_STOP_VOLUME] = { "STOP_VOLUME", GD_MGMT_CLI_STOP_VOLUME, glusterd_handle_cli_stop_volume, NULL, NULL},
+        [GD_MGMT_CLI_DELETE_VOLUME] = { "DELETE_VOLUME", GD_MGMT_CLI_DELETE_VOLUME, glusterd_handle_cli_delete_volume, NULL, NULL},
+        [GD_MGMT_CLI_GET_VOLUME] = { "GET_VOLUME", GD_MGMT_CLI_GET_VOLUME, glusterd_handle_cli_get_volume, NULL, NULL},
+        [GD_MGMT_CLI_ADD_BRICK] = { "ADD_BRICK", GD_MGMT_CLI_ADD_BRICK, glusterd_handle_add_brick, NULL, NULL},
+        [GD_MGMT_CLI_REPLACE_BRICK] = { "REPLACE_BRICK", GD_MGMT_CLI_REPLACE_BRICK, glusterd_handle_replace_brick, NULL, NULL},
+        [GD_MGMT_CLI_REMOVE_BRICK] = { "REMOVE_BRICK", GD_MGMT_CLI_REMOVE_BRICK, glusterd_handle_remove_brick, NULL, NULL},
+        [GD_MGMT_CLI_LOG_FILENAME] = { "LOG FILENAME", GD_MGMT_CLI_LOG_FILENAME, glusterd_handle_log_filename, NULL, NULL},
         [GD_MGMT_CLI_LOG_LOCATE] = { "LOG LOCATE", GD_MGMT_CLI_LOG_LOCATE, glusterd_handle_log_locate, NULL, NULL},
-        [GD_MGMT_CLI_LOG_ROTATE] = { "LOG FILENAME", GD_MGMT_CLI_LOG_ROTATE, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_SET_VOLUME] = { "SET_VOLUME", GD_MGMT_CLI_SET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_SYNC_VOLUME] = { "SYNC_VOLUME", GD_MGMT_CLI_SYNC_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_RESET_VOLUME] = { "RESET_VOLUME", GD_MGMT_CLI_RESET_VOLUME, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_FSM_LOG] = { "FSM_LOG", GD_MGMT_CLI_FSM_LOG, glusterd_handle_rpc_msg, NULL, NULL},
-        [GD_MGMT_CLI_GSYNC_SET] = {"GSYNC_SET", GD_MGMT_CLI_GSYNC_SET, glusterd_handle_rpc_msg, NULL, NULL},
+        [GD_MGMT_CLI_LOG_ROTATE] = { "LOG FILENAME", GD_MGMT_CLI_LOG_ROTATE, glusterd_handle_log_rotate, NULL, NULL},
+        [GD_MGMT_CLI_SET_VOLUME] = { "SET_VOLUME", GD_MGMT_CLI_SET_VOLUME, glusterd_handle_set_volume, NULL, NULL},
+        [GD_MGMT_CLI_SYNC_VOLUME] = { "SYNC_VOLUME", GD_MGMT_CLI_SYNC_VOLUME, glusterd_handle_sync_volume, NULL, NULL},
+        [GD_MGMT_CLI_RESET_VOLUME] = { "RESET_VOLUME", GD_MGMT_CLI_RESET_VOLUME, glusterd_handle_reset_volume, NULL, NULL},
+        [GD_MGMT_CLI_FSM_LOG] = { "FSM_LOG", GD_MGMT_CLI_FSM_LOG, glusterd_handle_fsm_log, NULL, NULL},
+        [GD_MGMT_CLI_GSYNC_SET] = {"GSYNC_SET", GD_MGMT_CLI_GSYNC_SET, glusterd_handle_gsync_set, NULL, NULL},
 };
 
 /*rpcsvc_actor_t glusterd1_mgmt_actors[] = {
