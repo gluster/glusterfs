@@ -37,13 +37,13 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                            struct iovec  *payload, int payloadcnt,
                            struct iobref *iobref, gfs_serialize_t sfunc)
 {
-        int           ret        = 0;
-        clnt_conf_t  *conf       = NULL;
-        struct iovec  iov        = {0, };
-        struct iobuf *iobuf      = NULL;
-        int           count      = 0;
-        char          new_iobref = 0;
-        int           start_ping = 0;
+        int            ret        = 0;
+        clnt_conf_t   *conf       = NULL;
+        struct iovec   iov        = {0, };
+        struct iobuf  *iobuf      = NULL;
+        int            count      = 0;
+        int            start_ping = 0;
+        struct iobref *new_iobref = NULL;
 
         start_ping = 0;
 
@@ -54,16 +54,27 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                 goto out;
         };
 
-        if (!iobref) {
-                iobref = iobref_new ();
-                if (!iobref) {
-                        goto out;
-                }
-
-                new_iobref = 1;
+        new_iobref = iobref_new ();
+        if (!new_iobref) {
+                goto out;
         }
 
-        iobref_add (iobref, iobuf);
+        if (iobref != NULL) {
+                ret = iobref_merge (new_iobref, iobref);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot merge iobref passed from caller into "
+                                "new_iobref");
+                        goto out;
+                }
+        }
+
+        ret = iobref_add (new_iobref, iobuf);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot add iobuf into iobref");
+                goto out;
+        }
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len  = 128 * GF_UNIT_KB;
@@ -74,12 +85,13 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                 if (ret == -1) {
                         goto out;
                 }
+
                 iov.iov_len = ret;
                 count = 1;
         }
         /* Send the msg */
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count,
-                               payload, payloadcnt, iobref, frame, NULL, 0,
+                               payload, payloadcnt, new_iobref, frame, NULL, 0,
                                NULL, 0, NULL);
 
         if (ret == 0) {
@@ -96,8 +108,8 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
                 client_start_ping ((void *) this);
 
 out:
-        if (new_iobref) {
-                iobref_unref (iobref);
+        if (new_iobref != NULL) {
+                iobref_unref (new_iobref);
         }
 
         iobuf_unref (iobuf);
