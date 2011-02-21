@@ -1332,8 +1332,6 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                 goto out;
         }
 
-        gf_cmd_log ("Volume replace-brick","on volname: %s attempted", cli_req.volname);
-
         gf_log ("glusterd", GF_LOG_NORMAL, "Received replace brick req");
 
         if (cli_req.bricks.bricks_len) {
@@ -1396,6 +1394,7 @@ glusterd_handle_replace_brick (rpcsvc_request_t *req)
                         break;
         }
 
+        gf_log ("glusterd", GF_LOG_NORMAL, "Recieved replace brick %s request", operation);
         gf_cmd_log ("Volume replace-brick","volname: %s src_brick:%s"
                     " dst_brick:%s op:%s",cli_req.volname, src_brick, dst_brick
                     ,operation);
