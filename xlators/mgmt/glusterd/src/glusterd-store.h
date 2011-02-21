@@ -70,6 +70,15 @@
                 }\
         } while (0); \
 
+typedef enum {
+        GD_STORE_SUCCESS,
+        GD_STORE_KEY_NULL,
+        GD_STORE_VALUE_NULL,
+        GD_STORE_KEY_VALUE_NULL,
+        GD_STORE_EOF,
+        GD_STORE_ENOMEM
+} glusterd_store_op_errno_t;
+
 int32_t
 glusterd_store_create_volume (glusterd_volinfo_t *volinfo);
 

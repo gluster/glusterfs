@@ -402,7 +402,7 @@ init (xlator_t *this)
         glusterd_restart_bricks (conf);
         ret = 0;
 out:
-        if (ret == -1) {
+        if (ret < 0) {
                 if (this->private != NULL) {
                         GF_FREE (this->private);
                         this->private = NULL;
