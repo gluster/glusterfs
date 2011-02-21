@@ -80,6 +80,7 @@ typedef enum glusterd_op_ {
 struct glusterd_store_iter_ {
         int     fd;
         FILE    *file;
+        char    filepath[PATH_MAX];
 };
 
 typedef struct glusterd_store_iter_     glusterd_store_iter_t;
