@@ -49,12 +49,13 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                        struct iovec *rsp_payload, int rsp_payload_count,
                        struct iobref *rsp_iobref)
 {
-        int          ret         = -1;
-        clnt_conf_t *conf        = NULL;
-        struct iovec iov         = {0, };
-        struct iobuf *iobuf      = NULL;
-        int           count      = 0;
-        char          new_iobref = 0, start_ping = 0;
+        int            ret         = -1;
+        clnt_conf_t   *conf        = NULL;
+        struct iovec   iov         = {0, };
+        struct iobuf  *iobuf       = NULL;
+        int            count       = 0;
+        char           start_ping  = 0;
+        struct iobref *new_iobref  = NULL;
 
         if (!this || !prog || !frame)
                 goto out;
@@ -75,16 +76,26 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
                 goto out;
         };
 
-        if (!iobref) {
-                iobref = iobref_new ();
-                if (!iobref) {
-                        goto out;
-                }
-
-                new_iobref = 1;
+        new_iobref = iobref_new ();
+        if (!new_iobref) {
+                goto out;
         }
 
-        iobref_add (iobref, iobuf);
+        if (iobref != NULL) {
+                ret = iobref_merge (new_iobref, iobref);
+                if (ret != 0) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot merge iobref passed from caller "
+                                "into new_iobref");
+                }
+        }
+
+        ret = iobref_add (new_iobref, iobuf);
+        if (ret != 0) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot add iobuf into iobref");
+                goto out;
+        }
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len  = 128 * GF_UNIT_KB;
@@ -100,7 +111,7 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         }
         /* Send the msg */
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL,
-                               0, iobref, frame, rsphdr, rsphdr_count,
+                               0, new_iobref, frame, rsphdr, rsphdr_count,
                                rsp_payload, rsp_payload_count, rsp_iobref);
 
         if (ret == 0) {
@@ -118,8 +129,8 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
 
         ret = 0;
 out:
-        if (new_iobref)
-                iobref_unref (iobref);
+        if (new_iobref != NULL)
+                iobref_unref (new_iobref);
 
         if (iobuf)
                 iobuf_unref (iobuf);
