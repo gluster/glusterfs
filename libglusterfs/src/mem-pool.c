@@ -51,6 +51,11 @@ gf_mem_acct_enable_set ()
         char    *opt = NULL;
         long    val = -1;
 
+#ifdef DEBUG
+        gf_mem_acct_enable = 1;
+        return;
+#endif
+
         opt = getenv (GLUSTERFS_ENV_MEM_ACCT_STR);
 
         if (!opt)
