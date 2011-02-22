@@ -33,6 +33,7 @@ Requires(postun): /sbin/service
 
 BuildRequires: bison flex 
 BuildRequires: gcc make
+%define _prefix /opt/%{name}/%{version}
 
 %description
 GlusterFS is a clustered file-system capable of scaling to several
@@ -66,7 +67,7 @@ GlusterFS server and client framework.
 %package rdma
 Summary: GlusterFS rdma
 Group: Applications/File
-Requires: glusterfs-core = %{version}-%{release}
+Requires: glusterfs-core >= %{version}-%{release}
 BuildRequires: libibverbs-devel
 
 %description rdma
@@ -84,7 +85,7 @@ This package provides support to ib-verbs library.
 %package fuse
 Summary: GlusterFS Fuse
 Group: Applications/File
-Requires: glusterfs-core = %{version}-%{release}
+Requires: glusterfs-core >= %{version}-%{release}
 Obsoletes: glusterfs-client < 3.1.0
 
 %description fuse
@@ -127,14 +128,26 @@ find %{buildroot}%{_libdir} -name '*.a' | xargs rm -f
 %{__rm} -rf %{buildroot}
 
 %post core
-/sbin/ldconfig -n %{_libdir}
+/sbin/ldconfig
 /sbin/chkconfig --add glusterd
-#killall glusterfsd,glusterfs,glusterd
-/usr/bin/killall glusterfsd 2>/dev/null || true;
-/usr/bin/killall glusterfs 2>/dev/null || true;
-/usr/bin/killall glusterd 2>/dev/null || true;
-#start glusterd
-/usr/sbin/glusterd
+
+#creat symlinks
+rm -rf /usr/sbin/glusterd /usr/sbin/glusterfsd /usr/sbin/glusterfs /usr/sbin/gluster
+
+ln -s %{_sbindir}/glusterd /usr/sbin/glusterd
+ln -s %{_sbindir}/glusterfsd /usr/sbin/glusterfsd
+ln -s %{_sbindir}/gluster /usr/sbin/gluster
+ln -s %{_sbindir}/glusterfs /usr/sbin/glusterfs
+
+#update  /etc/ld.so.conf.d
+echo "%{_prefix}/lib64" > /etc/ld.so.conf.d/glusterfs.conf
+/sbin/ldconfig
+
+pidof -c -o %PPID -x glusterd &> /dev/null
+if [ $? -eq 0 ];
+then
+/etc/init.d/glusterd restart &> /dev/null
+fi
 
 %postun core
 /sbin/ldconfig -n %{_libdir}
@@ -147,11 +160,10 @@ fi
 %files core
 %defattr(-,root,root)
 %doc AUTHORS ChangeLog COPYING INSTALL NEWS README THANKS
-%doc /usr/share/doc/glusterfs
+%doc %{_datadir}/doc/glusterfs
 %if 0%{?_with_fusermount:1}
 %{_bindir}/fusermount-glusterfs 
 %endif
-%{_datadir}/glusterfs
 %{_libdir}/glusterfs
 %{_libdir}/*.so.*
 %{_sbindir}/glusterfs*

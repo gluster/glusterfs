@@ -8,6 +8,8 @@
 . /etc/rc.d/init.d/functions
 
 BASE=glusterd
+GLUSTERFSD=glusterfsd
+GLUSTERFS=glusterfs
 GLUSTERD_BIN=@prefix@/sbin/$BASE
 GLUSTERD_OPTS=""
 GLUSTERD="$GLUSTERD_BIN $GLUSTERD_OPTS"
@@ -29,6 +31,11 @@ stop()
        echo -n $"Stopping $BASE:"
        killproc $BASE
        echo
+       pidof -c -o %PPID -x $GLUSTERFSD &> /dev/null
+       [ $? -eq 0 ] &&  killproc $GLUSTERFSD &> /dev/null
+
+       pidof -c -o %PPID -x $GLUSTERFS &> /dev/null
+       [ $? -eq 0 ] &&  killproc $GLUSTERFS &> /dev/null
 }
 
 
