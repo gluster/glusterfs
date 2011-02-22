@@ -482,6 +482,13 @@ cli_cmd_volume_defrag_cbk (struct cli_state *state, struct cli_cmd_word *word,
                 goto out;
         }
 
+	if (strcmp (words[3], "start") && strcmp (words[3], "stop") && 
+            strcmp (words[3], "status")) {
+	        cli_usage_out (word->pattern);
+		parse_error = 1;
+		goto out;
+	}
+
         ret = dict_set_str (dict, "volname", (char *)words[2]);
         if (ret)
                 goto out;
