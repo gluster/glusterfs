@@ -1068,8 +1068,11 @@ posix_mknod (call_frame_t *frame, xlator_t *this,
         gid = frame->root->gid;
 
         op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0)
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
                 goto out;
+        }
 
         SET_FS_ID (frame->root->uid, gid);
         pathdup = gf_strdup (real_path);
@@ -1336,8 +1339,11 @@ posix_mkdir (call_frame_t *frame, xlator_t *this,
         }
 
         op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0)
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
                 goto out;
+        }
 
         SET_FS_ID (frame->root->uid, gid);
         pathdup = gf_strdup (real_path);
@@ -1625,8 +1631,11 @@ posix_symlink (call_frame_t *frame, xlator_t *this,
         gid = frame->root->gid;
 
         op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0)
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
                 goto out;
+        }
 
         SET_FS_ID (frame->root->uid, gid);
         pathdup = gf_strdup (real_path);
@@ -2026,8 +2035,9 @@ posix_create (call_frame_t *frame, xlator_t *this,
         gid = frame->root->gid;
 
         op_ret = setgid_override (this, real_path, &gid);
-
         if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
                 goto out;
         }
 
@@ -2172,8 +2182,11 @@ posix_open (call_frame_t *frame, xlator_t *this,
         MAKE_REAL_PATH (real_path, this, loc->path);
 
         op_ret = setgid_override (this, real_path, &gid);
-        if (op_ret < 0)
+        if (op_ret < 0) {
+                op_errno = -op_ret;
+                op_ret = -1;
                 goto out;
+        }
 
         SET_FS_ID (frame->root->uid, gid);
 
