@@ -1477,7 +1477,7 @@ sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         sp_fd_ctx_t    *fd_ctx             = NULL;
         char            lookup_in_progress = 0, looked_up = 0;
 
-        if (op_ret == -1) {
+        if (op_ret < 0) {
                 goto out;
         }
 
