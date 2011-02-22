@@ -3324,21 +3324,10 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
                 break;
 
+        case GF_EVENT_CHILD_UP:
+        case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_CHILD_CONNECTING:
         {
-                if (!private->fuse_thread_started) {
-                        private->fuse_thread_started = 1;
-
-                        ret = pthread_create (&private->fuse_thread, NULL,
-                                              fuse_thread_proc, this);
-                        if (ret != 0) {
-                                gf_log (this->name, GF_LOG_DEBUG,
-                                        "pthread_create() failed (%s)",
-                                        strerror (errno));
-                                break;
-                        }
-                }
-
                 if (data) {
                         graph = data;
                         ret = fuse_graph_setup (this, graph);
@@ -3347,17 +3336,15 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                         "failed to setup the graph");
                 }
 
-                break;
-        }
-        case GF_EVENT_CHILD_UP:
-        {
-                /* set priv->active_subvol */
-                /* set priv->first_lookup = 1 */
-                graph = data;
-                ret = fuse_graph_setup (this, graph);
-                if (ret)
-                        gf_log (this->name, GF_LOG_WARNING,
-                                "failed to setup the graph");
+                if (event == GF_EVENT_CHILD_UP) {
+
+                        pthread_mutex_lock (&private->sync_mutex);
+                        {
+                                private->child_up = 1;
+                                pthread_cond_broadcast (&private->sync_cond);
+                        }
+                        pthread_mutex_unlock (&private->sync_mutex);
+                }
 
                 if (!private->fuse_thread_started) {
                         private->fuse_thread_started = 1;
@@ -3371,13 +3358,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
                                 break;
                         }
                 }
-
-                pthread_mutex_lock (&private->sync_mutex);
-                {
-                        private->child_up = 1;
-                        pthread_cond_broadcast (&private->sync_cond);
-                }
-                pthread_mutex_unlock (&private->sync_mutex);
 
                 break;
         }
