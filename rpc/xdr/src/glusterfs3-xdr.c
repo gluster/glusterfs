@@ -24,6 +24,7 @@
  */
 
 #include "glusterfs3-xdr.h"
+#include "compat.h"
 
 bool_t
 xdr_gf_statfs (XDR *xdrs, gf_statfs *objp)
