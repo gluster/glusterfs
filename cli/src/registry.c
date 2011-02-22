@@ -379,6 +379,9 @@ cli_cmd_register (struct cli_cmd_tree *tree, const char *template,
         if (ret)
                 goto err;
 
+        if (tokens)
+                cli_cmd_tokens_destroy (tokens);
+
         return 0;
 err:
         if (tokens)
