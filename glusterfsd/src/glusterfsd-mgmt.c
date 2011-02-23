@@ -371,6 +371,8 @@ mgmt_getspec_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (ret == 0) {
                 gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                         "No need to re-load volfile, reconfigure done");
+                oldvollen = size;
+                memcpy (oldvolfile, rsp.spec, size);
                 goto out;
         }
 
