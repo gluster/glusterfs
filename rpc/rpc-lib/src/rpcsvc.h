@@ -46,6 +46,10 @@
 #define NGRPS 16
 #endif /* !NGRPS */
 
+#ifndef MAX_IOVEC
+#define MAX_IOVEC 16
+#endif
+
 #define GF_RPCSVC       "rpc-service"
 #define RPCSVC_THREAD_STACK_SIZE ((size_t)(1024 * GF_UNIT_KB))
 
@@ -193,7 +197,7 @@ struct rpcsvc_request {
          * by the program actors. This is the buffer that will need to
          * be de-xdred by the actor.
          */
-        struct iovec            msg[2];
+        struct iovec            msg[MAX_IOVEC];
         int                     count;
 
         struct iobref          *iobref;

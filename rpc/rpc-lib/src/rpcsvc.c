@@ -800,6 +800,8 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
                      struct iovec progmsg, rpc_transport_pollin_t *msg,
                      rpcsvc_request_t *req)
 {
+        int i = 0;
+
         if ((!trans) || (!callmsg)|| (!req) || (!msg))
                 return NULL;
 
@@ -814,7 +816,9 @@ rpcsvc_request_init (rpcsvc_t *svc, rpc_transport_t *trans,
         req->msg[0] = progmsg;
         req->iobref = iobref_ref (msg->iobref);
         if (msg->vectored) {
-                req->msg[1] = msg->vector[1];
+                for (i = 1; i < msg->count; i++) {
+                        req->msg[i] = msg->vector[i];
+                }
         }
 
         req->svc = svc;
