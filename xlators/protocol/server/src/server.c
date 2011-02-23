@@ -526,6 +526,25 @@ out:
 
         return ret;
 }
+static void
+_delete_auth_opt (dict_t *this,
+                char *key,
+                data_t *value,
+                void *data)
+{
+        char *auth_option_pattern[] = { "auth.addr.*.allow",
+                                        "auth.addr.*.reject"};
+        if (fnmatch ( auth_option_pattern[0], key, 0) != 0) {
+                dict_del (this, key);
+                return;
+        }
+
+        if (fnmatch ( auth_option_pattern[1], key, 0) != 0) {
+                dict_del (this, key);
+                return;
+        }
+}
+
 
 static void
 _copy_auth_opt (dict_t *unused,
@@ -537,7 +556,7 @@ _copy_auth_opt (dict_t *unused,
                                         "auth.addr.*.reject"};
         if (fnmatch ( auth_option_pattern[0], key, 0) != 0)
                 dict_set ((dict_t *)xl_dict, key, (value));
-        
+
         if (fnmatch ( auth_option_pattern[1], key, 0) != 0)
                 dict_set ((dict_t *)xl_dict, key, (value));
 }
@@ -575,12 +594,12 @@ reconfigure (xlator_t *this, dict_t *options)
 				"'trace' takes on only boolean values. "
                                 "Neglecting option");
 			ret = -1;
-                        goto out;			
+                        goto out;
 		}
 		conf->trace = trace;
 		gf_log (this->name, GF_LOG_TRACE, "Reconfigured trace"
 			" to %d", conf->trace);
-		
+
 	}
         if (!conf->auth_modules)
                 conf->auth_modules = dict_new ();
@@ -591,14 +610,15 @@ reconfigure (xlator_t *this, dict_t *options)
                 /* logging already done in validate_auth_options function. */
                 goto out;
         }
-        dict_foreach (options, _copy_auth_opt, this->options); 
+        dict_foreach (this->options, _delete_auth_opt, this->options);
+        dict_foreach (options, _copy_auth_opt, this->options);
 
         ret = gf_auth_init (this, conf->auth_modules);
         if (ret) {
                 dict_unref (conf->auth_modules);
                 goto out;
         }
-        
+
         rpc_conf = conf->rpc;
         if (!rpc_conf) {
                 gf_log (this->name, GF_LOG_ERROR, "No rpc_conf !!!!");
@@ -607,10 +627,10 @@ reconfigure (xlator_t *this, dict_t *options)
 
         list_for_each_entry (listeners, &(rpc_conf->listeners), list) {
                 if (listeners->trans != NULL) {
-                        if (listeners->trans->reconfigure ) 
+                        if (listeners->trans->reconfigure )
                                 listeners->trans->reconfigure (listeners->trans, options);
                         else
-                               gf_log (this->name, GF_LOG_ERROR, 
+                               gf_log (this->name, GF_LOG_ERROR,
                                        "Reconfigure not found for transport" );
                 }
         }
