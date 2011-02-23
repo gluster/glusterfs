@@ -499,8 +499,10 @@ gf_cli3_1_get_volume_cbk (struct rpc_req *req, struct iovec *iov,
                         else
                                 cli_out ("Number of Bricks: %d", brick_count);
 
-                        cli_out ("Transport-type: %s", ((transport == 0)?
-                                 "tcp" : "rdma"));
+                        cli_out ("Transport-type: %s",
+                                 ((transport == 0)?"tcp":
+                                   (transport == 1)?"rdma":
+                                  "tcp,rdma"));
                         j = 1;
 
 
