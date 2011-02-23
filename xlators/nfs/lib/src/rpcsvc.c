@@ -2557,6 +2557,7 @@ tx_remaining:
                         nfs_rpcsvc_socket_block_tx (conn->sockfd);
                 }
 
+                errno = 0;
                 written = nfs_rpcsvc_socket_write (conn->sockfd, writeaddr,
                                                    writesize);
                 if (txbuf->txbehave & RPCSVC_TXB_LAST) {
@@ -2566,13 +2567,25 @@ tx_remaining:
                 gf_log (GF_RPCSVC, GF_LOG_TRACE, "conn: 0x%lx, Tx request: %zu,"
                         " Tx sent: %zd", (long)conn, writesize, written);
 
-                /* There was an error transmitting this buffer */
+                /*
+                 * There was an error transmitting this buffer. We are polling
+                 * for errors. So, there is no necessity to handle closure of
+                 * the connection explicitly here.
+                 */
                 if (written == -1)
                         break;
 
                 if (written >= 0)
                         txbuf->offset += written;
 
+                if (errno == EAGAIN) {
+                        /*
+                         * Socket layer is indicating flow-control. We
+                         * break-out now and wait for the next event indicating
+                         * room for writes.
+                         */
+                        break;
+                }
                 /* If the current buffer has been completely transmitted,
                  * delete it from the list and move on to the next buffer.
                  */
