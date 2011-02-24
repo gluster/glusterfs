@@ -1068,30 +1068,6 @@ out:
         return ret;
 }
 
-gf_boolean_t
-glusterd_is_cli_op_req (int32_t op)
-{
-        switch (op) {
-                case GD_MGMT_CLI_CREATE_VOLUME:
-                case GD_MGMT_CLI_START_VOLUME:
-                case GD_MGMT_CLI_STOP_VOLUME:
-                case GD_MGMT_CLI_DELETE_VOLUME:
-                case GD_MGMT_CLI_DEFRAG_VOLUME:
-                case GD_MGMT_CLI_ADD_BRICK:
-                case GD_MGMT_CLI_REMOVE_BRICK:
-                case GD_MGMT_CLI_REPLACE_BRICK:
-                case GD_MGMT_CLI_LOG_FILENAME:
-                case GD_MGMT_CLI_LOG_LOCATE:
-                case GD_MGMT_CLI_LOG_ROTATE:
-                case GD_MGMT_CLI_SYNC_VOLUME:
-                        return _gf_true;
-                        break;
-        }
-
-        return _gf_false;
-}
-
-
 int
 glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
 {

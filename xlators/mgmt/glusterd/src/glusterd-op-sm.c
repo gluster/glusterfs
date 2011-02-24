@@ -6480,6 +6480,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
                 case GD_OP_SET_VOLUME:
                 case GD_OP_START_VOLUME:
                 case GD_OP_RESET_VOLUME:
+                case GD_OP_GSYNC_SET:
                         dict_unref (ctx);
                         break;
                 case GD_OP_DELETE_VOLUME:
