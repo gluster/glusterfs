@@ -919,22 +919,12 @@ out:
         return ret;
 }
 
-void
-_cli_out_options (dict_t *this, char *key, data_t *value, void *count)
-{
-
-        (*((int *) count))++;
-        cli_out ("%s  -  %s", key, value->data);
-}
-
 int
 gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
         gf1_cli_set_vol_rsp  rsp   = {0,};
         int                  ret   = 0;
-        dict_t              *dict  = NULL;
-        int                  dict_count = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
@@ -945,39 +935,6 @@ gf_cli3_1_set_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
         }
-
-        if (rsp.op_ret == 1) { // if the command was volume set <vol> history
-
-                if (!rsp.dict.dict_len) {
-                        cli_out ("No volumes present");
-                        ret = 0;
-                        goto out;
-                }
-
-                dict = dict_new ();
-
-                if (!dict) {
-                        ret = -1;
-                        goto out;
-                }
-
-                ret = dict_unserialize (rsp.dict.dict_val,
-                                        rsp.dict.dict_len,
-                                        &dict);
-
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR,
-                                "Unable to allocate memory");
-                        goto out;
-                }
-                cli_out ("Options:");
-                dict_foreach (dict, _cli_out_options, &dict_count);
-                if (!dict_count)
-                        cli_out ("No Options Reconfigured!!");
-                goto out;
-        }
-
-
 
         gf_log ("cli", GF_LOG_NORMAL, "Received resp to set");
 
