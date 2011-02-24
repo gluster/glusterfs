@@ -1002,10 +1002,11 @@ struct cli_cmd volume_cmds[] = {
          cli_cmd_volume_reset_cbk,
          "reset all the reconfigured options"},
 
+#if (SYNCDAEMON_COMPILE)
         {"volume gsync <start|stop|configure> <MASTER> <SLAVE> [options]",
          cli_cmd_volume_gsync_set_cbk,
          "Geo-sync operations"},
-
+#endif
         { NULL, NULL, NULL }
 };
 
