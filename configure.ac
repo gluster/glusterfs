@@ -296,9 +296,11 @@ case $host_os in
 	enable_georeplication=no
         ;;
 esac
-
+SYNCDAEMON_COMPILE=0
 if test "x$enable_georeplication" != "xno"; then
   SYNCDAEMON_SUBDIR=utils
+  SYNCDAEMON_COMPILE=1
+
   BUILD_SYNCDAEMON="yes"
   AM_PATH_PYTHON([2.4])
   echo -n "checking if python is python 2.x... "
@@ -316,7 +318,7 @@ if test "x$enable_georeplication" != "xno"; then
     AC_MSG_ERROR([python does not have ctypes support])
   fi
 fi
-
+AC_SUBST(SYNCDAEMON_COMPILE)
 AC_SUBST(SYNCDAEMON_SUBDIR)
 # end SYNCDAEMON section
 
