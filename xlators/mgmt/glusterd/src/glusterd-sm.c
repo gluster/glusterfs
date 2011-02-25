@@ -41,6 +41,7 @@
 #include "compat-errno.h"
 #include "statedump.h"
 #include "glusterd-sm.h"
+#include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
 
@@ -129,24 +130,60 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
 {
         int                             ret = 0;
         rpc_clnt_procedure_t            *proc = NULL;
-        glusterd_conf_t                 *conf = NULL;
         xlator_t                        *this = NULL;
         glusterd_friend_update_ctx_t    ctx = {{0},};
+        glusterd_peerinfo_t             *peerinfo = NULL;
+        glusterd_conf_t                 *priv = NULL;
+        dict_t                          *friends = NULL;
+        char                            key[100] = {0,};
+        int32_t                         count = 0;
 
         this = THIS;
-        conf = this->private;
+        priv = this->private;
 
-        GF_ASSERT (conf);
-        GF_ASSERT (conf->mgmt);
+        GF_ASSERT (priv);
 
         ctx.hostname = hostname;
         ctx.op = GD_FRIEND_UPDATE_DEL;
-        proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
-        if (proc->fn) {
-                ret = proc->fn (NULL, this, &ctx);
+
+        friends = dict_new ();
+        if (!friends)
+                goto out;
+
+        snprintf (key, sizeof (key), "op");
+        ret = dict_set_int32 (friends, key, ctx.op);
+        if (ret)
+                goto out;
+
+        snprintf (key, sizeof (key), "hostname");
+        ret = dict_set_str (friends, key, hostname);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (friends, "count", count);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                if (!peerinfo->connected)
+                        continue;
+
+                ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                        goto out;
+                }
+                proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
+                if (proc->fn) {
+                        ret = proc->fn (NULL, this, friends);
+                }
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+out:
+        if (friends)
+                dict_unref (friends);
 
         return ret;
 }
@@ -244,9 +281,8 @@ glusterd_ac_friend_add (glusterd_friend_sm_event_t *event, void *ctx)
         conf = this->private;
 
         GF_ASSERT (conf);
-        GF_ASSERT (conf->mgmt);
 
-        proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_ADD];
+        proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_ADD];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -271,6 +307,7 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
         glusterd_conf_t         *conf = NULL;
         xlator_t                *this = NULL;
         glusterd_probe_ctx_t    *probe_ctx = NULL;
+        glusterd_peerinfo_t     *peerinfo = NULL;
         dict_t                  *dict = NULL;
 
         GF_ASSERT (ctx);
@@ -284,11 +321,15 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
         conf = this->private;
 
         GF_ASSERT (conf);
-        if (!conf->mgmt)
+
+        ret = glusterd_friend_find (NULL, probe_ctx->hostname, &peerinfo);
+        if (ret) {
+                //We should not reach this state ideally
+                GF_ASSERT (0);
                 goto out;
+        }
 
-
-        proc = &conf->mgmt->proctable[GD_MGMT_PROBE_QUERY];
+        proc = &peerinfo->mgmt->proctable[GD_MGMT_PROBE_QUERY];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -305,6 +346,13 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
                 ret = dict_set_int32 (dict, "port", probe_ctx->port);
                 if (ret)
                         goto out;
+
+                ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                        goto out;
+                }
+
                 ret = proc->fn (frame, this, dict);
                 if (ret)
                         goto out;
@@ -321,7 +369,8 @@ out:
 }
 
 static int
-glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event, void *ctx)
+glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
+                                    void *data)
 {
         int                     ret = 0;
         glusterd_peerinfo_t     *peerinfo = NULL;
@@ -329,7 +378,9 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event, void *ctx
         call_frame_t            *frame = NULL;
         glusterd_conf_t         *conf = NULL;
         xlator_t                *this = NULL;
-
+        glusterd_friend_sm_event_type_t event_type = GD_FRIEND_EVENT_NONE;
+        glusterd_probe_ctx_t            *ctx = NULL;
+        glusterd_friend_sm_event_t      *new_event = NULL;
 
         GF_ASSERT (event);
         peerinfo = event->peerinfo;
@@ -338,15 +389,42 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event, void *ctx
         conf = this->private;
 
         GF_ASSERT (conf);
-        GF_ASSERT (conf->mgmt);
 
-        proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_REMOVE];
+        ctx = event->ctx;
+
+        if (!peerinfo->connected) {
+                event_type = GD_FRIEND_EVENT_REMOVE_FRIEND;
+
+                ret = glusterd_friend_sm_new_event (event_type, &new_event);
+
+                if (!ret) {
+                        new_event->peerinfo = peerinfo;
+                        ret = glusterd_friend_sm_inject_event (new_event);
+                } else {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                 "Unable to get event");
+                }
+
+                if (ctx)
+                        ret = glusterd_xfer_cli_deprobe_resp (ctx->req, ret, 0,
+                                                              ctx->hostname);
+                glusterd_friend_sm ();
+                glusterd_op_sm ();
+
+                if (ctx) {
+                        glusterd_broadcast_friend_delete (ctx->hostname, NULL);
+                        glusterd_destroy_probe_ctx (ctx);
+                }
+                goto out;
+        }
+
+        proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_REMOVE];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
                         goto out;
                 }
-                frame->local = ctx;
+                frame->local = data;
                 ret = proc->fn (frame, this, event);
         }
 
@@ -359,30 +437,77 @@ out:
 static int
 glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
 {
-        int                     ret = 0;
-        glusterd_peerinfo_t     *peerinfo = NULL;
-        rpc_clnt_procedure_t    *proc = NULL;
-        glusterd_conf_t         *conf = NULL;
-        xlator_t                *this = NULL;
-        glusterd_friend_update_ctx_t    ev_ctx = {{0}};
+        int                           ret         = 0;
+        glusterd_peerinfo_t          *peerinfo    = NULL;
+        rpc_clnt_procedure_t         *proc        = NULL;
+        xlator_t                     *this        = NULL;
+        glusterd_friend_update_ctx_t  ev_ctx      = {{0}};
+        glusterd_conf_t              *priv        = NULL;
+        dict_t                       *friends     = NULL;
+        char                          key[100]    = {0,};
+        char                         *dup_buf     = NULL;
+        int32_t                       count       = 0;
 
         GF_ASSERT (event);
         peerinfo = event->peerinfo;
 
         this = THIS;
-        conf = this->private;
+        priv = this->private;
 
-        GF_ASSERT (conf);
-        GF_ASSERT (conf->mgmt);
+        GF_ASSERT (priv);
 
         ev_ctx.op = GD_FRIEND_UPDATE_ADD;
 
-        proc = &conf->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
-        if (proc->fn) {
-                ret = proc->fn (NULL, this, &ev_ctx);
+        friends = dict_new ();
+        if (!friends)
+                goto out;
+
+        snprintf (key, sizeof (key), "op");
+        ret = dict_set_int32 (friends, key, ev_ctx.op);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                count++;
+                snprintf (key, sizeof (key), "friend%d.uuid", count);
+                dup_buf = gf_strdup (uuid_utoa (peerinfo->uuid));
+                ret = dict_set_dynstr (friends, key, dup_buf);
+                if (ret)
+                        goto out;
+                snprintf (key, sizeof (key), "friend%d.hostname", count);
+                ret = dict_set_str (friends, key, peerinfo->hostname);
+                if (ret)
+                        goto out;
+                gf_log ("", GF_LOG_NORMAL, "Added uuid: %s, host: %s",
+                        dup_buf, peerinfo->hostname);
+        }
+
+        ret = dict_set_int32 (friends, "count", count);
+        if (ret)
+                goto out;
+
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                if (!peerinfo->connected)
+                        continue;
+
+                ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                        goto out;
+                }
+
+                proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
+                if (proc->fn) {
+                        ret = proc->fn (NULL, this, friends);
+                }
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+
+out:
+        if (friends)
+                dict_unref (friends);
+
         return ret;
 }
 

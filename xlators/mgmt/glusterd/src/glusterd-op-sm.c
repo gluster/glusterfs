@@ -4987,25 +4987,37 @@ glusterd_op_ac_none (glusterd_op_sm_event_t *event, void *ctx)
 static int
 glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                     ret = 0;
-        rpc_clnt_procedure_t    *proc = NULL;
-        glusterd_conf_t         *priv = NULL;
-        xlator_t                *this = NULL;
+        int                   ret      = 0;
+        rpc_clnt_procedure_t *proc     = NULL;
+        glusterd_conf_t      *priv     = NULL;
+        xlator_t             *this     = NULL;
+        glusterd_peerinfo_t  *peerinfo = NULL;
 
         this = THIS;
         priv = this->private;
+        GF_ASSERT (priv);
 
-        proc = &priv->mgmt->proctable[GD_MGMT_CLUSTER_LOCK];
-        if (proc->fn) {
-                ret = proc->fn (NULL, this, NULL);
-                if (ret)
-                        goto out;
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                GF_ASSERT (peerinfo);
+
+                if (!peerinfo->connected)
+                        continue;
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
+                        continue;
+
+                proc = &peerinfo->mgmt->proctable[GD_MGMT_CLUSTER_LOCK];
+                if (proc->fn) {
+                        ret = proc->fn (NULL, this, peerinfo);
+                        if (ret)
+                                continue;
+                        opinfo.pending_count++;
+                }
         }
 
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc ();
 
-out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -5014,13 +5026,15 @@ out:
 static int
 glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                     ret = 0;
-        rpc_clnt_procedure_t    *proc = NULL;
-        glusterd_conf_t         *priv = NULL;
-        xlator_t                *this = NULL;
+        int                   ret      = 0;
+        rpc_clnt_procedure_t *proc     = NULL;
+        glusterd_conf_t      *priv     = NULL;
+        xlator_t             *this     = NULL;
+        glusterd_peerinfo_t  *peerinfo = NULL;
 
         this = THIS;
         priv = this->private;
+        GF_ASSERT (priv);
 
         /*ret = glusterd_unlock (priv->uuid);
 
@@ -5028,17 +5042,27 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         */
 
-        proc = &priv->mgmt->proctable[GD_MGMT_CLUSTER_UNLOCK];
-        if (proc->fn) {
-                ret = proc->fn (NULL, this, NULL);
-                if (ret)
-                        goto out;
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                GF_ASSERT (peerinfo);
+
+                if (!peerinfo->connected)
+                        continue;
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
+                        continue;
+
+                proc = &peerinfo->mgmt->proctable[GD_MGMT_CLUSTER_UNLOCK];
+                if (proc->fn) {
+                        ret = proc->fn (NULL, this, peerinfo);
+                        if (ret)
+                                continue;
+                        opinfo.pending_count++;
+                }
         }
 
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc ();
 
-out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -5118,25 +5142,43 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         rpc_clnt_procedure_t    *proc = NULL;
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
+        glusterd_peerinfo_t     *peerinfo = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-        GF_ASSERT (priv->mgmt);
 
-        proc = &priv->mgmt->proctable[GD_MGMT_STAGE_OP];
-        GF_ASSERT (proc);
-        if (proc->fn) {
-                ret = proc->fn (NULL, this, NULL);
-                if (ret)
-                        goto out;
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                GF_ASSERT (peerinfo);
+
+                if (!peerinfo->connected)
+                        continue;
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
+                        continue;
+
+                proc = &peerinfo->mgmt->proctable[GD_MGMT_STAGE_OP];
+                GF_ASSERT (proc);
+                if (proc->fn) {
+                        ret = proc->fn (NULL, this, NULL);
+                        if (ret)
+                                continue;
+                        opinfo.pending_count++;
+                }
         }
+
+        if (ret) {
+                glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
+                opinfo.op_ret = ret;
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
+                opinfo.pending_count);
 
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc ();
 
-out:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -5188,31 +5230,49 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
         dict_t                  *dict = NULL;
+        glusterd_peerinfo_t     *peerinfo = NULL;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-        GF_ASSERT (priv->mgmt);
 
-        proc = &priv->mgmt->proctable[GD_MGMT_COMMIT_OP];
-        GF_ASSERT (proc);
-        if (proc->fn) {
-                ret = proc->fn (NULL, this, NULL);
-                if (ret)
-                        goto out;
+        list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
+                GF_ASSERT (peerinfo);
+
+                if (!peerinfo->connected)
+                        continue;
+                if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+                    (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
+                        continue;
+
+                proc = &peerinfo->mgmt->proctable[GD_MGMT_COMMIT_OP];
+                GF_ASSERT (proc);
+                if (proc->fn) {
+                        ret = proc->fn (NULL, this, peerinfo);
+                        if (ret)
+                                continue;
+                        opinfo.pending_count++;
+                }
+        }
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
+                opinfo.pending_count);
+
+        if (ret) {
+                glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
+                opinfo.op_ret = ret;
         }
 
         if (!opinfo.pending_count) {
                 dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-                if (dict) {
-                        dict = dict_ref (dict);
-                        ret = glusterd_op_start_rb_timer (dict);
-                        if (ret)
-                                goto out;
-                } else {
+                if (!dict) {
                         ret = glusterd_op_sm_inject_all_acc ();
+                        goto out;
                 }
+
+                dict = dict_ref (dict);
+                ret = glusterd_op_start_rb_timer (dict);
         }
 
 out:
