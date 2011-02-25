@@ -3427,60 +3427,11 @@ out:
         return ret;
 }
 
-static int
-glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
-{
-        GF_ASSERT (peerctx);
-
-        glusterd_friend_sm_event_t      *event = NULL;
-        glusterd_probe_ctx_t            *ctx = NULL;
-        int                             ret = -1;
-        glusterd_peerinfo_t             *peerinfo = NULL;
-
-
-        ret = glusterd_friend_sm_new_event
-                        (GD_FRIEND_EVENT_CONNECTED, &event);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to get new event");
-                goto out;
-        }
-
-        ctx = GF_CALLOC (1, sizeof(*ctx), gf_gld_mt_probe_ctx_t);
-
-        if (!ctx) {
-                ret = -1;
-                gf_log ("", GF_LOG_ERROR, "Memory not available");
-                goto out;
-        }
-
-        peerinfo = peerctx->peerinfo;
-        ctx->hostname = gf_strdup (peerinfo->hostname);
-        ctx->port = peerinfo->port;
-        ctx->req = peerctx->args.req;
-
-        event->peerinfo = peerinfo;
-        event->ctx = ctx;
-
-        ret = glusterd_friend_sm_inject_event (event);
-
-        if (ret) {
-                gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject "
-                        "EVENT_CONNECTED ret = %d", ret);
-                goto out;
-        }
-
-out:
-        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
-        return ret;
-}
-
 int
 glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                      void *data)
 {
         xlator_t                *this = NULL;
-        char                    *handshake = "on";
         glusterd_conf_t         *conf = NULL;
         int                     ret = 0;
         glusterd_peerinfo_t     *peerinfo = NULL;
@@ -3494,30 +3445,15 @@ glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         this = THIS;
         conf = this->private;
 
-
         switch (event) {
         case RPC_CLNT_CONNECT:
         {
                 gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
                 peerinfo->connected = 1;
 
-                if ((ret < 0) || (strcasecmp (handshake, "on"))) {
-                        //ret = glusterd_handshake (this, peerinfo->rpc);
-
-                } else {
-                        //conf->rpc->connected = 1;
-                        ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
-                }
-
-                if (GD_MODE_ON == peerctx->args.mode) {
-                        ret = glusterd_event_connected_inject (peerctx);
-                        peerctx->args.req = NULL;
-                } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
-                        peerctx->args.mode = GD_MODE_ON;
-                }
-
-                glusterd_friend_sm ();
-                glusterd_op_sm ();
+                ret = glusterd_peer_handshake (this, rpc, peerctx);
+                if (ret)
+                        gf_log ("", GF_LOG_ERROR, "glusterd handshake failed");
                 break;
         }
 

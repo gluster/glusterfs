@@ -49,7 +49,6 @@
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
 extern struct rpcsvc_program gluster_handshake_prog;
-extern struct rpc_clnt_program glusterd3_1_mgmt_prog;
 extern struct rpcsvc_program gluster_pmap_prog;
 extern glusterd_op_info_t opinfo;
 
@@ -373,7 +372,6 @@ init (xlator_t *this)
         INIT_LIST_HEAD (&conf->volumes);
         pthread_mutex_init (&conf->mutex, NULL);
         conf->rpc = rpc;
-        conf->mgmt = &glusterd3_1_mgmt_prog;
         strncpy (conf->workdir, dirname, PATH_MAX);
 
         INIT_LIST_HEAD (&conf->xprt_list);
