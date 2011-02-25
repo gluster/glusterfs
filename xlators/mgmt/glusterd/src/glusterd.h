@@ -95,7 +95,6 @@ typedef struct {
         uuid_t            uuid;
         char              workdir[PATH_MAX];
         rpcsvc_t          *rpc;
-        rpc_clnt_prog_t   *mgmt;
         struct pmap_registry *pmap;
         struct list_head  volumes;
         struct list_head  xprt_list;
