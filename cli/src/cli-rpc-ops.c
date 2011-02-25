@@ -38,7 +38,7 @@
 #include "portmap.h"
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
-extern int      cli_op_ret;
+extern int              cli_op_ret;
 
 char *cli_volume_type[] = {"Distribute",
                            "Stripe",
@@ -1367,7 +1367,7 @@ gf_cli3_1_probe (call_frame_t *frame, xlator_t *this,
         req.port     = port;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_PROBE, NULL, gf_xdr_from_cli_probe_req,
+                              GLUSTER_CLI_PROBE, NULL, gf_xdr_from_cli_probe_req,
                               this, gf_cli3_1_probe_cbk);
 
 out:
@@ -1403,7 +1403,7 @@ gf_cli3_1_deprobe (call_frame_t *frame, xlator_t *this,
         req.port     = port;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_DEPROBE, NULL,
+                              GLUSTER_CLI_DEPROBE, NULL,
                               gf_xdr_from_cli_deprobe_req,
                               this, gf_cli3_1_deprobe_cbk);
 
@@ -1427,7 +1427,7 @@ gf_cli3_1_list_friends (call_frame_t *frame, xlator_t *this,
         req.flags = GF_CLI_LIST_ALL;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_LIST_FRIENDS, NULL,
+                              GLUSTER_CLI_LIST_FRIENDS, NULL,
                               gf_xdr_from_cli_peer_list_req,
                               this, gf_cli3_1_list_friends_cbk);
 
@@ -1506,7 +1506,7 @@ gf_cli3_1_get_volume (call_frame_t *frame, xlator_t *this,
                                            (size_t *)&req.dict.dict_len);
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_GET_VOLUME, NULL,
+                              GLUSTER_CLI_GET_VOLUME, NULL,
                               gf_xdr_from_cli_get_vol_req,
                               this, gf_cli3_1_get_volume_cbk);
 
@@ -1563,7 +1563,7 @@ gf_cli3_1_create_volume (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_CREATE_VOLUME, NULL,
+                              GLUSTER_CLI_CREATE_VOLUME, NULL,
                               gf_xdr_from_cli_create_vol_req,
                               this, gf_cli3_1_create_volume_cbk);
 
@@ -1605,7 +1605,7 @@ gf_cli3_1_delete_volume (call_frame_t *frame, xlator_t *this,
         req.volname = data;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_DELETE_VOLUME, NULL,
+                              GLUSTER_CLI_DELETE_VOLUME, NULL,
                               gf_xdr_from_cli_delete_vol_req,
                               this, gf_cli3_1_delete_volume_cbk);
 
@@ -1638,7 +1638,7 @@ gf_cli3_1_start_volume (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit (req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_START_VOLUME, NULL,
+                              GLUSTER_CLI_START_VOLUME, NULL,
                               gf_xdr_from_cli_start_vol_req,
                               this, gf_cli3_1_start_volume_cbk);
 
@@ -1671,7 +1671,7 @@ gf_cli3_1_stop_volume (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_STOP_VOLUME, NULL,
+                              GLUSTER_CLI_STOP_VOLUME, NULL,
                               gf_xdr_from_cli_stop_vol_req,
                               this, gf_cli3_1_stop_volume_cbk);
 
@@ -1765,7 +1765,7 @@ gf_cli3_1_rename_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_RENAME_VOLUME, NULL,
+                              GLUSTER_CLI_RENAME_VOLUME, NULL,
                               gf_xdr_from_cli_rename_vol_req,
                               this, gf_cli3_1_rename_volume_cbk);
 
@@ -1806,7 +1806,7 @@ gf_cli3_1_reset_volume (call_frame_t *frame, xlator_t *this,
 
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                               GD_MGMT_CLI_RESET_VOLUME, NULL,
+                               GLUSTER_CLI_RESET_VOLUME, NULL,
                                gf_xdr_from_cli_reset_vol_req,
                                this, gf_cli3_1_reset_volume_cbk);
 
@@ -1847,7 +1847,7 @@ gf_cli3_1_set_volume (call_frame_t *frame, xlator_t *this,
 
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_SET_VOLUME, NULL,
+                              GLUSTER_CLI_SET_VOLUME, NULL,
                               gf_xdr_from_cli_set_vol_req,
                               this, gf_cli3_1_set_volume_cbk);
 
@@ -1892,7 +1892,7 @@ gf_cli3_1_add_brick (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_ADD_BRICK, NULL,
+                              GLUSTER_CLI_ADD_BRICK, NULL,
                               gf_xdr_from_cli_add_brick_req,
                               this, gf_cli3_1_add_brick_cbk);
 
@@ -1941,7 +1941,7 @@ gf_cli3_1_remove_brick (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_REMOVE_BRICK, NULL,
+                              GLUSTER_CLI_REMOVE_BRICK, NULL,
                               gf_xdr_from_cli_remove_brick_req,
                               this, gf_cli3_1_remove_brick_cbk);
 
@@ -2036,7 +2036,7 @@ gf_cli3_1_replace_brick (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_REPLACE_BRICK, NULL,
+                              GLUSTER_CLI_REPLACE_BRICK, NULL,
                               gf_xdr_from_cli_replace_brick_req,
                               this, gf_cli3_1_replace_brick_cbk);
 
@@ -2078,7 +2078,7 @@ gf_cli3_1_log_filename (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_LOG_FILENAME, NULL,
+                              GLUSTER_CLI_LOG_FILENAME, NULL,
                               gf_xdr_from_cli_log_filename_req,
                               this, gf_cli3_1_log_filename_cbk);
 
@@ -2113,7 +2113,7 @@ gf_cli3_1_log_locate (call_frame_t *frame, xlator_t *this,
                 req.brick = "";
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_LOG_LOCATE, NULL,
+                              GLUSTER_CLI_LOG_LOCATE, NULL,
                               gf_xdr_from_cli_log_locate_req,
                               this, gf_cli3_1_log_locate_cbk);
 
@@ -2147,7 +2147,7 @@ gf_cli3_1_log_rotate (call_frame_t *frame, xlator_t *this,
                 req.brick = "";
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_LOG_ROTATE, NULL,
+                              GLUSTER_CLI_LOG_ROTATE, NULL,
                               gf_xdr_from_cli_log_rotate_req,
                               this, gf_cli3_1_log_rotate_cbk);
 
@@ -2170,7 +2170,7 @@ gf_cli3_1_sync_volume (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit ((gf1_cli_sync_volume_req*)data, frame,
-                              cli_rpc_prog, GD_MGMT_CLI_SYNC_VOLUME,
+                              cli_rpc_prog, GLUSTER_CLI_SYNC_VOLUME,
                               NULL, gf_xdr_from_cli_sync_volume_req,
                               this, gf_cli3_1_sync_volume_cbk);
 
@@ -2345,7 +2345,7 @@ gf_cli3_1_fsm_log (call_frame_t *frame, xlator_t *this, void *data)
                 goto out;
         req.name = data;
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_FSM_LOG, NULL,
+                              GLUSTER_CLI_FSM_LOG, NULL,
                               gf_xdr_from_cli_fsm_log_req,
                               this, gf_cli3_1_fsm_log_cbk);
 
@@ -2596,7 +2596,7 @@ gf_cli3_1_gsync_set (call_frame_t *frame, xlator_t *this,
         }
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_GSYNC_SET, NULL,
+                              GLUSTER_CLI_GSYNC_SET, NULL,
                               gf_xdr_from_cli_gsync_set_req,
                               this, gf_cli3_1_gsync_set_cbk);
 
@@ -2605,39 +2605,38 @@ out:
 }
 
 
-
-struct rpc_clnt_procedure gluster3_1_cli_actors[GF1_CLI_MAXVALUE] = {
-        [GF1_CLI_NULL]        = {"NULL", NULL },
-        [GF1_CLI_PROBE]  = { "PROBE_QUERY",  gf_cli3_1_probe},
-        [GF1_CLI_DEPROBE]  = { "DEPROBE_QUERY",  gf_cli3_1_deprobe},
-        [GF1_CLI_LIST_FRIENDS]  = { "LIST_FRIENDS",  gf_cli3_1_list_friends},
-        [GF1_CLI_CREATE_VOLUME] = {"CREATE_VOLUME", gf_cli3_1_create_volume},
-        [GF1_CLI_DELETE_VOLUME] = {"DELETE_VOLUME", gf_cli3_1_delete_volume},
-        [GF1_CLI_START_VOLUME] = {"START_VOLUME", gf_cli3_1_start_volume},
-        [GF1_CLI_STOP_VOLUME] = {"STOP_VOLUME", gf_cli3_1_stop_volume},
-        [GF1_CLI_RENAME_VOLUME] = {"RENAME_VOLUME", gf_cli3_1_rename_volume},
-        [GF1_CLI_DEFRAG_VOLUME] = {"DEFRAG_VOLUME", gf_cli3_1_defrag_volume},
-        [GF1_CLI_GET_VOLUME] = {"GET_VOLUME", gf_cli3_1_get_volume},
-        [GF1_CLI_GET_NEXT_VOLUME] = {"GET_NEXT_VOLUME", gf_cli3_1_get_next_volume},
-        [GF1_CLI_SET_VOLUME] = {"SET_VOLUME", gf_cli3_1_set_volume},
-        [GF1_CLI_ADD_BRICK] = {"ADD_BRICK", gf_cli3_1_add_brick},
-        [GF1_CLI_REMOVE_BRICK] = {"REMOVE_BRICK", gf_cli3_1_remove_brick},
-        [GF1_CLI_REPLACE_BRICK] = {"REPLACE_BRICK", gf_cli3_1_replace_brick},
-        [GF1_CLI_LOG_FILENAME] = {"LOG FILENAME", gf_cli3_1_log_filename},
-        [GF1_CLI_LOG_LOCATE] = {"LOG LOCATE", gf_cli3_1_log_locate},
-        [GF1_CLI_LOG_ROTATE] = {"LOG ROTATE", gf_cli3_1_log_rotate},
-        [GF1_CLI_GETSPEC] = {"GETSPEC", gf_cli3_1_getspec},
-        [GF1_CLI_PMAP_PORTBYBRICK] = {"PMAP PORTBYBRICK", gf_cli3_1_pmap_b2p},
-        [GF1_CLI_SYNC_VOLUME] = {"SYNC_VOLUME", gf_cli3_1_sync_volume},
-        [GF1_CLI_RESET_VOLUME] = {"RESET_VOLUME", gf_cli3_1_reset_volume},
-        [GF1_CLI_GSYNC_SET] = {"GSYNC_SET", gf_cli3_1_gsync_set},
-        [GF1_CLI_FSM_LOG] = {"FSM_LOG", gf_cli3_1_fsm_log}
+struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
+        [GLUSTER_CLI_NULL]             = {"NULL", NULL },
+        [GLUSTER_CLI_PROBE]            = {"PROBE_QUERY", gf_cli3_1_probe},
+        [GLUSTER_CLI_DEPROBE]          = {"DEPROBE_QUERY", gf_cli3_1_deprobe},
+        [GLUSTER_CLI_LIST_FRIENDS]     = {"LIST_FRIENDS", gf_cli3_1_list_friends},
+        [GLUSTER_CLI_CREATE_VOLUME]    = {"CREATE_VOLUME", gf_cli3_1_create_volume},
+        [GLUSTER_CLI_DELETE_VOLUME]    = {"DELETE_VOLUME", gf_cli3_1_delete_volume},
+        [GLUSTER_CLI_START_VOLUME]     = {"START_VOLUME", gf_cli3_1_start_volume},
+        [GLUSTER_CLI_STOP_VOLUME]      = {"STOP_VOLUME", gf_cli3_1_stop_volume},
+        [GLUSTER_CLI_RENAME_VOLUME]    = {"RENAME_VOLUME", gf_cli3_1_rename_volume},
+        [GLUSTER_CLI_DEFRAG_VOLUME]    = {"DEFRAG_VOLUME", gf_cli3_1_defrag_volume},
+        [GLUSTER_CLI_GET_VOLUME]       = {"GET_VOLUME", gf_cli3_1_get_volume},
+        [GLUSTER_CLI_GET_NEXT_VOLUME]  = {"GET_NEXT_VOLUME", gf_cli3_1_get_next_volume},
+        [GLUSTER_CLI_SET_VOLUME]       = {"SET_VOLUME", gf_cli3_1_set_volume},
+        [GLUSTER_CLI_ADD_BRICK]        = {"ADD_BRICK", gf_cli3_1_add_brick},
+        [GLUSTER_CLI_REMOVE_BRICK]     = {"REMOVE_BRICK", gf_cli3_1_remove_brick},
+        [GLUSTER_CLI_REPLACE_BRICK]    = {"REPLACE_BRICK", gf_cli3_1_replace_brick},
+        [GLUSTER_CLI_LOG_FILENAME]     = {"LOG FILENAME", gf_cli3_1_log_filename},
+        [GLUSTER_CLI_LOG_LOCATE]       = {"LOG LOCATE", gf_cli3_1_log_locate},
+        [GLUSTER_CLI_LOG_ROTATE]       = {"LOG ROTATE", gf_cli3_1_log_rotate},
+        [GLUSTER_CLI_GETSPEC]          = {"GETSPEC", gf_cli3_1_getspec},
+        [GLUSTER_CLI_PMAP_PORTBYBRICK] = {"PMAP PORTBYBRICK", gf_cli3_1_pmap_b2p},
+        [GLUSTER_CLI_SYNC_VOLUME]      = {"SYNC_VOLUME", gf_cli3_1_sync_volume},
+        [GLUSTER_CLI_RESET_VOLUME]     = {"RESET_VOLUME", gf_cli3_1_reset_volume},
+        [GLUSTER_CLI_FSM_LOG]          = {"FSM_LOG", gf_cli3_1_fsm_log},
+        [GLUSTER_CLI_GSYNC_SET]        = {"GSYNC_SET", gf_cli3_1_gsync_set},
 };
 
-struct rpc_clnt_program cli3_1_prog = {
-        .progname = "CLI 3.1",
-        .prognum  = GLUSTER3_1_CLI_PROGRAM,
-        .progver  = GLUSTER3_1_CLI_VERSION,
-        .proctable  = gluster3_1_cli_actors,
-        .numproc  = GLUSTER3_1_CLI_PROCCNT,
+struct rpc_clnt_program cli_prog = {
+        .progname  = "Gluster CLI",
+        .prognum   = GLUSTER_CLI_PROGRAM,
+        .progver   = GLUSTER_CLI_VERSION,
+        .numproc   = GLUSTER_CLI_PROCCNT,
+        .proctable = gluster_cli_actors,
 };

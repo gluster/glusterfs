@@ -48,6 +48,8 @@
 
 static uuid_t glusterd_uuid;
 extern struct rpcsvc_program glusterd1_mop_prog;
+extern struct rpcsvc_program gd_svc_mgmt_prog;
+extern struct rpcsvc_program gd_svc_cli_prog;
 extern struct rpcsvc_program gluster_handshake_prog;
 extern struct rpcsvc_program gluster_pmap_prog;
 extern glusterd_op_info_t opinfo;
@@ -352,16 +354,33 @@ init (xlator_t *this)
                 goto out;
         }
 
+        ret = glusterd_program_register (this, rpc, &gd_svc_cli_prog);
+        if (ret) {
+                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                goto out;
+        }
+
+        ret = glusterd_program_register (this, rpc, &gd_svc_mgmt_prog);
+        if (ret) {
+                rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
+                goto out;
+        }
+
         ret = glusterd_program_register (this, rpc, &gluster_pmap_prog);
         if (ret) {
                 rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_mgmt_prog);
                 goto out;
         }
 
         ret = glusterd_program_register (this, rpc, &gluster_handshake_prog);
         if (ret) {
                 rpcsvc_program_unregister (rpc, &glusterd1_mop_prog);
-                rpcsvc_program_unregister (rpc, &gluster_handshake_prog);
+                rpcsvc_program_unregister (rpc, &gluster_pmap_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_cli_prog);
+                rpcsvc_program_unregister (rpc, &gd_svc_mgmt_prog);
                 goto out;
         }
 

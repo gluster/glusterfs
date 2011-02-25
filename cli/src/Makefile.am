@@ -1,7 +1,7 @@
 sbin_PROGRAMS = gluster
 
 gluster_SOURCES = cli.c registry.c input.c cli-cmd.c cli-rl.c \
-	 cli-cmd-volume.c cli-cmd-peer.c cli3_1-cops.c cli-cmd-parser.c\
+	 cli-cmd-volume.c cli-cmd-peer.c cli-rpc-ops.c cli-cmd-parser.c\
 	 cli-cmd-system.c cli-cmd-misc.c
 
 gluster_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD)\
