@@ -367,8 +367,9 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                             && (op_errno != ENOENT)
                             && (op_errno != ESTALE)) {
 				gf_log (this->name, GF_LOG_INFO,
-					"subvolume %s returned -1 (%s)",
-					prev->this->name, strerror (op_errno));
+					"subvolume %s for %s returned -1 (%s)",
+					prev->this->name, local->loc.path,
+                                        strerror (op_errno));
 			}
                         
                         if (op_errno == ESTALE) {
