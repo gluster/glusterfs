@@ -1151,12 +1151,30 @@ struct rpc_clnt_procedure glusterd3_1_clnt_mgmt_actors[GD_MGMT_MAXVALUE] = {
         [GD_MGMT_FRIEND_UPDATE]  = { "FRIEND_UPDATE",  glusterd3_1_friend_update},
 };
 
-
-
 struct rpc_clnt_program glusterd3_1_mgmt_prog = {
         .progname  = "Mgmt 3.1",
         .prognum   = GLUSTERD1_MGMT_PROGRAM,
         .progver   = GLUSTERD1_MGMT_VERSION,
         .proctable = glusterd3_1_clnt_mgmt_actors,
         .numproc   = GLUSTERD1_MGMT_PROCCNT,
+};
+
+struct rpc_clnt_procedure gd_clnt_mgmt_actors[GLUSTERD_MGMT_MAXVALUE] = {
+        [GLUSTERD_MGMT_NULL]           = {"NULL", NULL },
+        [GLUSTERD_MGMT_PROBE_QUERY]    = {"PROBE_QUERY", glusterd3_1_probe},
+        [GLUSTERD_MGMT_FRIEND_ADD]     = {"FRIEND_ADD", glusterd3_1_friend_add},
+        [GLUSTERD_MGMT_CLUSTER_LOCK]   = {"CLUSTER_LOCK", glusterd3_1_cluster_lock},
+        [GLUSTERD_MGMT_CLUSTER_UNLOCK] = {"CLUSTER_UNLOCK", glusterd3_1_cluster_unlock},
+        [GLUSTERD_MGMT_STAGE_OP]       = {"STAGE_OP", glusterd3_1_stage_op},
+        [GLUSTERD_MGMT_COMMIT_OP]      = {"COMMIT_OP", glusterd3_1_commit_op},
+        [GLUSTERD_MGMT_FRIEND_REMOVE]  = {"FRIEND_REMOVE", glusterd3_1_friend_remove},
+        [GLUSTERD_MGMT_FRIEND_UPDATE]  = {"FRIEND_UPDATE", glusterd3_1_friend_update},
+};
+
+struct rpc_clnt_program gd_clnt_mgmt_prog = {
+        .progname  = "glusterd clnt mgmt",
+        .prognum   = GD_MGMT_PROGRAM,
+        .progver   = GD_MGMT_VERSION,
+        .numproc   = GD_MGMT_PROCCNT,
+        .proctable = gd_clnt_mgmt_actors,
 };

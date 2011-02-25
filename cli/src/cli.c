@@ -101,7 +101,7 @@ struct rpc_clnt *global_rpc;
 rpc_clnt_prog_t *cli_rpc_prog;
 
 
-extern struct rpc_clnt_program cli3_1_prog;
+extern struct rpc_clnt_program cli_prog;
 
 static error_t
 parse_opts (int key, char *arg, struct argp_state *argp_state)
@@ -499,7 +499,7 @@ cli_rpc_init (struct cli_state *state)
 
 
         this = THIS;
-        cli_rpc_prog = &cli3_1_prog;
+        cli_rpc_prog = &cli_prog;
         options = dict_new ();
         if (!options)
                 goto out;

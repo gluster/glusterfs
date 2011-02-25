@@ -69,7 +69,7 @@ cli_cmd_getspec_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret)
                 goto out;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_GETSPEC];
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_GETSPEC];
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
@@ -112,7 +112,7 @@ cli_cmd_pmap_b2p_cbk (struct cli_state *state, struct cli_cmd_word *word,
         if (ret)
                 goto out;
 
-        proc = &cli_rpc_prog->proctable[GF1_CLI_PMAP_PORTBYBRICK];
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_PMAP_PORTBYBRICK];
         if (proc->fn) {
                 ret = proc->fn (frame, THIS, dict);
         }
@@ -145,7 +145,7 @@ cli_cmd_fsm_log (struct cli_state *state, struct cli_cmd_word *word,
 
         if (wordcount == 3)
                 name = (char*)words[2];
-        proc = &cli_rpc_prog->proctable[GF1_CLI_FSM_LOG];
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_FSM_LOG];
         if (proc && proc->fn) {
                 frame = create_frame (THIS, THIS->ctx->pool);
                 if (!frame)
