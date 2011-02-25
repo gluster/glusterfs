@@ -24,19 +24,21 @@
 #endif
 
 #include "xlator.h"
+#include "defaults.h"
 #include "glusterfs.h"
 #include "compat-errno.h"
 
 #include "glusterd.h"
 #include "glusterd-utils.h"
+#include "glusterd-op-sm.h"
 
 #include "glusterfs3.h"
 #include "protocol-common.h"
 #include "rpcsvc.h"
 
+extern struct rpc_clnt_program glusterd3_1_mgmt_prog;
 
 typedef ssize_t (*gfs_serialize_t) (struct iovec outmsg, void *data);
-
 
 static size_t
 build_volfile_path (const char *volname, char *path,
@@ -211,3 +213,200 @@ struct rpcsvc_program gluster_handshake_prog = {
         .actors    = gluster_handshake_actors,
         .numactors = GF_HNDSK_MAXVALUE,
 };
+
+char *glusterd_dump_proc[GF_DUMP_MAXVALUE] = {
+        [GF_DUMP_NULL] = "NULL",
+        [GF_DUMP_DUMP] = "DUMP",
+};
+
+rpc_clnt_prog_t glusterd_dump_prog = {
+        .progname  = "GLUSTERD-DUMP",
+        .prognum   = GLUSTER_DUMP_PROGRAM,
+        .progver   = GLUSTER_DUMP_VERSION,
+        .procnames = glusterd_dump_proc,
+};
+
+static int
+glusterd_event_connected_inject (glusterd_peerctx_t *peerctx)
+{
+        GF_ASSERT (peerctx);
+
+        glusterd_friend_sm_event_t      *event = NULL;
+        glusterd_probe_ctx_t            *ctx = NULL;
+        int                             ret = -1;
+        glusterd_peerinfo_t             *peerinfo = NULL;
+
+
+        ret = glusterd_friend_sm_new_event
+                        (GD_FRIEND_EVENT_CONNECTED, &event);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get new event");
+                goto out;
+        }
+
+        ctx = GF_CALLOC (1, sizeof(*ctx), gf_gld_mt_probe_ctx_t);
+
+        if (!ctx) {
+                ret = -1;
+                gf_log ("", GF_LOG_ERROR, "Memory not available");
+                goto out;
+        }
+
+        peerinfo = peerctx->peerinfo;
+        ctx->hostname = gf_strdup (peerinfo->hostname);
+        ctx->port = peerinfo->port;
+        ctx->req = peerctx->args.req;
+
+        event->peerinfo = peerinfo;
+        event->ctx = ctx;
+
+        ret = glusterd_friend_sm_inject_event (event);
+
+        if (ret) {
+                gf_log ("glusterd", GF_LOG_ERROR, "Unable to inject "
+                        "EVENT_CONNECTED ret = %d", ret);
+                goto out;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
+
+int
+glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
+                                gf_prog_detail *prog)
+{
+        gf_prog_detail *trav     = NULL;
+        int             ret      = -1;
+
+        if (!peerinfo || !prog)
+                goto out;
+
+        trav = prog;
+
+        while (trav) {
+                /* Select 'programs' */
+                if ((glusterd3_1_mgmt_prog.prognum == trav->prognum) &&
+                    (glusterd3_1_mgmt_prog.progver == trav->progver)) {
+                        peerinfo->mgmt = &glusterd3_1_mgmt_prog;
+                        gf_log ("", GF_LOG_INFO,
+                                "Using Program %s, Num (%"PRId64"), "
+                                "Version (%"PRId64")",
+                                trav->progname, trav->prognum, trav->progver);
+                        ret = 0;
+                        break;
+                }
+                if (ret) {
+                        gf_log ("", GF_LOG_TRACE,
+                                "%s (%"PRId64") not supported", trav->progname,
+                                trav->progver);
+                }
+                trav = trav->next;
+        }
+
+out:
+        return ret;
+}
+
+int
+glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
+                                int count, void *myframe)
+{
+        int                  ret      = -1;
+        gf_dump_rsp          rsp      = {0,};
+        xlator_t            *this     = NULL;
+        gf_prog_detail      *trav     = NULL;
+        gf_prog_detail      *next     = NULL;
+        call_frame_t        *frame    = NULL;
+        glusterd_peerinfo_t *peerinfo = NULL;
+        glusterd_peerctx_t  *peerctx  = NULL;
+
+        this = THIS;
+        frame = myframe;
+        peerctx = frame->local;
+        peerinfo = peerctx->peerinfo;
+
+        if (-1 == req->rpc_status) {
+                gf_log ("", GF_LOG_ERROR,
+                        "error through RPC layer, retry again later");
+                goto out;
+        }
+
+        ret = xdr_to_dump_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "failed to decode XDR");
+                goto out;
+        }
+        if (-1 == rsp.op_ret) {
+                gf_log (frame->this->name, GF_LOG_ERROR,
+                        "failed to get the 'versions' from remote server");
+                goto out;
+        }
+
+        /* Make sure we assign the proper program to peer */
+        ret = glusterd_set_clnt_mgmt_program (peerinfo, rsp.prog);
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "failed to set the mgmt program");
+                goto out;
+        }
+
+        ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
+
+        if (GD_MODE_ON == peerctx->args.mode) {
+                ret = glusterd_event_connected_inject (peerctx);
+                peerctx->args.req = NULL;
+        } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
+                peerctx->args.mode = GD_MODE_ON;
+        }
+
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        ret = 0;
+out:
+
+        /* don't use GF_FREE, buffer was allocated by libc */
+        if (rsp.prog) {
+                trav = rsp.prog;
+                while (trav) {
+                        next = trav->next;
+                        free (trav->progname);
+                        free (trav);
+                        trav = next;
+                }
+        }
+
+        STACK_DESTROY (frame->root);
+
+        if (ret != 0)
+                rpc_transport_disconnect (peerinfo->rpc->conn.trans);
+
+        return 0;
+}
+
+
+int
+glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
+                         glusterd_peerctx_t *peerctx)
+{
+        call_frame_t        *frame    = NULL;
+        gf_dump_req          req      = {0,};
+        int                  ret      = 0;
+
+        frame = create_frame (this, this->ctx->pool);
+        if (!frame)
+                goto out;
+
+        frame->local = peerctx;
+
+        req.gfs_id = 0xcafe;
+
+        ret = glusterd_submit_request (peerctx->peerinfo, &req, frame,
+                                       &glusterd_dump_prog, GF_DUMP_DUMP,
+                                       NULL, xdr_from_dump_req, this,
+                                       glusterd_peer_dump_version_cbk);
+out:
+        return ret;
+}

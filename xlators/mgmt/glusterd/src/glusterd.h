@@ -477,5 +477,9 @@ glusterd_volume_txn (rpcsvc_request_t *req, char *volname, int flags,
                      glusterd_op_t op);
 
 int
+glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
+                         glusterd_peerctx_t *peerctx);
+
+int
 glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, char **op_errstr);
 #endif

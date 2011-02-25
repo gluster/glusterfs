@@ -93,6 +93,7 @@ struct glusterd_peerinfo_ {
         struct list_head                uuid_list;
         struct list_head                op_peers_list;
         struct rpc_clnt                 *rpc;
+        rpc_clnt_prog_t                 *mgmt;
         int                             connected;
         glusterd_store_handle_t         *shandle;
         glusterd_sm_tr_log_t            sm_log;
