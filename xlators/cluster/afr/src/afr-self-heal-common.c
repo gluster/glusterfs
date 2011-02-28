@@ -118,33 +118,33 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 void
 afr_sh_build_pending_matrix (afr_private_t *priv,
                              int32_t *pending_matrix[], dict_t *xattr[],
-			     int child_count, afr_transaction_type type)
+			                 int child_count, afr_transaction_type type)
 {
-	int i, j, k;
+        int i, j, k;
 
-	/* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-	int32_t pending[3];
-	void *pending_raw = NULL;
-	int ret = -1;
+        /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
+	    int32_t pending[3];
+	    void *pending_raw = NULL;
+	    int ret = -1;
 
         unsigned char *ignorant_subvols = NULL;
 
         ignorant_subvols = GF_CALLOC (sizeof (*ignorant_subvols), child_count,
                                       gf_afr_mt_char);
 
-	/* start clean */
-	for (i = 0; i < child_count; i++) {
-		for (j = 0; j < child_count; j++) {
-			pending_matrix[i][j] = 0;
-		}
-	}
+        /* start clean */
+        for (i = 0; i < child_count; i++) {
+                for (j = 0; j < child_count; j++) {
+                        pending_matrix[i][j] = 0;
+                }
+        }
 
-	for (i = 0; i < child_count; i++) {
-		pending_raw = NULL;
+        for (i = 0; i < child_count; i++) {
+                pending_raw = NULL;
 
                 for (j = 0; j < child_count; j++) {
                         ret = dict_get_ptr (xattr[i], priv->pending_key[j],
-                                            &pending_raw);
+                                             &pending_raw);
 
                         if (ret != 0) {
                                 /*
@@ -157,12 +157,12 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
                                 continue;
                         }
 
-			memcpy (pending, pending_raw, sizeof(pending));
+                        memcpy (pending, pending_raw, sizeof(pending));
                         k = afr_index_for_transaction_type (type);
 
                         pending_matrix[i][j] = ntoh32 (pending[k]);
                 }
-	}
+        }
 
         /*
          * Make all non-ignorant subvols point towards the ignorant
@@ -556,47 +556,47 @@ afr_sh_pending_to_delta (afr_private_t *priv, dict_t **xattr,
                          int32_t *delta_matrix[], int success[],
                          int child_count, afr_transaction_type type)
 {
-	int i = 0;
-	int j = 0;
+        int i = 0;
+        int j = 0;
         int k = 0;
 
-	/* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-	int32_t   pending[3];
-	void    * pending_raw = NULL;
-        int       ret         = 0;
+        /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
+        int32_t   pending[3];
+        void      *pending_raw = NULL;
+        int       ret          = 0;
 
-	/* start clean */
-	for (i = 0; i < child_count; i++) {
-		for (j = 0; j < child_count; j++) {
-			delta_matrix[i][j] = 0;
-		}
-	}
+        /* start clean */
+        for (i = 0; i < child_count; i++) {
+                for (j = 0; j < child_count; j++) {
+                        delta_matrix[i][j] = 0;
+                }
+        }
 
-	for (i = 0; i < child_count; i++) {
-                pending_raw = NULL;
+        for (i = 0; i < child_count; i++) {
+                if (pending_raw)
+                        pending_raw = NULL;
 
                 for (j = 0; j < child_count; j++) {
                         ret = dict_get_ptr (xattr[i], priv->pending_key[j],
-                                            &pending_raw);
+                                             &pending_raw);
                         if (ret < 0)
                                 gf_log ("afr_sh_pending_to_delta",
                                         GF_LOG_DEBUG,
                                         "Unable to get dict value.");
-
                         if (!success[j])
                                 continue;
 
                         k = afr_index_for_transaction_type (type);
 
-                        if (pending_raw) {
-				memcpy (pending, pending_raw, sizeof(pending));
+                        if (pending_raw != NULL) {
+                                memcpy (pending, pending_raw, sizeof(pending));
                                 delta_matrix[i][j] = -(ntoh32 (pending[k]));
                         } else {
                                 delta_matrix[i][j]  = 0;
                         }
 
                 }
-	}
+        }
 }
 
 
@@ -642,25 +642,25 @@ afr_sh_delta_to_xattr (afr_private_t *priv,
 int
 afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
 {
-	afr_private_t *priv = NULL;
-	/* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-	int32_t       pending[3];
-	void          *pending_raw = NULL;
+        afr_private_t *priv = NULL;
+        /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
+        int32_t       pending[3];
+        void          *pending_raw = NULL;
 
-	int           ret = -1;
-	int            i  = 0;
+        int           ret = -1;
+        int            i  = 0;
         int            j  = 0;
 
-	priv = this->private;
+        priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
                 ret = dict_get_ptr (xattr, priv->pending_key[i],
-                                    &pending_raw);
+                                     &pending_raw);
 
                 if (ret != 0)
                         return 0;
 
-		memcpy (pending, pending_raw, sizeof(pending));
+                memcpy (pending, pending_raw, sizeof(pending));
                 j = afr_index_for_transaction_type (AFR_METADATA_TRANSACTION);
 
                 if (pending[j])
@@ -674,25 +674,25 @@ afr_sh_has_metadata_pending (dict_t *xattr, int child_count, xlator_t *this)
 int
 afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 {
-	afr_private_t *priv = NULL;
-	/* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-	int32_t       pending[3];
-	void          *pending_raw = NULL;
+        afr_private_t *priv = NULL;
+        /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
+        int32_t       pending[3];
+        void          *pending_raw = NULL;
 
-	int           ret = -1;
-	int            i  = 0;
+        int           ret = -1;
+        int            i  = 0;
         int            j  = 0;
 
-	priv = this->private;
+        priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
                 ret = dict_get_ptr (xattr, priv->pending_key[i],
-                                    &pending_raw);
+                                     &pending_raw);
 
                 if (ret != 0)
                         return 0;
 
-		memcpy (pending, pending_raw, sizeof(pending));
+                memcpy (pending, pending_raw, sizeof(pending));
                 j = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
 
                 if (pending[j])
@@ -707,24 +707,24 @@ int
 afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
 {
         afr_private_t *priv = NULL;
-	/* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
-	int32_t       pending[3];
-	void          *pending_raw = NULL;
+        /* Indexable by result of afr_index_for_transaction_type(): 0 -- 2. */
+        int32_t       pending[3];
+        void          *pending_raw = NULL;
 
-	int           ret = -1;
-	int            i  = 0;
+        int           ret = -1;
+        int            i  = 0;
         int            j  = 0;
 
-	priv = this->private;
+        priv = this->private;
 
         for (i = 0; i < priv->child_count; i++) {
                 ret = dict_get_ptr (xattr, priv->pending_key[i],
-                                    &pending_raw);
+                                     &pending_raw);
 
                 if (ret != 0)
                         return 0;
 
-		memcpy (pending, pending_raw, sizeof(pending));
+                memcpy (pending, pending_raw, sizeof(pending));
                 j = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
 
                 if (pending[j])
