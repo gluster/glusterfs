@@ -1909,6 +1909,7 @@ nfs_rpcsvc_request_create (rpcsvc_conn_t *conn)
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC call decoding failed");
                 nfs_rpcsvc_request_seterr (req, GARBAGE_ARGS);
+                req->conn = conn;
                 goto err;
         }
 
