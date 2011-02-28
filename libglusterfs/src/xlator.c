@@ -105,16 +105,16 @@ fill_defaults (xlator_t *xl)
 	return;
 }
 
-int 
-_volume_option_value_validate (xlator_t *xl, 
-			       data_pair_t *pair, 
+int
+_volume_option_value_validate (xlator_t *xl,
+			       data_pair_t *pair,
 			       volume_option_t *opt)
 {
 	int       i = 0;
 	int       ret = -1;
  	uint64_t  input_size = 0;
 	long long inputll = 0;
-	
+
 	/* Key is valid, validate the option */
 	switch (opt->type) {
 	case GF_OPTION_TYPE_PATH:
@@ -132,7 +132,7 @@ _volume_option_value_validate (xlator_t *xl,
 			gf_log (xl->name, GF_LOG_WARNING,
 				"option %s %s: '%s' is not an "
 				"absolute path name",
-				pair->key, pair->value->data, 
+				pair->key, pair->value->data,
 				pair->value->data);
 		}
 		ret = 0;
@@ -141,7 +141,7 @@ _volume_option_value_validate (xlator_t *xl,
 	case GF_OPTION_TYPE_INT:
 	{
 		/* Check the range */
-		if (gf_string2longlong (pair->value->data, 
+		if (gf_string2longlong (pair->value->data,
 					&inputll) != 0) {
 			gf_log (xl->name, GF_LOG_ERROR,
 				"invalid number format \"%s\" in "
@@ -158,12 +158,12 @@ _volume_option_value_validate (xlator_t *xl,
 			ret = 0;
 			break;
 		}
-		if ((inputll < opt->min) || 
+		if ((inputll < opt->min) ||
 		    (inputll > opt->max)) {
 			gf_log (xl->name, GF_LOG_WARNING,
 				"'%lld' in 'option %s %s' is out of "
 				"range [%"PRId64" - %"PRId64"]",
-				inputll, pair->key, 
+				inputll, pair->key,
 				pair->value->data,
 				opt->min, opt->max);
 		}
@@ -173,7 +173,7 @@ _volume_option_value_validate (xlator_t *xl,
 	case GF_OPTION_TYPE_SIZET:
 	{
 		/* Check the range */
-		if (gf_string2bytesize (pair->value->data, 
+		if (gf_string2bytesize (pair->value->data,
 					&input_size) != 0) {
 			gf_log (xl->name, GF_LOG_ERROR,
 				"invalid size format \"%s\" in "
@@ -190,12 +190,12 @@ _volume_option_value_validate (xlator_t *xl,
 			ret = 0;
 			break;
 		}
-		if ((input_size < opt->min) || 
+		if ((input_size < opt->min) ||
 		    (input_size > opt->max)) {
 			gf_log (xl->name, GF_LOG_WARNING,
 				"'%"PRId64"' in 'option %s %s' is "
 				"out of range [%"PRId64" - %"PRId64"]",
-				input_size, pair->key, 
+				input_size, pair->key,
 				pair->value->data,
 				opt->min, opt->max);
 		}
@@ -204,15 +204,15 @@ _volume_option_value_validate (xlator_t *xl,
 	break;
 	case GF_OPTION_TYPE_BOOL:
 	{
-		/* Check if the value is one of 
+		/* Check if the value is one of
 		   '0|1|on|off|no|yes|true|false|enable|disable' */
 		gf_boolean_t bool_value;
-		if (gf_string2boolean (pair->value->data, 
+		if (gf_string2boolean (pair->value->data,
 				       &bool_value) != 0) {
 			gf_log (xl->name, GF_LOG_ERROR,
 				"option %s %s: '%s' is not a valid "
 				"boolean value",
-				pair->key, pair->value->data, 
+				pair->key, pair->value->data,
 				pair->value->data);
 			goto out;
 		}
@@ -227,7 +227,7 @@ _volume_option_value_validate (xlator_t *xl,
 			xlopt = xlopt->prev;
 
 		while (xlopt) {
-			if (strcmp (pair->value->data, 
+			if (strcmp (pair->value->data,
 				    xlopt->name) == 0) {
 				ret = 0;
 				break;
@@ -238,7 +238,7 @@ _volume_option_value_validate (xlator_t *xl,
 			gf_log (xl->name, GF_LOG_ERROR,
 				"option %s %s: '%s' is not a "
 				"valid volume name",
-				pair->key, pair->value->data, 
+				pair->key, pair->value->data,
 				pair->value->data);
 		}
 		ret = 0;
@@ -254,27 +254,27 @@ _volume_option_value_validate (xlator_t *xl,
 
 		for (i = 0; (i < ZR_OPTION_MAX_ARRAY_SIZE) &&
 			     opt->value[i]; i++) {
-#ifdef GF_DARWIN_HOST_OS
-                        if (fnmatch (opt->value[i], pair->value->data,
-                                     0) == 0) {
-#else
-                        if (fnmatch (opt->value[i], pair->value->data,
-                                     FNM_EXTMATCH) == 0) {
-#endif
+ #ifdef  GF_DARWIN_HOST_OS
+                        if (fnmatch (opt->value[i],
+                                     pair->value->data, 0) == 0) {
+ #else
+                        if (fnmatch (opt->value[i],
+                                     pair->value->data, FNM_EXTMATCH) == 0) {
+ #endif
 				ret = 0;
 				break;
 			}
 		}
 
-		if ((i == ZR_OPTION_MAX_ARRAY_SIZE) 
-		    || ((i < ZR_OPTION_MAX_ARRAY_SIZE) 
+		if ((i == ZR_OPTION_MAX_ARRAY_SIZE)
+		    || ((i < ZR_OPTION_MAX_ARRAY_SIZE)
 			&& (!opt->value[i]))) {
 			/* enter here only if
-			 * 1. reached end of opt->value array and haven't 
+			 * 1. reached end of opt->value array and haven't
                          *    validated input
 			 *                      OR
-			 * 2. valid input list is less than 
-                         *    ZR_OPTION_MAX_ARRAY_SIZE and input has not 
+			 * 2. valid input list is less than
+                         *    ZR_OPTION_MAX_ARRAY_SIZE and input has not
                          *    matched all possible input values.
 			 */
 			char given_array[4096] = {0,};
@@ -287,9 +287,9 @@ _volume_option_value_validate (xlator_t *xl,
 			gf_log (xl->name, GF_LOG_ERROR,
 				"option %s %s: '%s' is not valid "
 				"(possible options are %s)",
-				pair->key, pair->value->data, 
+				pair->key, pair->value->data,
 				pair->value->data, given_array);
-			
+
 			goto out;
 		}
 	}
@@ -298,9 +298,9 @@ _volume_option_value_validate (xlator_t *xl,
 	{
 		uint32_t percent = 0;
 
-		
+
 		/* Check if the value is valid percentage */
-		if (gf_string2percent (pair->value->data, 
+		if (gf_string2percent (pair->value->data,
 				       &percent) != 0) {
 			gf_log (xl->name, GF_LOG_ERROR,
 				"invalid percent format \"%s\" "
@@ -313,7 +313,7 @@ _volume_option_value_validate (xlator_t *xl,
 			gf_log (xl->name, GF_LOG_ERROR,
 				"'%d' in 'option %s %s' is out of "
 				"range [0 - 100]",
-				percent, pair->key, 
+				percent, pair->key,
 				pair->value->data);
 		}
 		ret = 0;
@@ -323,7 +323,7 @@ _volume_option_value_validate (xlator_t *xl,
 	{
 		uint32_t percent = 0;
 		uint64_t input_size = 0;
-		
+
 		/* Check if the value is valid percentage */
 		if (gf_string2percent (pair->value->data,
 				       &percent) == 0) {
@@ -334,14 +334,13 @@ _volume_option_value_validate (xlator_t *xl,
         		        if (gf_string2bytesize (pair->value->data,
       	        			                &input_size) == 0) {
 			       	        /* Check the range */
-	        			if ((opt->min == 0) && 
-                                            (opt->max == 0)) {
+                                if ((opt->min == 0) && (opt->max == 0)) {
 	       	        		        gf_log (xl->name, GF_LOG_DEBUG,
         	      	        		        "no range check "
-                                                        "required for "
+                                            "required for "
                 	      		       		"'option %s %s'",
-	               	        	        	pair->key, 
-                                                        pair->value->data);
+                                            pair->key,
+                                            pair->value->data);
 						// It is a size
 			                        ret = 0;
        				                goto out;
@@ -414,7 +413,7 @@ _volume_option_value_validate (xlator_t *xl,
 		uint32_t input_time = 0;
 
 		/* Check if the value is valid percentage */
-		if (gf_string2time (pair->value->data, 
+		if (gf_string2time (pair->value->data,
 				    &input_time) != 0) {
 			gf_log (xl->name,
 				GF_LOG_ERROR,
@@ -432,12 +431,12 @@ _volume_option_value_validate (xlator_t *xl,
 			ret = 0;
 			goto out;
 		}
-		if ((input_time < opt->min) || 
+		if ((input_time < opt->min) ||
 		    (input_time > opt->max)) {
 			gf_log (xl->name, GF_LOG_ERROR,
 				"'%"PRIu32"' in 'option %s %s' is "
 				"out of range [%"PRId64" - %"PRId64"]",
-				input_time, pair->key, 
+				input_time, pair->key,
 				pair->value->data,
 				opt->min, opt->max);
 		}
@@ -449,7 +448,7 @@ _volume_option_value_validate (xlator_t *xl,
 		double input_time = 0.0;
 
 		/* Check if the value is valid double */
-		if (gf_string2double (pair->value->data, 
+		if (gf_string2double (pair->value->data,
 				      &input_time) != 0) {
 			gf_log (xl->name,
 				GF_LOG_ERROR,
@@ -457,7 +456,7 @@ _volume_option_value_validate (xlator_t *xl,
 				pair->value->data, pair->key);
 			goto out;
 		}
-		
+
 		if (input_time < 0.0) {
 			gf_log (xl->name,
 				GF_LOG_ERROR,
@@ -493,7 +492,7 @@ _volume_option_value_validate (xlator_t *xl,
 		ret = 0;
 		break;
 	}
-	
+
 out:
 	return ret;
 }
@@ -516,14 +515,11 @@ validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
  	pairs = xl->options->members_list;
  	while (pairs) {
 		ret = -1;
-  		for (index = 0; 
-		     opt[index].key && opt[index].key[0] ; index++) {
+        for (index = 0; opt[index].key && opt[index].key[0] ; index++) {
   			trav = &(opt[index]);
-			for (i = 0 ; 
-			     (i < ZR_VOLUME_MAX_NUM_KEY) && 
-				     trav->key[i]; i++) {
+			for (i = 0 ; (i < ZR_VOLUME_MAX_NUM_KEY) && trav->key[i]; i++) {
 				/* Check if the key is valid */
-				if (fnmatch (trav->key[i], 
+				if (fnmatch (trav->key[i],
 					     pairs->key, FNM_NOESCAPE) == 0) {
 					ret = 0;
 					break;
@@ -551,7 +547,7 @@ validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
 
   		pairs = pairs->next;
   	}
-	
+
 	ret = 0;
  out:
   	return ret;
@@ -647,7 +643,7 @@ xlator_dynload (xlator_t *xl)
 			"dlsym(reconfigure) on %s -- neglecting",
 			dlerror());
 	}
-        
+
         if (!(xl->validate_options = dlsym (handle, "validate_options"))) {
                 gf_log ("xlator", GF_LOG_DEBUG,
                         "dlsym(validate_options) on %s -- neglecting",
@@ -1019,7 +1015,7 @@ xlator_tree_free (xlator_t *tree)
     GF_FREE (prev);
     prev = trav;
   }
-  
+
   return 0;
 }
 
@@ -1035,7 +1031,7 @@ loc_wipe (loc_t *loc)
                 GF_FREE ((char *)loc->path);
                 loc->path = NULL;
         }
-  
+
         if (loc->parent) {
                 inode_unref (loc->parent);
                 loc->parent = NULL;
