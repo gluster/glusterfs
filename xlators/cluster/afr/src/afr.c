@@ -63,18 +63,18 @@ int
 validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 {
 
- 
-        gf_boolean_t metadata_self_heal;   
+
+        gf_boolean_t metadata_self_heal;
         gf_boolean_t entry_self_heal;
         gf_boolean_t data_self_heal;
-        gf_boolean_t data_change_log;       
-        gf_boolean_t metadata_change_log; 
-        gf_boolean_t entry_change_log;      
+        gf_boolean_t data_change_log;
+        gf_boolean_t metadata_change_log;
+        gf_boolean_t entry_change_log;
         gf_boolean_t strict_readdir;
         gf_boolean_t optimistic_change_log;
 
         xlator_list_t * trav        = NULL;
-        
+
         char * read_subvol     = NULL;
         char * self_heal       = NULL;
         char * change_log      = NULL;
@@ -89,9 +89,9 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         int    flag          = 1;
         int    ret           = 0;
         int    temp_ret      = -1;
-        
 
-        
+
+
         dict_ret = dict_get_int32 (options, "background-self-heal-count",
                                    &background_count);
         if (dict_ret == 0) {
@@ -113,13 +113,13 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "validation failed 'option metadata"
-                                                "-self-heal %s'.not correct.", 
+                                                "-self-heal %s'.not correct.",
                                                 self_heal);
                         *op_errstr = gf_strdup ("Error, option should be boolean");
                         ret = -1;
                         goto out;
-                } 
-        
+                }
+
         }
 
         dict_ret = dict_get_str (options, "data-self-heal",
@@ -134,8 +134,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                                                 "boolean");
                         ret = -1;
                         goto out;
-                } 
-        
+                }
+
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Reconfiguring 'option data"
@@ -149,14 +149,14 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 if (temp_ret < 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "Validation faled for entry-self-heal"
-                                " (given string = %s)", 
+                                " (given string = %s)",
                                 self_heal);
                         *op_errstr = gf_strdup ("Error, option should be "
                                                 "boolean");
                         ret = -1;
                         goto out;
-                } 
-        
+                }
+
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option entry"
@@ -177,7 +177,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
-                
+
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option strict"
@@ -218,7 +218,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
- 
+
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option data-"
@@ -237,8 +237,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                                                 "boolean");
                         ret = -1;
                         goto out;
-                } 
-                
+                }
+
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option metadata-"
@@ -256,7 +256,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                                                 "boolean");
                         ret = -1;
                         goto out;
-                } 
+                }
 
 
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -278,7 +278,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         ret = -1;
                         goto out;
                 }
- 
+
 
                 gf_log (this->name, GF_LOG_DEBUG,
                         "Validated 'option optimistic-"
@@ -306,9 +306,9 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
         read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
 
-        if (read_ret) 
+        if (read_ret)
                 goto next;// No need to traverse, hence set the next option
-        
+
         trav = this->children;
         flag = 0;
         while (trav) {
@@ -354,7 +354,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	afr_private_t * priv        = NULL;
 	xlator_list_t * trav        = NULL;
-	
+
 	char * read_subvol     = NULL;
 	char * self_heal       = NULL;
 	char * change_log      = NULL;
@@ -369,9 +369,9 @@ reconfigure (xlator_t *this, dict_t *options)
 	int    flag	     = 1;
 	int    ret           = 0;
 	int    temp_ret	     = -1;
-	
+
 	priv = this->private;
-	
+
 	dict_ret = dict_get_int32 (options, "background-self-heal-count",
 				   &background_count);
 	if (dict_ret == 0) {
@@ -389,16 +389,16 @@ reconfigure (xlator_t *this, dict_t *options)
 		if (temp_ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Reconfiguration Invalid 'option metadata"
-				"-self-heal %s'. Defaulting to old value.", 
+				"-self-heal %s'. Defaulting to old value.",
 				self_heal);
 			ret = -1;
 			goto out;
-		} 
-	
+		}
+
 		priv->metadata_self_heal = metadata_self_heal;
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Reconfiguring 'option metadata"
-			"-self-heal %s'.", 
+			"-self-heal %s'.",
 			self_heal);
 	}
 
@@ -409,12 +409,12 @@ reconfigure (xlator_t *this, dict_t *options)
 		if (temp_ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Reconfiguration Invalid 'option data"
-				"-self-heal %s'. Defaulting to old value.", 
+				"-self-heal %s'. Defaulting to old value.",
 				self_heal);
 			ret = -1;
 			goto out;
-		} 
-	
+		}
+
 		priv->data_self_heal = data_self_heal;
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Reconfiguring 'option data"
@@ -428,12 +428,12 @@ reconfigure (xlator_t *this, dict_t *options)
 		if (temp_ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Reconfiguration Invalid 'option data"
-				"-self-heal %s'. Defaulting to old value.", 
+				"-self-heal %s'. Defaulting to old value.",
 				self_heal);
 			ret = -1;
 			goto out;
-		} 
-	
+		}
+
 		priv->entry_self_heal = entry_self_heal;
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Reconfiguring 'option entry"
@@ -453,7 +453,7 @@ reconfigure (xlator_t *this, dict_t *options)
 			ret = -1;
 			goto out;
 		}
-		
+
 		priv->strict_readdir = strict_readdir;
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Reconfiguring 'option strict"
@@ -472,7 +472,7 @@ reconfigure (xlator_t *this, dict_t *options)
         else {
                 priv->data_self_heal_window_size = 16;
         }
-        
+
 
 	dict_ret = dict_get_str (options, "data-change-log",
 				 &change_log);
@@ -481,12 +481,12 @@ reconfigure (xlator_t *this, dict_t *options)
 		if (temp_ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Reconfiguration Invalid 'option data-"
-				"change-log %s'. Defaulting to old value.", 
+				"change-log %s'. Defaulting to old value.",
 				change_log);
 			ret = -1;
 			goto out;
 		}
- 
+
 		priv->data_change_log = data_change_log;
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Reconfiguring 'option data-"
@@ -505,8 +505,8 @@ reconfigure (xlator_t *this, dict_t *options)
 				change_log);
 			ret = -1;
 			goto out;
-		} 
-		
+		}
+
 		priv->metadata_change_log = metadata_change_log;
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Reconfiguring 'option metadata-"
@@ -520,11 +520,11 @@ reconfigure (xlator_t *this, dict_t *options)
 		if (temp_ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Invalid 'option entry-change-log %s'. "
-				"Defaulting to entry-change-log as 'on'.", 
+				"Defaulting to entry-change-log as 'on'.",
 				change_log);
 			ret = -1;
 			goto out;
-		} 
+		}
 
 		priv->entry_change_log = entry_change_log;
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -563,9 +563,9 @@ reconfigure (xlator_t *this, dict_t *options)
 
 	read_ret = dict_get_str (options, "read-subvolume", &read_subvol);
 
-	if (read_ret < 0) 
+	if (read_ret < 0)
 		goto next;// No need to traverse, hence set the next option
-	
+
 	trav = this->children;
 	flag = 0;
 	while (trav) {
@@ -575,11 +575,11 @@ reconfigure (xlator_t *this, dict_t *options)
 				trav->xlator->name);
 
 			flag = 1;
-			ret = -1; 
+			ret = -1;
 			goto out;
 		}
 
-		
+
 		trav = trav->next;
 	}
 
@@ -616,7 +616,7 @@ static const char *no_lock_servers_warning_str = "You have set lock-server-count
 	"RESPONSIBLE for inconsistent data. If you are in doubt, set it to a value "
 	"greater than 0.";
 
-int32_t 
+int32_t
 init (xlator_t *this)
 {
 	afr_private_t * priv        = NULL;
@@ -650,7 +650,7 @@ init (xlator_t *this)
                         "subvolume defined.");
 		return -1;
 	}
-  
+
 	if (!this->parents) {
 		gf_log (this->name, GF_LOG_WARNING,
 			"Volume is dangling.");
@@ -725,10 +725,10 @@ init (xlator_t *this)
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Invalid 'option metadata-self-heal %s'. "
-				"Defaulting to metadata-self-heal as 'on'.", 
+				"Defaulting to metadata-self-heal as 'on'.",
 				self_heal);
 			priv->metadata_self_heal = 1;
-		} 
+		}
 	}
 
 	dict_ret = dict_get_str (this->options, "entry-self-heal", &self_heal);
@@ -737,10 +737,10 @@ init (xlator_t *this)
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Invalid 'option entry-self-heal %s'. "
-				"Defaulting to entry-self-heal as 'on'.", 
+				"Defaulting to entry-self-heal as 'on'.",
 				self_heal);
 			priv->entry_self_heal = 1;
-		} 
+		}
 	}
 
 	/* Change log options */
@@ -757,10 +757,10 @@ init (xlator_t *this)
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Invalid 'option data-change-log %s'. "
-				"Defaulting to data-change-log as 'on'.", 
+				"Defaulting to data-change-log as 'on'.",
 				change_log);
 			priv->data_change_log = 1;
-		} 
+		}
 	}
 
 	dict_ret = dict_get_str (this->options, "metadata-change-log",
@@ -774,7 +774,7 @@ init (xlator_t *this)
 				"Defaulting to metadata-change-log as 'off'.",
 				change_log);
 			priv->metadata_change_log = 0;
-		} 
+		}
 	}
 
 	dict_ret = dict_get_str (this->options, "entry-change-log",
@@ -784,10 +784,10 @@ init (xlator_t *this)
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Invalid 'option entry-change-log %s'. "
-				"Defaulting to entry-change-log as 'on'.", 
+				"Defaulting to entry-change-log as 'on'.",
 				change_log);
 			priv->entry_change_log = 1;
-		} 
+		}
 	}
 
 	dict_ret = dict_get_str (this->options, "optimistic-change-log",
@@ -797,10 +797,10 @@ init (xlator_t *this)
 		if (ret < 0) {
 			gf_log (this->name, GF_LOG_WARNING,
 				"Invalid 'option optimistic-change-log %s'. "
-				"Defaulting to optimistic-change-log as 'on'.", 
+				"Defaulting to optimistic-change-log as 'on'.",
 				change_log);
 			priv->optimistic_change_log = 1;
-		} 
+		}
 	}
 
 	/* Locking options */
@@ -840,14 +840,14 @@ init (xlator_t *this)
 	priv->metadata_lock_server_count = 0;
 	priv->entry_lock_server_count = 1;
 
-	dict_ret = dict_get_int32 (this->options, "data-lock-server-count", 
+	dict_ret = dict_get_int32 (this->options, "data-lock-server-count",
 				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
 			"Setting data lock server count to %d.",
 			lock_server_count);
 
-		if (lock_server_count == 0) 
+		if (lock_server_count == 0)
 			gf_log (this->name, GF_LOG_WARNING, "%s",
                                 no_lock_servers_warning_str);
 
@@ -856,7 +856,7 @@ init (xlator_t *this)
 
 
 	dict_ret = dict_get_int32 (this->options,
-				   "metadata-lock-server-count", 
+				   "metadata-lock-server-count",
 				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -866,7 +866,7 @@ init (xlator_t *this)
 	}
 
 
-	dict_ret = dict_get_int32 (this->options, "entry-lock-server-count", 
+	dict_ret = dict_get_int32 (this->options, "entry-lock-server-count",
 				   &lock_server_count);
 	if (dict_ret == 0) {
 		gf_log (this->name, GF_LOG_DEBUG,
@@ -921,8 +921,8 @@ init (xlator_t *this)
 	priv->child_up = GF_CALLOC (sizeof (unsigned char), child_count,
                                     gf_afr_mt_char);
 	if (!priv->child_up) {
-		gf_log (this->name, GF_LOG_ERROR,	
-			"Out of memory.");		
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory.");
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -937,13 +937,13 @@ init (xlator_t *this)
 	priv->children = GF_CALLOC (sizeof (xlator_t *), child_count,
                                     gf_afr_mt_xlator_t);
 	if (!priv->children) {
-		gf_log (this->name, GF_LOG_ERROR,	
-			"Out of memory.");		
+		gf_log (this->name, GF_LOG_ERROR,
+			"Out of memory.");
 		ret = -ENOMEM;
 		goto out;
 	}
 
-        priv->pending_key = GF_CALLOC (sizeof (*priv->pending_key), 
+        priv->pending_key = GF_CALLOC (sizeof (*priv->pending_key),
                                         child_count,
                                         gf_afr_mt_char);
         if (!priv->pending_key) {
@@ -958,11 +958,11 @@ init (xlator_t *this)
 	while (i < child_count) {
 		priv->children[i] = trav->xlator;
 
-                ret = gf_asprintf (&priv->pending_key[i], "%s.%s", 
+                ret = gf_asprintf (&priv->pending_key[i], "%s.%s",
                                    AFR_XATTR_PREFIX,
                                    trav->xlator->name);
                 if (-1 == ret) {
-                        gf_log (this->name, GF_LOG_ERROR, 
+                        gf_log (this->name, GF_LOG_ERROR,
                                 "asprintf failed to set pending key");
                         ret = -ENOMEM;
                         goto out;
@@ -1053,18 +1053,18 @@ struct xlator_cbks cbks = {
 
 
 struct volume_options options[] = {
-	{ .key  = {"read-subvolume" }, 
+	{ .key  = {"read-subvolume" },
 	  .type = GF_OPTION_TYPE_XLATOR
 	},
-	{ .key  = {"favorite-child"}, 
+	{ .key  = {"favorite-child"},
 	  .type = GF_OPTION_TYPE_XLATOR
 	},
         { .key  = {"background-self-heal-count"},
           .type = GF_OPTION_TYPE_INT,
           .min  = 0
         },
-	{ .key  = {"data-self-heal"},  
-	  .type = GF_OPTION_TYPE_BOOL 
+	{ .key  = {"data-self-heal"},
+	  .type = GF_OPTION_TYPE_BOOL
 	},
         { .key  = {"data-self-heal-algorithm"},
           .type = GF_OPTION_TYPE_STR
@@ -1074,33 +1074,33 @@ struct volume_options options[] = {
           .min  = 1,
           .max  = 1024
         },
-	{ .key  = {"metadata-self-heal"},  
+	{ .key  = {"metadata-self-heal"},
 	  .type = GF_OPTION_TYPE_BOOL
 	},
-	{ .key  = {"entry-self-heal"},  
-	  .type = GF_OPTION_TYPE_BOOL 
-	},
-	{ .key  = {"data-change-log"},  
-	  .type = GF_OPTION_TYPE_BOOL 
-	},
-	{ .key  = {"metadata-change-log"},  
+	{ .key  = {"entry-self-heal"},
 	  .type = GF_OPTION_TYPE_BOOL
 	},
-	{ .key  = {"entry-change-log"},  
+	{ .key  = {"data-change-log"},
 	  .type = GF_OPTION_TYPE_BOOL
 	},
-	{ .key  = {"optimistic-change-log"},  
+	{ .key  = {"metadata-change-log"},
 	  .type = GF_OPTION_TYPE_BOOL
 	},
-	{ .key  = {"data-lock-server-count"},  
-	  .type = GF_OPTION_TYPE_INT, 
+	{ .key  = {"entry-change-log"},
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {"optimistic-change-log"},
+	  .type = GF_OPTION_TYPE_BOOL
+	},
+	{ .key  = {"data-lock-server-count"},
+	  .type = GF_OPTION_TYPE_INT,
 	  .min  = 0
 	},
-	{ .key  = {"metadata-lock-server-count"},  
-	  .type = GF_OPTION_TYPE_INT, 
+	{ .key  = {"metadata-lock-server-count"},
+	  .type = GF_OPTION_TYPE_INT,
 	  .min  = 0
 	},
-	{ .key  = {"entry-lock-server-count"},  
+	{ .key  = {"entry-lock-server-count"},
 	  .type = GF_OPTION_TYPE_INT,
 	  .min  = 0
 	},

@@ -145,7 +145,7 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
                 for (j = 0; j < child_count; j++) {
                         ret = dict_get_ptr (xattr[i], priv->pending_key[j],
                                             &pending_raw);
-                        
+
                         if (ret != 0) {
                                 /*
                                  * There is no xattr present. This means this
@@ -159,7 +159,7 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
 
 			memcpy (pending, pending_raw, sizeof(pending));
                         k = afr_index_for_transaction_type (type);
-                        
+
                         pending_matrix[i][j] = ntoh32 (pending[k]);
                 }
 	}
@@ -198,7 +198,7 @@ afr_sh_build_pending_matrix (afr_private_t *priv,
  * All 'innocent' nodes are sinks. If all nodes are innocent, no self-heal is
  * needed.
  *
- * A 'wise' node can be a source. If two 'wise' nodes conflict, it is 
+ * A 'wise' node can be a source. If two 'wise' nodes conflict, it is
  * a split-brain. If one wise node refers to the other but the other doesn't
  * refer back, the referrer is a source.
  *
@@ -250,7 +250,7 @@ afr_sh_is_wise (int32_t *array, int i, int child_count)
 
 
 static int
-afr_sh_all_nodes_innocent (afr_node_character *characters, 
+afr_sh_all_nodes_innocent (afr_node_character *characters,
                            int child_count)
 {
         int i   = 0;
@@ -286,7 +286,7 @@ afr_sh_wise_nodes_exist (afr_node_character *characters, int child_count)
 
 /*
  * The 'wisdom' of a wise node is 0 if any other wise node accuses it.
- * It is 1 if no other wise node accuses it. 
+ * It is 1 if no other wise node accuses it.
  * Only wise nodes with wisdom 1 are sources.
  *
  * If no nodes with wisdom 1 exist, a split-brain has occured.
@@ -306,7 +306,7 @@ afr_sh_compute_wisdom (int32_t *pending_matrix[],
                         for (j = 0; j < child_count; j++) {
                                 if ((characters[j].type == AFR_NODE_WISE)
                                     && pending_matrix[j][i]) {
-                                        
+
                                         characters[i].wisdom = 0;
                                 }
                         }
@@ -316,7 +316,7 @@ afr_sh_compute_wisdom (int32_t *pending_matrix[],
 
 
 static int
-afr_sh_wise_nodes_conflict (afr_node_character *characters, 
+afr_sh_wise_nodes_conflict (afr_node_character *characters,
                             int child_count)
 {
         int i   = 0;
@@ -337,12 +337,12 @@ afr_sh_wise_nodes_conflict (afr_node_character *characters,
 
 
 static int
-afr_sh_mark_wisest_as_sources (int sources[], 
-                               afr_node_character *characters, 
+afr_sh_mark_wisest_as_sources (int sources[],
+                               afr_node_character *characters,
                                int child_count)
 {
         int nsources = 0;
-        
+
         int i = 0;
 
         for (i = 0; i < child_count; i++) {
@@ -386,10 +386,10 @@ afr_sh_mark_if_size_differs (afr_self_heal_t *sh, int child_count)
         return size_differs;
 }
 
-        
+
 static int
 afr_sh_mark_biggest_fool_as_source (afr_self_heal_t *sh,
-                                    afr_node_character *characters, 
+                                    afr_node_character *characters,
                                     int child_count)
 {
         int i = 0;
@@ -480,7 +480,7 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
 
         /* stores the 'characters' (innocent, fool, wise) of the nodes */
         afr_node_character *
-                characters = GF_CALLOC (sizeof (afr_node_character), 
+                characters = GF_CALLOC (sizeof (afr_node_character),
                                         child_count,
                                         gf_afr_mt_afr_node_character) ;
 
@@ -488,7 +488,7 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
 	for (i = 0; i < child_count; i++) {
 		sources[i] = 0;
 	}
-        
+
         for (i = 0; i < child_count; i++) {
                 if (afr_sh_is_innocent (pending_matrix[i], child_count)) {
                         characters[i].type = AFR_NODE_INNOCENT;
@@ -535,7 +535,7 @@ afr_sh_mark_sources (afr_self_heal_t *sh, int child_count,
                         goto out;
 
                 } else {
-                        nsources = afr_sh_mark_wisest_as_sources (sources, 
+                        nsources = afr_sh_mark_wisest_as_sources (sources,
                                                                   characters,
                                                                   child_count);
                 }
@@ -691,7 +691,7 @@ afr_sh_has_data_pending (dict_t *xattr, int child_count, xlator_t *this)
 
                 if (ret != 0)
                         return 0;
-                
+
 		memcpy (pending, pending_raw, sizeof(pending));
                 j = afr_index_for_transaction_type (AFR_DATA_TRANSACTION);
 
@@ -723,7 +723,7 @@ afr_sh_has_entry_pending (dict_t *xattr, int child_count, xlator_t *this)
 
                 if (ret != 0)
                         return 0;
-                
+
 		memcpy (pending, pending_raw, sizeof(pending));
                 j = afr_index_for_transaction_type (AFR_ENTRY_TRANSACTION);
 
@@ -744,9 +744,9 @@ afr_sh_is_matrix_zero (int32_t *pending_matrix[], int child_count)
 {
 	int i, j;
 
-	for (i = 0; i < child_count; i++) 
-		for (j = 0; j < child_count; j++) 
-			if (pending_matrix[i][j]) 
+	for (i = 0; i < child_count; i++)
+		for (j = 0; j < child_count; j++)
+			if (pending_matrix[i][j])
 				return 0;
 	return 1;
 }
@@ -834,11 +834,11 @@ sh_destroy_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         call_count = afr_frame_return (frame);
-        
+
         if (call_count == 0) {
                 STACK_DESTROY (frame->root);
         }
-        
+
 	return 0;
 }
 
@@ -876,13 +876,13 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
 
         stbuf.ia_uid = sh->buf[sh->source].ia_uid;
         stbuf.ia_gid = sh->buf[sh->source].ia_gid;
-        
+
         valid = GF_SET_ATTR_UID   | GF_SET_ATTR_GID |
                 GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
-        
+
 	if (op_ret == 0) {
 		setattr_frame = copy_frame (frame);
-                
+
                 setattr_frame->local = GF_CALLOC (1, sizeof (afr_local_t),
                                                   gf_afr_mt_afr_local_t);
 
@@ -899,7 +899,7 @@ sh_missing_entries_newentry_cbk (call_frame_t *frame, void *cookie,
                                    &local->loc, &stbuf, valid);
 
                 valid      = GF_SET_ATTR_ATIME | GF_SET_ATTR_MTIME;
-                parent_loc = GF_CALLOC (1, sizeof (*parent_loc), 
+                parent_loc = GF_CALLOC (1, sizeof (*parent_loc),
                                         gf_afr_mt_loc_t);
                 afr_build_parent_loc (parent_loc, &local->loc);
 
@@ -1504,19 +1504,21 @@ int
 afr_self_heal_completion_cbk (call_frame_t *bgsh_frame, xlator_t *this)
 {
         afr_private_t *   priv  = NULL;
-	afr_local_t *     local = NULL;
+        afr_local_t *     local = NULL;
         afr_self_heal_t * sh    = NULL;
         char              sh_type_str[256] = {0,};
 
         priv  = this->private;
-	local = bgsh_frame->local;
+        local = bgsh_frame->local;
         sh    = &local->self_heal;
 
-	if (local->govinda_gOvinda) {
-                afr_set_split_brain (this, local->cont.lookup.inode, _gf_true);
-	} else {
-                afr_set_split_brain (this, local->cont.lookup.inode, _gf_false);
-	}
+        if (local->govinda_gOvinda) {
+                afr_set_split_brain (this, local->cont.lookup.inode,
+                                     _gf_true);
+        } else {
+                afr_set_split_brain (this, local->cont.lookup.inode,
+                                     _gf_false);
+        }
 
         afr_self_heal_type_str_get(sh, sh_type_str,
                                    sizeof(sh_type_str));
@@ -1601,7 +1603,7 @@ afr_self_heal (call_frame_t *frame, xlator_t *this)
                                 gf_afr_mt_dict_t);
 	sh->sources = GF_CALLOC (sizeof (*sh->sources), priv->child_count,
                                 gf_afr_mt_int);
-	sh->locked_nodes = GF_CALLOC (sizeof (*sh->locked_nodes), 
+	sh->locked_nodes = GF_CALLOC (sizeof (*sh->locked_nodes),
                                       priv->child_count,
                                       gf_afr_mt_int);
 
