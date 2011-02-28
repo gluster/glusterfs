@@ -877,6 +877,8 @@ rpcsvc_request_create (rpcsvc_t *svc, rpc_transport_t *trans,
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "RPC call decoding failed");
                 rpcsvc_request_seterr (req, GARBAGE_ARGS);
+                req->trans = rpc_transport_ref (trans);
+                req->svc = svc;
                 goto err;
         }
 
