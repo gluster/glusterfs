@@ -101,17 +101,17 @@ dict_t *
 dict_new (void)
 {
 	dict_t *dict = NULL;
-	
+
 	dict = get_new_dict_full(1);
-	
+
 	if (dict)
 		dict_ref (dict);
-	
+
 	return dict;
 }
 
 
-int32_t 
+int32_t
 is_data_equal (data_t *one,
 	       data_t *two)
 {
@@ -216,19 +216,19 @@ _dict_lookup (dict_t *this, char *key)
 
 	int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
 	data_pair_t *pair;
-   
+
 	for (pair = this->members[hashval]; pair != NULL; pair = pair->hash_next) {
 		if (pair->key && !strcmp (pair->key, key))
 			return pair;
 	}
-  
+
 	return NULL;
 }
 
 
 static int32_t
-_dict_set (dict_t *this, 
-	   char *key, 
+_dict_set (dict_t *this,
+	   char *key,
 	   data_t *value)
 {
 	int hashval;
@@ -281,17 +281,17 @@ _dict_set (dict_t *this,
 
 	strcpy (pair->key, key);
 	pair->value = data_ref (value);
- 
+
 	pair->hash_next = this->members[hashval];
 	this->members[hashval] = pair;
- 
+
 	pair->next = this->members_list;
 	pair->prev = NULL;
 	if (this->members_list)
 		this->members_list->prev = pair;
 	this->members_list = pair;
 	this->count++;
-  
+
 	if (key_free)
 		GF_FREE (key);
 	return 0;
@@ -340,7 +340,7 @@ dict_get (dict_t *this,
 
 	if (pair)
 		return pair->value;
-  
+
 	return NULL;
 }
 
@@ -359,16 +359,16 @@ dict_del (dict_t *this,
 	int hashval = SuperFastHash (key, strlen (key)) % this->hash_size;
 	data_pair_t *pair = this->members[hashval];
 	data_pair_t *prev = NULL;
-  
+
 	while (pair) {
 		if (strcmp (pair->key, key) == 0) {
 			if (prev)
 				prev->hash_next = pair->hash_next;
 			else
 				this->members[hashval] = pair->hash_next;
-  
+
 			data_unref (pair->value);
-  
+
 			if (pair->prev)
 				pair->prev->next = pair->next;
 			else
@@ -376,13 +376,13 @@ dict_del (dict_t *this,
 
 			if (pair->next)
 				pair->next->prev = pair->prev;
-  
+
 			GF_FREE (pair->key);
 			GF_FREE (pair);
 			this->count--;
 			break;
 		}
- 
+
 		prev = pair;
 		pair = pair->hash_next;
 	}
@@ -519,7 +519,7 @@ data_ref (data_t *this)
   .
 */
 
-int32_t 
+int32_t
 dict_serialized_length_old (dict_t *this)
 {
 
@@ -551,7 +551,7 @@ dict_serialized_length_old (dict_t *this)
 	return len;
 }
 
-int32_t 
+int32_t
 dict_serialize_old (dict_t *this, char *buf)
 {
 	if (!this || !buf) {
@@ -609,7 +609,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 		goto err;
 	}
 	buf += 9;
-  
+
 	if (count == 0) {
 		gf_log ("dict",
 			GF_LOG_ERROR,
@@ -621,7 +621,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 		data_t *value = NULL;
 		char *key = NULL;
 		uint64_t key_len, value_len;
-    
+
 		ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
 		if (ret != 2) {
 			gf_log ("dict",
@@ -633,7 +633,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 
 		key = buf;
 		buf += key_len;
-    
+
 		value = get_new_data ();
 		value->len = value_len;
 		value->data = buf;
@@ -647,7 +647,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 
 err:
 	GF_FREE (*fill);
-	*fill = NULL; 
+	*fill = NULL;
 
 ret:
 	return *fill;
@@ -1306,7 +1306,7 @@ fail:
 
 /**
  * Common cleaned up interface:
- * 
+ *
  * Return value:  0   success
  *               -val error, val = errno
  */
@@ -1334,7 +1334,7 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
 		*data = data_ref (pair->value);
 	}
 
-err:  
+err:
 	return ret;
 }
 
@@ -1595,7 +1595,7 @@ dict_get_int8 (dict_t *this, char *key, int8_t *val)
 	}
 
 	ret = _data_to_int8 (data, val);
-    
+
 err:
 	if (data)
 		data_unref (data);
@@ -1638,7 +1638,7 @@ dict_get_int16 (dict_t *this, char *key, int16_t *val)
 	}
 
 	ret = _data_to_int16 (data, val);
-    
+
 err:
 	if (data)
 		data_unref (data);
@@ -1681,7 +1681,7 @@ dict_get_int32 (dict_t *this, char *key, int32_t *val)
 	}
 
 	ret = _data_to_int32 (data, val);
-    
+
 err:
 	if (data)
 		data_unref (data);
@@ -1724,7 +1724,7 @@ dict_get_int64 (dict_t *this, char *key, int64_t *val)
 	}
 
 	ret = _data_to_int64 (data, val);
-    
+
 err:
 	if (data)
 		data_unref (data);
@@ -1767,7 +1767,7 @@ dict_get_uint16 (dict_t *this, char *key, uint16_t *val)
 	}
 
 	ret = _data_to_uint16 (data, val);
-    
+
 err:
 	if (data)
 		data_unref (data);
@@ -1810,7 +1810,7 @@ dict_get_uint32 (dict_t *this, char *key, uint32_t *val)
 	}
 
 	ret = _data_to_uint32 (data, val);
-    
+
 err:
 	if (data)
 		data_unref (data);
@@ -1854,7 +1854,7 @@ dict_get_uint64 (dict_t *this, char *key, uint64_t *val)
 	}
 
 	ret = _data_to_uint64 (data, val);
-    
+
 err:
 	if (data)
 		data_unref (data);
@@ -1979,7 +1979,7 @@ dict_get_ptr (dict_t *this, char *key, void **ptr)
 		goto err;
 	}
 
-err: 
+err:
 	if (data)
 		data_unref (data);
 
@@ -2025,7 +2025,7 @@ dict_get_str (dict_t *this, char *key, char **str)
 	}
 	*str = data->data;
 
-err: 
+err:
 	if (data)
 		data_unref (data);
 
@@ -2110,7 +2110,7 @@ dict_get_bin (dict_t *this, char *key, void **bin)
 	}
 	*bin = data->data;
 
-err: 
+err:
 	if (data)
 		data_unref (data);
 
@@ -2276,7 +2276,7 @@ _dict_serialized_length (dict_t *this)
 
 	while (count) {
 		if (!pair) {
-			gf_log ("dict", GF_LOG_ERROR, 
+			gf_log ("dict", GF_LOG_ERROR,
 				"less than count data pairs found!");
 			goto out;
 		}
@@ -2321,18 +2321,18 @@ _dict_serialized_length (dict_t *this)
 		pair = pair->next;
 		count--;
 	}
-	
+
 	ret = len;
 out:
 	return ret;
 }
 
 /**
- * _dict_serialize - serialize a dictionary into a buffer. This procedure has 
+ * _dict_serialize - serialize a dictionary into a buffer. This procedure has
  *                   to be called with this->lock held.
  *
  * @this: dict to serialize
- * @buf:  buffer to serialize into. This must be 
+ * @buf:  buffer to serialize into. This must be
  *        atleast dict_serialized_length (this) large
  *
  * @return: success: 0
@@ -2342,78 +2342,80 @@ out:
 int
 _dict_serialize (dict_t *this, char *buf)
 {
-	int           ret     = -1;
-	data_pair_t * pair    = NULL;
-	int32_t       count   = 0;
-	int32_t       keylen  = 0;
-	int32_t       vallen  = 0;
-	int32_t       netword = 0;
-	
-	if (!buf) {
-		gf_log ("dict", GF_LOG_ERROR,
-			"buf is null!");
-		goto out;
-	}
-	
-	count = this->count;
-	if (count < 0) {
-		gf_log ("dict", GF_LOG_ERROR, "count (%d) < 0!", count);
-		goto out;
-	}
+        int           ret     = -1;
+        data_pair_t * pair    = NULL;
+        int32_t       count   = 0;
+        int32_t       keylen  = 0;
+        int32_t       vallen  = 0;
+        int32_t       netword = 0;
 
-	netword = hton32 (count);
-	memcpy (buf, &netword, sizeof(netword));
-	buf += DICT_HDR_LEN;
-	pair = this->members_list;
 
-	while (count) {
-		if (!pair) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"less than count data pairs found!");
-			goto out;
-		}
+        if (!buf) {
+                gf_log ("dict", GF_LOG_ERROR,
+			    "buf is null!");
+		        goto out;
+	    }
 
-		if (!pair->key) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"pair->key is null!");
-			goto out;
-		}
 
-		keylen  = strlen (pair->key);
-		netword = hton32 (keylen);
-		memcpy (buf, &netword, sizeof(netword));
-		buf += DICT_DATA_HDR_KEY_LEN;
+        count = this->count;
+        if (count < 0) {
+                gf_log ("dict", GF_LOG_ERROR, "count (%d) < 0!", count);
+                goto out;
+        }
 
-		if (!pair->value) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"pair->value is null!");
-			goto out;
-		}
+        netword = hton32 (count);
+        memcpy (buf, &netword, sizeof(netword));
+        buf += DICT_HDR_LEN;
+        pair = this->members_list;
 
-		vallen  = pair->value->len;
-		netword = hton32 (vallen);
-		memcpy (buf, &netword, sizeof(netword));
-		buf += DICT_DATA_HDR_VAL_LEN;
+        while (count) {
+                if (!pair) {
+                        gf_log ("dict", GF_LOG_ERROR,
+                                "less than count data pairs found!");
+                        goto out;
+                }
 
-		memcpy (buf, pair->key, keylen);
-		buf += keylen;
-		*buf++ = '\0';
+                if (!pair->key) {
+        			gf_log ("dict", GF_LOG_ERROR,
+                        "pair->key is null!");
+                    goto out;
+                }
 
-		if (!pair->value->data) {
-			gf_log ("dict", GF_LOG_ERROR,
-				"pair->value->data is null!");
-			goto out;
-		}
-		memcpy (buf, pair->value->data, vallen);
-		buf += vallen;
+                keylen  = strlen (pair->key);
+                netword = hton32 (keylen);
+                memcpy (buf, &netword, sizeof(netword));
+                buf += DICT_DATA_HDR_KEY_LEN;
 
-		pair = pair->next;
-		count--;
-	}
+                if (!pair->value) {
+                    gf_log ("dict", GF_LOG_ERROR,
+                        "pair->value is null!");
+                    goto out;
+                }
 
-	ret = 0;
+                vallen  = pair->value->len;
+                netword = hton32 (vallen);
+                memcpy (buf, &netword, sizeof(netword));
+                buf += DICT_DATA_HDR_VAL_LEN;
+
+                memcpy (buf, pair->key, keylen);
+                buf += keylen;
+                *buf++ = '\0';
+
+                if (!pair->value->data) {
+                    gf_log ("dict", GF_LOG_ERROR,
+                        "pair->value->data is null!");
+                    goto out;
+                }
+                memcpy (buf, pair->value->data, vallen);
+                buf += vallen;
+
+                pair = pair->next;
+                count--;
+        }
+
+        ret = 0;
 out:
-	return ret;
+        return ret;
 }
 
 
@@ -2434,7 +2436,7 @@ dict_serialized_length (dict_t *this)
 		gf_log ("dict", GF_LOG_ERROR, "this is null!");
 		goto out;
 	}
-	
+
         LOCK (&this->lock);
         {
                 ret = _dict_serialized_length (this);
@@ -2449,7 +2451,7 @@ out:
  * dict_serialize - serialize a dictionary into a buffer
  *
  * @this: dict to serialize
- * @buf:  buffer to serialize into. This must be 
+ * @buf:  buffer to serialize into. This must be
  *        atleast dict_serialized_length (this) large
  *
  * @return: success: 0
@@ -2460,7 +2462,7 @@ int
 dict_serialize (dict_t *this, char *buf)
 {
 	int           ret    = -1;
-	
+
 	if (!this) {
 		gf_log ("dict", GF_LOG_ERROR,
 			"this is null!");
@@ -2488,7 +2490,7 @@ out:
  * @buf:  buf containing serialized dict
  * @size: size of the @buf
  * @fill: dict to fill in
- * 
+ *
  * @return: success: 0
  *          failure: -errno
  */
@@ -2496,116 +2498,116 @@ out:
 int32_t
 dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 {
-	char   *buf = NULL;
-	int     ret   = -1;
-	int32_t count = 0;
-	int     i     = 0;
+        char   *buf = NULL;
+        int     ret   = -1;
+        int32_t count = 0;
+        int     i     = 0;
 
-	data_t * value   = NULL;
-	char   * key     = NULL;
-	int32_t  keylen  = 0;
-	int32_t  vallen  = 0;
-	int32_t  hostord = 0;
+        data_t * value   = NULL;
+        char   * key     = NULL;
+        int32_t  keylen  = 0;
+        int32_t  vallen  = 0;
+        int32_t  hostord = 0;
 
-	buf = orig_buf;
+        buf = orig_buf;
 
-	if (!buf) {
-		gf_log ("dict", GF_LOG_ERROR,
-			"buf is null!");
-		goto out;
-	}
+        if (!buf) {
+                gf_log ("dict", GF_LOG_ERROR,
+                        "buf is null!");
+		        goto out;
+	    }
 
-	if (size == 0) {
-		gf_log ("dict", GF_LOG_ERROR,
-			"size is 0!");
-		goto out;
-	}
+	    if (size == 0) {
+		        gf_log ("dict", GF_LOG_ERROR,
+			    "size is 0!");
+		        goto out;
+	    }
 
-	if (!fill) {
-		gf_log ("dict", GF_LOG_ERROR,
-			"fill is null!");
-		goto out;
-	}
+	    if (!fill) {
+		        gf_log ("dict", GF_LOG_ERROR,
+			    "fill is null!");
+		        goto out;
+	    }
 
-	if (!*fill) {
-		gf_log ("dict", GF_LOG_ERROR,
-			"*fill is null!");
-		goto out;
-	}
+	    if (!*fill) {
+		        gf_log ("dict", GF_LOG_ERROR,
+			    "*fill is null!");
+		        goto out;
+	    }
 
-	if ((buf + DICT_HDR_LEN) > (orig_buf + size)) {
-		gf_log ("dict", GF_LOG_ERROR,
-			"undersized buffer passed");
-		goto out;
-	}
+	    if ((buf + DICT_HDR_LEN) > (orig_buf + size)) {
+		        gf_log ("dict", GF_LOG_ERROR,
+			    "undersized buffer passed");
+		        goto out;
+	    }
 
-	memcpy (&hostord, buf, sizeof(hostord));
-	count = ntoh32 (hostord);
-	buf += DICT_HDR_LEN;
+	    memcpy (&hostord, buf, sizeof(hostord));
+	    count = ntoh32 (hostord);
+	    buf += DICT_HDR_LEN;
 
-	if (count < 0) {
-		gf_log ("dict", GF_LOG_ERROR,
-			"count (%d) <= 0", count);
-		goto out;
-	}
+	    if (count < 0) {
+		        gf_log ("dict", GF_LOG_ERROR,
+			    "count (%d) <= 0", count);
+		        goto out;
+	    }
 
-	/* count will be set by the dict_set's below */
-	(*fill)->count = 0;
+        	/* count will be set by the dict_set's below */
+      	(*fill)->count = 0;
 
-	for (i = 0; i < count; i++) {
-		if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
-			gf_log ("dict", GF_LOG_DEBUG,
-				"No room for keylen (size %d).",
-				DICT_DATA_HDR_KEY_LEN);
-			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passed");
-			goto out;
-		}
-		memcpy (&hostord, buf, sizeof(hostord));
-		keylen = ntoh32 (hostord);
-		buf += DICT_DATA_HDR_KEY_LEN;
+        	for (i = 0; i < count; i++) {
+                    if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
+			            gf_log ("dict", GF_LOG_DEBUG,
+                                        "No room for keylen (size %d).",
+				        DICT_DATA_HDR_KEY_LEN);
+			            gf_log ("dict", GF_LOG_ERROR,
+				                "undersized buffer passed");
+			            goto out;
+		        }
+		        memcpy (&hostord, buf, sizeof(hostord));
+		        keylen = ntoh32 (hostord);
+		        buf += DICT_DATA_HDR_KEY_LEN;
 
-		if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
-			gf_log ("dict", GF_LOG_DEBUG,
-				"No room for vallen (size %d).",
-				DICT_DATA_HDR_VAL_LEN);
-			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passed");
-			goto out;
-		}
-		memcpy (&hostord, buf, sizeof(hostord));
-		vallen = ntoh32 (hostord);
-		buf += DICT_DATA_HDR_VAL_LEN;
+		        if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
+			            gf_log ("dict", GF_LOG_DEBUG,
+				                "No room for vallen (size %d).",
+				        DICT_DATA_HDR_VAL_LEN);
+			            gf_log ("dict", GF_LOG_ERROR,
+				                "undersized buffer passed");
+			            goto out;
+		        }
+		        memcpy (&hostord, buf, sizeof(hostord));
+		        vallen = ntoh32 (hostord);
+		        buf += DICT_DATA_HDR_VAL_LEN;
 
-		if ((buf + keylen) > (orig_buf + size)) {
-			gf_log ("dict", GF_LOG_DEBUG,
-				"No room for key (size %d).", keylen);
-			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passed");
-			goto out;
-		}
-		key = buf;
-		buf += keylen + 1;  /* for '\0' */
+		        if ((buf + keylen) > (orig_buf + size)) {
+			            gf_log ("dict", GF_LOG_DEBUG,
+				                "No room for key (size %d).", keylen);
+			            gf_log ("dict", GF_LOG_ERROR,
+				                "undersized buffer passed");
+			            goto out;
+		        }
+		        key = buf;
+		        buf += keylen + 1;  /* for '\0' */
 
-		if ((buf + vallen) > (orig_buf + size)) {
-			gf_log ("dict", GF_LOG_DEBUG,
-				"No room for value (size %d).", vallen);
-			gf_log ("dict", GF_LOG_ERROR,
-				"undersized buffer passed");
-			goto out;
-		}
-		value = get_new_data ();
-		value->len  = vallen;
-		value->data = memdup (buf, vallen);
-		value->is_static = 0;
-		buf += vallen;
+		        if ((buf + vallen) > (orig_buf + size)) {
+			            gf_log ("dict", GF_LOG_DEBUG,
+				                "No room for value (size %d).", vallen);
+			            gf_log ("dict", GF_LOG_ERROR,
+				                "undersized buffer passed");
+			            goto out;
+		        }
+		        value = get_new_data ();
+		        value->len  = vallen;
+		        value->data = memdup (buf, vallen);
+		        value->is_static = 0;
+		        buf += vallen;
 
-		dict_set (*fill, key, value);
-	}
+		        dict_set (*fill, key, value);
+	    }
 
-	ret = 0;
+	    ret = 0;
 out:
-	return ret;
+	    return ret;
 }
 
 
@@ -2614,7 +2616,7 @@ out:
  *
  * @this: dict to serialize
  * @buf:  pointer to pointer to character. The allocated buffer is stored in
- *        this pointer. The buffer has to be freed by the caller. 
+ *        this pointer. The buffer has to be freed by the caller.
  *
  * @return: success: 0
  *          failure: -errno
@@ -2624,7 +2626,7 @@ int32_t
 dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
 {
 	int           ret    = -EINVAL;
-        ssize_t       len = 0; 
+        ssize_t       len = 0;
 
 	if (!this) {
 		gf_log ("dict", GF_LOG_DEBUG,
@@ -2636,9 +2638,9 @@ dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
 			"NULL passed as buf");
 		goto out;
 	}
-	
+
         LOCK (&this->lock);
-        { 
+        {
                 len = _dict_serialized_length (this);
                 if (len < 0) {
                         ret = len;
