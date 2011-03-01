@@ -26,6 +26,7 @@
 #include "rpc-clnt.h"
 #include "glusterd1-xdr.h"
 #include "glusterd1.h"
+#include "cli1.h"
 
 #include "compat-errno.h"
 #include "glusterd-op-sm.h"
@@ -42,6 +43,286 @@
 
 extern glusterd_op_info_t    opinfo;
 
+
+int32_t
+glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
+                               int32_t op_errno, rpcsvc_request_t *req,
+                               void *op_ctx, char *op_errstr)
+{
+        int32_t         ret = -1;
+        gd_serialize_t  sfunc = NULL;
+        void            *cli_rsp = NULL;
+        dict_t          *ctx = NULL;
+
+        switch (op) {
+        case GD_OP_CREATE_VOLUME:
+        {
+                gf1_cli_create_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_create_vol_rsp;
+                break;
+        }
+
+        case GD_OP_START_VOLUME:
+        {
+                gf1_cli_start_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_start_vol_rsp;
+                break;
+        }
+
+        case GD_OP_STOP_VOLUME:
+        {
+                gf1_cli_stop_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_stop_vol_rsp;
+                break;
+        }
+
+        case GD_OP_DELETE_VOLUME:
+        {
+                gf1_cli_delete_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_delete_vol_rsp;
+                break;
+        }
+
+        case GD_OP_DEFRAG_VOLUME:
+        {
+                gf1_cli_defrag_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                //rsp.volname = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_defrag_vol_rsp;
+                break;
+        }
+
+        case GD_OP_ADD_BRICK:
+        {
+                gf1_cli_add_brick_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_add_brick_rsp;
+                break;
+        }
+
+        case GD_OP_REMOVE_BRICK:
+        {
+                gf1_cli_remove_brick_rsp rsp = {0,};
+                ctx = op_ctx;
+                if (ctx &&
+                    dict_get_str (ctx, "errstr", &rsp.op_errstr))
+                        rsp.op_errstr = "";
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_remove_brick_rsp;
+                break;
+        }
+
+        case GD_OP_REPLACE_BRICK:
+        {
+                gf1_cli_replace_brick_rsp rsp = {0,};
+                ctx = op_ctx;
+                if (ctx &&
+                    dict_get_str (ctx, "status-reply", &rsp.status))
+                        rsp.status = "";
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                rsp.volname = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_replace_brick_rsp;
+                break;
+        }
+
+        case GD_OP_SET_VOLUME:
+        {
+                gf1_cli_set_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_set_vol_rsp;
+                break;
+        }
+
+        case GD_OP_RESET_VOLUME:
+        {
+                gf_log ("", GF_LOG_DEBUG, "Return value to CLI");
+                gf1_cli_reset_vol_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = 1;
+                rsp.volname = "";
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "Error while resetting options";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_reset_vol_rsp;
+                break;
+        }
+
+        case GD_OP_LOG_FILENAME:
+        {
+                gf1_cli_log_filename_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                if (op_errstr)
+                        rsp.errstr = op_errstr;
+                else
+                        rsp.errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_log_filename_rsp;
+                break;
+        }
+        case GD_OP_LOG_ROTATE:
+        {
+                gf1_cli_log_rotate_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                if (op_errstr)
+                        rsp.errstr = op_errstr;
+                else
+                        rsp.errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_log_rotate_rsp;
+                break;
+        }
+        case GD_OP_SYNC_VOLUME:
+        {
+                gf1_cli_sync_volume_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_from_cli_sync_volume_rsp;
+                break;
+        }
+        case GD_OP_GSYNC_SET:
+        {
+                int     type = 0;
+                int     config_type = 0;
+                char    *str = NULL;
+                char    *master = NULL;
+                char    *slave  = NULL;
+                char    *op_name = NULL;
+                gf1_cli_gsync_set_rsp rsp = {0,};
+                ctx = op_ctx;
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.op_errstr = "";
+                rsp.op_name = "";
+                rsp.master = "";
+                rsp.slave = "";
+                rsp.gsync_prefix = gf_strdup (GSYNCD_PREFIX);
+                if (ctx) {
+                        ret = dict_get_str (ctx, "errstr",
+                                            &str);
+                        if (ret == 0)
+                                rsp.op_errstr = gf_strdup (str);
+                        ret = dict_get_int32 (ctx, "type",
+                                              &type);
+                        if (ret == 0)
+                                rsp.type = type;
+                        ret = dict_get_int32 (ctx, "config_type",
+                                              &config_type);
+                        if (ret == 0)
+                                rsp.config_type = config_type;
+                        ret = dict_get_str (ctx, "master",
+                                            &master);
+                        if (ret == 0)
+                                rsp.master = gf_strdup (master);
+
+                        ret = dict_get_str (ctx, "slave",
+                                            &slave);
+                        if (ret == 0)
+                                rsp.slave = gf_strdup (slave);
+
+                        if (config_type ==
+                            GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
+                                ret = dict_get_str (ctx, "op_name",
+                                                    &op_name);
+                                if (ret == 0)
+                                        rsp.op_name =
+                                                gf_strdup (op_name);
+                        }
+                } else if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_gsync_set_rsp;
+                break;
+        }
+        case GD_OP_RENAME_VOLUME:
+        case GD_OP_START_BRICK:
+        case GD_OP_STOP_BRICK:
+        case GD_OP_LOG_LOCATE:
+        {
+                gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
+                break;
+        }
+        case GD_OP_NONE:
+        case GD_OP_MAX:
+                gf_log ("", GF_LOG_ERROR, "invalid operation %d", op);
+                break;
+        }
+
+        ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
+                                     sfunc);
+
+        if (ret)
+                goto out;
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 int
 glusterd3_1_probe_cbk (struct rpc_req *req, struct iovec *iov,
@@ -1011,64 +1292,48 @@ int32_t
 glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
-        gd1_mgmt_stage_op_req           *req = NULL;
+        gd1_mgmt_stage_op_req           req = {{0,},};
         int                             ret = -1;
         glusterd_peerinfo_t             *peerinfo = NULL;
         glusterd_conf_t                 *priv = NULL;
-        int                             i = 0;
         call_frame_t                    *dummy_frame = NULL;
-        char                            *op_errstr = NULL;
+        dict_t                          *dict = NULL;
 
         if (!this) {
                 goto out;
         }
 
-        peerinfo = data;
+        dict = data;
+
         priv = this->private;
         GF_ASSERT (priv);
 
-        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
-                if (opinfo.pending_op[i])
-                        break;
-        }
-
-        if (GD_OP_MAX == i) {
-                //No pending ops, inject stage_acc
-                ret = glusterd_op_sm_inject_event
-                        (GD_OP_EVENT_STAGE_ACC, NULL);
-
-                return ret;
-        }
-
-        glusterd_op_clear_pending_op (i);
-
-        ret = glusterd_op_build_payload (i, &req);
+        ret = dict_get_ptr (dict, "peerinfo", VOID (&peerinfo));
         if (ret)
                 goto out;
 
-        /* rsp_dict NULL from source */
-        ret = glusterd_op_stage_validate (req, &op_errstr, NULL);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Staging failed");
-                opinfo.op_errstr = op_errstr;
+        ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
+                                           (size_t *)&req.buf.buf_len);
+
+        if (ret)
                 goto out;
-        }
+
+        glusterd_get_uuid (&req.uuid);
 
         dummy_frame = create_frame (this, this->ctx->pool);
         if (!dummy_frame)
                 goto out;
 
-        ret = glusterd_submit_request (peerinfo, req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_STAGE_OP,
                                        NULL,
                                        gd_xdr_from_mgmt_stage_op_req,
                                        this, glusterd3_1_stage_op_cbk);
 
 out:
-        if (req) {
-                GF_FREE (req->buf.buf_val);
-                GF_FREE (req);
-        }
+        if (req.buf.buf_val)
+                GF_FREE (req.buf.buf_val);
+
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -1077,64 +1342,47 @@ int32_t
 glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
                       void *data)
 {
-        gd1_mgmt_commit_op_req          *req = NULL;
-        int                             ret = -1;
-        glusterd_peerinfo_t             *peerinfo = NULL;
-        glusterd_conf_t                 *priv = NULL;
-        int                             i = 0;
-        call_frame_t                    *dummy_frame = NULL;
-        char                            *op_errstr = NULL;
+        gd1_mgmt_commit_op_req  req         = {{0,},};
+        int                     ret         = -1;
+        glusterd_peerinfo_t    *peerinfo    = NULL;
+        glusterd_conf_t        *priv        = NULL;
+        call_frame_t           *dummy_frame = NULL;
+        dict_t                 *dict        = NULL;
 
         if (!this) {
                 goto out;
         }
 
+        dict = data;
         priv = this->private;
         GF_ASSERT (priv);
 
-        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
-                if (opinfo.commit_op[i])
-                        break;
-        }
-
-        if (GD_OP_MAX == i) {
-                //No pending ops, return
-                return 0;
-        }
-
-        glusterd_op_clear_commit_op (i);
-
-        ret = glusterd_op_build_payload (i, (gd1_mgmt_stage_op_req **)&req);
-
+        ret = dict_get_ptr (dict, "peerinfo", VOID (&peerinfo));
         if (ret)
                 goto out;
 
-        ret = glusterd_op_commit_perform ((gd1_mgmt_stage_op_req *)req, &op_errstr,
-                                          NULL);//rsp_dict invalid for source
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Commit failed");
-                opinfo.op_errstr = op_errstr;
-                goto out;
-        }
+        glusterd_get_uuid (&req.uuid);
 
-        peerinfo = data;
-        GF_ASSERT (peerinfo);
+        ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
+                                           (size_t *)&req.buf.buf_len);
+
+        if (ret)
+                goto out;
 
         dummy_frame = create_frame (this, this->ctx->pool);
         if (!dummy_frame)
                 goto out;
 
-        ret = glusterd_submit_request (peerinfo, req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_COMMIT_OP,
                                        NULL,
                                        gd_xdr_from_mgmt_commit_op_req,
                                        this, glusterd3_1_commit_op_cbk);
 
 out:
-        if (req) {
-                GF_FREE (req->buf.buf_val);
-                GF_FREE (req);
-        }
+        if (req.buf.buf_val)
+                GF_FREE (req.buf.buf_val);
+
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }

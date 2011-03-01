@@ -129,15 +129,19 @@ struct glusterd_op_lock_ctx_ {
 typedef struct glusterd_op_lock_ctx_ glusterd_op_lock_ctx_t;
 
 struct glusterd_op_stage_ctx_ {
-        rpcsvc_request_t        *req;
-        gd1_mgmt_stage_op_req   stage_req;
+        rpcsvc_request_t *req;
+	u_char            uuid[16];
+	int               op;
+        dict_t           *dict;
 };
 
 typedef struct glusterd_op_stage_ctx_ glusterd_op_stage_ctx_t;
 
 struct glusterd_op_commit_ctx_ {
-        rpcsvc_request_t        *req;
-        gd1_mgmt_stage_op_req   stage_req;
+        rpcsvc_request_t *req;
+	u_char            uuid[16];
+	int               op;
+        dict_t           *dict;
 };
 
 typedef struct glusterd_op_commit_ctx_ glusterd_op_commit_ctx_t;
@@ -168,14 +172,14 @@ int32_t
 glusterd_op_clear_commit_op (glusterd_op_t op);
 
 int
-glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req);
+glusterd_op_build_payload (glusterd_op_t op, dict_t **req);
 
 int32_t
-glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr,
+glusterd_op_stage_validate (dict_t *req, char **op_errstr,
                             dict_t *rsp_dict);
 
 int32_t
-glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr,
+glusterd_op_commit_perform (dict_t *req, char **op_errstr,
                             dict_t* dict);
 
 void *
@@ -185,10 +189,10 @@ int32_t
 glusterd_op_set_req (rpcsvc_request_t *req);
 
 int32_t
-glusterd_op_set_cli_op (gf_mgmt_procnum op);
+glusterd_op_set_cli_op (glusterd_op_t op);
 
 int32_t
-glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
+glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                                int32_t op_errno, rpcsvc_request_t *req,
                                void *ctx, char *op_errstr);
 int32_t

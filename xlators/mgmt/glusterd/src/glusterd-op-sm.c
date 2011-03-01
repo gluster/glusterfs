@@ -44,15 +44,15 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
-#include "cli1.h"
 #include "glusterd-volgen.h"
 #include "syscall.h"
+#include "cli1.h"
 
 #include <sys/types.h>
 #include <signal.h>
 
-#define glusterd_op_start_volume_args_get(req, dict, volname, flags) \
-        glusterd_op_stop_volume_args_get (req, dict, volname, flags)
+#define glusterd_op_start_volume_args_get(dict, volname, flags) \
+        glusterd_op_stop_volume_args_get (dict, volname, flags)
 
 static struct list_head gd_op_sm_queue;
 pthread_mutex_t       gd_op_sm_lock;
@@ -133,8 +133,9 @@ glusterd_destroy_stage_ctx (glusterd_op_stage_ctx_t *ctx)
         if (!ctx)
                 return;
 
-        if (ctx->stage_req.buf.buf_val)
-                GF_FREE (ctx->stage_req.buf.buf_val);
+        if (ctx->dict)
+                dict_unref (ctx->dict);
+
         GF_FREE (ctx);
 }
 
@@ -144,8 +145,9 @@ glusterd_destroy_commit_ctx (glusterd_op_commit_ctx_t *ctx)
         if (!ctx)
                 return;
 
-        if (ctx->stage_req.buf.buf_val)
-                GF_FREE (ctx->stage_req.buf.buf_val);
+        if (ctx->dict)
+                dict_unref (ctx->dict);
+
         GF_FREE (ctx);
 }
 
@@ -186,51 +188,6 @@ glusterd_are_all_volumes_stopped ()
 }
 
 static int
-glusterd_op_get_len (glusterd_op_t op)
-{
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-        int             ret = -1;
-
-        switch (op) {
-                case GD_OP_CREATE_VOLUME:
-                        {
-                                dict_t *dict = glusterd_op_get_ctx (op);
-                                ret = dict_serialized_length (dict);
-                                return ret;
-                        }
-                        break;
-
-                case GD_OP_START_BRICK:
-                        break;
-
-                case GD_OP_SET_VOLUME:
-                case GD_OP_RESET_VOLUME:
-                case GD_OP_REPLACE_BRICK:
-                case GD_OP_ADD_BRICK:
-                        {
-                                dict_t *dict = glusterd_op_get_ctx (op);
-                                ret = dict_serialized_length (dict);
-                                return ret;
-                        }
-                 case GD_OP_REMOVE_BRICK:
-                        {
-                                dict_t *dict = glusterd_op_get_ctx (op);
-                                ret = dict_serialized_length (dict);
-                                return ret;
-                        }
-                        break;
-                       break;
-
-                default:
-                        GF_ASSERT (op);
-
-        }
-
-        return 0;
-}
-
-static int
 glusterd_op_sm_inject_all_acc ()
 {
         int32_t                 ret = -1;
@@ -239,104 +196,10 @@ glusterd_op_sm_inject_all_acc ()
         return ret;
 }
 
-int
-glusterd_op_build_payload (glusterd_op_t op, gd1_mgmt_stage_op_req **req)
-{
-        int                     len = 0;
-        int                     ret = -1;
-        gd1_mgmt_stage_op_req   *stage_req = NULL;
-        void                    *ctx = NULL;
-
-        GF_ASSERT (op < GD_OP_MAX);
-        GF_ASSERT (op > GD_OP_NONE);
-        GF_ASSERT (req);
-
-        len = glusterd_op_get_len (op);
-
-        stage_req = GF_CALLOC (1, sizeof (*stage_req),
-                               gf_gld_mt_mop_stage_req_t);
-
-        if (!stage_req) {
-                gf_log ("", GF_LOG_ERROR, "Out of Memory");
-                goto out;
-        }
-
-
-        glusterd_get_uuid (&stage_req->uuid);
-        stage_req->op = op;
-        //stage_req->buf.buf_len = len;
-
-        ctx = (void*)glusterd_op_get_ctx (op);
-        if (!ctx) {
-                gf_log ("", GF_LOG_ERROR, "Null Context for "
-                        "op %d", op);
-                ret = -1;
-                goto out;
-        }
-
-        switch (op) {
-                case GD_OP_CREATE_VOLUME:
-                        {
-                                dict_t  *dict = ctx;
-                                ++glusterfs_port;
-                                ret = dict_set_int32 (dict, "port", glusterfs_port);
-                                ret = dict_allocate_and_serialize (dict,
-                                                &stage_req->buf.buf_val,
-                                        (size_t *)&stage_req->buf.buf_len);
-                                if (ret) {
-                                        goto out;
-                                }
-                        }
-                        break;
-
-                case GD_OP_DELETE_VOLUME:
-                        {
-                                glusterd_op_delete_volume_ctx_t *ctx1 = ctx;
-                                stage_req->buf.buf_len  =
-                                        strlen (ctx1->volume_name);
-                                stage_req->buf.buf_val =
-                                        gf_strdup (ctx1->volume_name);
-                        }
-                        break;
-
-                case GD_OP_START_VOLUME:
-                case GD_OP_STOP_VOLUME:
-                case GD_OP_ADD_BRICK:
-                case GD_OP_REPLACE_BRICK:
-                case GD_OP_SET_VOLUME:
-                case GD_OP_RESET_VOLUME:
-                case GD_OP_REMOVE_BRICK:
-                case GD_OP_LOG_FILENAME:
-                case GD_OP_LOG_ROTATE:
-                case GD_OP_SYNC_VOLUME:
-                case GD_OP_GSYNC_SET:
-                        {
-                                dict_t  *dict = ctx;
-                                ret = dict_allocate_and_serialize (dict,
-                                                &stage_req->buf.buf_val,
-                                        (size_t *)&stage_req->buf.buf_len);
-                                if (ret) {
-                                        goto out;
-                                }
-                        }
-                        break;
-
-                default:
-                        break;
-        }
-
-        *req = stage_req;
-        ret = 0;
-
-out:
-        return ret;
-}
-
 static int
-glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_create_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         gf_boolean_t                            exists = _gf_false;
         char                                    *bricks = NULL;
@@ -352,8 +215,6 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         glusterd_conf_t                         *priv = NULL;
         char                                    msg[2048] = {0};
 
-        GF_ASSERT (req);
-
         this = THIS;
         if (!this) {
                 gf_log ("glusterd", GF_LOG_ERROR,
@@ -365,17 +226,6 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (!priv) {
                 gf_log ("glusterd", GF_LOG_ERROR,
                         "priv is NULL");
-                goto out;
-        }
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
                 goto out;
         }
 
@@ -449,8 +299,6 @@ glusterd_op_stage_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 brick_info = NULL;
         }
 out:
-        if (dict)
-                dict_unref (dict);
         if (free_ptr)
                 GF_FREE (free_ptr);
         if (brick_info)
@@ -461,21 +309,13 @@ out:
 }
 
 static int
-glusterd_op_stop_volume_args_get (gd1_mgmt_stage_op_req *req,
-                                  dict_t *dict, char** volname,
+glusterd_op_stop_volume_args_get (dict_t *dict, char** volname,
                                   int *flags)
 {
         int ret = -1;
 
-        if (!req || !dict || !volname || !flags)
+        if (!dict || !volname || !flags)
                 goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", volname);
         if (ret) {
@@ -493,10 +333,9 @@ out:
 }
 
 static int
-glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_start_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         int                                     flags = 0;
         gf_boolean_t                            exists = _gf_false;
@@ -504,8 +343,6 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         glusterd_brickinfo_t                    *brickinfo = NULL;
         char                                    msg[2048];
         glusterd_conf_t                         *priv = NULL;
-
-        GF_ASSERT (req);
 
         priv = THIS->private;
         if (!priv) {
@@ -515,11 +352,7 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 goto out;
         }
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = glusterd_op_start_volume_args_get (req, dict, &volname, &flags);
+        ret = glusterd_op_start_volume_args_get (dict, &volname, &flags);
         if (ret)
                 goto out;
 
@@ -573,29 +406,23 @@ glusterd_op_stage_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
         ret = 0;
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
 
 static int
-glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_stop_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = -1;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         int                                     flags = 0;
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    msg[2048] = {0};
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
 
-        ret = glusterd_op_stop_volume_args_get (req, dict, &volname, &flags);
+        ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
         if (ret)
                 goto out;
 
@@ -631,8 +458,6 @@ glusterd_op_stage_stop_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
 
 out:
-        if (dict)
-                dict_unref (dict);
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
@@ -640,17 +465,20 @@ out:
 }
 
 static int
-glusterd_op_stage_delete_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_delete_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
-        char                                    volname [1024] = {0,};
+        char                                    *volname = NULL;
         gf_boolean_t                            exists = _gf_false;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    msg[2048] = {0};
 
-        GF_ASSERT (req);
+        ret = dict_get_str (dict, "volname", &volname);
 
-        strncpy (volname, req->buf.buf_val, req->buf.buf_len);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
 
         exists = glusterd_check_volume_exists (volname);
 
@@ -691,10 +519,9 @@ out:
 }
 
 static int
-glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_add_brick (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         int                                     count = 0;
         int                                     i = 0;
@@ -712,25 +539,11 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
         char                                    *all_bricks = NULL;
         char                                    *str_ret = NULL;
 
-        GF_ASSERT (req);
-
         priv = THIS->private;
         if (!priv)
                 goto out;
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
-
         ret = dict_get_str (dict, "volname", &volname);
-
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
@@ -826,8 +639,6 @@ glusterd_op_stage_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
         }
 
 out:
-        if (dict)
-                dict_unref (dict);
         if (free_ptr)
                 GF_FREE (free_ptr);
         if (brick_alloc && brickinfo)
@@ -918,15 +729,14 @@ out:
 }
 
 static int
-glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
+glusterd_op_stage_replace_brick (dict_t *dict, char **op_errstr,
                                  dict_t *rsp_dict)
 {
         int                                      ret           = 0;
-        dict_t                                  *dict          = NULL;
         char                                    *src_brick     = NULL;
         char                                    *dst_brick     = NULL;
         char                                    *volname       = NULL;
-        gf1_cli_replace_op                       replace_op    = 0;
+        int                                      replace_op    = 0;
         glusterd_volinfo_t                      *volinfo       = NULL;
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
         char                                    *host          = NULL;
@@ -936,19 +746,6 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
         glusterd_peerinfo_t                     *peerinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
 
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
-
         ret = dict_get_str (dict, "src-brick", &src_brick);
 
         if (ret) {
@@ -956,8 +753,7 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
                 goto out;
         }
 
-        gf_log ("", GF_LOG_DEBUG,
-                "src brick=%s", src_brick);
+        gf_log ("", GF_LOG_DEBUG, "src brick=%s", src_brick);
 
         ret = dict_get_str (dict, "dst-brick", &dst_brick);
 
@@ -966,8 +762,7 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
                 goto out;
         }
 
-        gf_log ("", GF_LOG_DEBUG,
-                "dst brick=%s", dst_brick);
+        gf_log ("", GF_LOG_DEBUG, "dst brick=%s", dst_brick);
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1155,18 +950,15 @@ glusterd_op_stage_replace_brick (gd1_mgmt_stage_op_req *req, char **op_errstr,
 out:
         if (dup_dstbrick)
                 GF_FREE (dup_dstbrick);
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
 
 static int
-glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_log_filename (dict_t *dict, char **op_errstr)
 {
         int                                     ret = -1;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         gf_boolean_t                            exists = _gf_false;
         char                                    msg[2048] = {0};
@@ -1174,18 +966,6 @@ glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req, char **op_errstr)
         char                                    hostname[2048] = {0};
         char                                    *brick = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -1239,35 +1019,20 @@ glusterd_op_stage_log_filename (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (ret)
                 goto out;
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
 
 static int
-glusterd_op_stage_log_rotate (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_log_rotate (dict_t *dict, char **op_errstr)
 {
         int                                     ret = -1;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         gf_boolean_t                            exists = _gf_false;
         char                                    msg[2048] = {0};
         char                                    *brick = NULL;
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -1313,18 +1078,15 @@ glusterd_op_stage_log_rotate (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 }
         }
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
 
 static int
-glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_set_volume (dict_t *dict, char **op_errstr)
 {
         int                                      ret           = 0;
-        dict_t                                  *dict          = NULL;
         char                                    *volname       = NULL;
  	int                                      exists        = 0;
  	char					*key	       = NULL;
@@ -1337,25 +1099,7 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         glusterd_volinfo_t                      *volinfo       = NULL;
         dict_t                                  *val_dict      = NULL;
 
-         GF_ASSERT (req);
-
-         dict = dict_new ();
-         if (!dict)
-                 goto out;
-
-        val_dict = dict_new();
-        if (!val_dict)
-                goto out;
-
- 	ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
-
         ret = dict_get_str (dict, "volname", &volname);
-
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
                 goto out;
@@ -1466,9 +1210,6 @@ glusterd_op_stage_set_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         ret = 0;
 
 out:
-        if (dict)
-                dict_unref (dict);
-
         if (val_dict)
                 dict_unref (val_dict);
 
@@ -1490,26 +1231,12 @@ out:
 }
 
 static int
-glusterd_op_stage_reset_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_reset_volume (dict_t *dict, char **op_errstr)
 {
         int                                      ret           = 0;
-        dict_t                                  *dict          = NULL;
         char                                    *volname       = NULL;
         gf_boolean_t                             exists        = _gf_false;
         char                                    msg[2048]      = {0};
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1531,8 +1258,6 @@ glusterd_op_stage_reset_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
 
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -1606,7 +1331,7 @@ glusterd_op_perform_replace_brick (glusterd_volinfo_t  *volinfo,
                 goto out;
 
         ret = glusterd_volume_brickinfo_get_by_brick (old_brick, volinfo,
-                                      &old_brickinfo);
+                                                      &old_brickinfo);
         if (ret)
                 goto out;
 
@@ -1719,28 +1444,14 @@ out:
 
 
 static int
-glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
+glusterd_op_stage_remove_brick (dict_t *dict)
 {
         int                                     ret = -1;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         dict_t                                  *ctx     = NULL;
         char                                    *errstr  = NULL;
         int32_t                                 brick_count = 0;
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -1812,35 +1523,20 @@ glusterd_op_stage_remove_brick (gd1_mgmt_stage_op_req *req)
         }
 
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
 }
 
 static int
-glusterd_op_stage_sync_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_sync_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = -1;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         char                                    *hostname = NULL;
         gf_boolean_t                            exists = _gf_false;
         glusterd_peerinfo_t                     *peerinfo = NULL;
         char                                    msg[2048] = {0,};
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "hostname", &hostname);
         if (ret) {
@@ -1886,8 +1582,6 @@ glusterd_op_stage_sync_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         }
 
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -2046,12 +1740,11 @@ out:
 }
 
 static int
-glusterd_op_stage_gsync_set (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
 {
         int             ret     = 0;
         int             type    = 0;
         int             status  = 0;
-        dict_t          *dict   = NULL;
         dict_t          *ctx    = NULL;
         char            *volname = NULL;
         char            *master  = NULL;
@@ -2063,20 +1756,6 @@ glusterd_op_stage_gsync_set (gd1_mgmt_stage_op_req *req, char **op_errstr)
         if (!ctx) {
                 gf_log ("gsync", GF_LOG_DEBUG, "gsync command doesn't "
                         "correspond to this glusterd");
-                goto out;
-        }
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict) {
-                ret = -1;
-                goto out;
-        }
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to unserialize dict");
                 goto out;
         }
 
@@ -2180,8 +1859,6 @@ glusterd_op_stage_gsync_set (gd1_mgmt_stage_op_req *req, char **op_errstr)
 
         ret = 0;
 out:
-        if (dict)
-                dict_unref (dict);
         if (volname)
                 GF_FREE (volname);
 
@@ -2189,10 +1866,9 @@ out:
 }
 
 static int
-glusterd_op_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_create_volume (dict_t *dict, char **op_errstr)
 {
         int                   ret        = 0;
-        dict_t               *dict       = NULL;
         char                 *volname    = NULL;
         glusterd_conf_t      *priv       = NULL;
         glusterd_volinfo_t   *volinfo    = NULL;
@@ -2209,24 +1885,11 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         char                 *trans_type = NULL;
         char                 *str        = NULL;
 
-        GF_ASSERT (req);
-
         this = THIS;
         GF_ASSERT (this);
 
         priv = this->private;
         GF_ASSERT (priv);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = glusterd_volinfo_new (&volinfo);
 
@@ -2346,9 +2009,6 @@ glusterd_op_create_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 goto out;
 
 out:
-        if (dict)
-                dict_unref (dict);
-
         if (free_ptr)
                 GF_FREE(free_ptr);
 
@@ -2356,10 +2016,9 @@ out:
 }
 
 static int
-glusterd_op_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_add_brick (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         glusterd_conf_t                         *priv = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
@@ -2367,24 +2026,11 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
         char                                    *bricks = NULL;
         int32_t                                 count = 0;
 
-        GF_ASSERT (req);
-
         this = THIS;
         GF_ASSERT (this);
 
         priv = this->private;
         GF_ASSERT (priv);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -2434,8 +2080,6 @@ glusterd_op_add_brick (gd1_mgmt_stage_op_req *req, char **op_errstr)
                 ret = glusterd_check_generate_start_nfs (volinfo);
 
 out:
-        if (dict)
-                dict_unref (dict);
         return ret;
 }
 
@@ -3341,12 +2985,11 @@ out:
 
 
 static int
-glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
+glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 {
         int                                      ret = 0;
-        dict_t                                  *dict = NULL;
         dict_t                                  *ctx  = NULL;
-        gf1_cli_replace_op                       replace_op;
+        int                                      replace_op = 0;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    *volname = NULL;
         xlator_t                                *this = NULL;
@@ -3356,23 +2999,11 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
         glusterd_brickinfo_t                    *src_brickinfo = NULL;
         glusterd_brickinfo_t                    *dst_brickinfo = NULL;
 
-        GF_ASSERT (req);
-
         this = THIS;
         GF_ASSERT (this);
 
         priv = this->private;
         GF_ASSERT (priv);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "src-brick", &src_brick);
         if (ret) {
@@ -3633,8 +3264,6 @@ glusterd_op_replace_brick (gd1_mgmt_stage_op_req *req, dict_t *rsp_dict)
                 goto out;
 
 out:
-        if (dict)
-                dict_unref (dict);
         return ret;
 }
 
@@ -3696,23 +3325,11 @@ out:
 
 
 static int
-glusterd_op_reset_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_reset_volume (dict_t *dict)
 {
         glusterd_volinfo_t     *volinfo    = NULL;
         int                     ret        = -1;
         char                   *volname    = NULL;
-        dict_t                 *dict       = NULL;
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -3729,8 +3346,6 @@ glusterd_op_reset_volume (gd1_mgmt_stage_op_req *req)
         ret = glusterd_options_reset (volinfo);
 
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "'volume reset' returning %d", ret);
         return ret;
 
@@ -4127,26 +3742,13 @@ out:
 }
 
 int
-glusterd_op_gsync_set (gd1_mgmt_stage_op_req *req)
+glusterd_op_gsync_set (dict_t *dict)
 {
         char            *master = NULL;
         int32_t         ret     = -1;
         int32_t         type    = -1;
-        dict_t          *dict   = NULL;
         dict_t          *ctx    = NULL;
         char            *op_errstr = NULL;
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (dict == NULL)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_WARNING, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_int32 (dict, "type", &type);
         if (ret < 0)
@@ -4188,9 +3790,6 @@ out:
                         }
                 }
         }
-
-        if (dict)
-                dict_unref (dict);
 
         return ret;
 }
@@ -4242,10 +3841,9 @@ glusterd_restart_brick_servers (glusterd_volinfo_t *volinfo)
 
 
 static int
-glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_set_volume (dict_t *dict)
 {
         int                                      ret = 0;
-        dict_t                                  *dict = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    *volname = NULL;
         xlator_t                                *this = NULL;
@@ -4257,24 +3855,11 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
 	char					*value = NULL;
 	char					 str[50] = {0, };
 
-        GF_ASSERT (req);
-
         this = THIS;
         GF_ASSERT (this);
 
         priv = this->private;
         GF_ASSERT (priv);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -4379,8 +3964,6 @@ glusterd_op_set_volume (gd1_mgmt_stage_op_req *req)
         ret = 0;
 
 out:
-        if (dict)
-                dict_unref (dict);
         if (key_fixed)
                 GF_FREE (key_fixed);
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
@@ -4388,29 +3971,15 @@ out:
 }
 
 static int
-glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
+glusterd_op_remove_brick (dict_t *dict)
 {
         int                                     ret = -1;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         char                                    *brick = NULL;
         int32_t                                 count = 0;
         int32_t                                 i = 1;
         char                                    key[256] = {0,};
-
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
 
@@ -4467,29 +4036,29 @@ glusterd_op_remove_brick (gd1_mgmt_stage_op_req *req)
                 ret = glusterd_check_generate_start_nfs (volinfo);
 
 out:
-        if (dict)
-                dict_unref (dict);
         return ret;
 }
 
 
 static int
-glusterd_op_delete_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_delete_volume (dict_t *dict)
 {
         int                                     ret = 0;
-        char                                    volname[1024] = {0,};
+        char                                    *volname = NULL;
         glusterd_conf_t                         *priv = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
         xlator_t                                *this = NULL;
-
-        GF_ASSERT (req);
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
 
-        strncpy (volname, req->buf.buf_val, req->buf.buf_len);
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
 
         ret  = glusterd_volinfo_find (volname, &volinfo);
 
@@ -4511,22 +4080,15 @@ out:
 }
 
 static int
-glusterd_op_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
+glusterd_op_start_volume (dict_t *dict, char **op_errstr)
 {
         int                                     ret = 0;
         char                                    *volname = NULL;
         int                                     flags = 0;
         glusterd_volinfo_t                      *volinfo = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
-        dict_t                                  *dict = NULL;
 
-        GF_ASSERT (req);
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = glusterd_op_start_volume_args_get (req, dict, &volname, &flags);
+        ret = glusterd_op_start_volume_args_get (dict, &volname, &flags);
         if (ret)
                 goto out;
 
@@ -4553,17 +4115,14 @@ glusterd_op_start_volume (gd1_mgmt_stage_op_req *req, char **op_errstr)
         ret = glusterd_check_generate_start_nfs (volinfo);
 
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
 }
 
 static int
-glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
+glusterd_op_log_filename (dict_t *dict)
 {
         int                   ret                = -1;
-        dict_t               *dict               = NULL;
         glusterd_conf_t      *priv               = NULL;
         glusterd_volinfo_t   *volinfo            = NULL;
         glusterd_brickinfo_t *brickinfo          = NULL;
@@ -4578,24 +4137,10 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
         glusterd_brickinfo_t *tmpbrkinfo         = NULL;
         char*                new_logdir         = NULL;
 
-        GF_ASSERT (req);
-
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
-        dict = dict_new ();
-        if (!dict) {
-                gf_log ("", GF_LOG_ERROR, "ENOMEM, !dict");
-                goto out;
-        }
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -4689,9 +4234,6 @@ glusterd_op_log_filename (gd1_mgmt_stage_op_req *req)
         if (ret && !valid_brick)
                 ret = 0;
 out:
-        if (dict)
-                dict_unref (dict);
-
         if (tmpbrkinfo)
                 glusterd_brickinfo_delete (tmpbrkinfo);
 
@@ -4699,10 +4241,9 @@ out:
 }
 
 static int
-glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
+glusterd_op_log_rotate (dict_t *dict)
 {
         int                   ret                = -1;
-        dict_t               *dict               = NULL;
         glusterd_conf_t      *priv               = NULL;
         glusterd_volinfo_t   *volinfo            = NULL;
         glusterd_brickinfo_t *brickinfo          = NULL;
@@ -4718,24 +4259,10 @@ glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
         int                   valid_brick        = 0;
         glusterd_brickinfo_t *tmpbrkinfo         = NULL;
 
-        GF_ASSERT (req);
-
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
-        dict = dict_new ();
-        if (!dict) {
-                gf_log ("", GF_LOG_ERROR, "ENOMEM, !dict");
-                goto out;
-        }
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "volname", &volname);
         if (ret) {
@@ -4825,9 +4352,6 @@ glusterd_op_log_rotate (gd1_mgmt_stage_op_req *req)
                 ret = 0;
 
 out:
-        if (dict)
-                dict_unref (dict);
-
         if (tmpbrkinfo)
                 glusterd_brickinfo_delete (tmpbrkinfo);
 
@@ -4836,20 +4360,15 @@ out:
 
 
 static int
-glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
+glusterd_op_stop_volume (dict_t *dict)
 {
         int                                     ret = 0;
         int                                     flags = 0;
         char                                    *volname = NULL;
         glusterd_volinfo_t                      *volinfo = NULL;
-        dict_t                                  *dict = NULL;
         glusterd_brickinfo_t                    *brickinfo = NULL;
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = glusterd_op_stop_volume_args_get (req, dict, &volname, &flags);
+        ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
         if (ret)
                 goto out;
 
@@ -4881,18 +4400,16 @@ glusterd_op_stop_volume (gd1_mgmt_stage_op_req *req)
         } else {
                 ret = glusterd_check_generate_start_nfs (volinfo);
         }
+
 out:
-        if (dict)
-                dict_unref (dict);
         return ret;
 }
 
 static int
-glusterd_op_sync_volume (gd1_mgmt_stage_op_req *req, char **op_errstr,
+glusterd_op_sync_volume (dict_t *dict, char **op_errstr,
                          dict_t *rsp_dict)
 {
         int                                     ret = -1;
-        dict_t                                  *dict = NULL;
         char                                    *volname = NULL;
         char                                    *hostname = NULL;
         char                                    msg[2048] = {0,};
@@ -4902,22 +4419,10 @@ glusterd_op_sync_volume (gd1_mgmt_stage_op_req *req, char **op_errstr,
         glusterd_volinfo_t                      *volinfo = NULL;
         xlator_t                                *this = NULL;
 
-        GF_ASSERT (req);
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
-
-
-        dict = dict_new ();
-        if (!dict)
-                goto out;
-
-        ret = dict_unserialize (req->buf.buf_val, req->buf.buf_len, &dict);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Unable to unserialize dict");
-                goto out;
-        }
 
         ret = dict_get_str (dict, "hostname", &hostname);
         if (ret) {
@@ -4966,9 +4471,8 @@ glusterd_op_sync_volume (gd1_mgmt_stage_op_req *req, char **op_errstr,
                 }
         }
         ret = dict_set_int32 (rsp_dict, "count", vol_count);
+
 out:
-        if (dict)
-                dict_unref (dict);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
 
         return ret;
@@ -5135,6 +4639,83 @@ out:
         return ret;
 }
 
+int
+glusterd_op_build_payload (glusterd_op_t op, dict_t **req)
+{
+        int                     ret = -1;
+        void                    *ctx = NULL;
+        dict_t                  *req_dict = NULL;
+
+        GF_ASSERT (op < GD_OP_MAX);
+        GF_ASSERT (op > GD_OP_NONE);
+        GF_ASSERT (req);
+
+        req_dict = dict_new ();
+        if (!req_dict)
+                goto out;
+
+        ret = dict_set_int32 (req_dict, "operation", op);
+        if (ret)
+                gf_log ("", GF_LOG_WARNING, "failed to set op");
+
+        ctx = (void*)glusterd_op_get_ctx (op);
+        if (!ctx) {
+                gf_log ("", GF_LOG_ERROR, "Null Context for "
+                        "op %d", op);
+                ret = -1;
+                goto out;
+        }
+
+        switch (op) {
+                case GD_OP_CREATE_VOLUME:
+                        {
+                                dict_t  *dict = ctx;
+                                ++glusterfs_port;
+                                ret = dict_set_int32 (dict, "port", glusterfs_port);
+                                if (ret)
+                                        goto out;
+                                dict_copy (dict, req_dict);
+                        }
+                        break;
+
+                case GD_OP_DELETE_VOLUME:
+                        {
+                                glusterd_op_delete_volume_ctx_t *ctx1 = ctx;
+                                ret = dict_set_str (req_dict, "volname",
+                                                    ctx1->volume_name);
+                                if (ret)
+                                        goto out;
+                        }
+                        break;
+
+                case GD_OP_START_VOLUME:
+                case GD_OP_STOP_VOLUME:
+                case GD_OP_ADD_BRICK:
+                case GD_OP_REPLACE_BRICK:
+                case GD_OP_SET_VOLUME:
+                case GD_OP_RESET_VOLUME:
+                case GD_OP_REMOVE_BRICK:
+                case GD_OP_LOG_FILENAME:
+                case GD_OP_LOG_ROTATE:
+                case GD_OP_SYNC_VOLUME:
+                case GD_OP_GSYNC_SET:
+                        {
+                                dict_t  *dict = ctx;
+                                dict_copy (dict, req_dict);
+                        }
+                        break;
+
+                default:
+                        break;
+        }
+
+        *req = req_dict;
+        ret = 0;
+
+out:
+        return ret;
+}
+
 static int
 glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 {
@@ -5143,11 +4724,41 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
         glusterd_peerinfo_t     *peerinfo = NULL;
+        dict_t                  *dict = NULL;
+        char                    *op_errstr  = NULL;
+        int                      i = 0;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
+
+        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
+                if (opinfo.pending_op[i])
+                        break;
+        }
+
+        if (GD_OP_MAX == i) {
+                //No pending ops, inject stage_acc
+                ret = glusterd_op_sm_inject_event
+                        (GD_OP_EVENT_STAGE_ACC, NULL);
+
+                return ret;
+        }
+
+        glusterd_op_clear_pending_op (i);
+
+        ret = glusterd_op_build_payload (i, &dict);
+        if (ret)
+                goto out;
+
+        /* rsp_dict NULL from source */
+        ret = glusterd_op_stage_validate (dict, &op_errstr, NULL);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Staging failed");
+                opinfo.op_errstr = op_errstr;
+                goto out;
+        }
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
@@ -5161,13 +4772,20 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 proc = &peerinfo->mgmt->proctable[GD_MGMT_STAGE_OP];
                 GF_ASSERT (proc);
                 if (proc->fn) {
-                        ret = proc->fn (NULL, this, NULL);
+                        ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                                goto out;
+                        }
+
+                        ret = proc->fn (NULL, this, dict);
                         if (ret)
                                 continue;
                         opinfo.pending_count++;
                 }
         }
 
+out:
         if (ret) {
                 glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
                 opinfo.op_ret = ret;
@@ -5231,11 +4849,37 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         xlator_t                *this = NULL;
         dict_t                  *dict = NULL;
         glusterd_peerinfo_t     *peerinfo = NULL;
+        char                    *op_errstr  = NULL;
+        int                      i = 0;
 
         this = THIS;
         GF_ASSERT (this);
         priv = this->private;
         GF_ASSERT (priv);
+
+        for ( i = GD_OP_NONE; i < GD_OP_MAX; i++) {
+                if (opinfo.commit_op[i])
+                        break;
+        }
+
+        if (GD_OP_MAX == i) {
+                //No pending ops, return
+                return 0;
+        }
+
+        glusterd_op_clear_commit_op (i);
+
+        ret = glusterd_op_build_payload (i, &dict);
+
+        if (ret)
+                goto out;
+
+        ret = glusterd_op_commit_perform (dict, &op_errstr, NULL); //rsp_dict invalid for source
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Commit failed");
+                opinfo.op_errstr = op_errstr;
+                goto out;
+        }
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
                 GF_ASSERT (peerinfo);
@@ -5249,7 +4893,12 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 proc = &peerinfo->mgmt->proctable[GD_MGMT_COMMIT_OP];
                 GF_ASSERT (proc);
                 if (proc->fn) {
-                        ret = proc->fn (NULL, this, peerinfo);
+                        ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
+                                goto out;
+                        }
+                        ret = proc->fn (NULL, this, dict);
                         if (ret)
                                 continue;
                         opinfo.pending_count++;
@@ -5258,7 +4907,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 
         gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
                 opinfo.pending_count);
-
+out:
         if (ret) {
                 glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
                 opinfo.op_ret = ret;
@@ -5268,14 +4917,14 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
                 if (!dict) {
                         ret = glusterd_op_sm_inject_all_acc ();
-                        goto out;
+                        goto err;
                 }
 
                 dict = dict_ref (dict);
                 ret = glusterd_op_start_rb_timer (dict);
         }
 
-out:
+err:
         gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
         return ret;
@@ -5501,274 +5150,6 @@ out:
 
 
 int32_t
-glusterd_op_send_cli_response (int32_t op, int32_t op_ret,
-                               int32_t op_errno, rpcsvc_request_t *req,
-                               void *op_ctx, char *op_errstr)
-{
-        int32_t         ret = -1;
-        gd_serialize_t  sfunc = NULL;
-        void            *cli_rsp = NULL;
-        dict_t          *ctx = NULL;
-
-        switch (op) {
-                case GD_MGMT_CLI_CREATE_VOLUME:
-                        {
-                                gf1_cli_create_vol_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.volname = "";
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_create_vol_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_START_VOLUME:
-                        {
-                                gf1_cli_start_vol_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.volname = "";
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_start_vol_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_STOP_VOLUME:
-                        {
-                                gf1_cli_stop_vol_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.volname = "";
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_stop_vol_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_DELETE_VOLUME:
-                        {
-                                gf1_cli_delete_vol_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.volname = "";
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_delete_vol_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_DEFRAG_VOLUME:
-                        {
-                                gf1_cli_defrag_vol_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                //rsp.volname = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_defrag_vol_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_ADD_BRICK:
-                        {
-                                gf1_cli_add_brick_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.volname = "";
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_add_brick_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_REMOVE_BRICK:
-                        {
-                                gf1_cli_remove_brick_rsp rsp = {0,};
-                                ctx = op_ctx;
-                                if (ctx &&
-                                    dict_get_str (ctx, "errstr", &rsp.op_errstr))
-                                        rsp.op_errstr = "";
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.volname = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_remove_brick_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_REPLACE_BRICK:
-                        {
-                                gf1_cli_replace_brick_rsp rsp = {0,};
-                                ctx = op_ctx;
-                                if (ctx &&
-                                    dict_get_str (ctx, "status-reply", &rsp.status))
-                                        rsp.status = "";
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                rsp.volname = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_replace_brick_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_SET_VOLUME:
-                        {
-                                gf1_cli_set_vol_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.volname = "";
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_set_vol_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_RESET_VOLUME:
-                        {
-                                gf_log ("", GF_LOG_DEBUG, "Return value to CLI");
-                                gf1_cli_reset_vol_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = 1;
-                                rsp.volname = "";
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "Error while resetting options";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_reset_vol_rsp;
-                                break;
-                        }
-
-                case GD_MGMT_CLI_LOG_FILENAME:
-                        {
-                                gf1_cli_log_filename_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                if (op_errstr)
-                                        rsp.errstr = op_errstr;
-                                else
-                                        rsp.errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_log_filename_rsp;
-                                break;
-                        }
-                case GD_MGMT_CLI_LOG_ROTATE:
-                        {
-                                gf1_cli_log_rotate_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                if (op_errstr)
-                                        rsp.errstr = op_errstr;
-                                else
-                                        rsp.errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_log_rotate_rsp;
-                                break;
-                        }
-                case GD_MGMT_CLI_SYNC_VOLUME:
-                        {
-                                gf1_cli_sync_volume_rsp rsp = {0,};
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                else
-                                        rsp.op_errstr = "";
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_from_cli_sync_volume_rsp;
-                                break;
-                        }
-                case GD_MGMT_CLI_GSYNC_SET:
-                        {
-                                int     type = 0;
-                                int     config_type = 0;
-                                char    *str = NULL;
-                                char    *master = NULL;
-                                char    *slave  = NULL;
-                                char    *op_name = NULL;
-                                gf1_cli_gsync_set_rsp rsp = {0,};
-                                ctx = op_ctx;
-                                rsp.op_ret = op_ret;
-                                rsp.op_errno = op_errno;
-                                rsp.op_errstr = "";
-                                rsp.op_name = "";
-                                rsp.master = "";
-                                rsp.slave = "";
-                                rsp.gsync_prefix = gf_strdup (GSYNCD_PREFIX);
-                                if (ctx) {
-                                        ret = dict_get_str (ctx, "errstr",
-                                                            &str);
-                                        if (ret == 0)
-                                                rsp.op_errstr = gf_strdup (str);
-                                        ret = dict_get_int32 (ctx, "type",
-                                                              &type);
-                                        if (ret == 0)
-                                                rsp.type = type;
-                                        ret = dict_get_int32 (ctx, "config_type",
-                                                              &config_type);
-                                        if (ret == 0)
-                                                rsp.config_type = config_type;
-                                        ret = dict_get_str (ctx, "master",
-                                                            &master);
-                                        if (ret == 0)
-                                                rsp.master = gf_strdup (master);
-
-                                        ret = dict_get_str (ctx, "slave",
-                                                            &slave);
-                                        if (ret == 0)
-                                                rsp.slave = gf_strdup (slave);
-
-                                        if (config_type ==
-                                            GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
-                                                ret = dict_get_str (ctx, "op_name",
-                                                                    &op_name);
-                                                if (ret == 0)
-                                                        rsp.op_name =
-                                                        gf_strdup (op_name);
-                                        }
-                                } else if (op_errstr)
-                                        rsp.op_errstr = op_errstr;
-                                cli_rsp = &rsp;
-                                sfunc = gf_xdr_serialize_cli_gsync_set_rsp;
-                                break;
-                        }
-        }
-
-        ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
-                                     sfunc);
-
-        if (ret)
-                goto out;
-
-out:
-        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
-        return ret;
-}
-
-int32_t
 glusterd_op_clear_errstr() {
         opinfo.op_errstr = NULL;
         return 0;
@@ -5879,18 +5260,17 @@ static int
 glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 {
         int                     ret = -1;
-        gd1_mgmt_stage_op_req   *req = NULL;
         glusterd_op_stage_ctx_t *stage_ctx = NULL;
         int32_t                 status = 0;
         dict_t                  *rsp_dict  = NULL;
         char                    *op_errstr = NULL;
+        dict_t                  *dict = NULL;
 
         GF_ASSERT (ctx);
 
         stage_ctx = ctx;
 
-        req = &stage_ctx->stage_req;
-
+        dict = stage_ctx->dict;
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -5899,14 +5279,14 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 return -1;
         }
 
-        status = glusterd_op_stage_validate (req, &op_errstr,
+        status = glusterd_op_stage_validate (dict, &op_errstr,
                                              rsp_dict);
 
         if (status) {
                 gf_log ("", GF_LOG_ERROR, "Validate failed: %d", status);
         }
 
-        ret = glusterd_op_stage_send_resp (stage_ctx->req, req->op,
+        ret = glusterd_op_stage_send_resp (stage_ctx->req, stage_ctx->op,
                                            status, op_errstr, rsp_dict);
 
         if (op_errstr && (strcmp (op_errstr, "")))
@@ -5923,18 +5303,18 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 static int
 glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
 {
-        int                             ret = 0;
-        gd1_mgmt_stage_op_req           *req = NULL;
-        glusterd_op_commit_ctx_t        *commit_ctx = NULL;
-        int32_t                         status = 0;
-        char                            *op_errstr = NULL;
-        dict_t                          *rsp_dict = NULL;
+        int                       ret        = 0;
+        glusterd_op_commit_ctx_t *commit_ctx = NULL;
+        int32_t                   status     = 0;
+        char                     *op_errstr  = NULL;
+        dict_t                   *rsp_dict   = NULL;
+        dict_t                   *dict       = NULL;
 
         GF_ASSERT (ctx);
 
         commit_ctx = ctx;
 
-        req = &commit_ctx->stage_req;
+        dict = commit_ctx->dict;
 
         rsp_dict = dict_new ();
         if (!rsp_dict) {
@@ -5944,15 +5324,14 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-
-        status = glusterd_op_commit_perform (req, &op_errstr, rsp_dict);
+        status = glusterd_op_commit_perform (dict, &op_errstr, rsp_dict);
 
         if (status) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed: %d", status);
         }
 
-        ret = glusterd_op_commit_send_resp (commit_ctx->req, req->op, status,
-                                            op_errstr, rsp_dict);
+        ret = glusterd_op_commit_send_resp (commit_ctx->req, commit_ctx->op,
+                                            status, op_errstr, rsp_dict);
 
 out:
         if (rsp_dict)
@@ -5989,70 +5368,73 @@ glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
 }
 
 int32_t
-glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr,
+glusterd_op_stage_validate (dict_t *dict, char **op_errstr,
                             dict_t *rsp_dict)
 {
-        int     ret = -1;
+        int ret = -1;
+        int op  = -1;
 
-        GF_ASSERT (req);
+        ret = dict_get_int32 (dict, "operation", &op);
+        if (ret)
+                gf_log ("", GF_LOG_WARNING, "operation not set");
 
-        switch (req->op) {
+        switch (op) {
                 case GD_OP_CREATE_VOLUME:
-                        ret = glusterd_op_stage_create_volume (req, op_errstr);
+                        ret = glusterd_op_stage_create_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_START_VOLUME:
-                        ret = glusterd_op_stage_start_volume (req, op_errstr);
+                        ret = glusterd_op_stage_start_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_STOP_VOLUME:
-                        ret = glusterd_op_stage_stop_volume (req, op_errstr);
+                        ret = glusterd_op_stage_stop_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_DELETE_VOLUME:
-                        ret = glusterd_op_stage_delete_volume (req, op_errstr);
+                        ret = glusterd_op_stage_delete_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_ADD_BRICK:
-                        ret = glusterd_op_stage_add_brick (req, op_errstr);
+                        ret = glusterd_op_stage_add_brick (dict, op_errstr);
                         break;
 
                 case GD_OP_REPLACE_BRICK:
-                        ret = glusterd_op_stage_replace_brick (req, op_errstr,
+                        ret = glusterd_op_stage_replace_brick (dict, op_errstr,
                                                                rsp_dict);
                         break;
 
                 case GD_OP_SET_VOLUME:
-                        ret = glusterd_op_stage_set_volume (req, op_errstr);
+                        ret = glusterd_op_stage_set_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_RESET_VOLUME:
-                        ret = glusterd_op_stage_reset_volume (req, op_errstr);
+                        ret = glusterd_op_stage_reset_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_REMOVE_BRICK:
-                        ret = glusterd_op_stage_remove_brick (req);
+                        ret = glusterd_op_stage_remove_brick (dict);
                         break;
 
                 case GD_OP_LOG_FILENAME:
-                        ret = glusterd_op_stage_log_filename (req, op_errstr);
+                        ret = glusterd_op_stage_log_filename (dict, op_errstr);
                         break;
 
                 case GD_OP_LOG_ROTATE:
-                        ret = glusterd_op_stage_log_rotate (req, op_errstr);
+                        ret = glusterd_op_stage_log_rotate (dict, op_errstr);
                         break;
 
                 case GD_OP_SYNC_VOLUME:
-                        ret = glusterd_op_stage_sync_volume (req, op_errstr);
+                        ret = glusterd_op_stage_sync_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_GSYNC_SET:
-                        ret = glusterd_op_stage_gsync_set (req, op_errstr);
+                        ret = glusterd_op_stage_gsync_set (dict, op_errstr);
                         break;
 
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
-                                req->op);
+                                op);
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -6062,69 +5444,72 @@ glusterd_op_stage_validate (gd1_mgmt_stage_op_req *req, char **op_errstr,
 
 
 int32_t
-glusterd_op_commit_perform (gd1_mgmt_stage_op_req *req, char **op_errstr,
+glusterd_op_commit_perform (dict_t *dict, char **op_errstr,
                             dict_t *rsp_dict)
 {
-        int     ret = -1;
+        int ret = -1;
+        int op  = -1;
 
-        GF_ASSERT (req);
+        ret = dict_get_int32 (dict, "operation", &op);
+        if (ret)
+                gf_log ("", GF_LOG_WARNING, "operation not set");
 
-        switch (req->op) {
+        switch (op) {
                 case GD_OP_CREATE_VOLUME:
-                        ret = glusterd_op_create_volume (req, op_errstr);
+                        ret = glusterd_op_create_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_START_VOLUME:
-                        ret = glusterd_op_start_volume (req, op_errstr);
+                        ret = glusterd_op_start_volume (dict, op_errstr);
                         break;
 
                 case GD_OP_STOP_VOLUME:
-                        ret = glusterd_op_stop_volume (req);
+                        ret = glusterd_op_stop_volume (dict);
                         break;
 
                 case GD_OP_DELETE_VOLUME:
-                        ret = glusterd_op_delete_volume (req);
+                        ret = glusterd_op_delete_volume (dict);
                         break;
 
                 case GD_OP_ADD_BRICK:
-                        ret = glusterd_op_add_brick (req, op_errstr);
+                        ret = glusterd_op_add_brick (dict, op_errstr);
                         break;
 
                 case GD_OP_REPLACE_BRICK:
-                        ret = glusterd_op_replace_brick (req, rsp_dict);
+                        ret = glusterd_op_replace_brick (dict, rsp_dict);
                         break;
 
                 case GD_OP_SET_VOLUME:
-                        ret = glusterd_op_set_volume (req);
+                        ret = glusterd_op_set_volume (dict);
                         break;
 
                 case GD_OP_RESET_VOLUME:
-                        ret = glusterd_op_reset_volume (req);
+                        ret = glusterd_op_reset_volume (dict);
                         break;
 
                 case GD_OP_REMOVE_BRICK:
-                        ret = glusterd_op_remove_brick (req);
+                        ret = glusterd_op_remove_brick (dict);
                         break;
 
                 case GD_OP_LOG_FILENAME:
-                        ret = glusterd_op_log_filename (req);
+                        ret = glusterd_op_log_filename (dict);
                         break;
 
                 case GD_OP_LOG_ROTATE:
-                        ret = glusterd_op_log_rotate (req);
+                        ret = glusterd_op_log_rotate (dict);
                         break;
 
                 case GD_OP_SYNC_VOLUME:
-                        ret = glusterd_op_sync_volume (req, op_errstr, rsp_dict);
+                        ret = glusterd_op_sync_volume (dict, op_errstr, rsp_dict);
                         break;
 
                 case GD_OP_GSYNC_SET:
-                        ret = glusterd_op_gsync_set (req);
+                        ret = glusterd_op_gsync_set (dict);
                         break;
 
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
-                                req->op);
+                                op);
         }
 
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
@@ -6442,7 +5827,7 @@ glusterd_op_get_op ()
 
 
 int32_t
-glusterd_op_set_cli_op (gf_mgmt_procnum op)
+glusterd_op_set_cli_op (glusterd_op_t op)
 {
 
         int32_t         ret;
