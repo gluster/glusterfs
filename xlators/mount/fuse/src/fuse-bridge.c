@@ -272,7 +272,7 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
                         "%"PRIu64": LOOKUP %s(%"PRId64")", finh->unique,
                         state->loc.path, state->loc.inode->ino);
                 state->is_revalidate = 1;
-                memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+                uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         } else {
                 gf_log ("glusterfs-fuse", GF_LOG_TRACE,
                         "%"PRIu64": LOOKUP %s", finh->unique,
@@ -280,7 +280,7 @@ fuse_lookup (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 uuid_generate (state->gfid);
         }
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
@@ -517,8 +517,10 @@ fuse_getattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 state->fd = NULL;
         }
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
-        state->resolve.path = gf_strdup (state->loc.path);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
+        if (state->loc.path)
+                state->resolve.path = gf_strdup (state->loc.path);
+
         fuse_resolve_and_resume (state, fuse_getattr_resume);
 }
 
@@ -810,8 +812,10 @@ fuse_setattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 state->size = fsi->size;
         }
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
-        state->resolve.path = gf_strdup (state->loc.path);
+        if (!state->fd) {
+                uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
+                state->resolve.path = gf_strdup (state->loc.path);
+        }
 
         fuse_resolve_and_resume (state, fuse_setattr_resume);
 }
@@ -945,7 +949,7 @@ fuse_access (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->mask = fai->mask;
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_access_resume);
@@ -1016,7 +1020,7 @@ fuse_readlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_readlink_resume);
@@ -1084,7 +1088,7 @@ fuse_mknod (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->mode = fmi->mode;
         state->rdev = fmi->rdev;
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
@@ -1144,7 +1148,7 @@ fuse_mkdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->mode = fmi->mode;
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
@@ -1190,7 +1194,7 @@ fuse_unlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
@@ -1236,7 +1240,7 @@ fuse_rmdir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
@@ -1295,7 +1299,7 @@ fuse_symlink (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->name = gf_strdup (linkname);
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
@@ -1404,11 +1408,11 @@ fuse_rename (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (oldname);
         state->resolve.path = gf_strdup (state->loc.path);
 
-        memcpy (state->resolve2.pargfid, state->loc2.parent->gfid, 16);
+        uuid_copy (state->resolve2.pargfid, state->loc2.parent->gfid);
         state->resolve2.bname = gf_strdup (newname);
         state->resolve2.path = gf_strdup (state->loc2.path);
 
@@ -1461,11 +1465,11 @@ fuse_link (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
-        memcpy (state->resolve2.gfid, state->loc2.inode->gfid, 16);
+        uuid_copy (state->resolve2.gfid, state->loc2.inode->gfid);
         state->resolve2.path = gf_strdup (state->loc2.path);
 
         fuse_resolve_and_resume (state, fuse_link_resume);
@@ -1641,7 +1645,7 @@ fuse_create (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->mode = fci->mode;
         state->flags = fci->flags;
 
-        memcpy (state->resolve.pargfid, state->loc.parent->gfid, 16);
+        uuid_copy (state->resolve.pargfid, state->loc.parent->gfid);
         state->resolve.bname = gf_strdup (name);
         state->resolve.path = gf_strdup (state->loc.path);
 
@@ -1699,7 +1703,7 @@ fuse_open (xlator_t *this, fuse_in_header_t *finh, void *msg)
 
         state->flags = foi->flags;
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_open_resume);
@@ -2024,7 +2028,7 @@ fuse_opendir (xlator_t *this, fuse_in_header_t *finh, void *msg)
                 return;
         }
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_opendir_resume);
@@ -2391,7 +2395,7 @@ fuse_setxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->flags = fsi->flags;
         state->name = gf_strdup (name);
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_setxattr_resume);
@@ -2580,7 +2584,7 @@ fuse_getxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         state->size = fgxi->size;
         state->name = gf_strdup (name);
 
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_getxattr_resume);
@@ -2621,7 +2625,7 @@ fuse_listxattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->size = fgxi->size;
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_listxattr_resume);
@@ -2663,7 +2667,7 @@ fuse_removexattr (xlator_t *this, fuse_in_header_t *finh, void *msg)
         }
 
         state->name = gf_strdup (name);
-        memcpy (state->resolve.gfid, state->loc.inode->gfid, 16);
+        uuid_copy (state->resolve.gfid, state->loc.inode->gfid);
         state->resolve.path = gf_strdup (state->loc.path);
 
         fuse_resolve_and_resume (state, fuse_removexattr_resume);
