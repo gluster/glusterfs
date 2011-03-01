@@ -1816,6 +1816,7 @@ glusterd_check_generate_start_nfs (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
+
         ret = glusterd_create_nfs_volfile ();
         if (ret)
                 goto out;

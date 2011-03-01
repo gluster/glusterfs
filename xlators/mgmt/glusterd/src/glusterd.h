@@ -85,6 +85,9 @@ struct glusterd_store_iter_ {
 
 typedef struct glusterd_store_iter_     glusterd_store_iter_t;
 
+struct glusterd_volgen {
+        dict_t *dict;
+};
 typedef struct {
         struct _volfile_ctx *volfile;
 	pthread_mutex_t   mutex;
