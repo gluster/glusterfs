@@ -1783,6 +1783,7 @@ nfs_rpcsvc_submit_vectors (rpcsvc_request_t *req)
         struct iobuf            *replyiob = NULL;
         struct iovec            recordhdr = {0, };
         rpcsvc_txbuf_t          *rpctxb = NULL;
+        void                    *rxpool = NULL;
 
         if ((!req) || (!req->conn))
                 return -1;
@@ -1818,11 +1819,13 @@ disconnect_exit:
          * response to the ref that is performed on the conn when a request is
          * handed to the RPC program.
          */
+        rxpool = req->conn->rxpool;
+
         nfs_rpcsvc_conn_unref (req->conn);
         if (ret == -1)
                 iobuf_unref (replyiob);
 
-        mem_put (req->conn->rxpool, req);
+        mem_put (rxpool, req);
         return ret;
 }
 
