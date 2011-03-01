@@ -777,18 +777,18 @@ int
 gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                              int count, void *myframe)
 {
-        gf1_cli_defrag_vol_rsp  rsp     = {0,};
-        cli_local_t            *local   = NULL;
-        char                   *volname = NULL;
-        call_frame_t           *frame   = NULL;
-        int                     cmd     = 0;
-        int                     ret     = 0;
+        gf2_cli_defrag_vol_rsp  rsp     = {0,};
+        cli_local_t             *local   = NULL;
+        char                    *volname = NULL;
+        call_frame_t            *frame   = NULL;
+        int                      cmd     = 0;
+        int                      ret     = 0;
 
         if (-1 == req->rpc_status) {
                 goto out;
         }
 
-        ret = gf_xdr_to_cli_defrag_vol_rsp (*iov, &rsp);
+        ret = gf_xdr_to_cli_defrag_vol_rsp_v2 (*iov, &rsp);
         if (ret < 0) {
                 gf_log ("", GF_LOG_ERROR, "error");
                 goto out;
@@ -804,24 +804,34 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 cmd = local->u.defrag_vol.cmd;
         }
         if (cmd == GF_DEFRAG_CMD_START) {
-                cli_out ("starting rebalance on volume %s has been %s", volname,
-                         (rsp.op_ret) ? "unsuccessful": "successful");
-                if (rsp.op_ret && rsp.op_errno == EEXIST)
-                       cli_out ("Rebalance already started on volume %s", 
-                                volname);
+                if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
+                        cli_out (rsp.op_errstr);
+                else
+                        cli_out ("starting rebalance on volume %s has been %s",
+                                 volname, (rsp.op_ret) ? "unsuccessful":
+                                 "successful");
         }
         if (cmd == GF_DEFRAG_CMD_STOP) {
-                if (rsp.op_ret == -1)
-                        cli_out ("rebalance volume %s stop failed", volname);
-                else
+                if (rsp.op_ret == -1) {
+                        if (strcmp (rsp.op_errstr, ""))
+                                cli_out (rsp.op_errstr);
+                        else
+                                cli_out ("rebalance volume %s stop failed",
+                                         volname);
+                } else {
                         cli_out ("stopped rebalance process of volume %s \n"
                                  "(after rebalancing %"PRId64" files totaling "
                                  "%"PRId64" bytes)", volname, rsp.files, rsp.size);
+                }
         }
         if (cmd == GF_DEFRAG_CMD_STATUS) {
-                if (rsp.op_ret == -1)
-                        cli_out ("failed to get the status of rebalance process");
-                else {
+                if (rsp.op_ret == -1) {
+                        if (strcmp (rsp.op_errstr, ""))
+                                cli_out (rsp.op_errstr);
+                        else
+                                cli_out ("failed to get the status of "
+                                         "rebalance process");
+                } else {
                         char *status = "unknown";
                         if (rsp.op_errno == 0)
                                 status = "not started";
@@ -856,6 +866,10 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
         ret = rsp.op_ret;
 
 out:
+        if (rsp.op_errstr)
+                free (rsp.op_errstr); //malloced by xdr
+        if (rsp.volname)
+                free (rsp.volname); //malloced by xdr
         cli_cmd_broadcast_response (ret);
         return ret;
 }

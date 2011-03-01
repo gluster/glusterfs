@@ -240,6 +240,17 @@ struct gf1_cli_defrag_vol_rsp {
 };
 typedef struct gf1_cli_defrag_vol_rsp gf1_cli_defrag_vol_rsp;
 
+struct gf2_cli_defrag_vol_rsp {
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	char *volname;
+	u_quad_t files;
+	u_quad_t size;
+	u_quad_t lookedup_files;
+};
+typedef struct gf2_cli_defrag_vol_rsp gf2_cli_defrag_vol_rsp;
+
 struct gf1_cli_add_brick_req {
 	char *volname;
 	int count;
@@ -454,6 +465,7 @@ extern  bool_t xdr_gf1_cli_rename_vol_req (XDR *, gf1_cli_rename_vol_req*);
 extern  bool_t xdr_gf1_cli_rename_vol_rsp (XDR *, gf1_cli_rename_vol_rsp*);
 extern  bool_t xdr_gf1_cli_defrag_vol_req (XDR *, gf1_cli_defrag_vol_req*);
 extern  bool_t xdr_gf1_cli_defrag_vol_rsp (XDR *, gf1_cli_defrag_vol_rsp*);
+extern  bool_t xdr_gf2_cli_defrag_vol_rsp (XDR *, gf2_cli_defrag_vol_rsp*);
 extern  bool_t xdr_gf1_cli_add_brick_req (XDR *, gf1_cli_add_brick_req*);
 extern  bool_t xdr_gf1_cli_add_brick_rsp (XDR *, gf1_cli_add_brick_rsp*);
 extern  bool_t xdr_gf1_cli_remove_brick_req (XDR *, gf1_cli_remove_brick_req*);
@@ -505,6 +517,7 @@ extern bool_t xdr_gf1_cli_rename_vol_req ();
 extern bool_t xdr_gf1_cli_rename_vol_rsp ();
 extern bool_t xdr_gf1_cli_defrag_vol_req ();
 extern bool_t xdr_gf1_cli_defrag_vol_rsp ();
+extern bool_t xdr_gf2_cli_defrag_vol_rsp ();
 extern bool_t xdr_gf1_cli_add_brick_req ();
 extern bool_t xdr_gf1_cli_add_brick_rsp ();
 extern bool_t xdr_gf1_cli_remove_brick_req ();

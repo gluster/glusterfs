@@ -387,6 +387,27 @@ xdr_gf1_cli_defrag_vol_rsp (XDR *xdrs, gf1_cli_defrag_vol_rsp *objp)
 }
 
 bool_t
+xdr_gf2_cli_defrag_vol_rsp (XDR *xdrs, gf2_cli_defrag_vol_rsp *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->files))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->size))
+		 return FALSE;
+	 if (!xdr_u_quad_t (xdrs, &objp->lookedup_files))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_add_brick_req (XDR *xdrs, gf1_cli_add_brick_req *objp)
 {
 

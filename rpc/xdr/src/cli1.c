@@ -302,6 +302,21 @@ gf_xdr_to_cli_defrag_vol_rsp (struct iovec inmsg, void *args)
 }
 
 ssize_t
+gf_xdr_serialize_cli_defrag_vol_rsp_v2 (struct iovec outmsg, void *rsp)
+{
+        return xdr_serialize_generic (outmsg, (void *)rsp,
+                                      (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp);
+
+}
+
+ssize_t
+gf_xdr_to_cli_defrag_vol_rsp_v2 (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf2_cli_defrag_vol_rsp);
+}
+
+ssize_t
 gf_xdr_to_cli_defrag_vol_req (struct iovec inmsg, void *args)
 {
         return xdr_to_generic (inmsg, (void *)args,
