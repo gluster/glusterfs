@@ -157,7 +157,7 @@ class Server(object):
             return struct.unpack('!II', Xattr.lgetxattr(path, '.'.join([cls.GX_NSPACE, uuid, 'xtime']), 8))
         except OSError:
             ex = sys.exc_info()[1]
-            if ex.errno in (ENOENT, ENODATA):
+            if ex.errno in (ENOENT, ENODATA, ENOTDIR):
                 return ex.errno
             else:
                 raise
