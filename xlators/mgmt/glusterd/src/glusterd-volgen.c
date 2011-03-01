@@ -160,6 +160,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.trusted-write",                    "nfs/server",                "!nfs-trusted-write", NULL, DOC},
         {"nfs.volume-access",                    "nfs/server",                "!nfs-volume-access", NULL, DOC},
         {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC},
+        {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC},
 
         {NULL,                                                                }
 };
@@ -1550,6 +1551,20 @@ nfs_option_handler (glusterfs_graph_t *graph,
         }
 
 
+        if (! strcmp (vme->option, "!nfs-disable")) {
+                ret = gf_asprintf (&aa, "nfs3.%s.disable",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+
         /*key = strchr (vme->key, '.') + 1;
 
         for (trav = xl->children; trav; trav = trav->next) {
@@ -1618,6 +1633,9 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
 
         list_for_each_entry (voliter, &priv->volumes, vol_list) {
                 if (voliter->status != GLUSTERD_STATUS_STARTED)
+                        continue;
+
+                if (dict_get_str_boolean (voliter->dict, "nfs.disable", 0))
                         continue;
 
                 ret = gf_asprintf (&skey, "rpc-auth.addr.%s.allow",
