@@ -138,6 +138,12 @@ ssize_t
 gf_xdr_to_cli_defrag_vol_rsp (struct iovec inmsg, void *args);
 
 ssize_t
+gf_xdr_serialize_cli_defrag_vol_rsp_v2 (struct iovec outmsg, void *rsp);
+
+ssize_t
+gf_xdr_to_cli_defrag_vol_rsp_v2 (struct iovec inmsg, void *args);
+
+ssize_t
 gf_xdr_serialize_cli_add_brick_rsp (struct iovec outmsg, void *rsp);
 
 ssize_t
