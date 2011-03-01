@@ -133,11 +133,13 @@ struct gf_defrag_brickinfo_ {
 
 typedef enum gf_defrag_status_ {
         GF_DEFRAG_STATUS_NOT_STARTED,
-        GF_DEFRAG_STATUS_STARTED,
-        GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE,
+        GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED,
+        GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED,
         GF_DEFRAG_STATUS_STOPED,
         GF_DEFRAG_STATUS_COMPLETE,
         GF_DEFRAG_STATUS_FAILED,
+        GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE,
+        GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE,
 } gf_defrag_status_t;
 
 struct glusterd_defrag_info_ {
@@ -145,6 +147,7 @@ struct glusterd_defrag_info_ {
         uint64_t                     total_data;
         uint64_t                     num_files_lookedup;
         gf_lock_t                    lock;
+        int                          cmd;
         pthread_t                    th;
         char                         mount[1024];
         char                         databuf[131072];

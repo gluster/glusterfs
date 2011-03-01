@@ -184,8 +184,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                 if (!S_ISDIR (stbuf.st_mode))
                         continue;
 
-                ret = gf_glusterd_rebalance_move_data (volinfo,
-                                                       full_path);
+                ret = gf_glusterd_rebalance_move_data (volinfo, full_path);
                 if (ret)
                         break;
         }
@@ -289,32 +288,44 @@ glusterd_defrag_start (void *data)
         sys_lgetxattr (defrag->mount, "trusted.distribute.fix.layout",
                        &value, 128);
 
-        /* root's layout got fixed */
-        defrag->total_files = 1;
+        if ((defrag->cmd == GF_DEFRAG_CMD_START) ||
+            (defrag->cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX)) {
+                /* root's layout got fixed */
+                defrag->total_files = 1;
 
-        /* Step 1: Fix layout of all the directories */
-        ret = gf_glusterd_rebalance_fix_layout (volinfo, defrag->mount);
-        if (ret) {
-                volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
-                goto out;
+                /* Step 1: Fix layout of all the directories */
+                ret = gf_glusterd_rebalance_fix_layout (volinfo, defrag->mount);
+                if (ret) {
+                        volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
+                        goto out;
+                }
+
+                /* Completed first step */
+                volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE;
         }
 
-        /* Completed first step */
-        volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE;
+        if ((defrag->cmd == GF_DEFRAG_CMD_START) ||
+            (defrag->cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA)) {
+                /* It was used by number of layout fixes on directories */
+                defrag->total_files = 0;
 
-        /* It was used by number of layout fixes on directories */
-        defrag->total_files = 0;
+                volinfo->defrag_status = GF_DEFRAG_STATUS_MIGRATE_DATA_STARTED;
 
-        /* Step 2: Iterate over directories to move data */
-        ret = gf_glusterd_rebalance_move_data (volinfo, defrag->mount);
-        if (ret) {
-                volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
+                /* Step 2: Iterate over directories to move data */
+                ret = gf_glusterd_rebalance_move_data (volinfo, defrag->mount);
+                if (ret) {
+                        volinfo->defrag_status   = GF_DEFRAG_STATUS_FAILED;
+                        goto out;
+                }
+
+                /* Completed second step */
+                volinfo->defrag_status = GF_DEFRAG_STATUS_MIGRATE_DATA_COMPLETE;
         }
 
         /* Completed whole process */
-        if (!ret) {
-                volinfo->defrag_status   = GF_DEFRAG_STATUS_COMPLETE;
-        }
+        if (defrag->cmd == GF_DEFRAG_CMD_START)
+                volinfo->defrag_status = GF_DEFRAG_STATUS_COMPLETE;
+
         volinfo->rebalance_files = defrag->total_files;
         volinfo->rebalance_data  = defrag->total_data;
         volinfo->lookedup_files  = defrag->num_files_lookedup;
@@ -441,6 +452,16 @@ void
 glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
 {
         switch (cmd) {
+                case GF_DEFRAG_CMD_START_LAYOUT_FIX:
+                        gf_cmd_log ("Volume rebalance"," on volname: %s "
+                                    "cmd: start fix layout , attempted",
+                                    volname);
+                        break;
+                case GF_DEFRAG_CMD_START_MIGRATE_DATA:
+                        gf_cmd_log ("Volume rebalance"," on volname: %s "
+                                    "cmd: start data migrate attempted",
+                                    volname);
+                        break;
                 case GF_DEFRAG_CMD_START:
                         gf_cmd_log ("Volume rebalance"," on volname: %s "
                                     "cmd: start, attempted", volname);
@@ -452,9 +473,9 @@ glusterd_rebalance_cmd_attempted_log (int cmd, char *volname)
                 default:
                         break;
         }
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume %s on %s",
-                (cmd == GF_DEFRAG_CMD_START)?"start":(cmd == GF_DEFRAG_CMD_STOP)?"stop":"status"
-                , volname);
+
+        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume %d on %s",
+                cmd, volname);
 }
 
 void
@@ -498,7 +519,7 @@ out:
 
 int
 glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
-                              size_t len)
+                              size_t len, int cmd)
 {
         int                    ret = -1;
         glusterd_defrag_info_t *defrag =  NULL;
@@ -520,6 +541,8 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                 goto out;
 
         defrag = volinfo->defrag;
+
+        defrag->cmd = cmd;
 
         LOCK_INIT (&defrag->lock);
         snprintf (defrag->mount, 1024, "%s/mount/%s",
@@ -546,7 +569,7 @@ glusterd_handle_defrag_start (glusterd_volinfo_t *volinfo, char *op_errstr,
                 goto out;
         }
 
-        volinfo->defrag_status = GF_DEFRAG_STATUS_STARTED;
+        volinfo->defrag_status = GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED;
 
         ret = pthread_create (&defrag->th, NULL, glusterd_defrag_start,
                               volinfo);
@@ -608,24 +631,6 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
                 goto out;
         }
 
-        switch (cli_req.cmd) {
-                case GF_DEFRAG_CMD_START:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: start, attempted", cli_req.volname);
-                        break;
-                case GF_DEFRAG_CMD_STOP:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: stop, attempted", cli_req.volname);
-                        break;
-                default:
-                        break;
-        }
-
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume %s on %s",
-                ((cli_req.cmd == GF_DEFRAG_CMD_START) ? "start" :
-                 (cli_req.cmd == GF_DEFRAG_CMD_STOP) ? "stop" : "status"),
-                cli_req.volname);
-
         glusterd_rebalance_cmd_attempted_log (cli_req.cmd, cli_req.volname);
 
         rsp.volname = cli_req.volname;
@@ -636,9 +641,13 @@ glusterd_handle_defrag_volume_v2 (rpcsvc_request_t *req)
                                                &volinfo, msg, sizeof (msg));
         if (ret)
                 goto out;
+
         switch (cli_req.cmd) {
         case GF_DEFRAG_CMD_START:
-                ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg));
+        case GF_DEFRAG_CMD_START_LAYOUT_FIX:
+        case GF_DEFRAG_CMD_START_MIGRATE_DATA:
+                ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
+                                                    cli_req.cmd);
                 rsp.op_ret = ret;
                 break;
         case GF_DEFRAG_CMD_STOP:
@@ -684,22 +693,7 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
-        switch (cli_req.cmd) {
-                case GF_DEFRAG_CMD_START:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: start, attempted", cli_req.volname);
-                        break;
-                case GF_DEFRAG_CMD_STOP:
-                        gf_cmd_log ("Volume rebalance"," on volname: %s "
-                                    "cmd: stop, attempted", cli_req.volname);
-                        break;
-                default:
-                        break;
-        }
-        gf_log ("glusterd", GF_LOG_NORMAL, "Received rebalance volume %s on %s",
-                ((cli_req.cmd == GF_DEFRAG_CMD_START) ? "start" :
-                 (cli_req.cmd == GF_DEFRAG_CMD_STOP) ? "stop" : "status"),
-                cli_req.volname);
+        glusterd_rebalance_cmd_attempted_log (cli_req.cmd, cli_req.volname);
 
         rsp.volname = cli_req.volname;
         rsp.op_ret = -1;
@@ -710,8 +704,11 @@ glusterd_handle_defrag_volume (rpcsvc_request_t *req)
                 goto out;
         switch (cli_req.cmd) {
         case GF_DEFRAG_CMD_START:
+        case GF_DEFRAG_CMD_START_LAYOUT_FIX:
+        case GF_DEFRAG_CMD_START_MIGRATE_DATA:
         {
-                ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg));
+                ret = glusterd_handle_defrag_start (volinfo, msg, sizeof (msg),
+                                                    cli_req.cmd);
                 rsp.op_ret = ret;
                 break;
         }

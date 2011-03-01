@@ -803,7 +803,9 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                 volname = local->u.defrag_vol.volname;
                 cmd = local->u.defrag_vol.cmd;
         }
-        if (cmd == GF_DEFRAG_CMD_START) {
+        if ((cmd == GF_DEFRAG_CMD_START) ||
+            (cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX) ||
+            (cmd == GF_DEFRAG_CMD_START_MIGRATE_DATA)) {
                 if (rsp.op_ret && strcmp (rsp.op_errstr, ""))
                         cli_out (rsp.op_errstr);
                 else
@@ -845,21 +847,34 @@ gf_cli3_1_defrag_volume_cbk (struct rpc_req *req, struct iovec *iov,
                                 status = "completed";
                         if (rsp.op_errno == 5)
                                 status = "failed";
+                        if (rsp.op_errno == 6)
+                                status = "step 1: layout fix complete";
+                        if (rsp.op_errno == 7)
+                                status = "step 2: data migration complete";
 
                         if (rsp.files && (rsp.op_errno == 1)) {
                                 cli_out ("rebalance %s: fixed layout %"PRId64,
                                          status, rsp.files);
-                        } else if (rsp.files) {
+                                goto done;
+                        }
+                        if (rsp.files && (rsp.op_errno == 6)) {
+                                cli_out ("rebalance %s: fixed layout %"PRId64,
+                                         status, rsp.files);
+                                goto done;
+                        }
+                        if (rsp.files) {
                                 cli_out ("rebalance %s: rebalanced %"PRId64
                                          " files of size %"PRId64" (total files"
                                          " scanned %"PRId64")", status,
                                          rsp.files, rsp.size, rsp.lookedup_files);
-                        } else {
-                                cli_out ("rebalance %s", status);
+                                goto done;
                         }
+
+                        cli_out ("rebalance %s", status);
                 }
         }
 
+done:
         if (volname)
                 GF_FREE (volname);
 
@@ -1723,15 +1738,28 @@ gf_cli3_1_defrag_volume (call_frame_t *frame, xlator_t *this,
                 goto out;
         }
 
-        if (strncasecmp (cmd_str, "start", 6) == 0) {
+        if (strcmp (cmd_str, "start") == 0) {
                 req.cmd = GF_DEFRAG_CMD_START;
-        } else if (strncasecmp (cmd_str, "stop", 5) == 0) {
+                ret = dict_get_str (dict, "start-type", &cmd_str);
+                if (!ret) {
+                        if (strcmp (cmd_str, "fix-layout") == 0) {
+                                req.cmd = GF_DEFRAG_CMD_START_LAYOUT_FIX;
+                        }
+                        if (strcmp (cmd_str, "migrate-data") == 0) {
+                                req.cmd = GF_DEFRAG_CMD_START_MIGRATE_DATA;
+                        }
+                }
+                goto done;
+        }
+        if (strcmp (cmd_str, "stop") == 0) {
                 req.cmd = GF_DEFRAG_CMD_STOP;
-        } else if (strncasecmp (cmd_str, "status", 7) == 0) {
+                goto done;
+        }
+        if (strcmp (cmd_str, "status") == 0) {
                 req.cmd = GF_DEFRAG_CMD_STATUS;
         }
 
-
+done:
         local = cli_local_get ();
 
         if (local) {
