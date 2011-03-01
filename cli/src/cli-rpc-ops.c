@@ -1771,7 +1771,7 @@ done:
         req.volname = volname;
 
         ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
-                              GD_MGMT_CLI_DEFRAG_VOLUME, NULL,
+                              GLUSTER_CLI_DEFRAG_VOLUME, NULL,
                               gf_xdr_from_cli_defrag_vol_req,
                               this, gf_cli3_1_defrag_volume_cbk);
 
