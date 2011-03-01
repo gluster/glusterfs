@@ -25,9 +25,13 @@
 
 #include "cli1-xdr.h"
 
-#define GF_DEFRAG_CMD_START   1
-#define GF_DEFRAG_CMD_STOP    2
-#define GF_DEFRAG_CMD_STATUS  3
+enum gf_cli_defrag_type {
+        GF_DEFRAG_CMD_START = 1,
+        GF_DEFRAG_CMD_STOP,
+        GF_DEFRAG_CMD_STATUS,
+        GF_DEFRAG_CMD_START_LAYOUT_FIX,
+        GF_DEFRAG_CMD_START_MIGRATE_DATA,
+};
 
 ssize_t
 gf_xdr_serialize_cli_probe_rsp (struct iovec outmsg, void *rsp);
