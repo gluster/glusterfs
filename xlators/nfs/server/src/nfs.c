@@ -937,6 +937,11 @@ struct volume_options options[] = {
                          "Please consult gluster-users list before using this "
                          "option."
         },
+        { .key  = {"nfs3.*.disable"},
+          .type = GF_OPTION_TYPE_BOOL,
+          .description = "This option is used to start or stop NFS server"
+                         "for individual volume."
+        },
         { .key  = {NULL} },
 };
 
