@@ -43,4 +43,9 @@ int glusterd_delete_volfile (glusterd_volinfo_t *volinfo,
 
 int glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value);
 
+int glusterd_validate_globalopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, char **op_errstr);
+
+int glusterd_validate_localopts (dict_t *val_dict, char **op_errstr);
+gf_boolean_t glusterd_check_globaloption (char *key);
+
 #endif

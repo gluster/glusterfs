@@ -284,10 +284,15 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         dict_t                  *dict = NULL;
         data_t                  *value = NULL;
         int                     opt_count = 0;
+        glusterd_conf_t         *priv = NULL;
 
 
         GF_ASSERT (volinfo);
         GF_ASSERT (volumes);
+
+        priv = THIS->private;
+
+        GF_ASSERT (priv);
 
         snprintf (key, 256, "volume%d.name", count);
         ret = dict_set_str (volumes, key, volinfo->volname);
@@ -342,11 +347,11 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
         while (pairs) {
                 if (1 == glusterd_check_option_exists (pairs->key, NULL)) {
                         value = pairs->value;
-                        if (!value) 
+                        if (!value)
                                 continue;
 
-                        snprintf (reconfig_key, 256, "volume%d.option.%s", count, 
-                                 pairs->key);
+                        snprintf (reconfig_key, 256, "volume%d.option.%s", count,
+                                  pairs->key);
                         ret = dict_set_str  (volumes, reconfig_key, value->data);
                         if (!ret)
                             opt_count++;
@@ -356,9 +361,6 @@ glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
 
         snprintf (key, 256, "volume%d.opt_count", count);
         ret = dict_set_int32 (volumes, key, opt_count);
-        if (ret)
-            goto out;
-
 out:
         return ret;
 }
@@ -3429,7 +3431,6 @@ respond:
         ret = dict_set_int32 (volumes, "count", count);
         if (ret)
                 goto out;
-
         ret = dict_allocate_and_serialize (volumes, &rsp.volumes.volumes_val,
                                            (size_t *)&rsp.volumes.volumes_len);
 

@@ -75,71 +75,91 @@
  * "NODOC" entries are not part of the public interface and are subject
  * to change at any time.
  */
+typedef enum  { DOC, NO_DOC, GLOBAL_DOC, GLOBAL_NO_DOC } option_type_t;
+
 
 struct volopt_map_entry {
         char *key;
         char *voltype;
         char *option;
         char *value;
+        option_type_t type;
 };
 
 static struct volopt_map_entry glusterd_volopt_map[] = {
-        {"cluster.lookup-unhashed",              "cluster/distribute",        }, /* NODOC */
-        {"cluster.min-free-disk",                "cluster/distribute",        }, /* NODOC */
 
-        {"cluster.entry-change-log",             "cluster/replicate",         }, /* NODOC */
-        {"cluster.read-subvolume",               "cluster/replicate",         }, /* NODOC */
-        {"cluster.background-self-heal-count",   "cluster/replicate",         }, /* NODOC */
-        {"cluster.metadata-self-heal",           "cluster/replicate",         }, /* NODOC */
-        {"cluster.data-self-heal",               "cluster/replicate",         }, /* NODOC */
-        {"cluster.entry-self-heal",              "cluster/replicate",         }, /* NODOC */
-        {"cluster.strict-readdir",               "cluster/replicate",         }, /* NODOC */
-        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size",},
-        {"cluster.data-change-log",              "cluster/replicate",         }, /* NODOC */
-        {"cluster.metadata-change-log",          "cluster/replicate",         }, /* NODOC */
-        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm"},
+        {"cluster.lookup-unhashed",              "cluster/distribute", NULL, NULL, NO_DOC       }, /* NODOC */
+        {"cluster.min-free-disk",                "cluster/distribute", NULL, NULL, NO_DOC       }, /* NODOC */
 
-        {"cluster.stripe-block-size",            "cluster/stripe",            "block-size",},
+        {"cluster.entry-change-log",             "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
+        {"cluster.read-subvolume",               "cluster/replicate",  NULL, NULL, NO_DOC       }, /* NODOC */
+        {"cluster.background-self-heal-count",   "cluster/replicate",  NULL, NULL, NO_DOC       }, /* NODOC */
+        {"cluster.metadata-self-heal",           "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
+        {"cluster.data-self-heal",               "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
+        {"cluster.entry-self-heal",              "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
+        {"cluster.strict-readdir",               "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
+        {"cluster.self-heal-window-size",        "cluster/replicate",         "data-self-heal-window-size", NULL, DOC},
+        {"cluster.data-change-log",              "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
+        {"cluster.metadata-change-log",          "cluster/replicate",  NULL, NULL, NO_DOC        }, /* NODOC */
+        {"cluster.data-self-heal-algorithm",     "cluster/replicate",         "data-self-heal-algorithm", NULL,DOC},
 
-        {"diagnostics.latency-measurement",      "debug/io-stats",            },
-        {"diagnostics.dump-fd-stats",            "debug/io-stats",            },
-        {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level",},
-        {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level",},
+        {"cluster.stripe-block-size",            "cluster/stripe",            "block-size", NULL, DOC},
 
-        {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size",},
-        {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size",},
-        {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout",},
-        {"performance.cache-priority",           "performance/io-cache",      "priority",}, /* NODOC */
-        {"performance.cache-size",               "performance/io-cache",      },
-        {"performance.cache-size",               "performance/quick-read",    },
-        {"performance.flush-behind",             "performance/write-behind",      "flush-behind",},
+        {"diagnostics.latency-measurement",      "debug/io-stats",     NULL, NULL, NO_DOC         },
+        {"diagnostics.dump-fd-stats",            "debug/io-stats",     NULL, NULL, NO_DOC        },
+        {"diagnostics.brick-log-level",          "debug/io-stats",            "!log-level", NULL, DOC},
+        {"diagnostics.client-log-level",         "debug/io-stats",            "!log-level", NULL, DOC},
 
-        {"performance.io-thread-count",          "performance/io-threads",    "thread-count",},
+        {"performance.cache-max-file-size",      "performance/io-cache",      "max-file-size", NULL, DOC},
+        {"performance.cache-min-file-size",      "performance/io-cache",      "min-file-size", NULL, DOC},
+        {"performance.cache-refresh-timeout",    "performance/io-cache",      "cache-timeout", NULL, DOC},
+        {"performance.cache-priority",           "performance/io-cache",      "priority", NULL, DOC}, /* NODOC */
+        {"performance.cache-size",               "performance/io-cache",   NULL, NULL, NO_DOC    },
+        {"performance.cache-size",               "performance/quick-read", NULL, NULL, NO_DOC    },
+        {"performance.flush-behind",             "performance/write-behind",      "flush-behind", NULL, DOC},
 
-        {"performance.disk-usage-limit",         "performance/quota",         }, /* NODOC */
-        {"performance.min-free-disk-limit",      "performance/quota",         }, /* NODOC */
+        {"performance.io-thread-count",          "performance/io-threads",    "thread-count", DOC},
 
-        {"performance.write-behind-window-size", "performance/write-behind",  "cache-size",},
+        {"performance.disk-usage-limit",         "performance/quota",   NULL, NULL, NO_DOC       }, /* NODOC */
+        {"performance.min-free-disk-limit",      "performance/quota",   NULL, NULL, NO_DOC       }, /* NODOC */
 
-        {"network.frame-timeout",                "protocol/client",           },
-        {"network.ping-timeout",                 "protocol/client",           },
-        {"network.inode-lru-limit",              "protocol/server",           }, /* NODOC */
+        {"performance.write-behind-window-size", "performance/write-behind",  "cache-size", NULL, DOC},
 
-        {"auth.allow",                           "protocol/server",           "!server-auth", "*"},
-        {"auth.reject",                          "protocol/server",           "!server-auth",},
+        {"network.frame-timeout",                "protocol/client",    NULL, NULL, NO_DOC        },
+        {"network.ping-timeout",                 "protocol/client",    NULL, NULL, NO_DOC        },
+        {"network.inode-lru-limit",              "protocol/server",    NULL, NULL, NO_DOC        }, /* NODOC */
 
-        {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive",},
+        {"auth.allow",                           "protocol/server",           "!server-auth", "*", DOC},
+        {"auth.reject",                          "protocol/server",           "!server-auth", NULL, DOC},
 
-        {"performance.write-behind",             "performance/write-behind",  "!perf", "on"}, /* NODOC */
-        {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on"}, /* NODOC */
-        {"performance.io-cache",                 "performance/io-cache",      "!perf", "on"}, /* NODOC */
-        {"performance.quick-read",               "performance/quick-read",    "!perf", "on"}, /* NODOC */
-        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on"},      /* NODOC */
+        {"transport.keepalive",                   "protocol/server",           "transport.socket.keepalive", NULL, NO_DOC},
 
-        {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32",},
-        {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor",},
+        {"performance.write-behind",             "performance/write-behind",  "!perf", "on", NO_DOC}, /* NODOC */
+        {"performance.read-ahead",               "performance/read-ahead",    "!perf", "on", NO_DOC}, /* NODOC */
+        {"performance.io-cache",                 "performance/io-cache",      "!perf", "on", NO_DOC}, /* NODOC */
+        {"performance.quick-read",               "performance/quick-read",    "!perf", "on", NO_DOC}, /* NODOC */
+        {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC},      /* NODOC */
 
-        {MARKER_VOL_KEY,                         "features/marker",           "!marker", "off"},
+        {MARKER_VOL_KEY,                         "features/marker",           "!marker", "off", NO_DOC},
+
+        {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
+        {"nfs.export-dirs",                      "nfs/server",                "nfs3.export-dirs", NULL, GLOBAL_DOC},
+        {"nfs.export-volumes",                   "nfs/server",                "nfs3.export-volumes", NULL, GLOBAL_DOC},
+        {"nfs.addr-namelookup",                  "nfs/server",                "rpc-auth.addr.namelookup", NULL, GLOBAL_DOC},
+        {"nfs.dynamic-volumes",                  "nfs/server",                "nfs.dynamic-volumes", NULL, GLOBAL_DOC},
+        {"nfs.register-with-portmap",            "nfs/server",                "rpc.register-with-portmap", NULL, GLOBAL_DOC},
+        {"nfs.port",                             "nfs/server",                "nfs.port", NULL, GLOBAL_DOC},
+
+        {"nfs.rpc-auth-unix",                    "nfs/server",                "!nfs.rpc-auth-auth-unix", NULL, DOC},
+        {"nfs.rpc-auth-null",                    "nfs/server",                "!nfs.rpc-auth-auth-null", NULL, DOC},
+        {"nfs.rpc-auth-allow",                   "nfs/server",                "!nfs.rpc-auth.addr.allow", NULL, DOC},
+        {"nfs.rpc-auth-reject",                  "nfs/server",                "!nfs.rpc-auth.addr.reject", NULL, DOC},
+        {"nfs.ports-insecure",                   "nfs/server",                "!nfs.auth.ports.insecure", NULL, DOC},
+
+        {"nfs.trusted-sync",                     "nfs/server",                "!nfs-trusted-sync", NULL, DOC},
+        {"nfs.trusted-write",                    "nfs/server",                "!nfs-trusted-write", NULL, DOC},
+        {"nfs.volume-access",                    "nfs/server",                "!nfs-volume-access", NULL, DOC},
+        {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC},
 
         {NULL,                                                                }
 };
@@ -151,6 +171,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
  * xlator generation / graph manipulation API
  *
  *********************************************/
+
 
 
 
@@ -531,6 +552,7 @@ struct opthandler_data {
         gf_boolean_t found;
         gf_boolean_t data_t_fake;
         int rv;
+        char *volname;
         void *param;
 };
 
@@ -716,6 +738,109 @@ int
 glusterd_volinfo_get (glusterd_volinfo_t *volinfo, char *key, char **value)
 {
         return volgen_dict_get (volinfo->dict, key, value);
+}
+
+gf_boolean_t
+glusterd_check_globaloption (char *key)
+{
+        char *completion = NULL;
+        struct volopt_map_entry *vmep = NULL;
+        int   ret = 0;
+
+        if (!strchr (key, '.')) {
+                ret = option_complete (key, &completion);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        return _gf_false;
+                }
+
+                if (!completion) {
+                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
+                                        key);
+                        return _gf_false;
+                }
+        }
+
+        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
+                if (strcmp (vmep->key, key) == 0) {
+                        if ((vmep->type == GLOBAL_DOC) ||
+                            (vmep->type == GLOBAL_NO_DOC))
+                                return _gf_true;
+                        else
+                                return _gf_false;
+                }
+        }
+
+        return _gf_false;
+}
+
+gf_boolean_t
+glusterd_check_localoption (char *key)
+{
+        char *completion = NULL;
+        struct volopt_map_entry *vmep = NULL;
+        int   ret = 0;
+
+        if (!strchr (key, '.')) {
+                ret = option_complete (key, &completion);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        return _gf_false;
+                }
+
+                if (!completion) {
+                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
+                                        key);
+                        return _gf_false;
+               }
+        }
+
+        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
+                if (strcmp (vmep->key, key) == 0) {
+                        if ((vmep->type == DOC) ||
+                            (vmep->type == NO_DOC))
+                                return _gf_true;
+                        else
+                                return _gf_false;
+                }
+        }
+
+        return _gf_false;
+}
+
+int
+glusterd_check_voloption (char *key)
+{
+        char *completion = NULL;
+        struct volopt_map_entry *vmep = NULL;
+        int ret = 0;
+
+        if (!strchr (key, '.')) {
+                ret = option_complete (key, &completion);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Out of memory");
+                        return _gf_false;
+                }
+
+                if (!completion) {
+                        gf_log ("", GF_LOG_ERROR, "option %s does not exist",
+                                        key);
+                        return _gf_false;
+                }
+        }
+
+        for (vmep = glusterd_volopt_map; vmep->key; vmep++) {
+                if (strcmp (vmep->key, key) == 0) {
+                        if ((vmep->type == DOC) ||
+                            (vmep->type == DOC))
+                                return _gf_true;
+                        else
+                                return _gf_false;
+                }
+        }
+
+        return _gf_false;
+
 }
 
 int
@@ -1286,6 +1411,173 @@ build_client_graph (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                                     &client_graph_builder);
 }
 
+static int
+nfs_option_handler (glusterfs_graph_t *graph,
+                            struct volopt_map_entry *vme, void *param)
+{
+        xlator_t *xl = NULL;
+        char *aa = NULL;
+        int   ret   = 0;
+        glusterd_volinfo_t *volinfo = NULL;
+
+        volinfo = param;
+
+        xl = first_of (graph);
+
+/*        if (vme->type  == GLOBAL_DOC || vme->type == GLOBAL_NO_DOC) {
+
+                ret = xlator_set_option (xl, vme->key, vme->value);
+        }*/
+        if ( !volinfo || !volinfo->volname)
+                return 0;
+
+        if (! strcmp (vme->option, "!nfs.rpc-auth-addr-allow")) {
+                ret = gf_asprintf (&aa, "rpc-auth.addr.%s.allow",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (! strcmp (vme->option, "!nfs.rpc-auth-addr-reject")) {
+                ret = gf_asprintf (&aa, "rpc-auth.addr.%s.reject",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (! strcmp (vme->option, "!nfs.rpc-auth-auth-unix")) {
+                ret = gf_asprintf (&aa, "rpc-auth.auth.unix.%s",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+        if (! strcmp (vme->option, "!nfs.rpc-auth-auth-null")) {
+                ret = gf_asprintf (&aa, "rpc-auth.auth.null.%s",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (! strcmp (vme->option, "!nfs-trusted-sync")) {
+                ret = gf_asprintf (&aa, "nfs3.%s.trusted-sync",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (! strcmp (vme->option, "!nfs-trusted-write")) {
+                ret = gf_asprintf (&aa, "nfs3.%s.trusted-write",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (! strcmp (vme->option, "!nfs-volume-access")) {
+                ret = gf_asprintf (&aa, "nfs3.%s.volume-access",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+        if (! strcmp (vme->option, "!nfs-export-dir")) {
+                ret = gf_asprintf (&aa, "nfs3.%s.export-dir",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+
+
+        if (! strcmp (vme->option, "!nfs.ports-insecure")) {
+                ret = gf_asprintf (&aa, "rpc-auth.ports.%s.insecure",
+                                        volinfo->volname);
+
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+
+                if (ret)
+                        return -1;
+        }
+
+
+        /*key = strchr (vme->key, '.') + 1;
+
+        for (trav = xl->children; trav; trav = trav->next) {
+                ret = gf_asprintf (&aa, "auth.addr.%s.%s", trav->xlator->name,
+                                   key);
+                if (ret != -1) {
+                        ret = xlator_set_option (xl, aa, vme->value);
+                        GF_FREE (aa);
+                }
+                if (ret)
+                        return -1;
+        }*/
+
+        return 0;
+}
+
+static int
+nfs_spec_option_handler (glusterfs_graph_t *graph,
+                            struct volopt_map_entry *vme, void *param)
+{
+        int ret = 0;
+
+        ret = nfs_option_handler (graph, vme, param);
+        if (!ret)
+                return basic_option_handler (graph, vme, NULL);
+        return ret;
+}
+
 /* builds a graph for nfs server role, with option overrides in mod_dict */
 static int
 build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
@@ -1297,8 +1589,6 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
         dict_t             *set_dict      = NULL;
         xlator_t           *nfsxl         = NULL;
         char               *skey          = NULL;
-        char               *enable_ino32  = NULL;
-        char               *mem_factor     = NULL;
         int                 ret           = 0;
 
         this = THIS;
@@ -1306,10 +1596,7 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
         priv = this->private;
         GF_ASSERT (priv);
 
-        if (mod_dict)
-                set_dict = dict_copy (mod_dict, NULL);
-        else
-                set_dict = dict_new ();
+        set_dict = dict_new ();
         if (!set_dict) {
                 gf_log ("", GF_LOG_ERROR, "Out of memory");
                 return -1;
@@ -1355,36 +1642,6 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                 if (ret)
                         goto out;
 
-                if (!dict_get (set_dict, "nfs.enable-ino32")) {
-                        ret = glusterd_volinfo_get (voliter,
-                                                    "nfs.enable-ino32",
-                                                    &enable_ino32);
-                        if (ret)
-                                goto out;
-                        if (enable_ino32) {
-                                ret = dict_set_str (set_dict,
-                                                    "nfs.enable-ino32",
-                                                    enable_ino32);
-                                if (ret)
-                                        goto out;
-                        }
-                }
-
-                if (!dict_get (set_dict, "nfs.mem-factor")) {
-                        ret = glusterd_volinfo_get (voliter,
-                                                    "nfs.mem-factor",
-                                                    &mem_factor);
-                        if (ret)
-                                goto out;
-                        if (mem_factor) {
-                                ret = dict_set_str (set_dict,
-                                                    "nfs.mem-factor",
-                                                    mem_factor);
-                                if (ret)
-                                        goto out;
-                        }
-                }
-
                 /* If both RDMA and TCP are the transport_type, use RDMA
                    for NFS client protocols */
                 if (voliter->transport_type == GF_TRANSPORT_BOTH_TCP_RDMA) {
@@ -1395,15 +1652,25 @@ build_nfs_graph (glusterfs_graph_t *graph, dict_t *mod_dict)
                 }
 
                 memset (&cgraph, 0, sizeof (cgraph));
-                ret = build_client_graph (&cgraph, voliter, set_dict);
+                ret = build_client_graph (&cgraph, voliter, mod_dict);
                 if (ret)
                         goto out;;
                 ret = volgen_graph_merge_sub (graph, &cgraph);
                 if (ret)
-                        goto out;;
+                        goto out;
+
+                if (mod_dict) {
+                        dict_copy (mod_dict, set_dict);
+                        ret = volgen_graph_set_options_generic (graph, set_dict, voliter,
+                                                        nfs_spec_option_handler);
+                }
+                else
+                        ret = volgen_graph_set_options_generic (graph, voliter->dict, voliter,
+                                                        nfs_spec_option_handler);
+
         }
 
-        ret = volgen_graph_set_options (graph, set_dict);
+
 
  out:
         dict_destroy (set_dict);
@@ -1706,8 +1973,6 @@ validate_nfsopts (glusterd_volinfo_t *volinfo,
         glusterfs_graph_t graph = {{0,},};
         int     ret = -1;
 
-        GF_ASSERT (volinfo);
-
         ret = build_nfs_graph (&graph, val_dict);
         if (!ret)
                 ret = graph_reconf_validateopt (&graph, op_errstr);
@@ -1786,14 +2051,75 @@ out:
         return ret;
 }
 
+static void
+_check_globalopt (dict_t *this, char *key, data_t *value, void *ret_val)
+{
+        int *ret = NULL;
+
+        ret = ret_val;
+        if (*ret)
+                return;
+        if (!glusterd_check_globaloption (key))
+                *ret = 1;
+}
+
+int
+glusterd_validate_globalopts (glusterd_volinfo_t *volinfo,
+                              dict_t *val_dict, char **op_errstr)
+{
+        int ret = 0;
+
+        dict_foreach (val_dict, _check_globalopt, &ret);
+        if (ret) {
+                *op_errstr = gf_strdup ( "option specified is not a global option");
+                return -1;
+        }
+        ret = glusterd_validate_brickreconf (volinfo, val_dict, op_errstr);
+
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not Validate  bricks");
+                goto out;
+        }
+
+        ret = validate_clientopts (volinfo, val_dict, op_errstr);
+        if (ret) {
+                gf_log ("", GF_LOG_DEBUG,
+                        "Could not Validate client");
+                goto out;
+        }
+
+        ret = validate_nfsopts (volinfo, val_dict, op_errstr);
+
+
+out:
+                gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+                return ret;
+}
+
+static void
+_check_localopt (dict_t *this, char *key, data_t *value, void *ret_val)
+{
+        int *ret = NULL;
+
+        ret = ret_val;
+        if (*ret)
+                return;
+        if (!glusterd_check_localoption (key))
+                *ret = 1;
+}
+
 int
 glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict,
                               char **op_errstr)
 {
-        int ret = -1;
+        int ret = 0;
 
-        gf_log ("", GF_LOG_DEBUG, "Inside Validate reconfigure options");
-
+        dict_foreach (val_dict, _check_localopt, &ret);
+        if (ret) {
+                *op_errstr = gf_strdup ( "option specified is not a local option");
+                return -1;
+        }
         ret = glusterd_validate_brickreconf (volinfo, val_dict, op_errstr);
 
         if (ret) {
