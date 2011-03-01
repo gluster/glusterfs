@@ -38,7 +38,9 @@ class GMaster(object):
         if not 'create' in opts:
             opts['create'] = rsc == self.master
         xt = rsc.server.xtime(path, self.uuid)
-        if (isinstance(xt, int) or xt < self.volmark) and opts['create']:
+        if isinstance(xt, int) and xt != ENODATA:
+            return xt
+        if (xt == ENODATA or xt < self.volmark) and opts['create']:
             t = time.time()
             sec = int(t)
             nsec = int((t - sec) * 1000000)
@@ -66,6 +68,10 @@ class GMaster(object):
         if self.jobtab.get(path) == None:
             self.jobtab[path] = []
         self.jobtab[path].append((label, a, lambda : job(*a, **kw)))
+
+    def add_failjob(self, path, label):
+        logging.debug('salvaged: ' + label)
+        self.add_job(path, label, lambda: False)
 
     def wait(self, path, *args):
         jobs = self.jobtab.pop(path, [])
@@ -96,14 +102,21 @@ class GMaster(object):
         logging.debug("entering " + path)
         if not xtl:
             xtl = self.xtime(path)
+            if isinstance(xtl, int):
+                self.add_failjob(path, 'no-local-node')
+                return
         xtr0 = self.xtime(path, self.slave)
         if isinstance(xtr0, int):
+            if xtr0 != ENOENT:
+                self.slave.server.purge(path)
+            try:
+                self.slave.server.mkdir(path)
+            except OSError:
+                self.add_failjob(path, 'no-remote-node')
+                return
             xtr = URXTIME
         else:
             xtr = xtr0
-        if xtr0 == ENOENT:
-            self.slave.server.mkdir(path)
-        else:
             if xtr > xtl:
                 raise RuntimeError("timestamp corruption for " + path)
             if xtl == xtr:
@@ -152,7 +165,7 @@ class GMaster(object):
                 ex = sys.exc_info()[1]
                 if ex.errno == ENOENT:
                     logging.warn("salvaged ENOENT for" + e)
-                    self.add_job(blame, 'salvage', lambda: False)
+                    self.add_failjob(blame, 'by-indulgently')
                     return False
                 else:
                     raise
