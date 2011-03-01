@@ -1687,7 +1687,6 @@ nfs_rpcsvc_submit_generic (rpcsvc_request_t *req, struct iovec msgvec,
         if (msg)
                 iobuf_ref (msg);
         ret = nfs_rpcsvc_conn_submit (conn, recordhdr, replyiob, msgvec, msg);
-        mem_put (conn->rxpool, req);
 
         if (ret == -1) {
                 gf_log (GF_RPCSVC, GF_LOG_ERROR, "Failed to submit message");
@@ -1709,6 +1708,8 @@ disconnect_exit:
         if ((nfs_rpcsvc_request_accepted (req)) &&
             (nfs_rpcsvc_request_accepted_success (req)))
                 nfs_rpcsvc_conn_unref (conn);
+
+        mem_put (conn->rxpool, req);
 
         return ret;
 }
