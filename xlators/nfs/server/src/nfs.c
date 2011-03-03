@@ -205,6 +205,13 @@ nfs_subvolume_set_started (struct nfs_state *nfs, xlator_t *xl)
         LOCK (&nfs->svinitlock);
         {
                 for (;x < nfs->allsubvols; ++x) {
+                        if (nfs->initedxl[x] == xl) {
+                                gf_log (GF_NFS, GF_LOG_DEBUG,
+                                        "Volume already started %s",
+                                        xl->name);
+                                break;
+                        }
+
                         if (nfs->initedxl[x] == NULL) {
                                 nfs->initedxl[x] = xl;
                                 ++nfs->upsubvols;
