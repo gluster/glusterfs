@@ -389,6 +389,7 @@ out:
                 }
         }
 
+        frame->local = NULL;
         STACK_DESTROY (frame->root);
 
         if (ret != 0)
