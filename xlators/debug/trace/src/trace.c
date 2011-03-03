@@ -36,7 +36,6 @@
 #include "common-utils.h"
 
 
-
 struct {
         char *name;
         int enabled;
@@ -122,6 +121,9 @@ trace_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 GF_FREE (preparentstr);
                         if (postparentstr)
                                 GF_FREE (postparentstr);
+
+                        /* for 'release' log */
+                        fd_ctx_set (fd, this, 0);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": (op_ret=%d, op_errno=%d)",
@@ -146,6 +148,10 @@ trace_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         "%"PRId64": gfid=%s op_ret=%d, op_errno=%d, *fd=%p",
                         frame->root->unique, uuid_utoa (frame->local), op_ret, op_errno, fd);
         }
+
+        /* for 'release' log */
+        if (op_ret >= 0)
+                fd_ctx_set (fd, this, 0);
 
         frame->local = NULL;
         STACK_UNWIND_STRICT (open, frame, op_ret, op_errno, fd);
@@ -550,6 +556,9 @@ trace_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 GF_FREE (statstr);
                         if (postparentstr)
                                 GF_FREE (postparentstr);
+
+                        /* For 'forget' */
+                        inode_ctx_put (inode, this, 0);
                 } else {
                         gf_log (this->name, GF_LOG_NORMAL,
                                 "%"PRId64": gfid=%s op_ret=%d, op_errno=%d)",
@@ -773,6 +782,10 @@ trace_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         frame->root->unique, uuid_utoa (frame->local),
                         op_ret, op_errno, fd);
         }
+
+        /* for 'releasedir' log */
+        if (op_ret >= 0)
+                fd_ctx_set (fd, this, 0);
 
         frame->local = NULL;
         STACK_UNWIND_STRICT (opendir, frame, op_ret, op_errno, fd);
@@ -2195,6 +2208,42 @@ trace_lk (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 }
 
+int32_t
+trace_forget (xlator_t *this, inode_t *inode)
+{
+        /* If user want to understand when a lookup happens,
+           he should know about 'forget' too */
+        if (trace_fop_names[GF_FOP_LOOKUP].enabled) {
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "gfid=%s ino=%"PRIu64,
+                        uuid_utoa (inode->gfid), inode->ino);
+        }
+        return 0;
+}
+
+
+int32_t
+trace_releasedir (xlator_t *this, fd_t *fd)
+{
+        if (trace_fop_names[GF_FOP_OPENDIR].enabled) {
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "gfid=%s fd=%p", uuid_utoa (fd->inode->gfid), fd);
+        }
+
+        return 0;
+}
+
+int32_t
+trace_release (xlator_t *this, fd_t *fd)
+{
+        if (trace_fop_names[GF_FOP_OPEN].enabled ||
+            trace_fop_names[GF_FOP_CREATE].enabled) {
+                gf_log (this->name, GF_LOG_NORMAL,
+                        "gfid=%s fd=%p", uuid_utoa (fd->inode->gfid), fd);
+        }
+        return 0;
+}
+
 
 
 void
@@ -2364,6 +2413,9 @@ struct xlator_fops fops = {
 
 
 struct xlator_cbks cbks = {
+        .release     = trace_release,
+        .releasedir  = trace_releasedir,
+        .forget      = trace_forget,
 };
 
 struct volume_options options[] = {
