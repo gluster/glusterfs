@@ -4609,7 +4609,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
-                proc = &peerinfo->mgmt->proctable[GD_MGMT_CLUSTER_LOCK];
+                proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_CLUSTER_LOCK];
                 if (proc->fn) {
                         ret = proc->fn (NULL, this, peerinfo);
                         if (ret)
@@ -4654,7 +4654,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
-                proc = &peerinfo->mgmt->proctable[GD_MGMT_CLUSTER_UNLOCK];
+                proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_CLUSTER_UNLOCK];
                 if (proc->fn) {
                         ret = proc->fn (NULL, this, peerinfo);
                         if (ret)
@@ -4868,7 +4868,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
-                proc = &peerinfo->mgmt->proctable[GD_MGMT_STAGE_OP];
+                proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_STAGE_OP];
                 GF_ASSERT (proc);
                 if (proc->fn) {
                         ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);
@@ -4989,7 +4989,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                     (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
                         continue;
 
-                proc = &peerinfo->mgmt->proctable[GD_MGMT_COMMIT_OP];
+                proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_COMMIT_OP];
                 GF_ASSERT (proc);
                 if (proc->fn) {
                         ret = dict_set_static_ptr (dict, "peerinfo", peerinfo);

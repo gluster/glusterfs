@@ -165,7 +165,7 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
                 goto out;
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                if (!peerinfo->connected)
+                if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
 
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
@@ -173,7 +173,8 @@ glusterd_broadcast_friend_delete (char *hostname, uuid_t uuid)
                         gf_log ("", GF_LOG_ERROR, "failed to set peerinfo");
                         goto out;
                 }
-                proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
+
+                proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_FRIEND_UPDATE];
                 if (proc->fn) {
                         ret = proc->fn (NULL, this, friends);
                 }
@@ -282,7 +283,9 @@ glusterd_ac_friend_add (glusterd_friend_sm_event_t *event, void *ctx)
 
         GF_ASSERT (conf);
 
-        proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_ADD];
+        if (!peerinfo->mgmt)
+                goto out;
+        proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_FRIEND_ADD];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -329,7 +332,9 @@ glusterd_ac_friend_probe (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        proc = &peerinfo->mgmt->proctable[GD_MGMT_PROBE_QUERY];
+        if (!peerinfo->mgmt)
+                goto out;
+        proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_PROBE_QUERY];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -418,7 +423,9 @@ glusterd_ac_send_friend_remove_req (glusterd_friend_sm_event_t *event,
                 goto out;
         }
 
-        proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_REMOVE];
+        if (!peerinfo->mgmt)
+                goto out;
+        proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_FRIEND_REMOVE];
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -487,7 +494,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                 goto out;
 
         list_for_each_entry (peerinfo, &priv->peers, uuid_list) {
-                if (!peerinfo->connected)
+                if (!peerinfo->connected || !peerinfo->mgmt)
                         continue;
 
                 ret = dict_set_static_ptr (friends, "peerinfo", peerinfo);
@@ -496,7 +503,7 @@ glusterd_ac_send_friend_update (glusterd_friend_sm_event_t *event, void *ctx)
                         goto out;
                 }
 
-                proc = &peerinfo->mgmt->proctable[GD_MGMT_FRIEND_UPDATE];
+                proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_FRIEND_UPDATE];
                 if (proc->fn) {
                         ret = proc->fn (NULL, this, friends);
                 }

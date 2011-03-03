@@ -292,10 +292,6 @@ glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
                 if ((gd_clnt_mgmt_prog.prognum == trav->prognum) &&
                     (gd_clnt_mgmt_prog.progver == trav->progver)) {
                         peerinfo->mgmt = &gd_clnt_mgmt_prog;
-                        gf_log ("", GF_LOG_INFO,
-                                "Using Program %s, Num (%"PRId64"), "
-                                "Version (%"PRId64")",
-                                trav->progname, trav->prognum, trav->progver);
                         ret = 0;
                         /* Break here, as this gets higher priority */
                         break;
@@ -303,18 +299,22 @@ glusterd_set_clnt_mgmt_program (glusterd_peerinfo_t *peerinfo,
                 if ((glusterd3_1_mgmt_prog.prognum == trav->prognum) &&
                     (glusterd3_1_mgmt_prog.progver == trav->progver)) {
                         peerinfo->mgmt = &glusterd3_1_mgmt_prog;
-                        gf_log ("", GF_LOG_INFO,
-                                "Using Program %s, Num (%"PRId64"), "
-                                "Version (%"PRId64")",
-                                trav->progname, trav->prognum, trav->progver);
                         ret = 0;
                 }
                 if (ret) {
-                        gf_log ("", GF_LOG_TRACE,
-                                "%s (%"PRId64") not supported", trav->progname,
+                        gf_log ("", GF_LOG_DEBUG,
+                                "%s (%"PRId64":%"PRId64") not supported",
+                                trav->progname, trav->prognum,
                                 trav->progver);
                 }
                 trav = trav->next;
+        }
+
+        if (!ret && peerinfo->mgmt) {
+                gf_log ("", GF_LOG_INFO,
+                        "Using Program %s, Num (%d), Version (%d)",
+                        peerinfo->mgmt->progname, peerinfo->mgmt->prognum,
+                        peerinfo->mgmt->progver);
         }
 
 out:
@@ -370,6 +370,9 @@ glusterd_peer_dump_version_cbk (struct rpc_req *req, struct iovec *iov,
                 peerctx->args.req = NULL;
         } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
                 peerctx->args.mode = GD_MODE_ON;
+        } else {
+                gf_log ("", GF_LOG_WARNING, "unknown mode %d",
+                        peerctx->args.mode);
         }
 
         glusterd_friend_sm ();
@@ -405,7 +408,7 @@ glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
 {
         call_frame_t        *frame    = NULL;
         gf_dump_req          req      = {0,};
-        int                  ret      = 0;
+        int                  ret      = -1;
 
         frame = create_frame (this, this->ctx->pool);
         if (!frame)
