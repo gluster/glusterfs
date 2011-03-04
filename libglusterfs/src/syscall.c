@@ -95,6 +95,9 @@ sys_mkdir (const char *pathname, mode_t mode)
 int 
 sys_unlink (const char *pathname)
 {
+#ifdef GF_SOLARIS_HOST_OS
+        return solaris_unlink (pathname);
+#endif
         return unlink (pathname);
 }
 
@@ -116,6 +119,9 @@ sys_symlink (const char *oldpath, const char *newpath)
 int
 sys_rename (const char *oldpath, const char *newpath)
 {
+#ifdef GF_SOLARIS_HOST_OS
+        return solaris_rename (oldpath, newpath);
+#endif
         return rename (oldpath, newpath);
 }
 

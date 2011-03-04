@@ -636,7 +636,7 @@ inode_get (inode_table_t *table, ino_t ino, uint64_t gen)
 }
 
 
-static int
+int
 __is_root_gfid (uuid_t gfid)
 {
         uuid_t  root;

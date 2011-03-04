@@ -70,6 +70,7 @@
 
 #define GF_XATTR_PATHINFO_KEY   "trusted.glusterfs.pathinfo"
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
+#define GFID_XATTR_KEY "trusted.gfid"
 
 #define ZR_FILE_CONTENT_STR     "glusterfs.file."
 #define ZR_FILE_CONTENT_STRLEN 15

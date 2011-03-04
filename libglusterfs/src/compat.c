@@ -35,9 +35,10 @@
 
 #include "compat.h"
 #include "common-utils.h"
+#include "iatt.h"
+#include "inode.h"
 
 #ifdef GF_SOLARIS_HOST_OS
-
 int 
 solaris_fsetxattr(int fd, 
 		  const char* key, 
@@ -97,6 +98,125 @@ solaris_fgetxattr(int fd,
 	return ret;
 }
 
+/* Solaris does not support xattr for symlinks and dev files. Since gfid and
+   other trusted attributes are stored as xattrs, we need to provide support for
+   them. A mapped regular file is stored in the /.glusterfs_xattr_inode of the export dir.
+   All xattr ops related to the special files are redirected to this map file.
+*/
+
+int
+make_export_path (const char *real_path, char **path)
+{
+        int     ret = -1;
+        char   *tmp = NULL;
+        char   *export_path = NULL;
+        char   *dup = NULL;
+        char   *ptr = NULL;
+        char   *freeptr = NULL;
+        uuid_t  gfid = {0, };
+        
+        export_path = GF_CALLOC (1, sizeof (char) * PATH_MAX, 0);
+        if (!export_path)
+                goto out;
+
+        dup = gf_strdup (real_path);
+        if (!dup)
+                goto out;
+
+        freeptr = dup;
+        ret = solaris_getxattr ("/", GFID_XATTR_KEY, gfid, 16);
+        /* Return value of getxattr */
+        if (ret == 16) {
+                if (!__is_root_gfid (gfid)){
+                        strcat (export_path, "/");
+                        ret = 0;
+                        goto done;
+                }
+        }
+        
+        do {
+                ptr = strtok_r (dup, "/", &tmp);
+                if (!ptr)
+                        break;
+                strcat (export_path, dup);
+                ret = solaris_getxattr (export_path, GFID_XATTR_KEY, gfid, 16);
+                if (ret == 16) {
+                        if (!__is_root_gfid (gfid)) {
+                                ret = 0;
+                                goto done;
+                        }
+                }                                
+                strcat (export_path, "/");
+                dup = tmp;
+        } while (ptr);
+
+        goto out;
+
+done:
+        if (!ret) {
+                *path = export_path;
+        }
+out:
+        if (freeptr)
+                GF_FREE (freeptr);
+        if (ret && export_path)
+                GF_FREE (export_path);
+
+        return ret;
+}
+int
+solaris_xattr_resolve_path (const char *real_path, char **path)
+{
+        int                    ret  = -1;
+        char                   *export_path = NULL;
+        char                   xattr_path[PATH_MAX] = {0, };
+        struct stat            lstatbuf = {0, };
+        struct iatt            stbuf = {0, };
+        struct stat            statbuf = {0, };
+
+        ret = lstat (real_path, &lstatbuf);
+        if (ret != 0 )
+                return ret;
+        iatt_from_stat (&stbuf, &lstatbuf);
+        if (IA_ISREG(stbuf.ia_type) || IA_ISDIR(stbuf.ia_type))
+                return -1;
+
+        ret = make_export_path (real_path, &export_path);
+        if (!ret && export_path) {
+                strcat (export_path, "/"GF_SOLARIS_XATTR_DIR);
+                if (lstat (export_path, &statbuf)) {
+                        ret = mkdir (export_path, 0777);
+                        if (ret && (errno != EEXIST)) {
+                        	gf_log ("", GF_LOG_DEBUG, "mkdir failed," 
+                                        " errno: %d", errno);
+                        	goto out;
+                        }
+                }
+                
+                snprintf(xattr_path, PATH_MAX, "%s%s%lu", export_path,
+                        "/", stbuf.ia_ino);
+
+		ret = lstat (xattr_path, &statbuf);
+
+		if (ret) {
+			ret = mknod (xattr_path, S_IFREG|O_WRONLY, 0);
+			if (ret && (errno != EEXIST)) {
+				gf_log ("", GF_LOG_WARNING,"Failed to create "
+					"mapped file %s, error %d", xattr_path,
+                                         errno);
+				goto out;
+			}					
+		}
+                *path = gf_strdup (xattr_path);
+        }
+out:
+        if (export_path)
+                GF_FREE (export_path);
+        if (*path)
+                return 0;
+        else
+                return -1;
+}
 
 int 
 solaris_setxattr(const char *path, 
@@ -107,21 +227,30 @@ solaris_setxattr(const char *path,
 {
 	int attrfd = -1;
 	int ret = 0;
-	
-	attrfd = attropen (path, key, flags|O_CREAT|O_WRONLY, 0777);
+        char *mapped_path = NULL;
+
+        ret = solaris_xattr_resolve_path (path, &mapped_path);
+        if (!ret) {
+                attrfd = attropen (mapped_path,  key, flags|O_CREAT|O_WRONLY,
+                                   0777);
+        } else {
+                attrfd = attropen (path, key, flags|O_CREAT|O_WRONLY, 0777);
+        }
 	if (attrfd >= 0) {
 		ftruncate (attrfd, 0);
 		ret = write (attrfd, value, size);
 		close (attrfd);
+                ret = 0;
 	} else {
 		if (errno != ENOENT)
 			gf_log ("libglusterfs", GF_LOG_ERROR, 
 				"Couldn't set extended attribute for %s (%d)", 
 				path, errno);
-		return -1;
+		ret = -1;
 	}
-	
-	return 0;
+        if (mapped_path)
+                GF_FREE (mapped_path);	
+	return ret;
 }
 
 
@@ -135,8 +264,15 @@ solaris_listxattr(const char *path,
 	DIR *dirptr = NULL;
 	struct dirent *dent = NULL;
 	int newfd = -1;
-	
-	attrdirfd = attropen (path, ".", O_RDONLY, 0);
+        char *mapped_path = NULL;
+        int ret = -1;
+
+        ret = solaris_xattr_resolve_path (path, &mapped_path);
+        if (!ret) {
+                attrdirfd = attropen (mapped_path, ".", O_RDONLY, 0);
+        } else {	
+                attrdirfd = attropen (path, ".", O_RDONLY, 0);
+        }
 	if (attrdirfd >= 0) {
 		newfd = dup(attrdirfd);
 		dirptr = fdopendir(newfd);
@@ -167,14 +303,19 @@ solaris_listxattr(const char *path,
 			
 			if (closedir(dirptr) == -1) {
 				close (attrdirfd);
-				return -1;
+				len = -1;
+                                goto out;
 			}
 		} else {
 			close (attrdirfd);
-			return -1;
+			len = -1;
+                        goto out;
 		}
 		close (attrdirfd);
 	}
+out:
+        if (mapped_path)
+                GF_FREE (mapped_path);
 	return len;
 }
 
@@ -238,17 +379,28 @@ solaris_removexattr(const char *path,
 		    const char* key)
 {
 	int ret = -1;
-	int attrfd = attropen (path, ".", O_RDONLY, 0);
+        int attrfd = -1;
+        char *mapped_path = NULL;
+
+        ret = solaris_xattr_resolve_path (path, &mapped_path);
+        if (!ret) {
+                attrfd = attropen (mapped_path, ".", O_RDONLY, 0);
+        } else {
+                attrfd = attropen (path, ".", O_RDONLY, 0);
+        }
 	if (attrfd >= 0) {
 		ret = unlinkat (attrfd, key, 0);
 		close (attrfd);
 	} else {
 		if (errno == ENOENT)
 			errno = ENODATA;
-		return -1;
+		ret = -1;
 	}
-	
-	return ret;
+
+        if (mapped_path)
+                GF_FREE (mapped_path);
+
+        return ret;
 }
 
 int 
@@ -259,8 +411,15 @@ solaris_getxattr(const char *path,
 {
 	int attrfd = -1;
 	int ret = 0;
-	
-	attrfd = attropen (path, key, O_RDONLY, 0);
+        char *mapped_path = NULL;
+
+        ret = solaris_xattr_resolve_path (path, &mapped_path);
+        if (!ret) {
+                attrfd = attropen (mapped_path, key, O_RDONLY, 0);
+        } else { 
+                attrfd = attropen (path, key, O_RDONLY, 0);
+        }
+
 	if (attrfd >= 0) {
 		if (size == 0) {
 			struct stat buf;
@@ -277,8 +436,10 @@ solaris_getxattr(const char *path,
 			gf_log ("libglusterfs", GF_LOG_DEBUG, 
 				"Couldn't read extended attribute for the file %s (%d)", 
 				path, errno);
-		return -1;
+		ret = -1;
 	}
+        if (mapped_path)
+                GF_FREE (mapped_path);
 	return ret;
 }
 
@@ -326,6 +487,55 @@ asprintf (char **buf, const char *fmt, ...)
   return status;  
 }
 
+int solaris_unlink (const char *path)
+{
+        char *mapped_path = NULL;
+        struct stat	stbuf = {0, };
+        int ret = -1;
+
+        ret = solaris_xattr_resolve_path (path, &mapped_path);
+	
+
+        if (!ret && mapped_path) {
+		if (lstat(path, &stbuf)) {
+			gf_log ("",GF_LOG_WARNING, "Stat failed on mapped"
+				" file %s with error %d", mapped_path, errno);
+			goto out;
+		}
+                if (stbuf.st_nlink == 1) {
+			 if(remove (mapped_path))
+                        	gf_log ("", GF_LOG_WARNING, "Failed to remove mapped "
+					"file %s. Errno %d", mapped_path, errno);
+		}
+
+	}
+
+out:
+	if (mapped_path)
+		GF_FREE (mapped_path);
+
+	return  unlink (path);
+}
+
+int
+solaris_rename (const char *old_path, const char *new_path)
+{
+        char *mapped_path = NULL;
+        int ret = -1;
+
+        ret = solaris_xattr_resolve_path (new_path, &mapped_path);
+
+
+        if (!ret && mapped_path) {
+                if (!remove (mapped_path))
+                        gf_log ("", GF_LOG_WARNING, "Failed to remove mapped "
+                                "file %s. Errno %d", mapped_path, errno);
+        	GF_FREE (mapped_path);
+	}
+
+        return rename(old_path, new_path);
+
+}
 #endif /* GF_SOLARIS_HOST_OS */
 
 #ifndef HAVE_STRNLEN

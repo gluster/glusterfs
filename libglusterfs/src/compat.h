@@ -280,6 +280,14 @@ int solaris_fsetxattr(int fd, const char* key, const char *value,
                       size_t size, int flags);
 int solaris_flistxattr(int fd, char *list, size_t size);
 
+int solaris_rename (const char *oldpath, const char *newpath);
+
+int solaris_unlink (const char *pathname);
+
+#define GF_SOLARIS_XATTR_DIR ".glusterfs_xattr_inode"
+
+int solaris_xattr_resolve_path (const char *real_path, char **path);
+
 #endif /* GF_SOLARIS_HOST_OS */
 
 #ifndef HAVE_ARGP
