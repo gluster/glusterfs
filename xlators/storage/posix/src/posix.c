@@ -56,7 +56,6 @@
 #include "glusterfs3-xdr.h"
 #include "hashfn.h"
 
-#define GFID_XATTR_KEY "trusted.gfid"
 
 #undef HAVE_SET_FSID
 #ifdef HAVE_SET_FSID
@@ -1471,7 +1470,7 @@ posix_unlink (call_frame_t *frame, xlator_t *this,
                 }
         }
 
-        op_ret = unlink (real_path);
+        op_ret = sys_unlink (real_path);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name, GF_LOG_ERROR,
@@ -1778,7 +1777,7 @@ posix_rename (call_frame_t *frame, xlator_t *this,
                 was_present = 0;
         }
 
-        op_ret = rename (real_oldpath, real_newpath);
+        op_ret = sys_rename (real_oldpath, real_newpath);
         if (op_ret == -1) {
                 op_errno = errno;
                 gf_log (this->name,
@@ -3969,6 +3968,8 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
         struct iatt           stbuf          = {0, };
         char                  base_path[PATH_MAX] = {0,};
         gf_dirent_t          *tmp_entry      = NULL;
+        struct stat           statbuf        = {0, };
+        char                  hidden_path[PATH_MAX] = {0, };
 
         VALIDATE_OR_GOTO (frame, out);
         VALIDATE_OR_GOTO (this, out);
@@ -4058,6 +4059,15 @@ posix_do_readdir (call_frame_t *frame, xlator_t *this,
                     && (!strcmp(entry->d_name, GF_REPLICATE_TRASH_DIR)))
                         continue;
 
+                if ((!strcmp (real_path, base_path))
+                    && (!strncmp (GF_HIDDEN_PATH, entry->d_name, 
+                        strlen(GF_HIDDEN_PATH)))) {
+                        snprintf (hidden_path, PATH_MAX, "%s/%s", real_path,
+                                  entry->d_name);
+                        ret = lstat (hidden_path, &statbuf);
+                        if (!ret && S_ISDIR (statbuf.st_mode))
+                                continue;
+                }
                 this_size = max (sizeof (gf_dirent_t),
                                  sizeof (gfs3_dirplist))
                         + strlen (entry->d_name) + 1;

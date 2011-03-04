@@ -144,6 +144,8 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
         } while (0);
 #endif
 
+#define GF_HIDDEN_PATH ".glusterfs"
+
 static inline void
 iov_free (struct iovec *vector, int count)
 {

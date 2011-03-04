@@ -182,4 +182,6 @@ int
 inode_ctx_del2 (inode_t *inode, xlator_t *xlator, uint64_t *value1,
                 uint64_t *value2);
 
+int
+__is_root_gfid (uuid_t gfid);
 #endif /* _INODE_H */
