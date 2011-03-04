@@ -2862,9 +2862,9 @@ glusterd_handle_probe_query (rpcsvc_request_t *req)
         } else if (ret) {
                 gf_log ("glusterd", GF_LOG_NORMAL, "Unable to find peerinfo"
                         " for host: %s (%d)", remote_hostname, port);
-                args.mode = GD_MODE_SWITCH_ON;
+                args.mode = GD_MODE_ON;
                 ret = glusterd_friend_add (remote_hostname, port,
-                                           GD_FRIEND_STATE_DEFAULT,
+                                           GD_FRIEND_STATE_PROBE_RCVD,
                                            NULL, NULL, &peerinfo, 0, &args);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Failed to add peer %s",
