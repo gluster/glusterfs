@@ -56,6 +56,9 @@ static  char *glusterd_friend_sm_state_names[] = {
         "Sent and Received peer request",
         "Peer Rejected",
         "Peer detach in progress",
+        "Probe Received from peer",
+        "Connected to Peer",
+        "Peer is connected and Accepted",
         "Invalid State"
 };
 
@@ -687,6 +690,53 @@ glusterd_sm_t glusterd_state_default [] = {
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_none}, //EVENT_MAX
 };
 
+glusterd_sm_t glusterd_state_probe_rcvd [] = {
+        {GD_FRIEND_STATE_PROBE_RCVD, glusterd_ac_none},
+        {GD_FRIEND_STATE_PROBE_RCVD, glusterd_ac_none}, //EV_PROBE
+        {GD_FRIEND_STATE_PROBE_RCVD, glusterd_ac_none}, //EV_INIT_FRIEND_REQ
+        {GD_FRIEND_STATE_PROBE_RCVD, glusterd_ac_none}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_PROBE_RCVD, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_PROBE_RCVD, glusterd_ac_none}, //EVENT_RCVD_RJT
+        {GD_FRIEND_STATE_PROBE_RCVD, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
+        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_handle_friend_add_req}, //EVENT_RCV_FRIEND_REQ
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EV_INIT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_none}, //EVENT_RCVD_REMOVE_FRIEND
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none}, //EVENT_CONNECTED
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_none}, //EVENT_MAX
+};
+
+glusterd_sm_t glusterd_state_connected_rcvd [] = {
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none},
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none}, //EV_PROBE
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none}, //EV_INIT_FRIEND_REQ
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_reverse_probe_begin}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none}, //EVENT_RCVD_RJT
+        {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_handle_friend_add_req}, //EVENT_RCV_FRIEND_REQ
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EV_INIT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_none}, //EVENT_RCVD_REMOVE_FRIEND
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none}, //EVENT_CONNECTED
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none}, //EVENT_MAX
+};
+
+glusterd_sm_t glusterd_state_connected_accepted [] = {
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none},
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_friend_probe}, //EV_PROBE
+        {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_friend_add}, //EV_INIT_FRIEND_REQ
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none}, //EVENT_RCVD_ACC
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none}, //EVENT_RCVD_RJT
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none}, //EVENT_RCV_FRIEND_REQ
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EV_INIT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_none}, //EVENT_RCVD_REMOVE_FRIEND
+        {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none}, //EVENT_CONNECTED
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_none}, //EVENT_MAX
+};
 
 glusterd_sm_t  glusterd_state_req_sent [] = {
         {GD_FRIEND_STATE_REQ_SENT, glusterd_ac_none}, //EVENT_NONE,
@@ -706,17 +756,17 @@ glusterd_sm_t  glusterd_state_req_sent [] = {
 
 glusterd_sm_t  glusterd_state_req_rcvd [] = {
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_NONE,
-        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_friend_probe}, //EVENT_PROBE,
-        {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_friend_add}, //EVENT_INIT_FRIEND_REQ,
+        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_PROBE,
+        {GD_FRIEND_STATE_REQ_SENT_RCVD, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_ACC
-        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_reverse_probe_begin}, //EVENT_RCVD_LOCAL_ACC
+        {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_ACC
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCVD_RJT
         {GD_FRIEND_STATE_REJECTED, glusterd_ac_none}, //EVENT_RCVD_LOCAL_RJT
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none}, //EVENT_RCV_FRIEND_REQ
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND,
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
-        {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none},//EVENT_CONNECTED
+        {GD_FRIEND_STATE_CONNECTED_RCVD, glusterd_ac_none},//EVENT_CONNECTED
         {GD_FRIEND_STATE_REQ_RCVD, glusterd_ac_none},//EVENT_MAX
 };
 
@@ -780,12 +830,12 @@ glusterd_sm_t  glusterd_state_req_accepted [] = {
         {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_send_friend_remove_req}, //EVENT_INIT_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_handle_friend_remove_req}, //EVENT_RCVD_REMOVE_FRIEND
         {GD_FRIEND_STATE_DEFAULT, glusterd_ac_friend_remove}, //EVENT_REMOVE_FRIEND
-        {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_none},//EVENT_CONNECTED
+        {GD_FRIEND_STATE_CONNECTED_ACCEPTED, glusterd_ac_reverse_probe_begin},//EVENT_CONNECTED
         {GD_FRIEND_STATE_REQ_SENT, glusterd_ac_none},//EVENT_MAX
 };
 
 glusterd_sm_t  glusterd_state_unfriend_sent [] = {
-        {GD_FRIEND_STATE_REQ_ACCEPTED, glusterd_ac_none}, //EVENT_NONE,
+        {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_none}, //EVENT_NONE,
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_error}, //EVENT_PROBE,
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_none}, //EVENT_INIT_FRIEND_REQ,
         {GD_FRIEND_STATE_UNFRIEND_SENT, glusterd_ac_none}, //EVENT_RCVD_ACC
@@ -809,6 +859,9 @@ glusterd_sm_t *glusterd_friend_state_table [] = {
         glusterd_state_req_sent_rcvd,
         glusterd_state_rejected,
         glusterd_state_unfriend_sent,
+        glusterd_state_probe_rcvd,
+        glusterd_state_connected_rcvd,
+        glusterd_state_connected_accepted
 };
 
 int

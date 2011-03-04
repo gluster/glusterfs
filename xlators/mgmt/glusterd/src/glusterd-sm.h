@@ -55,6 +55,9 @@ typedef enum glusterd_friend_sm_state_ {
         GD_FRIEND_STATE_REQ_SENT_RCVD,
         GD_FRIEND_STATE_REJECTED,
         GD_FRIEND_STATE_UNFRIEND_SENT,
+        GD_FRIEND_STATE_PROBE_RCVD,
+        GD_FRIEND_STATE_CONNECTED_RCVD,
+        GD_FRIEND_STATE_CONNECTED_ACCEPTED,
         GD_FRIEND_STATE_MAX
 } glusterd_friend_sm_state_t;
 
