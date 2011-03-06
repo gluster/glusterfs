@@ -64,6 +64,11 @@
 #define O_DIRECTORY 0
 #endif
 
+#ifndef EBADFD
+/* Mac OS X does not have EBADFD */
+#define EBADFD EBADF
+#endif
+
 #ifndef FNM_EXTMATCH
 #define FNM_EXTMATCH 0
 #endif
