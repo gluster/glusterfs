@@ -1312,6 +1312,9 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
+        //peerinfo should not be in payload
+        dict_del (dict, "peerinfo");
+
         ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
                                            (size_t *)&req.buf.buf_len);
 
@@ -1319,6 +1322,7 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
                 goto out;
 
         glusterd_get_uuid (&req.uuid);
+        req.op = glusterd_op_get_op ();
 
         dummy_frame = create_frame (this, this->ctx->pool);
         if (!dummy_frame)
@@ -1361,7 +1365,11 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
+        //peerinfo should not be in payload
+        dict_del (dict, "peerinfo");
+
         glusterd_get_uuid (&req.uuid);
+        req.op = glusterd_op_get_op ();
 
         ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
                                            (size_t *)&req.buf.buf_len);
