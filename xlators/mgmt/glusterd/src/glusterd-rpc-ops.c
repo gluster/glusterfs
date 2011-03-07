@@ -1298,6 +1298,7 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         glusterd_conf_t                 *priv = NULL;
         call_frame_t                    *dummy_frame = NULL;
         dict_t                          *dict = NULL;
+        gf_boolean_t                    is_alloc = _gf_true;
 
         if (!this) {
                 goto out;
@@ -1315,14 +1316,22 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         //peerinfo should not be in payload
         dict_del (dict, "peerinfo");
 
-        ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
-                                           (size_t *)&req.buf.buf_len);
-
-        if (ret)
-                goto out;
-
         glusterd_get_uuid (&req.uuid);
         req.op = glusterd_op_get_op ();
+
+        if (GD_OP_DELETE_VOLUME == req.op) {
+                ret = dict_get_str (dict, "volname", &req.buf.buf_val);
+                if (ret)
+                        goto out;
+                req.buf.buf_len = strlen (req.buf.buf_val);
+                is_alloc = _gf_false;
+        } else {
+                ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
+                                                   (size_t *)&req.buf.buf_len);
+
+                if (ret)
+                        goto out;
+        }
 
         dummy_frame = create_frame (this, this->ctx->pool);
         if (!dummy_frame)
@@ -1335,7 +1344,7 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
                                        this, glusterd3_1_stage_op_cbk);
 
 out:
-        if (req.buf.buf_val)
+        if ((_gf_true == is_alloc) && req.buf.buf_val)
                 GF_FREE (req.buf.buf_val);
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
@@ -1352,6 +1361,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         glusterd_conf_t        *priv        = NULL;
         call_frame_t           *dummy_frame = NULL;
         dict_t                 *dict        = NULL;
+        gf_boolean_t            is_alloc    = _gf_true;
 
         if (!this) {
                 goto out;
@@ -1371,11 +1381,19 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         glusterd_get_uuid (&req.uuid);
         req.op = glusterd_op_get_op ();
 
-        ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
-                                           (size_t *)&req.buf.buf_len);
+        if (GD_OP_DELETE_VOLUME == req.op) {
+                ret = dict_get_str (dict, "volname", &req.buf.buf_val);
+                if (ret)
+                        goto out;
+                req.buf.buf_len = strlen (req.buf.buf_val);
+                is_alloc = _gf_false;
+        } else {
+                ret = dict_allocate_and_serialize (dict, &req.buf.buf_val,
+                                                   (size_t *)&req.buf.buf_len);
 
-        if (ret)
-                goto out;
+                if (ret)
+                        goto out;
+        }
 
         dummy_frame = create_frame (this, this->ctx->pool);
         if (!dummy_frame)
@@ -1388,7 +1406,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
                                        this, glusterd3_1_commit_op_cbk);
 
 out:
-        if (req.buf.buf_val)
+        if ((_gf_true == is_alloc) && req.buf.buf_val)
                 GF_FREE (req.buf.buf_val);
 
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);

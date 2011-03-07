@@ -444,6 +444,8 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gd1_mgmt_stage_op_req           stage_req = {{0,}};
         glusterd_op_stage_ctx_t         *ctx = NULL;
+        char                            volname[GLUSTERD_MAX_VOLUME_NAME] = {0};
+        char                            *dup_volname = NULL;
 
         GF_ASSERT (req);
 
@@ -473,13 +475,25 @@ glusterd_handle_stage_op (rpcsvc_request_t *req)
         if (!stage_req.buf.buf_val)
                 goto out;
 
-        ret = dict_unserialize (stage_req.buf.buf_val,
-                                stage_req.buf.buf_len,
-                                &ctx->dict);
+        if (GD_OP_DELETE_VOLUME == stage_req.op) {
+                strncpy (volname, stage_req.buf.buf_val, stage_req.buf.buf_len);
+                dup_volname = gf_strdup (volname);
+                if (dup_volname) {
+                        ret = dict_set_dynstr (ctx->dict, "volname", dup_volname);
+                        if (ret)
+                                gf_log ("", GF_LOG_WARNING,
+                                        "failed to set volume name from payload");
+                }
 
-        if (ret)
-                gf_log ("", GF_LOG_WARNING,
-                        "failed to unserialize the dictionary");
+        } else {
+                ret = dict_unserialize (stage_req.buf.buf_val,
+                                        stage_req.buf.buf_len,
+                                        &ctx->dict);
+
+                if (ret)
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to unserialize the dictionary");
+        }
 
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_STAGE_OP, ctx);
 
@@ -499,6 +513,8 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
         int32_t                         ret = -1;
         gd1_mgmt_commit_op_req          commit_req = {{0},};
         glusterd_op_commit_ctx_t        *ctx = NULL;
+        char                            volname[GLUSTERD_MAX_VOLUME_NAME] = {0};
+        char                            *dup_volname = NULL;
 
         GF_ASSERT (req);
 
@@ -531,12 +547,25 @@ glusterd_handle_commit_op (rpcsvc_request_t *req)
         if (!commit_req.buf.buf_val)
                 goto out;
 
-        ret = dict_unserialize (commit_req.buf.buf_val,
-                                commit_req.buf.buf_len,
-                                &ctx->dict);
-        if (ret)
-                gf_log ("", GF_LOG_WARNING,
-                        "failed to unserialize the dictionary");
+        if (GD_OP_DELETE_VOLUME == commit_req.op) {
+                strncpy (volname, commit_req.buf.buf_val, commit_req.buf.buf_len);
+                dup_volname = gf_strdup (volname);
+                if (dup_volname) {
+                        ret = dict_set_dynstr (ctx->dict, "volname", dup_volname);
+                        if (ret)
+                                gf_log ("", GF_LOG_WARNING,
+                                        "failed to set volume name from payload");
+                }
+
+        } else {
+                ret = dict_unserialize (commit_req.buf.buf_val,
+                                        commit_req.buf.buf_len,
+                                        &ctx->dict);
+
+                if (ret)
+                        gf_log ("", GF_LOG_WARNING,
+                                "failed to unserialize the dictionary");
+        }
 
         ret = glusterd_op_sm_inject_event (GD_OP_EVENT_COMMIT_OP, ctx);
 
