@@ -4595,6 +4595,7 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_conf_t      *priv     = NULL;
         xlator_t             *this     = NULL;
         glusterd_peerinfo_t  *peerinfo = NULL;
+        uint32_t             pending_count = 0;
 
         this = THIS;
         priv = this->private;
@@ -4614,10 +4615,11 @@ glusterd_op_ac_send_lock (glusterd_op_sm_event_t *event, void *ctx)
                         ret = proc->fn (NULL, this, peerinfo);
                         if (ret)
                                 continue;
-                        opinfo.pending_count++;
+                        pending_count++;
                 }
         }
 
+        opinfo.pending_count = pending_count;
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc ();
 
@@ -4634,6 +4636,7 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_conf_t      *priv     = NULL;
         xlator_t             *this     = NULL;
         glusterd_peerinfo_t  *peerinfo = NULL;
+        uint32_t             pending_count = 0;
 
         this = THIS;
         priv = this->private;
@@ -4659,10 +4662,11 @@ glusterd_op_ac_send_unlock (glusterd_op_sm_event_t *event, void *ctx)
                         ret = proc->fn (NULL, this, peerinfo);
                         if (ret)
                                 continue;
-                        opinfo.pending_count++;
+                        pending_count++;
                 }
         }
 
+        opinfo.pending_count = pending_count;
         if (!opinfo.pending_count)
                 ret = glusterd_op_sm_inject_all_acc ();
 
@@ -4826,6 +4830,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
         dict_t                  *dict = NULL;
         char                    *op_errstr  = NULL;
         int                      i = 0;
+        uint32_t                pending_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -4880,10 +4885,11 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                         ret = proc->fn (NULL, this, dict);
                         if (ret)
                                 continue;
-                        opinfo.pending_count++;
+                        pending_count++;
                 }
         }
 
+        opinfo.pending_count = pending_count;
 out:
         if (ret) {
                 glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
@@ -4950,6 +4956,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_peerinfo_t     *peerinfo = NULL;
         char                    *op_errstr  = NULL;
         int                      i = 0;
+        uint32_t                 pending_count = 0;
 
         this = THIS;
         GF_ASSERT (this);
@@ -5000,10 +5007,11 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                         ret = proc->fn (NULL, this, dict);
                         if (ret)
                                 continue;
-                        opinfo.pending_count++;
+                        pending_count++;
                 }
         }
 
+        opinfo.pending_count = pending_count;
         gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
                 opinfo.pending_count);
 out:
