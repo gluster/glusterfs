@@ -175,11 +175,11 @@ int
 glusterd_op_build_payload (glusterd_op_t op, dict_t **req);
 
 int32_t
-glusterd_op_stage_validate (dict_t *req, char **op_errstr,
+glusterd_op_stage_validate (glusterd_op_t op, dict_t *req, char **op_errstr,
                             dict_t *rsp_dict);
 
 int32_t
-glusterd_op_commit_perform (dict_t *req, char **op_errstr,
+glusterd_op_commit_perform (glusterd_op_t op, dict_t *req, char **op_errstr,
                             dict_t* dict);
 
 void *

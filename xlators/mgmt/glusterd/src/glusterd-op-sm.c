@@ -4757,10 +4757,6 @@ glusterd_op_build_payload (glusterd_op_t op, dict_t **req)
         if (!req_dict)
                 goto out;
 
-        ret = dict_set_int32 (req_dict, "operation", op);
-        if (ret)
-                gf_log ("", GF_LOG_WARNING, "failed to set op");
-
         ctx = (void*)glusterd_op_get_ctx (op);
         if (!ctx) {
                 gf_log ("", GF_LOG_ERROR, "Null Context for "
@@ -4857,7 +4853,7 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
 
         /* rsp_dict NULL from source */
-        ret = glusterd_op_stage_validate (dict, &op_errstr, NULL);
+        ret = glusterd_op_stage_validate (i, dict, &op_errstr, NULL);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Staging failed");
                 opinfo.op_errstr = op_errstr;
@@ -4891,6 +4887,8 @@ glusterd_op_ac_send_stage_op (glusterd_op_sm_event_t *event, void *ctx)
 
         opinfo.pending_count = pending_count;
 out:
+        if (dict)
+                dict_unref (dict);
         if (ret) {
                 glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
                 opinfo.op_ret = ret;
@@ -4953,6 +4951,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         glusterd_conf_t         *priv = NULL;
         xlator_t                *this = NULL;
         dict_t                  *dict = NULL;
+        dict_t                  *op_dict = NULL;
         glusterd_peerinfo_t     *peerinfo = NULL;
         char                    *op_errstr  = NULL;
         int                      i = 0;
@@ -4980,7 +4979,7 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         if (ret)
                 goto out;
 
-        ret = glusterd_op_commit_perform (dict, &op_errstr, NULL); //rsp_dict invalid for source
+        ret = glusterd_op_commit_perform (i, dict, &op_errstr, NULL); //rsp_dict invalid for source
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed");
                 opinfo.op_errstr = op_errstr;
@@ -5015,20 +5014,22 @@ glusterd_op_ac_send_commit_op (glusterd_op_sm_event_t *event, void *ctx)
         gf_log ("glusterd", GF_LOG_NORMAL, "Sent op req to %d peers",
                 opinfo.pending_count);
 out:
+        if (dict)
+                dict_unref (dict);
         if (ret) {
                 glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, NULL);
                 opinfo.op_ret = ret;
         }
 
         if (!opinfo.pending_count) {
-                dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
-                if (!dict) {
+                op_dict = glusterd_op_get_ctx (GD_OP_REPLACE_BRICK);
+                if (!op_dict) {
                         ret = glusterd_op_sm_inject_all_acc ();
                         goto err;
                 }
 
-                dict = dict_ref (dict);
-                ret = glusterd_op_start_rb_timer (dict);
+                op_dict = dict_ref (op_dict);
+                ret = glusterd_op_start_rb_timer (op_dict);
         }
 
 err:
@@ -5386,7 +5387,7 @@ glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
                 return -1;
         }
 
-        status = glusterd_op_stage_validate (dict, &op_errstr,
+        status = glusterd_op_stage_validate (stage_ctx->op, dict, &op_errstr,
                                              rsp_dict);
 
         if (status) {
@@ -5431,7 +5432,8 @@ glusterd_op_ac_commit_op (glusterd_op_sm_event_t *event, void *ctx)
                 goto out;
         }
 
-        status = glusterd_op_commit_perform (dict, &op_errstr, rsp_dict);
+        status = glusterd_op_commit_perform (commit_ctx->op, dict, &op_errstr,
+                                             rsp_dict);
 
         if (status) {
                 gf_log ("", GF_LOG_ERROR, "Commit failed: %d", status);
@@ -5475,15 +5477,10 @@ glusterd_op_sm_transition_state (glusterd_op_info_t *opinfo,
 }
 
 int32_t
-glusterd_op_stage_validate (dict_t *dict, char **op_errstr,
+glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                             dict_t *rsp_dict)
 {
         int ret = -1;
-        int op  = -1;
-
-        ret = dict_get_int32 (dict, "operation", &op);
-        if (ret)
-                gf_log ("", GF_LOG_WARNING, "operation not set");
 
         switch (op) {
                 case GD_OP_CREATE_VOLUME:
@@ -5551,15 +5548,10 @@ glusterd_op_stage_validate (dict_t *dict, char **op_errstr,
 
 
 int32_t
-glusterd_op_commit_perform (dict_t *dict, char **op_errstr,
+glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                             dict_t *rsp_dict)
 {
         int ret = -1;
-        int op  = -1;
-
-        ret = dict_get_int32 (dict, "operation", &op);
-        if (ret)
-                gf_log ("", GF_LOG_WARNING, "operation not set");
 
         switch (op) {
                 case GD_OP_CREATE_VOLUME:
