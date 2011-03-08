@@ -130,7 +130,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         continue;
                 }
 
-                ret = fchmod (dst_fd, stbuf.st_mode);
+                ret = fchmod (dst_fd, (stbuf.st_mode & ~01000));
                 if (ret) {
                         gf_log ("", GF_LOG_WARNING,
                                 "failed to set the mode of file %s: %s",
