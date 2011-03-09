@@ -3320,11 +3320,25 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 
         private = this->private;
 
+        graph = data;
+
+        gf_log ("fuse", GF_LOG_DEBUG, "got event %d on graph %d",
+                event, ((graph) ? graph->id : 0));
+
         switch (event)
         {
         case GF_EVENT_GRAPH_NEW:
-                graph = data;
-                /* TODO: */
+                /* We get only one GRAPH_NEW event per graph */
+                if (graph) {
+                        ret = fuse_graph_setup (this, graph);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "failed to setup the graph");
+                        if (!ret)
+                                gf_log ("fuse", GF_LOG_INFO,
+                                        "got event GRAPH-NEW for graph %d",
+                                        ((graph) ? graph->id : 0));
+                }
 
                 break;
 
@@ -3332,14 +3346,6 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_CHILD_CONNECTING:
         {
-                if (data) {
-                        graph = data;
-                        ret = fuse_graph_setup (this, graph);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to setup the graph");
-                }
-
                 if (event == GF_EVENT_CHILD_UP) {
 
                         pthread_mutex_lock (&private->sync_mutex);
