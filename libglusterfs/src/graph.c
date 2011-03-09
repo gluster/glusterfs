@@ -469,6 +469,8 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
         fill_uuid (graph->graph_uuid, 128);
 
+        graph->id = ctx->graph_id++;
+
         /* XXX: --xlator-option additions */
         gf_add_cmdline_options (graph, &ctx->cmd_args);
 
