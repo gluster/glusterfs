@@ -143,6 +143,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {MARKER_VOL_KEY,                         "features/marker",           "!marker", "off", NO_DOC},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
+        {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC},
         {"nfs.export-dirs",                      "nfs/server",                "nfs3.export-dirs", NULL, GLOBAL_DOC},
         {"nfs.export-volumes",                   "nfs/server",                "nfs3.export-volumes", NULL, GLOBAL_DOC},
         {"nfs.addr-namelookup",                  "nfs/server",                "rpc-auth.addr.namelookup", NULL, GLOBAL_DOC},
