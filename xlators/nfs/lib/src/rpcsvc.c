@@ -2542,7 +2542,6 @@ __nfs_rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
         ssize_t                 written = -1;
         char                    *writeaddr = NULL;
         size_t                  writesize = -1;
-        int                     local_errno = 0;
 
         if (!conn)
                 return -1;
@@ -2561,8 +2560,6 @@ tx_remaining:
                 errno = 0;
                 written = nfs_rpcsvc_socket_write (conn->sockfd, writeaddr,
                                                    writesize);
-                local_errno = errno;
-
                 if (txbuf->txbehave & RPCSVC_TXB_LAST) {
                         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Last Tx Buf");
                         nfs_rpcsvc_socket_unblock_tx (conn->sockfd);
@@ -2581,7 +2578,7 @@ tx_remaining:
                 if (written >= 0)
                         txbuf->offset += written;
 
-                if (local_errno == EAGAIN) {
+                if (errno == EAGAIN) {
                         /*
                          * Socket layer is indicating flow-control. We
                          * break-out now and wait for the next event indicating
