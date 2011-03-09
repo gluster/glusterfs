@@ -1857,8 +1857,8 @@ trace_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         if (trace_fop_names[GF_FOP_STATFS].enabled) {
                 gf_log (this->name, GF_LOG_NORMAL,
                         "%"PRId64": gfid=%s path=%s",
-                        frame->root->unique, uuid_utoa (loc->inode->gfid),
-                        loc->path);
+                        frame->root->unique, (loc->inode)?
+                        uuid_utoa (loc->inode->gfid):"0", loc->path);
         }
 
         STACK_WIND (frame, trace_statfs_cbk,
