@@ -131,6 +131,7 @@ typedef struct {
 	/* array of stat's, one for each child */
 	struct iatt *buf;
         struct iatt parentbuf;
+        struct iatt entrybuf;
 
 	/* array of xattr's, one for each child */
 	dict_t **xattr;

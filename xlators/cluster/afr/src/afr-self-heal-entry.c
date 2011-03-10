@@ -344,6 +344,13 @@ out:
 
 
 int
+afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this);
+
+int
+afr_sh_entry_impunge_subvol (call_frame_t *frame, xlator_t *this,
+			     int active_src);
+
+int
 afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this);
 
 int
@@ -620,6 +627,7 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 	int              source = 0;
 	call_frame_t    *frame = NULL;
 	int              active_src = 0;
+        int              need_expunge = 0;
 
 
 	priv = this->private;
@@ -629,14 +637,31 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 	active_src = expunge_sh->active_source;
 	source = (long) cookie;
 
-	if (op_ret == -1 && op_errno == ENOENT && postparent) {
+        if (op_ret == -1 && op_errno == ENOENT)
+                need_expunge = 1;
 
+        if (!uuid_is_null (expunge_sh->entrybuf.ia_gfid) &&
+            !uuid_is_null (buf->ia_gfid) &&
+            (uuid_compare (expunge_sh->entrybuf.ia_gfid, buf->ia_gfid) != 0)) {
+                char uuidbuf1[64];
+                char uuidbuf2[64];
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "entry %s found on %s with mismatching gfid (%s/%s)",
+                        expunge_local->loc.path,
+                        priv->children[source]->name,
+                        uuid_utoa_r (expunge_sh->entrybuf.ia_gfid, uuidbuf1),
+                        uuid_utoa_r (buf->ia_gfid, uuidbuf2));
+                need_expunge = 1;
+        }
+
+	if (need_expunge) {
 		gf_log (this->name, GF_LOG_TRACE,
 			"missing entry %s on %s",
 			expunge_local->loc.path,
 			priv->children[source]->name);
 
-                expunge_sh->parentbuf = *postparent;
+                if (postparent)
+                        expunge_sh->parentbuf = *postparent;
 
 		afr_sh_entry_expunge_purge (expunge_frame, this, active_src);
 
@@ -665,7 +690,7 @@ afr_sh_entry_expunge_entry_cbk (call_frame_t *expunge_frame, void *cookie,
 
 int
 afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
-			    char *name)
+			    gf_dirent_t *entry)
 {
 	afr_private_t   *priv = NULL;
 	afr_local_t     *local  = NULL;
@@ -677,6 +702,7 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 	int              active_src = 0;
 	int              source = 0;
 	int              op_errno = 0;
+        char            *name = NULL;
 
 	priv = this->private;
 	local = frame->local;
@@ -684,6 +710,8 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 
 	active_src = sh->active_source;
 	source = sh->source;
+
+        name = entry->d_name;
 
 	if ((strcmp (name, ".") == 0)
 	    || (strcmp (name, "..") == 0)
@@ -713,6 +741,8 @@ afr_sh_entry_expunge_entry (call_frame_t *frame, xlator_t *this,
 	expunge_sh = &expunge_local->self_heal;
 	expunge_sh->sh_frame = frame;
 	expunge_sh->active_source = active_src;
+        expunge_sh->entrybuf = entry->d_stat;
+
 
 	ret = build_child_loc (this, &expunge_local->loc, &local->loc, name);
 	if (ret != 0) {
@@ -790,7 +820,7 @@ afr_sh_entry_expunge_readdir_cbk (call_frame_t *frame, void *cookie,
 	local->call_count = entry_count;
 
 	list_for_each_entry (entry, &entries->list, list) {
-                afr_sh_entry_expunge_entry (frame, this, entry->d_name);
+                afr_sh_entry_expunge_entry (frame, this, entry);
 	}
 
 	return 0;
@@ -810,7 +840,7 @@ afr_sh_entry_expunge_subvol (call_frame_t *frame, xlator_t *this,
 
 	STACK_WIND (frame, afr_sh_entry_expunge_readdir_cbk,
 		    priv->children[active_src],
-		    priv->children[active_src]->fops->readdir,
+		    priv->children[active_src]->fops->readdirp,
 		    sh->healing_fd, sh->block_size, sh->offset);
 
 	return 0;
@@ -858,18 +888,11 @@ afr_sh_entry_expunge_all (call_frame_t *frame, xlator_t *this)
 
 	return 0;
 out:
-	afr_sh_entry_erase_pending (frame, this);
+	afr_sh_entry_impunge_all (frame, this);
 	return 0;
 
 }
 
-
-int
-afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this);
-
-int
-afr_sh_entry_impunge_subvol (call_frame_t *frame, xlator_t *this,
-			     int active_src);
 
 int
 afr_sh_entry_impunge_entry_done (call_frame_t *frame, xlator_t *this,
@@ -1885,7 +1908,7 @@ afr_sh_entry_impunge_all (call_frame_t *frame, xlator_t *this)
 
 	if (active_src == -1) {
 		/* completed creating missing files on all subvolumes */
-		afr_sh_entry_expunge_all (frame, this);
+		afr_sh_entry_erase_pending (frame, this);
 		return 0;
 	}
 
@@ -1944,7 +1967,7 @@ afr_sh_entry_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 			local->loc.path);
 
 		sh->active_source = -1;
-		afr_sh_entry_impunge_all (frame, this);
+		afr_sh_entry_expunge_all (frame, this);
 	}
 
 	return 0;
