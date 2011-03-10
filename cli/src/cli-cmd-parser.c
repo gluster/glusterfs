@@ -37,28 +37,115 @@
 #include "cli1-xdr.h"
 
 int32_t
+cli_cmd_bricks_parse (const char **words, int wordcount, int brick_index,
+                      char **bricks, int *brick_count)
+{
+        int                    ret = 0;
+        char             *tmp_list = NULL;
+        char    brick_list[120000] = {0,};
+        char                *space = " ";
+        char            *delimiter = NULL;
+        char            *host_name = NULL;
+        char                  *tmp = NULL;
+        char        *free_list_ptr = NULL;
+        char               *tmpptr = NULL;
+        int                      j = 0;
+        int         brick_list_len = 0;
+
+        GF_ASSERT (words);
+        GF_ASSERT (wordcount);
+        GF_ASSERT (bricks);
+        GF_ASSERT (brick_index > 0);
+        GF_ASSERT (brick_index < wordcount);
+
+        strncpy (brick_list, space, strlen (space));
+        brick_list_len++;
+        while (brick_index < wordcount) {
+                delimiter = strchr (words[brick_index], ':');
+                if (!delimiter || delimiter == words[brick_index]
+                    || *(delimiter+1) != '/') {
+                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                                 "<export-dir-abs-path>", words[brick_index]);
+                        ret = -1;
+                        goto out;
+                } else {
+                        cli_path_strip_trailing_slashes (delimiter + 1);
+                }
+
+                if ((brick_list_len + strlen (words[brick_index]) + 1) > sizeof (brick_list)) {
+                        gf_log ("cli", GF_LOG_ERROR,
+                                "total brick list is larger than a request "
+                                "can take (brick_count %d)", *brick_count);
+                        ret = -1;
+                        goto out;
+                }
+
+                host_name = gf_strdup (words[brick_index]);
+                if (!host_name) {
+                        ret = -1;
+                        gf_log("cli",GF_LOG_ERROR, "Unable to allocate "
+                               "memory");
+                        goto out;
+                }
+
+                strtok_r (host_name, ":", &tmp);
+                if (!(strcmp (host_name, "localhost") &&
+                      strcmp (host_name, "127.0.0.1"))) {
+                        cli_out ("Please provide a valid hostname/ip other "
+                                 "than localhost or 127.0.0.1");
+                        ret = -1;
+                        GF_FREE (host_name);
+                        goto out;
+                }
+                GF_FREE (host_name);
+                tmp_list = gf_strdup (brick_list + 1);
+                if (free_list_ptr) {
+                        GF_FREE (free_list_ptr);
+                        free_list_ptr = NULL;
+                }
+                free_list_ptr = tmp_list;
+                j = 0;
+                while(j < *brick_count) {
+                        strtok_r (tmp_list, " ", &tmpptr);
+                        if (!(strcmp (tmp_list, words[brick_index]))) {
+                                ret = -1;
+                                cli_out ("Found duplicate"
+                                         " exports %s",words[brick_index]);
+                                goto out;
+                       }
+                       tmp_list = tmpptr;
+                       j++;
+                }
+                strcat (brick_list, words[brick_index]);
+                strcat (brick_list, " ");
+                brick_list_len += (strlen (words[brick_index]) + 1);
+                ++(*brick_count);
+                ++brick_index;
+        }
+
+        *bricks = gf_strdup (brick_list);
+        if (!*bricks)
+                ret = -1;
+out:
+        if (free_list_ptr)
+                GF_FREE (free_list_ptr);
+        return ret;
+}
+
+int32_t
 cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
-        char    *delimiter = NULL;
         int     ret = -1;
         gf1_cluster_type type = GF_CLUSTER_TYPE_NONE;
         int     count = 1;
-        int     brick_count = 0, brick_index = 0;
-        int     brick_list_size = 1;
-        char    brick_list[120000] = {0,};
+        int     brick_index = 0;
         int     i = 0;
-        char    *tmp_list = NULL;
-        char    *tmpptr = NULL;
-        int     j = 0;
-        char    *host_name = NULL;
-        char    *tmp = NULL;
-        char    *freeptr = NULL;
         char    *trans_type = NULL;
         int32_t index = 0;
-        char    *free_list_ptr = NULL;
         char    *bricks = NULL;
+        int32_t brick_count = 0;
 
         GF_ASSERT (words);
         GF_ASSERT (options);
@@ -187,77 +274,10 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
         if (ret)
                 goto out;
 
-        strcpy (brick_list, " ");
-        while (brick_index < wordcount) {
-                delimiter = strchr (words[brick_index], ':');
-                if (!delimiter || delimiter == words[brick_index]
-                    || *(delimiter+1) != '/') {
-                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
-                                 "<export-dir-abs-path>", words[brick_index]);
-                        ret = -1;
-                        goto out;
-                } else {
-                        cli_path_strip_trailing_slashes (delimiter + 1);
-                }
-                if ((brick_list_size + strlen (words[brick_index]) + 1) > 120000) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "total brick list is larger than a request "
-                                "can take (brick_count %d)", brick_count);
-                        ret = -1;
-                        goto out;
-                }
-
-                host_name = gf_strdup(words[brick_index]);
-                if (!host_name) {
-                        ret = -1;
-                        gf_log("cli",GF_LOG_ERROR, "Unable to allocate "
-                               "memory");
-                        goto out;
-                }
-                freeptr = host_name;
-
-                strtok_r(host_name, ":", &tmp);
-                if (!(strcmp(host_name, "localhost") &&
-                      strcmp (host_name, "127.0.0.1"))) {
-                        cli_out ("Please provide a valid hostname/ip other "
-                                 "than localhost or 127.0.0.1");
-                        ret = -1;
-                        GF_FREE(freeptr);
-                        goto out;
-                }
-                GF_FREE (freeptr);
-                tmp_list = strdup(brick_list+1);
-                free_list_ptr = tmp_list;
-                j = 0;
-                while(( brick_count != 0) && (j < brick_count)) {
-                        strtok_r (tmp_list, " ", &tmpptr);
-                        if (!(strcmp (tmp_list, words[brick_index]))) {
-                                ret = -1;
-                                cli_out ("Found duplicate"
-                                         " exports %s",words[brick_index]);
-                                if (free_list_ptr)
-                                        free (free_list_ptr);
-                                goto out;
-                       }
-                       tmp_list = tmpptr;
-                       j++;
-                }
-                strcat (brick_list, words[brick_index]);
-                strcat (brick_list, " ");
-                brick_list_size += (strlen (words[brick_index]) + 1);
-                ++brick_count;
-                ++brick_index;
-                /*
-                  char    key[50];
-                snprintf (key, 50, "brick%d", ++brick_count);
-                ret = dict_set_str (dict, key, (char *)words[brick_index++]);
-
-                if (ret)
-                        goto out;
-                */
-                if (free_list_ptr)
-                        free (free_list_ptr);
-        }
+        ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
+                                    &brick_count);
+        if (ret)
+                goto out;
 
         /* If brick-count is not valid when replica or stripe is
            given, exit here */
@@ -274,12 +294,6 @@ cli_cmd_volume_create_parse (const char **words, int wordcount, dict_t **options
                 else if (type == GF_CLUSTER_TYPE_REPLICATE)
                         cli_out ("number of bricks is not a multiple of "
                                  "replica count");
-                ret = -1;
-                goto out;
-        }
-
-        bricks = gf_strdup (brick_list);
-        if (!bricks) {
                 ret = -1;
                 goto out;
         }
@@ -429,18 +443,8 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
 {
         dict_t  *dict = NULL;
         char    *volname = NULL;
-        char    *delimiter = NULL;
         int     ret = -1;
         int     brick_count = 0, brick_index = 0;
-        int     brick_list_size = 1;
-        char    brick_list[120000] = {0,};
-        int     j = 0;
-        char    *tmp_list = NULL;
-        char    *tmpptr = NULL;
-        char    *host_name = NULL;
-        char    *tmp = NULL;
-        char    *freeptr = NULL;
-        char    *free_list_ptr = NULL;
         char    *bricks = NULL;
 
         GF_ASSERT (words);
@@ -472,85 +476,10 @@ cli_cmd_volume_add_brick_parse (const char **words, int wordcount,
         }
 
         brick_index = 3;
-        strcpy (brick_list, " ");
-        while (brick_index < wordcount) {
-                delimiter = strchr (words[brick_index], ':');
-                if (!delimiter || delimiter == words[brick_index]
-                    || *(delimiter+1) != '/') {
-                        cli_out ("wrong brick type: %s, use <HOSTNAME>:"
-                                 "<export-dir-abs-path>", words[brick_index]);
-                        ret = -1;
-                        goto out;
-                } else {
-                        cli_path_strip_trailing_slashes (delimiter + 1);
-                }
-
-                if ((brick_list_size + strlen (words[brick_index]) + 1) > 120000) {
-                        gf_log ("cli", GF_LOG_ERROR,
-                                "total brick list is larger than a request "
-                                "can take (brick_count %d)", brick_count);
-                        ret = -1;
-                        goto out;
-                }
-
-                host_name = gf_strdup(words[brick_index]);
-                if (!host_name) {
-                        ret = -1;
-                        gf_log ("cli", GF_LOG_ERROR, "unable to allocate "
-                                "memory");
-                        goto out;
-                }
-                freeptr = host_name;
-                strtok_r(host_name, ":", &tmp);
-                if (!(strcmp(host_name, "localhost") &&
-                      strcmp (host_name, "127.0.0.1"))) {
-                        cli_out ("Please provide a valid hostname/ip other "
-                                 "localhost or 127.0.0.1");
-                        ret = -1;
-                        GF_FREE (freeptr);
-                        goto out;
-                }
-                GF_FREE (freeptr);
-
-                tmp_list = strdup(brick_list+1);
-                free_list_ptr = tmp_list;
-                j = 0;
-                while(( brick_count != 0) && (j < brick_count)) {
-                        strtok_r (tmp_list, " ", &tmpptr);
-                        if (!(strcmp (tmp_list, words[brick_index]))) {
-                                ret = -1;
-                                cli_out ("Found duplicate"
-                                         " exports %s",words[brick_index]);
-                                if (free_list_ptr)
-                                        free (free_list_ptr);
-                                goto out;
-                       }
-                       tmp_list = tmpptr;
-                       j++;
-                }
-
-                strcat (brick_list, words[brick_index]);
-                strcat (brick_list, " ");
-                brick_list_size += (strlen (words[brick_index]) + 1);
-                ++brick_count;
-                ++brick_index;
-                /*
-                  char    key[50];
-                snprintf (key, 50, "brick%d", ++brick_count);
-                ret = dict_set_str (dict, key, (char *)words[brick_index++]);
-
-                if (ret)
-                        goto out;
-                */
-                if (free_list_ptr)
-                        free (free_list_ptr);
-        }
-
-        bricks = gf_strdup (brick_list);
-        if (!bricks) {
-                ret = -1;
+        ret = cli_cmd_bricks_parse (words, wordcount, brick_index, &bricks,
+                                    &brick_count);
+        if (ret)
                 goto out;
-        }
 
         ret = dict_set_dynstr (dict, "bricks", bricks);
         if (ret)
@@ -1097,3 +1026,48 @@ out:
         return ret;
 }
 
+int32_t
+cli_cmd_volume_profile_parse (const char **words, int wordcount,
+                              dict_t **options)
+{
+        dict_t    *dict       = NULL;
+        char      *volname    = NULL;
+        int       ret         = -1;
+        gf1_cli_stats_op op = GF_CLI_STATS_NONE;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "profile")) == 0);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount != 4)
+                goto out;
+
+        volname = (char *)words[2];
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret)
+                goto out;
+
+        if (strcmp (words[3], "start") == 0) {
+                op = GF_CLI_STATS_START;
+        } else if (strcmp (words[3], "stop") == 0) {
+                op = GF_CLI_STATS_STOP;
+        } else if (strcmp (words[3], "info") == 0) {
+                op = GF_CLI_STATS_INFO;
+        } else {
+                ret = -1;
+                goto out;
+        }
+        ret = dict_set_int32 (dict, "op", (int32_t)op);
+        *options = dict;
+out:
+        if (ret && dict)
+                dict_destroy (dict);
+        return ret;
+}

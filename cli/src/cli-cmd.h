@@ -43,6 +43,15 @@ struct cli_cmd_volume_get_ctx_ {
         int             flags;
 };
 
+typedef struct cli_profile_info_ {
+        uint64_t fop_hits;
+        double min_latency;
+        double max_latency;
+        double avg_latency;
+        char   *fop_name;
+        double percentage_avg_latency;
+} cli_profile_info_t;
+
 typedef struct cli_cmd_volume_get_ctx_ cli_cmd_volume_get_ctx_t;
 
 int cli_cmd_volume_register (struct cli_state *state);

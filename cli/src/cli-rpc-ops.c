@@ -2646,6 +2646,324 @@ out:
         return ret;
 }
 
+void*
+cli_profile_info_elem (void *a, int index)
+{
+        return ((cli_profile_info_t *)a) + index;
+}
+
+int
+cli_profile_info_percentage_cmp (void *a, void *b)
+{
+        cli_profile_info_t *ia = NULL;
+        cli_profile_info_t *ib = NULL;
+        int                ret = 0;
+
+        ia = a;
+        ib = b;
+        if (ia->percentage_avg_latency < ib->percentage_avg_latency)
+                ret = -1;
+        else if (ia->percentage_avg_latency > ib->percentage_avg_latency)
+                ret = 1;
+        else
+                ret = 0;
+        return ret;
+}
+
+void
+cli_profile_info_swap (void *a, void *b)
+{
+        cli_profile_info_t *ia = NULL;
+        cli_profile_info_t *ib = NULL;
+        cli_profile_info_t tmp = {0};
+
+        ia = a;
+        ib = b;
+        tmp = *ia;
+        *ia = *ib;
+        *ib = tmp;
+}
+
+void
+cmd_profile_volume_brick_out (dict_t *dict, int count, int interval)
+{
+        char                    key[256] = {0};
+        int                     i = 0;
+        uint64_t                sec = 0;
+        uint64_t                r_count = 0;
+        uint64_t                w_count = 0;
+        char                    *brick = NULL;
+        uint64_t                rb_counts[32] = {0};
+        uint64_t                wb_counts[32] = {0};
+        cli_profile_info_t      profile_info[GF_FOP_MAXVALUE] = {{0}};
+        char                    output[128] = {0};
+        int                     per_line = 0;
+        char                    read_blocks[128] = {0};
+        char                    write_blocks[128] = {0};
+        int                     index = 0;
+        int                     is_header_printed = 0;
+        int                     ret = 0;
+        uint64_t                total_fop_hits = 0;
+        double                  total_avg_latency = 0;
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%d-brick", count);
+        ret = dict_get_str (dict, key, &brick);
+        for (i = 0; i < 32; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-%d-read-%d", count,
+                          interval, (1 << i));
+                ret = dict_get_uint64 (dict, key, &rb_counts[i]);
+        }
+
+        for (i = 0; i < 32; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-%d-write-%d", count, interval,
+                          (1<<i));
+                ret = dict_get_uint64 (dict, key, &wb_counts[i]);
+        }
+
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-%d-%d-hits", count,
+                          interval, i);
+                ret = dict_get_uint64 (dict, key, &profile_info[i].fop_hits);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-%d-%d-avglatency", count,
+                          interval, i);
+                ret = dict_get_double (dict, key, &profile_info[i].avg_latency);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-%d-%d-minlatency", count,
+                          interval, i);
+                ret = dict_get_double (dict, key, &profile_info[i].min_latency);
+
+                memset (key, 0, sizeof (key));
+                snprintf (key, sizeof (key), "%d-%d-%d-maxlatency", count,
+                          interval, i);
+                ret = dict_get_double (dict, key, &profile_info[i].max_latency);
+                profile_info[i].fop_name = gf_fop_list[i];
+
+                total_fop_hits += profile_info[i].fop_hits;
+                total_avg_latency += profile_info[i].avg_latency;
+        }
+        if (total_fop_hits && total_avg_latency) {
+                for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                        profile_info[i].percentage_avg_latency = 100 * (
+                     (profile_info[i].avg_latency* profile_info[i].fop_hits) /
+                                (total_avg_latency * total_fop_hits));
+                }
+                gf_array_insertionsort (profile_info, 1, GF_FOP_MAXVALUE - 1,
+                                    sizeof (cli_profile_info_t),
+                                    cli_profile_info_percentage_cmp);
+        }
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%d-%d-duration", count, interval);
+        ret = dict_get_uint64 (dict, key, &sec);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%d-%d-total-read", count, interval);
+        ret = dict_get_uint64 (dict, key, &r_count);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%d-%d-total-write", count, interval);
+        ret = dict_get_uint64 (dict, key, &w_count);
+
+        if (ret == 0) {
+                cli_out ("Brick: %s", brick);
+        }
+
+        if (interval == -1)
+                cli_out ("Cumulative Stats:");
+        else
+                cli_out ("Interval %d Stats:", interval);
+        snprintf (output, sizeof (output), "%12s", "Block Size: ");
+        snprintf (read_blocks, sizeof (read_blocks), "%12s", "Read: ");
+        snprintf (write_blocks, sizeof (write_blocks), "%12s", "Write: ");
+        index = 12;
+        for (i = 0; i < 32; i++) {
+                if ((rb_counts[i] == 0) && (wb_counts[i] == 0))
+                        continue;
+                per_line++;
+                snprintf (output+index, sizeof (output)-index, "%19db+ ", (1<<i));
+                if (rb_counts[i]) {
+                        snprintf (read_blocks+index, sizeof (read_blocks)-index,
+                                  "%21"PRId64" ", rb_counts[i]);
+                } else {
+                        snprintf (read_blocks+index, sizeof (read_blocks)-index,
+                                  "%21s ", "0");
+                }
+                if (wb_counts[i]) {
+                        snprintf (write_blocks+index, sizeof (write_blocks)-index,
+                                  "%21"PRId64" ", wb_counts[i]);
+                } else {
+                        snprintf (write_blocks+index, sizeof (write_blocks)-index,
+                                  "%21s ", "0");
+                }
+                index += 22;
+                if (per_line == 3) {
+                        cli_out (output);
+                        cli_out (read_blocks);
+                        cli_out (write_blocks);
+                        cli_out ("");
+                        per_line = 0;
+                        memset (output, 0, sizeof (output));
+                        memset (read_blocks, 0, sizeof (read_blocks));
+                        memset (write_blocks, 0, sizeof (write_blocks));
+                        snprintf (output, sizeof (output), "%12s", "Block Size: ");
+                        snprintf (read_blocks, sizeof (read_blocks), "%12s",
+                                  "Read: ");
+                        snprintf (write_blocks, sizeof (write_blocks), "%12s",
+                                  "Write: ");
+                        index = 12;
+                }
+        }
+
+        if (per_line != 0) {
+                cli_out (output);
+                cli_out (read_blocks);
+                cli_out (write_blocks);
+        }
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                if (profile_info[i].fop_hits == 0)
+                        continue;
+                if (is_header_printed == 0) {
+                        cli_out ("%11s %11s %11s %11s %20s %10s", "%-latency", "Avg-latency", "Min-Latency", "Max-Latency", "calls", "Fop");
+                        cli_out ("%11s %11s %11s %11s %20s %10s", "---------", "-----------", "-----------", "-----------", "-----", "----");
+                        is_header_printed = 1;
+                }
+                if (profile_info[i].fop_hits) {
+                        cli_out ("%11lf %11lf %11lf %11lf %20"PRId64" %10s",
+                                 profile_info[i].percentage_avg_latency,
+                                 profile_info[i].avg_latency,
+                                 profile_info[i].min_latency,
+                                 profile_info[i].max_latency,
+                                 profile_info[i].fop_hits,
+                                 profile_info[i].fop_name);
+                }
+        }
+        cli_out ("");
+        cli_out ("%12s : %"PRId64, "Duration", sec);
+        cli_out ("%12s : %"PRId64, "BytesRead", r_count);
+        cli_out ("%12s : %"PRId64, "BytesWritten", w_count);
+        cli_out ("");
+}
+
+int32_t
+gf_cli3_1_profile_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                              int count, void *myframe)
+{
+        gf1_cli_stats_volume_rsp          rsp   = {0,};
+        int                               ret   = -1;
+        dict_t                            *dict = NULL;
+	gf1_cli_stats_op                  op = GF_CLI_STATS_NONE;
+        char                              key[256] = {0};
+        int                               interval = 0;
+        int                               i = 1;
+        int32_t                           brick_count = 0;
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to profile");
+        ret = gf_xdr_to_cli_stats_volume_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
+                cli_out (rsp.op_errstr);
+        } else {
+                cli_out ("volume profile %s ",
+                         (rsp.op_ret) ? "unsuccessful": "successful");
+        }
+
+        if (rsp.op_ret) {
+                ret = rsp.op_ret;
+                goto out;
+        }
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.stats_info.stats_info_val,
+                                rsp.stats_info.stats_info_len,
+                                &dict);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                                "Unable to allocate memory");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "op", (int32_t*)&op);
+
+        if (op != GF_CLI_STATS_INFO) {
+                ret = 0;
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+        while (i <= brick_count) {
+                snprintf (key, sizeof (key), "%d-cumulative", i);
+                ret = dict_get_int32 (dict, key, &interval);
+                if (ret == 0) {
+                        cmd_profile_volume_brick_out (dict, i, interval);
+                }
+                snprintf (key, sizeof (key), "%d-interval", i);
+                ret = dict_get_int32 (dict, key, &interval);
+                if (ret == 0) {
+                        cmd_profile_volume_brick_out (dict, i, interval);
+                }
+                i++;
+        }
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_profile_volume (call_frame_t *frame, xlator_t *this, void *data)
+{
+        int                        ret   = -1;
+        gf1_cli_stats_volume_req   req   = {0,};
+        dict_t			   *dict = NULL;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+        GF_ASSERT (data);
+
+        if (!frame || !this || !data)
+                goto out;
+        dict = data;
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "op", (int32_t*)&req.op);
+        if (ret)
+                goto out;
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_PROFILE_VOLUME, NULL,
+                              gf_xdr_from_cli_stats_volume_req,
+                              this, gf_cli3_1_profile_volume_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
+
 
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
@@ -2673,6 +2991,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_RESET_VOLUME]     = {"RESET_VOLUME", gf_cli3_1_reset_volume},
         [GLUSTER_CLI_FSM_LOG]          = {"FSM_LOG", gf_cli3_1_fsm_log},
         [GLUSTER_CLI_GSYNC_SET]        = {"GSYNC_SET", gf_cli3_1_gsync_set},
+        [GLUSTER_CLI_PROFILE_VOLUME] = {"PROFILE_VOLUME", gf_cli3_1_profile_volume}
 };
 
 struct rpc_clnt_program cli_prog = {
