@@ -3,29 +3,106 @@ try:
 except ImportError:
     # py 3
     import configparser as ConfigParser
+import re
+try:
+    # py 3
+    from urllib import parse as urllib
+except ImportError:
+    import urllib
 
+SECT_ORD = '__section_order__'
 
-DEF_SECT = 'global'
+re_type = type(re.compile(''))
 
 class GConffile(object):
 
     def __init__(self, path, peers):
-        if peers:
-            self.section = 'peers ' + ' '.join(peers)
-        else:
-            self.section = DEF_SECT
+        self.peers = peers
         self.path = path
         self.config = ConfigParser.RawConfigParser()
         self.config.read(path)
 
+    def section(self, rx=False):
+        peers = self.peers
+        if not peers:
+            peers = ['.', '.']
+            rx = True
+        if rx:
+            st = 'peersrx'
+        else:
+            st = 'peers'
+        return ' '.join([st] + [urllib.quote_plus(u) for u in peers])
+
+    @staticmethod
+    def parse_section(section):
+        sl = section.split()
+        st = sl.pop(0)
+        sl = [urllib.unquote_plus(u) for u in sl]
+        if st == 'peersrx':
+            sl = [re.compile(u) for u in sl]
+        return sl
+
+    def ord_sections(self):
+        """Return an ordered list of sections.
+
+        Ordering happens based on the auxiliary
+        SECT_ORD section storing indices for each
+        section added through the config API.
+
+        To not to go corrupt in case of manually
+        written config files, we take care to append
+        also those sections which are not registered
+        in SECT_ORD.
+
+        Needed for python 2.{4,5} where ConfigParser
+        cannot yet order sections/options internally.
+        """
+        so = {}
+        if self.config.has_section(SECT_ORD):
+            so = self.config._sections[SECT_ORD]
+        so2 = {}
+        for k, v in so.items():
+            if k != '__name__':
+                so2[k] = int(v)
+        tv = 0
+        if so2:
+            tv = max(so2.values()) + 1
+        ss = self.config.sections()
+        try:
+            ss.remove(SECT_ORD)
+        except ValueError:
+            pass
+        for s in ss:
+            if s in so.keys():
+                continue
+            so2[s] = tv
+            tv += 1
+        def scmp(x, y):
+            return cmp(*(so2[s] for s in (x, y)))
+        ss.sort(scmp)
+        return ss
+
     def update_to(self, dct):
-        for sect in set([DEF_SECT, self.section]):
-            if self.config.has_section(sect):
-                for k, v in self.config._sections[sect].items():
-                    if k == '__name__':
-                        continue
-                    k = k.replace('-', '_')
-                    dct[k] = v
+        if not self.peers:
+            raise RuntimeError('no peers given, cannot select matching options')
+        def update_from_sect(sect):
+            for k, v in self.config._sections[sect].items():
+                if k == '__name__':
+                    continue
+                k = k.replace('-', '_')
+                dct[k] = v
+        for sect in self.ord_sections():
+            sp = self.parse_section(sect)
+            if isinstance(sp[0], re_type) and len(sp) == len(self.peers):
+                match = True
+                for i in range(len(sp)):
+                    if not sp[i].search(self.peers[i]):
+                        match = False
+                        break
+                if match:
+                    update_from_sect(sect)
+        if self.config.has_section(self.section()):
+            update_from_sect(self.section())
 
     def get(self, opt=None):
         d = {}
@@ -46,14 +123,20 @@ class GConffile(object):
             if f:
                 f.close()
 
-    def set(self, opt, val):
-        if not self.config.has_section(self.section):
-            self.config.add_section(self.section)
-        self.config.set(self.section, opt, val)
+    def set(self, opt, val, rx=False):
+        sect = self.section(rx)
+        if not self.config.has_section(sect):
+            self.config.add_section(sect)
+            # regarding SECT_ORD, cf. ord_sections
+            if not self.config.has_section(SECT_ORD):
+                self.config.add_section(SECT_ORD)
+            self.config.set(SECT_ORD, sect, len(self.config._sections[SECT_ORD]))
+        self.config.set(sect, opt, val)
         self.write()
 
-    def delete(self, opt):
-        if not self.config.has_section(self.section):
+    def delete(self, opt, rx=False):
+        sect = self.section(rx)
+        if not self.config.has_section(sect):
             return
-        if self.config.remove_option(self.section, opt):
+        if self.config.remove_option(sect, opt):
             self.write()
