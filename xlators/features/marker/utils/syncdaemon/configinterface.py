@@ -4,11 +4,8 @@ except ImportError:
     # py 3
     import configparser as ConfigParser
 import re
-try:
-    # py 3
-    from urllib import parse as urllib
-except ImportError:
-    import urllib
+
+import syncdutils
 
 SECT_ORD = '__section_order__'
 SECT_META = '__meta__'
@@ -33,13 +30,13 @@ class GConffile(object):
             st = 'peersrx'
         else:
             st = 'peers'
-        return ' '.join([st] + [urllib.quote_plus(u) for u in peers])
+        return ' '.join([st] + [syncdutils.escape(u) for u in peers])
 
     @staticmethod
     def parse_section(section):
         sl = section.split()
         st = sl.pop(0)
-        sl = [urllib.unquote_plus(u) for u in sl]
+        sl = [syncdutils.unescape(u) for u in sl]
         if st == 'peersrx':
             sl = [re.compile(u) for u in sl]
         return sl

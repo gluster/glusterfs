@@ -207,6 +207,8 @@ def main_i():
                                                                                                                     store_local(o, oo, (vx, False, False), p))
     op.add_option('--config-del-rx',        metavar='OPT',  type=str, dest='config', action='callback', callback=lambda o, oo, vx, p:
                                                                                                                     store_local(o, oo, (vx, False, True), p))
+    op.add_option('--canonicalize-url',        dest='do_canon', action='callback', callback=store_local_curry('raw'))
+    op.add_option('--canonicalize-escape-url', dest='do_canon', action='callback', callback=store_local_curry('escaped'))
 
     # precedence for sources of values: 1) commandline, 2) cfg file, 3) defaults
     # -- for this to work out we need to tell apart defaults from explicitly set
@@ -215,7 +217,10 @@ def main_i():
     defaults = op.get_default_values()
     opts, args = op.parse_args(values=optparse.Values())
     confdata = rconf.get('config')
-    if not (len(args) == 2 or (len(args) == 1 and rconf.get('listen')) or (len(args) <= 2 and confdata)):
+    if not (len(args) == 2 or \
+            (len(args) == 1 and rconf.get('listen')) or \
+            (len(args) <= 2 and confdata) or \
+            rconf.get('do_canon')):
         sys.stderr.write("error: incorrect number of arguments\n\n")
         sys.stderr.write(op.get_usage() + "\n")
         sys.exit(1)
@@ -224,11 +229,17 @@ def main_i():
         # peers are regexen, don't try to parse them
         canon_peers = args
     else:
+        rscs = [resource.parse_url(u) for u in args]
+        dc = rconf.get('do_canon')
+        if dc:
+            for r in rscs:
+                print(r.get_url(canonical=True, escaped=(dc=='escaped')))
+            return
         local = remote = None
-        if args:
-          local = resource.parse_url(args[0])
-          if len(args) > 1:
-              remote = resource.parse_url(args[1])
+        if rscs:
+          local = rscs[0]
+          if len(rscs) > 1:
+              remote = rscs[1]
           if not local.can_connect_to(remote):
               raise RuntimeError("%s cannot work with %s" % (local.path, remote and remote.path))
         pa = ([], [])
