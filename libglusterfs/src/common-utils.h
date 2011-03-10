@@ -76,6 +76,7 @@ enum _gf_boolean
 };
 
 typedef enum _gf_boolean gf_boolean_t;
+typedef int (*gf_cmp) (void *, void *);
 
 void gf_global_variable_init(void);
 
@@ -355,5 +356,6 @@ char *uuid_utoa (uuid_t uuid);
 char *uuid_utoa_r (uuid_t uuid, char *dst);
 void _get_md5_str (char *out_str, size_t outlen,
                    const uint8_t *input, int n);
+void gf_array_insertionsort (void *a, int l, int r, size_t elem_size,
+                             gf_cmp cmp);
 #endif /* _COMMON_UTILS_H */
-
