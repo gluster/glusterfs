@@ -1771,8 +1771,7 @@ client_init_rpc (xlator_t *this)
                 goto out;
         }
 
-        conf->rpc = rpc_clnt_new (&conf->rpc_conf, this->options, this->ctx,
-                                   this->name);
+        conf->rpc = rpc_clnt_new (this->options, this->ctx, this->name);
         if (!conf->rpc)
                 goto out;
 

@@ -970,68 +970,8 @@ out:
         return ret;
 }
 
-
 struct rpc_clnt *
-rpc_clnt_init (struct rpc_clnt_config *config, dict_t *options,
-               glusterfs_ctx_t *ctx, char *name)
-{
-        int                    ret  = -1;
-        struct rpc_clnt       *rpc  = NULL;
-        struct rpc_clnt_connection *conn = NULL;
-
-        rpc = GF_CALLOC (1, sizeof (*rpc), gf_common_mt_rpcclnt_t);
-        if (!rpc) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
-                goto out;
-        }
-
-        pthread_mutex_init (&rpc->lock, NULL);
-        rpc->ctx = ctx;
-
-        rpc->reqpool = mem_pool_new (struct rpc_req,
-                                     RPC_CLNT_DEFAULT_REQUEST_COUNT);
-        if (rpc->reqpool == NULL) {
-                pthread_mutex_destroy (&rpc->lock);
-                GF_FREE (rpc);
-                rpc = NULL;
-                goto out;
-        }
-
-        rpc->saved_frames_pool = mem_pool_new (struct saved_frame,
-                                              RPC_CLNT_DEFAULT_REQUEST_COUNT);
-        if (rpc->saved_frames_pool == NULL) {
-                pthread_mutex_destroy (&rpc->lock);
-                mem_pool_destroy (rpc->reqpool);
-                GF_FREE (rpc);
-                rpc = NULL;
-                goto out;
-        }
-
-        ret = rpc_clnt_connection_init (rpc, ctx, options, name);
-        if (ret == -1) {
-                pthread_mutex_destroy (&rpc->lock);
-                mem_pool_destroy (rpc->reqpool);
-                mem_pool_destroy (rpc->saved_frames_pool);
-                GF_FREE (rpc);
-                rpc = NULL;
-                if (options)
-                        dict_unref (options);
-                goto out;
-        }
-
-        conn = &rpc->conn;
-        rpc_clnt_reconnect (conn->trans);
-
-        rpc = rpc_clnt_ref (rpc);
-        INIT_LIST_HEAD (&rpc->programs);
-
-out:
-        return rpc;
-}
-
-
-struct rpc_clnt *
-rpc_clnt_new (struct rpc_clnt_config *config, dict_t *options,
+rpc_clnt_new (dict_t *options,
               glusterfs_ctx_t *ctx, char *name)
 {
         int                    ret  = -1;
@@ -1606,4 +1546,51 @@ rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
                         FREE (rpc->conn.config.remote_host);
                 rpc->conn.config.remote_host = gf_strdup (config->remote_host);
         }
+}
+
+int
+rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath)
+{
+        dict_t                  *dict = NULL;
+        char                    *fpath = NULL;
+        int                     ret = -1;
+
+        GF_ASSERT (filepath);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        fpath = gf_strdup (filepath);
+        if (!fpath) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, "transport.socket.connect-path", fpath);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.address-family", "unix");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.socket.nodelay", "off");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport-type", "socket");
+        if (ret)
+                goto out;
+
+        *options = dict;
+out:
+        if (ret) {
+                if (fpath)
+                        GF_FREE (fpath);
+                if (dict)
+                        dict_unref (dict);
+        }
+        return ret;
 }
