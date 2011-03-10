@@ -133,6 +133,8 @@ static struct argp_option gf_options[] = {
          "Listening port number of log server"},
         {"pid-file", ARGP_PID_FILE_KEY, "PIDFILE", 0,
          "File to use as pid file"},
+        {"socket-file", ARGP_SOCK_FILE_KEY, "SOCKFILE", 0,
+         "File to use as unix-socket"},
         {"no-daemon", ARGP_NO_DAEMON_KEY, 0, 0,
          "Run in foreground"},
         {"run-id", ARGP_RUN_ID_KEY, "RUN-ID", OPTION_HIDDEN,
@@ -187,6 +189,7 @@ static struct argp argp = { gf_options, parse_opts, argp_doc, gf_doc };
 int glusterfs_pidfile_cleanup (glusterfs_ctx_t *ctx);
 int glusterfs_volumes_init (glusterfs_ctx_t *ctx);
 int glusterfs_mgmt_init (glusterfs_ctx_t *ctx);
+int glusterfs_listener_init (glusterfs_ctx_t *ctx);
 
 int
 create_fuse_mount (glusterfs_ctx_t *ctx)
@@ -565,6 +568,10 @@ parse_opts (int key, char *arg, struct argp_state *state)
                 cmd_args->pid_file = gf_strdup (arg);
                 break;
 
+        case ARGP_SOCK_FILE_KEY:
+                cmd_args->sock_file = gf_strdup (arg);
+                break;
+
         case ARGP_NO_DAEMON_KEY:
                 cmd_args->no_daemon_mode = ENABLE_NO_DAEMON_MODE;
                 break;
@@ -687,6 +694,9 @@ cleanup_and_exit (int signum)
 
         ctx->cleanup_started = 1;
         glusterfs_mgmt_pmap_signout (ctx);
+        if (ctx->listener) {
+                ctx->listener = NULL;
+        }
 
         /* Call fini() of FUSE xlator first:
          * so there are no more requests coming and
@@ -1375,6 +1385,12 @@ glusterfs_volumes_init (glusterfs_ctx_t *ctx)
         int                 ret = 0;
 
         cmd_args = &ctx->cmd_args;
+
+        if (cmd_args->sock_file) {
+                ret = glusterfs_listener_init (ctx);
+                if (ret)
+                        goto out;
+        }
 
         if (cmd_args->volfile_server) {
                 ret = glusterfs_mgmt_init (ctx);
