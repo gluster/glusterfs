@@ -3292,6 +3292,11 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
         if (priv->active_subvol == graph->top)
                 return 0; /* This is a valid case */
 
+        if (graph->used)
+                return 0;
+
+        graph->used = 1;
+
         itable = inode_table_new (0, graph->top);
         if (!itable)
                 return -1;
@@ -3306,6 +3311,9 @@ fuse_graph_setup (xlator_t *this, glusterfs_graph_t *graph)
                 pthread_cond_signal (&priv->sync_cond);
         }
         pthread_mutex_unlock (&priv->sync_mutex);
+
+        gf_log ("fuse", GF_LOG_INFO, "switched graph to %d",
+                ((graph) ? graph->id : 0));
 
         return ret;
 }
@@ -3328,26 +3336,20 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         switch (event)
         {
         case GF_EVENT_GRAPH_NEW:
-                /* We get only one GRAPH_NEW event per graph */
-                if (graph) {
-                        ret = fuse_graph_setup (this, graph);
-                        if (ret)
-                                gf_log (this->name, GF_LOG_WARNING,
-                                        "failed to setup the graph");
-                        if (!ret)
-                                gf_log ("fuse", GF_LOG_INFO,
-                                        "got event GRAPH-NEW for graph %d",
-                                        ((graph) ? graph->id : 0));
-                }
-
                 break;
 
         case GF_EVENT_CHILD_UP:
         case GF_EVENT_CHILD_DOWN:
         case GF_EVENT_CHILD_CONNECTING:
         {
-                if (event == GF_EVENT_CHILD_UP) {
+                if (graph) {
+                        ret = fuse_graph_setup (this, graph);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "failed to setup the graph");
+                }
 
+                if (event == GF_EVENT_CHILD_UP) {
                         pthread_mutex_lock (&private->sync_mutex);
                         {
                                 private->child_up = 1;

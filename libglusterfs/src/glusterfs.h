@@ -298,6 +298,8 @@ struct _glusterfs_graph {
         void                     *top;   /* selected by -n */
         int                       xl_count;
         int                       id;    /* Used in logging */
+        int                       used;  /* Should be set when fuse gets
+                                            first CHILD_UP */
         uint32_t                  volfile_checksum;
 };
 typedef struct _glusterfs_graph glusterfs_graph_t;
