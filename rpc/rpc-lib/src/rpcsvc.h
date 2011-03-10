@@ -538,4 +538,6 @@ int rpcsvc_callback_submit (rpcsvc_t *rpc, rpc_transport_t *trans,
                             rpcsvc_cbk_program_t *prog, int procnum,
                             struct iovec *proghdr, int proghdrcount);
 
+int
+rpcsvc_transport_unix_options_build (dict_t **options, char *filepath);
 #endif

@@ -298,6 +298,8 @@ __socket_server_bind (rpc_transport_t *this)
         socket_private_t *priv = NULL;
         int               ret = -1;
 	int               opt = 1;
+        int               reuse_check_sock = -1;
+        struct sockaddr_storage   unix_addr = {0};
 
         if (!this || !this->private)
                 goto out;
@@ -311,6 +313,20 @@ __socket_server_bind (rpc_transport_t *this)
                 gf_log (this->name, GF_LOG_ERROR,
                         "setsockopt() for SO_REUSEADDR failed (%s)",
                         strerror (errno));
+        }
+        //reuse-address doesnt work for unix type sockets
+        if (AF_UNIX == SA (&this->myinfo.sockaddr)->sa_family) {
+                memcpy (&unix_addr, SA (&this->myinfo.sockaddr),
+                        this->myinfo.sockaddr_len);
+                reuse_check_sock = socket (AF_UNIX, SOCK_STREAM, 0);
+                if (reuse_check_sock > 0) {
+                        ret = connect (reuse_check_sock, SA (&unix_addr),
+                                       this->myinfo.sockaddr_len);
+                        if ((ret == -1) && (ECONNREFUSED == errno)) {
+                                unlink (((struct sockaddr_un*)&unix_addr)->sun_path);
+                        }
+                        close (reuse_check_sock);
+                }
         }
 
         ret = bind (priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,

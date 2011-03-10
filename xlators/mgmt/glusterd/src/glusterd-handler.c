@@ -3004,7 +3004,7 @@ glusterd_friend_rpc_create (struct rpc_clnt **rpc,
         if (ret)
                 goto out;
 
-        new_rpc = rpc_clnt_new (&rpc_cfg, options, this->ctx, this->name);
+        new_rpc = rpc_clnt_new (options, this->ctx, this->name);
 
         if (!new_rpc) {
                 gf_log ("glusterd", GF_LOG_ERROR,
@@ -3015,10 +3015,10 @@ glusterd_friend_rpc_create (struct rpc_clnt **rpc,
 
         ret = rpc_clnt_register_notify (new_rpc, glusterd_rpc_notify,
                                         peerctx);
+        if (ret)
+                goto out;
         *rpc = new_rpc;
-
         rpc_clnt_start (new_rpc);
-
 out:
         if (ret) {
                 if (new_rpc) {

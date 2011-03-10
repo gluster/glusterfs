@@ -187,13 +187,7 @@ struct rpc_clnt {
 };
 
 
-struct rpc_clnt * rpc_clnt_init (struct rpc_clnt_config *config,
-                                 dict_t *options, glusterfs_ctx_t *ctx,
-                                 char *name);
-
-
-struct rpc_clnt *rpc_clnt_new (struct rpc_clnt_config *config,
-                               dict_t *options, glusterfs_ctx_t *ctx,
+struct rpc_clnt *rpc_clnt_new (dict_t *options, glusterfs_ctx_t *ctx,
                                char *name);
 
 int rpc_clnt_start (struct rpc_clnt *rpc);
@@ -244,4 +238,6 @@ void rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config);
 int rpcclnt_cbk_program_register (struct rpc_clnt *svc,
                                   rpcclnt_cb_program_t *program);
 
+int
+rpc_clnt_transport_unix_options_build (dict_t **options, char *filepath);
 #endif /* !_RPC_CLNT_H */

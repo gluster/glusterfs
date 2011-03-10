@@ -937,6 +937,7 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
         rpcsvc_request_t        *req = NULL;
         int                     ret = -1;
         uint16_t                port = 0;
+        gf_boolean_t            is_unix = _gf_false;
 
         if (!trans || !svc)
                 return -1;
@@ -949,7 +950,9 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
         case AF_INET6:
                 port = ((struct sockaddr_in6 *)&trans->peerinfo.sockaddr)->sin6_port;
                 break;
-
+        case AF_UNIX:
+                is_unix = _gf_true;
+                break;
         default:
                 gf_log (GF_RPCSVC, GF_LOG_DEBUG,
                         "invalid address family (%d)",
@@ -959,14 +962,16 @@ rpcsvc_handle_rpc_call (rpcsvc_t *svc, rpc_transport_t *trans,
 
 
 
-        port = ntohs (port);
+        if (is_unix == _gf_false) {
+                port = ntohs (port);
 
-        gf_log ("rpcsvc", GF_LOG_TRACE, "Client port: %d", (int)port);
+                gf_log ("rpcsvc", GF_LOG_TRACE, "Client port: %d", (int)port);
 
-        if (port > 1024) {  //Non-privilaged user, fail request
-                gf_log ("glusterd", GF_LOG_ERROR, "Request received from non-"
-                        "privileged port. Failing request");
-                return -1;
+                if (port > 1024) {  //Non-privilaged user, fail request
+                        gf_log ("glusterd", GF_LOG_ERROR, "Request received from non-"
+                                "privileged port. Failing request");
+                        return -1;
+                }
         }
 
         req = rpcsvc_request_create (svc, trans, msg);
@@ -2193,6 +2198,52 @@ rpcsvc_init_options (rpcsvc_t *svc, dict_t *options)
         return 0;
 }
 
+int
+rpcsvc_transport_unix_options_build (dict_t **options, char *filepath)
+{
+        dict_t                  *dict = NULL;
+        char                    *fpath = NULL;
+        int                     ret = -1;
+
+        GF_ASSERT (filepath);
+        GF_ASSERT (options);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        fpath = gf_strdup (filepath);
+        if (!fpath) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, "transport.socket.listen-path", fpath);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.address-family", "unix");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.socket.nodelay", "off");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport-type", "socket");
+        if (ret)
+                goto out;
+
+        *options = dict;
+out:
+        if (ret) {
+                if (fpath)
+                        GF_FREE (fpath);
+                if (dict)
+                        dict_unref (dict);
+        }
+        return ret;
+}
 
 /* The global RPC service initializer.
  */

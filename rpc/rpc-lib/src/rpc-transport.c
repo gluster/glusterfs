@@ -808,7 +808,7 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 			"dlsym (gf_rpc_transport_fini) on %s", dlerror ());
 		goto fail;
 	}
-        
+
         trans->reconfigure = dlsym (handle, "reconfigure");
         if (trans->fini == NULL) {
                 gf_log ("rpc-transport", GF_LOG_DEBUG,
@@ -954,6 +954,8 @@ rpc_transport_destroy (rpc_transport_t *this)
 
 	GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
 
+        if (this->options)
+                dict_unref (this->options);
 	if (this->fini)
 		this->fini (this);
 
@@ -1049,5 +1051,80 @@ rpc_transport_register_notify (rpc_transport_t *trans,
 
         ret = 0;
 out:
+        return ret;
+}
+
+//give negative values to skip setting that value
+//this function asserts if both the values are negative.
+//why call it if you dont set it.
+int
+rpc_transport_keepalive_options_set (dict_t *options, int32_t interval,
+                                     int32_t time)
+{
+        int                     ret = -1;
+
+        GF_ASSERT (options);
+        GF_ASSERT ((interval > 0) || (time > 0));
+
+        ret = dict_set_int32 (options,
+                "transport.socket.keepalive-interval", interval);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (options,
+                "transport.socket.keepalive-time", time);
+        if (ret)
+                goto out;
+out:
+        return ret;
+}
+
+int
+rpc_transport_inet_options_build (dict_t **options, const char *hostname, int port)
+{
+        dict_t          *dict = NULL;
+        char            *host = NULL;
+        int             ret = -1;
+
+        GF_ASSERT (options);
+        GF_ASSERT (hostname);
+        GF_ASSERT (port >= 1024);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+
+        host = gf_strdup ((char*)hostname);
+        if (!hostname) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_set_dynstr (dict, "remote-host", host);
+        if (ret)
+                goto out;
+
+        ret = dict_set_int32 (dict, "remote-port", port);
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport.address-family", "inet");
+        if (ret)
+                goto out;
+
+        ret = dict_set_str (dict, "transport-type", "socket");
+        if (ret)
+                goto out;
+
+        *options = dict;
+out:
+        if (ret) {
+                if (host)
+                        GF_FREE (host);
+                if (dict)
+                        dict_unref (dict);
+        }
+
         return ret;
 }
