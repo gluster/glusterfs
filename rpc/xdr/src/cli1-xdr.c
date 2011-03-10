@@ -23,7 +23,7 @@
  * It was generated using rpcgen.
  */
 
-#include "cli1.h"
+#include "cli1-xdr.h"
 #include "compat.h"
 
 bool_t
@@ -83,9 +83,19 @@ xdr_gf1_cli_op_flags (XDR *xdrs, gf1_cli_op_flags *objp)
 bool_t
 xdr_gf1_cli_gsync_set (XDR *xdrs, gf1_cli_gsync_set *objp)
 {
-         if (!xdr_enum (xdrs, (enum_t *) objp))
-                 return FALSE;
-        return TRUE;
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_stats_op (XDR *xdrs, gf1_cli_stats_op *objp)
+{
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
 }
 
 bool_t
@@ -674,31 +684,59 @@ xdr_gf1_cli_fsm_log_rsp (XDR *xdrs, gf1_cli_fsm_log_rsp *objp)
 bool_t
 xdr_gf1_cli_gsync_set_req (XDR *xdrs, gf1_cli_gsync_set_req *objp)
 {
-         if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
-                 return FALSE;
-        return TRUE;
+
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
 }
 
 bool_t
 xdr_gf1_cli_gsync_set_rsp (XDR *xdrs, gf1_cli_gsync_set_rsp *objp)
 {
-        if (!xdr_int (xdrs, &objp->op_ret))
-                return FALSE;
-        if (!xdr_int (xdrs, &objp->op_errno))
-                return FALSE;
-        if (!xdr_string (xdrs, &objp->op_errstr, ~0))
-                return FALSE;
-        if (!xdr_int (xdrs, &objp->type))
-                return FALSE;
-        if (!xdr_int (xdrs, &objp->config_type))
-                return FALSE;
-        if (!xdr_string (xdrs, &objp->op_name, ~0))
-                return FALSE;
-        if (!xdr_string (xdrs, &objp->master, ~0))
-                return FALSE;
-        if (!xdr_string (xdrs, &objp->slave, ~0))
-                return FALSE;
-        if (!xdr_string (xdrs, &objp->gsync_prefix, ~0))
-                return FALSE;
-        return TRUE;
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->type))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->config_type))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_name, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->master, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->slave, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->gsync_prefix, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_stats_volume_req (XDR *xdrs, gf1_cli_stats_volume_req *objp)
+{
+
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_gf1_cli_stats_op (xdrs, &objp->op))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_stats_volume_rsp (XDR *xdrs, gf1_cli_stats_volume_rsp *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->stats_info.stats_info_val, (u_int *) &objp->stats_info.stats_info_len, ~0))
+		 return FALSE;
+	return TRUE;
 }

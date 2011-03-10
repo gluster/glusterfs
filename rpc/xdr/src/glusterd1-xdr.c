@@ -22,7 +22,7 @@
  * It was generated using rpcgen.
  */
 
-#include "glusterd1.h"
+#include "glusterd1-xdr.h"
 #include "compat.h"
 
 bool_t
@@ -374,6 +374,34 @@ xdr_gd1_mgmt_friend_update_rsp (XDR *xdrs, gd1_mgmt_friend_update_rsp *objp)
 	 if (!xdr_int (xdrs, &objp->op_ret))
 		 return FALSE;
 	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gd1_mgmt_brick_op_req (XDR *xdrs, gd1_mgmt_brick_op_req *objp)
+{
+
+	 if (!xdr_string (xdrs, &objp->name, ~0))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->input.input_val, (u_int *) &objp->input.input_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gd1_mgmt_brick_op_rsp (XDR *xdrs, gd1_mgmt_brick_op_rsp *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->output.output_val, (u_int *) &objp->output.output_len, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
 		 return FALSE;
 	return TRUE;
 }

@@ -109,4 +109,17 @@ gd_xdr_serialize_mgmt_friend_update_rsp (struct iovec outmsg, void *rsp);
 
 ssize_t
 gd_xdr_to_mgmt_friend_update_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gd_xdr_to_mgmt_brick_op_req (struct iovec inmsg, void *args);
+
+ssize_t
+gd_xdr_from_mgmt_brick_op_req (struct iovec outmsg, void *req);
+
+ssize_t
+gd_xdr_to_mgmt_brick_op_rsp (struct iovec inmsg, void *args);
+
+ssize_t
+gd_xdr_serialize_mgmt_brick_op_rsp (struct iovec outmsg, void *rsp);
+
 #endif /* !_MSG_GD_XDR_H */

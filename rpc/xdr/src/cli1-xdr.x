@@ -43,6 +43,13 @@ enum gf1_cli_gsync_set {
         GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL
 };
 
+enum gf1_cli_stats_op {
+        GF_CLI_STATS_NONE  = 0,
+        GF_CLI_STATS_START = 1,
+        GF_CLI_STATS_STOP  = 2,
+        GF_CLI_STATS_INFO  = 3
+};
+
  struct gf1_cli_probe_req {
         string  hostname<>;
 	int	port;
@@ -317,4 +324,16 @@ struct gf1_cli_gsync_set_rsp {
         string  master<>;
         string  slave<>;
         string  gsync_prefix<>;
+};
+
+struct gf1_cli_stats_volume_req {
+        string           volname<>;
+        gf1_cli_stats_op op;
+};
+
+struct gf1_cli_stats_volume_rsp {
+	int    op_ret;
+	int    op_errno;
+        string op_errstr<>;
+        opaque stats_info<>;
 };
