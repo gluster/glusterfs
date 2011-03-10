@@ -570,6 +570,49 @@ out:
 
 }
 
+int
+cli_cmd_volume_profile_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                          const char **words, int wordcount)
+{
+        int                     sent = 0;
+        int                     parse_error = 0;
+
+        int                     ret      = -1;
+        rpc_clnt_procedure_t    *proc    = NULL;
+        call_frame_t            *frame   = NULL;
+        dict_t                  *options = NULL;
+
+        ret = cli_cmd_volume_profile_parse (words, wordcount, &options);
+
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_error = 1;
+                goto out;
+        }
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_PROFILE_VOLUME];
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame)
+                goto out;
+
+        if (proc->fn) {
+                ret = proc->fn (frame, THIS, options);
+        }
+
+out:
+        if (options)
+                dict_unref (options);
+
+        if (ret) {
+                cli_cmd_sent_status_get (&sent);
+                if ((sent == 0) && (parse_error == 0))
+                        cli_out ("Volume profile failed");
+        }
+
+        return ret;
+
+}
 
 int
 cli_cmd_volume_set_cbk (struct cli_state *state, struct cli_cmd_word *word,
@@ -1024,6 +1067,11 @@ struct cli_cmd volume_cmds[] = {
          cli_cmd_volume_gsync_set_cbk,
          "Geo-sync operations"},
 #endif
+
+         { "volume profile <VOLNAME> {start|info|stop}",
+           cli_cmd_volume_profile_cbk,
+           "volume profile operations"},
+
         { NULL, NULL, NULL }
 };
 

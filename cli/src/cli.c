@@ -491,7 +491,6 @@ struct rpc_clnt *
 cli_rpc_init (struct cli_state *state)
 {
         struct rpc_clnt         *rpc = NULL;
-        struct rpc_clnt_config  rpc_cfg = {0,};
         dict_t                  *options = NULL;
         int                     ret = -1;
         int                     port = CLI_GLUSTERD_PORT;
@@ -510,9 +509,6 @@ cli_rpc_init (struct cli_state *state)
 
         if (state->remote_port)
                 port = state->remote_port;
-
-        rpc_cfg.remote_host = state->remote_host;
-        rpc_cfg.remote_port = port;
 
         ret = dict_set_int32 (options, "remote-port", port);
         if (ret)
@@ -535,6 +531,11 @@ cli_rpc_init (struct cli_state *state)
 
         rpc_clnt_start (rpc);
 out:
+        if (ret) {
+                if (rpc)
+                        rpc_clnt_unref (rpc);
+                rpc = NULL;
+        }
         return rpc;
 }
 
