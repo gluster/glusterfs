@@ -260,6 +260,7 @@ struct _cmd_args {
 	char            *volfile_server_transport;
         uint32_t         log_server_port;
 	char            *pid_file;
+        char            *sock_file;
 	int              no_daemon_mode;
 	char            *run_id;
 	int              debug_mode;
@@ -318,6 +319,7 @@ struct _glusterfs_ctx {
         glusterfs_graph_t  *active; /* the latest graph in use */
         void               *master; /* fuse, or libglusterfsclient (however, not protocol/server) */
         void               *mgmt;   /* xlator implementing MOPs for centralized logging, volfile server */
+        void               *listener; /* listener of the commands from glusterd */
         unsigned char       measure_latency; /* toggle switch for latency measurement */
         pthread_t           sigwaiter;
         struct mem_pool    *stub_mem_pool;
