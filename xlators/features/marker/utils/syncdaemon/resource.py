@@ -93,14 +93,7 @@ class Server(object):
 
     @staticmethod
     def entries(path):
-        try:
-            return os.listdir(path)
-        except OSError:
-            ex = sys.exc_info()[1]
-            if ex.errno == ENOTDIR:
-                return []
-            else:
-                raise
+        return os.listdir(path)
 
     @classmethod
     def purge(cls, path, entries=None):

@@ -117,7 +117,21 @@ class GMaster(object):
                 return
         if path == '.':
             self.change_seen = True
-        dem, des = ( x.server.entries(path) for x in (self.master, self.slave) )
+        try:
+            dem = self.master.server.entries(path)
+        except OSError:
+            self.add_failjob(path, 'local-entries-fail')
+            return
+        try:
+            des = self.slave.server.entries(path)
+        except OSError:
+            self.slave.server.purge(path)
+            try:
+                self.slave.server.mkdir(path)
+                des = self.slave.server.entries(path)
+            except OSError:
+                self.add_failjob(path, 'remote-entries-fail')
+                return
         dd = set(des) - set(dem)
         if dd:
             self.slave.server.purge(path, dd)
