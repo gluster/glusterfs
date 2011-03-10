@@ -93,6 +93,9 @@ class Server(object):
 
     @staticmethod
     def entries(path):
+        # prevent symlinks being followed
+        if not stat.S_ISDIR(os.lstat(path).st_mode):
+            raise OSError(ENOTDIR, os.strerror(ENOTDIR))
         return os.listdir(path)
 
     @classmethod
