@@ -23,7 +23,7 @@
 
 #include "mem-types.h"
 
-enum gf_gld_mem_types_ {
+typedef enum gf_gld_mem_types_ {
         gf_gld_mt_dir_entry_t                   = gf_common_mt_end + 1,
         gf_gld_mt_volfile_ctx                   = gf_common_mt_end + 2,
         gf_gld_mt_glusterd_state_t              = gf_common_mt_end + 3,
@@ -59,8 +59,12 @@ enum gf_gld_mem_types_ {
         gf_gld_mt_log_locate_ctx_t              = gf_common_mt_end + 33,
         gf_gld_mt_log_rotate_ctx_t              = gf_common_mt_end + 34,
         gf_gld_mt_peerctx_t                     = gf_common_mt_end + 35,
-        gf_gld_mt_sm_tr_log_t                = gf_common_mt_end + 36,
-        gf_gld_mt_end                           = gf_common_mt_end + 37
-};
+        gf_gld_mt_sm_tr_log_t                   = gf_common_mt_end + 36,
+        gf_gld_mt_pending_node_t                = gf_common_mt_end + 37,
+        gf_gld_mt_brick_rsp_ctx_t               = gf_common_mt_end + 38,
+        gf_gld_mt_mop_brick_req_t               = gf_common_mt_end + 39,
+        gf_gld_mt_op_allack_ctx_t               = gf_common_mt_end + 40,
+        gf_gld_mt_end                           = gf_common_mt_end + 41
+} gf_gld_mem_types_t;
 #endif
 

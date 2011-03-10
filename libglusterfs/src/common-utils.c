@@ -47,6 +47,7 @@
 #include "glusterfs.h"
 #include "stack.h"
 #include "globals.h"
+#include "md5.h"
 
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
@@ -1710,4 +1711,17 @@ uuid_utoa_r (uuid_t uuid, char *dst)
                 return NULL;
         uuid_unparse (uuid, dst);
         return dst;
+}
+
+void _get_md5_str (char *out_str, size_t outlen,
+                   const uint8_t *input, int n)
+{
+        uint8_t out[MD5_DIGEST_LEN] = {0};
+        int     j = 0;
+
+        GF_ASSERT (outlen >= (2*MD5_DIGEST_LEN + 1));
+        get_md5 (out, input, n);
+        for (j = 0; j < MD5_DIGEST_LEN; j++)
+                snprintf(out_str + j * 2, outlen-j*2, "%02x", out[j]);
+
 }

@@ -353,5 +353,7 @@ char valid_internet_address (char *address);
 
 char *uuid_utoa (uuid_t uuid);
 char *uuid_utoa_r (uuid_t uuid, char *dst);
+void _get_md5_str (char *out_str, size_t outlen,
+                   const uint8_t *input, int n);
 #endif /* _COMMON_UTILS_H */
 

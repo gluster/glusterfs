@@ -418,9 +418,6 @@ gluster_pmap_signin (rpcsvc_request_t *req)
 
         ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true,
                                       &brickinfo);
-        if (!ret)
-                glusterd_set_brick_status (brickinfo, GF_BRICK_STARTED);
-
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (gd_serialize_t)xdr_from_pmap_signin_rsp);
@@ -452,11 +449,8 @@ gluster_pmap_signout (rpcsvc_request_t *req)
         rsp.op_ret = pmap_registry_remove (THIS, args.port, args.brick,
                                            GF_PMAP_PORT_BRICKSERVER, req->trans);
 
-        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true, 
+        ret = glusterd_get_brickinfo (THIS, args.brick, args.port, _gf_true,
                                       &brickinfo);
-        if (!ret)
-                glusterd_set_brick_status (brickinfo, GF_BRICK_STOPPED);
-
 fail:
         glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                (gd_serialize_t)xdr_from_pmap_signout_rsp);

@@ -48,6 +48,12 @@ typedef enum glusterd_op_sm_state_ {
         GD_OP_STATE_COMMIT_OP_SENT,
         GD_OP_STATE_COMMITED,
         GD_OP_STATE_UNLOCK_SENT,
+        GD_OP_STATE_STAGE_OP_FAILED,
+        GD_OP_STATE_COMMIT_OP_FAILED,
+        GD_OP_STATE_BRICK_OP_SENT,
+        GD_OP_STATE_BRICK_OP_FAILED,
+        GD_OP_STATE_BRICK_COMMITTED,
+        GD_OP_STATE_BRICK_COMMIT_FAILED,
         GD_OP_STATE_MAX,
 } glusterd_op_sm_state_t;
 
@@ -64,6 +70,7 @@ typedef enum glusterd_op_sm_event_type_ {
         GD_OP_EVENT_COMMIT_OP,
         GD_OP_EVENT_UNLOCK,
         GD_OP_EVENT_START_UNLOCK,
+        GD_OP_EVENT_ALL_ACK,
         GD_OP_EVENT_MAX
 } glusterd_op_sm_event_type_t;
 
@@ -91,6 +98,7 @@ typedef struct glusterd_op_sm_state_info_ {
 struct glusterd_op_info_ {
         glusterd_op_sm_state_info_t     state;
         int32_t                         pending_count;
+        int32_t                         brick_pending_count;
         int32_t                         op_count;
         glusterd_op_t                   op[GD_OP_MAX];
         glusterd_op_t                   pending_op[GD_OP_MAX];
@@ -104,6 +112,7 @@ struct glusterd_op_info_ {
         int32_t                         cli_op;
         gf_boolean_t                    ctx_free[GD_OP_MAX];
         char                            *op_errstr;
+        struct  list_head               pending_bricks;
 };
 
 typedef struct glusterd_op_info_ glusterd_op_info_t;
@@ -128,23 +137,27 @@ struct glusterd_op_lock_ctx_ {
 
 typedef struct glusterd_op_lock_ctx_ glusterd_op_lock_ctx_t;
 
-struct glusterd_op_stage_ctx_ {
+struct glusterd_req_ctx_ {
         rpcsvc_request_t *req;
 	u_char            uuid[16];
 	int               op;
         dict_t           *dict;
 };
 
-typedef struct glusterd_op_stage_ctx_ glusterd_op_stage_ctx_t;
+typedef struct glusterd_req_ctx_ glusterd_req_ctx_t;
 
-struct glusterd_op_commit_ctx_ {
-        rpcsvc_request_t *req;
-	u_char            uuid[16];
-	int               op;
-        dict_t           *dict;
-};
+typedef struct glusterd_op_brick_rsp_ctx_ {
+        int  op_ret;
+        char *op_errstr;
+        dict_t *rsp_dict;
+        glusterd_req_ctx_t *commit_ctx;
+        glusterd_brickinfo_t *brickinfo;
+} glusterd_op_brick_rsp_ctx_t;
 
-typedef struct glusterd_op_commit_ctx_ glusterd_op_commit_ctx_t;
+typedef struct glusterd_pr_brick_rsp_conv_t {
+        int count;
+        dict_t *dict;
+} glusterd_pr_brick_rsp_conv_t;
 
 int
 glusterd_op_sm_new_event (glusterd_op_sm_event_type_t event_type,
@@ -241,4 +254,18 @@ glusterd_op_sm_state_name_get (int state);
 
 char*
 glusterd_op_sm_event_name_get (int event);
+int32_t
+glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr);
+int
+glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickinfo,
+                                 gd1_mgmt_brick_op_req **req);
+int32_t
+glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
+                           glusterd_op_t op, dict_t *rsp_dict, dict_t *ctx_dict,
+                           char **op_errstr);
+void glusterd_op_brick_disconnect (void *data);
+int32_t
+glusterd_op_init_ctx (glusterd_op_t op);
+int32_t
+glusterd_op_fini_ctx (glusterd_op_t op);
 #endif

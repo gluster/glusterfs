@@ -41,9 +41,11 @@
 #define SERVER_PATH_MAX  (16 * 1024)
 
 
-extern glusterd_op_info_t    opinfo;
+extern glusterd_op_info_t opinfo;
 
-
+int32_t
+glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
+                      void *data);
 int32_t
 glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                                int32_t op_errno, rpcsvc_request_t *req,
@@ -53,6 +55,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         gd_serialize_t  sfunc = NULL;
         void            *cli_rsp = NULL;
         dict_t          *ctx = NULL;
+        char            *free_ptr = NULL;
 
         switch (op) {
         case GD_OP_CREATE_VOLUME:
@@ -307,19 +310,37 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 gf_log ("", GF_LOG_DEBUG, "not supported op %d", op);
                 break;
         }
+        case GD_OP_PROFILE_VOLUME:
+        {
+                gf1_cli_stats_volume_rsp rsp = {0,};
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                if (op_errstr)
+                        rsp.op_errstr = op_errstr;
+                else
+                        rsp.op_errstr = "";
+                ctx = op_ctx;
+                dict_allocate_and_serialize (ctx,
+                             &rsp.stats_info.stats_info_val,
+                        (size_t*)&rsp.stats_info.stats_info_len);
+                free_ptr = rsp.stats_info.stats_info_val;
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_from_cli_stats_volume_rsp;
+                break;
+        }
         case GD_OP_NONE:
         case GD_OP_MAX:
+        {
                 gf_log ("", GF_LOG_ERROR, "invalid operation %d", op);
                 break;
+        }
         }
 
         ret = glusterd_submit_reply (req, cli_rsp, NULL, 0, NULL,
                                      sfunc);
 
-        if (ret)
-                goto out;
-
-out:
+        if (free_ptr)
+                GF_FREE (free_ptr);
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
 }
@@ -867,7 +888,8 @@ glusterd3_1_stage_op_cbk (struct rpc_req *req, struct iovec *iov,
         if (op_ret) {
                 event_type = GD_OP_EVENT_RCVD_RJT;
                 opinfo.op_ret = op_ret;
-                opinfo.op_errstr = gf_strdup(rsp.op_errstr);
+                if (strcmp ("", rsp.op_errstr))
+                        opinfo.op_errstr = gf_strdup(rsp.op_errstr);
                 if (!opinfo.op_errstr) {
                         gf_log ("", GF_LOG_ERROR, "memory allocation failed");
                         ret = -1;
@@ -920,6 +942,59 @@ glusterd_sync_use_rsp_dict (dict_t *rsp_dict)
 out:
         return ret;
 
+}
+
+void
+_profile_volume_add_friend_rsp (dict_t *this, char *key, data_t *value,
+                               void *data)
+{
+        char    new_key[256] = {0};
+        glusterd_pr_brick_rsp_conv_t *rsp_ctx = NULL;
+        data_t  *new_value = NULL;
+        int     brick_count = 0;
+        char    brick_key[256];
+
+        if (strcmp (key, "count") == 0)
+                return;
+        sscanf (key, "%d%s", &brick_count, brick_key);
+        rsp_ctx = data;
+        new_value = data_copy (value);
+        GF_ASSERT (new_value);
+        snprintf (new_key, sizeof (new_key), "%d%s",
+                  rsp_ctx->count + brick_count, brick_key);
+        dict_set (rsp_ctx->dict, new_key, new_value);
+}
+
+int
+glusterd_profile_volume_use_rsp_dict (dict_t *rsp_dict)
+{
+        int     ret = 0;
+        glusterd_pr_brick_rsp_conv_t rsp_ctx = {0};
+        int32_t brick_count = 0;
+        int32_t count = 0;
+        dict_t  *ctx_dict = NULL;
+        glusterd_op_t   op = GD_OP_NONE;
+
+        GF_ASSERT (rsp_dict);
+
+        ret = dict_get_int32 (rsp_dict, "count", &brick_count);
+        if (ret) {
+                ret = 0; //no bricks in the rsp
+                goto out;
+        }
+
+        op = glusterd_op_get_op ();
+        GF_ASSERT (GD_OP_PROFILE_VOLUME == op);
+        ctx_dict = glusterd_op_get_ctx (op);
+
+        ret = dict_get_int32 (ctx_dict, "count", &count);
+        rsp_ctx.count = count;
+        rsp_ctx.dict = ctx_dict;
+        dict_foreach (rsp_dict, _profile_volume_add_friend_rsp, &rsp_ctx);
+        dict_del (ctx_dict, "count");
+        ret = dict_set_int32 (ctx_dict, "count", count + brick_count);
+out:
+        return ret;
 }
 
 int32_t
@@ -1001,14 +1076,22 @@ glusterd3_1_commit_op_cbk (struct rpc_req *req, struct iovec *iov,
                         ret = glusterd_rb_use_rsp_dict (dict);
                         if (ret)
                                 goto out;
-                        break;
+                break;
+
                 case GD_OP_SYNC_VOLUME:
                         ret = glusterd_sync_use_rsp_dict (dict);
                         if (ret)
                                 goto out;
-                        break;
+                break;
+
+                case GD_OP_PROFILE_VOLUME:
+                        ret = glusterd_profile_volume_use_rsp_dict (dict);
+                        if (ret)
+                                goto out;
+                break;
+
                 default:
-                        break;
+                break;
                 }
         }
 
@@ -1066,7 +1149,7 @@ glusterd3_1_probe (call_frame_t *frame, xlator_t *this,
         req.hostname = gf_strdup (hostname);
         req.port = port;
 
-        ret = glusterd_submit_request (peerinfo, &req, frame, peerinfo->mgmt,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->mgmt,
                                        GD_MGMT_PROBE_QUERY,
                                        NULL, gd_xdr_from_mgmt_probe_req,
                                        this, glusterd3_1_probe_cbk);
@@ -1119,7 +1202,7 @@ glusterd3_1_friend_add (call_frame_t *frame, xlator_t *this,
         if (ret)
                 goto out;
 
-        ret = glusterd_submit_request (peerinfo, &req, frame, peerinfo->mgmt,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->mgmt,
                                        GD_MGMT_FRIEND_ADD,
                                        NULL, gd_xdr_from_mgmt_friend_req,
                                        this, glusterd3_1_friend_add_cbk);
@@ -1161,7 +1244,7 @@ glusterd3_1_friend_remove (call_frame_t *frame, xlator_t *this,
         uuid_copy (req.uuid, priv->uuid);
         req.hostname = peerinfo->hostname;
         req.port = peerinfo->port;
-        ret = glusterd_submit_request (peerinfo, &req, frame, peerinfo->mgmt,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, frame, peerinfo->mgmt,
                                        GD_MGMT_FRIEND_REMOVE,
                                        NULL, gd_xdr_from_mgmt_friend_req,
                                        this, glusterd3_1_friend_remove_cbk);
@@ -1206,7 +1289,7 @@ glusterd3_1_friend_update (call_frame_t *frame, xlator_t *this,
         uuid_copy (req.uuid, priv->uuid);
 
         dummy_frame = create_frame (this, this->ctx->pool);
-        ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt,
                                        GD_MGMT_FRIEND_UPDATE,
                                        NULL, gd_xdr_from_mgmt_friend_update,
@@ -1244,7 +1327,7 @@ glusterd3_1_cluster_lock (call_frame_t *frame, xlator_t *this,
         if (!dummy_frame)
                 goto out;
 
-        ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_CLUSTER_LOCK,
                                        NULL,
                                        gd_xdr_from_mgmt_cluster_lock_req,
@@ -1278,7 +1361,7 @@ glusterd3_1_cluster_unlock (call_frame_t *frame, xlator_t *this,
         if (!dummy_frame)
                 goto out;
 
-        ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_CLUSTER_UNLOCK,
                                        NULL,
                                        gd_xdr_from_mgmt_cluster_unlock_req,
@@ -1337,7 +1420,7 @@ glusterd3_1_stage_op (call_frame_t *frame, xlator_t *this,
         if (!dummy_frame)
                 goto out;
 
-        ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_STAGE_OP,
                                        NULL,
                                        gd_xdr_from_mgmt_stage_op_req,
@@ -1399,7 +1482,7 @@ glusterd3_1_commit_op (call_frame_t *frame, xlator_t *this,
         if (!dummy_frame)
                 goto out;
 
-        ret = glusterd_submit_request (peerinfo, &req, dummy_frame,
+        ret = glusterd_submit_request (peerinfo->rpc, &req, dummy_frame,
                                        peerinfo->mgmt, GD_MGMT_COMMIT_OP,
                                        NULL,
                                        gd_xdr_from_mgmt_commit_op_req,
@@ -1413,6 +1496,118 @@ out:
         return ret;
 }
 
+int32_t
+glusterd_start_brick_disconnect_timer (glusterd_op_brick_rsp_ctx_t *ev_ctx)
+{
+        struct timeval       timeout = {0, };
+        int32_t              ret = -1;
+        xlator_t             *this = NULL;
+        glusterd_brickinfo_t *brickinfo = NULL;
+
+        timeout.tv_sec  = 5;
+        timeout.tv_usec = 0;
+        brickinfo = ev_ctx->brickinfo;
+        GF_ASSERT (brickinfo);
+        this = THIS;
+        GF_ASSERT (this);
+
+        brickinfo->timer = gf_timer_call_after (this->ctx, timeout,
+                                                glusterd_op_brick_disconnect,
+                                                (void *) ev_ctx);
+
+        ret = 0;
+
+        return ret;
+}
+
+int32_t
+glusterd3_1_brick_op_cbk (struct rpc_req *req, struct iovec *iov,
+                          int count, void *myframe)
+{
+        gd1_mgmt_brick_op_rsp         rsp   = {0};
+        int                           ret   = -1;
+        int32_t                       op_ret = -1;
+        glusterd_op_sm_event_type_t   event_type = GD_OP_EVENT_NONE;
+        call_frame_t                  *frame = NULL;
+        glusterd_op_brick_rsp_ctx_t   *ev_ctx = NULL;
+        int32_t                       op = -1;
+        dict_t                        *dict = NULL;
+
+        GF_ASSERT (req);
+        frame = myframe;
+
+        if (-1 == req->rpc_status) {
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                rsp.op_errstr = "error";
+		event_type = GD_OP_EVENT_RCVD_RJT;
+                goto out;
+        }
+
+        ret =  gd_xdr_to_mgmt_brick_op_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                rsp.op_ret   = -1;
+                rsp.op_errno = EINVAL;
+                rsp.op_errstr = "error";
+		event_type = GD_OP_EVENT_RCVD_RJT;
+                goto out;
+        }
+
+        if (rsp.output.output_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (rsp.output.output_val,
+                                        rsp.output.output_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR,
+                                "failed to "
+                                "unserialize rsp-buffer to dictionary");
+			event_type = GD_OP_EVENT_RCVD_RJT;
+                        goto out;
+                } else {
+                        dict->extra_stdfree = rsp.output.output_val;
+                }
+        }
+
+        op_ret = rsp.op_ret;
+
+out:
+        ev_ctx = GF_CALLOC (1, sizeof (*ev_ctx), gf_gld_mt_brick_rsp_ctx_t);
+        GF_ASSERT (ev_ctx);
+        if (op_ret) {
+                event_type = GD_OP_EVENT_RCVD_RJT;
+                ev_ctx->op_ret = op_ret;
+                ev_ctx->op_errstr = gf_strdup(rsp.op_errstr);
+        } else {
+                event_type = GD_OP_EVENT_RCVD_ACC;
+        }
+        ev_ctx->brickinfo = frame->cookie;
+        ev_ctx->rsp_dict  = dict;
+        ev_ctx->commit_ctx = frame->local;
+        op = glusterd_op_get_op ();
+        if ((op == GD_OP_STOP_VOLUME) ||
+           (op == GD_OP_REMOVE_BRICK)) {
+                ret = glusterd_start_brick_disconnect_timer (ev_ctx);
+        } else {
+                ret = glusterd_op_sm_inject_event (event_type, ev_ctx);
+                if (!ret) {
+                        glusterd_friend_sm ();
+                        glusterd_op_sm ();
+                }
+        }
+
+        if (ret && dict)
+                dict_unref (dict);
+        if (rsp.op_errstr && strcmp (rsp.op_errstr, "error"))
+                free (rsp.op_errstr); //malloced by xdr
+        GLUSTERD_STACK_DESTROY (frame);
+        return ret;
+}
+
+
 struct rpc_clnt_procedure glusterd3_1_clnt_mgmt_actors[GD_MGMT_MAXVALUE] = {
         [GD_MGMT_NULL]        = {"NULL", NULL },
         [GD_MGMT_PROBE_QUERY]  = { "PROBE_QUERY",  glusterd3_1_probe},
@@ -1423,6 +1618,11 @@ struct rpc_clnt_procedure glusterd3_1_clnt_mgmt_actors[GD_MGMT_MAXVALUE] = {
         [GD_MGMT_COMMIT_OP] = {"COMMIT_OP", glusterd3_1_commit_op},
         [GD_MGMT_FRIEND_REMOVE]  = { "FRIEND_REMOVE",  glusterd3_1_friend_remove},
         [GD_MGMT_FRIEND_UPDATE]  = { "FRIEND_UPDATE",  glusterd3_1_friend_update},
+};
+
+struct rpc_clnt_procedure glusterd3_1_fs_mgmt_actors[GD_MGMT_MAXVALUE] = {
+        [GD_MGMT_NULL]        = {"NULL", NULL },
+        [GD_MGMT_BRICK_OP] = {"BRICK_OP", glusterd3_1_brick_op},
 };
 
 struct rpc_clnt_program glusterd3_1_mgmt_prog = {
@@ -1452,3 +1652,88 @@ struct rpc_clnt_program gd_clnt_mgmt_prog = {
         .numproc   = GD_MGMT_PROCCNT,
         .proctable = gd_clnt_mgmt_actors,
 };
+
+struct rpc_clnt_program glusterd_glusterfs_3_1_mgmt_prog = {
+        .progname  = "GlusterFS Mops",
+        .prognum   = GLUSTERFS_PROGRAM,
+        .progver   = GLUSTERFS_VERSION,
+        .proctable = glusterd3_1_fs_mgmt_actors,
+        .numproc   = GLUSTERFS_PROCCNT,
+};
+
+int32_t
+glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
+                      void *data)
+{
+        gd1_mgmt_brick_op_req           *req = NULL;
+        int                             ret = 0;
+        glusterd_conf_t                 *priv = NULL;
+        call_frame_t                    *dummy_frame = NULL;
+        char                            *op_errstr = NULL;
+        int                             pending_bricks = 0;
+        glusterd_pending_node_t         *pending_brick;
+        glusterd_brickinfo_t            *brickinfo = NULL;
+        glusterd_req_ctx_t               *req_ctx = NULL;
+
+        if (!this) {
+                ret = -1;
+                goto out;
+        }
+        priv = this->private;
+        GF_ASSERT (priv);
+
+        req_ctx = data;
+        GF_ASSERT (req_ctx);
+        INIT_LIST_HEAD (&opinfo.pending_bricks);
+        ret = glusterd_op_bricks_select (req_ctx->op, req_ctx->dict, &op_errstr);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Brick Op failed");
+                opinfo.op_errstr = op_errstr;
+                goto out;
+        }
+
+        list_for_each_entry (pending_brick, &opinfo.pending_bricks, list) {
+                dummy_frame = create_frame (this, this->ctx->pool);
+                brickinfo = pending_brick->node;
+
+                if (!dummy_frame)
+                        continue;
+                if (glusterd_is_brick_started (brickinfo))
+                        continue;
+
+                ret = glusterd_brick_op_build_payload (req_ctx->op, brickinfo,
+                                                (gd1_mgmt_brick_op_req **)&req);
+
+                if (ret)
+                        goto out;
+
+                dummy_frame->local = data;
+                dummy_frame->cookie = brickinfo;
+                ret = glusterd_submit_request (brickinfo->rpc, req, dummy_frame,
+                                               &glusterd_glusterfs_3_1_mgmt_prog,
+                                               req->op, NULL,
+                                               gd_xdr_from_mgmt_brick_op_req,
+                                               this, glusterd3_1_brick_op_cbk);
+                if (req) {
+                        if (req->input.input_val)
+                                GF_FREE (req->input.input_val);
+                        GF_FREE (req);
+                        req = NULL;
+                }
+                if (!ret)
+                        pending_bricks++;
+        }
+
+        gf_log ("glusterd", GF_LOG_DEBUG, "Sent op req to %d bricks",
+                                            pending_bricks);
+        opinfo.brick_pending_count = pending_bricks;
+
+out:
+        if (ret) {
+                glusterd_op_sm_inject_event (GD_OP_EVENT_RCVD_RJT, data);
+                opinfo.op_ret = ret;
+        }
+        gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}

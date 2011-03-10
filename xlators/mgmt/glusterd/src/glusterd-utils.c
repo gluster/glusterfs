@@ -23,7 +23,6 @@
 #endif
 #include <inttypes.h>
 
-
 #include "globals.h"
 #include "glusterfs.h"
 #include "compat.h"
@@ -33,6 +32,7 @@
 #include "timer.h"
 #include "defaults.h"
 #include "compat.h"
+#include "md5.h"
 #include "compat-errno.h"
 #include "statedump.h"
 #include "glusterd-mem-types.h"
@@ -63,6 +63,7 @@
 #define MOUNTV3_VERSION 3
 #define MOUNTV1_VERSION 1
 
+char    *glusterd_sock_dir = "/tmp";
 static glusterd_lock_t lock;
 
 static int32_t
@@ -303,7 +304,7 @@ glusterd_get_uuid (uuid_t *uuid)
 }
 
 int
-glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
+glusterd_submit_request (struct rpc_clnt *rpc, void *req,
                          call_frame_t *frame, rpc_clnt_prog_t *prog,
                          int procnum, struct iobref *iobref,
                          gd_serialize_t sfunc, xlator_t *this,
@@ -315,7 +316,7 @@ glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
         char                    new_iobref = 0, start_ping = 0;
         struct iovec            iov         = {0, };
 
-        GF_ASSERT (peerinfo);
+        GF_ASSERT (rpc);
         GF_ASSERT (this);
 
         iobuf = iobuf_get (this->ctx->iobuf_pool);
@@ -347,18 +348,18 @@ glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
                 count = 1;
         }
         /* Send the msg */
-        ret = rpc_clnt_submit (peerinfo->rpc, prog, procnum, cbkfn,
+        ret = rpc_clnt_submit (rpc, prog, procnum, cbkfn,
                                &iov, count,
                                NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
 
         if (ret == 0) {
-                pthread_mutex_lock (&peerinfo->rpc->conn.lock);
+                pthread_mutex_lock (&rpc->conn.lock);
                 {
-                        if (!peerinfo->rpc->conn.ping_started) {
+                        if (!rpc->conn.ping_started) {
                                 start_ping = 1;
                         }
                 }
-                pthread_mutex_unlock (&peerinfo->rpc->conn.lock);
+                pthread_mutex_unlock (&rpc->conn.lock);
         }
 
         if (start_ping)
@@ -374,7 +375,6 @@ out:
 
         return ret;
 }
-
 
 struct iobuf *
 glusterd_serialize_reply (rpcsvc_request_t *req, void *arg,
@@ -901,6 +901,37 @@ out:
         return ret;
 }
 
+void
+glusterd_set_brick_socket_filepath (glusterd_volinfo_t *volinfo,
+                                    glusterd_brickinfo_t *brickinfo,
+                                    char *sockpath, size_t len)
+{
+        char                    export_path[PATH_MAX] = {0,};
+        char                    sock_filepath[PATH_MAX] = {0,};
+        char                    md5_sum[MD5_DIGEST_LEN*2+1] = {0,};
+        char                    volume_dir[PATH_MAX] = {0,};
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        int                     expected_file_len = 0;
+
+        expected_file_len = strlen (glusterd_sock_dir) + strlen ("/") +
+                            MD5_DIGEST_LEN*2 + strlen (".socket") + 1;
+        GF_ASSERT (len >= expected_file_len);
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+
+        GLUSTERD_GET_VOLUME_DIR (volume_dir, volinfo, priv);
+        GLUSTERD_REMOVE_SLASH_FROM_PATH (brickinfo->path, export_path);
+        snprintf (sock_filepath, PATH_MAX, "%s/run/%s-%s",
+                  volume_dir, brickinfo->hostname, export_path);
+        _get_md5_str (md5_sum, sizeof (md5_sum),
+                              (uint8_t*)sock_filepath, strlen (sock_filepath));
+
+        snprintf (sockpath, len, "%s/%s.socket", glusterd_sock_dir, md5_sum);
+}
+
 int32_t
 glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                  glusterd_brickinfo_t  *brickinfo)
@@ -918,6 +949,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         int                     port = 0;
         FILE                    *file = NULL;
         gf_boolean_t            is_locked = _gf_false;
+        dict_t                  *options = NULL;
+        char                    socketpath[PATH_MAX] = {0};
+        struct rpc_clnt         *rpc = NULL;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -937,6 +971,8 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                 goto out;
         }
 
+        glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
+                                            sizeof (socketpath));
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
 
@@ -948,7 +984,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                         gf_log ("", GF_LOG_NORMAL, "brick %s:%s "
                                 "already started", brickinfo->hostname,
                                 brickinfo->path);
-                        goto out;
+                        goto connect;
                 }
         }
 
@@ -964,7 +1000,7 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
                                 gf_log ("", GF_LOG_NORMAL, "brick %s:%s "
                                         "already started", brickinfo->hostname,
                                         brickinfo->path);
-                                goto out;
+                                goto connect;
                         } else if (0 == ret) {
                                 is_locked = _gf_true;
                         }
@@ -998,9 +1034,9 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
 
         snprintf (cmd_str, 8192,
                   "%s/sbin/glusterfsd --xlator-option %s-server.listen-port=%d "
-                  "-s localhost --volfile-id %s -p %s --brick-name %s "
+                  "-s localhost --volfile-id %s -p %s -S %s --brick-name %s "
                   "--brick-port %d -l %s", GFS_PREFIX, volinfo->volname,
-                  port, volfile, pidfile, brickinfo->path, port,
+                  port, volfile, pidfile, socketpath, brickinfo->path, port,
                   brickinfo->logfile);
 
 	gf_log ("",GF_LOG_DEBUG,"Starting GlusterFS Command Executed: \n %s \n", cmd_str);
@@ -1009,6 +1045,19 @@ glusterd_volume_start_glusterfs (glusterd_volinfo_t  *volinfo,
         if (ret == 0) {
                 //pmap_registry_bind (THIS, port, brickinfo->path);
                 brickinfo->port = port;
+        }
+
+connect:
+        if (brickinfo->rpc == NULL) {
+                ret = rpc_clnt_transport_unix_options_build (&options, socketpath);
+                if (ret)
+                        goto out;
+                ret = glusterd_rpc_create (&rpc, options,
+                                           glusterd_brick_rpc_notify,
+                                           brickinfo);
+                if (ret)
+                        goto out;
+                brickinfo->rpc = rpc;
         }
 out:
         if (is_locked && file)
@@ -1019,6 +1068,36 @@ out:
 }
 
 int32_t
+glusterd_brick_unlink_socket_file (glusterd_volinfo_t *volinfo,
+                                   glusterd_brickinfo_t *brickinfo)
+{
+        char                    path[PATH_MAX] = {0,};
+        char                    socketpath[PATH_MAX] = {0};
+        xlator_t                *this = NULL;
+        glusterd_conf_t         *priv = NULL;
+        int                     ret = 0;
+
+        GF_ASSERT (volinfo);
+        GF_ASSERT (brickinfo);
+
+        this = THIS;
+        GF_ASSERT (this);
+
+        priv = this->private;
+        GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
+        glusterd_set_brick_socket_filepath (volinfo, brickinfo, socketpath,
+                                            sizeof (socketpath));
+        ret = unlink (socketpath);
+        if (ret && (ENOENT == errno)) {
+                ret = 0;
+        } else {
+                gf_log ("glusterd", GF_LOG_ERROR, "Failed to remove %s"
+                        " error: %s", socketpath, strerror (errno));
+        }
+
+        return ret;
+}
+int32_t
 glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
                                 glusterd_brickinfo_t   *brickinfo)
 {
@@ -1026,6 +1105,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         glusterd_conf_t         *priv = NULL;
         char                    pidfile[PATH_MAX] = {0,};
         char                    path[PATH_MAX] = {0,};
+        int                     ret = 0;
 
         GF_ASSERT (volinfo);
         GF_ASSERT (brickinfo);
@@ -1035,11 +1115,19 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
 
         priv = this->private;
 
+        if (brickinfo->rpc) {
+                rpc_clnt_unref (brickinfo->rpc);
+                brickinfo->rpc = NULL;
+        }
         GLUSTERD_GET_VOLUME_DIR (path, volinfo, priv);
         GLUSTERD_GET_BRICK_PIDFILE (pidfile, path, brickinfo->hostname,
                                     brickinfo->path);
 
-        return glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
+        ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
+        if (ret == 0) {
+                ret = glusterd_brick_unlink_socket_file (volinfo, brickinfo);
+        }
+        return ret;
 }
 
 int32_t
@@ -1920,7 +2008,6 @@ glusterd_brick_start (glusterd_volinfo_t *volinfo,
                 goto out;
         }
 
-
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d ", ret);
         return ret;
@@ -1982,6 +2069,13 @@ glusterd_set_brick_status (glusterd_brickinfo_t  *brickinfo,
 {
         GF_ASSERT (brickinfo);
         brickinfo->status = status;
+        if (GF_BRICK_STARTED == status) {
+                gf_log ("glusterd", GF_LOG_DEBUG, "Setting brick %s:%s status "
+                        "to started", brickinfo->hostname, brickinfo->path);
+        } else {
+                gf_log ("glusterd", GF_LOG_DEBUG, "Setting brick %s:%s status "
+                        "to stopped", brickinfo->hostname, brickinfo->path);
+        }
 }
 
 int
@@ -2675,4 +2769,39 @@ glusterd_peer_destroy (glusterd_peerinfo_t *peerinfo)
 
 out:
         return ret;
+}
+
+int
+glusterd_remove_pending_entry (struct list_head *list, void *elem)
+{
+        glusterd_pending_node_t *pending_node = NULL;
+        glusterd_pending_node_t *tmp = NULL;
+        int                     ret = -1;
+
+        list_for_each_entry_safe (pending_node, tmp, list, list) {
+                if (elem == pending_node->node) {
+                        list_del_init (&pending_node->list);
+                        GF_FREE (pending_node);
+                        ret = 0;
+                        goto out;
+                }
+        }
+out:
+        gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+
+}
+
+int
+glusterd_clear_pending_nodes (struct list_head *list)
+{
+        glusterd_pending_node_t *pending_node = NULL;
+        glusterd_pending_node_t *tmp = NULL;
+
+        list_for_each_entry_safe (pending_node, tmp, list, list) {
+                list_del_init (&pending_node->list);
+                GF_FREE (pending_node);
+        }
+
+        return 0;
 }

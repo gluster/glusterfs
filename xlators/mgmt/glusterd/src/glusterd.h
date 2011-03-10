@@ -73,6 +73,7 @@ typedef enum glusterd_op_ {
         GD_OP_LOG_LOCATE,
         GD_OP_LOG_ROTATE,
         GD_OP_GSYNC_SET,
+        GD_OP_PROFILE_VOLUME,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -104,6 +105,7 @@ typedef struct {
         glusterd_store_handle_t *handle;
         gf_timer_t *timer;
         glusterd_sm_tr_log_t op_sm_log;
+        struct rpc_clnt_program *gfs_mgmt;
 } glusterd_conf_t;
 
 typedef enum gf_brick_status {
@@ -120,7 +122,9 @@ struct glusterd_brickinfo {
         char   *logfile;
         gf_boolean_t signed_in;
         glusterd_store_handle_t *shandle;
-        gf_brick_status_t status; 
+        gf_brick_status_t status;
+        struct rpc_clnt *rpc;
+        gf_timer_t *timer;
 };
 
 typedef struct glusterd_brickinfo glusterd_brickinfo_t;
@@ -204,6 +208,11 @@ struct glusterd_volinfo_ {
 };
 
 typedef struct glusterd_volinfo_ glusterd_volinfo_t;
+
+typedef struct glusterd_pending_node_ {
+        void   *node;
+        struct list_head list;
+} glusterd_pending_node_t;
 
 enum glusterd_op_ret {
         GLUSTERD_CONNECTION_AWAITED = 100,
@@ -326,10 +335,6 @@ int32_t
 glusterd_create_volume (rpcsvc_request_t *req, dict_t *dict);
 
 int
-glusterd_rpc_notify (struct rpc_clnt *rpc, void *mydata,
-                     rpc_clnt_event_t event,
-                     void *data);
-int
 glusterd_handle_incoming_friend_req (rpcsvc_request_t *req);
 
 int
@@ -408,9 +413,6 @@ glusterd_handle_cli_get_volume (rpcsvc_request_t *req);
 int32_t
 glusterd_get_volumes (rpcsvc_request_t *req, dict_t *dict, int32_t flags);
 
-int32_t
-glusterd_add_brick (rpcsvc_request_t *req, dict_t *dict);
-
 int
 glusterd_handle_add_brick (rpcsvc_request_t *req);
 
@@ -470,9 +472,6 @@ glusterd_xfer_cli_deprobe_resp (rpcsvc_request_t *req, int32_t op_ret,
 int
 glusterd_fetchspec_notify (xlator_t *this);
 
-int32_t
-glusterd_sync_volume (rpcsvc_request_t *req, dict_t *ctx);
-
 int
 glusterd_add_volume_detail_to_dict (glusterd_volinfo_t *volinfo,
                                     dict_t  *volumes, int   count);
@@ -490,4 +489,21 @@ glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
 
 int
 glusterd_validate_reconfopts (glusterd_volinfo_t *volinfo, dict_t *val_dict, char **op_errstr);
+int
+glusterd_handle_cli_profile_volume (rpcsvc_request_t *req);
+
+int32_t
+glusterd_set_volume (rpcsvc_request_t *req, dict_t *dict);
+int
+glusterd_peer_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                          rpc_clnt_event_t event,
+                          void *data);
+int
+glusterd_brick_rpc_notify (struct rpc_clnt *rpc, void *mydata,
+                          rpc_clnt_event_t event, void *data);
+
+int
+glusterd_rpc_create (struct rpc_clnt **rpc, dict_t *options,
+                     rpc_clnt_notify_t notify_fn, void *notify_data);
+
 #endif
