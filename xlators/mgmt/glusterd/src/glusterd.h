@@ -197,7 +197,7 @@ struct glusterd_volinfo_ {
         glusterd_brickinfo_t    *src_brick;
         glusterd_brickinfo_t    *dst_brick;
 
-        int                     version;
+        uint32_t                version;
         uint32_t                cksum;
         gf_transport_type       transport_type;
 

@@ -37,6 +37,11 @@
 #include "glusterd.h"
 #include "rpcsvc.h"
 
+typedef enum glusterd_store_ver_ac_{
+        GLUSTERD_VOLINFO_VER_AC_NONE = 0,
+        GLUSTERD_VOLINFO_VER_AC_INCREMENT = 1,
+} glusterd_volinfo_ver_ac_t;
+
 
 #define GLUSTERD_STORE_UUID_KEY           "UUID"
 
@@ -80,7 +85,7 @@ typedef enum {
 } glusterd_store_op_errno_t;
 
 int32_t
-glusterd_store_create_volume (glusterd_volinfo_t *volinfo);
+glusterd_store_volinfo (glusterd_volinfo_t *volinfo, glusterd_volinfo_ver_ac_t ac);
 
 int32_t
 glusterd_store_delete_volume (glusterd_volinfo_t *volinfo);
@@ -92,21 +97,17 @@ int32_t
 glusterd_store_handle_new (char *path, glusterd_store_handle_t **handle);
 
 int32_t
-glusterd_store_save_value (glusterd_store_handle_t *handle,
-                           char *key, char *value);
+glusterd_store_save_value (int fd, char *key, char *value);
 
 int32_t
 glusterd_store_retrieve_value (glusterd_store_handle_t *handle,
                                char *key, char **value);
 
 int32_t
-glusterd_store_update_volume (glusterd_volinfo_t *volinfo);
-
-int32_t
 glusterd_retrieve_uuid ();
 
 int32_t
-glusterd_store_update_peerinfo (glusterd_peerinfo_t *peerinfo);
+glusterd_store_peerinfo (glusterd_peerinfo_t *peerinfo);
 
 int32_t
 glusterd_store_delete_peerinfo (glusterd_peerinfo_t *peerinfo);
@@ -121,4 +122,7 @@ glusterd_store_handle_destroy (glusterd_store_handle_t *handle);
 int32_t
 glusterd_restore ();
 
+void
+glusterd_perform_volinfo_version_action (glusterd_volinfo_t *volinfo,
+                                         glusterd_volinfo_ver_ac_t ac);
 #endif

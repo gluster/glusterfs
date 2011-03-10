@@ -2699,7 +2699,7 @@ glusterd_friend_hostname_update (glusterd_peerinfo_t *peerinfo,
         GF_FREE (peerinfo->hostname);
         peerinfo->hostname = new_hostname;
         if (store_update)
-                ret = glusterd_store_update_peerinfo (peerinfo);
+                ret = glusterd_store_peerinfo (peerinfo);
 out:
         gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
         return ret;
@@ -3136,7 +3136,7 @@ glusterd_friend_add (const char *hoststr, int port,
         peerinfo->rpc = rpc;
 
         if (!restore)
-                ret = glusterd_store_update_peerinfo (peerinfo);
+                ret = glusterd_store_peerinfo (peerinfo);
 
         list_add_tail (&peerinfo->uuid_list, &conf->peers);
 

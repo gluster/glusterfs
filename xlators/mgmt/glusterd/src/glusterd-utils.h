@@ -255,4 +255,6 @@ int
 glusterd_remove_pending_entry (struct list_head *list, void *elem);
 int
 glusterd_clear_pending_nodes (struct list_head *list);
+gf_boolean_t
+glusterd_peerinfo_is_uuid_unknown (glusterd_peerinfo_t *peerinfo);
 #endif

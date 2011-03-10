@@ -2153,10 +2153,9 @@ glusterd_op_create_volume (dict_t *dict, char **op_errstr)
                 i++;
         }
         list_add_tail (&volinfo->vol_list, &priv->volumes);
-        volinfo->version++;
         volinfo->defrag_status = 0;
 
-        ret = glusterd_store_create_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
 
         if (ret)
                 goto out;
@@ -2224,10 +2223,9 @@ glusterd_op_add_brick (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
-        volinfo->version++;
         volinfo->defrag_status = 0;
 
-        ret = glusterd_store_update_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
 
@@ -3321,7 +3319,6 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
 			goto out;
 		}
 
-		volinfo->version++;
 		volinfo->defrag_status = 0;
 
 		ret = glusterd_check_generate_start_nfs (volinfo);
@@ -3330,7 +3327,8 @@ glusterd_op_replace_brick (dict_t *dict, dict_t *rsp_dict)
                                 "Failed to generate nfs volume file");
 		}
 
-		ret = glusterd_store_update_volume (volinfo);
+		ret = glusterd_store_volinfo (volinfo,
+                                              GLUSTERD_VOLINFO_VER_AC_INCREMENT);
 
 		if (ret)
 			goto out;
@@ -3462,7 +3460,7 @@ glusterd_options_reset (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        ret = glusterd_store_update_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
 
@@ -3884,7 +3882,7 @@ glusterd_set_marker_gsync (char *master, char *value)
                 goto out;
         }
 
-        ret = glusterd_store_update_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
 
@@ -4131,7 +4129,7 @@ glusterd_op_set_volume (dict_t *dict)
                         }
                 }
 
-                ret = glusterd_store_update_volume (volinfo);
+                ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
                 if (ret)
                         goto out;
 
@@ -4167,7 +4165,8 @@ glusterd_op_set_volume (dict_t *dict)
                                 }
                         }
 
-                        ret = glusterd_store_update_volume (volinfo);
+                        ret = glusterd_store_volinfo (volinfo,
+                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
                         if (ret)
                                 goto out;
 
@@ -4247,10 +4246,9 @@ glusterd_op_remove_brick (dict_t *dict)
         if (ret)
                 goto out;
 
-        volinfo->version++;
         volinfo->defrag_status = 0;
 
-        ret = glusterd_store_update_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
 
         if (ret)
                 goto out;
@@ -4331,7 +4329,7 @@ glusterd_op_start_volume (dict_t *dict, char **op_errstr)
 
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STARTED);
 
-        ret = glusterd_store_update_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
 
@@ -4612,7 +4610,7 @@ glusterd_op_stop_volume (dict_t *dict)
 
         glusterd_set_volume_status (volinfo, GLUSTERD_STATUS_STOPPED);
 
-        ret = glusterd_store_update_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
 
@@ -4830,7 +4828,8 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
 		goto out;
         }
 
-        ret = glusterd_store_update_volume (volinfo);
+        ret = glusterd_store_volinfo (volinfo,
+                                      GLUSTERD_VOLINFO_VER_AC_INCREMENT);
         if (ret)
                 goto out;
 

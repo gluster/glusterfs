@@ -1126,6 +1126,7 @@ glusterd_volume_stop_glusterfs (glusterd_volinfo_t  *volinfo,
         ret = glusterd_service_stop ("brick", pidfile, SIGTERM, _gf_false);
         if (ret == 0) {
                 ret = glusterd_brick_unlink_socket_file (volinfo, brickinfo);
+                brickinfo->port = 0;
         }
         return ret;
 }
@@ -1195,7 +1196,7 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
                   GLUSTERD_VOLUME_INFO_FILE);
         snprintf (sort_filepath, sizeof (sort_filepath), "/tmp/%s.XXXXXX",
                   volinfo->volname);
-        sort_fd = mkstemp(sort_filepath);
+        sort_fd = mkstemp (sort_filepath);
         if (sort_fd < 0) {
                 gf_log ("", GF_LOG_ERROR, "Could not generate temp file, "
                         "reason: %s for volume: %s", strerror (errno),
@@ -1203,7 +1204,6 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
                 goto out;
         } else {
                 unlink_sortfile = _gf_true;
-                close (sort_fd);
         }
 
         snprintf (sort_cmd, sizeof (sort_cmd), "sort %s -o %s",
@@ -1235,17 +1235,18 @@ glusterd_volume_compute_cksum (glusterd_volinfo_t  *volinfo)
         if (ret)
                 goto out;
 
-       volinfo->cksum = cksum;
+        volinfo->cksum = cksum;
 
 out:
-       if (fd > 0)
+        if (fd > 0)
                close (fd);
-
-       if (unlink_sortfile)
+        if (sort_fd > 0)
+               close (sort_fd);
+        if (unlink_sortfile)
                unlink (sort_filepath);
-       gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
+        gf_log ("", GF_LOG_DEBUG, "Returning with %d", ret);
 
-       return ret;
+        return ret;
 }
 
 void
@@ -1594,7 +1595,7 @@ glusterd_import_friend_volume (dict_t *vols, int count)
 
         memset (key, 0, sizeof (key));
         snprintf (key, sizeof (key), "volume%d.version", count);
-        ret = dict_get_int32 (vols, key, &volinfo->version);
+        ret = dict_get_uint32 (vols, key, &volinfo->version);
         if (ret)
                 goto out;
 
@@ -1665,18 +1666,13 @@ glusterd_import_friend_volume (dict_t *vols, int count)
                                                   new_volinfo);
         if (ret)
                 goto out;
-        if (new_volinfo) {
+        if (new_volinfo)
                 list_add_tail (&volinfo->vol_list, &priv->volumes);
-                ret = glusterd_store_create_volume (volinfo);
-        } else {
-                ret = glusterd_store_update_volume (volinfo);
-        }
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
 
         ret = glusterd_create_volfiles (volinfo);
         if (ret)
                 goto out;
-
-        //volinfo->version++;
 
         ret = glusterd_volume_compute_cksum (volinfo);
         if (ret)
@@ -2804,4 +2800,14 @@ glusterd_clear_pending_nodes (struct list_head *list)
         }
 
         return 0;
+}
+
+gf_boolean_t
+glusterd_peerinfo_is_uuid_unknown (glusterd_peerinfo_t *peerinfo)
+{
+        GF_ASSERT (peerinfo);
+
+        if (uuid_is_null (peerinfo->uuid))
+                return _gf_true;
+        return _gf_false;
 }

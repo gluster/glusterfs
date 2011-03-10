@@ -989,7 +989,7 @@ glusterd_friend_sm ()
                                 goto out;
                         }
 
-                        ret = glusterd_store_update_peerinfo (peerinfo);
+                        ret = glusterd_store_peerinfo (peerinfo);
 
                         glusterd_destroy_friend_event_context (event);
                         GF_FREE (event);
