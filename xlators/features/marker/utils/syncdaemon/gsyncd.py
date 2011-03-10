@@ -145,6 +145,8 @@ def finalize(*a):
                     raise
     if gconf.ssh_ctl_dir and not gconf.cpid:
         shutil.rmtree(gconf.ssh_ctl_dir)
+    sys.stdout.flush()
+    sys.stderr.flush()
 
 def main():
     # ??? "finally" clause does not take effect with SIGTERM...
