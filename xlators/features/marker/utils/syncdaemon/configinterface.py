@@ -11,6 +11,8 @@ except ImportError:
     import urllib
 
 SECT_ORD = '__section_order__'
+SECT_META = '__meta__'
+config_version = 2.0
 
 re_type = type(re.compile(''))
 
@@ -67,11 +69,7 @@ class GConffile(object):
         tv = 0
         if so2:
             tv = max(so2.values()) + 1
-        ss = self.config.sections()
-        try:
-            ss.remove(SECT_ORD)
-        except ValueError:
-            pass
+        ss = [s for s in self.config.sections() if s.find('__') != 0]
         for s in ss:
             if s in so.keys():
                 continue
@@ -115,6 +113,9 @@ class GConffile(object):
             print("%s: %s" % (k, v))
 
     def write(self):
+        if not self.config.has_section(SECT_META):
+            self.config.add_section(SECT_META)
+        self.config.set(SECT_META, 'version', config_version)
         f = None
         try:
             f = open(self.path, 'wb')
