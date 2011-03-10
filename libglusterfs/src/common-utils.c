@@ -1684,13 +1684,13 @@ valid_internet_address (char *address)
                 goto out;
         }
 
-        if (valid_ipv4_address (address, length) 
+        if (valid_ipv4_address (address, length)
             || valid_ipv6_address (address, length)
             || valid_host_name (address, length)) {
                 ret = 1;
         }
 
-out:        
+out:
         return ret;
 }
 
@@ -1724,4 +1724,42 @@ void _get_md5_str (char *out_str, size_t outlen,
         for (j = 0; j < MD5_DIGEST_LEN; j++)
                 snprintf(out_str + j * 2, outlen-j*2, "%02x", out[j]);
 
+}
+
+void* gf_array_elem (void *a, int index, size_t elem_size)
+{
+        uint8_t* ptr = a;
+        return (void*)(ptr + index * elem_size);
+}
+
+void
+gf_elem_swap (void *x, void *y, size_t l) {
+        uint8_t *a = x, *b = y, c;
+        while(l--) {
+                c = *a;
+                *a++ = *b;
+                *b++ = c;
+        }
+}
+
+void
+gf_array_insertionsort (void *A, int l, int r, size_t elem_size,
+                    gf_cmp cmp)
+{
+        int  i = l;
+        int  N = r+1;
+        void *Temp = NULL;
+        int  j = 0;
+
+        for(i = l; i < N; i++) {
+                Temp = gf_array_elem (A, i, elem_size);
+                j = i - 1;
+                while((cmp (Temp, gf_array_elem (A, j, elem_size)) < 0) && j>=0)
+                {
+                        gf_elem_swap (Temp, gf_array_elem (A, j, elem_size),
+                                      elem_size);
+                        Temp = gf_array_elem (A, j, elem_size);
+                        j = j-1;
+                }
+        }
 }
