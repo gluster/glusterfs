@@ -251,15 +251,6 @@ def main_i():
         peers, canon_peers = pa
     if not 'config_file' in rconf:
         rconf['config_file'] = os.path.join(os.path.dirname(sys.argv[0]), "conf/gsyncd.conf")
-        confp = os.path.dirname(sys.argv[0]) + "conf/"
-        try:
-            st = os.lstat (confp)
-        except OSError:
-            ex = sys.exc_info()[1]
-            if ex.errno == ENOENT:
-                os.mkdir(confp)
-            else:
-                raise
     gcnf = GConffile(rconf['config_file'], canon_peers)
 
     if confdata:
