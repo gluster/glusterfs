@@ -123,22 +123,7 @@ class Server(object):
         for e in entries:
             cls.purge(os.path.join(path, e))
         if me_also:
-            try:
-                os.rmdir(path)
-            except OSError:
-                ex = sys.exc_info()[1]
-                if ex.errno == ENOTDIR:
-                    try:
-                        os.unlink(path)
-                        return
-                    except OSError:
-                        ex = sys.exc_info()[1]
-                        if ex.errno != ENOENT:
-                            raise
-                elif ex.errno == ENOENT:
-                    logging.debug ("Trying to delete a file which is not present")
-                else:
-                    raise
+            os.rmdir(path)
 
     @classmethod
     def _create(cls, path, ctor):
