@@ -45,9 +45,7 @@ class GLogger(Logger):
                 'format': "[%(asctime)s.%(nsecs)d] %(lvlnam)s [%(module)s" + sls + ":%(lineno)s:%(funcName)s] %(ctx)s: %(message)s"}
         lprm.update(kw)
         lvl = kw.get('level', logging.INFO)
-        if isinstance(lvl, str):
-            lvl = logging.getLevelName(lvl)
-            lprm['level'] = lvl
+        lprm['level'] = lvl
         logging.root = cls("root", lvl)
         logging.setLoggerClass(cls)
         logging.getLogger().handlers = []
@@ -279,6 +277,17 @@ def main_i():
     gconf.__dict__.update(defaults.__dict__)
     gcnf.update_to(gconf.__dict__)
     gconf.__dict__.update(opts.__dict__)
+
+    #normalize loglevel
+    lvl0 = gconf.log_level
+    if isinstance(lvl0, str):
+        lvl1 = lvl0.upper()
+        lvl2 = logging.getLevelName(lvl1)
+        # I have _never_ _ever_ seen such an utterly braindead
+        # error condition
+        if lvl2 == "Level " + lvl1:
+            raise RuntimeError('cannot recognize log level "%s"' % lvl0)
+        gconf.log_level = lvl2
 
     go_daemon = rconf['go_daemon']
 
