@@ -418,7 +418,7 @@ glusterd_peer_handshake (xlator_t *this, struct rpc_clnt *rpc,
 
         req.gfs_id = 0xcafe;
 
-        ret = glusterd_submit_request (peerctx->peerinfo, &req, frame,
+        ret = glusterd_submit_request (peerctx->peerinfo->rpc, &req, frame,
                                        &glusterd_dump_prog, GF_DUMP_DUMP,
                                        NULL, xdr_from_dump_req, this,
                                        glusterd_peer_dump_version_cbk);

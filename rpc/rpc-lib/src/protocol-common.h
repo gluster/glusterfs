@@ -106,6 +106,8 @@ enum gf_mgmt_procnum_ {
         GD_MGMT_CLI_RESET_VOLUME,
         GD_MGMT_CLI_FSM_LOG,
         GD_MGMT_CLI_GSYNC_SET,
+        GD_MGMT_CLI_PROFILE_VOLUME,
+        GD_MGMT_BRICK_OP,
         GD_MGMT_MAXVALUE,
 };
 
@@ -193,7 +195,15 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_RESET_VOLUME,
         GLUSTER_CLI_FSM_LOG,
         GLUSTER_CLI_GSYNC_SET,
+        GLUSTER_CLI_PROFILE_VOLUME,
         GLUSTER_CLI_MAXVALUE,
+};
+
+enum gf_brick_procnum {
+        GF_BRICK_NULL = 0,
+        GF_BRICK_TERMINATE = 1,
+        GF_BRICK_XLATOR_INFO = 2,
+        GF_BRICK_MAX_VALUE
 };
 
 
@@ -222,4 +232,10 @@ enum gluster_cli_procnum {
 #define GLUSTER_CBK_PROGRAM      52743234 /* Completely random */
 #define GLUSTER_CBK_VERSION      1   /* 0.0.1 */
 
+#define GLUSTER_HNDSK_PROGRAM    14398633 /* Completely random */
+#define GLUSTER_HNDSK_VERSION    1   /* 0.0.1 */
+
+#define GLUSTERFS_PROGRAM       4867634 /*Completely random*/
+#define GLUSTERFS_VERSION       1
+#define GLUSTERFS_PROCCNT       GF_BRICK_MAX_VALUE
 #endif /* !_PROTOCOL_COMMON_H */

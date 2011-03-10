@@ -70,12 +70,11 @@ glusterd_submit_reply (rpcsvc_request_t *req, void *arg,
                        struct iobref *iobref, gd_serialize_t sfunc);
 
 int
-glusterd_submit_request (glusterd_peerinfo_t *peerinfo, void *req,
-                         call_frame_t *frame, struct rpc_clnt_program *prog,
+glusterd_submit_request (struct rpc_clnt *rpc, void *req,
+                         call_frame_t *frame, rpc_clnt_prog_t *prog,
                          int procnum, struct iobref *iobref,
                          gd_serialize_t sfunc, xlator_t *this,
                          fop_cbk_fn_t cbkfn);
-
 int32_t
 glusterd_volinfo_new (glusterd_volinfo_t **volinfo);
 
@@ -252,4 +251,8 @@ glusterd_sm_tr_log_delete (glusterd_sm_tr_log_t *log);
 int
 glusterd_sm_tr_log_add_to_dict (dict_t *dict,
                                 glusterd_sm_tr_log_t *circular_log);
+int
+glusterd_remove_pending_entry (struct list_head *list, void *elem);
+int
+glusterd_clear_pending_nodes (struct list_head *list);
 #endif
