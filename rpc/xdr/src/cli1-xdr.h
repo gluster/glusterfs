@@ -23,8 +23,8 @@
  * It was generated using rpcgen.
  */
 
-#ifndef _CLI1_H_RPCGEN
-#define _CLI1_H_RPCGEN
+#ifndef _CLI1_XDR_H_RPCGEN
+#define _CLI1_XDR_H_RPCGEN
 
 #include <rpc/rpc.h>
 #include "xdr-common.h"
@@ -75,16 +75,24 @@ enum gf1_cli_op_flags {
 typedef enum gf1_cli_op_flags gf1_cli_op_flags;
 
 enum gf1_cli_gsync_set {
-        GF_GSYNC_OPTION_TYPE_NONE = 0,
-        GF_GSYNC_OPTION_TYPE_START = 1,
-        GF_GSYNC_OPTION_TYPE_STOP = 2,
-        GF_GSYNC_OPTION_TYPE_CONFIGURE = 3,
-        GF_GSYNC_OPTION_TYPE_CONFIG_SET = 4,
-        GF_GSYNC_OPTION_TYPE_CONFIG_DEL = 5,
-        GF_GSYNC_OPTION_TYPE_CONFIG_GET = 6,
-        GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL = 7,
+	GF_GSYNC_OPTION_TYPE_NONE = 0,
+	GF_GSYNC_OPTION_TYPE_START = 1,
+	GF_GSYNC_OPTION_TYPE_STOP = 2,
+	GF_GSYNC_OPTION_TYPE_CONFIGURE = 3,
+	GF_GSYNC_OPTION_TYPE_CONFIG_SET = 4,
+	GF_GSYNC_OPTION_TYPE_CONFIG_DEL = 5,
+	GF_GSYNC_OPTION_TYPE_CONFIG_GET = 6,
+	GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL = 7,
 };
 typedef enum gf1_cli_gsync_set gf1_cli_gsync_set;
+
+enum gf1_cli_stats_op {
+	GF_CLI_STATS_NONE = 0,
+	GF_CLI_STATS_START = 1,
+	GF_CLI_STATS_STOP = 2,
+	GF_CLI_STATS_INFO = 3,
+};
+typedef enum gf1_cli_stats_op gf1_cli_stats_op;
 
 struct gf1_cli_probe_req {
 	char *hostname;
@@ -415,36 +423,54 @@ struct gf1_cli_fsm_log_rsp {
 typedef struct gf1_cli_fsm_log_rsp gf1_cli_fsm_log_rsp;
 
 struct gf1_cli_gsync_set_req {
-        struct {
-                u_int dict_len;
-                char *dict_val;
-        } dict;
+	struct {
+		u_int dict_len;
+		char *dict_val;
+	} dict;
 };
 typedef struct gf1_cli_gsync_set_req gf1_cli_gsync_set_req;
 
 struct gf1_cli_gsync_set_rsp {
-        int op_ret;
-        int op_errno;
-        char *op_errstr;
-        int   type;
-        int   config_type;
-        char *op_name;
-        char *master;
-        char *slave;
-        char *gsync_prefix;
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	int type;
+	int config_type;
+	char *op_name;
+	char *master;
+	char *slave;
+	char *gsync_prefix;
 };
 typedef struct gf1_cli_gsync_set_rsp gf1_cli_gsync_set_rsp;
+
+struct gf1_cli_stats_volume_req {
+	char *volname;
+	gf1_cli_stats_op op;
+};
+typedef struct gf1_cli_stats_volume_req gf1_cli_stats_volume_req;
+
+struct gf1_cli_stats_volume_rsp {
+	int op_ret;
+	int op_errno;
+	char *op_errstr;
+	struct {
+		u_int stats_info_len;
+		char *stats_info_val;
+	} stats_info;
+};
+typedef struct gf1_cli_stats_volume_rsp gf1_cli_stats_volume_rsp;
 
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
 extern  bool_t xdr_gf1_cluster_type (XDR *, gf1_cluster_type*);
 extern  bool_t xdr_gf1_cli_replace_op (XDR *, gf1_cli_replace_op*);
-extern  bool_t xdr_gf1_cli_gsync_set (XDR *, gf1_cli_gsync_set*);
 extern  bool_t xdr_gf1_cli_friends_list (XDR *, gf1_cli_friends_list*);
 extern  bool_t xdr_gf1_cli_get_volume (XDR *, gf1_cli_get_volume*);
 extern  bool_t xdr_gf1_cli_sync_volume (XDR *, gf1_cli_sync_volume*);
 extern  bool_t xdr_gf1_cli_op_flags (XDR *, gf1_cli_op_flags*);
+extern  bool_t xdr_gf1_cli_gsync_set (XDR *, gf1_cli_gsync_set*);
+extern  bool_t xdr_gf1_cli_stats_op (XDR *, gf1_cli_stats_op*);
 extern  bool_t xdr_gf1_cli_probe_req (XDR *, gf1_cli_probe_req*);
 extern  bool_t xdr_gf1_cli_probe_rsp (XDR *, gf1_cli_probe_rsp*);
 extern  bool_t xdr_gf1_cli_deprobe_req (XDR *, gf1_cli_deprobe_req*);
@@ -488,15 +514,18 @@ extern  bool_t xdr_gf1_cli_fsm_log_req (XDR *, gf1_cli_fsm_log_req*);
 extern  bool_t xdr_gf1_cli_fsm_log_rsp (XDR *, gf1_cli_fsm_log_rsp*);
 extern  bool_t xdr_gf1_cli_gsync_set_req (XDR *, gf1_cli_gsync_set_req*);
 extern  bool_t xdr_gf1_cli_gsync_set_rsp (XDR *, gf1_cli_gsync_set_rsp*);
+extern  bool_t xdr_gf1_cli_stats_volume_req (XDR *, gf1_cli_stats_volume_req*);
+extern  bool_t xdr_gf1_cli_stats_volume_rsp (XDR *, gf1_cli_stats_volume_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_gf1_cluster_type ();
 extern bool_t xdr_gf1_cli_replace_op ();
-extern bool_t xdr_gf1_cli_gsync_set ();
 extern bool_t xdr_gf1_cli_friends_list ();
 extern bool_t xdr_gf1_cli_get_volume ();
 extern bool_t xdr_gf1_cli_sync_volume ();
 extern bool_t xdr_gf1_cli_op_flags ();
+extern bool_t xdr_gf1_cli_gsync_set ();
+extern bool_t xdr_gf1_cli_stats_op ();
 extern bool_t xdr_gf1_cli_probe_req ();
 extern bool_t xdr_gf1_cli_probe_rsp ();
 extern bool_t xdr_gf1_cli_deprobe_req ();
@@ -540,10 +569,13 @@ extern bool_t xdr_gf1_cli_fsm_log_req ();
 extern bool_t xdr_gf1_cli_fsm_log_rsp ();
 extern bool_t xdr_gf1_cli_gsync_set_req ();
 extern bool_t xdr_gf1_cli_gsync_set_rsp ();
+extern bool_t xdr_gf1_cli_stats_volume_req ();
+extern bool_t xdr_gf1_cli_stats_volume_rsp ();
+
 #endif /* K&R C */
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* !_CLI1_H_RPCGEN */
+#endif /* !_CLI1-XDR_H_RPCGEN */

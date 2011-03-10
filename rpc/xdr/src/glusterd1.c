@@ -232,3 +232,31 @@ gd_xdr_from_mgmt_commit_op_req (struct iovec outmsg, void *req)
         return xdr_serialize_generic (outmsg, (void *)req,
                                       (xdrproc_t)xdr_gd1_mgmt_commit_op_req);
 }
+
+ssize_t
+gd_xdr_to_mgmt_brick_op_req (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+}
+
+ssize_t
+gd_xdr_from_mgmt_brick_op_req (struct iovec outmsg, void *req)
+{
+        return xdr_serialize_generic (outmsg, (void *)req,
+                                      (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+}
+
+ssize_t
+gd_xdr_to_mgmt_brick_op_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+}
+
+ssize_t
+gd_xdr_serialize_mgmt_brick_op_rsp (struct iovec outmsg, void *rsp)
+{
+        return xdr_serialize_generic (outmsg, (void *)rsp,
+                                (xdrproc_t)xdr_gd1_mgmt_brick_op_rsp);
+}

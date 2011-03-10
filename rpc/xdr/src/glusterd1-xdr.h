@@ -23,8 +23,8 @@
  * It was generated using rpcgen.
  */
 
-#ifndef _GLUSTERD1_H_RPCGEN
-#define _GLUSTERD1_H_RPCGEN
+#ifndef _GLUSTERD1_XDR_H_RPCGEN
+#define _GLUSTERD1_XDR_H_RPCGEN
 
 #include <rpc/rpc.h>
 
@@ -181,6 +181,27 @@ struct gd1_mgmt_friend_update_rsp {
 };
 typedef struct gd1_mgmt_friend_update_rsp gd1_mgmt_friend_update_rsp;
 
+struct gd1_mgmt_brick_op_req {
+	char *name;
+	int op;
+	struct {
+		u_int input_len;
+		char *input_val;
+	} input;
+};
+typedef struct gd1_mgmt_brick_op_req gd1_mgmt_brick_op_req;
+
+struct gd1_mgmt_brick_op_rsp {
+	int op_ret;
+	int op_errno;
+	struct {
+		u_int output_len;
+		char *output_val;
+	} output;
+	char *op_errstr;
+};
+typedef struct gd1_mgmt_brick_op_rsp gd1_mgmt_brick_op_rsp;
+
 /* the xdr functions */
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -201,6 +222,8 @@ extern  bool_t xdr_gd1_mgmt_commit_op_req (XDR *, gd1_mgmt_commit_op_req*);
 extern  bool_t xdr_gd1_mgmt_commit_op_rsp (XDR *, gd1_mgmt_commit_op_rsp*);
 extern  bool_t xdr_gd1_mgmt_friend_update (XDR *, gd1_mgmt_friend_update*);
 extern  bool_t xdr_gd1_mgmt_friend_update_rsp (XDR *, gd1_mgmt_friend_update_rsp*);
+extern  bool_t xdr_gd1_mgmt_brick_op_req (XDR *, gd1_mgmt_brick_op_req*);
+extern  bool_t xdr_gd1_mgmt_brick_op_rsp (XDR *, gd1_mgmt_brick_op_rsp*);
 
 #else /* K&R C */
 extern bool_t xdr_glusterd_volume_status ();
@@ -220,6 +243,8 @@ extern bool_t xdr_gd1_mgmt_commit_op_req ();
 extern bool_t xdr_gd1_mgmt_commit_op_rsp ();
 extern bool_t xdr_gd1_mgmt_friend_update ();
 extern bool_t xdr_gd1_mgmt_friend_update_rsp ();
+extern bool_t xdr_gd1_mgmt_brick_op_req ();
+extern bool_t xdr_gd1_mgmt_brick_op_rsp ();
 
 #endif /* K&R C */
 
@@ -227,4 +252,4 @@ extern bool_t xdr_gd1_mgmt_friend_update_rsp ();
 }
 #endif
 
-#endif /* !_GLUSTERD1_H_RPCGEN */
+#endif /* !_GLUSTERD1-XDR_H_RPCGEN */

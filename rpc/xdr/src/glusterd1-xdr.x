@@ -111,3 +111,16 @@ struct gd1_mgmt_friend_update_rsp {
         int     op_ret;
         int     op_errno;
 }  ;
+
+struct gd1_mgmt_brick_op_req {
+        string  name<>;
+        int     op;
+        opaque  input<>;
+} ;
+
+struct gd1_mgmt_brick_op_rsp {
+        int     op_ret;
+        int     op_errno;
+        opaque  output<>;
+        string  op_errstr<>;
+} ;

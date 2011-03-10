@@ -654,3 +654,31 @@ gf_xdr_from_cli_fsm_log_rsp (struct iovec outmsg, void *args)
         return xdr_serialize_generic (outmsg, (void *)args,
                                       (xdrproc_t)xdr_gf1_cli_fsm_log_rsp);
 }
+
+ssize_t
+gf_xdr_to_cli_stats_volume_req (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_stats_volume_req);
+}
+
+ssize_t
+gf_xdr_from_cli_stats_volume_req (struct iovec outmsg, void *args)
+{
+        return xdr_serialize_generic (outmsg, (void *)args,
+                                     (xdrproc_t)xdr_gf1_cli_stats_volume_req);
+}
+
+ssize_t
+gf_xdr_to_cli_stats_volume_rsp (struct iovec inmsg, void *args)
+{
+        return xdr_to_generic (inmsg, (void *)args,
+                               (xdrproc_t)xdr_gf1_cli_stats_volume_rsp);
+}
+
+ssize_t
+gf_xdr_from_cli_stats_volume_rsp (struct iovec outmsg, void *args)
+{
+        return xdr_serialize_generic (outmsg, (void *)args,
+                                      (xdrproc_t)xdr_gf1_cli_stats_volume_rsp);
+}
