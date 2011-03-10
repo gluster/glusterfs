@@ -18,6 +18,7 @@ from gconf import gconf
 import repce
 from repce import RepceServer, RepceClient
 from master import GMaster
+import syncdutils
 
 UrlRX  = re.compile('\A(\w+)://(.*)')
 HostRX = re.compile('[a-z\d](?:[a-z\d.-]*[a-z\d])?', re.I)
@@ -287,12 +288,15 @@ class AbstractUrl(object):
     def canonical_path(self):
         return self.path
 
-    def get_url(self, canonical=False):
+    def get_url(self, canonical=False, escaped=False):
         if canonical:
             pa = self.canonical_path()
         else:
             pa = self.path
-        return "://".join((self.scheme(), pa))
+        u = "://".join((self.scheme(), pa))
+        if escaped:
+            u = syncdutils.escape(u)
+        return u
 
     @property
     def url(self):
