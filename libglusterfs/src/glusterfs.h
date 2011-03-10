@@ -343,6 +343,7 @@ typedef enum {
         GF_EVENT_TRANSPORT_CONNECTED,
         GF_EVENT_VOLFILE_MODIFIED,
         GF_EVENT_GRAPH_NEW,
+        GF_EVENT_TRANSLATOR_INFO,
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 

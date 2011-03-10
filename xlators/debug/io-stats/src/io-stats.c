@@ -43,6 +43,8 @@
 #include "glusterfs.h"
 #include "xlator.h"
 #include "io-stats-mem-types.h"
+#include <stdarg.h>
+#include "defaults.h"
 
 struct ios_lat {
         double  min;
@@ -80,6 +82,23 @@ struct ios_fd {
         struct timeval  opened_at;
 };
 
+typedef enum {
+        IOS_DUMP_TYPE_NONE = 0,
+        IOS_DUMP_TYPE_FILE = 1,
+        IOS_DUMP_TYPE_DICT = 2,
+        IOS_DUMP_TYPE_MAX  = 3
+} ios_dump_type_t;
+
+struct ios_dump_args {
+        ios_dump_type_t type;
+        union {
+                FILE *logfp;
+                dict_t *dict;
+        } u;
+};
+
+typedef int (*block_dump_func) (xlator_t *, struct ios_dump_args*,
+                                    int , int , uint64_t ) ;
 
 struct ios_local {
         struct timeval  wind_at;
@@ -219,10 +238,9 @@ ios_fd_ctx_set (fd_t *fd, xlator_t *this, struct ios_fd *iosfd)
                 gf_log (this->name, GF_LOG_NORMAL, fmt);        \
         } while (0)
 
-
 int
-io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
-                      struct timeval *now, int interval, FILE *logfp)
+io_stats_dump_global_to_logfp (xlator_t *this, struct ios_global_stats *stats,
+                               struct timeval *now, int interval, FILE* logfp)
 {
         int    i = 0;
 
@@ -265,17 +283,200 @@ io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
         return 0;
 }
 
+int
+io_stats_dump_global_to_dict (xlator_t *this, struct ios_global_stats *stats,
+                              struct timeval *now, int interval, dict_t *dict)
+{
+        int             ret = 0;
+        char            key[256] = {0};
+        uint64_t        sec = 0;
+        int             i = 0;
+        uint64_t        count = 0;
+
+        GF_ASSERT (stats);
+        GF_ASSERT (now);
+        GF_ASSERT (dict);
+        GF_ASSERT (this);
+
+        if (interval == -1)
+                snprintf (key, sizeof (key), "cumulative");
+        else
+                snprintf (key, sizeof (key), "interval");
+        ret = dict_set_int32 (dict, key, interval);
+        if (ret)
+                gf_log (this->name, GF_LOG_ERROR, "failed to set "
+                        "interval %d", interval);
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%d-duration", interval);
+        sec = (uint64_t) (now->tv_sec - stats->started_at.tv_sec);
+        ret = dict_set_uint64 (dict, key, sec);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set "
+                        "duration(%d) - %"PRId64, interval, sec);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%d-total-read", interval);
+        ret = dict_set_uint64 (dict, key, stats->data_read);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set total "
+                       "read(%d) - %"PRId64, interval, stats->data_read);
+                goto out;
+        }
+
+        memset (key, 0, sizeof (key));
+        snprintf (key, sizeof (key), "%d-total-write", interval);
+        ret = dict_set_uint64 (dict, key, stats->data_written);
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to set total "
+                        "write(%d) - %"PRId64, interval, stats->data_written);
+                goto out;
+        }
+        for (i = 0; i < 32; i++) {
+                if (stats->block_count_read[i]) {
+                        memset (key, 0, sizeof (key));
+                        snprintf (key, sizeof (key), "%d-read-%d", interval,
+                                  (1 << i));
+                        count = stats->block_count_read[i];
+                        ret = dict_set_uint64 (dict, key, count);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "set read-%db+, with: %"PRId64,
+                                        (1<<i), count);
+                                goto out;
+                        }
+                }
+        }
+
+        for (i = 0; i < 32; i++) {
+                if (stats->block_count_write[i]) {
+                        snprintf (key, sizeof (key), "%d-write-%d", interval,
+                                  (1<<i));
+                        count = stats->block_count_write[i];
+                        ret = dict_set_uint64 (dict, key, count);
+                        if (ret) {
+                                gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                        "set write-%db+, with: %"PRId64,
+                                        (1<<i), count);
+                                goto out;
+                        }
+                }
+        }
+
+        for (i = 0; i < GF_FOP_MAXVALUE; i++) {
+                if (stats->fop_hits[i] == 0)
+                        continue;
+                snprintf (key, sizeof (key), "%d-%d-hits", interval, i);
+                ret = dict_set_uint64 (dict, key, stats->fop_hits[i]);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to "
+                                "set %s-fop-hits: %"PRIu64, gf_fop_list[i],
+                                stats->fop_hits[i]);
+                        goto out;
+                }
+
+                if (stats->latency[i].avg == 0)
+                        continue;
+                snprintf (key, sizeof (key), "%d-%d-avglatency", interval, i);
+                ret = dict_set_double (dict, key, stats->latency[i].avg);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to set %s "
+                                "avglatency(%d) with %f", gf_fop_list[i],
+                                interval, stats->latency[i].avg);
+                        goto out;
+                }
+                snprintf (key, sizeof (key), "%d-%d-minlatency", interval, i);
+                ret = dict_set_double (dict, key, stats->latency[i].min);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to set %s "
+                                "minlatency(%d) with %f", gf_fop_list[i],
+                                interval, stats->latency[i].min);
+                        goto out;
+                }
+                snprintf (key, sizeof (key), "%d-%d-maxlatency", interval, i);
+                ret = dict_set_double (dict, key, stats->latency[i].max);
+                if (ret) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to set %s "
+                                "maxlatency(%d) with %f", gf_fop_list[i],
+                                interval, stats->latency[i].max);
+                        goto out;
+                }
+        }
+out:
+        gf_log (this->name, GF_LOG_DEBUG, "returning %d", ret);
+        return ret;
+}
 
 int
-io_stats_dump (xlator_t *this, char *filename, inode_t *inode,
-               const char *path)
+io_stats_dump_global (xlator_t *this, struct ios_global_stats *stats,
+                      struct timeval *now, int interval,
+                      struct ios_dump_args *args)
+{
+        int     ret = -1;
+
+        GF_ASSERT (args);
+        GF_ASSERT (now);
+        GF_ASSERT (stats);
+        GF_ASSERT (this);
+
+        switch (args->type) {
+        case IOS_DUMP_TYPE_FILE:
+                ret = io_stats_dump_global_to_logfp (this, stats, now,
+                                                     interval, args->u.logfp);
+        break;
+        case IOS_DUMP_TYPE_DICT:
+                ret = io_stats_dump_global_to_dict (this, stats, now,
+                                                    interval, args->u.dict);
+        break;
+        default:
+                GF_ASSERT (0);
+                ret = -1;
+        break;
+        }
+        return ret;
+}
+
+int
+ios_dump_args_init (struct ios_dump_args *args, ios_dump_type_t type,
+                    void *output)
+{
+        int             ret = 0;
+
+        GF_ASSERT (args);
+        GF_ASSERT (type > IOS_DUMP_TYPE_NONE && type < IOS_DUMP_TYPE_MAX);
+        GF_ASSERT (output);
+
+        args->type = type;
+        switch (args->type) {
+        case IOS_DUMP_TYPE_FILE:
+                args->u.logfp = output;
+                break;
+        case IOS_DUMP_TYPE_DICT:
+                args->u.dict = output;
+                break;
+        default:
+                GF_ASSERT (0);
+                ret = -1;
+        }
+
+        return ret;
+}
+
+int
+io_stats_dump (xlator_t *this, struct ios_dump_args *args)
 {
         struct ios_conf         *conf = NULL;
         struct ios_global_stats  cumulative = {0, };
         struct ios_global_stats  incremental = {0, };
         int                      increment = 0;
         struct timeval           now;
-        FILE                    *logfp = NULL;
+
+        GF_ASSERT (this);
+        GF_ASSERT (args);
+        GF_ASSERT (args->type > IOS_DUMP_TYPE_NONE);
+        GF_ASSERT (args->type < IOS_DUMP_TYPE_MAX);
 
         conf = this->private;
 
@@ -292,12 +493,9 @@ io_stats_dump (xlator_t *this, char *filename, inode_t *inode,
         }
         UNLOCK (&conf->lock);
 
-        logfp = fopen (filename, "w+");
-        io_stats_dump_global (this, &cumulative, &now, -1, logfp);
-        io_stats_dump_global (this, &incremental, &now, increment, logfp);
+        io_stats_dump_global (this, &cumulative, &now, -1, args);
+        io_stats_dump_global (this, &incremental, &now, increment, args);
 
-        if (logfp)
-                fclose (logfp);
         return 0;
 }
 
@@ -1285,10 +1483,12 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
                 inode_t        *inode;
                 const char     *path;
         } *stub;
-        xlator_t   *this = NULL;
-        inode_t    *inode = NULL;
-        const char *path = NULL;
-        char       *filename = NULL;
+        xlator_t             *this = NULL;
+        inode_t              *inode = NULL;
+        const char           *path = NULL;
+        char                 *filename = NULL;
+        FILE                 *logfp = NULL;
+        struct ios_dump_args args = {0};
 
         stub  = data;
         this  = stub->this;
@@ -1300,7 +1500,18 @@ conditional_dump (dict_t *dict, char *key, data_t *value, void *data)
         memcpy (filename, data_to_str (value), value->len);
 
         if (fnmatch ("*io*stat*dump", key, 0) == 0) {
-                io_stats_dump (this, filename, inode, path);
+
+                logfp = fopen (filename, "w+");
+                GF_ASSERT (logfp);
+                if (!logfp) {
+                        gf_log (this->name, GF_LOG_ERROR, "failed to open %s "
+                                "for writing", filename);
+                        return;
+                }
+                (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_FILE,
+                                           logfp);
+                io_stats_dump (this, &args);
+                fclose (logfp);
         }
 }
 
@@ -1732,6 +1943,32 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                                     " DEBUG|WARNING|ERROR|CRITICAL|NONE|TRACE");
         else
                 ret = 0;
+        return ret;
+}
+
+int
+notify (xlator_t *this, int32_t event, void *data, ...)
+{
+        int          ret = 0;
+        struct ios_dump_args args = {0};
+        dict_t       *output = NULL;
+        va_list ap;
+
+        va_start (ap, data);
+        output = va_arg (ap, dict_t*);
+        va_end (ap);
+        switch (event) {
+        case GF_EVENT_TRANSLATOR_INFO:
+                (void) ios_dump_args_init (&args, IOS_DUMP_TYPE_DICT,
+                                           output);
+                ret = io_stats_dump (this, &args);
+                break;
+        default:
+                default_notify (this, event, data);
+                break;
+
+        }
+
         return ret;
 }
 
