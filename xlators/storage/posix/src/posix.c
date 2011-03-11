@@ -2363,6 +2363,8 @@ posix_readv (call_frame_t *frame, xlator_t *this,
                 op_errno = ENOENT;
         else if ((offset + vec.iov_len) == stbuf.ia_size)
                 op_errno = ENOENT;
+        else if (offset > stbuf.ia_size)
+                op_errno = ENOENT;
 
         op_ret = vec.iov_len;
 out:
