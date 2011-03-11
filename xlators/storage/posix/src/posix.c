@@ -2316,6 +2316,7 @@ posix_readv (call_frame_t *frame, xlator_t *this,
 
         iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (!iobuf) {
+                op_errno = ENOMEM;
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory.");
                 goto out;
