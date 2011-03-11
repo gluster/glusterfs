@@ -4,4 +4,4 @@ prefix="@prefix@"
 exec_prefix="@exec_prefix@"
 libexecdir=`eval echo "@libexecdir@"`
 
-PYTHONPATH="$libexecdir"/glusterfs/python exec @PYTHON@ -c "from syncdaemon import gsyncd; gsyncd.main()" -c @sysconfdir@/glusterfs/gsyncd.conf "$@"
+exec @PYTHON@ "$libexecdir"/glusterfs/python/syncdaemon/gsyncd.py "$@"
