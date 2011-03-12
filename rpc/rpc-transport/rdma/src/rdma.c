@@ -3463,7 +3463,7 @@ rdma_handle_successful_send_completion (rdma_peer_t *peer, struct ibv_wc *wc)
         }
 
         ret = rdma_pollin_notify (peer, post);
-        if (ret == -1) {
+        if ((ret == -1) && (peer != NULL)) {
                 rpc_transport_disconnect (peer->trans);
         }
 
