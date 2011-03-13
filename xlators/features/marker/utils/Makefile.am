@@ -1,6 +1,6 @@
 SUBDIRS = syncdaemon
 
-gsyncddir = $(libexecdir)
+gsyncddir = $(libexecdir)/glusterfs
 
 gsyncd_SCRIPTS = gsyncd
 
