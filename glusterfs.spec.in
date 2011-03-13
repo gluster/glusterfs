@@ -2,7 +2,7 @@
 # a descriptive suffix to identify who owns or what the change represents
 # e.g. release_version 2.MSW
 %define release 1%{?dist}
-%define _libexecdir %{_prefix}/local/libexec
+%define _libexecdir %{_prefix}/local/libexec/glusterfs
 
 # if you wish to compile an rpm without rdma support, compile like this...
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without rdma
