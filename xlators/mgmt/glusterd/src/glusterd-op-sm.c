@@ -6383,25 +6383,10 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr)
 
         GF_ASSERT (dict);
         GF_ASSERT (op_errstr);
+        GF_ASSERT (op > GD_OP_NONE);
+        GF_ASSERT (op < GD_OP_MAX);
 
         switch (op) {
-        case GD_OP_CREATE_VOLUME:
-        case GD_OP_START_BRICK:
-        case GD_OP_STOP_BRICK:
-        case GD_OP_DELETE_VOLUME:
-        case GD_OP_START_VOLUME:
-        case GD_OP_RENAME_VOLUME:
-        case GD_OP_DEFRAG_VOLUME:
-        case GD_OP_ADD_BRICK:
-        case GD_OP_REPLACE_BRICK:
-        case GD_OP_SET_VOLUME:
-        case GD_OP_RESET_VOLUME:
-        case GD_OP_SYNC_VOLUME:
-        case GD_OP_LOG_FILENAME:
-        case GD_OP_LOG_LOCATE:
-        case GD_OP_LOG_ROTATE:
-                //nothing to be done
-                break;
         case GD_OP_STOP_VOLUME:
                 ret = glusterd_bricks_select_stop_volume (dict, op_errstr);
                 break;
@@ -6415,8 +6400,6 @@ glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr)
                 break;
 
         default:
-                gf_log ("", GF_LOG_ERROR, "Unknown op %d", op);
-                ret = -1;
                 break;
          }
 
