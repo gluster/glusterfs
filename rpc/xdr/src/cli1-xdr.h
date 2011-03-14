@@ -440,6 +440,7 @@ struct gf1_cli_gsync_set_rsp {
 	char *master;
 	char *slave;
 	char *gsync_prefix;
+        char *glusterd_workdir;
 };
 typedef struct gf1_cli_gsync_set_rsp gf1_cli_gsync_set_rsp;
 

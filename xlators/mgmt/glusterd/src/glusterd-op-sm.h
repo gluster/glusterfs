@@ -25,6 +25,10 @@
 #include "config.h"
 #endif
 
+#ifndef GSYNC_CONF
+#define GSYNC_CONF "gsync/gsyncd.conf"
+#endif
+
 #include <pthread.h>
 #include <uuid/uuid.h>
 

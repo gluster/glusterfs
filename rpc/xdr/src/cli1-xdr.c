@@ -712,6 +712,9 @@ xdr_gf1_cli_gsync_set_rsp (XDR *xdrs, gf1_cli_gsync_set_rsp *objp)
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->gsync_prefix, ~0))
 		 return FALSE;
+        if (!xdr_string (xdrs, &objp->glusterd_workdir, ~0))
+                return FALSE;
+
 	return TRUE;
 }
 

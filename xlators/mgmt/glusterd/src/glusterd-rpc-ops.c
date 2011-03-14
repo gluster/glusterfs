@@ -56,6 +56,13 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
         void            *cli_rsp = NULL;
         dict_t          *ctx = NULL;
         char            *free_ptr = NULL;
+        glusterd_conf_t *conf = NULL;
+
+        GF_ASSERT (THIS);
+
+        conf = THIS->private;
+
+        GF_ASSERT (conf);
 
         switch (op) {
         case GD_OP_CREATE_VOLUME:
@@ -264,6 +271,7 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 rsp.op_name = "";
                 rsp.master = "";
                 rsp.slave = "";
+                rsp.glusterd_workdir = gf_strdup (conf->workdir);
                 rsp.gsync_prefix = gf_strdup (GSYNCD_PREFIX);
                 if (ctx) {
                         ret = dict_get_str (ctx, "errstr",

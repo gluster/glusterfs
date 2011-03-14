@@ -1672,33 +1672,53 @@ volname_from_master (char *master)
 }
 
 int
-gsync_get_pid_file (char *pidfile, char *master, char *slave)
+glusterd_gsync_get_pid_file (char *pidfile, char *master, char *slave)
 {
-        int     ret      = -1;
-        int     i        = 0;
-        char    str[256] = {0, };
+        FILE               *in = NULL;
+        char                buff[PATH_MAX] = {0, };
+        char                cmd[PATH_MAX] = {0, };
+        char               *ptr = NULL;
+        char                buffer[PATH_MAX] = {0, };
+        char                pidfolder[PATH_MAX] = {0, };
+        glusterd_conf_t    *priv  = NULL;
 
-        GF_VALIDATE_OR_GOTO ("gsync", pidfile, out);
-        GF_VALIDATE_OR_GOTO ("gsync", master, out);
-        GF_VALIDATE_OR_GOTO ("gsync", slave, out);
+        GF_ASSERT (THIS);
 
-        i = 0;
-        //change '/' to '-'
-        while (slave[i]) {
-                (slave[i] == '/') ? (str[i] = '-') : (str[i] = slave[i]);
-                i++;
+        priv = THIS->private;
+
+        snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd --canonicalize-escape-url"
+                                     " %s %s", master, slave);
+        if (!(in = popen(cmd, "r"))) {
+                gf_log ("", GF_LOG_ERROR, "popen failed");
+                return -1;
         }
 
-        ret = snprintf (pidfile, 1024, "/etc/glusterd/gsync/%s/%s.pid",
-                        master, str);
-        if (ret <= 0) {
-                ret = -1;
-                goto out;
+        ptr = fgets(buff, sizeof(buff), in);
+        if (ptr) {
+                buff[strlen(buff)-1]='\0'; //strip off \n
+                snprintf (buffer, PATH_MAX, "%s/gsync/%s", priv->workdir, buff);
+                strncpy (pidfolder, buffer, PATH_MAX);
+        }
+        else {
+                gf_log ("", GF_LOG_ERROR, "popen failed");
+                return -1;
         }
 
-        ret = 0;
-out:
-        return ret;
+        memset (buff, 0, PATH_MAX);
+        memset (buffer, 0, PATH_MAX);
+
+        ptr = fgets(buff, sizeof(buff), in);
+        if (ptr) {
+                buff[strlen(buff)-1]='\0'; //strip off \n
+                snprintf (buffer, PATH_MAX, "%s/%s", pidfolder, buff);
+                strncpy (pidfile, buffer, PATH_MAX);
+        }
+        else {
+                gf_log ("", GF_LOG_ERROR, "popen failed");
+                return -1;
+        }
+
+        return 0;
 }
 
 /* status: return 0 when gsync is running
@@ -1708,16 +1728,19 @@ int
 gsync_status (char *master, char *slave, int *status)
 {
         int     ret             = -1;
-        char    pidfile[1024]   = {0,};
+        char    pidfile[PATH_MAX]   = {0,};
         FILE    *file           = NULL;
 
         GF_VALIDATE_OR_GOTO ("gsync", master, out);
         GF_VALIDATE_OR_GOTO ("gsync", slave, out);
         GF_VALIDATE_OR_GOTO ("gsync", status, out);
 
-        ret = gsync_get_pid_file (pidfile, master, slave);
-        if (ret == -1)
+        ret = glusterd_gsync_get_pid_file (pidfile, master, slave);
+        if (ret == -1) {
+                ret = -1;
+                gf_log ("", GF_LOG_WARNING, "failed to create the pidfile string");
                 goto out;
+        }
 
         file = fopen (pidfile, "r+");
         if (file) {
@@ -3532,8 +3555,7 @@ stop_gsync (char *master, char *slave, char **op_errstr)
                 goto out;
         }
 
-        //change '/' to '-'
-        ret = gsync_get_pid_file (pidfile, master, slave);
+        ret = glusterd_gsync_get_pid_file (pidfile, master, slave);
         if (ret == -1) {
                 ret = -1;
                 gf_log ("", GF_LOG_WARNING, "failed to create the pidfile string");
@@ -3577,6 +3599,21 @@ gsync_config_set (char *master, char *slave,
         char            *op_name = NULL;
         char            *op_value = NULL;
         char            cmd[1024] = {0,};
+        glusterd_conf_t *priv   = NULL;
+
+        if (THIS == NULL) {
+                gf_log ("", GF_LOG_ERROR, "THIS of glusterd not present");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                goto out;
+        }
+
+        priv = THIS->private;
+
+        if (priv == NULL) {
+                gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                goto out;
+        }
 
         ret = dict_get_str (dict, "op_name", &op_name);
         if (ret < 0) {
@@ -3600,8 +3637,9 @@ gsync_config_set (char *master, char *slave,
                 goto out;
         }
 
-        ret = snprintf (cmd, 1024, GSYNCD_PREFIX "/gsyncd %s %s "
-                        "--config-set %s %s", master, slave, op_name, op_value);
+        ret = snprintf (cmd, 1024, GSYNCD_PREFIX"/gsyncd -c %s/%s %s %s"
+                                 "--config-set %s %s", priv->workdir,
+                             GSYNC_CONF, master, slave, op_name, op_value);
         if (ret <= 0) {
                 gf_log ("", GF_LOG_WARNING, "failed to "
                         "construct the gsyncd command");
@@ -3635,7 +3673,22 @@ gsync_config_del (char *master, char *slave,
 {
         int32_t         ret     = -1;
         char            *op_name = NULL;
-        char            cmd[1024] = {0,};
+        char            cmd[PATH_MAX] = {0,};
+        glusterd_conf_t *priv   = NULL;
+
+        if (THIS == NULL) {
+                gf_log ("", GF_LOG_ERROR, "THIS of glusterd not present");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                goto out;
+        }
+
+        priv = THIS->private;
+
+        if (priv == NULL) {
+                gf_log ("", GF_LOG_ERROR, "priv of glusterd not present");
+                *op_errstr = gf_strdup ("Error! Glusterd cannot start gsyncd");
+                goto out;
+        }
 
         ret = dict_get_str (dict, "op_name", &op_name);
         if (ret < 0) {
@@ -3648,8 +3701,9 @@ gsync_config_del (char *master, char *slave,
                 goto out;
         }
 
-        ret = snprintf (cmd, 4096, GSYNCD_PREFIX "/gsyncd %s %s "
-                        "--config-del %s", master, slave, op_name);
+        ret = snprintf (cmd, PATH_MAX, GSYNCD_PREFIX"/gsyncd -c %s/%s %s %s"
+                                         " --config-del %s ", priv->workdir,
+                                         GSYNC_CONF, master, slave, op_name);
         if (ret <= 0) {
                 gf_log ("", GF_LOG_WARNING, "failed to "
                         "construct the gsyncd command");
@@ -3675,85 +3729,6 @@ out:
         return ret;
 }
 
-int
-gsync_config_get (char *master, char *slave,
-                  dict_t *dict, char **op_errstr)
-{
-        int32_t         ret     = -1;
-        char            *op_name = NULL;
-        char            cmd[1024] = {0,};
-
-        ret = dict_get_str (dict, "op_name", &op_name);
-        if (ret < 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to get "
-                        "the option for %s %s", master, slave);
-
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-
-        ret = snprintf (cmd, 4096, GSYNCD_PREFIX "/gsyncd %s %s "
-                        "--config-get %s", master, slave, op_name);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to "
-                        "construct the gsyncd command");
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-
-        ret = system (cmd);
-        if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to get "
-                        "%s option for %s %s peer", op_name,
-                        master, slave);
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-        ret = 0;
-        *op_errstr = gf_strdup ("config-get successful");
-out:
-        return ret;
-}
-
-int
-gsync_config_get_all (char *master, char *slave, char **op_errstr)
-{
-        int32_t         ret     = -1;
-        char            cmd[1024] = {0,};
-
-        ret = snprintf (cmd, 4096, GSYNCD_PREFIX "/gsyncd %s %s "
-                        "config-get-all", master, slave);
-        if (ret <= 0) {
-                gf_log ("", GF_LOG_WARNING, "failed to "
-                        "construct the gsyncd command "
-                        "for config-get-all");
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-
-        ret = system (cmd);
-        if (ret == -1) {
-                gf_log ("", GF_LOG_WARNING, "failed to get  "
-                        "all options for %s %s peer", master,
-                        slave);
-                *op_errstr = gf_strdup ("configure command "
-                                        "failed, please check "
-                                        "the log-file\n");
-                goto out;
-        }
-        ret = 0;
-        *op_errstr = gf_strdup ("config-get successful");
-out:
-        return ret;
-}
 
 int
 gsync_configure (char *master, char *slave,
@@ -3781,15 +3756,10 @@ gsync_configure (char *master, char *slave,
                 goto out;
         }
 
-        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET) {
-                ret = gsync_config_get (master, slave, dict, op_errstr);
+        if ((config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) ||
+           (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET))
                 goto out;
-        }
-
-        if (config_type == GF_GSYNC_OPTION_TYPE_CONFIG_GET_ALL) {
-                ret = gsync_config_get_all (master, slave, op_errstr);
-                goto out;
-        } else {
+         else {
                 gf_log ("", GF_LOG_WARNING, "Invalid config type");
                 *op_errstr = gf_strdup ("Invalid config type");
                 ret = -1;
