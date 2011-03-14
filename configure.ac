@@ -91,11 +91,6 @@ AC_CONFIG_FILES([Makefile
 		xlators/features/trash/src/Makefile
 		xlators/features/quota/Makefile
 		xlators/features/quota/src/Makefile
-                xlators/features/marker/Makefile
-                xlators/features/marker/src/Makefile
-                xlators/features/marker/utils/Makefile
-                xlators/features/marker/utils/gsyncd
-                xlators/features/marker/utils/syncdaemon/Makefile
 		xlators/features/read-only/Makefile
 		xlators/features/read-only/src/Makefile
 		xlators/features/mac-compat/Makefile
@@ -289,7 +284,8 @@ AC_ARG_ENABLE([georeplication],
 BUILD_SYNCDAEMON=no
 case $host_os in
      linux*)
-#do nothing
+#disable geo replication for release-3.1
+	enable_georeplication=no
        ;;
      *)
 #disabling geo replication for non-linux platforms
