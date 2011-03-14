@@ -80,7 +80,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         defrag->num_files_lookedup += 1;
 
                 if (!(S_ISREG (stbuf.st_mode) &&
-                      ((stbuf.st_mode & 01000) == 01000)))
+                      ((stbuf.st_mode & S_ISVTX) == S_ISVTX)))
                         continue;
 
                 /* If the file is open, don't run rebalance on it */
@@ -95,7 +95,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                           entry->d_name,
                           (unsigned long long)stbuf.st_size);
 
-                dst_fd = creat (tmp_filename, (stbuf.st_mode & ~01000));
+                dst_fd = creat (tmp_filename, (stbuf.st_mode & ~S_ISVTX));
                 if (dst_fd == -1)
                         continue;
 
@@ -130,7 +130,7 @@ gf_glusterd_rebalance_move_data (glusterd_volinfo_t *volinfo, const char *dir)
                         continue;
                 }
 
-                ret = fchmod (dst_fd, (stbuf.st_mode & ~01000));
+                ret = fchmod (dst_fd, stbuf.st_mode & ~S_ISVTX);
                 if (ret) {
                         gf_log ("", GF_LOG_WARNING,
                                 "failed to set the mode of file %s: %s",
