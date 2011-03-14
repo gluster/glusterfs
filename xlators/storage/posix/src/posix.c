@@ -3513,6 +3513,14 @@ __add_array (int32_t *dest, int32_t *src, int count)
 	}
 }
 
+static void
+__add_long_array (int64_t *dest, int64_t *src, int count)
+{
+        int i = 0;
+        for (i = 0; i < count; i++) {
+                dest[i] = hton64 (ntoh64 (dest[i]) + ntoh64 (src[i]));
+        }
+}
 
 /**
  * xattrop - xattr operations - for internal use by GlusterFS
@@ -3526,7 +3534,7 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
             loc_t *loc, fd_t *fd, gf_xattrop_flags_t optype, dict_t *xattr)
 {
 	char            *real_path = NULL;
-	int32_t         *array = NULL;
+        char            *array     = NULL;
 	int              size = 0;
 	int              count = 0;
 
@@ -3574,8 +3582,8 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
         }
 
 	while (trav && inode) {
-		count = trav->value->len / sizeof (int32_t);
-		array = GF_CALLOC (count, sizeof (int32_t),
+		count = trav->value->len;
+		array = GF_CALLOC (count, sizeof (char),
                                    gf_posix_mt_int32_t);
 
                 LOCK (&inode->lock);
@@ -3616,8 +3624,13 @@ do_xattrop (call_frame_t *frame, xlator_t *this,
                         switch (optype) {
 
                         case GF_XATTROP_ADD_ARRAY:
-                                __add_array (array, (int32_t *) trav->value->data, 
+                                __add_array ((int32_t *) array, (int32_t *) trav->value->data,
                                              trav->value->len / 4);
+                                break;
+
+                        case GF_XATTROP_ADD_ARRAY64:
+                                __add_long_array ((int64_t *) array, (int64_t *) trav->value->data,
+                                                  trav->value->len / 8);
                                 break;
 
                         default:
