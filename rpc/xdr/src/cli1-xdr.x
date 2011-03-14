@@ -324,6 +324,7 @@ struct gf1_cli_gsync_set_rsp {
         string  master<>;
         string  slave<>;
         string  gsync_prefix<>;
+        string  glusterd_workdir<>;
 };
 
 struct gf1_cli_stats_volume_req {
