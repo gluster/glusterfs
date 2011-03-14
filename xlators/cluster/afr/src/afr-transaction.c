@@ -308,24 +308,25 @@ afr_set_piggyback_dict (afr_private_t *priv, dict_t *xattr, int32_t **pending,
         int ret = 0;
         int *arr = NULL;
         int index = 0;
+        size_t pending_xattr_size = 3 * sizeof (int32_t);
+                                 /* 3 = data+metadata+entry */
 
         index = afr_index_for_transaction_type (type);
 
         for (i = 0; i < priv->child_count; i++) {
-                arr = GF_CALLOC (3 * sizeof (int32_t), priv->child_count,
+                arr = GF_CALLOC (1, pending_xattr_size,
                                  gf_afr_mt_char);
                 if (!arr) {
                         ret = -1;
                         goto out;
                 }
 
-                memcpy (arr, pending[i], 3 * sizeof (int32_t));
+                memcpy (arr, pending[i], pending_xattr_size);
 
                 arr[index]++;
 
                 ret = dict_set_bin (xattr, priv->pending_key[i],
-                                    arr, 3 * sizeof (int32_t));
-                /* 3 = data+metadata+entry */
+                                    arr, pending_xattr_size);
 
                 if (ret < 0)
                         goto out;

@@ -118,7 +118,7 @@ afr_sh_print_pending_matrix (int32_t *pending_matrix[], xlator_t *this)
 void
 afr_sh_build_pending_matrix (afr_private_t *priv,
                              int32_t *pending_matrix[], dict_t *xattr[],
-			                 int child_count, afr_transaction_type type)
+			     int child_count, afr_transaction_type type)
 {
         int i, j, k;
 
