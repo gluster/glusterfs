@@ -179,6 +179,9 @@ int32_t
 cli_cmd_gsync_set_parse (const char **words, int wordcount, dict_t **opt);
 
 int32_t
+cli_cmd_quota_parse (const char **words, int wordcount, dict_t **opt);
+
+int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount,
                           dict_t **options);
 

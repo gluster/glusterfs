@@ -1304,6 +1304,131 @@ out:
         return ret;
 }
 
+int32_t
+print_limit_list (char *volname, char *limit_list)
+{
+        char     mount [1024]   = {0, };
+        char     cmd_str [1024] = {0, };
+        char     path [1024]    = {0, };
+        char     ret_str [1024] = {0, };
+        char     value [1024]   = {0, };
+        char     umount_str [1024] = {0, };
+        int64_t  size           = 0;
+        int64_t  limit_value    = 0;
+        int32_t  i, j, k, len, ret;
+
+        if (volname == NULL || limit_list == NULL)
+                return -1;
+
+        snprintf (mount, sizeof (mount), "/etc/glusterd/mountlist/%s", volname);
+
+        snprintf (cmd_str, sizeof (cmd_str), "mkdir -p %s", mount);
+
+        snprintf (umount_str, sizeof (umount_str), "umount %s>>/dev/null 2>&1", mount);
+        system (umount_str);
+
+        ret = system (cmd_str);
+        if (ret) {
+                ret = -1;
+                goto out;
+        }
+
+        snprintf (cmd_str, sizeof (cmd_str), GFS_PREFIX "/sbin/glusterfs -s localhost "
+                  "--volfile-id %s %s", volname, mount);
+
+        ret = system (cmd_str);
+        if (ret) {
+                ret = -1;
+                goto out;
+        }
+
+        len = strlen (limit_list);
+
+        if (len == 0) {
+                cli_out ("quota limit not set ");
+                goto out;
+        }
+
+        i = 0;
+
+        cli_out ("\tpath\t\t  limit_set\t     size");
+        cli_out ("-----------------------------------------------------------"
+                 "-----------------------");
+        while (i < len) {
+                j = 0;
+                k = 0;
+
+                while (limit_list [i] != ':') {
+                        path [k++] = limit_list [i++];
+                }
+                path [k] = '\0';
+
+                i++;  //skip ':'
+
+                while (limit_list [i] != ',' && limit_list [i] != '\0') {
+                        value [j++] = limit_list[i++];
+                }
+                value [j] = '\0';
+
+                memset (&cmd_str, 0, 1024);
+                snprintf (cmd_str, sizeof (cmd_str), "%s%s", mount, path);
+
+                ret = getxattr (cmd_str, "trusted.limit.list", (void *) ret_str, 4096);
+                if (ret < 0) {
+                        cli_out ("%-20s %10s", path, value);
+                } else {
+                        sscanf (ret_str, "%ld,%ld", &size, &limit_value);
+                        cli_out ("%-20s %10ld %20ld", path, limit_value, size);
+                }
+                i++;
+        }
+out:
+        system (umount_str);
+
+        return ret;
+}
+
+int
+gf_cli3_1_quota_cbk (struct rpc_req *req, struct iovec *iov,
+                     int count, void *myframe)
+{
+        gf1_cli_quota_rsp  rsp        = {0,};
+        int                ret        = 0;
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        ret = gf_xdr_to_cli_quota_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        if (rsp.op_ret &&
+            strcmp (rsp.op_errstr, "") == 0) {
+                cli_out ("command unsuccessful %s", rsp.op_errstr);
+                goto out;
+        }
+
+        if (rsp.type == GF_QUOTA_OPTION_TYPE_LIST) {
+                if (rsp.limit_list)
+                        print_limit_list (rsp.volname, rsp.limit_list);
+        } else {
+                gf_log ("cli", GF_LOG_NORMAL, "Received resp to quota command ");
+                if (rsp.op_errstr)
+                        cli_out ("%s", rsp.op_errstr);
+                else
+                        cli_out ("%s", "successful");
+        }
+
+out:
+        ret = rsp.op_ret;
+
+        cli_cmd_broadcast_response (ret);
+        return ret;
+}
+
 int
 gf_cli3_1_getspec_cbk (struct rpc_req *req, struct iovec *iov,
                        int count, void *myframe)
@@ -2257,6 +2382,46 @@ out:
 }
 
 int32_t
+gf_cli3_1_quota (call_frame_t *frame, xlator_t *this,
+                 void *data)
+{
+        gf1_cli_quota_req   req = {0,};
+        int                 ret = 0;
+        dict_t             *dict = NULL;
+
+        if (!frame || !this ||  !data) {
+                ret = -1;
+                goto out;
+        }
+
+        dict = data;
+
+        ret = dict_get_str (dict, "volname", &req.volname);
+
+        if (ret)
+                goto out;
+
+        ret = dict_allocate_and_serialize (dict,
+                                           &req.dict.dict_val,
+                                           (size_t *)&req.dict.dict_len);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to get serialized length of dict");
+                goto out;
+        }
+
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                               GLUSTER_CLI_QUOTA, NULL,
+                               gf_xdr_from_cli_quota_req,
+                               this, gf_cli3_1_quota_cbk);
+
+        GF_FREE (req.dict.dict_val);
+out:
+        return ret;
+}
+
+int32_t
 gf_cli3_1_pmap_b2p (call_frame_t *frame, xlator_t *this, void *data)
 {
         pmap_port_by_brick_req  req = {0,};
@@ -3007,7 +3172,9 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_RESET_VOLUME]     = {"RESET_VOLUME", gf_cli3_1_reset_volume},
         [GLUSTER_CLI_FSM_LOG]          = {"FSM_LOG", gf_cli3_1_fsm_log},
         [GLUSTER_CLI_GSYNC_SET]        = {"GSYNC_SET", gf_cli3_1_gsync_set},
-        [GLUSTER_CLI_PROFILE_VOLUME] = {"PROFILE_VOLUME", gf_cli3_1_profile_volume}
+        [GLUSTER_CLI_PROFILE_VOLUME]   = {"PROFILE_VOLUME", gf_cli3_1_profile_volume},
+        [GLUSTER_CLI_QUOTA]            = {"QUOTA", gf_cli3_1_quota},
+
 };
 
 struct rpc_clnt_program cli_prog = {
