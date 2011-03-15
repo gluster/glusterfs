@@ -49,7 +49,7 @@ extern ssize_t
 nfs_rpcsvc_socket_read (int sockfd, char *readaddr, size_t readsize);
 
 extern ssize_t
-nfs_rpcsvc_socket_write (int sockfd, char *buffer, size_t size);
+nfs_rpcsvc_socket_write (int sockfd, char *buffer, size_t size, int *eagain);
 
 extern int
 nfs_rpcsvc_socket_peername (int sockfd, char *hostname, int hostlen);

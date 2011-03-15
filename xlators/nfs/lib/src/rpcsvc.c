@@ -2555,6 +2555,7 @@ __nfs_rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
         ssize_t                 written = -1;
         char                    *writeaddr = NULL;
         size_t                  writesize = -1;
+        int                     eagain = 0;
 
         if (!conn)
                 return -1;
@@ -2562,6 +2563,7 @@ __nfs_rpcsvc_conn_data_poll_out (rpcsvc_conn_t *conn)
         /* Attempt transmission of each of the pending buffers */
         list_for_each_entry_safe (txbuf, tmp, &conn->txbufs, txlist) {
 tx_remaining:
+                eagain = 0;
                 writeaddr = (char *)(txbuf->buf.iov_base + txbuf->offset);
                 writesize = (txbuf->buf.iov_len - txbuf->offset);
 
@@ -2571,7 +2573,7 @@ tx_remaining:
                 }
 
                 written = nfs_rpcsvc_socket_write (conn->sockfd, writeaddr,
-                                                   writesize);
+                                                   writesize, &eagain);
                 if (txbuf->txbehave & RPCSVC_TXB_LAST) {
                         gf_log (GF_RPCSVC, GF_LOG_TRACE, "Last Tx Buf");
                         nfs_rpcsvc_socket_unblock_tx (conn->sockfd);
@@ -2600,12 +2602,21 @@ tx_remaining:
 
                         list_del (&txbuf->txlist);
                         mem_put (conn->txpool, txbuf);
-                } else
+                } else {
                         /* If the current buffer is incompletely tx'd, do not
                          * go to the head of the loop, since that moves us to
                          * the next buffer.
+                         *
+                         * BUT, if the current transmission exited due to EAGAIN
+                         * we need to leave the buffers where they are and come
+                         * back later for retransmission.
                          */
-                        goto tx_remaining;
+                        if (!eagain)
+                                goto tx_remaining;
+                        else
+                                break;
+                }
+
         }
 
         /* If we've broken out of the loop above then we must unblock
