@@ -1714,6 +1714,64 @@ out:
 }
 
 int
+glusterd_handle_quota (rpcsvc_request_t *req)
+{
+        int32_t                         ret = -1;
+        gf1_cli_quota_req               cli_req = {0,};
+        dict_t                         *dict = NULL;
+        int                             lock_fail = 0;
+        glusterd_op_t                   cli_op = GD_OP_QUOTA;
+
+        GF_ASSERT (req);
+
+        ret = glusterd_op_set_cli_op (cli_op);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to set cli op: %d",
+                        ret);
+                lock_fail = 1;
+                goto out;
+        }
+
+        if (!gf_xdr_to_cli_quota_req (req->msg[0], &cli_req)) {
+                //failed to decode msg;
+                req->rpc_err = GARBAGE_ARGS;
+                goto out;
+        }
+
+        if (cli_req.dict.dict_len) {
+                /* Unserialize the dictionary */
+                dict  = dict_new ();
+
+                ret = dict_unserialize (cli_req.dict.dict_val,
+                                        cli_req.dict.dict_len,
+                                        &dict);
+                if (ret < 0) {
+                        gf_log ("glusterd", GF_LOG_ERROR, "failed to "
+                                    "unserialize req-buffer to dictionary");
+                        goto out;
+                } else {
+                        dict->extra_stdfree = cli_req.dict.dict_val;
+                }
+        }
+        ret = glusterd_op_begin (req, GD_OP_QUOTA, dict, _gf_true);
+
+out:
+        glusterd_friend_sm ();
+        glusterd_op_sm ();
+
+        if (ret) {
+                if (dict)
+                        dict_unref (dict);
+                ret = glusterd_op_send_cli_response (cli_op, ret, 0, req,
+                                                     NULL, "operation failed");
+                if (!lock_fail)
+                        (void) glusterd_opinfo_unlock ();
+        }
+
+        return ret;
+}
+
+int
 glusterd_handle_set_volume (rpcsvc_request_t *req)
 {
         int32_t                         ret = -1;
@@ -3289,11 +3347,11 @@ glusterd_xfer_friend_remove_resp (rpcsvc_request_t *req, char *hostname, int por
         ret = glusterd_submit_reply (req, &rsp, NULL, 0, NULL,
                                      gd_xdr_serialize_mgmt_friend_rsp);
 
-
         gf_log ("glusterd", GF_LOG_NORMAL,
                 "Responded to %s (%d), ret: %d", hostname, port, ret);
         return ret;
 }
+
 
 int
 glusterd_xfer_friend_add_resp (rpcsvc_request_t *req, char *hostname, int port,
@@ -3680,7 +3738,9 @@ rpcsvc_actor_t gd_svc_cli_actors[] = {
         [GLUSTER_CLI_RESET_VOLUME]  = { "RESET_VOLUME", GLUSTER_CLI_RESET_VOLUME, glusterd_handle_reset_volume, NULL, NULL},
         [GLUSTER_CLI_FSM_LOG]       = { "FSM_LOG", GLUSTER_CLI_FSM_LOG, glusterd_handle_fsm_log, NULL, NULL},
         [GLUSTER_CLI_GSYNC_SET]     = { "GSYNC_SET", GLUSTER_CLI_GSYNC_SET, glusterd_handle_gsync_set, NULL, NULL},
-        [GLUSTER_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GLUSTER_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL}
+        [GLUSTER_CLI_PROFILE_VOLUME] = { "STATS_VOLUME", GLUSTER_CLI_PROFILE_VOLUME, glusterd_handle_cli_profile_volume, NULL, NULL},
+        [GLUSTER_CLI_QUOTA]         = { "QUOTA", GLUSTER_CLI_QUOTA, glusterd_handle_quota, NULL, NULL},
+
 };
 
 struct rpcsvc_program gd_svc_cli_prog = {

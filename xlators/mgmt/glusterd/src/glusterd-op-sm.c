@@ -3814,28 +3814,54 @@ out:
         return ret;
 }
 
-int
-glusterd_set_marker_gsync (char *master, char *value)
+int32_t
+glusterd_marker_dict_set (glusterd_volinfo_t *volinfo, char *value)
 {
-        char                    *volname = NULL;
-        glusterd_volinfo_t      *volinfo = NULL;
-        int                      ret     = -1;
+        int32_t          ret     = 0;
+        char            *marker_gsync = NULL;
+        gf_boolean_t     flag    = _gf_false;
+        char            *quota   = NULL;
 
-        volname = volname_from_master (master);
-
-        ret = glusterd_volinfo_find (volname, &volinfo);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Volume not Found");
-                ret = -1;
+        ret = gf_string2boolean (value, &flag);
+        if (ret < 0)
                 goto out;
+
+        if (flag == _gf_true) {
+                ret = dict_set_str (volinfo->dict, MARKER_VOL_KEY, value);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Setting dict failed");
+                        goto out;
+                }
+                goto create_vol;
         }
 
-        ret = dict_set_str (volinfo->dict, MARKER_VOL_KEY, value);
-        if (ret) {
-                gf_log ("", GF_LOG_ERROR, "Setting dict failed");
+        ret = glusterd_volinfo_get (volinfo, "marker_gsync", &marker_gsync);
+        if (ret)
+                return -1;
+
+        ret = glusterd_volinfo_get (volinfo, "features.quota", &quota);
+        if (ret)
+                return -1;
+
+        ret = gf_string2boolean (marker_gsync, &flag);
+        if (ret < 0)
                 goto out;
+
+        if (flag == _gf_false) {
+                ret = gf_string2boolean (marker_gsync, &flag);
+                if (ret < 0)
+                        goto out;
+
+                if (flag == _gf_false) {
+                        ret = dict_set_str (volinfo->dict, MARKER_VOL_KEY, value);
+                        if (ret) {
+                                gf_log ("", GF_LOG_ERROR, "Setting dict failed");
+                                goto out;
+                        }
+                }
         }
 
+create_vol:
         ret = glusterd_create_volfiles (volinfo);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to create volfile"
@@ -3862,6 +3888,32 @@ glusterd_set_marker_gsync (char *master, char *value)
 
         if (GLUSTERD_STATUS_STARTED == volinfo->status)
                 ret = glusterd_check_generate_start_nfs (volinfo);
+        ret = 0;
+out:
+        return ret;
+}
+
+int
+glusterd_set_marker_gsync (char *master, char *value)
+{
+        char                    *volname = NULL;
+        glusterd_volinfo_t      *volinfo = NULL;
+        int                      ret     = -1;
+
+        volname = volname_from_master (master);
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Volume not Found");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_marker_dict_set (volinfo, value);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Setting dict failed");
+                goto out;
+        }
 
 out:
         return ret;
@@ -3875,6 +3927,7 @@ glusterd_op_gsync_set (dict_t *dict)
         int32_t         ret     = -1;
         int32_t         type    = -1;
         dict_t          *ctx    = NULL;
+        char            *gsync_status = NULL;
         char            *op_errstr = NULL;
 
         ret = dict_get_int32 (dict, "type", &type);
@@ -3886,6 +3939,22 @@ glusterd_op_gsync_set (dict_t *dict)
                 goto out;
 
         if (type == GF_GSYNC_OPTION_TYPE_START) {
+                gsync_status = gf_strdup ("on");
+                if (!gsync_status) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                        op_errstr = gf_strdup ("gsync translator "
+                                                "couldnot be enabled");
+                        goto out;
+                }
+
+                ret = dict_set_str (dict, "marker_gsync", gsync_status);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to set dict");
+                        op_errstr = gf_strdup ("gsync translator "
+                                                "couldnot be enabled");
+                        goto out;
+                }
+
                 ret = glusterd_set_marker_gsync (master, "on");
                 if (ret != 0) {
                         gf_log ("", GF_LOG_WARNING, "marker start failed");
@@ -3896,6 +3965,21 @@ glusterd_op_gsync_set (dict_t *dict)
         }
 
         if (type == GF_GSYNC_OPTION_TYPE_STOP) {
+                gsync_status = gf_strdup ("off");
+                if (!gsync_status) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                        op_errstr = gf_strdup ("gsync translator "
+                                                "couldnot be enabled");
+                        goto out;
+                }
+
+                ret = dict_set_str (dict, "marker_gsync", gsync_status);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to set dict");
+                        op_errstr = gf_strdup ("gsync translator "
+                                                "couldnot be enabled");
+                        goto out;
+                }
                 ret = glusterd_set_marker_gsync (master, "off");
                 if (ret != 0) {
                         gf_log ("", GF_LOG_WARNING, "marker stop failed");
@@ -3915,6 +3999,610 @@ out:
                                 gf_log ("", GF_LOG_WARNING, "failed to set "
                                         "error message in ctx");
                         }
+                }
+        }
+
+        return ret;
+}
+
+int32_t
+glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo)
+{
+        int32_t  ret           = 0;
+        char    *quota_status  = NULL;
+
+        ret = glusterd_volinfo_get (volinfo, "features.quota", &quota_status);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "failed to get the quota status");
+                ret = -1;
+                goto out;
+        }
+
+        if (strcmp (quota_status, "off") == 0) {
+                gf_log ("", GF_LOG_ERROR, "first enable the quota translator");
+                ret = -1;
+                goto out;
+        }
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+_glusterd_quota_remove_limits (char **quota_limits, char *path)
+{
+        int      ret      = 0;
+        int      i        = 0;
+        int      size     = 0;
+        int      len      = 0;
+        int      pathlen  = 0;
+        int      skiplen  = 0;
+        int      flag     = 0;
+        char    *limits   = NULL;
+        char    *qlimits  = NULL;
+
+        if (*quota_limits == NULL)
+                return -1;
+
+        qlimits = *quota_limits;
+
+        pathlen = strlen (path);
+
+        len = strlen (qlimits);
+
+        limits = GF_CALLOC (len + 1, sizeof (char), gf_gld_mt_char);
+
+        if (!limits)
+                return -1;
+
+        while (i < len) {
+                if (!memcmp ((void *) &qlimits [i], (void *)path, pathlen))
+                        if (qlimits [i + pathlen] == ':')
+                                flag = 1;
+
+                while (qlimits [i + size] != ',' &&
+                       qlimits [i + size] != '\0')
+                        size++;
+
+                if (!flag) {
+                        memcpy ((void *) &limits [i], (void *) &qlimits [i], size + 1);
+                } else {
+                        skiplen = size + 1;
+                        size = len - i - size + 1;
+                        memcpy ((void *) &limits [i], (void *) &qlimits [i + skiplen], size);
+                        break;
+                }
+
+                i += size + 1;
+                size = 0;
+        }
+
+        if (!flag) {
+                ret = 1;
+        } else {
+                len = strlen (limits);
+
+                if (len == 0) {
+                        GF_FREE (qlimits);
+
+                        *quota_limits = NULL;
+
+                        goto out;
+                }
+
+                if (limits[len - 1] == ',') {
+                        limits[len - 1] = '\0';
+                        len --;
+                }
+
+                GF_FREE (qlimits);
+
+                qlimits = GF_CALLOC (len + 1, sizeof (char), gf_gld_mt_char);
+
+                if (!qlimits) {
+                        ret = -1;
+                        goto out;
+                }
+
+                memcpy ((void *) qlimits, (void *) limits, len + 1);
+
+                *quota_limits = qlimits;
+
+                ret = 0;
+        }
+
+out:
+        if (limits)
+                GF_FREE (limits);
+
+        return ret;
+}
+
+void *
+glusterd_quota_start_crawl (void *data)
+{
+        int32_t  ret      = 0;
+        char     cmd_str [1024] = {0, };
+        char    *mount    = NULL;
+
+        mount = (char *) data;
+
+        snprintf (cmd_str, 1024, "find %s", mount);
+
+        gf_log ("quota crawl", GF_LOG_INFO, "crawl started");
+
+        ret = system (cmd_str);
+        if (ret == -1)
+                gf_log ("crawl", GF_LOG_ERROR, "quota crawl failed");
+
+        gf_log ("quota crawl", GF_LOG_INFO, "crawl ended");
+
+        return NULL;
+}
+
+int32_t
+glusterd_quota_initiate_fs_crawl (glusterd_conf_t *priv, char *volname)
+{
+        pthread_t th;
+        int32_t   ret             = 0;
+        char      mount [1024]    = {0, };
+        char      cmd_str [1024]  = {0, };
+
+        snprintf (mount, 1024, "%s/mount/%s",
+                  priv->workdir, volname);
+
+        snprintf (cmd_str, 1024, "mkdir -p %s", mount);
+
+        ret = system (cmd_str);
+        if (ret == -1) {
+                gf_log ("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                goto out;
+        }
+
+        snprintf (cmd_str, 1024, "%s/sbin/glusterfs -s localhost "
+                  "--volfile-id %s %s", GFS_PREFIX, volname, mount);
+
+        ret = system (cmd_str);
+        if (ret == -1) {
+                gf_log("glusterd", GF_LOG_DEBUG, "command: %s failed", cmd_str);
+                goto out;
+        }
+
+        ret = pthread_create (&th, NULL, glusterd_quota_start_crawl, mount);
+        if (ret) {
+                snprintf (cmd_str, 1024, "umount -l %s", mount);
+                ret = system (cmd_str);
+        }
+out:
+        return ret;
+}
+
+char *
+glusterd_quota_get_limit_value (char *quota_limits, char *path)
+{
+        int32_t i, j, k, l, len;
+        int32_t pat_len, diff;
+        char   *ret_str = NULL;
+
+        len = strlen (quota_limits);
+        pat_len = strlen (path);
+        i = 0;
+        j = 0;
+
+        while (i < len) {
+                j = i;
+                k = 0;
+                while (path [k] == quota_limits [j]) {
+                        j++;
+                        k++;
+                }
+
+                l = j;
+
+                while (quota_limits [j] != ',' &&
+                       quota_limits [j] != '\0')
+                        j++;
+
+                if (quota_limits [l] == ':' && pat_len == (l - i)) {
+                        diff = j - i;
+                        ret_str = GF_CALLOC (diff + 1, sizeof (char),
+                                             gf_gld_mt_char);
+
+                        strncpy (ret_str, &quota_limits [i], diff);
+
+                        break;
+                }
+                i = ++j; //skip ','
+        }
+
+        return ret_str;
+}
+
+char*
+_glusterd_quota_glusted_quota_get_limit_usages (glusterd_volinfo_t *volinfo,
+                                  char *path, char **op_errstr)
+{
+        int32_t  ret          = 0;
+        char    *quota_limits = NULL;
+        char    *ret_str      = NULL;
+
+        if (volinfo == NULL)
+                return NULL;
+
+        ret = glusterd_volinfo_get (volinfo, "features.limit-usage",
+                                    &quota_limits);
+        if (ret)
+                return NULL;
+        if (quota_limits == NULL) {
+                ret_str = NULL;
+                *op_errstr = gf_strdup ("Limits not set any directory");
+        } else if (path == NULL)
+                ret_str = gf_strdup (quota_limits);
+        else
+                ret_str = glusterd_quota_get_limit_value (quota_limits, path);
+
+        return ret_str;
+}
+
+int32_t
+glusted_quota_get_limit_usages (glusterd_conf_t *priv,
+                                glusterd_volinfo_t *volinfo,
+                                char *volname,
+                                dict_t *dict,
+                                char **op_errstr)
+{
+        int32_t i               = 0;
+        int32_t ret             = 0;
+        int32_t count           = 0;
+        char    *path           = NULL;
+        dict_t  *ctx            = NULL;
+        char    cmd_str [1024]  = {0, };
+        char   *ret_str         = NULL;
+
+        ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
+        if (ctx == NULL)
+                return -1;
+
+        ret = dict_get_int32 (dict, "count", &count);
+        if (ret < 0)
+                goto out;
+
+        if (count == 0) {
+                ret_str = _glusterd_quota_glusted_quota_get_limit_usages (volinfo, NULL, op_errstr);
+        } else {
+                i = 0;
+                while (count--) {
+                        snprintf (cmd_str, 1024, "path%d", i++);
+
+                        ret = dict_get_str (dict, cmd_str, &path);
+                        if (ret < 0)
+                                goto out;
+
+                        ret_str = _glusterd_quota_glusted_quota_get_limit_usages (volinfo, path, op_errstr);
+                }
+        }
+
+        if (ret_str) {
+                ret = dict_set_str (ctx, "limit_list", ret_str);
+        }
+out:
+        return ret;
+}
+
+int32_t
+glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
+                       gf_boolean_t *crawl)
+{
+        int32_t         ret     = -1;
+        char            *quota_status = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", crawl, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
+
+        ret = glusterd_check_if_quota_trans_enabled (volinfo);
+        if (ret == 0) {
+                *op_errstr = gf_strdup ("quota translator "
+                                        "couldnot be enabled");
+                goto out;
+        }
+
+        quota_status = gf_strdup ("on");
+        if (!quota_status) {
+                gf_log ("", GF_LOG_ERROR, "memory allocation failed");
+                *op_errstr = gf_strdup ("quota enable failed");
+                goto out;
+        }
+
+        ret = dict_set_dynstr (volinfo->dict, "features.quota", quota_status);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "dict set failed");
+                *op_errstr = gf_strdup ("quota enable failed");
+                goto out;
+        }
+
+        *op_errstr = gf_strdup ("quota translator is enabled");
+
+        ret = glusterd_marker_dict_set (volinfo, "on");
+        if (ret)
+                goto out;
+
+        *crawl = _gf_true;
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
+{
+        int32_t  ret            = -1;
+        char    *quota_status   = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
+
+        quota_status = gf_strdup ("off");
+        if (!quota_status) {
+                gf_log ("", GF_LOG_ERROR, "memory allocation failed");
+                *op_errstr = gf_strdup ("quota disable failed");
+                goto out;
+        }
+
+        ret = dict_set_dynstr (volinfo->dict, "features.quota", quota_status);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "dict set failed");
+                *op_errstr = gf_strdup ("quota disable failed");
+                goto out;
+        }
+
+        *op_errstr = gf_strdup ("quota disabled");
+
+        dict_del (volinfo->dict, "features.limit-usage");
+
+        ret = glusterd_marker_dict_set (volinfo, "off");
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op_errstr)
+{
+        int32_t          ret    = -1;
+        char            *path   = NULL;
+        char            *limit  = NULL;
+        char            *value  = NULL;
+        char             msg [1024] = {0,};
+        char            *quota_limits = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", dict, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
+
+        ret = glusterd_check_if_quota_trans_enabled (volinfo);
+        if (ret == -1) {
+                *op_errstr = gf_strdup ("failed to set limit");
+                goto out;
+        }
+
+        ret = glusterd_volinfo_get (volinfo, "features.limit-usage",
+                                    &quota_limits);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "failed to get the quota limits");
+                *op_errstr = gf_strdup ("failed to set limit");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "path", &path);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch quota limits" );
+                *op_errstr = gf_strdup ("failed to set limit");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "limit", &limit);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch quota limits" );
+                *op_errstr = gf_strdup ("failed to set limit");
+                goto out;
+        }
+
+        if (quota_limits) {
+                ret = _glusterd_quota_remove_limits (&quota_limits, path);
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                        *op_errstr = gf_strdup ("failed to set limit");
+                        goto out;
+                }
+        }
+
+        if (quota_limits == NULL) {
+                ret = gf_asprintf (&value, "%s:%s", path, limit);
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                        *op_errstr = gf_strdup ("failed to set limit");
+                        goto out;
+                }
+        } else {
+                ret = gf_asprintf (&value, "%s,%s:%s",
+                                   quota_limits, path, limit);
+                if (ret == -1) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                        *op_errstr = gf_strdup ("failed to set limit");
+                        goto out;
+                }
+
+                GF_FREE (quota_limits);
+        }
+
+        quota_limits = value;
+
+        ret = dict_set_str (volinfo->dict, "features.limit-usage",
+                            quota_limits);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
+                *op_errstr = gf_strdup ("failed to set limit");
+                goto out;
+        }
+        snprintf (msg, 1024, "limit set on %s", path);
+        *op_errstr = gf_strdup (msg);
+
+        ret = 0;
+out:
+        return ret;
+}
+
+int32_t
+glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **op_errstr)
+{
+        int32_t         ret     = -1;
+        char            *quota_limits = NULL;
+        char            *path   = NULL;
+
+        GF_VALIDATE_OR_GOTO ("glusterd", dict, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
+        GF_VALIDATE_OR_GOTO ("glusterd", op_errstr, out);
+
+        ret = glusterd_check_if_quota_trans_enabled (volinfo);
+        if (ret == -1)
+                goto out;
+
+        ret = glusterd_volinfo_get (volinfo, "features.limit-usage",
+                                    &quota_limits);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "failed to get the quota limits");
+                goto out;
+        }
+
+        ret = dict_get_str (dict, "path", &path);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to fetch quota limits" );
+                goto out;
+        }
+
+        ret = _glusterd_quota_remove_limits (&quota_limits, path);
+        if (ret == -1)
+                goto out;
+
+        if (quota_limits) {
+                ret = dict_set_str (volinfo->dict, "features.limit-usage",
+                                    quota_limits);
+                if (ret) {
+                        gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
+                        goto out;
+                }
+        } else {
+               dict_del (volinfo->dict, "features.limit-usage");
+        }
+
+        ret = 0;
+
+out:
+        return ret;
+}
+
+
+int
+glusterd_op_quota (dict_t *dict, char **op_errstr)
+{
+        glusterd_volinfo_t     *volinfo      = NULL;
+        int32_t                 ret          = -1;
+        char                   *volname      = NULL;
+        dict_t                 *ctx          = NULL;
+        int                     type         = -1;
+        gf_boolean_t            start_crawl  = _gf_false;
+        glusterd_conf_t        *priv         = NULL;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (op_errstr);
+
+        priv = THIS->private;
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name " );
+                goto out;
+        }
+
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "type", &type);
+
+        if (type == GF_QUOTA_OPTION_TYPE_ENABLE) {
+                ret = glusterd_quota_enable (volinfo, op_errstr, &start_crawl);
+                goto out;
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_DISABLE) {
+                ret = glusterd_quota_disable (volinfo, op_errstr);
+
+                goto out;
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) {
+                ret = glusterd_quota_limit_usage (volinfo, dict, op_errstr);
+                if (ret < 0)
+                        goto out;
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_REMOVE) {
+                ret = glusterd_quota_remove_limits (volinfo, dict, op_errstr);
+                if (ret < 0)
+                        goto out;
+        }
+
+        if (type == GF_QUOTA_OPTION_TYPE_LIST) {
+                ret = glusterd_check_if_quota_trans_enabled (volinfo);
+                if (ret == -1) {
+                        *op_errstr = gf_strdup ("cannot list the limits, "
+                                                "quota feature is disabled");
+                        goto out;
+                }
+
+                glusted_quota_get_limit_usages (priv, volinfo, volname, dict, op_errstr);
+
+                goto out;
+        }
+
+        ret = glusterd_create_volfiles (volinfo);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to re-create volfile for"
+                                          " 'quota'");
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_store_volinfo (volinfo, GLUSTERD_VOLINFO_VER_AC_INCREMENT);
+        if (ret)
+                goto out;
+
+        ret = glusterd_volume_compute_cksum (volinfo);
+        if (ret)
+                goto out;
+
+        if (GLUSTERD_STATUS_STARTED == volinfo->status)
+                ret = glusterd_check_generate_start_nfs (volinfo);
+
+        ret = 0;
+
+out:
+        if (start_crawl == _gf_true)
+                glusterd_quota_initiate_fs_crawl (priv, volname);
+
+        ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
+        if (ctx && *op_errstr) {
+                ret = dict_set_str (ctx, "errstr", *op_errstr);
+                if (ret) {
+                        GF_FREE (*op_errstr);
+                        gf_log ("", GF_LOG_DEBUG,
+                                "failed to set error message in ctx");
                 }
         }
 
@@ -5043,6 +5731,7 @@ glusterd_op_build_payload (glusterd_op_t op, dict_t **req)
                 case GD_OP_LOG_FILENAME:
                 case GD_OP_LOG_ROTATE:
                 case GD_OP_SYNC_VOLUME:
+                case GD_OP_QUOTA:
                 case GD_OP_GSYNC_SET:
                 case GD_OP_PROFILE_VOLUME:
                         {
@@ -5712,6 +6401,37 @@ glusterd_op_ac_unlocked_all (glusterd_op_sm_event_t *event, void *ctx)
         return ret;
 }
 
+static int
+glusterd_op_stage_quota (dict_t *dict, char **op_errstr)
+{
+        int                ret           = 0;
+        char              *volname       = NULL;
+        gf_boolean_t       exists        = _gf_false;
+
+        GF_ASSERT (dict);
+        GF_ASSERT (op_errstr);
+
+        ret = dict_get_str (dict, "volname", &volname);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to get volume name");
+                goto out;
+        }
+
+        exists = glusterd_check_volume_exists (volname);
+        if (!exists) {
+                gf_log ("", GF_LOG_ERROR, "Volume with name: %s "
+                                "does not exist",
+                                volname);
+                *op_errstr = gf_strdup ("Invalid volume name");
+                ret = -1;
+                goto out;
+        }
+
+out:
+        gf_log ("", GF_LOG_DEBUG, "Returning %d", ret);
+
+        return ret;
+}
 
 static int
 glusterd_op_ac_stage_op (glusterd_op_sm_event_t *event, void *ctx)
@@ -5906,6 +6626,9 @@ glusterd_op_stage_validate (glusterd_op_t op, dict_t *dict, char **op_errstr,
                         ret = glusterd_op_stage_stats_volume (dict, op_errstr);
                         break;
 
+                case GD_OP_QUOTA:
+                        ret = glusterd_op_quota (dict, op_errstr);
+                        break;
 
                 default:
                         gf_log ("", GF_LOG_ERROR, "Unknown op %d",
@@ -5980,6 +6703,10 @@ glusterd_op_commit_perform (glusterd_op_t op, dict_t *dict, char **op_errstr,
                 case GD_OP_PROFILE_VOLUME:
                         ret = glusterd_op_stats_volume (dict, op_errstr,
                                                         rsp_dict);
+                        break;
+
+                case GD_OP_QUOTA:
+                        ret = glusterd_op_stage_quota (dict, op_errstr);
                         break;
 
                 default:
@@ -6946,6 +7673,7 @@ glusterd_op_free_ctx (glusterd_op_t op, void *ctx, gf_boolean_t ctx_free)
                 case GD_OP_START_VOLUME:
                 case GD_OP_RESET_VOLUME:
                 case GD_OP_GSYNC_SET:
+                case GD_OP_QUOTA:
                 case GD_OP_PROFILE_VOLUME:
                         dict_unref (ctx);
                         break;

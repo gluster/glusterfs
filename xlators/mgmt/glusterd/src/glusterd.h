@@ -74,6 +74,7 @@ typedef enum glusterd_op_ {
         GD_OP_LOG_ROTATE,
         GD_OP_GSYNC_SET,
         GD_OP_PROFILE_VOLUME,
+        GD_OP_QUOTA,
         GD_OP_MAX,
 } glusterd_op_t;
 
@@ -453,6 +454,9 @@ glusterd_reset_volume (rpcsvc_request_t *req, dict_t *dict);
 int32_t
 glusterd_gsync_set (rpcsvc_request_t *req, dict_t *dict);
 
+int32_t
+glusterd_quota (rpcsvc_request_t *req, dict_t *dict);
+
 int
 glusterd_handle_set_volume (rpcsvc_request_t *req);
 
@@ -461,6 +465,9 @@ glusterd_handle_reset_volume (rpcsvc_request_t *req);
 
 int
 glusterd_handle_gsync_set (rpcsvc_request_t *req);
+
+int
+glusterd_handle_quota (rpcsvc_request_t *req);
 
 int
 glusterd_handle_fsm_log (rpcsvc_request_t *req);

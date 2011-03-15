@@ -141,6 +141,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC},      /* NODOC */
 
         {MARKER_VOL_KEY,                         "features/marker",           "!marker", "off", NO_DOC},
+        {"marker_gsync",                         "features/marker",           "gsync", "off"},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
         {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC},
@@ -162,6 +163,12 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"nfs.volume-access",                    "nfs/server",                "!nfs-volume-access", NULL, DOC},
         {"nfs.export-dir",                       "nfs/server",                "!nfs-export-dir", NULL, DOC},
         {"nfs.disable",                          "nfs/server",                "!nfs-disable", NULL, DOC},
+
+        {"features.quota",                       "features/quota",            "quota", "off"},
+        {"features.quota",                       "features/marker",           "quota", "off"},
+
+        {"features.limit-usage",                 "features/quota",            "limit-set", NULL},
+        {"features.quota_version",               "features/quota",            "version", "1"},
 
         {NULL,                                                                }
 };
@@ -1274,6 +1281,8 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
         xlator_t                *xl                 = NULL;
         xlator_t                *txl                = NULL;
         xlator_t                *trav               = NULL;
+        char                    *quota_val          = NULL;
+        gf_boolean_t             quota              = _gf_false;
 
         volname = volinfo->volname;
         dict    = volinfo->dict;
@@ -1386,6 +1395,25 @@ client_graph_builder (glusterfs_graph_t *graph, glusterd_volinfo_t *volinfo,
                         if (ret)
                                 return -1;
                 }
+        }
+
+        ret = glusterd_volinfo_get (volinfo, "features.quota", &quota_val);
+        if (ret)
+                return -1;
+
+        if (quota_val)
+                ret = gf_string2boolean (quota_val, &quota);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "value for quota option is not valid");
+
+                return -1;
+        }
+
+        if (quota) {
+                xl = volgen_graph_add (graph, "features/quota", volname);
+
+                if (!xl)
+                        return -1;
         }
 
         ret = volgen_graph_set_options_generic (graph, set_dict, volname,
