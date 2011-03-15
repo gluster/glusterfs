@@ -27,6 +27,11 @@ enum gf_marker_mem_types_ {
         gf_marker_mt_marker_conf_t,
         gf_marker_mt_loc_t,
         gf_marker_mt_volume_mark,
+        gf_marker_mt_int64_t,
+        gf_marker_mt_quota_inode_ctx_t,
+        gf_marker_mt_marker_inode_ctx_t,
+        gf_marker_mt_quota_local_t,
+        gf_marker_mt_inode_contribution_t,
         gf_marker_mt_end
 };
 #endif
