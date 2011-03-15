@@ -226,7 +226,7 @@ nfs_rpcsvc_socket_read (int sockfd, char *readaddr, size_t readsize)
 
 
 ssize_t
-nfs_rpcsvc_socket_write (int sockfd, char *buffer, size_t size)
+nfs_rpcsvc_socket_write (int sockfd, char *buffer, size_t size, int *eagain)
 {
         size_t          writelen = -1;
         ssize_t         written = 0;
@@ -240,8 +240,10 @@ nfs_rpcsvc_socket_write (int sockfd, char *buffer, size_t size)
                         if (errno != EAGAIN) {
                                 written = -1;
                                 break;
-                        } else
+                        } else {
+                                *eagain = 1;
                                 break;
+                        }
                 } else if (writelen == 0)
                         break;
 
