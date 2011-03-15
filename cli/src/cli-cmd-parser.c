@@ -362,6 +362,172 @@ out:
 }
 
 int32_t
+cli_cmd_quota_parse (const char **words, int wordcount, dict_t **options)
+{
+        dict_t          *dict    = NULL;
+        char            *volname = NULL;
+        int              ret     = -1;
+        int              i       = 0;
+        char             key[20] = {0, };
+        gf_quota_type    type    = GF_QUOTA_OPTION_TYPE_NONE;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "quota")) == 0);
+
+        dict = dict_new ();
+
+        if (!dict)
+                goto out;
+
+        if (wordcount < 4)
+                goto out;
+
+        volname = (char *)words[2];
+
+        if (!volname) {
+                ret = -1;
+                goto out;
+        }
+
+        /* Validate the volume name here itself */
+        {
+                if (volname[0] == '-')
+                        goto out;
+
+                if (!strcmp (volname, "all")) {
+                        cli_out ("\"all\" cannot be the name of a volume.");
+                        goto out;
+                }
+
+                if (strchr (volname, '/'))
+                        goto out;
+
+                if (strlen (volname) > 512)
+                        goto out;
+
+                for (i = 0; i < strlen (volname); i++)
+                        if (!isalnum (volname[i]) && (volname[i] != '_') && (volname[i] != '-'))
+                                goto out;
+        }
+
+        ret = dict_set_str (dict, "volname", volname);
+
+        if (ret)
+                goto out;
+
+
+        if ((strcasecmp (words[3], "enable")) == 0) {
+                type = GF_QUOTA_OPTION_TYPE_ENABLE;
+                goto set_type;
+        }
+
+        if (strcasecmp (words[3], "disable") == 0) {
+                type = GF_QUOTA_OPTION_TYPE_DISABLE;
+                goto set_type;
+        }
+
+        if (strcasecmp (words[3], "limit-usage") == 0) {
+                if (wordcount != 6) {
+                        ret = -1;
+                        goto out;
+                }
+
+                type = GF_QUOTA_OPTION_TYPE_LIMIT_USAGE;
+
+                if (words[4][0] != '/') {
+                        cli_out ("Please enter absolute path");
+
+                        return -2;
+                }
+                ret = dict_set_str (dict, "path", (char *) words[4]);
+
+                if (ret)
+                        goto out;
+
+                if (!words[5]) {
+                        gf_log ("cli", GF_LOG_ERROR, "Please enter the limit value "
+                                            "to be set");
+
+                        return -2;
+                }
+
+                ret = dict_set_str (dict, "limit", (char *) words[5]);
+                if (ret)
+                        goto out;
+
+                goto set_type;
+        }
+        if (strcasecmp (words[3], "remove") == 0) {
+                if (wordcount != 5) {
+                        ret = -1;
+                        goto out;
+                }
+
+                type = GF_QUOTA_OPTION_TYPE_REMOVE;
+
+                if (words[4][0] != '/') {
+                        cli_out ("Please enter absolute path");
+
+                        return -2;
+                }
+
+                ret = dict_set_str (dict, "path", (char *) words[4]);
+                if (ret)
+                        goto out;
+                goto set_type;
+        }
+
+        if (strcasecmp (words[3], "list") == 0) {
+                        if (wordcount < 4) {
+                                ret = -1;
+                                goto out;
+                        }
+
+                        type = GF_QUOTA_OPTION_TYPE_LIST;
+
+                        i = 4;
+                        while (i < wordcount) {
+                                snprintf (key, 20, "path%d", i-4);
+
+                                ret = dict_set_str (dict, key, (char *) words [i++]);
+                                if (ret < 0)
+                                        goto out;
+                        }
+
+                        ret = dict_set_int32 (dict, "count", i - 4);
+                        if (ret < 0)
+                                goto out;
+
+                        goto set_type;
+        }
+
+        if (strcasecmp (words[3], "version") == 0) {
+                type = GF_QUOTA_OPTION_TYPE_VERSION;
+
+        } else {
+                ret = -1;
+                goto out;
+        }
+
+set_type:
+        ret = dict_set_int32 (dict, "type", type);
+
+        if (ret)
+                goto out;
+        *options = dict;
+out:
+        if (ret) {
+                if (dict)
+                        dict_destroy (dict);
+        }
+
+        return ret;
+}
+
+int32_t
 cli_cmd_volume_set_parse (const char **words, int wordcount, dict_t **options)
 {
         dict_t  *dict = NULL;

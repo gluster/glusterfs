@@ -701,6 +701,49 @@ out:
         return ret;
 }
 
+int
+cli_cmd_quota_cbk (struct cli_state *state, struct cli_cmd_word *word,
+                   const char **words, int wordcount)
+{
+
+        int                      ret       = 0;
+        int                      parse_err = 0;
+        rpc_clnt_procedure_t    *proc      = NULL;
+        call_frame_t            *frame     = NULL;
+        dict_t                  *options   = NULL;
+
+        proc = &cli_rpc_prog->proctable[GLUSTER_CLI_QUOTA];
+        if (proc == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        frame = create_frame (THIS, THIS->ctx->pool);
+        if (!frame) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = cli_cmd_quota_parse (words, wordcount, &options);
+        if (ret) {
+                cli_usage_out (word->pattern);
+                parse_err = 1;
+                goto out;
+        }
+
+        if (proc->fn)
+                ret = proc->fn (frame, THIS, options);
+
+out:
+        if (options)
+                dict_unref (options);
+
+        if (ret && parse_err == 0)
+                cli_out ("Quota command failed");
+
+        return ret;
+
+}
 
 int
 cli_cmd_volume_remove_brick_cbk (struct cli_state *state,
@@ -1071,6 +1114,10 @@ struct cli_cmd volume_cmds[] = {
          { "volume profile <VOLNAME> {start|info|stop}",
            cli_cmd_volume_profile_cbk,
            "volume profile operations"},
+
+        { "volume quota <VOLNAME> <enable|disable|limit-usage|list|remove> [args] [path]",
+          cli_cmd_quota_cbk,
+          "quota translator specific operations"},
 
         { NULL, NULL, NULL }
 };
