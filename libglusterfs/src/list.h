@@ -120,6 +120,7 @@ list_splice (struct list_head *list, struct list_head *head)
 }
 
 
+/* Splice moves @list to the head of the list at @head. */
 static inline void
 list_splice_init (struct list_head *list, struct list_head *head)
 {
@@ -127,6 +128,38 @@ list_splice_init (struct list_head *list, struct list_head *head)
 		return;
 
 	__list_splice (list, head);
+	INIT_LIST_HEAD (list);
+}
+
+
+static inline void
+__list_append (struct list_head *list, struct list_head *head)
+{
+	(head->prev)->next = (list->next);
+        (list->next)->prev = (head->prev);
+        (head->prev) = (list->prev);
+        (list->prev)->next = head;
+}
+
+
+static inline void
+list_append (struct list_head *list, struct list_head *head)
+{
+	if (list_empty (list))
+		return;
+
+	__list_append (list, head);
+}
+
+
+/* Append moves @list to the end of @head */
+static inline void
+list_append_init (struct list_head *list, struct list_head *head)
+{
+	if (list_empty (list))
+		return;
+
+	__list_append (list, head);
 	INIT_LIST_HEAD (list);
 }
 
