@@ -45,6 +45,15 @@ xdr_gf1_cli_replace_op (XDR *xdrs, gf1_cli_replace_op *objp)
 }
 
 bool_t
+xdr_gf_quota_type (XDR *xdrs, gf_quota_type *objp)
+{
+
+	 if (!xdr_enum (xdrs, (enum_t *) objp))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_friends_list (XDR *xdrs, gf1_cli_friends_list *objp)
 {
 
@@ -113,7 +122,6 @@ bool_t
 xdr_gf1_cli_probe_rsp (XDR *xdrs, gf1_cli_probe_rsp *objp)
 {
 	register int32_t *buf;
-
 
 	if (xdrs->x_op == XDR_ENCODE) {
 		buf = XDR_INLINE (xdrs, 3 * BYTES_PER_XDR_UNIT);
@@ -525,6 +533,36 @@ xdr_gf1_cli_reset_vol_rsp (XDR *xdrs, gf1_cli_reset_vol_rsp *objp)
 	 if (!xdr_string (xdrs, &objp->volname, ~0))
 		 return FALSE;
 	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_quota_req (XDR *xdrs, gf1_cli_quota_req *objp)
+{
+
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict.dict_val, (u_int *) &objp->dict.dict_len, ~0))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_gf1_cli_quota_rsp (XDR *xdrs, gf1_cli_quota_rsp *objp)
+{
+
+	 if (!xdr_int (xdrs, &objp->op_ret))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->op_errno))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->volname, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->op_errstr, ~0))
+		 return FALSE;
+	 if (!xdr_string (xdrs, &objp->limit_list, ~0))
+		 return FALSE;
+	 if (!xdr_gf_quota_type (xdrs, &objp->type))
 		 return FALSE;
 	return TRUE;
 }

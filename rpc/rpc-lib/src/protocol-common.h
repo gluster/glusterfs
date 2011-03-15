@@ -196,6 +196,7 @@ enum gluster_cli_procnum {
         GLUSTER_CLI_FSM_LOG,
         GLUSTER_CLI_GSYNC_SET,
         GLUSTER_CLI_PROFILE_VOLUME,
+        GLUSTER_CLI_QUOTA,
         GLUSTER_CLI_MAXVALUE,
 };
 

@@ -14,6 +14,16 @@
         GF_REPLACE_OP_COMMIT_FORCE
 } ;
 
+enum gf_quota_type {
+        GF_QUOTA_OPTION_TYPE_NONE = 0,
+        GF_QUOTA_OPTION_TYPE_ENABLE,
+        GF_QUOTA_OPTION_TYPE_DISABLE,
+        GF_QUOTA_OPTION_TYPE_LIMIT_USAGE,
+        GF_QUOTA_OPTION_TYPE_REMOVE,
+        GF_QUOTA_OPTION_TYPE_LIST,
+        GF_QUOTA_OPTION_TYPE_VERSION
+};
+
 enum gf1_cli_friends_list {
         GF_CLI_LIST_ALL = 1
 } ;
@@ -337,4 +347,18 @@ struct gf1_cli_stats_volume_rsp {
 	int    op_errno;
         string op_errstr<>;
         opaque stats_info<>;
+};
+
+struct gf1_cli_quota_req {
+        string volname<>;
+        opaque dict<>;
+} ;
+
+struct gf1_cli_quota_rsp {
+        int     op_ret;
+        int     op_errno;
+        string  volname<>;
+        string  op_errstr<>;
+        string  limit_list<>;
+        gf_quota_type type;
 };
