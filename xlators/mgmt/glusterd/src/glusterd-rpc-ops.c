@@ -336,6 +336,58 @@ glusterd_op_send_cli_response (glusterd_op_t op, int32_t op_ret,
                 sfunc = gf_xdr_from_cli_stats_volume_rsp;
                 break;
         }
+
+        case GD_OP_QUOTA:
+        {
+                int32_t               type;
+                char                 *str    = NULL;
+                char                 *errstr = NULL;
+                gf1_cli_quota_rsp     rsp    = {0,};
+
+                rsp.op_ret = op_ret;
+                rsp.op_errno = op_errno;
+                rsp.volname = "";
+
+                ctx = op_ctx;
+
+                if (op_errstr)
+                        rsp.op_errstr = gf_strdup (op_errstr);
+                else {
+                        ret = dict_get_str (ctx, "errstr", &errstr);
+                        if (ret == 0)
+                                rsp.op_errstr = gf_strdup (errstr);
+                        else
+                                rsp.op_errstr = "";
+                }
+
+                rsp.limit_list = "";
+
+                if (op_ret == 0 && ctx) {
+                        ret = dict_get_str (ctx, "volname", &str);
+                        if (ret == 0)
+                                rsp.volname = gf_strdup (str);
+
+                        ret = dict_get_int32
+                              (ctx, "type", &type);
+                        if (ret == 0)
+                                rsp.type = type;
+                        else
+                                rsp.type = 0;
+
+                        if (type == GF_QUOTA_OPTION_TYPE_LIST) {
+                                 ret = dict_get_str
+                                       (ctx,"limit_list", &str);
+
+                                 if (ret == 0)
+                                         rsp.limit_list =
+                                                 gf_strdup (str);
+                        }
+                }
+                cli_rsp = &rsp;
+                sfunc = gf_xdr_serialize_cli_quota_rsp;
+                break;
+        }
+
         case GD_OP_NONE:
         case GD_OP_MAX:
         {
