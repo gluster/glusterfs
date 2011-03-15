@@ -1815,8 +1815,8 @@ nfs_rpcsvc_submit_vectors (rpcsvc_request_t *req)
 
         pthread_mutex_lock (&req->conn->connlock);
         {
-                list_splice_init (&req->txlist, &req->conn->txbufs);
-                list_add (&rpctxb->txlist, &req->conn->txbufs);
+                list_add_tail (&rpctxb->txlist, &req->conn->txbufs);
+                list_append_init (&req->txlist, &req->conn->txbufs);
         }
         pthread_mutex_unlock (&req->conn->connlock);
 
