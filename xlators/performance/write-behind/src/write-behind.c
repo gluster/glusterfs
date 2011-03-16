@@ -135,8 +135,10 @@ __wb_request_unref (wb_request_t *this)
 {
         int ret = -1;
 
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+
         if (this->refcount <= 0) {
-                gf_log ("wb-request", GF_LOG_DEBUG,
+                gf_log ("wb-request", GF_LOG_WARNING,
                         "refcount(%d) is <= 0", this->refcount);
                 goto out;
         }
@@ -160,15 +162,12 @@ static int
 wb_request_unref (wb_request_t *this)
 {
         wb_file_t *file = NULL;
-        int        ret  = 0;
+        int        ret  = -1;
 
-        if (this == NULL) {
-                gf_log ("wb-request", GF_LOG_DEBUG,
-                        "request is NULL");
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
 
         file = this->file;
+
         LOCK (&file->lock);
         {
                 ret = __wb_request_unref (this);
@@ -183,13 +182,18 @@ out:
 static wb_request_t *
 __wb_request_ref (wb_request_t *this)
 {
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+
         if (this->refcount < 0) {
-                gf_log ("wb-request", GF_LOG_DEBUG,
+                gf_log ("wb-request", GF_LOG_WARNING,
                         "refcount(%d) is < 0", this->refcount);
-                return NULL;
+                this = NULL;
+                goto out;
         }
 
         this->refcount++;
+
+out:
         return this;
 }
 
@@ -199,11 +203,7 @@ wb_request_ref (wb_request_t *this)
 {
         wb_file_t *file = NULL;
 
-        if (this == NULL) {
-                gf_log ("wb-request", GF_LOG_DEBUG,
-                        "request is NULL");
-                return NULL;
-        }
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
 
         file = this->file;
         LOCK (&file->lock);
@@ -212,6 +212,7 @@ wb_request_ref (wb_request_t *this)
         }
         UNLOCK (&file->lock);
 
+out:
         return this;
 }
 
@@ -224,6 +225,9 @@ wb_enqueue (wb_file_t *file, call_stub_t *stub)
         wb_local_t   *local   = NULL;
         struct iovec *vector  = NULL;
         int32_t       count   = 0;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", file, out);
+        GF_VALIDATE_OR_GOTO (file->this->name, stub, out);
 
         request = GF_CALLOC (1, sizeof (*request), gf_wb_mt_wb_request_t);
         if (request == NULL) {
@@ -294,6 +298,9 @@ wb_file_create (xlator_t *this, fd_t *fd, int32_t flags)
         wb_file_t *file = NULL;
         wb_conf_t *conf = NULL;
 
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
         conf = this->private;
 
         file = GF_CALLOC (1, sizeof (*file), gf_wb_mt_wb_file_t);
@@ -327,6 +334,8 @@ wb_file_destroy (wb_file_t *file)
 {
         int32_t refcount = 0;
 
+        GF_VALIDATE_OR_GOTO ("write-behind", file, out);
+
         LOCK (&file->lock);
         {
                 refcount = --file->refcount;
@@ -338,6 +347,7 @@ wb_file_destroy (wb_file_t *file)
                 GF_FREE (file);
         }
 
+out:
         return;
 }
 
@@ -354,9 +364,14 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         int32_t       ret               = -1;
         fd_t         *fd                = NULL;
 
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
         local = frame->local;
         winds = &local->winds;
+
         file = local->file;
+        GF_VALIDATE_OR_GOTO (this->name, file, out);
 
         LOCK (&file->lock);
         {
@@ -386,13 +401,18 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         UNLOCK (&file->lock);
 
         ret = wb_process_queue (frame, file);
-        if ((ret == -1) && (errno == ENOMEM)) {
-                LOCK (&file->lock);
-                {
-                        file->op_ret = -1;
-                        file->op_errno = ENOMEM;
+        if (ret == -1) {
+                if (errno == ENOMEM) {
+                        LOCK (&file->lock);
+                        {
+                                file->op_ret = -1;
+                                file->op_errno = ENOMEM;
+                        }
+                        UNLOCK (&file->lock);
                 }
-                UNLOCK (&file->lock);
+
+                gf_log (this->name, GF_LOG_WARNING,
+                        "request queue processing failed");
         }
 
         /* safe place to do fd_unref */
@@ -400,6 +420,7 @@ wb_sync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
         STACK_DESTROY (frame->root);
 
+out:
         return 0;
 }
 
@@ -421,10 +442,13 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
         fd_t           *fd            = NULL;
         int32_t         op_errno      = -1;
 
-        if (frame == NULL) {
-                op_errno = EINVAL;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ((file ? file->this->name
+                                         : "write-behind"), frame,
+                                        out, bytes, -1);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, file, out, bytes,
+                                        -1);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, winds, out, bytes,
+                                        -1);
 
         conf = file->this->private;
         list_for_each_entry (request, winds, winds) {
@@ -447,8 +471,6 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         if (vector == NULL) {
                                 bytes = -1;
                                 op_errno = ENOMEM;
-                                gf_log (file->this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto out;
                         }
 
@@ -456,8 +478,6 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         if (iobref == NULL) {
                                 bytes = -1;
                                 op_errno = ENOMEM;
-                                gf_log (file->this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto out;
                         }
 
@@ -466,8 +486,6 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                         if (local == NULL) {
                                 bytes = -1;
                                 op_errno = ENOMEM;
-                                gf_log (file->this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto out;
                         }
 
@@ -504,14 +522,12 @@ wb_sync (call_frame_t *frame, wb_file_t *file, list_head_t *winds)
                     || ((count + next->stub->args.writev.count)
                         > MAX_VECTOR_COUNT)
                     || ((current_size + next->write_size)
-                        > conf->aggregate_size))
-                {
+                        > conf->aggregate_size)) {
+
                         sync_frame = copy_frame (frame);
                         if (sync_frame == NULL) {
                                 bytes = -1;
                                 op_errno = ENOMEM;
-                                gf_log (file->this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto out;
                         }
 
@@ -609,6 +625,9 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         int32_t       ret           = -1;
         fd_t         *fd            = NULL;
 
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
         local = frame->local;
         file = local->file;
 
@@ -629,13 +648,18 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
         if (process_frame != NULL) {
                 ret = wb_process_queue (process_frame, file);
-                if ((ret == -1) && (errno == ENOMEM) && (file != NULL)) {
-                        LOCK (&file->lock);
-                        {
-                                file->op_ret = -1;
-                                file->op_errno = ENOMEM;
+                if (ret == -1) {
+                        if ((errno == ENOMEM) && (file != NULL)) {
+                                LOCK (&file->lock);
+                                {
+                                        file->op_ret = -1;
+                                        file->op_errno = ENOMEM;
+                                }
+                                UNLOCK (&file->lock);
                         }
-                        UNLOCK (&file->lock);
+
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
 
                 STACK_DESTROY (process_frame->root);
@@ -658,6 +682,9 @@ wb_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 static int32_t
 wb_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
         STACK_WIND (frame, wb_stat_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->stat, loc);
         return 0;
@@ -675,6 +702,10 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         wb_request_t *request  = NULL;
         int32_t       ret      = -1, op_errno = EINVAL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
+
         if (loc->inode) {
                 /* FIXME: fd_lookup extends life of fd till stat returns */
                 iter_fd = fd_lookup (loc->inode, frame->root->pid);
@@ -688,8 +719,7 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 }
         }
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -713,11 +743,10 @@ wb_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 }
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_errno = ENOMEM;
-                        goto unwind;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
-
         } else {
                 STACK_WIND (frame, wb_stat_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->stat, loc);
@@ -748,6 +777,8 @@ wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_file_t    *file    = NULL;
         int32_t       ret     = -1;
 
+        GF_ASSERT (frame);
+
         local = frame->local;
         file = local->file;
 
@@ -755,9 +786,14 @@ wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         if ((file != NULL) && (request != NULL)) {
                 wb_request_unref (request);
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
+                if (ret == -1) {
+                        if (errno == ENOMEM) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                        }
+
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         }
 
@@ -770,6 +806,9 @@ wb_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 int32_t
 wb_fstat_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 {
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
         STACK_WIND (frame, wb_fstat_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->fstat, fd);
         return 0;
@@ -787,22 +826,26 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         int32_t       ret      = -1;
         int           op_errno = EINVAL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
-
-                STACK_UNWIND_STRICT (fstat, frame, -1, EBADFD, NULL);
-                return 0;
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         file = (wb_file_t *)(long)tmp_file;
         local = GF_CALLOC (1, sizeof (*local),
                            gf_wb_mt_wb_local_t);
         if (local == NULL) {
-                STACK_UNWIND_STRICT (fstat, frame, -1, ENOMEM, NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->file = file;
@@ -826,9 +869,9 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                   FIXME:should the request queue be emptied in case of error?
                 */
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_errno = ENOMEM;
-                        goto unwind;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         } else {
                 STACK_WIND (frame, wb_fstat_cbk, FIRST_CHILD(this),
@@ -836,6 +879,7 @@ wb_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         }
 
         return 0;
+
 unwind:
         STACK_UNWIND_STRICT (fstat, frame, -1, op_errno, NULL);
 
@@ -859,6 +903,8 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t       ret           = -1;
         fd_t         *fd            = NULL;
 
+        GF_ASSERT (frame);
+
         local = frame->local;
         file = local->file;
         request = local->request;
@@ -880,13 +926,18 @@ wb_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (process_frame != NULL) {
                 ret = wb_process_queue (process_frame, file);
-                if ((ret == -1) && (errno == ENOMEM) && (file != NULL)) {
-                        LOCK (&file->lock);
-                        {
-                                file->op_ret = -1;
-                                file->op_errno = ENOMEM;
+                if (ret == -1) {
+                        if ((errno == ENOMEM) && (file != NULL)) {
+                                LOCK (&file->lock);
+                                {
+                                        file->op_ret = -1;
+                                        file->op_errno = ENOMEM;
+                                }
+                                UNLOCK (&file->lock);
                         }
-                        UNLOCK (&file->lock);
+
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
 
                 STACK_DESTROY (process_frame->root);
@@ -910,6 +961,9 @@ static int32_t
 wb_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                     off_t offset)
 {
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
         STACK_WIND (frame, wb_truncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->truncate, loc, offset);
 
@@ -926,7 +980,11 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         uint64_t      tmp_file = 0;
         call_stub_t  *stub     = NULL;
         wb_request_t *request  = NULL;
-        int32_t       ret      = -1, op_errno = ENOMEM;
+        int32_t       ret      = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
 
         if (loc->inode) {
                 /*
@@ -968,9 +1026,9 @@ wb_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 }
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_errno = ENOMEM;
-                        goto unwind;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         } else {
                 STACK_WIND (frame, wb_truncate_cbk, FIRST_CHILD(this),
@@ -1000,6 +1058,8 @@ wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         wb_file_t    *file    = NULL;
         int32_t       ret     = -1;
 
+        GF_ASSERT (frame);
+
         local = frame->local;
         file = local->file;
         request = local->request;
@@ -1007,9 +1067,14 @@ wb_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if ((request != NULL) && (file != NULL)) {
                 wb_request_unref (request);
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
+                if (ret == -1) {
+                        if (errno == ENOMEM) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                        }
+
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         }
 
@@ -1024,6 +1089,9 @@ static int32_t
 wb_ftruncate_helper (call_frame_t *frame, xlator_t *this, fd_t *fd,
                      off_t offset)
 {
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
         STACK_WIND (frame, wb_ftruncate_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->ftruncate, fd, offset);
         return 0;
@@ -1041,23 +1109,26 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         int32_t       ret      = -1;
         int           op_errno = EINVAL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
-
-                STACK_UNWIND_STRICT (ftruncate, frame, -1, EBADFD, NULL, NULL);
-                return 0;
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         file = (wb_file_t *)(long)tmp_file;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
-                STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->file = file;
@@ -1079,9 +1150,9 @@ wb_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
                 }
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_errno = ENOMEM;
-                        goto unwind;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         } else {
                 STACK_WIND (frame, wb_ftruncate_cbk, FIRST_CHILD(this),
@@ -1113,6 +1184,8 @@ wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t       ret           = -1;
         fd_t         *fd            = NULL;
 
+        GF_ASSERT (frame);
+
         local = frame->local;
         file = local->file;
         request = local->request;
@@ -1134,13 +1207,18 @@ wb_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         if (request && (process_frame != NULL)) {
                 ret = wb_process_queue (process_frame, file);
-                if ((ret == -1) && (errno == ENOMEM) && (file != NULL)) {
-                        LOCK (&file->lock);
-                        {
-                                file->op_ret = -1;
-                                file->op_errno = ENOMEM;
+                if (ret == -1) {
+                        if ((errno == ENOMEM) && (file != NULL)) {
+                                LOCK (&file->lock);
+                                {
+                                        file->op_ret = -1;
+                                        file->op_errno = ENOMEM;
+                                }
+                                UNLOCK (&file->lock);
                         }
-                        UNLOCK (&file->lock);
+
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
 
                 STACK_DESTROY (process_frame->root);
@@ -1164,6 +1242,9 @@ static int32_t
 wb_setattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
                    struct iatt *stbuf, int32_t valid)
 {
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+
         STACK_WIND (frame, wb_setattr_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid);
         return 0;
@@ -1182,13 +1263,15 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         wb_request_t *request  = NULL;
         int32_t       ret      = -1, op_errno = EINVAL;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
+
+        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
         }
-
 
         frame->local = local;
 
@@ -1232,9 +1315,9 @@ wb_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 }
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_errno = ENOMEM;
-                        goto unwind;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         } else {
                 STACK_WIND (frame, wb_setattr_cbk, FIRST_CHILD(this),
@@ -1263,14 +1346,15 @@ wb_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_conf_t  *conf    = NULL;
         wb_local_t *local   = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, out, op_errno,
+                                        EINVAL);
+
         conf = this->private;
 
         local = frame->local;
-        if (local == NULL) {
-                op_ret = -1;
-                op_errno = EINVAL;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
+                                        EINVAL);
 
         flags = local->flags;
         wbflags = local->wbflags;
@@ -1311,8 +1395,7 @@ wb_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         wb_local_t *local    = NULL;
         int32_t     op_errno = EINVAL;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1342,6 +1425,10 @@ wb_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         long       flags = 0;
         wb_file_t *file  = NULL;
         wb_conf_t *conf  = NULL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, out,
+                                        op_errno, EINVAL);
 
         conf = this->private;
         if (op_ret != -1) {
@@ -1382,11 +1469,23 @@ int32_t
 wb_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            mode_t mode, fd_t *fd, dict_t *params)
 {
+        int32_t op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
+
         frame->local = (void *)(long)flags;
 
         STACK_WIND (frame, wb_create_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->create,
                     loc, flags, mode, fd, params);
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL, NULL,
+                             NULL, NULL);
         return 0;
 }
 
@@ -1405,6 +1504,10 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
         off_t         offset_expected = 0;
         wb_conf_t    *conf            = NULL;
         int           count           = 0;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", file, out);
+        GF_VALIDATE_OR_GOTO (file->this->name, list, out);
+        GF_VALIDATE_OR_GOTO (file->this->name, winds, out);
 
         conf = file->this->private;
 
@@ -1444,11 +1547,12 @@ __wb_mark_wind_all (wb_file_t *file, list_head_t *list, list_head_t *winds)
                 }
         }
 
+out:
         return size;
 }
 
 
-void
+int32_t
 __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
                char *non_contiguous_writes, char *incomplete_writes,
                char *wind_all)
@@ -1456,6 +1560,9 @@ __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
         wb_request_t *request         = NULL;
         char          first_request   = 1;
         off_t         offset_expected = 0;
+        int32_t       ret             = -1;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", list, out);
 
         list_for_each_entry (request, list, list)
         {
@@ -1498,7 +1605,9 @@ __wb_can_wind (list_head_t *list, char *other_fop_in_queue,
                 }
         }
 
-        return;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -1513,6 +1622,10 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         wb_request_t *request                = NULL;
         wb_file_t    *file                   = NULL;
         char          wind_all               = 0;
+        int32_t       ret                    = 0;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", list, out);
+        GF_VALIDATE_OR_GOTO ("write-behind", winds, out);
 
         if (list_empty (list)) {
                 goto out;
@@ -1521,8 +1634,14 @@ __wb_mark_winds (list_head_t *list, list_head_t *winds, size_t aggregate_conf,
         request = list_entry (list->next, typeof (*request), list);
         file = request->file;
 
-        __wb_can_wind (list, &other_fop_in_queue,
-                       &non_contiguous_writes, &incomplete_writes, &wind_all);
+        ret = __wb_can_wind (list, &other_fop_in_queue,
+                             &non_contiguous_writes, &incomplete_writes,
+                             &wind_all);
+        if (ret == -1) {
+                gf_log (file->this->name, GF_LOG_WARNING,
+                        "cannot decide whether to wind or not");
+                goto out;
+        }
 
         if (!incomplete_writes && ((enable_trickling_writes)
                                    || (wind_all) || (non_contiguous_writes)
@@ -1585,6 +1704,9 @@ __wb_mark_unwinds (list_head_t *list, list_head_t *unwinds)
         wb_request_t *request = NULL;
         wb_file_t    *file    = NULL;
 
+        GF_VALIDATE_OR_GOTO ("write-behind", list, out);
+        GF_VALIDATE_OR_GOTO ("write-behind", unwinds, out);
+
         if (list_empty (list)) {
                 goto out;
         }
@@ -1609,6 +1731,9 @@ __wb_get_other_requests (list_head_t *list, list_head_t *other_requests)
         wb_request_t *request = NULL;
         uint32_t      count   = 0;
 
+        GF_VALIDATE_OR_GOTO ("write-behind", list, out);
+        GF_VALIDATE_OR_GOTO ("write-behind", other_requests, out);
+
         list_for_each_entry (request, list, list) {
                 if ((request->stub == NULL)
                     || (request->stub->fop == GF_FOP_WRITE)) {
@@ -1623,6 +1748,7 @@ __wb_get_other_requests (list_head_t *list, list_head_t *other_requests)
                 }
         }
 
+out:
         return count;
 }
 
@@ -1635,6 +1761,8 @@ wb_stack_unwind (list_head_t *unwinds)
         call_frame_t *frame   = NULL;
         wb_local_t   *local   = NULL;
         int           ret     = 0, write_requests_removed = 0;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", unwinds, out);
 
         list_for_each_entry_safe (request, dummy, unwinds, unwinds) {
                 frame = request->stub->frame;
@@ -1649,6 +1777,7 @@ wb_stack_unwind (list_head_t *unwinds)
                 }
         }
 
+out:
         return write_requests_removed;
 }
 
@@ -1657,13 +1786,19 @@ int32_t
 wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
                           list_head_t *other_requests)
 {
-        int32_t       ret          = 0;
+        int32_t       ret          = -1;
         wb_request_t *request      = NULL, *dummy = NULL;
         int32_t       fops_removed = 0;
         char          wind         = 0;
         call_stub_t  *stub         = NULL;
 
+        GF_VALIDATE_OR_GOTO ((file ? file->this->name : "write-behind"), frame,
+                             out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, file, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, other_requests, out);
+
         if (list_empty (other_requests)) {
+                ret = 0;
                 goto out;
         }
 
@@ -1686,8 +1821,14 @@ wb_resume_other_requests (call_frame_t *frame, wb_file_t *file,
                 call_resume (stub);
         }
 
+        ret = 0;
+
         if (fops_removed > 0) {
                 ret = wb_process_queue (frame, file);
+                if (ret == -1) {
+                        gf_log (frame->this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
+                }
         }
 
 out:
@@ -1701,16 +1842,25 @@ wb_do_ops (call_frame_t *frame, wb_file_t *file, list_head_t *winds,
 {
         int32_t ret = -1, write_requests_removed = 0;
 
+        GF_VALIDATE_OR_GOTO ((file ? file->this->name : "write-behind"),
+                             frame, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, file, out);
+
         ret = wb_stack_unwind (unwinds);
 
         write_requests_removed = ret;
 
         ret = wb_sync (frame, file, winds);
         if (ret == -1) {
-                goto out;
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "syncing of write requests failed");
         }
 
-        wb_resume_other_requests (frame, file, other_requests);
+        ret = wb_resume_other_requests (frame, file, other_requests);
+        if (ret == -1) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "cannot resume non-write requests in request queue");
+        }
 
         /* wb_stack_unwind does wb_request_unref after unwinding a write
          * request. Hence if a write-request was just freed in wb_stack_unwind,
@@ -1719,6 +1869,10 @@ wb_do_ops (call_frame_t *frame, wb_file_t *file, list_head_t *winds,
          */
         if (write_requests_removed > 0) {
                 ret = wb_process_queue (frame, file);
+                if (ret == -1) {
+                        gf_log (frame->this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
+                }
         }
 
 out:
@@ -1737,16 +1891,12 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
         if (holder->flags.write_request.virgin) {
                 iobuf = iobuf_get (request->file->this->ctx->iobuf_pool);
                 if (iobuf == NULL) {
-                        gf_log (request->file->this->name, GF_LOG_ERROR,
-                                "out of memory");
                         goto out;
                 }
 
                 iobref = iobref_new ();
                 if (iobref == NULL) {
                         iobuf_unref (iobuf);
-                        gf_log (request->file->this->name, GF_LOG_ERROR,
-                                "out of memory");
                         goto out;
                 }
 
@@ -1754,7 +1904,7 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
                 if (ret != 0) {
                         iobuf_unref (iobuf);
                         iobref_unref (iobref);
-                        gf_log (request->file->this->name, GF_LOG_DEBUG,
+                        gf_log (request->file->this->name, GF_LOG_WARNING,
                                 "cannot add iobuf (%p) into iobref (%p)",
                                 iobuf, iobref);
                         goto out;
@@ -1774,8 +1924,7 @@ __wb_copy_into_holder (wb_request_t *holder, wb_request_t *request)
 
         ptr = holder->stub->args.writev.vector[0].iov_base + holder->write_size;
 
-        iov_unload (ptr,
-                    request->stub->args.writev.vector,
+        iov_unload (ptr, request->stub->args.writev.vector,
                     request->stub->args.writev.count);
 
         holder->stub->args.writev.vector[0].iov_len += request->write_size;
@@ -1798,6 +1947,8 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
         size_t        space_left      = 0;
         wb_request_t *request         = NULL, *tmp = NULL, *holder = NULL;
         int           ret             = 0;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", requests, out);
 
         list_for_each_entry_safe (request, tmp, requests, list) {
                 if ((request->stub == NULL)
@@ -1838,6 +1989,7 @@ __wb_collapse_write_bufs (list_head_t *requests, size_t page_size)
                 }
         }
 
+out:
         return;
 }
 
@@ -1855,12 +2007,13 @@ wb_process_queue (call_frame_t *frame, wb_file_t *file)
         INIT_LIST_HEAD (&unwinds);
         INIT_LIST_HEAD (&other_requests);
 
-        if (file == NULL) {
-                errno = EINVAL;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ((file ? file->this->name : "write-behind"), frame,
+                             out);
+        GF_VALIDATE_OR_GOTO (file->this->name, frame, out);
 
         conf = file->this->private;
+        GF_VALIDATE_OR_GOTO (file->this->name, conf, out);
+
         size = conf->aggregate_size;
         LOCK (&file->lock);
         {
@@ -1898,6 +2051,8 @@ wb_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf)
 {
+        GF_ASSERT (frame);
+
         STACK_UNWIND_STRICT (writev, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
@@ -1918,12 +2073,20 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         int32_t       ret           = -1;
         int32_t       op_ret        = -1, op_errno = EINVAL;
 
+        GF_ASSERT (frame);
+
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("write-behind", this, unwind, op_errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd, unwind, op_errno,
+                                        EINVAL);
+
         if (vector != NULL)
                 size = iov_length (vector, count);
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
 
@@ -1933,7 +2096,7 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
         file = (wb_file_t *)(long)tmp_file;
         if ((!IA_ISDIR (fd->inode->ia_type)) && (file == NULL)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "wb_file not found for fd %p", fd);
                 op_errno = EBADFD;
                 goto unwind;
@@ -1986,14 +2149,12 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         if (local == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
-                return 0;
         }
 
         frame->local = local;
         local->file = file;
 
-        stub = fop_writev_stub (frame, NULL, fd, vector, count, offset,
-                                iobref);
+        stub = fop_writev_stub (frame, NULL, fd, vector, count, offset, iobref);
         if (stub == NULL) {
                 op_errno = ENOMEM;
                 goto unwind;
@@ -2006,9 +2167,9 @@ wb_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         }
 
         ret = wb_process_queue (process_frame, file);
-        if ((ret == -1) && (errno == ENOMEM)) {
-                op_errno = ENOMEM;
-                goto unwind;
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "request queue processing failed");
         }
 
         STACK_DESTROY (process_frame->root);
@@ -2040,6 +2201,8 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_request_t *request = NULL;
         int32_t       ret     = 0;
 
+        GF_ASSERT (frame);
+
         local = frame->local;
         file = local->file;
         request = local->request;
@@ -2048,9 +2211,14 @@ wb_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 wb_request_unref (request);
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        op_ret = -1;
-                        op_errno = ENOMEM;
+                if (ret == -1) {
+                        if (errno == ENOMEM) {
+                                op_ret = -1;
+                                op_errno = ENOMEM;
+                        }
+
+                        gf_log (frame->this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         }
 
@@ -2080,27 +2248,31 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         wb_local_t   *local    = NULL;
         uint64_t      tmp_file = 0;
         call_stub_t  *stub     = NULL;
-        int32_t       ret      = -1;
+        int32_t       ret      = -1, op_errno = 0;
         wb_request_t *request  = NULL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd, unwind, op_errno,
+                                        EINVAL);
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
-
-                STACK_UNWIND_STRICT (readv, frame, -1, EBADFD, NULL, 0, NULL,
-                                     NULL);
-                return 0;
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         file = (wb_file_t *)(long)tmp_file;
 
         local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
-                STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0, NULL,
-                                     NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->file = file;
@@ -2110,33 +2282,32 @@ wb_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 stub = fop_readv_stub (frame, wb_readv_helper, fd, size,
                                        offset);
                 if (stub == NULL) {
-                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0,
-                                             NULL, NULL);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0,
-                                             NULL, NULL);
                         call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND_STRICT (readv, frame, -1, ENOMEM, NULL, 0,
-                                             NULL, NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
-
         } else {
                 STACK_WIND (frame, wb_readv_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->readv,
                             fd, size, offset);
         }
 
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL, NULL);
         return 0;
 }
 
@@ -2156,6 +2327,8 @@ wb_ffr_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 {
         wb_local_t *local = NULL;
         wb_file_t  *file  = NULL;
+
+        GF_ASSERT (frame);
 
         local = frame->local;
         file = local->file;
@@ -2188,6 +2361,10 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
         call_frame_t *flush_frame = NULL, *process_frame = NULL;
         int32_t       op_ret      = -1, op_errno = -1, ret = -1;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, unwind,
+                                        op_errno, EINVAL);
+
         conf = this->private;
 
         local = frame->local;
@@ -2203,7 +2380,7 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
         if (local && local->request) {
                 process_frame = copy_frame (frame);
                 if (process_frame == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                        op_errno = ENOMEM;
                         goto unwind;
                 }
 
@@ -2213,7 +2390,7 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
         if (conf->flush_behind) {
                 flush_frame = copy_frame (frame);
                 if (flush_frame == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                        op_errno = ENOMEM;
                         goto unwind;
                 }
 
@@ -2226,9 +2403,9 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
         if (process_frame != NULL) {
                 ret = wb_process_queue (process_frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_DESTROY (process_frame->root);
-                        goto unwind;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
 
                 STACK_DESTROY (process_frame->root);
@@ -2241,7 +2418,7 @@ wb_flush_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
         return 0;
 
 unwind:
-        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
+        STACK_UNWIND_STRICT (flush, frame, -1, op_errno);
         return 0;
 }
 
@@ -2256,18 +2433,25 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         call_stub_t  *stub        = NULL;
         call_frame_t *flush_frame = NULL;
         wb_request_t *request     = NULL;
-        int32_t       ret         = 0;
+        int32_t       ret         = 0, op_errno = 0;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd, unwind, op_errno,
+                                        EINVAL);
 
         conf = this->private;
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
 
-                STACK_UNWIND_STRICT (flush, frame, -1, EBADFD);
-                return 0;
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         file = (wb_file_t *)(long)tmp_file;
@@ -2275,8 +2459,8 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         if (file != NULL) {
                 local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
                 if (local == NULL) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 local->file = file;
@@ -2285,29 +2469,28 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
 
                 stub = fop_flush_stub (frame, wb_flush_helper, fd);
                 if (stub == NULL) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
                         call_stub_destroy (stub);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                        call_stub_destroy (stub);
-                        return 0;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         } else {
                 if (conf->flush_behind) {
                         flush_frame = copy_frame (frame);
                         if (flush_frame == NULL) {
-                                STACK_UNWIND_STRICT (flush, frame, -1, ENOMEM);
-                                return 0;
+                                op_errno = ENOMEM;
+                                goto unwind;
                         }
 
                         STACK_UNWIND_STRICT (flush, frame, 0, 0);
@@ -2322,6 +2505,10 @@ wb_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         }
 
         return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (flush, frame, -1, op_errno);
+        return 0;
 }
 
 
@@ -2333,6 +2520,8 @@ wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         wb_file_t    *file    = NULL;
         wb_request_t *request = NULL;
         int32_t       ret     = -1;
+
+        GF_ASSERT (frame);
 
         local = frame->local;
         file = local->file;
@@ -2353,9 +2542,14 @@ wb_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                 if (request) {
                         wb_request_unref (request);
                         ret = wb_process_queue (frame, file);
-                        if ((ret == -1) && (errno == ENOMEM)) {
-                                op_ret = -1;
-                                op_errno = ENOMEM;
+                        if (ret == -1) {
+                                if (errno == ENOMEM) {
+                                        op_ret = -1;
+                                        op_errno = ENOMEM;
+                                }
+
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "request queue processing failed");
                         }
                 }
 
@@ -2385,25 +2579,30 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
         uint64_t      tmp_file = 0;
         call_stub_t  *stub     = NULL;
         wb_request_t *request  = NULL;
-        int32_t       ret      = -1;
+        int32_t       ret      = -1, op_errno = 0;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, this, unwind,
+                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR (frame->this->name, fd, unwind,
+                                        op_errno, EINVAL);
 
         if ((!IA_ISDIR (fd->inode->ia_type))
             && fd_ctx_get (fd, this, &tmp_file)) {
-                gf_log (this->name, GF_LOG_DEBUG, "write behind file pointer is"
+                gf_log (this->name, GF_LOG_WARNING,
+                        "write behind file pointer is"
                         " not stored in context of fd(%p), returning EBADFD",
                         fd);
-
-                STACK_UNWIND_STRICT (fsync, frame, -1, EBADFD, NULL, NULL);
-                return 0;
+                op_errno = EBADFD;
+                goto unwind;
         }
 
         file = (wb_file_t *)(long)tmp_file;
 
-        local = GF_CALLOC (1, sizeof (*local),
-                           gf_wb_mt_wb_local_t);
+        local = GF_CALLOC (1, sizeof (*local), gf_wb_mt_wb_local_t);
         if (local == NULL) {
-                STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL, NULL);
-                return 0;
+                op_errno = ENOMEM;
+                goto unwind;
         }
 
         local->file = file;
@@ -2413,31 +2612,31 @@ wb_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync)
         if (file) {
                 stub = fop_fsync_stub (frame, wb_fsync_helper, fd, datasync);
                 if (stub == NULL) {
-                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL,
-                                             NULL);
-                        return 0;
+                        op_errno = ENOMEM;
+                        goto unwind;
                 }
 
                 request = wb_enqueue (file, stub);
                 if (request == NULL) {
-                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL,
-                                             NULL);
+                        op_errno = ENOMEM;
                         call_stub_destroy (stub);
-                        return 0;
+                        goto unwind;
                 }
 
                 ret = wb_process_queue (frame, file);
-                if ((ret == -1) && (errno == ENOMEM)) {
-                        STACK_UNWIND_STRICT (fsync, frame, -1, ENOMEM, NULL,
-                                             NULL);
-                        call_stub_destroy (stub);
-                        return 0;
+                if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "request queue processing failed");
                 }
         } else {
                 STACK_WIND (frame, wb_fsync_cbk, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->fsync, fd, datasync);
         }
 
+        return 0;
+
+unwind:
+        STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2447,6 +2646,9 @@ wb_release (xlator_t *this, fd_t *fd)
 {
         uint64_t   file_ptr = 0;
         wb_file_t *file     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
         fd_ctx_get (fd, this, &file_ptr);
         file = (wb_file_t *) (long) file_ptr;
@@ -2461,6 +2663,7 @@ wb_release (xlator_t *this, fd_t *fd)
                 wb_file_destroy (file);
         }
 
+out:
         return 0;
 }
 
@@ -2478,8 +2681,7 @@ wb_priv_dump (xlator_t *this)
         conf = this->private;
         GF_VALIDATE_OR_GOTO (this->name, conf, out);
 
-        gf_proc_dump_build_key (key_prefix,
-                                "xlator.performance.write-behind",
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.write-behind",
                                 "priv");
 
         gf_proc_dump_add_section (key_prefix);
@@ -2511,8 +2713,7 @@ __wb_dump_requests (struct list_head *head, char *prefix, char passive)
         wb_request_t *request                         = NULL;
 
         list_for_each_entry (request, head, list) {
-                gf_proc_dump_build_key (key, prefix,
-                                        passive ? "passive-request"
+                gf_proc_dump_build_key (key, prefix, passive ? "passive-request"
                                         : "active-request");
                 gf_proc_dump_build_key (key_prefix, key,
                                         gf_fop_list[request->fop]);
@@ -2590,8 +2791,7 @@ wb_file_dump (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-        gf_proc_dump_build_key (key_prefix,
-                                "xlator.performance.write-behind",
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.write-behind",
                                 "file");
 
         gf_proc_dump_add_section (key_prefix);
@@ -2650,17 +2850,18 @@ mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
-        if (!this)
-                return ret;
+        if (!this) {
+                goto out;
+        }
 
         ret = xlator_mem_acct_init (this, gf_wb_mt_end + 1);
 
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                         "failed");
-                return ret;
         }
 
+out:
         return ret;
 }
 
@@ -2703,15 +2904,13 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                         goto out;
                 }
 
-                gf_log(this->name, GF_LOG_DEBUG, "Validated "
-                       "'option cache-size %s '", str);
+                gf_log(this->name, GF_LOG_WARNING,
+                       "validated 'option cache-size %s '", str);
         }
 
-        ret = dict_get_str (options, "flush-behind",
-                            &str);
+        ret = dict_get_str (options, "flush-behind", &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str,
-                                         &flush_behind);
+                ret = gf_string2boolean (str, &flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "'flush-behind' takes only boolean arguments");
@@ -2737,8 +2936,7 @@ reconfigure (xlator_t *this, dict_t *options)
 
         conf = this->private;
 
-        ret = dict_get_str (options, "cache-size",
-                            &str);
+        ret = dict_get_str (options, "cache-size", &str);
         if (ret == 0) {
                 ret = gf_string2bytesize (str, &window_size);
                 if (ret != 0) {
@@ -2769,18 +2967,16 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
 
                 conf->window_size = window_size;
-                gf_log(this->name, GF_LOG_DEBUG, "Reconfiguring "
+                gf_log(this->name, GF_LOG_WARNING, "Reconfiguring "
                        "'option cache-size %s ' to %"PRIu64, str,
                        conf->window_size);
         } else {
                 conf->window_size = WB_WINDOW_SIZE;
         }
 
-        ret = dict_get_str (options, "flush-behind",
-                            &str);
+        ret = dict_get_str (options, "flush-behind", &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str,
-                                         &conf->flush_behind);
+                ret = gf_string2boolean (str, &conf->flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'flush-behind' takes only boolean arguments");
@@ -2789,10 +2985,10 @@ reconfigure (xlator_t *this, dict_t *options)
                 }
 
                 if (conf->flush_behind) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "enabling flush-behind");
                 } else {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "disabling flush-behind");
                 }
         }
@@ -2814,9 +3010,8 @@ init (xlator_t *this)
             || this->children->next) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "FATAL: write-behind (%s) not configured with exactly "
-                        "one child",
-                        this->name);
-                return -1;
+                        "one child", this->name);
+                goto out;
         }
 
         if (this->parents == NULL) {
@@ -2828,59 +3023,50 @@ init (xlator_t *this)
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_wb_mt_wb_conf_t);
         if (conf == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "FATAL: Out of memory");
-                return -1;
+                goto out;
         }
 
         conf->enable_O_SYNC = _gf_false;
-        ret = dict_get_str (options, "enable-O_SYNC",
-                            &str);
+        ret = dict_get_str (options, "enable-O_SYNC", &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str,
-                                         &conf->enable_O_SYNC);
+                ret = gf_string2boolean (str, &conf->enable_O_SYNC);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'enable-O_SYNC' takes only boolean arguments");
-                        return -1;
+                        goto out;
                 }
         }
 
         /* configure 'options aggregate-size <size>' */
         conf->aggregate_size = WB_AGGREGATE_SIZE;
         conf->disable_till = 0;
-        ret = dict_get_str (options, "disable-for-first-nbytes",
-                            &str);
+        ret = dict_get_str (options, "disable-for-first-nbytes", &str);
         if (ret == 0) {
-                ret = gf_string2bytesize (str,
-                                          &conf->disable_till);
+                ret = gf_string2bytesize (str, &conf->disable_till);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format \"%s\" of \"option "
                                 "disable-for-first-nbytes\"",
                                 str);
-                        return -1;
+                        goto out;
                 }
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_WARNING,
                 "disabling write-behind for first %"PRIu64" bytes",
                 conf->disable_till);
 
         /* configure 'option window-size <size>' */
         conf->window_size = WB_WINDOW_SIZE;
-        ret = dict_get_str (options, "cache-size",
-                            &str);
+        ret = dict_get_str (options, "cache-size", &str);
         if (ret == 0) {
-                ret = gf_string2bytesize (str,
-                                          &conf->window_size);
+                ret = gf_string2bytesize (str, &conf->window_size);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "invalid number format \"%s\" of \"option "
-                                "window-size\"",
-                                str);
+                                "window-size\"", str);
                         GF_FREE (conf);
-                        return -1;
+                        goto out;
                 }
         }
 
@@ -2895,60 +3081,65 @@ init (xlator_t *this)
         if (conf->window_size < conf->aggregate_size) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "aggregate-size(%"PRIu64") cannot be more than "
-                        "window-size"
-                        "(%"PRIu64")", conf->aggregate_size, conf->window_size);
+                        "window-size(%"PRIu64")", conf->aggregate_size,
+                        conf->window_size);
                 GF_FREE (conf);
-                return -1;
+                goto out;
         }
 
         /* configure 'option flush-behind <on/off>' */
         conf->flush_behind = 1;
-        ret = dict_get_str (options, "flush-behind",
-                            &str);
+        ret = dict_get_str (options, "flush-behind", &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str,
-                                         &conf->flush_behind);
+                ret = gf_string2boolean (str, &conf->flush_behind);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'flush-behind' takes only boolean arguments");
-                        return -1;
+                        goto out;
                 }
 
                 if (conf->flush_behind) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "enabling flush-behind");
                 }
         }
 
         conf->enable_trickling_writes = _gf_true;
-        ret = dict_get_str (options, "enable-trickling-writes",
-                            &str);
+        ret = dict_get_str (options, "enable-trickling-writes", &str);
         if (ret == 0) {
-                ret = gf_string2boolean (str,
-                                         &conf->enable_trickling_writes);
+                ret = gf_string2boolean (str, &conf->enable_trickling_writes);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'enable-trickling_writes' takes only boolean"
                                 " arguments");
-                        return -1;
+                        goto out;
                 }
         }
 
         this->private = conf;
-        return 0;
+        ret = 0;
+
+out:
+        return ret;
 }
 
 
 void
 fini (xlator_t *this)
 {
-        wb_conf_t *conf = this->private;
+        wb_conf_t *conf = NULL;
 
-        if (!conf)
-                return;
+        GF_VALIDATE_OR_GOTO ("write-behind", this, out);
+
+        conf = this->private;
+        if (!conf) {
+                goto out;
+        }
 
         this->private = NULL;
         GF_FREE (conf);
+
+out:
         return;
 }
 
