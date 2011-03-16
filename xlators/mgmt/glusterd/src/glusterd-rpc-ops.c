@@ -1763,7 +1763,8 @@ glusterd3_1_brick_op (call_frame_t *frame, xlator_t *this,
                         continue;
 
                 ret = glusterd_brick_op_build_payload (req_ctx->op, brickinfo,
-                                                (gd1_mgmt_brick_op_req **)&req);
+                                                (gd1_mgmt_brick_op_req **)&req,
+                                                 req_ctx->dict);
 
                 if (ret)
                         goto out;

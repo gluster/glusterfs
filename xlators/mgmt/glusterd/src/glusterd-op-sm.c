@@ -47,6 +47,7 @@
 #include "glusterd-volgen.h"
 #include "syscall.h"
 #include "cli1.h"
+#include "common-utils.h"
 
 #include <sys/types.h>
 #include <signal.h>
@@ -181,21 +182,22 @@ glusterd_op_sm_inject_all_acc ()
 
 int
 glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickinfo,
-                                 gd1_mgmt_brick_op_req **req)
+                                 gd1_mgmt_brick_op_req **req, dict_t *dict)
 {
         int                     ret = -1;
         gd1_mgmt_brick_op_req   *brick_req = NULL;
-        dict_t                  *dict = NULL;
+        gf1_cli_top_op          top_op = 0;
+        double                  throughput = 0;
+        double                  time = 0;
+        int32_t                 blk_size = 0;
+        int32_t                 blk_count = 0;
 
         GF_ASSERT (op < GD_OP_MAX);
         GF_ASSERT (op > GD_OP_NONE);
         GF_ASSERT (req);
 
-        dict = dict_new ();
-        if (!dict)
-                goto out;
 
-         switch (op) {
+        switch (op) {
         case GD_OP_REMOVE_BRICK:
         case GD_OP_STOP_VOLUME:
                 brick_req = GF_CALLOC (1, sizeof (*brick_req),
@@ -218,12 +220,47 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
 
                 brick_req->op = GF_BRICK_XLATOR_INFO;
                 brick_req->name = brickinfo->path;
-        break;
+
+                ret = dict_get_int32 (dict, "top-op", (int32_t*)&top_op);
+                if (ret)
+                        goto cont; 
+                if (top_op == GF_CLI_TOP_READ_PERF ||
+                    top_op == GF_CLI_TOP_WRITE_PERF) {
+
+                        ret = dict_get_int32 (dict, "blk-size", &blk_size);
+                        if (ret) {
+                                goto cont;
+                        }
+                        ret = dict_get_int32 (dict, "blk-cnt", &blk_count);
+                        if (ret)
+                                goto out;
+                        if (top_op == GF_CLI_TOP_READ_PERF)
+                                 ret = glusterd_volume_stats_read_perf (
+                                        brickinfo->path, blk_size, blk_count, 
+                                        &throughput, &time);
+                        else if (!ret && top_op == GF_CLI_TOP_WRITE_PERF)
+                                ret = glusterd_volume_stats_write_perf (
+                                        brickinfo->path, blk_size, blk_count, 
+                                        &throughput, &time);
+
+                        if (ret) 
+                                goto out;
+
+                        ret = dict_set_double (dict, "throughput",
+                                              throughput);
+                        if (ret)
+                                goto out;
+                        ret = dict_set_double (dict, "time", time);
+                        if (ret)
+                                goto out;
+                }
+                break;
         default:
                 goto out;
         break;
         }
 
+cont:
         ret = dict_allocate_and_serialize (dict, &brick_req->input.input_val,
                                            (size_t*)&brick_req->input.input_len);
         if (ret)
@@ -232,8 +269,6 @@ glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickin
         ret = 0;
 
 out:
-        if (dict)
-                dict_unref (dict);
         if (ret && brick_req)
                 GF_FREE (brick_req);
         gf_log ("glusterd", GF_LOG_DEBUG, "Returning %d", ret);
@@ -2034,6 +2069,15 @@ glusterd_op_stage_stats_volume (dict_t *dict, char **op_errstr)
                 if (ret || (_gf_false == enabled)) {
                         snprintf (msg, sizeof (msg), "Profiling is not enabled for "
                                   "volume %s", volinfo->volname);
+                        gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
+                        *op_errstr = gf_strdup (msg);
+                        ret = -1;
+                        goto out;
+                }
+        } else if (GF_CLI_STATS_TOP == stats_op)  {
+                if (glusterd_is_volume_started (volinfo)) {
+                        snprintf (msg, sizeof (msg), "volume %s is not started.",
+                                  volinfo->volname);
                         gf_log ("glusterd", GF_LOG_ERROR, "%s", msg);
                         *op_errstr = gf_strdup (msg);
                         ret = -1;
@@ -5440,6 +5484,7 @@ glusterd_op_stats_volume (dict_t *dict, char **op_errstr,
                 latency_value = gf_strdup ("off");
                 break;
         case GF_CLI_STATS_INFO:
+        case GF_CLI_STATS_TOP:
                 //info is already collected in brick op.
                 //just goto out;
                 ret = 0;
@@ -6806,6 +6851,7 @@ glusterd_bricks_select_stop_volume (dict_t *dict, char **op_errstr)
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_pending_node_t                 *pending_node = NULL;
 
+
         ret = glusterd_op_stop_volume_args_get (dict, &volname, &flags);
         if (ret)
                 goto out;
@@ -6911,6 +6957,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
         int32_t                                 stats_op = GF_CLI_STATS_NONE;
         glusterd_brickinfo_t                    *brickinfo = NULL;
         glusterd_pending_node_t                 *pending_node = NULL;
+        char                                    *brick = NULL;
 
         this = THIS;
         GF_ASSERT (this);
@@ -6928,6 +6975,7 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                 snprintf (msg, sizeof (msg), "Volume %s does not exists",
                           volname);
 
+                *op_errstr = gf_strdup (msg);
                 gf_log ("", GF_LOG_ERROR, "%s", msg);
                 goto out;
         }
@@ -6960,6 +7008,46 @@ glusterd_bricks_select_profile_volume (dict_t *dict, char **op_errstr)
                         }
                 }
                 break;
+
+        case GF_CLI_STATS_TOP:
+                ret = dict_get_str (dict, "brick", &brick);
+                if (!ret) {
+                        ret = glusterd_volume_brickinfo_get_by_brick (brick,
+                                                        volinfo, &brickinfo); 
+                        if (ret)
+                                goto out;
+
+                        pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                                  gf_gld_mt_pending_node_t);
+                        if (!pending_node) {
+                                ret = -1;
+                                goto out;
+                        } else {
+                                pending_node->node = brickinfo;
+                                list_add_tail (&pending_node->list,
+                                               &opinfo.pending_bricks);
+                                pending_node = NULL;
+                                goto out;
+                        }
+                }
+                ret = 0;
+                list_for_each_entry (brickinfo, &volinfo->bricks, brick_list) {
+                        if (!glusterd_is_brick_started (brickinfo)) {
+                                pending_node = GF_CALLOC (1, sizeof (*pending_node),
+                                                          gf_gld_mt_pending_node_t);
+                                if (!pending_node) {
+                                        ret = -1;
+                                        goto out;
+                                } else {
+                                        pending_node->node = brickinfo;
+                                        list_add_tail (&pending_node->list,
+                                                       &opinfo.pending_bricks);
+                                        pending_node = NULL;
+                                }
+                        }
+                }
+                break;
+  
         default:
                 GF_ASSERT (0);
                 gf_log ("glusterd", GF_LOG_ERROR, "Invalid profile op: %d",
@@ -7746,5 +7834,161 @@ glusterd_op_sm_init ()
 int32_t
 glusterd_opinfo_unlock(){
         return (pthread_mutex_unlock(&opinfo.lock));
+}
+int32_t
+glusterd_volume_stats_write_perf (char *brick_path, int32_t blk_size,
+                int32_t blk_count, double *throughput, double *time)
+{
+        int32_t          fd = -1;
+        int32_t          input_fd = -1;
+        char             export_path[1024];
+        char            *buf = NULL;
+        int32_t          iter = 0;
+        int32_t          ret = -1;
+        int64_t          total_blks = 0;
+        struct timeval   begin, end = {0, };
+
+
+        GF_VALIDATE_OR_GOTO ("stripe", brick_path, out);
+
+        snprintf (export_path, sizeof(export_path), "%s/%s",
+                 brick_path, ".gf_tmp_stats_perf");
+        fd = open (export_path, O_CREAT|O_RDWR, S_IRWXU);
+        if (fd == -1)
+                return errno;
+        buf = GF_MALLOC (blk_size * sizeof(*buf), gf_common_mt_char);
+
+        if (!buf)
+                return ret;
+
+        input_fd = open("/dev/zero", O_RDONLY);
+        if (input_fd == -1)
+                return errno;
+        gettimeofday (&begin, NULL);
+        for (iter = 0; iter < blk_count; iter++) {
+                ret = read (input_fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = write (fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                total_blks += ret;
+        }
+        ret = 0;
+        if (total_blks != (blk_size * blk_count)) {
+                gf_log ("glusterd", GF_LOG_WARNING, "Errors in write");
+                ret = -1;
+                goto out;
+        }
+
+        gettimeofday (&end, NULL);
+        *time = (end.tv_sec - begin.tv_sec) * 1e6
+                + (end.tv_usec - begin.tv_usec);
+
+        *throughput = total_blks / *time;
+        gf_log ("glusterd", GF_LOG_INFO, "Throughput %.2f MBps time %.2f secs bytes "
+                "written %"PRId64, *throughput, *time / 1e6, total_blks);
+out:
+        if (fd >= 0)
+                close (fd);
+        if (input_fd >= 0)
+                close (input_fd);
+        if (buf)
+                GF_FREE (buf);
+        unlink (export_path);
+        return ret;
+}
+
+int32_t
+glusterd_volume_stats_read_perf (char *brick_path, int32_t blk_size,
+                int32_t blk_count, double *throughput, double *time)
+{
+        int32_t          fd = -1;
+        int32_t          output_fd = -1;
+        int32_t          input_fd = -1;
+        char             export_path[1024];
+        char            *buf = NULL;
+        int32_t          iter = 0;
+        int32_t          ret = -1;
+        int64_t          total_blks = 0;
+        struct timeval   begin, end = {0, };
+
+
+        GF_VALIDATE_OR_GOTO ("glusterd", brick_path, out);
+
+        snprintf (export_path, sizeof(export_path), "%s/%s",
+                 brick_path, ".gf_tmp_stats_perf");
+        fd = open (export_path, O_CREAT|O_RDWR, S_IRWXU);
+        if (fd == -1)
+                return errno;
+        buf = GF_MALLOC (blk_size * sizeof(*buf), gf_common_mt_char);
+
+        if (!buf)
+                return ret;
+
+        output_fd = open("/dev/null", O_RDWR);
+        if (output_fd == -1)
+                return errno;
+        input_fd = open("/dev/zero", O_RDONLY);
+        if (input_fd == -1)
+                return errno;
+        for (iter = 0; iter < blk_count; iter++) {
+                ret = read (input_fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = write (fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+
+        lseek (fd, 0L, 0);
+        gettimeofday (&begin, NULL);
+        for (iter = 0; iter < blk_count; iter++) {
+                ret = read (fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                ret = write (output_fd, buf, blk_size);
+                if (ret != blk_size) {
+                        ret = -1;
+                        goto out;
+                }
+                total_blks += ret;
+        }
+        ret = 0;
+        if (total_blks != (blk_size * blk_count)) {
+                gf_log ("glusterd", GF_LOG_WARNING, "Errors in write");
+                ret = -1;
+                goto out;
+        }
+
+        gettimeofday (&end, NULL);
+        *time = (end.tv_sec - begin.tv_sec) * 1e6
+                + (end.tv_usec - begin.tv_usec);
+
+        *throughput = total_blks / *time;
+        gf_log ("glusterd", GF_LOG_INFO, "Throughput %.2f MBps time %.2f secs bytes "
+                "read %"PRId64, *throughput, *time / 1e6, total_blks);
+out:
+        if (fd >= 0)
+                close (fd);
+        if (input_fd >= 0)
+                close (input_fd);        
+        if (output_fd >= 0)
+                close (output_fd);
+        if (buf)
+                GF_FREE (buf);
+        unlink (export_path);
+        return ret;
 }
 

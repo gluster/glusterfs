@@ -262,7 +262,7 @@ int32_t
 glusterd_op_bricks_select (glusterd_op_t op, dict_t *dict, char **op_errstr);
 int
 glusterd_brick_op_build_payload (glusterd_op_t op, glusterd_brickinfo_t *brickinfo,
-                                 gd1_mgmt_brick_op_req **req);
+                                 gd1_mgmt_brick_op_req **req, dict_t *dict);
 int32_t
 glusterd_handle_brick_rsp (glusterd_brickinfo_t *brickinfo,
                            glusterd_op_t op, dict_t *rsp_dict, dict_t *ctx_dict,
@@ -272,4 +272,10 @@ int32_t
 glusterd_op_init_ctx (glusterd_op_t op);
 int32_t
 glusterd_op_fini_ctx (glusterd_op_t op);
+int32_t
+glusterd_volume_stats_read_perf (char *brick_path, int32_t blk_size,
+                int32_t blk_count, double *throughput, double *time);
+int32_t
+glusterd_volume_stats_write_perf (char *brick_path, int32_t blk_size,
+                int32_t blk_count, double *throughput, double *time);
 #endif

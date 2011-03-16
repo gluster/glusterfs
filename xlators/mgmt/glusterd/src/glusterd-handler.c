@@ -2981,7 +2981,7 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
         gf_boolean_t                    free_volname = _gf_true;
         int                             lock_fail = 0;
         glusterd_op_t                   cli_op = GD_OP_PROFILE_VOLUME;
-
+        dict_t                           *tmp_dict = NULL;
 
         GF_ASSERT (req);
 
@@ -3021,13 +3021,27 @@ glusterd_handle_cli_profile_volume (rpcsvc_request_t *req)
                 goto out;
         }
 
+        tmp_dict = dict_new();
+        if (!tmp_dict)
+                goto out;
+        dict_unserialize (cli_req.dict_req.dict_req_val,
+                          cli_req.dict_req.dict_req_len, &tmp_dict);
+
+        dict_copy (tmp_dict, dict);
+
         ret = glusterd_op_begin (req, cli_op, dict, _gf_true);
 
 out:
         glusterd_friend_sm ();
         glusterd_op_sm ();
-        if (ret)
+
+        if (tmp_dict)
+                dict_unref (tmp_dict);
+
+        if (ret) 
                 dict_unref (dict);
+        if (cli_req.dict_req.dict_req_val)
+                free (cli_req.dict_req.dict_req_val);
         if (free_volname)
                 free (cli_req.volname); // malloced by xdr
         if (ret) {
