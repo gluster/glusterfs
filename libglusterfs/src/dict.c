@@ -43,9 +43,6 @@ get_new_data_pair ()
 
         data_pair_ptr = (data_pair_t *) GF_CALLOC (1, sizeof (data_pair_t),
                                                    gf_common_mt_data_pair_t);
-        if (!data_pair_ptr)
-                gf_log ("dict", GF_LOG_ERROR, "memory alloc failed");
-
         return data_pair_ptr;
 }
 
@@ -56,8 +53,6 @@ get_new_data ()
 
         data = (data_t *) GF_CALLOC (1, sizeof (data_t), gf_common_mt_data_t);
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "calloc () returned NULL");
                 return NULL;
         }
 
@@ -71,8 +66,6 @@ get_new_dict_full (int size_hint)
         dict_t *dict = GF_CALLOC (1, sizeof (dict_t), gf_common_mt_dict_t);
 
         if (!dict) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "calloc () returned NULL");
                 return NULL;
         }
 
@@ -81,8 +74,7 @@ get_new_dict_full (int size_hint)
                                    gf_common_mt_data_pair_t);
 
         if (!dict->members) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "calloc () returned NULL");
+                GF_FREE (dict);
                 return NULL;
         }
 
@@ -115,6 +107,7 @@ int32_t
 is_data_equal (data_t *one,
                data_t *two)
 {
+        /* LOG-TODO */
         if (!one || !two || !one->data || !two->data)
                 return 1;
 
@@ -160,8 +153,8 @@ data_t *
 data_copy (data_t *old)
 {
         if (!old) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@old is NULL");
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "old is NULL");
                 return NULL;
         }
 
@@ -169,8 +162,6 @@ data_copy (data_t *old)
                                                 gf_common_mt_data_t);
 
         if (!newdata) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@newdata - NULL returned by CALLOC");
                 return NULL;
         }
 
@@ -200,8 +191,6 @@ err_out:
                 FREE (newdata->vec);
         GF_FREE (newdata);
 
-        gf_log ("dict", GF_LOG_CRITICAL,
-                "@newdata->data || @newdata->vec got NULL from CALLOC()");
         return NULL;
 }
 
@@ -209,8 +198,8 @@ static data_pair_t *
 _dict_lookup (dict_t *this, char *key)
 {
         if (!this || !key) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@this=%p @key=%p", this, key);
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "!this || !key (%s)", key);
                 return NULL;
         }
 
@@ -240,7 +229,7 @@ _dict_set (dict_t *this,
         if (!key) {
                 ret = gf_asprintf (&key, "ref:%p", value);
                 if (-1 == ret) {
-                        gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                        gf_log ("dict", GF_LOG_WARNING, "asprintf failed %s", key);
                         return -1;
                 }
                 key_free = 1;
@@ -262,16 +251,12 @@ _dict_set (dict_t *this,
         pair = (data_pair_t *) GF_CALLOC (1, sizeof (*pair),
                                           gf_common_mt_data_pair_t);
         if (!pair) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@pair - NULL returned by CALLOC");
                 return -1;
         }
 
         pair->key = (char *) GF_CALLOC (1, strlen (key) + 1,
                                         gf_common_mt_char);
         if (!pair->key) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@pair->key - NULL returned by CALLOC");
                 GF_FREE (pair);
 
                 if (key_free)
@@ -305,8 +290,8 @@ dict_set (dict_t *this,
         int32_t ret;
 
         if (!this || !value) {
-                gf_log ("dict", GF_LOG_ERROR,
-                        "@this=%p @value=%p, key=%s", this, value, key);
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "!this || !value for key=%s", key);
                 return -1;
         }
 
@@ -321,14 +306,13 @@ dict_set (dict_t *this,
 
 
 data_t *
-dict_get (dict_t *this,
-          char *key)
+dict_get (dict_t *this, char *key)
 {
         data_pair_t *pair;
 
         if (!this || !key) {
-                gf_log_callingfn ("dict", GF_LOG_DEBUG,
-                                  "@this=%p key=%s", this, (key) ? key : "()");
+                gf_log_callingfn ("dict", GF_LOG_INFO,
+                                  "!this || key=%s", (key) ? key : "()");
                 return NULL;
         }
 
@@ -345,12 +329,11 @@ dict_get (dict_t *this,
 }
 
 void
-dict_del (dict_t *this,
-          char *key)
+dict_del (dict_t *this, char *key)
 {
         if (!this || !key) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p @key=%p", this, key);
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "!this || key=%s", key);
                 return;
         }
 
@@ -396,8 +379,7 @@ void
 dict_destroy (dict_t *this)
 {
         if (!this) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p", this);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return;
         }
 
@@ -433,8 +415,7 @@ dict_unref (dict_t *this)
         int32_t ref;
 
         if (!this) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p", this);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return;
         }
 
@@ -453,8 +434,7 @@ dict_t *
 dict_ref (dict_t *this)
 {
         if (!this) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p", this);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return NULL;
         }
 
@@ -473,8 +453,7 @@ data_unref (data_t *this)
         int32_t ref;
 
         if (!this) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p", this);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return;
         }
 
@@ -493,8 +472,7 @@ data_t *
 data_ref (data_t *this)
 {
         if (!this) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p", this);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return NULL;
         }
 
@@ -524,8 +502,7 @@ dict_serialized_length_old (dict_t *this)
 {
 
         if (!this) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p", this);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return -1;
         }
 
@@ -555,8 +532,7 @@ int32_t
 dict_serialize_old (dict_t *this, char *buf)
 {
         if (!this || !buf) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "@this=%p @buf=%p", this, buf);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return -1;
         }
 
@@ -592,9 +568,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
         int32_t cnt = 0;
 
         if (!buf || !fill || !(*fill)) {
-                gf_log ("dict", GF_LOG_ERROR,
-                        "@buf=%p @fill=%p @*fill=%p",
-                        buf, fill, (fill) ? (*fill) : NULL);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "buf is NULL");
                 return NULL;
         }
 
@@ -603,17 +577,13 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
         (*fill)->count = 0;
 
         if (!ret){
-                gf_log ("dict",
-                        GF_LOG_ERROR,
-                        "sscanf on buf failed");
+                gf_log ("dict", GF_LOG_ERROR, "sscanf on buf failed");
                 goto err;
         }
         buf += 9;
 
         if (count == 0) {
-                gf_log ("dict",
-                        GF_LOG_ERROR,
-                        "count == 0");
+                gf_log ("dict", GF_LOG_ERROR, "count == 0");
                 goto err;
         }
 
@@ -624,8 +594,7 @@ dict_unserialize_old (char *buf, int32_t size, dict_t **fill)
 
                 ret = sscanf (buf, "%"SCNx64":%"SCNx64"\n", &key_len, &value_len);
                 if (ret != 2) {
-                        gf_log ("dict",
-                                GF_LOG_ERROR,
+                        gf_log ("dict", GF_LOG_ERROR,
                                 "sscanf for key_len and value_len failed");
                         goto err;
                 }
@@ -658,8 +627,7 @@ int32_t
 dict_iovec_len (dict_t *this)
 {
         if (!this) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@this=%p", this);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return -1;
         }
 
@@ -687,8 +655,7 @@ dict_to_iovec (dict_t *this,
                int32_t count)
 {
         if (!this || !vec) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@this=%p @vec=%p", this, vec);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return -1;
         }
 
@@ -755,14 +722,12 @@ int_to_data (int64_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
 
         ret = gf_asprintf (&data->data, "%"PRId64, value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                gf_log ("dict", GF_LOG_DEBUG, "asprintf failed");
                 return NULL;
         }
         data->len = strlen (data->data) + 1;
@@ -777,13 +742,11 @@ data_from_int64 (int64_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         ret = gf_asprintf (&data->data, "%"PRId64, value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                gf_log ("dict", GF_LOG_DEBUG, "asprintf failed");
                 return NULL;
         }
         data->len = strlen (data->data) + 1;
@@ -798,13 +761,11 @@ data_from_int32 (int32_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         ret = gf_asprintf (&data->data, "%"PRId32, value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                gf_log ("dict", GF_LOG_DEBUG, "asprintf failed");
                 return NULL;
         }
 
@@ -820,13 +781,11 @@ data_from_int16 (int16_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         ret = gf_asprintf (&data->data, "%"PRId16, value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                gf_log ("dict", GF_LOG_DEBUG, "asprintf failed");
                 return NULL;
         }
 
@@ -842,13 +801,11 @@ data_from_int8 (int8_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         ret = gf_asprintf (&data->data, "%d", value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                gf_log ("dict", GF_LOG_DEBUG, "asprintf failed");
                 return NULL;
         }
 
@@ -864,13 +821,11 @@ data_from_uint64 (uint64_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         ret = gf_asprintf (&data->data, "%"PRIu64, value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                gf_log ("dict", GF_LOG_DEBUG, "asprintf failed");
                 return NULL;
         }
 
@@ -888,15 +843,11 @@ data_from_double (double value)
         data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
 
         ret = gf_asprintf (&data->data, "%f", value);
         if (ret == -1) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - allocation failed by ASPRINTF");
                 return NULL;
         }
         data->len = strlen (data->data) + 1;
@@ -912,13 +863,11 @@ data_from_uint32 (uint32_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         ret = gf_asprintf (&data->data, "%"PRIu32, value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
+                gf_log ("dict", GF_LOG_DEBUG, "asprintf failed");
                 return NULL;
         }
 
@@ -935,13 +884,10 @@ data_from_uint16 (uint16_t value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         ret = gf_asprintf (&data->data, "%"PRIu16, value);
         if (-1 == ret) {
-                gf_log ("dict", GF_LOG_ERROR, "asprintf failed");
                 return NULL;
         }
 
@@ -955,16 +901,13 @@ data_t *
 data_from_ptr (void *value)
 {
         if (!value) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@value=%p", value);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "value is NULL");
                 return NULL;
         }
 
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
 
@@ -987,8 +930,6 @@ data_from_static_ptr (void *value)
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
 
@@ -1002,15 +943,12 @@ data_t *
 str_to_data (char *value)
 {
         if (!value) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@value=%p", value);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "value is NULL");
                 return NULL;
         }
         data_t *data = get_new_data ();
 
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data - NULL returned by CALLOC");
                 return NULL;
         }
         data->len = strlen (value) + 1;
@@ -1025,8 +963,7 @@ data_t *
 data_from_dynstr (char *value)
 {
         if (!value) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@value=%p", value);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "value is NULL");
                 return NULL;
         }
 
@@ -1042,8 +979,7 @@ data_t *
 data_from_dynmstr (char *value)
 {
         if (!value) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@value=%p", value);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "value is NULL");
                 return NULL;
         }
 
@@ -1061,6 +997,9 @@ data_from_dynptr (void *value, int32_t len)
 {
         data_t *data = get_new_data ();
 
+        if (!data)
+                return NULL;
+
         data->len = len;
         data->data = value;
 
@@ -1071,12 +1010,14 @@ data_t *
 bin_to_data (void *value, int32_t len)
 {
         if (!value) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@value=%p", value);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "value is NULL");
                 return NULL;
         }
 
         data_t *data = get_new_data ();
+
+        if (!data)
+                return NULL;
 
         data->is_static = 1;
         data->len = len;
@@ -1088,8 +1029,10 @@ bin_to_data (void *value, int32_t len)
 int64_t
 data_to_int64 (data_t *data)
 {
-        if (!data)
+        if (!data) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return -1;
+        }
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1103,8 +1046,10 @@ data_to_int64 (data_t *data)
 int32_t
 data_to_int32 (data_t *data)
 {
-        if (!data)
+        if (!data) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return -1;
+        }
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1119,8 +1064,10 @@ data_to_int32 (data_t *data)
 int16_t
 data_to_int16 (data_t *data)
 {
-        if (!data)
+        if (!data) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return -1;
+        }
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1136,8 +1083,10 @@ data_to_int16 (data_t *data)
 int8_t
 data_to_int8 (data_t *data)
 {
-        if (!data)
+        if (!data) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return -1;
+        }
 
         char *str = alloca (data->len + 1);
         if (!str)
@@ -1201,8 +1150,7 @@ char *
 data_to_str (data_t *data)
 {
         if (!data) {
-                gf_log ("dict", GF_LOG_WARNING,
-                        "@data=%p", data);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return NULL;
         }
         return data->data;
@@ -1212,6 +1160,7 @@ void *
 data_to_ptr (data_t *data)
 {
         if (!data) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return NULL;
         }
         return data->data;
@@ -1221,8 +1170,7 @@ void *
 data_to_bin (data_t *data)
 {
         if (!data) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data=%p", data);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "data is NULL");
                 return NULL;
         }
         return data->data;
@@ -1237,8 +1185,8 @@ dict_foreach (dict_t *dict,
               void *data)
 {
         if (!data || !dict) {
-                gf_log_callingfn ("dict", GF_LOG_CRITICAL,
-                                  "@data=%p, @dict=%p", data, dict);
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "data OR dict is NULL");
                 return;
         }
 
@@ -1268,8 +1216,7 @@ dict_copy (dict_t *dict,
            dict_t *new)
 {
         if (!dict) {
-                gf_log ("dict", GF_LOG_CRITICAL,
-                        "@data=%p", dict);
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is NULL");
                 return NULL;
         }
 
@@ -1319,6 +1266,8 @@ dict_get_with_ref (dict_t *this, char *key, data_t **data)
         int           ret  = -ENOENT;
 
         if (!this || !key || !data) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING,
+                                  "dict OR key (%s) is NULL", key);
                 ret = -EINVAL;
                 goto err;
         }
@@ -2433,7 +2382,7 @@ dict_serialized_length (dict_t *this)
         int ret            = -EINVAL;
 
         if (!this) {
-                gf_log ("dict", GF_LOG_ERROR, "this is null!");
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is null!");
                 goto out;
         }
 
@@ -2463,14 +2412,8 @@ dict_serialize (dict_t *this, char *buf)
 {
         int           ret    = -1;
 
-        if (!this) {
-                gf_log ("dict", GF_LOG_ERROR,
-                        "this is null!");
-                goto out;
-        }
-        if (!buf) {
-                gf_log ("dict", GF_LOG_ERROR,
-                        "buf is null!");
+        if (!this || !buf) {
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "dict is null!");
                 goto out;
         }
 
@@ -2512,32 +2455,34 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
         buf = orig_buf;
 
         if (!buf) {
-                gf_log ("dict", GF_LOG_ERROR,
-                        "buf is null!");
+                gf_log_callingfn ("dict", GF_LOG_WARNING, "buf is null!");
                 goto out;
         }
 
         if (size == 0) {
-                gf_log ("dict", GF_LOG_ERROR,
+                gf_log_callingfn ("dict", GF_LOG_ERROR,
                         "size is 0!");
                 goto out;
         }
 
         if (!fill) {
-                gf_log ("dict", GF_LOG_ERROR,
+                gf_log_callingfn ("dict", GF_LOG_ERROR,
                         "fill is null!");
                 goto out;
         }
 
         if (!*fill) {
-                gf_log ("dict", GF_LOG_ERROR,
+                gf_log_callingfn ("dict", GF_LOG_ERROR,
                         "*fill is null!");
                 goto out;
         }
 
         if ((buf + DICT_HDR_LEN) > (orig_buf + size)) {
-                gf_log ("dict", GF_LOG_ERROR,
-                        "undersized buffer passed");
+                gf_log_callingfn ("dict", GF_LOG_ERROR,
+                                  "undersized buffer passed. "
+                                  "available (%lu) < required (%lu)",
+                                  (long)(orig_buf + size),
+                                  (long)(buf + DICT_HDR_LEN));
                 goto out;
         }
 
@@ -2556,11 +2501,11 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
 
         for (i = 0; i < count; i++) {
                 if ((buf + DICT_DATA_HDR_KEY_LEN) > (orig_buf + size)) {
-                        gf_log ("dict", GF_LOG_DEBUG,
-                                "No room for keylen (size %d).",
-                                DICT_DATA_HDR_KEY_LEN);
-                        gf_log ("dict", GF_LOG_ERROR,
-                                "undersized buffer passed");
+                        gf_log_callingfn ("dict", GF_LOG_ERROR,
+                                          "undersized buffer passed. "
+                                          "available (%lu) < required (%lu)",
+                                          (long)(orig_buf + size),
+                                          (long)(buf + DICT_DATA_HDR_KEY_LEN));
                         goto out;
                 }
                 memcpy (&hostord, buf, sizeof(hostord));
@@ -2568,11 +2513,11 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 buf += DICT_DATA_HDR_KEY_LEN;
 
                 if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
-                        gf_log ("dict", GF_LOG_DEBUG,
-                                "No room for vallen (size %d).",
-                                DICT_DATA_HDR_VAL_LEN);
-                        gf_log ("dict", GF_LOG_ERROR,
-                                "undersized buffer passed");
+                        gf_log_callingfn ("dict", GF_LOG_ERROR,
+                                          "undersized buffer passed. "
+                                          "available (%lu) < required (%lu)",
+                                          (long)(orig_buf + size),
+                                          (long)(buf + DICT_DATA_HDR_VAL_LEN));
                         goto out;
                 }
                 memcpy (&hostord, buf, sizeof(hostord));
@@ -2580,21 +2525,22 @@ dict_unserialize (char *orig_buf, int32_t size, dict_t **fill)
                 buf += DICT_DATA_HDR_VAL_LEN;
 
                 if ((buf + keylen) > (orig_buf + size)) {
-                        gf_log ("dict", GF_LOG_DEBUG,
-                                "No room for key (size %d).", keylen);
-                        gf_log ("dict", GF_LOG_ERROR,
-                                "undersized buffer passed");
+                        gf_log_callingfn ("dict", GF_LOG_ERROR,
+                                          "undersized buffer passed. "
+                                          "available (%lu) < required (%lu)",
+                                          (long)(orig_buf + size),
+                                          (long)(buf + keylen));
                         goto out;
                 }
                 key = buf;
                 buf += keylen + 1;  /* for '\0' */
 
                 if ((buf + vallen) > (orig_buf + size)) {
-                        gf_log ("dict", GF_LOG_DEBUG,
-                                "No room for value (size %d).", vallen);
-                        gf_log ("dict", GF_LOG_ERROR,
-                                "undersized buffer passed");
-                        goto out;
+                        gf_log_callingfn ("dict", GF_LOG_ERROR,
+                                          "undersized buffer passed. "
+                                          "available (%lu) < required (%lu)",
+                                          (long)(orig_buf + size),
+                                          (long)(buf + vallen));
                 }
                 value = get_new_data ();
                 value->len  = vallen;
@@ -2628,14 +2574,9 @@ dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
         int           ret    = -EINVAL;
         ssize_t       len = 0;
 
-        if (!this) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "NULL passed as this pointer");
-                goto out;
-        }
-        if (!buf) {
-                gf_log ("dict", GF_LOG_DEBUG,
-                        "NULL passed as buf");
+        if (!this || !buf) {
+                gf_log_callingfn ("dict", GF_LOG_DEBUG,
+                                  "dict OR buf is NULL");
                 goto out;
         }
 
@@ -2650,7 +2591,6 @@ dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length)
                 *buf = GF_CALLOC (1, len, gf_common_mt_char);
                 if (*buf == NULL) {
                         ret = -ENOMEM;
-                        gf_log ("dict", GF_LOG_ERROR, "out of memory");
                         goto unlock;
                 }
 

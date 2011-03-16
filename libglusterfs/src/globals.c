@@ -99,8 +99,10 @@ glusterfs_ctx_init ()
 {
         int  ret = 0;
 
-        if (glusterfs_ctx)
+        if (glusterfs_ctx) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "init called again");
                 goto out;
+        }
 
         glusterfs_ctx = CALLOC (1, sizeof (*glusterfs_ctx));
         if (!glusterfs_ctx) {
@@ -144,6 +146,7 @@ glusterfs_this_init ()
 
         ret = pthread_key_create (&this_xlator_key, glusterfs_this_destroy);
         if (ret != 0) {
+                gf_log ("", GF_LOG_WARNING, "failed to create the pthread key");
                 return ret;
         }
 
@@ -170,6 +173,8 @@ __glusterfs_this_location ()
 
                 ret = pthread_setspecific (this_xlator_key, this_location);
                 if (ret != 0) {
+                        gf_log ("", GF_LOG_WARNING, "pthread setspecific failed");
+
                         FREE (this_location);
                         this_location = NULL;
                         goto out;

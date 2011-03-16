@@ -47,9 +47,7 @@ gf_roundup_power_of_two (uint32_t nr)
         uint32_t result = 1;
 
         if (nr < 0) {
-                gf_log ("server-protocol/fd",
-                        GF_LOG_ERROR,
-                        "Negative number passed");
+                gf_log ("fd", GF_LOG_ERROR, "negative number passed");
                 return -1;
         }
 
@@ -66,8 +64,10 @@ gf_fd_chain_fd_entries (fdentry_t *entries, uint32_t startidx,
 {
         uint32_t        i = 0;
 
-        if (!entries)
+        if (!entries) {
+                gf_log_callingfn ("fd", GF_LOG_WARNING, "!entries");
                 return -1;
+        }
 
         /* Chain only till the second to last entry because we want to
          * ensure that the last entry has GF_FDTABLE_END.
@@ -90,7 +90,7 @@ gf_fd_fdtable_expand (fdtable_t *fdtable, uint32_t nr)
         int          ret = -1;
 
         if (fdtable == NULL || nr < 0) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 ret = EINVAL;
                 goto out;
         }
@@ -157,6 +157,7 @@ __gf_fd_fdtable_get_all_fds (fdtable_t *fdtable, uint32_t *count)
         fdentry_t       *fdentries = NULL;
 
         if (count == NULL) {
+                gf_log_callingfn ("fd", GF_LOG_WARNING, "!count");
                 goto out;
         }
 
@@ -199,8 +200,10 @@ gf_fd_fdtable_destroy (fdtable_t *fdtable)
 
         INIT_LIST_HEAD (&list);
 
-        if (!fdtable)
+        if (!fdtable) {
+                gf_log_callingfn ("fd", GF_LOG_WARNING, "!fdtable");
                 return;
+        }
 
         pthread_mutex_lock (&fdtable->lock);
         {
@@ -232,9 +235,8 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
         int             error;
         int             alloc_attempts = 0;
 
-        if (fdtable == NULL || fdptr == NULL)
-        {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+        if (fdtable == NULL || fdptr == NULL) {
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 return EINVAL;
         }
 
@@ -252,17 +254,17 @@ gf_fd_unused_get (fdtable_t *fdtable, fd_t *fdptr)
                          * seriously wrong with our data structures.
                          */
                         if (alloc_attempts >= 2) {
-                                gf_log ("server-protocol.c", GF_LOG_ERROR,
-                                        "Multiple attempts to expand fd table"
+                                gf_log ("fd", GF_LOG_ERROR,
+                                        "multiple attempts to expand fd table"
                                         " have failed.");
                                 goto out;
                         }
                         error = gf_fd_fdtable_expand (fdtable,
                                                       fdtable->max_fds + 1);
                         if (error) {
-                                gf_log ("server-protocol.c",
-                                        GF_LOG_ERROR,
-                                        "Cannot expand fdtable:%s", strerror (error));
+                                gf_log ("fd", GF_LOG_ERROR,
+                                        "Cannot expand fdtable: %s",
+                                        strerror (error));
                                 goto out;
                         }
                         ++alloc_attempts;
@@ -289,12 +291,12 @@ gf_fd_put (fdtable_t *fdtable, int32_t fd)
         fdentry_t *fde = NULL;
 
         if (fdtable == NULL || fd < 0) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 return;
         }
 
         if (!(fd < fdtable->max_fds)) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 return;
         }
 
@@ -330,13 +332,13 @@ gf_fd_fdptr_get (fdtable_t *fdtable, int64_t fd)
         fd_t *fdptr = NULL;
 
         if (fdtable == NULL || fd < 0) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 errno = EINVAL;
                 return NULL;
         }
 
         if (!(fd < fdtable->max_fds)) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 errno = EINVAL;
                 return NULL;
         }
@@ -369,7 +371,7 @@ fd_ref (fd_t *fd)
         fd_t *refed_fd = NULL;
 
         if (!fd) {
-                gf_log ("fd", GF_LOG_ERROR, "@fd=%p", fd);
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "null fd");
                 return NULL;
         }
 
@@ -405,12 +407,12 @@ fd_destroy (fd_t *fd)
         struct mem_pool *tmp_pool = NULL;
 
         if (fd == NULL){
-                gf_log ("xlator", GF_LOG_ERROR, "invalid arugument");
+                gf_log_callingfn ("xlator", GF_LOG_ERROR, "invalid arugument");
                 goto out;
         }
 
         if (fd->inode == NULL){
-                gf_log ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
+                gf_log_callingfn ("xlator", GF_LOG_ERROR, "fd->inode is NULL");
                 goto out;
         }
         if (!fd->_ctx)
@@ -460,7 +462,7 @@ fd_unref (fd_t *fd)
         int32_t refcount = 0;
 
         if (!fd) {
-                gf_log ("fd.c", GF_LOG_ERROR, "fd is NULL");
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "fd is NULL");
                 return;
         }
 
@@ -506,7 +508,7 @@ fd_create (inode_t *inode, pid_t pid)
         fd_t *fd = NULL;
 
         if (inode == NULL) {
-                gf_log ("fd", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("fd", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
@@ -546,8 +548,10 @@ fd_lookup (inode_t *inode, pid_t pid)
         fd_t *fd = NULL;
         fd_t *iter_fd = NULL;
 
-        if (!inode)
+        if (!inode) {
+                gf_log_callingfn ("fd", GF_LOG_WARNING, "!inode");
                 return NULL;
+        }
 
         LOCK (&inode->lock);
         {
@@ -612,6 +616,7 @@ __fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
         }
 
         if (set_idx == -1) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "%p %s", fd, xlator->name);
                 ret = -1;
                 goto out;
         }
@@ -629,8 +634,10 @@ fd_ctx_set (fd_t *fd, xlator_t *xlator, uint64_t value)
 {
         int ret = 0;
 
-	if (!fd || !xlator)
+	if (!fd || !xlator) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "%p %p", fd, xlator);
 		return -1;
+        }
 
         LOCK (&fd->lock);
         {
@@ -828,7 +835,6 @@ fd_ctx_dump (fd_t *fd, char *prefix)
                                             sizeof (*fd_ctx),
                                             gf_common_mt_fd_ctx);
                         if (fd_ctx == NULL) {
-                                gf_log ("fd", GF_LOG_ERROR, "out of memory");
                                 goto unlock;
                         }
 

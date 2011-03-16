@@ -182,8 +182,6 @@ glusterfs_graph_print_buf (glusterfs_graph_t *graph)
 
         buf = GF_CALLOC (1, len + 1, gf_graph_mt_buf);
         if (!buf) {
-                gf_log ("graph-print", GF_LOG_ERROR, "Out of memory");
-
                 return NULL;
         }
         iov.iov_base = buf;

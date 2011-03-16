@@ -124,7 +124,6 @@ rbthash_table_init (int buckets, rbt_hasher_t hfunc,
         newtab->buckets = GF_CALLOC (buckets, sizeof (struct rbthash_bucket),
                                      gf_common_mt_rbthash_bucket);
         if (!newtab->buckets) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Failed to allocate memory");
                 goto free_newtab;
         }
 
@@ -189,7 +188,6 @@ rbthash_init_entry (rbthash_table_t *tbl, void *data, void *key, int keylen)
         entry->data = data;
         entry->key = GF_CALLOC (keylen, sizeof (char), gf_common_mt_char);
         if (!entry->key) {
-                gf_log (GF_RBTHASH, GF_LOG_ERROR, "Memory allocation failed");
                 goto free_entry;
         }
 

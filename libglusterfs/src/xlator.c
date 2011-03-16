@@ -45,7 +45,7 @@ static void
 fill_defaults (xlator_t *xl)
 {
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
 		return;
 	}
 
@@ -556,8 +556,8 @@ validate_xlator_volume_options (xlator_t *xl, volume_option_t *opt)
 int32_t
 xlator_set_type_virtual (xlator_t *xl, const char *type)
 {
-	if (xl == NULL || type == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+	if ((xl == NULL) || (type == NULL))	{
+		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
 		return -1;
 	}
 
@@ -588,35 +588,35 @@ xlator_dynload (xlator_t *xl)
 
 	handle = dlopen (name, RTLD_NOW|RTLD_GLOBAL);
 	if (!handle) {
-		gf_log ("xlator", GF_LOG_DEBUG, "%s", dlerror ());
+		gf_log ("xlator", GF_LOG_WARNING, "%s", dlerror ());
                 GF_FREE (name);
 		return -1;
 	}
         xl->dlhandle = handle;
 
 	if (!(xl->fops = dlsym (handle, "fops"))) {
-		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fops) on %s",
+		gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
 			dlerror ());
                 GF_FREE (name);
 		return -1;
 	}
 
 	if (!(xl->cbks = dlsym (handle, "cbks"))) {
-		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(cbks) on %s",
+		gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
 			dlerror ());
                 GF_FREE (name);
 		return -1;
 	}
 
 	if (!(xl->init = dlsym (handle, "init"))) {
-		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(init) on %s",
+		gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
 			dlerror ());
                 GF_FREE (name);
 		return -1;
 	}
 
 	if (!(xl->fini = dlsym (handle, "fini"))) {
-		gf_log ("xlator", GF_LOG_DEBUG, "dlsym(fini) on %s",
+		gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
 			dlerror ());
                 GF_FREE (name);
 		return -1;
@@ -696,8 +696,8 @@ xlator_foreach (xlator_t *this,
 {
 	xlator_t *first = NULL;
 
-	if (this == NULL || fn == NULL || data == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+	if ((this == NULL) || (fn == NULL) || (data == NULL))	{
+		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
 		return;
 	}
 
@@ -718,8 +718,8 @@ xlator_search_by_name (xlator_t *any, const char *name)
 {
 	xlator_t *search = NULL;
 
-	if (any == NULL || name == NULL) {
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+	if ((any == NULL) || (name == NULL)) {
+		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
 		return NULL;
 	}
 
@@ -761,7 +761,7 @@ xlator_init (xlator_t *xl)
 	int32_t ret = 0;
 
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
 		return 0;
 	}
 
@@ -771,7 +771,7 @@ xlator_init (xlator_t *xl)
                 xl->mem_acct_init (xl);
 
         if (!xl->init) {
-                gf_log (xl->name, GF_LOG_DEBUG, "No init() found");
+                gf_log (xl->name, GF_LOG_WARNING, "No init() found");
                 goto out;
         }
 
@@ -799,7 +799,7 @@ xlator_fini_rec (xlator_t *xl)
 	xlator_list_t *trav = NULL;
 
 	if (xl == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
 		return;
 	}
 
@@ -832,8 +832,8 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
         xlator_list_t *trav2 = NULL;
         int32_t       ret    = 0;
 
-	if (old_xl == NULL || new_xl == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+	if ((old_xl == NULL) || (new_xl == NULL))	{
+		gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
 		return -1;
 	}
 
@@ -842,7 +842,6 @@ xlator_reconfigure_rec (xlator_t *old_xl, xlator_t *new_xl)
 
 	while (trav1 && trav2) {
 		ret = xlator_reconfigure_rec (trav1->xlator, trav2->xlator);
-
                 if (ret)
                         goto out;
 
@@ -870,15 +869,17 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
         xlator_list_t *trav = NULL;
 
         if (xlator == NULL )    {
-                gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+                gf_log_callingfn ("xlator", GF_LOG_WARNING, "invalid argument");
                 return -1;
         }
 
         trav = xlator->children;
 
         while (trav) {
-                if (xlator_validate_rec (trav->xlator, op_errstr) )
+                if (xlator_validate_rec (trav->xlator, op_errstr)) {
+                        gf_log ("xlator", GF_LOG_WARNING, "validate_rec failed");
                         return -1;
+                }
 
                 trav = trav->next;
         }
@@ -889,7 +890,7 @@ xlator_validate_rec (xlator_t *xlator, char **op_errstr)
         if (xlator->validate_options) {
                 if (xlator->validate_options (xlator, xlator->options,
                     op_errstr)) {
-                        gf_log ("", GF_LOG_DEBUG, "%s", *op_errstr);
+                        gf_log ("", GF_LOG_INFO, "%s", *op_errstr);
                         return -1;
                 }
                 gf_log (xlator->name, GF_LOG_DEBUG, "Validated option");
@@ -947,10 +948,9 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
 
         xl->mem_acct.num_types = num_types;
 
-        xl->mem_acct.rec = calloc(num_types, sizeof(struct mem_acct_rec));
+        xl->mem_acct.rec = CALLOC(num_types, sizeof(struct mem_acct_rec));
 
         if (!xl->mem_acct.rec) {
-                gf_log("xlator", GF_LOG_ERROR, "Out of Memory");
                 return -1;
         }
 
@@ -960,9 +960,6 @@ xlator_mem_acct_init (xlator_t *xl, int num_types)
                         fprintf(stderr, "Unable to lock..errno : %d",errno);
                 }
         }
-
-        gf_log(xl->name, GF_LOG_DEBUG, "Allocated mem_acct_rec for %d types",
-                        num_types);
 
         return 0;
 }
