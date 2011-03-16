@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 
@@ -33,13 +33,13 @@
 #include <sys/time.h>
 
 
-int 
+int
 dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int op_ret, int op_errno, struct statvfs *statvfs)
 {
-	dht_conf_t    *conf         = NULL;
+        dht_conf_t    *conf         = NULL;
         call_frame_t  *prev          = NULL;
-	int            this_call_cnt = 0;
+        int            this_call_cnt = 0;
         int            i = 0;
         double         percent = 0;
         uint64_t       bytes = 0;
@@ -47,14 +47,14 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conf = this->private;
         prev = cookie;
 
-        if (op_ret == -1) 
+        if (op_ret == -1)
                 goto out;
 
         if (statvfs && statvfs->f_blocks) {
                 percent = (statvfs->f_bfree * 100) / statvfs->f_blocks;
                 bytes = (statvfs->f_bfree * statvfs->f_frsize);
         }
-        
+
         LOCK (&conf->subvolume_lock);
         {
                 for (i = 0; i < conf->subvolume_cnt; i++)
@@ -64,17 +64,17 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 gf_log (this->name, GF_LOG_DEBUG,
                                         "on subvolume '%s': avail_percent is: "
                                         "%.2f and avail_space is: %"PRIu64"",
-                                        prev->this->name, 
+                                        prev->this->name,
                                         conf->du_stats[i].avail_percent,
                                         conf->du_stats[i].avail_space);
                         }
         }
         UNLOCK (&conf->subvolume_lock);
 
- out:
-	this_call_cnt = dht_frame_return (frame);
-	if (is_last_call (this_call_cnt))
-		DHT_STACK_DESTROY (frame);
+out:
+        this_call_cnt = dht_frame_return (frame);
+        if (is_last_call (this_call_cnt))
+                DHT_STACK_DESTROY (frame);
 
         return 0;
 }
@@ -82,12 +82,12 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 int
 dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
 {
-	dht_conf_t    *conf         = NULL;
-	call_frame_t  *statfs_frame = NULL;
-	dht_local_t   *statfs_local = NULL;
+        dht_conf_t    *conf         = NULL;
+        call_frame_t  *statfs_frame = NULL;
+        dht_local_t   *statfs_local = NULL;
         call_pool_t   *pool         = NULL;
 
-	conf = this->private;
+        conf = this->private;
         pool = this->ctx->pool;
 
         statfs_frame = create_frame (this, pool);
@@ -96,18 +96,18 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
                         "Out of memory");
                 goto err;
         }
-        
+
         statfs_local = dht_local_init (statfs_frame);
         if (!statfs_local) {
                 gf_log (this->name, GF_LOG_ERROR,
                         "Out of memory");
                 goto err;
         }
-        
+
         loc_t tmp_loc = { .inode = NULL,
                           .path = "/",
         };
-        
+
         statfs_local->call_cnt = 1;
         STACK_WIND (statfs_frame, dht_du_info_cbk,
                     conf->subvolumes[subvol_idx],
@@ -115,10 +115,10 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
                     &tmp_loc);
 
         return 0;
- err:
-	if (statfs_frame)
-		DHT_STACK_DESTROY (statfs_frame);
-        
+err:
+        if (statfs_frame)
+                DHT_STACK_DESTROY (statfs_frame);
+
         return -1;
 }
 
@@ -126,16 +126,16 @@ int
 dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         int            i = 0;
-	dht_conf_t    *conf         = NULL;
-	call_frame_t  *statfs_frame = NULL;
-	dht_local_t   *statfs_local = NULL;
+        dht_conf_t    *conf         = NULL;
+        call_frame_t  *statfs_frame = NULL;
+        dht_local_t   *statfs_local = NULL;
         struct timeval tv = {0,};
 
-	conf  = this->private;
+        conf  = this->private;
 
-	gettimeofday (&tv, NULL);
-	if (tv.tv_sec > (conf->refresh_interval 
-			 + conf->last_stat_fetch.tv_sec)) {
+        gettimeofday (&tv, NULL);
+        if (tv.tv_sec > (conf->refresh_interval
+                         + conf->last_stat_fetch.tv_sec)) {
 
                 statfs_frame = copy_frame (frame);
                 if (!statfs_frame) {
@@ -153,9 +153,9 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
                 loc_copy (&statfs_local->loc, loc);
                 loc_t tmp_loc = { .inode = NULL,
-                              .path = "/",
+                                  .path = "/",
                 };
-                
+
                 statfs_local->call_cnt = conf->subvolume_cnt;
                 for (i = 0; i < conf->subvolume_cnt; i++) {
                         STACK_WIND (statfs_frame, dht_du_info_cbk,
@@ -168,8 +168,8 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
         return 0;
 err:
-	if (statfs_frame)
-		DHT_STACK_DESTROY (statfs_frame);
+        if (statfs_frame)
+                DHT_STACK_DESTROY (statfs_frame);
 
         return -1;
 }
@@ -180,7 +180,7 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 {
         int         i = 0;
         int         subvol_filled = 0;
-	dht_conf_t *conf = NULL;
+        dht_conf_t *conf = NULL;
 
         conf = this->private;
 
@@ -211,8 +211,8 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
                 if (!(conf->du_stats[i].log++ % (GF_UNIVERSAL_ANSWER * 10))) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "disk space on subvolume '%s' is getting "
-                                "full (%.2f %%), consider adding more nodes", 
-                                subvol->name, 
+                                "full (%.2f %%), consider adding more nodes",
+                                subvol->name,
                                 (100 - conf->du_stats[i].avail_percent));
                 }
         }
@@ -221,12 +221,12 @@ dht_is_subvol_filled (xlator_t *this, xlator_t *subvol)
 }
 
 xlator_t *
-dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol) 
+dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
 {
         int         i = 0;
         double      max= 0;
         xlator_t   *avail_subvol = NULL;
-	dht_conf_t *conf = NULL;
+        dht_conf_t *conf = NULL;
 
         conf = this->private;
 
@@ -257,7 +257,7 @@ dht_free_disk_available_subvol (xlator_t *this, xlator_t *subvol)
                 avail_subvol = subvol;
 
         if (!avail_subvol)
-                avail_subvol = subvol;                
+                avail_subvol = subvol;
 
         return avail_subvol;
 }

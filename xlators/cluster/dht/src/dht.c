@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 
@@ -79,8 +79,8 @@ dht_layout_dump (dht_layout_t  *layout, const char *prefix)
 int32_t
 dht_priv_dump (xlator_t *this)
 {
-	char            key_prefix[GF_DUMP_MAX_BUF_LEN];
-	char            key[GF_DUMP_MAX_BUF_LEN];
+        char            key_prefix[GF_DUMP_MAX_BUF_LEN];
+        char            key[GF_DUMP_MAX_BUF_LEN];
         int             i = 0;
         dht_conf_t      *conf = NULL;
         int             ret = 0;
@@ -97,7 +97,7 @@ dht_priv_dump (xlator_t *this)
 
         if (ret != 0) {
                 gf_log("", GF_LOG_WARNING, "Unable to lock dht subvolume %s",
-                                this->name);
+                       this->name);
                 return ret;
         }
 
@@ -117,14 +117,14 @@ dht_priv_dump (xlator_t *this)
                 }
                 if (conf->dir_layouts && conf->dir_layouts[i]) {
                         gf_proc_dump_build_key(key, key_prefix,
-                                              "dir_layouts[%d]",i);
+                                               "dir_layouts[%d]",i);
                         dht_layout_dump(conf->dir_layouts[i], key);
                 }
                 if (conf->subvolume_status) {
                         gf_proc_dump_build_key(key, key_prefix,
-                                                "subvolume_status[%d]", i);
+                                               "subvolume_status[%d]", i);
                         gf_proc_dump_write(key, "%d",
-                                               (int)conf->subvolume_status[i]);
+                                           (int)conf->subvolume_status[i]);
                 }
 
         }
@@ -146,13 +146,13 @@ dht_priv_dump (xlator_t *this)
         gf_proc_dump_write(key, "%d", conf->unhashed_sticky_bit);
         if (conf ->du_stats) {
                 gf_proc_dump_build_key(key, key_prefix,
-                                "du_stats.avail_percent");
+                                       "du_stats.avail_percent");
                 gf_proc_dump_write(key, "%lf", conf->du_stats->avail_percent);
                 gf_proc_dump_build_key(key, key_prefix,
-                                "du_stats.avail_space");
+                                       "du_stats.avail_space");
                 gf_proc_dump_write(key, "%lu", conf->du_stats->avail_space);
                 gf_proc_dump_build_key(key, key_prefix,
-                                "du_stats.log");
+                                       "du_stats.log");
                 gf_proc_dump_write(key, "%lu", conf->du_stats->log);
         }
         gf_proc_dump_build_key(key, key_prefix, "last_stat_fetch");
@@ -169,12 +169,12 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode)
         int             ret = -1;
         char            key_prefix[GF_DUMP_MAX_BUF_LEN];
         dht_layout_t    *layout = NULL;
-	uint64_t        tmp_layout = 0;
+        uint64_t        tmp_layout = 0;
 
         if (!inode)
                 return -1;
 
-	ret = inode_ctx_get (inode, this, &tmp_layout);
+        ret = inode_ctx_get (inode, this, &tmp_layout);
 
         if (ret != 0)
                 return ret;
@@ -194,11 +194,11 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode)
 int
 notify (xlator_t *this, int event, void *data, ...)
 {
-	int ret = -1;
+        int ret = -1;
 
-	ret = dht_notify (this, event, data);
+        ret = dht_notify (this, event, data);
 
-	return ret;
+        return ret;
 }
 
 void
@@ -207,7 +207,7 @@ fini (xlator_t *this)
         int         i = 0;
         dht_conf_t *conf = NULL;
 
-	conf = this->private;
+        conf = this->private;
         this->private = NULL;
         if (conf) {
                 if (conf->file_layouts) {
@@ -223,13 +223,13 @@ fini (xlator_t *this)
                 if (conf->subvolumes)
                         GF_FREE (conf->subvolumes);
 
-		if (conf->subvolume_status)
-			GF_FREE (conf->subvolume_status);
+                if (conf->subvolume_status)
+                        GF_FREE (conf->subvolume_status);
 
                 GF_FREE (conf);
         }
 
-	return;
+        return;
 }
 
 int32_t
@@ -241,10 +241,10 @@ mem_acct_init (xlator_t *this)
                 return ret;
 
         ret = xlator_mem_acct_init (this, gf_dht_mt_end + 1);
-        
+
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                                "failed");
+                        "failed");
                 return ret;
         }
 
@@ -256,7 +256,7 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         char            *temp_str = NULL;
         gf_boolean_t     search_unhashed;
         int              ret = 0;
-        
+
 
 
 
@@ -265,76 +265,76 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                 if (strcasecmp (temp_str, "auto")) {
                         if (!gf_string2boolean (temp_str, &search_unhashed)) {
                                 gf_log(this->name, GF_LOG_DEBUG, "Validated"
-                                                " lookup-unahashed (%s)",
-                                                                temp_str);
+                                       " lookup-unahashed (%s)",
+                                       temp_str);
                         }
                         else {
                                 gf_log(this->name, GF_LOG_ERROR, "Validation:"
-                                                " lookup-unahashed should be boolean,"
-                                                                " not (%s)",
-                                                                temp_str);
+                                       " lookup-unahashed should be boolean,"
+                                       " not (%s)",
+                                       temp_str);
                                 *op_errstr = gf_strdup ("Error, lookup-"
-                                                "unhashed be boolean");
+                                                        "unhashed be boolean");
                                 ret = -1;
                                 goto out;
                         }
-                
+
                 }
         }
 
-        
+
 
 
 
 out:
-                return ret;
+        return ret;
 }
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-	dht_conf_t	*conf = NULL;
-	char		*temp_str = NULL;
-	gf_boolean_t     search_unhashed;
-	uint32_t         temp_free_disk = 0;
-	int		 ret = 0;
+        dht_conf_t      *conf = NULL;
+        char            *temp_str = NULL;
+        gf_boolean_t     search_unhashed;
+        uint32_t         temp_free_disk = 0;
+        int              ret = 0;
 
 
-	conf = this->private;
+        conf = this->private;
         if (!conf)
                 return 0;
 
-	if (dict_get_str (options, "lookup-unhashed", &temp_str) == 0) {
+        if (dict_get_str (options, "lookup-unhashed", &temp_str) == 0) {
                 /* If option is not "auto", other options _should_ be boolean*/
                 if (strcasecmp (temp_str, "auto")) {
                         if (!gf_string2boolean (temp_str, &search_unhashed)) {
-				gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
-				       " lookup-unahashed reconfigured (%s)",
-				       temp_str);
-				conf->search_unhashed = search_unhashed;
-			}
-			else {
-				gf_log(this->name, GF_LOG_ERROR, "Reconfigure:"
-				       " lookup-unahashed should be boolean,"
-				        " not (%s), defaulting to (%d)",
-				       temp_str, conf->search_unhashed);
-				//return -1;
-				ret = -1;
-				goto out;
-			}
-		
-		}
-                else {
-			gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
-			       " lookup-unahashed reconfigured auto ");
-                        conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
-		}
-	}
+                                gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
+                                       " lookup-unahashed reconfigured (%s)",
+                                       temp_str);
+                                conf->search_unhashed = search_unhashed;
+                        }
+                        else {
+                                gf_log(this->name, GF_LOG_ERROR, "Reconfigure:"
+                                       " lookup-unahashed should be boolean,"
+                                       " not (%s), defaulting to (%d)",
+                                       temp_str, conf->search_unhashed);
+                                //return -1;
+                                ret = -1;
+                                goto out;
+                        }
 
-	if (dict_get_str (options, "min-free-disk", &temp_str) == 0) {
-		if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
+                }
+                else {
+                        gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
+                               " lookup-unahashed reconfigured auto ");
+                        conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
+                }
+        }
+
+        if (dict_get_str (options, "min-free-disk", &temp_str) == 0) {
+                if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
                         if (temp_free_disk > 100) {
-                                gf_string2bytesize (temp_str, 
+                                gf_string2bytesize (temp_str,
                                                     &conf->min_free_disk);
                                 conf->disk_unit = 'b';
                         } else {
@@ -345,35 +345,35 @@ reconfigure (xlator_t *this, dict_t *options)
                         conf->disk_unit = 'b';
                 }
 
-		gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
+                gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
                        " min-free-disk reconfigured to %s",
                        temp_str);
-	}
+        }
 
 out:
-	return ret;
+        return ret;
 }
 
 int
 init (xlator_t *this)
 {
         dht_conf_t    *conf = NULL;
-	char          *temp_str = NULL;
+        char          *temp_str = NULL;
         int            ret = -1;
         int            i = 0;
         uint32_t       temp_free_disk = 0;
 
 
-	if (!this->children) {
-		gf_log (this->name, GF_LOG_CRITICAL,
-			"Distribute needs more than one subvolume");
-		return -1;
-	}
-  
-	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile");
-	}
+        if (!this->children) {
+                gf_log (this->name, GF_LOG_CRITICAL,
+                        "Distribute needs more than one subvolume");
+                return -1;
+        }
+
+        if (!this->parents) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dangling volume. check volfile");
+        }
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_dht_mt_dht_conf_t);
         if (!conf) {
@@ -383,35 +383,35 @@ init (xlator_t *this)
         }
 
         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_ON;
-	if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
+        if (dict_get_str (this->options, "lookup-unhashed", &temp_str) == 0) {
                 /* If option is not "auto", other options _should_ be boolean */
                 if (strcasecmp (temp_str, "auto"))
                         gf_string2boolean (temp_str, &conf->search_unhashed);
                 else
                         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
-	}
+        }
 
-	conf->unhashed_sticky_bit = 0;
+        conf->unhashed_sticky_bit = 0;
 
-	if (dict_get_str (this->options, "unhashed-sticky-bit", 
+        if (dict_get_str (this->options, "unhashed-sticky-bit",
                           &temp_str) == 0) {
-	        gf_string2boolean (temp_str, &conf->unhashed_sticky_bit);
-	}
+                gf_string2boolean (temp_str, &conf->unhashed_sticky_bit);
+        }
 
-	conf->use_readdirp = 1;
+        conf->use_readdirp = 1;
 
-	if (dict_get_str (this->options, "use-readdirp",
+        if (dict_get_str (this->options, "use-readdirp",
                           &temp_str) == 0) {
-	        gf_string2boolean (temp_str, &conf->use_readdirp);
-	}
+                gf_string2boolean (temp_str, &conf->use_readdirp);
+        }
 
         conf->disk_unit = 'p';
         conf->min_free_disk = 10;
 
-	if (dict_get_str (this->options, "min-free-disk", &temp_str) == 0) {
-		if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
+        if (dict_get_str (this->options, "min-free-disk", &temp_str) == 0) {
+                if (gf_string2percent (temp_str, &temp_free_disk) == 0) {
                         if (temp_free_disk > 100) {
-                                gf_string2bytesize (temp_str, 
+                                gf_string2bytesize (temp_str,
                                                     &conf->min_free_disk);
                                 conf->disk_unit = 'b';
                         } else {
@@ -421,7 +421,7 @@ init (xlator_t *this)
                         gf_string2bytesize (temp_str, &conf->min_free_disk);
                         conf->disk_unit = 'b';
                 }
-	}
+        }
 
 
         ret = dht_init_subvolumes (this, conf);
@@ -442,10 +442,10 @@ init (xlator_t *this)
                 goto err;
         }
 
-	LOCK_INIT (&conf->subvolume_lock);
-	LOCK_INIT (&conf->layout_lock);
+        LOCK_INIT (&conf->subvolume_lock);
+        LOCK_INIT (&conf->layout_lock);
 
-	conf->gen = 1;
+        conf->gen = 1;
 
         this->private = conf;
 
@@ -466,8 +466,8 @@ err:
                 if (conf->subvolumes)
                         GF_FREE (conf->subvolumes);
 
-		if (conf->subvolume_status)
-			GF_FREE (conf->subvolume_status);
+                if (conf->subvolume_status)
+                        GF_FREE (conf->subvolume_status);
 
                 if (conf->du_stats)
                         GF_FREE (conf->du_stats);
@@ -480,44 +480,44 @@ err:
 
 
 struct xlator_fops fops = {
-	.lookup      = dht_lookup,
-	.mknod       = dht_mknod,
-	.create      = dht_create,
+        .lookup      = dht_lookup,
+        .mknod       = dht_mknod,
+        .create      = dht_create,
 
-	.stat        = dht_stat,
-	.fstat       = dht_fstat,
-	.truncate    = dht_truncate,
-	.ftruncate   = dht_ftruncate,
-	.access      = dht_access,
-	.readlink    = dht_readlink,
-	.setxattr    = dht_setxattr,
-	.fsetxattr   = dht_fsetxattr,
-	.getxattr    = dht_getxattr,
-	.removexattr = dht_removexattr,
-	.open        = dht_open,
-	.readv       = dht_readv,
-	.writev      = dht_writev,
-	.flush       = dht_flush,
-	.fsync       = dht_fsync,
-	.statfs      = dht_statfs,
-	.lk          = dht_lk,
-	.opendir     = dht_opendir,
-	.readdir     = dht_readdir,
-	.readdirp    = dht_readdirp,
-	.fsyncdir    = dht_fsyncdir,
-	.symlink     = dht_symlink,
-	.unlink      = dht_unlink,
-	.link        = dht_link,
-	.mkdir       = dht_mkdir,
-	.rmdir       = dht_rmdir,
-	.rename      = dht_rename,
-	.inodelk     = dht_inodelk,
-	.finodelk    = dht_finodelk,
-	.entrylk     = dht_entrylk,
-	.fentrylk    = dht_fentrylk,
-	.xattrop     = dht_xattrop,
-	.fxattrop    = dht_fxattrop,
-        .setattr     = dht_setattr, 
+        .stat        = dht_stat,
+        .fstat       = dht_fstat,
+        .truncate    = dht_truncate,
+        .ftruncate   = dht_ftruncate,
+        .access      = dht_access,
+        .readlink    = dht_readlink,
+        .setxattr    = dht_setxattr,
+        .fsetxattr   = dht_fsetxattr,
+        .getxattr    = dht_getxattr,
+        .removexattr = dht_removexattr,
+        .open        = dht_open,
+        .readv       = dht_readv,
+        .writev      = dht_writev,
+        .flush       = dht_flush,
+        .fsync       = dht_fsync,
+        .statfs      = dht_statfs,
+        .lk          = dht_lk,
+        .opendir     = dht_opendir,
+        .readdir     = dht_readdir,
+        .readdirp    = dht_readdirp,
+        .fsyncdir    = dht_fsyncdir,
+        .symlink     = dht_symlink,
+        .unlink      = dht_unlink,
+        .link        = dht_link,
+        .mkdir       = dht_mkdir,
+        .rmdir       = dht_rmdir,
+        .rename      = dht_rename,
+        .inodelk     = dht_inodelk,
+        .finodelk    = dht_finodelk,
+        .entrylk     = dht_entrylk,
+        .fentrylk    = dht_fentrylk,
+        .xattrop     = dht_xattrop,
+        .fxattrop    = dht_fxattrop,
+        .setattr     = dht_setattr,
         .fsetattr    = dht_fsetattr,
 };
 
@@ -528,9 +528,9 @@ struct xlator_dumpops dumpops = {
 
 
 struct xlator_cbks cbks = {
-//	.release    = dht_release,
+//      .release    = dht_release,
 //      .releasedir = dht_releasedir,
-	.forget     = dht_forget
+        .forget     = dht_forget
 };
 
 
@@ -538,8 +538,8 @@ struct volume_options options[] = {
         { .key  = {"lookup-unhashed"},
           .value = {"auto", "yes", "no", "enable", "disable", "1", "0",
                     "on", "off"},
-	  .type = GF_OPTION_TYPE_STR
-	},
+          .type = GF_OPTION_TYPE_STR
+        },
         { .key  = {"min-free-disk"},
           .type = GF_OPTION_TYPE_PERCENT_OR_SIZET,
         },
@@ -549,5 +549,5 @@ struct volume_options options[] = {
         { .key = {"use-readdirp"},
           .type = GF_OPTION_TYPE_BOOL
         },
-	{ .key  = {NULL} },
+        { .key  = {NULL} },
 };
