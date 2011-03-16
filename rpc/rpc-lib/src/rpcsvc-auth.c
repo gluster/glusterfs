@@ -41,7 +41,6 @@ rpcsvc_auth_add_initer (struct list_head *list, char *idfier,
 
         new = GF_CALLOC (1, sizeof (*new), gf_common_mt_rpcsvc_auth_list);
         if (!new) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Memory allocation failed");
                 return -1;
         }
 
@@ -295,14 +294,14 @@ rpcsvc_authenticate (rpcsvc_request_t *req)
         //minauth = rpcsvc_request_prog_minauth (req);
         minauth = 1;
         if (minauth > rpcsvc_request_cred_flavour (req)) {
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "Auth too weak");
+                gf_log (GF_RPCSVC, GF_LOG_WARNING, "Auth too weak");
                 rpcsvc_request_set_autherr (req, AUTH_TOOWEAK);
                 goto err;
         }
 
         auth = rpcsvc_auth_get_handler (req);
         if (!auth) {
-                gf_log (GF_RPCSVC, GF_LOG_DEBUG, "No auth handler found");
+                gf_log (GF_RPCSVC, GF_LOG_WARNING, "No auth handler found");
                 goto err;
         }
 
@@ -314,95 +313,6 @@ err:
 }
 
 
-int
-rpcsvc_auth_array (rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
-{
-        int             count = 0;
-        int             gen = RPCSVC_AUTH_REJECT;
-        int             spec = RPCSVC_AUTH_REJECT;
-        int             final = RPCSVC_AUTH_REJECT;
-        char            *srchstr = NULL;
-        char            *valstr = NULL;
-        gf_boolean_t    boolval = _gf_false;
-        int             ret = 0;
-
-        struct rpcsvc_auth_list *auth = NULL;
-        struct rpcsvc_auth_list *tmp = NULL;
-
-        if ((!svc) || (!autharr) || (!volname))
-                return -1;
-
-        memset (autharr, 0, arrlen * sizeof(int));
-        if (list_empty (&svc->authschemes)) {
-                gf_log (GF_RPCSVC, GF_LOG_ERROR, "No authentication!");
-                goto err;
-        }
-
-        list_for_each_entry_safe (auth, tmp, &svc->authschemes, authlist) {
-                if (count >= arrlen)
-                        break;
-
-                gen = gf_asprintf (&srchstr, "rpc-auth.%s", auth->name);
-                if (gen == -1) {
-                        count = -1;
-                        goto err;
-                }
-
-                gen = RPCSVC_AUTH_REJECT;
-                if (dict_get (svc->options, srchstr)) {
-                        ret = dict_get_str (svc->options, srchstr, &valstr);
-                        if (ret == 0) {
-                                ret = gf_string2boolean (valstr, &boolval);
-                                if (ret == 0) {
-                                        if (boolval == _gf_true)
-                                                gen = RPCSVC_AUTH_ACCEPT;
-                                } else
-                                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                                "d to read auth val");
-                        } else
-                                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                        "d to read auth val");
-                }
-
-                GF_FREE (srchstr);
-                spec = gf_asprintf (&srchstr, "rpc-auth.%s.%s", auth->name,
-                                    volname);
-                if (spec == -1) {
-                        count = -1;
-                        goto err;
-                }
-
-                spec = RPCSVC_AUTH_DONTCARE;
-                if (dict_get (svc->options, srchstr)) {
-                        ret = dict_get_str (svc->options, srchstr, &valstr);
-                        if (ret == 0) {
-                                ret = gf_string2boolean (valstr, &boolval);
-                                if (ret == 0) {
-                                        if (boolval == _gf_true)
-                                                spec = RPCSVC_AUTH_ACCEPT;
-                                        else
-                                                spec = RPCSVC_AUTH_REJECT;
-                                } else
-                                        gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                                "d to read auth val");
-                        } else
-                                gf_log (GF_RPCSVC, GF_LOG_ERROR, "Faile"
-                                        "d to read auth val");
-                }
-
-                GF_FREE (srchstr);
-                final = rpcsvc_combine_gen_spec_volume_checks (gen, spec);
-                if (final == RPCSVC_AUTH_ACCEPT) {
-                        autharr[count] = auth->auth->authnum;
-                        ++count;
-                }
-        }
-
-err:
-        return count;
-}
-
-
 gid_t *
 rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen)
 {
@@ -410,8 +320,10 @@ rpcsvc_auth_unix_auxgids (rpcsvc_request_t *req, int *arrlen)
                 return NULL;
 
         if ((req->cred.flavour != AUTH_UNIX) ||
-            (req->cred.flavour != AUTH_GLUSTERFS))
+            (req->cred.flavour != AUTH_GLUSTERFS)) {
+                gf_log ("", GF_LOG_DEBUG, "auth type not unix or glusterfs");
                 return NULL;
+        }
 
         *arrlen = req->auxgidcount;
         if (*arrlen == 0)

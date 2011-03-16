@@ -130,6 +130,8 @@ xdr_to_glusterfs_auth (char *buf, struct auth_glusterfs_parms *req)
         xdrmem_create (&xdr, buf, sizeof (struct auth_glusterfs_parms),
                        XDR_DECODE);
         if (!xdr_auth_glusterfs_parms (&xdr, req)) {
+                gf_log ("", GF_LOG_WARNING,
+                        "failed to decode glusterfs parameters");
                 ret  = -1;
                 goto ret;
         }
@@ -162,6 +164,8 @@ int auth_glusterfs_authenticate (rpcsvc_request_t *req, void *priv)
 
         ret = xdr_to_glusterfs_auth (req->cred.authdata, &au);
         if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING,
+                        "failed to decode glusterfs credentials");
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
         }
@@ -173,6 +177,8 @@ int auth_glusterfs_authenticate (rpcsvc_request_t *req, void *priv)
         req->auxgidcount = au.ngrps;
 
         if (req->auxgidcount > 16) {
+                gf_log ("", GF_LOG_WARNING,
+                        "more than 16 aux gids found, failing authentication");
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
         }

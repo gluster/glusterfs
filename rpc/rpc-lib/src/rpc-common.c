@@ -18,7 +18,7 @@
 */
 
 
-
+#include "logging.h"
 #include "xdr-common.h"
 
 ssize_t
@@ -34,6 +34,8 @@ xdr_serialize_generic (struct iovec outmsg, void *res, xdrproc_t proc)
                        XDR_ENCODE);
 
         if (!proc (&xdr, res)) {
+                gf_log_callingfn ("xdr", GF_LOG_WARNING,
+                                  "XDR encoding failed");
                 ret = -1;
                 goto ret;
         }
@@ -58,6 +60,8 @@ xdr_to_generic (struct iovec inmsg, void *args, xdrproc_t proc)
                        XDR_DECODE);
 
         if (!proc (&xdr, args)) {
+                gf_log_callingfn ("xdr", GF_LOG_WARNING,
+                                  "XDR decoding failed");
                 ret  = -1;
                 goto ret;
         }
