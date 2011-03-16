@@ -37,14 +37,14 @@
 #include "rdma.h"
 
 int32_t
-gf_resolve_ip6 (const char *hostname, 
-                uint16_t port, 
-                int family, 
-                void **dnscache, 
+gf_resolve_ip6 (const char *hostname,
+                uint16_t port,
+                int family,
+                void **dnscache,
                 struct addrinfo **addr_info);
 
 static int32_t
-af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr, 
+af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
                                  socklen_t sockaddr_len, int ceiling)
 {
         int32_t ret = -1;
@@ -80,16 +80,16 @@ af_inet_bind_to_port_lt_ceiling (int fd, struct sockaddr *sockaddr,
 }
 
 static int32_t
-af_unix_client_bind (rpc_transport_t *this, 
-                     struct sockaddr *sockaddr, 
-                     socklen_t sockaddr_len, 
+af_unix_client_bind (rpc_transport_t *this,
+                     struct sockaddr *sockaddr,
+                     socklen_t sockaddr_len,
                      int sock)
 {
         data_t *path_data = NULL;
         struct sockaddr_un *addr = NULL;
         int32_t ret = -1;
 
-        path_data = dict_get (this->options, 
+        path_data = dict_get (this->options,
                               "transport.rdma.bind-path");
         if (path_data) {
                 char *path = data_to_str (path_data);
@@ -106,7 +106,7 @@ af_unix_client_bind (rpc_transport_t *this,
                 ret = bind (sock, (struct sockaddr *)addr, sockaddr_len);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "cannot bind to unix-domain socket %d (%s)", 
+                                "cannot bind to unix-domain socket %d (%s)",
                                 sock, strerror (errno));
                         goto err;
                 }
@@ -121,24 +121,24 @@ client_fill_address_family (rpc_transport_t *this, struct sockaddr *sockaddr)
 {
         data_t *address_family_data = NULL;
 
-        address_family_data = dict_get (this->options, 
+        address_family_data = dict_get (this->options,
                                         "transport.address-family");
         if (!address_family_data) {
                 data_t *remote_host_data = NULL, *connect_path_data = NULL;
                 remote_host_data = dict_get (this->options, "remote-host");
-                connect_path_data = dict_get (this->options, 
+                connect_path_data = dict_get (this->options,
                                               "transport.rdma.connect-path");
 
-                if (!(remote_host_data || connect_path_data) || 
+                if (!(remote_host_data || connect_path_data) ||
                     (remote_host_data && connect_path_data)) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "address-family not specified and not able to "
                                 "determine the same from other options "
-                                "(remote-host:%s and connect-path:%s)", 
-                                data_to_str (remote_host_data), 
+                                "(remote-host:%s and connect-path:%s)",
+                                data_to_str (remote_host_data),
                                 data_to_str (connect_path_data));
                         return -1;
-                } 
+                }
 
                 if (remote_host_data) {
                         gf_log (this->name, GF_LOG_DEBUG,
@@ -167,7 +167,7 @@ client_fill_address_family (rpc_transport_t *this, struct sockaddr *sockaddr)
                         sockaddr->sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "unknown address-family (%s) specified", 
+                                "unknown address-family (%s) specified",
                                 address_family);
                         return -1;
                 }
@@ -177,8 +177,8 @@ client_fill_address_family (rpc_transport_t *this, struct sockaddr *sockaddr)
 }
 
 static int32_t
-af_inet_client_get_remote_sockaddr (rpc_transport_t *this, 
-                                    struct sockaddr *sockaddr, 
+af_inet_client_get_remote_sockaddr (rpc_transport_t *this,
+                                    struct sockaddr *sockaddr,
                                     socklen_t *sockaddr_len,
                                     int16_t remote_port)
 {
@@ -193,7 +193,7 @@ af_inet_client_get_remote_sockaddr (rpc_transport_t *this,
         if (remote_host_data == NULL)
         {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "option remote-host missing in volume %s", 
+                        "option remote-host missing in volume %s",
                         this->name);
                 ret = -1;
                 goto err;
@@ -203,7 +203,7 @@ af_inet_client_get_remote_sockaddr (rpc_transport_t *this,
         if (remote_host == NULL)
         {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "option remote-host has data NULL in volume %s", 
+                        "option remote-host has data NULL in volume %s",
                         this->name);
                 ret = -1;
                 goto err;
@@ -238,7 +238,7 @@ af_inet_client_get_remote_sockaddr (rpc_transport_t *this,
         /* TODO: gf_resolve is a blocking call. kick in some
            non blocking dns techniques */
         ret = gf_resolve_ip6 (remote_host, remote_port,
-                              sockaddr->sa_family, 
+                              sockaddr->sa_family,
                               &this->dnscache, &addr_info);
         if (ret == -1) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -254,8 +254,8 @@ err:
 }
 
 static int32_t
-af_unix_client_get_remote_sockaddr (rpc_transport_t *this, 
-                                    struct sockaddr *sockaddr, 
+af_unix_client_get_remote_sockaddr (rpc_transport_t *this,
+                                    struct sockaddr *sockaddr,
                                     socklen_t *sockaddr_len)
 {
         struct sockaddr_un *sockaddr_un = NULL;
@@ -263,7 +263,7 @@ af_unix_client_get_remote_sockaddr (rpc_transport_t *this,
         data_t *connect_path_data = NULL;
         int32_t ret = 0;
 
-        connect_path_data = dict_get (this->options, 
+        connect_path_data = dict_get (this->options,
                                       "transport.rdma.connect-path");
         if (!connect_path_data) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -311,7 +311,7 @@ af_unix_server_get_local_sockaddr (rpc_transport_t *this,
         struct sockaddr_un *sunaddr = (struct sockaddr_un *)addr;
 
 
-        listen_path_data = dict_get (this->options, 
+        listen_path_data = dict_get (this->options,
                                      "transport.rdma.listen-path");
         if (!listen_path_data) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -342,9 +342,9 @@ err:
         return ret;
 }
 
-static int32_t 
-af_inet_server_get_local_sockaddr (rpc_transport_t *this, 
-                                   struct sockaddr *addr, 
+static int32_t
+af_inet_server_get_local_sockaddr (rpc_transport_t *this,
+                                   struct sockaddr *addr,
                                    socklen_t *addr_len)
 {
         struct addrinfo hints, *res = 0;
@@ -364,20 +364,20 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         {
                 listen_port = data_to_uint16 (listen_port_data);
         } else {
-		if (addr->sa_family == AF_INET6) {
-			struct sockaddr_in6 *in = (struct sockaddr_in6 *) addr;
-			in->sin6_addr = in6addr_any;
-			in->sin6_port = htons(listen_port);
-			*addr_len = sizeof(struct sockaddr_in6);
+                if (addr->sa_family == AF_INET6) {
+                        struct sockaddr_in6 *in = (struct sockaddr_in6 *) addr;
+                        in->sin6_addr = in6addr_any;
+                        in->sin6_port = htons(listen_port);
+                        *addr_len = sizeof(struct sockaddr_in6);
                         goto out;
-		} else if (addr->sa_family == AF_INET) {
-			struct sockaddr_in *in = (struct sockaddr_in *) addr;
-			in->sin_addr.s_addr = htonl(INADDR_ANY);
-			in->sin_port = htons(listen_port);
-			*addr_len = sizeof(struct sockaddr_in);
+                } else if (addr->sa_family == AF_INET) {
+                        struct sockaddr_in *in = (struct sockaddr_in *) addr;
+                        in->sin_addr.s_addr = htonl(INADDR_ANY);
+                        in->sin_port = htons(listen_port);
+                        *addr_len = sizeof(struct sockaddr_in);
                         goto out;
-		}
-	}
+                }
+        }
 
         if (listen_port == (uint16_t) -1)
                 listen_port = GF_DEFAULT_RDMA_LISTEN_PORT;
@@ -400,7 +400,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         if (ret != 0) {
                 gf_log (this->name,
                         GF_LOG_ERROR,
-                        "getaddrinfo failed for host %s, service %s (%s)", 
+                        "getaddrinfo failed for host %s, service %s (%s)",
                         listen_host, service, gai_strerror (ret));
                 ret = -1;
                 goto out;
@@ -417,9 +417,9 @@ out:
 
 int32_t
 gf_rdma_client_bind (rpc_transport_t *this,
-                        struct sockaddr *sockaddr,
-                        socklen_t *sockaddr_len,
-                        int sock)
+                     struct sockaddr *sockaddr,
+                     socklen_t *sockaddr_len,
+                     int sock)
 {
         int ret = 0;
 
@@ -431,13 +431,13 @@ gf_rdma_client_bind (rpc_transport_t *this,
                 *sockaddr_len = sizeof (struct sockaddr_in);
 
         case AF_INET6:
-                ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr, 
-                                                       *sockaddr_len, 
+                ret = af_inet_bind_to_port_lt_ceiling (sock, sockaddr,
+                                                       *sockaddr_len,
                                                        CLIENT_PORT_CEILING);
                 if (ret == -1) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "cannot bind inet socket (%d) to port "
-                                "less than %d (%s)", 
+                                "less than %d (%s)",
                                 sock, CLIENT_PORT_CEILING, strerror (errno));
                         ret = 0;
                 }
@@ -445,7 +445,7 @@ gf_rdma_client_bind (rpc_transport_t *this,
 
         case AF_UNIX:
                 *sockaddr_len = sizeof (struct sockaddr_un);
-                ret = af_unix_client_bind (this, (struct sockaddr *)sockaddr, 
+                ret = af_unix_client_bind (this, (struct sockaddr *)sockaddr,
                                            *sockaddr_len, sock);
                 break;
 
@@ -473,7 +473,7 @@ gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,
                 ret = -1;
                 goto err;
         }
- 
+
         switch (sockaddr->sa_family)
         {
         case AF_INET_SDP:
@@ -483,7 +483,7 @@ gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,
         case AF_INET:
         case AF_INET6:
         case AF_UNSPEC:
-                ret = af_inet_client_get_remote_sockaddr (this, 
+                ret = af_inet_client_get_remote_sockaddr (this,
                                                           sockaddr,
                                                           sockaddr_len,
                                                           remote_port);
@@ -495,8 +495,8 @@ gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,
                 break;
 
         case AF_UNIX:
-                ret = af_unix_client_get_remote_sockaddr (this, 
-                                                          sockaddr, 
+                ret = af_unix_client_get_remote_sockaddr (this,
+                                                          sockaddr,
                                                           sockaddr_len);
                 break;
 
@@ -505,21 +505,21 @@ gf_rdma_client_get_remote_sockaddr (rpc_transport_t *this,
                         "unknown address-family %d", sockaddr->sa_family);
                 ret = -1;
         }
-  
+
 err:
         return ret;
 }
 
 int32_t
 gf_rdma_server_get_local_sockaddr (rpc_transport_t *this,
-                                      struct sockaddr *addr,
-                                      socklen_t *addr_len)
+                                   struct sockaddr *addr,
+                                   socklen_t *addr_len)
 {
         data_t *address_family_data = NULL;
         int32_t ret = 0;
         char is_inet_sdp = 0;
 
-        address_family_data = dict_get (this->options, 
+        address_family_data = dict_get (this->options,
                                         "transport.address-family");
         if (address_family_data) {
                 char *address_family = NULL;
@@ -538,7 +538,7 @@ gf_rdma_server_get_local_sockaddr (rpc_transport_t *this,
                         addr->sa_family = AF_UNSPEC;
                 } else {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "unknown address family (%s) specified", 
+                                "unknown address family (%s) specified",
                                 address_family);
                         ret = -1;
                         goto err;
@@ -574,8 +574,8 @@ err:
         return ret;
 }
 
-int32_t 
-fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *addr, 
+int32_t
+fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *addr,
                              int32_t addr_len, char *identifier)
 {
         int32_t ret = 0, tmpaddr_len = 0;
@@ -589,45 +589,45 @@ fill_inet6_inet_identifiers (rpc_transport_t *this, struct sockaddr_storage *add
         if (((struct sockaddr *) &tmpaddr)->sa_family == AF_INET6) {
                 int32_t one_to_four, four_to_eight, twelve_to_sixteen;
                 int16_t eight_to_ten, ten_to_twelve;
-    
+
                 one_to_four = four_to_eight = twelve_to_sixteen = 0;
                 eight_to_ten = ten_to_twelve = 0;
-    
-                one_to_four = ((struct sockaddr_in6 *) 
+
+                one_to_four = ((struct sockaddr_in6 *)
                                &tmpaddr)->sin6_addr.s6_addr32[0];
-                four_to_eight = ((struct sockaddr_in6 *) 
+                four_to_eight = ((struct sockaddr_in6 *)
                                  &tmpaddr)->sin6_addr.s6_addr32[1];
 #ifdef GF_SOLARIS_HOST_OS
-                eight_to_ten = S6_ADDR16(((struct sockaddr_in6 *) 
+                eight_to_ten = S6_ADDR16(((struct sockaddr_in6 *)
                                           &tmpaddr)->sin6_addr)[4];
 #else
-                eight_to_ten = ((struct sockaddr_in6 *) 
+                eight_to_ten = ((struct sockaddr_in6 *)
                                 &tmpaddr)->sin6_addr.s6_addr16[4];
 #endif
 
 #ifdef GF_SOLARIS_HOST_OS
-                ten_to_twelve = S6_ADDR16(((struct sockaddr_in6 *) 
+                ten_to_twelve = S6_ADDR16(((struct sockaddr_in6 *)
                                            &tmpaddr)->sin6_addr)[5];
 #else
-                ten_to_twelve = ((struct sockaddr_in6 *) 
+                ten_to_twelve = ((struct sockaddr_in6 *)
                                  &tmpaddr)->sin6_addr.s6_addr16[5];
 #endif
-                twelve_to_sixteen = ((struct sockaddr_in6 *) 
+                twelve_to_sixteen = ((struct sockaddr_in6 *)
                                      &tmpaddr)->sin6_addr.s6_addr32[3];
 
                 /* ipv4 mapped ipv6 address has
                    bits 0-80: 0
                    bits 80-96: 0xffff
-                   bits 96-128: ipv4 address 
+                   bits 96-128: ipv4 address
                 */
- 
+
                 if (one_to_four == 0 &&
                     four_to_eight == 0 &&
                     eight_to_ten == 0 &&
                     ten_to_twelve == -1) {
                         struct sockaddr_in *in_ptr = (struct sockaddr_in *)&tmpaddr;
                         memset (&tmpaddr, 0, sizeof (tmpaddr));
-      
+
                         in_ptr->sin_family = AF_INET;
                         in_ptr->sin_port = ((struct sockaddr_in6 *)addr)->sin6_port;
                         in_ptr->sin_addr.s_addr = twelve_to_sixteen;
@@ -666,8 +666,8 @@ gf_rdma_get_transport_identifiers (rpc_transport_t *this)
         case AF_INET:
         case AF_INET6:
         {
-                ret = fill_inet6_inet_identifiers (this, 
-                                                   &this->myinfo.sockaddr, 
+                ret = fill_inet6_inet_identifiers (this,
+                                                   &this->myinfo.sockaddr,
                                                    this->myinfo.sockaddr_len,
                                                    this->myinfo.identifier);
                 if (ret == -1) {
@@ -705,7 +705,7 @@ gf_rdma_get_transport_identifiers (rpc_transport_t *this)
         break;
 
         default:
-                gf_log (this->name, GF_LOG_ERROR, 
+                gf_log (this->name, GF_LOG_ERROR,
                         "unknown address family (%d)",
                         ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family);
                 ret = -1;

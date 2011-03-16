@@ -200,7 +200,7 @@ struct __rdma_ioq {
                         struct iobref  *rsp_iobref;
                 }request;
 
-                rdma_reply_info_t  *reply_info; 
+                rdma_reply_info_t  *reply_info;
         }msg;
 
         struct mem_pool *pool;
@@ -228,7 +228,7 @@ typedef enum __rdma_send_post_type {
         RDMA_SEND_POST_RDMA_READ,              /* RDMA read */
         RDMA_SEND_POST_RDMA_WRITE,             /* RDMA write */
 }rdma_send_post_type_t;
-        
+
 /* represents one communication peer, two per transport_t */
 struct __rdma_peer {
         rpc_transport_t *trans;
