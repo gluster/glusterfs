@@ -41,37 +41,38 @@ dht_rename_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
 
-
         local = frame->local;
         prev = cookie;
 
         if (op_ret == -1) {
                 /* TODO: undo the damage */
 
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "rename %s -> %s on %s failed (%s)",
                         local->loc.path, local->loc2.path,
                         prev->this->name, strerror (op_errno));
 
                 local->op_ret   = op_ret;
                 local->op_errno = op_errno;
-        } else {
-                /* TODO: construct proper stbuf for dir */
-                /*
-                 * FIXME: is this the correct way to build stbuf and
-                 * parent bufs?
-                 */
-                dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
-                dht_iatt_merge (this, &local->preoldparent, preoldparent,
-                                prev->this);
-                dht_iatt_merge (this, &local->postoldparent, postoldparent,
-                                prev->this);
-                dht_iatt_merge (this, &local->preparent, prenewparent,
-                                prev->this);
-                dht_iatt_merge (this, &local->postparent, postnewparent,
-                                prev->this);
+                goto unwind;
         }
+        /* TODO: construct proper stbuf for dir */
+        /*
+         * FIXME: is this the correct way to build stbuf and
+         * parent bufs?
+         */
+        dht_iatt_merge (this, &local->stbuf, stbuf, prev->this);
+        dht_iatt_merge (this, &local->preoldparent, preoldparent,
+                        prev->this);
+        dht_iatt_merge (this, &local->postoldparent, postoldparent,
+                        prev->this);
+        dht_iatt_merge (this, &local->preparent, prenewparent,
+                        prev->this);
+        dht_iatt_merge (this, &local->postparent, postnewparent,
+                        prev->this);
 
+
+unwind:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt)) {
                 local->stbuf.ia_ino = local->loc.inode->ino;
@@ -172,7 +173,7 @@ dht_rename_opendir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         prev  = cookie;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "opendir on %s for %s failed (%s)",
                         prev->this->name, local->loc.path,
                         strerror (op_errno));
@@ -212,6 +213,9 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
 
         for (i = 0; i < conf->subvolume_cnt; i++) {
                 if (!conf->subvolume_status[i]) {
+                        gf_log (this->name, GF_LOG_INFO,
+                                "one of the subvolumes down (%s)",
+                                conf->subvolumes[i]->name);
                         op_errno = ENOTCONN;
                         goto err;
                 }
@@ -219,8 +223,6 @@ dht_rename_dir (call_frame_t *frame, xlator_t *this)
 
         local->fd = fd_create (local->loc.inode, frame->root->pid);
         if (!local->fd) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -269,9 +271,9 @@ dht_rename_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         this_call_cnt = dht_frame_return (frame);
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "unlink on %s failed (%s)",
-                        prev->this->name, strerror (op_errno));
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: unlink on %s failed (%s)",
+                        local->loc.path, prev->this->name, strerror (op_errno));
         }
 
         WIPE (&local->preoldparent);
@@ -383,9 +385,9 @@ dht_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dst_cached = local->dst_cached;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "rename on %s failed (%s)", prev->this->name,
-                        strerror (op_errno));
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: rename on %s failed (%s)", local->loc.path,
+                        prev->this->name, strerror (op_errno));
                 local->op_ret   = op_ret;
                 local->op_errno = op_errno;
                 goto cleanup;
@@ -634,7 +636,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 
         src_hashed = dht_subvol_get_hashed (this, oldloc);
         if (!src_hashed) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "no subvolume in layout for path=%s",
                         oldloc->path);
                 op_errno = EINVAL;
@@ -643,7 +645,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 
         src_cached = dht_subvol_get_cached (this, oldloc->inode);
         if (!src_cached) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "no cached subvolume for path=%s", oldloc->path);
                 op_errno = EINVAL;
                 goto err;
@@ -651,7 +653,7 @@ dht_rename (call_frame_t *frame, xlator_t *this,
 
         dst_hashed = dht_subvol_get_hashed (this, newloc);
         if (!dst_hashed) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "no subvolume in layout for path=%s",
                         newloc->path);
                 op_errno = EINVAL;
@@ -664,24 +666,18 @@ dht_rename (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
         ret = loc_copy (&local->loc, oldloc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
         ret = loc_copy (&local->loc2, newloc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 

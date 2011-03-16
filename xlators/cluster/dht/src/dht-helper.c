@@ -57,7 +57,6 @@ dht_itransform (xlator_t *this, xlator_t *subvol, uint64_t x, uint64_t *y_p)
         int         max = 0;
         uint64_t    y = 0;
 
-
         if (x == ((uint64_t) -1)) {
                 y = (uint64_t) -1;
                 goto out;
@@ -473,8 +472,6 @@ dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
                 gf_asprintf ((char **)&child->path, "%s/%s", parent->path, name);
 
         if (!child->path) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -486,8 +483,6 @@ dht_build_child_loc (xlator_t *this, loc_t *child, loc_t *parent, char *name)
         child->inode = inode_new (parent->inode->table);
 
         if (!child->inode) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 

@@ -43,8 +43,8 @@ dht_layout_dump (dht_layout_t  *layout, const char *prefix)
         char    key[GF_DUMP_MAX_BUF_LEN];
         int     i = 0;
 
-        if (!layout)
-                return;
+        GF_VALIDATE_OR_GOTO ("dht", layout, out);
+        GF_VALIDATE_OR_GOTO ("dht", prefix, out);
 
         gf_proc_dump_build_key(key, prefix, "cnt");
         gf_proc_dump_write(key, "%d", layout->cnt);
@@ -73,6 +73,9 @@ dht_layout_dump (dht_layout_t  *layout, const char *prefix)
                                            layout->list[i].xlator->name);
                 }
         }
+
+out:
+        return;
 }
 
 
@@ -83,10 +86,9 @@ dht_priv_dump (xlator_t *this)
         char            key[GF_DUMP_MAX_BUF_LEN];
         int             i = 0;
         dht_conf_t      *conf = NULL;
-        int             ret = 0;
+        int             ret = -1;
 
-        if (!this)
-                return -1;
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
 
         conf = this->private;
 
@@ -160,7 +162,8 @@ dht_priv_dump (xlator_t *this)
 
         UNLOCK(&conf->subvolume_lock);
 
-        return 0;
+out:
+        return ret;
 }
 
 int32_t
@@ -171,8 +174,8 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode)
         dht_layout_t    *layout = NULL;
         uint64_t        tmp_layout = 0;
 
-        if (!inode)
-                return -1;
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", inode, out);
 
         ret = inode_ctx_get (inode, this, &tmp_layout);
 
@@ -188,7 +191,8 @@ dht_inodectx_dump (xlator_t *this, inode_t *inode)
                                "%s.inode.%ld", this->name, inode->ino);
         dht_layout_dump(layout, key_prefix);
 
-        return 0;
+out:
+        return ret;
 }
 
 int
@@ -196,8 +200,11 @@ notify (xlator_t *this, int event, void *data, ...)
 {
         int ret = -1;
 
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+
         ret = dht_notify (this, event, data);
 
+out:
         return ret;
 }
 
@@ -206,6 +213,8 @@ fini (xlator_t *this)
 {
         int         i = 0;
         dht_conf_t *conf = NULL;
+
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
 
         conf = this->private;
         this->private = NULL;
@@ -228,7 +237,7 @@ fini (xlator_t *this)
 
                 GF_FREE (conf);
         }
-
+out:
         return;
 }
 
@@ -237,8 +246,7 @@ mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
-        if (!this)
-                return ret;
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
 
         ret = xlator_mem_acct_init (this, gf_dht_mt_end + 1);
 
@@ -247,7 +255,7 @@ mem_acct_init (xlator_t *this)
                         "failed");
                 return ret;
         }
-
+out:
         return ret;
 }
 int
@@ -257,9 +265,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         gf_boolean_t     search_unhashed;
         int              ret = 0;
 
-
-
-
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", options, out);
 
         if (dict_get_str (options, "lookup-unhashed", &temp_str) == 0) {
                 if (strcasecmp (temp_str, "auto")) {
@@ -267,12 +274,10 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
                                 gf_log(this->name, GF_LOG_DEBUG, "Validated"
                                        " lookup-unahashed (%s)",
                                        temp_str);
-                        }
-                        else {
+                        } else {
                                 gf_log(this->name, GF_LOG_ERROR, "Validation:"
                                        " lookup-unahashed should be boolean,"
-                                       " not (%s)",
-                                       temp_str);
+                                       " not (%s)", temp_str);
                                 *op_errstr = gf_strdup ("Error, lookup-"
                                                         "unhashed be boolean");
                                 ret = -1;
@@ -281,10 +286,6 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 }
         }
-
-
-
-
 
 out:
         return ret;
@@ -297,8 +298,10 @@ reconfigure (xlator_t *this, dict_t *options)
         char            *temp_str = NULL;
         gf_boolean_t     search_unhashed;
         uint32_t         temp_free_disk = 0;
-        int              ret = 0;
+        int              ret = -1;
 
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", options, out);
 
         conf = this->private;
         if (!conf)
@@ -312,8 +315,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                        " lookup-unahashed reconfigured (%s)",
                                        temp_str);
                                 conf->search_unhashed = search_unhashed;
-                        }
-                        else {
+                        } else {
                                 gf_log(this->name, GF_LOG_ERROR, "Reconfigure:"
                                        " lookup-unahashed should be boolean,"
                                        " not (%s), defaulting to (%d)",
@@ -322,9 +324,7 @@ reconfigure (xlator_t *this, dict_t *options)
                                 ret = -1;
                                 goto out;
                         }
-
-                }
-                else {
+                } else {
                         gf_log(this->name, GF_LOG_DEBUG, "Reconfigure:"
                                " lookup-unahashed reconfigured auto ");
                         conf->search_unhashed = GF_DHT_LOOKUP_UNHASHED_AUTO;
@@ -349,7 +349,7 @@ reconfigure (xlator_t *this, dict_t *options)
                        " min-free-disk reconfigured to %s",
                        temp_str);
         }
-
+        ret = 0;
 out:
         return ret;
 }
@@ -363,6 +363,7 @@ init (xlator_t *this)
         int            i = 0;
         uint32_t       temp_free_disk = 0;
 
+        GF_VALIDATE_OR_GOTO ("dht", this, err);
 
         if (!this->children) {
                 gf_log (this->name, GF_LOG_CRITICAL,
@@ -377,8 +378,6 @@ init (xlator_t *this)
 
         conf = GF_CALLOC (1, sizeof (*conf), gf_dht_mt_dht_conf_t);
         if (!conf) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -437,8 +436,6 @@ init (xlator_t *this)
         conf->du_stats = GF_CALLOC (conf->subvolume_cnt, sizeof (dht_du_t),
                                     gf_dht_mt_dht_du_t);
         if (!conf->du_stats) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
