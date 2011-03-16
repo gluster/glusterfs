@@ -37,7 +37,7 @@
    move latest accessed dentry to list_head of inode
 */
 
-#define INODE_DUMP_LIST(head, key_buf, key_prefix, list_type) \
+#define INODE_DUMP_LIST(head, key_buf, key_prefix, list_type)           \
         {                                                               \
                 int i = 1;                                              \
                 inode_t *inode = NULL;                                  \
@@ -311,7 +311,7 @@ noctx:
         LOCK_DESTROY (&inode->lock);
         //  memset (inode, 0xb, sizeof (*inode));
         mem_put (tmp_pool, inode);
-	 tmp_pool = NULL;
+        tmp_pool = NULL;
 
 }
 
@@ -512,7 +512,7 @@ __inode_create (inode_table_t *table)
 
         newi->_ctx = GF_CALLOC (1, (sizeof (struct _inode_ctx) *
                                     table->xl->graph->xl_count),
-                                    gf_common_mt_inode_ctx);
+                                gf_common_mt_inode_ctx);
 
         if (newi->_ctx == NULL) {
                 gf_log ("inode", GF_LOG_ERROR, "out of memory");
@@ -1155,12 +1155,12 @@ inode_table_new (size_t lru_limit, xlator_t *xl)
                 return NULL;
         }
 
-	 new->fd_mem_pool = mem_pool_new (fd_t, 16384);
+        new->fd_mem_pool = mem_pool_new (fd_t, 16384);
 
-	 if (!new->fd_mem_pool) {
-		  GF_FREE (new->inode_hash);
-		  GF_FREE (new);
-	 }
+        if (!new->fd_mem_pool) {
+                GF_FREE (new->inode_hash);
+                GF_FREE (new);
+        }
 
         for (i = 0; i < 65536; i++) {
                 INIT_LIST_HEAD (&new->inode_hash[i]);

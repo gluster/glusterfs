@@ -93,13 +93,13 @@ gpprintf (struct gf_printer *gp, const char *format, ...)
 static int
 glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
 {
-#define GPPRINTF(gp, fmt, ...) do {                    \
-        ret = gpprintf (gp, fmt, ## __VA_ARGS__);      \
-        if (ret == -1)                                 \
-                goto out;                              \
-        else                                           \
-                len += ret;                            \
-} while (0)
+#define GPPRINTF(gp, fmt, ...) do {                             \
+                ret = gpprintf (gp, fmt, ## __VA_ARGS__);       \
+                if (ret == -1)                                  \
+                        goto out;                               \
+                else                                            \
+                        len += ret;                             \
+        } while (0)
 
         xlator_t      *trav = NULL;
         data_pair_t   *pair = NULL;
@@ -135,7 +135,7 @@ glusterfs_graph_print (struct gf_printer *gp, glusterfs_graph_t *graph)
                         GPPRINTF (gp, "\n");
         }
 
- out:
+out:
         if (ret == -1) {
                 gf_log ("graph-print", GF_LOG_ERROR, "printing failed");
 
@@ -152,7 +152,7 @@ glusterfs_graph_print_file (FILE *file, glusterfs_graph_t *graph)
 {
         struct gf_printer gp = { .write = gp_write_file,
                                  .priv  = file
-                               };
+        };
 
         return glusterfs_graph_print (&gp, graph);
 }
@@ -166,7 +166,7 @@ glusterfs_graph_print_buf (glusterfs_graph_t *graph)
         char *buf = NULL;
         struct gf_printer gp = { .write = gp_write_buf,
                                  .priv  = &iov
-                               };
+        };
 
         f = fopen ("/dev/null", "a");
         if (!f) {

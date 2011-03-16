@@ -64,14 +64,14 @@ sys_readdir (DIR *dir)
 }
 
 
-ssize_t 
+ssize_t
 sys_readlink (const char *path, char *buf, size_t bufsiz)
 {
         return readlink (path, buf, bufsiz);
 }
 
 
-int 
+int
 sys_closedir (DIR *dir)
 {
         return closedir (dir);
@@ -85,14 +85,14 @@ sys_mknod (const char *pathname, mode_t mode, dev_t dev)
 }
 
 
-int 
+int
 sys_mkdir (const char *pathname, mode_t mode)
 {
         return mkdir (pathname, mode);
 }
 
 
-int 
+int
 sys_unlink (const char *pathname)
 {
 #ifdef GF_SOLARIS_HOST_OS
@@ -102,14 +102,14 @@ sys_unlink (const char *pathname)
 }
 
 
-int 
+int
 sys_rmdir (const char *pathname)
 {
         return rmdir (pathname);
 }
 
 
-int 
+int
 sys_symlink (const char *oldpath, const char *newpath)
 {
         return symlink (oldpath, newpath);
@@ -126,7 +126,7 @@ sys_rename (const char *oldpath, const char *newpath)
 }
 
 
-int 
+int
 sys_link (const char *oldpath, const char *newpath)
 {
         return link (oldpath, newpath);
@@ -147,7 +147,7 @@ sys_fchmod (int fd, mode_t mode)
 }
 
 
-int 
+int
 sys_chown (const char *path, uid_t owner, gid_t group)
 {
         return chown (path, owner, group);
@@ -168,21 +168,21 @@ sys_lchown (const char *path, uid_t owner, gid_t group)
 }
 
 
-int 
+int
 sys_truncate (const char *path, off_t length)
 {
         return truncate (path, length);
 }
 
 
-int 
+int
 sys_ftruncate (int fd, off_t length)
 {
         return ftruncate (fd, length);
 }
 
 
-int 
+int
 sys_utimes (const char *filename, const struct timeval times[2])
 {
         return utimes (filename, times);
@@ -217,7 +217,7 @@ sys_read (int fd, void *buf, size_t count)
 }
 
 
-ssize_t 
+ssize_t
 sys_write (int fd, const void *buf, size_t count)
 {
         return write (fd, buf, count);
@@ -238,21 +238,21 @@ sys_statvfs (const char *path, struct statvfs *buf)
 }
 
 
-int 
+int
 sys_close (int fd)
 {
         return close (fd);
 }
 
 
-int 
+int
 sys_fsync (int fd)
 {
         return fsync (fd);
 }
 
 
-int 
+int
 sys_fdatasync (int fd)
 {
 #ifdef HAVE_FDATASYNC
@@ -263,36 +263,36 @@ sys_fdatasync (int fd)
 }
 
 
-int 
-sys_lsetxattr (const char *path, const char *name, const void *value, 
-               size_t size, int flags) 
+int
+sys_lsetxattr (const char *path, const char *name, const void *value,
+               size_t size, int flags)
 {
-        
+
 #ifdef GF_LINUX_HOST_OS
         return lsetxattr (path, name, value, size, flags);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_set_link (path, EXTATTR_NAMESPACE_USER, 
+        return extattr_set_link (path, EXTATTR_NAMESPACE_USER,
                                  name, value, size);
 #endif
-        
+
 #ifdef GF_SOLARIS_HOST_OS
         return solaris_setxattr (path, name, value, size, flags);
 #endif
 
 #ifdef GF_DARWIN_HOST_OS
-        return setxattr (path, name, value, size, 0, 
+        return setxattr (path, name, value, size, 0,
                          flags|XATTR_NOFOLLOW);
 #endif
-        
+
 }
 
 
 ssize_t
-sys_llistxattr (const char *path, char *list, size_t size) 
+sys_llistxattr (const char *path, char *list, size_t size)
 {
-        
+
 #ifdef GF_LINUX_HOST_OS
         return llistxattr (path, list, size);
 #endif
@@ -300,7 +300,7 @@ sys_llistxattr (const char *path, char *list, size_t size)
 #ifdef GF_BSD_HOST_OS
         return extattr_list_link (path, EXTATTR_NAMESPACE_USER, list, size);
 #endif
-        
+
 #ifdef GF_SOLARIS_HOST_OS
         return solaris_listxattr (path, list, size);
 #endif
@@ -308,23 +308,23 @@ sys_llistxattr (const char *path, char *list, size_t size)
 #ifdef GF_DARWIN_HOST_OS
         return listxattr (path, list, size, XATTR_NOFOLLOW);
 #endif
-        
+
 }
 
 
 ssize_t
-sys_lgetxattr (const char *path, const char *name, void *value, size_t size) 
+sys_lgetxattr (const char *path, const char *name, void *value, size_t size)
 {
-        
+
 #ifdef GF_LINUX_HOST_OS
         return lgetxattr (path, name, value, size);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_get_link (path, EXTATTR_NAMESPACE_USER, name, value, 
+        return extattr_get_link (path, EXTATTR_NAMESPACE_USER, name, value,
                                  size);
 #endif
-        
+
 #ifdef GF_SOLARIS_HOST_OS
         return solaris_getxattr (path, name, value, size);
 #endif
@@ -336,19 +336,19 @@ sys_lgetxattr (const char *path, const char *name, void *value, size_t size)
 }
 
 
-ssize_t 
-sys_fgetxattr (int filedes, const char *name, void *value, size_t size) 
+ssize_t
+sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 {
-        
+
 #ifdef GF_LINUX_HOST_OS
         return fgetxattr (filedes, name, value, size);
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_get_fd (filedes, EXTATTR_NAMESPACE_USER, name, 
+        return extattr_get_fd (filedes, EXTATTR_NAMESPACE_USER, name,
                                value, size);
 #endif
-        
+
 #ifdef GF_SOLARIS_HOST_OS
         return solaris_fgetxattr (filedes, name, value, size);
 #endif
@@ -360,8 +360,8 @@ sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 }
 
 
-int 
-sys_fsetxattr (int filedes, const char *name, const void *value, 
+int
+sys_fsetxattr (int filedes, const char *name, const void *value,
                size_t size, int flags)
 {
 
@@ -370,10 +370,10 @@ sys_fsetxattr (int filedes, const char *name, const void *value,
 #endif
 
 #ifdef GF_BSD_HOST_OS
-        return extattr_set_fd (filedes, EXTATTR_NAMESPACE_USER, name, 
+        return extattr_set_fd (filedes, EXTATTR_NAMESPACE_USER, name,
                                value, size);
 #endif
-        
+
 #ifdef GF_SOLARIS_HOST_OS
         return solaris_fsetxattr (filedes, name, value, size, flags);
 #endif
@@ -385,10 +385,10 @@ sys_fsetxattr (int filedes, const char *name, const void *value,
 }
 
 
-ssize_t 
-sys_flistxattr (int filedes, char *list, size_t size) 
+ssize_t
+sys_flistxattr (int filedes, char *list, size_t size)
 {
-        
+
 #ifdef GF_LINUX_HOST_OS
         return flistxattr (filedes, list, size);
 #endif
@@ -408,10 +408,10 @@ sys_flistxattr (int filedes, char *list, size_t size)
 }
 
 
-int 
+int
 sys_lremovexattr (const char *path, const char *name)
 {
-        
+
 #ifdef GF_LINUX_HOST_OS
         return lremovexattr (path, name);
 #endif
@@ -419,7 +419,7 @@ sys_lremovexattr (const char *path, const char *name)
 #ifdef GF_BSD_HOST_OS
         return extattr_delete_link (path, EXTATTR_NAMESPACE_USER, name);
 #endif
-        
+
 #ifdef GF_SOLARIS_HOST_OS
         return solaris_removexattr (path, name);
 #endif
@@ -431,7 +431,7 @@ sys_lremovexattr (const char *path, const char *name)
 }
 
 
-int 
+int
 sys_access (const char *pathname, int mode)
 {
         return access (pathname, mode);

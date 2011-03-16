@@ -423,4 +423,3 @@ rbthash_table_destroy (rbthash_table_t *tbl)
         GF_FREE (tbl->buckets);
         GF_FREE (tbl);
 }
-

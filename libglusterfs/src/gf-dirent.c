@@ -33,51 +33,51 @@
 gf_dirent_t *
 gf_dirent_for_namelen (int len)
 {
-	gf_dirent_t *gf_dirent = NULL;
+        gf_dirent_t *gf_dirent = NULL;
 
-	/* TODO: use mem-pool */
-	gf_dirent = CALLOC (len, sizeof(char));
-	if (!gf_dirent)
-		return NULL;
+        /* TODO: use mem-pool */
+        gf_dirent = CALLOC (len, sizeof(char));
+        if (!gf_dirent)
+                return NULL;
 
-	INIT_LIST_HEAD (&gf_dirent->list);
+        INIT_LIST_HEAD (&gf_dirent->list);
 
-	gf_dirent->d_off = 0;
-	gf_dirent->d_ino = -1;
-	gf_dirent->d_type = 0;
+        gf_dirent->d_off = 0;
+        gf_dirent->d_ino = -1;
+        gf_dirent->d_type = 0;
 
-	return gf_dirent;
+        return gf_dirent;
 }
 
 
 gf_dirent_t *
 gf_dirent_for_name (const char *name)
 {
-	gf_dirent_t *gf_dirent = NULL;
+        gf_dirent_t *gf_dirent = NULL;
 
-	/* TODO: use mem-pool */
-	gf_dirent = GF_CALLOC (gf_dirent_size (name), 1,
-                                gf_common_mt_gf_dirent_t);
-	if (!gf_dirent)
-		return NULL;
+        /* TODO: use mem-pool */
+        gf_dirent = GF_CALLOC (gf_dirent_size (name), 1,
+                               gf_common_mt_gf_dirent_t);
+        if (!gf_dirent)
+                return NULL;
 
-	INIT_LIST_HEAD (&gf_dirent->list);
-	strcpy (gf_dirent->d_name, name);
+        INIT_LIST_HEAD (&gf_dirent->list);
+        strcpy (gf_dirent->d_name, name);
 
-	gf_dirent->d_off = 0;
-	gf_dirent->d_ino = -1;
-	gf_dirent->d_type = 0;
-	gf_dirent->d_len = strlen (name);
+        gf_dirent->d_off = 0;
+        gf_dirent->d_ino = -1;
+        gf_dirent->d_type = 0;
+        gf_dirent->d_len = strlen (name);
 
-	return gf_dirent;
+        return gf_dirent;
 }
 
 
 void
 gf_dirent_free (gf_dirent_t *entries)
 {
-	gf_dirent_t *entry = NULL;
-	gf_dirent_t *tmp = NULL;
+        gf_dirent_t *entry = NULL;
+        gf_dirent_t *tmp = NULL;
 
         if (!entries)
                 return;
@@ -85,10 +85,8 @@ gf_dirent_free (gf_dirent_t *entries)
         if (list_empty (&entries->list))
                 return;
 
-	list_for_each_entry_safe (entry, tmp, &entries->list, list) {
-		list_del (&entry->list);
-		GF_FREE (entry);
-	}
+        list_for_each_entry_safe (entry, tmp, &entries->list, list) {
+                list_del (&entry->list);
+                GF_FREE (entry);
+        }
 }
-
-

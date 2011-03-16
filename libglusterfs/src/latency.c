@@ -95,9 +95,9 @@ gf_set_fop_from_fn_pointer (call_frame_t *frame, struct xlator_fops *fops, void 
                 fop = GF_FOP_INODELK;
         else if (fops->finodelk == fn)
                 fop = GF_FOP_FINODELK;
-	else if (fops->entrylk == fn)
+        else if (fops->entrylk == fn)
                 fop = GF_FOP_ENTRYLK;
-	else if (fops->fentrylk == fn)
+        else if (fops->fentrylk == fn)
                 fop = GF_FOP_FENTRYLK;
         else if (fops->xattrop == fn)
                 fop = GF_FOP_XATTROP;
@@ -140,7 +140,7 @@ gf_update_latency (call_frame_t *frame)
 
         lat = &frame->this->latencies[frame->op];
 
-	lat->total += elapsed;
+        lat->total += elapsed;
         lat->count++;
         lat->mean = lat->mean + (elapsed - lat->mean) / lat->count;
 }
@@ -162,7 +162,7 @@ gf_proc_dump_latency_info (xlator_t *xl)
                 gf_proc_dump_write (key, "%.03f,%"PRId64",%.03f",
                                     xl->latencies[i].mean,
                                     xl->latencies[i].count,
-				    xl->latencies[i].total);
+                                    xl->latencies[i].total);
         }
 }
 

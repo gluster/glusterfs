@@ -537,5 +537,3 @@ glusterfs_graph_destroy (glusterfs_graph_t *graph)
 {
         return 0;
 }
-
-
