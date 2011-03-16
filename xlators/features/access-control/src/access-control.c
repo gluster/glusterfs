@@ -43,13 +43,42 @@ __get_frame_stub (call_frame_t *fr)
 {
         call_stub_t     *st = NULL;
 
-        if (!fr)
-                return NULL;
+        GF_VALIDATE_OR_GOTO (ACTRL, fr, out);
 
         st = fr->local;
         fr->local = NULL;
-
+out:
+        gf_log (ACTRL, GF_LOG_TRACE, "Returning %p", st);
         return st;
+}
+
+void
+ac_set_accesstype_str (int access, char *str, size_t len)
+{
+        char *read = "read ";
+        char *write = "write ";
+        char *exec = "exec ";
+        char *dontcare = "don'tcare ";
+
+        GF_ASSERT (len > (strlen (read) + strlen (write) +
+                          strlen (exec) + strlen (dontcare)));
+        GF_ASSERT (str);
+        if (access & ACCTEST_READ) {
+                snprintf (str, len, "%s", read);
+                len -= strlen (read);
+        }
+        if (access & ACCTEST_WRITE) {
+                snprintf (str, len, "%s", write);
+                len -= strlen (write);
+        }
+        if (access & ACCTEST_EXEC) {
+                snprintf (str, len, "%s", exec);
+                len -= strlen (exec);
+        }
+        if (access & ACCTEST_DONTCARE) {
+                snprintf (str, len, "%s", dontcare);
+                len -= strlen (dontcare);
+        }
 }
 
 int
@@ -57,12 +86,13 @@ ac_test_owner_access (struct iatt *ia, uid_t uid, int accesstest)
 {
         int     ret = -1;
 
-        if (!ia)
-                return -1;
+        GF_VALIDATE_OR_GOTO (ACTRL, ia, out);
 
         /* First test permissions using the uid. */
         if (ia->ia_uid != uid) {
                 ret = -1;
+                gf_log (ACTRL, GF_LOG_TRACE, "UID mismatch (orig: %d, user: %d)",
+                        ia->ia_uid, uid);
                 goto out;
         }
 
@@ -71,6 +101,7 @@ ac_test_owner_access (struct iatt *ia, uid_t uid, int accesstest)
          */
         if (ac_test_dontcare (accesstest)) {
                 ret = 0;
+                gf_log (ACTRL, GF_LOG_TRACE, "Access test marked as don't care");
                 goto out;
         }
 
@@ -89,6 +120,10 @@ ac_test_owner_access (struct iatt *ia, uid_t uid, int accesstest)
         else
                 ret = 0;
 out:
+        if (0 == ret)
+                gf_log (ACTRL, GF_LOG_TRACE, "Owner access allowed");
+        else
+                gf_log (ACTRL, GF_LOG_TRACE, "Owner access not allowed");
         return ret;
 }
 
@@ -101,8 +136,8 @@ ac_test_group_access (struct iatt *ia, gid_t gid, gid_t *auxgids, int auxcount,
         int     testgid = -1;
         int     x = 0;
 
-        if (!ia)
-                return -1;
+        GF_VALIDATE_OR_GOTO (ACTRL, ia, out);
+
         /* First, determine which gid to test against. This will be determined
          * by first checking which of the gids given to us match the gid in the
          * stat. If none match, then we go to checking with others as the user.
@@ -114,6 +149,8 @@ ac_test_group_access (struct iatt *ia, gid_t gid, gid_t *auxgids, int auxcount,
          */
 
         if ((ia->ia_gid != gid) && (auxcount == 0)) {
+                gf_log (ACTRL, GF_LOG_TRACE, "GID mismatch (orig: %d, user: %d)",
+                        ia->ia_gid, gid);
                 ret = -1;
                 goto out;
         }
@@ -131,6 +168,8 @@ ac_test_group_access (struct iatt *ia, gid_t gid, gid_t *auxgids, int auxcount,
 
         /* None of the gids match with the gid in the stat. */
         if (testgid == -1) {
+                gf_log (ACTRL, GF_LOG_TRACE, "None of the gids match with gid "
+                        "on the stat");
                 ret = -1;
                 goto out;
         }
@@ -139,6 +178,7 @@ ac_test_group_access (struct iatt *ia, gid_t gid, gid_t *auxgids, int auxcount,
          * check whether the caller is interested in the access check at all.
          */
         if (ac_test_dontcare (accesstest)) {
+                gf_log (ACTRL, GF_LOG_TRACE, "Access test marked as don't care");
                 ret = 0;
                 goto out;
         }
@@ -158,6 +198,10 @@ ac_test_group_access (struct iatt *ia, gid_t gid, gid_t *auxgids, int auxcount,
                 ret = 0;
 
 out:
+        if (0 == ret)
+                gf_log (ACTRL, GF_LOG_TRACE, "Group access allowed");
+        else
+                gf_log (ACTRL, GF_LOG_TRACE, "Group access not allowed");
         return ret;
 }
 
@@ -165,10 +209,10 @@ out:
 int
 ac_test_other_access (struct iatt *ia, int accesstest)
 {
-        int     ret = 0;
+        int     ret = -1;
 
-        if (!ia)
-                return -1;
+        GF_VALIDATE_OR_GOTO (ACTRL, ia, out);
+        ret = 0;
 
         if (ac_test_read (accesstest))
                 ret = IA_PROT_ROTH (ia->ia_prot);
@@ -184,6 +228,11 @@ ac_test_other_access (struct iatt *ia, int accesstest)
         else
                 ret = 0;
 
+out:
+        if (0 == ret)
+                gf_log (ACTRL, GF_LOG_TRACE, "Other access allowed");
+        else
+                gf_log (ACTRL, GF_LOG_TRACE, "Other access not allowed");
         return ret;
 }
 
@@ -196,10 +245,15 @@ ac_test_access (struct iatt *ia, uid_t uid, gid_t gid, gid_t *auxgids,
                 int auxcount, int accesstest, int testwho, int *operrno)
 {
         int             ret = -1;
+        char            accesstest_str[32] = {0};
 
-        if ((!ia) || (!operrno))
-                return -1;
+        GF_VALIDATE_OR_GOTO (ACTRL, ia, out);
+        GF_VALIDATE_OR_GOTO (ACTRL, operrno, out);
 
+        ac_set_accesstype_str (accesstest, accesstest_str,
+                               sizeof (accesstest_str));
+        gf_log (ACTRL, GF_LOG_TRACE, "Testing for accesstypes %s",
+                accesstest_str);
         if ((uid == 0) && (gid == 0)) {
                 gf_log (ACTRL, GF_LOG_TRACE, "Root has access");
                 return 0;
@@ -211,7 +265,6 @@ ac_test_access (struct iatt *ia, uid_t uid, gid_t gid, gid_t *auxgids,
         }
 
         if (ret == 0) {
-                gf_log (ACTRL, GF_LOG_TRACE, "Owner has access");
                 goto out;
         }
 
@@ -222,7 +275,6 @@ ac_test_access (struct iatt *ia, uid_t uid, gid_t gid, gid_t *auxgids,
         }
 
         if (ret == 0) {
-                gf_log (ACTRL, GF_LOG_TRACE, "Group has access");
                 goto out;
         }
 
@@ -231,8 +283,6 @@ ac_test_access (struct iatt *ia, uid_t uid, gid_t gid, gid_t *auxgids,
                 ret = ac_test_other_access (ia, accesstest);
         }
 
-        if (ret == 0)
-                gf_log (ACTRL, GF_LOG_TRACE, "Other has access");
 out:
         if (ret == -1) {
                 gf_log (ACTRL, GF_LOG_TRACE, "No access allowed");
@@ -248,8 +298,7 @@ ac_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 {
         int     ret = -EFAULT;
 
-        if (!loc)
-                return ret;
+        GF_VALIDATE_OR_GOTO (ACTRL, loc, out);
 
         if (inode) {
                 loc->inode = inode_ref (inode);
@@ -261,21 +310,28 @@ ac_loc_fill (loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
         loc->path = gf_strdup (path);
         if (!loc->path) {
-                gf_log (ACTRL, GF_LOG_ERROR, "strdup failed");
                 goto loc_wipe;
         }
 
         loc->name = strrchr (loc->path, '/');
-        if (loc->name)
+        if (loc->name) {
                 loc->name++;
-        else
+        } else {
+                gf_log (ACTRL, GF_LOG_ERROR, "path: %s, doesn't have '/'",
+                        loc->path);
                 goto loc_wipe;
+        }
 
         ret = 0;
 loc_wipe:
-        if (ret < 0)
+        if (ret < 0) {
+                if (inode)
+                        gf_log (ACTRL, GF_LOG_ERROR, "location fill failed for "
+                                "inode: %s", uuid_utoa (inode->gfid));
                 loc_wipe (loc);
-
+        }
+out:
+        gf_log (ACTRL, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -287,20 +343,23 @@ ac_inode_loc_fill (inode_t *inode, loc_t *loc)
         inode_t         *parent = NULL;
         int             ret = -EFAULT;
 
-        if ((!inode) || (!loc))
-                return ret;
+        GF_VALIDATE_OR_GOTO (ACTRL, inode, out);
+        GF_VALIDATE_OR_GOTO (ACTRL, loc, out);
 
-        if ((inode) && (inode->ino == 1))
+        if ((inode) && (inode->ino == 1)) {
                 goto ignore_parent;
+        }
 
         parent = inode_parent (inode, 0, NULL);
-        if (!parent)
-                goto err;
+        GF_VALIDATE_OR_GOTO (ACTRL, parent, err);
 
 ignore_parent:
         ret = inode_path (inode, NULL, &resolvedpath);
-        if (ret < 0)
+        if (ret < 0) {
+                gf_log (ACTRL, GF_LOG_ERROR, "Unable to get path for inode: %s",
+                        uuid_utoa (inode->gfid));
                 goto err;
+        }
 
         ret = ac_loc_fill (loc, inode, parent, resolvedpath);
         if (ret < 0)
@@ -313,6 +372,8 @@ err:
         if (resolvedpath)
                 GF_FREE (resolvedpath);
 
+out:
+        gf_log (ACTRL, GF_LOG_TRACE, "Returning %d", ret);
         return ret;
 }
 
@@ -320,10 +381,15 @@ err:
 int
 ac_parent_loc_fill (loc_t *parentloc, loc_t *childloc)
 {
-        if ((!parentloc) || (!childloc))
-                return -1;
+        int             ret = -1;
 
-        return ac_inode_loc_fill (childloc->parent, parentloc);
+        GF_VALIDATE_OR_GOTO (ACTRL, parentloc, out);
+        GF_VALIDATE_OR_GOTO (ACTRL, childloc, out);
+
+        ret =  ac_inode_loc_fill (childloc->parent, parentloc);
+out:
+        gf_log (ACTRL, GF_LOG_TRACE, "Returning %d", ret);
+        return ret;
 }
 
 
@@ -356,6 +422,8 @@ ac_truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+                gf_log (this->name, GF_LOG_ERROR, "truncate failed with "
+                        "error: %s", strerror (op_errno));
                 STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -377,8 +445,6 @@ ac_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         }
         stub = fop_truncate_stub (frame, ac_truncate_resume, loc, offset);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -389,8 +455,11 @@ ac_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 
         ret = 0;
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "truncate failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (truncate, frame, -1, -ret, NULL, NULL);
+        }
 
         return 0;
 }
@@ -447,6 +516,8 @@ ac_access_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "access failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (access, frame, -1, op_errno);
                 if (stub)
                         call_stub_destroy (stub);
@@ -468,8 +539,6 @@ ac_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         }
         stub = fop_access_stub (frame, ac_access_resume, loc, mask);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -480,8 +549,11 @@ ac_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         ret = 0;
 
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "access failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (access, frame, -1, -ret);
+        }
 
         return 0;
 }
@@ -516,6 +588,8 @@ ac_readlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "readlink failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (readlink, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -537,8 +611,6 @@ ac_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         }
         stub = fop_readlink_stub (frame, ac_readlink_resume, loc, size);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -549,8 +621,11 @@ ac_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         ret = 0;
 
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "readlink failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (readlink, frame, -1, -ret, NULL, NULL);
+        }
 
         return 0;
 }
@@ -587,6 +662,8 @@ ac_mknod_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "mknod failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (mknod, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL);
                 if (stub)
@@ -611,8 +688,6 @@ ac_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         }
         stub = fop_mknod_stub (frame, ac_mknod_resume, loc, mode, rdev, params);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -633,6 +708,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "mknod failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (mknod, frame, -1, -ret, NULL, NULL, NULL,
                                      NULL);
         }
@@ -676,6 +753,8 @@ ac_mkdir_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "mkdir failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (mkdir, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL);
                 if (stub)
@@ -700,8 +779,6 @@ ac_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         }
         stub = fop_mkdir_stub (frame, ac_mkdir_resume, loc, mode, params);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -722,6 +799,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "mkdir failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (mkdir, frame, -1, -ret, NULL, NULL, NULL,
                                      NULL);
         }
@@ -760,6 +839,8 @@ ac_unlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "unlink failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -782,8 +863,6 @@ ac_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         }
         stub = fop_unlink_stub (frame, ac_unlink_resume, loc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -804,6 +883,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "unlink failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (unlink, frame, -1, -ret, NULL, NULL);
         }
 
@@ -841,6 +922,8 @@ ac_rmdir_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "rmdir failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -863,8 +946,6 @@ ac_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         }
         stub = fop_rmdir_stub (frame, ac_rmdir_resume, loc, flags);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -885,6 +966,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "rmdir failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (rmdir, frame, -1, -ret, NULL, NULL);
         }
 
@@ -923,6 +1006,8 @@ ac_symlink_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "symlink failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (symlink, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL);
                 if (stub)
@@ -948,8 +1033,6 @@ ac_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
         stub = fop_symlink_stub (frame, ac_symlink_resume, linkname, loc,
                                  params);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -970,6 +1053,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "symlink failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (symlink, frame, -1, -ret, NULL, NULL, NULL,
                                      NULL);
         }
@@ -1010,6 +1095,8 @@ ac_rename_dst_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "rename failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL, NULL);
                 if (stub)
@@ -1056,6 +1143,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "rename failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL, NULL);
         }
@@ -1077,8 +1166,6 @@ ac_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         }
         stub = fop_rename_stub (frame, ac_rename_resume, oldloc, newloc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1099,6 +1186,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "rename failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (rename, frame, -1, -ret, NULL, NULL, NULL,
                                      NULL, NULL);
         }
@@ -1143,6 +1232,8 @@ ac_link_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "link failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL);
                 if (stub)
@@ -1166,8 +1257,6 @@ ac_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         }
         stub = fop_link_stub (frame, ac_link_resume, oldloc, newloc);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1188,6 +1277,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "link failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (link, frame, -1, -ret, NULL, NULL, NULL,
                                      NULL);
         }
@@ -1228,6 +1319,8 @@ ac_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "create failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (create, frame, -1, op_errno, NULL, NULL,
                                      NULL, NULL, NULL);
                 if (stub)
@@ -1253,8 +1346,6 @@ ac_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         stub = fop_create_stub (frame, ac_create_resume, loc, flags, mode,
                                 fd, params);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1275,6 +1366,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "create failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (create, frame, -1, -ret, NULL, NULL, NULL,
                                      NULL, NULL);
         }
@@ -1314,6 +1407,8 @@ ac_open_create_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "open failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -1378,6 +1473,8 @@ ac_open_only_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "open failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (open, frame, -1, op_errno, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -1416,8 +1513,6 @@ ac_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
         stub = fop_open_stub (frame, ac_open_resume, loc, flags, fd, wbflags);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1436,6 +1531,8 @@ out:
                 stub = __get_frame_stub (frame);
                 if (stub)
                         call_stub_destroy (stub);
+		gf_log (this->name, GF_LOG_ERROR, "open failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (open, frame, -1, -ret, NULL);
         }
 
@@ -1474,6 +1571,8 @@ ac_readv_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "readv failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (readv, frame, -1, op_errno, NULL, 0, NULL,
                                      NULL);
                 if (stub)
@@ -1498,8 +1597,6 @@ ac_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         stub = fop_readv_stub (frame, ac_readv_resume, fd, size, offset);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1510,9 +1607,12 @@ ac_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         ret = 0;
 
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "readv failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (readv, frame, -1, -ret, NULL, 0, NULL,
                                      NULL);
+        }
 
         return 0;
 }
@@ -1551,6 +1651,8 @@ ac_writev_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "writev failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -1576,8 +1678,6 @@ ac_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         stub = fop_writev_stub (frame, ac_writev_resume, fd, vector, count,
                                 offset, iobref);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1588,8 +1688,11 @@ ac_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         ret = 0;
 
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "writev failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (writev, frame, -1, -ret, NULL, NULL);
+        }
 
         return 0;
 }
@@ -1623,6 +1726,8 @@ ac_opendir_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "opendir failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (opendir, frame, -1, op_errno, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -1644,8 +1749,6 @@ ac_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 
         stub = fop_opendir_stub (frame, ac_opendir_resume, loc, fd);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1656,8 +1759,11 @@ ac_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         ret = 0;
 
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "opendir failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (opendir, frame, -1, -ret, NULL);
+        }
 
         return 0;
 }
@@ -1732,6 +1838,8 @@ ac_setattr_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "setattr failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -1754,8 +1862,6 @@ ac_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *buf,
 
         stub = fop_setattr_stub (frame, ac_setattr_resume, loc, buf, valid);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1766,8 +1872,11 @@ ac_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *buf,
         ret = 0;
 
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "setattr failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (setattr, frame, -1, -ret, NULL, NULL);
+        }
 
         return 0;
 }
@@ -1842,6 +1951,8 @@ ac_fsetattr_fstat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         call_resume (stub);
 out:
         if (op_ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "fsetattr failed with error: %s",
+                        strerror (op_errno));
                 STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL, NULL);
                 if (stub)
                         call_stub_destroy (stub);
@@ -1865,8 +1976,6 @@ ac_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *buf,
 
         stub = fop_fsetattr_stub (frame, ac_fsetattr_resume, fd, buf, valid);
         if (!stub) {
-                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
-                        "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -1877,8 +1986,11 @@ ac_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *buf,
         ret = 0;
 
 out:
-        if (ret < 0)
+        if (ret < 0) {
+		gf_log (this->name, GF_LOG_ERROR, "fsetattr failed with error: %s",
+                        strerror (-ret));
                 STACK_UNWIND_STRICT (fsetattr, frame, -1, -ret, NULL, NULL);
+        }
 
         return 0;
 }
