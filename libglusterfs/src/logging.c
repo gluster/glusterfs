@@ -61,7 +61,7 @@ static FILE            *cmdlogfile = NULL;
 void
 gf_log_logrotate (int signum)
 {
-	logrotate = 1;
+        logrotate = 1;
 }
 
 void
@@ -79,7 +79,7 @@ gf_log_disable_syslog (void)
 gf_loglevel_t
 gf_log_get_loglevel (void)
 {
-	return loglevel;
+        return loglevel;
 }
 
 void
@@ -111,34 +111,34 @@ gf_log_set_xl_loglevel (void *this, gf_loglevel_t level)
 void
 gf_log_fini (void)
 {
-	pthread_mutex_destroy (&logfile_mutex);
+        pthread_mutex_destroy (&logfile_mutex);
 }
 
 
 int
 gf_log_init (const char *file)
 {
-	if (!file){
-		fprintf (stderr, "gf_log_init: no filename specified\n");
-		return -1;
-	}
+        if (!file){
+                fprintf (stderr, "gf_log_init: no filename specified\n");
+                return -1;
+        }
 
-	pthread_mutex_init (&logfile_mutex, NULL);
+        pthread_mutex_init (&logfile_mutex, NULL);
 
         filename = gf_strdup (file);
-	if (!filename) {
-		fprintf (stderr, "gf_log_init: strdup error\n");
-		return -1;
-	}
+        if (!filename) {
+                fprintf (stderr, "gf_log_init: strdup error\n");
+                return -1;
+        }
 
-	logfile = fopen (file, "a");
-	if (!logfile){
-		fprintf (stderr,
-			 "gf_log_init: failed to open logfile \"%s\" (%s)\n",
-			 file,
-			 strerror (errno));
-		return -1;
-	}
+        logfile = fopen (file, "a");
+        if (!logfile){
+                fprintf (stderr,
+                         "gf_log_init: failed to open logfile \"%s\" (%s)\n",
+                         file,
+                         strerror (errno));
+                return -1;
+        }
 
 #ifdef GF_LINUX_HOST_OS
         /* For the 'syslog' output. one can grep 'GlusterFS' in syslog
@@ -146,9 +146,9 @@ gf_log_init (const char *file)
         openlog ("GlusterFS", LOG_PID, LOG_DAEMON);
 #endif
 
-	gf_log_logfile = logfile;
+        gf_log_logfile = logfile;
 
-	return 0;
+        return 0;
 }
 
 
@@ -175,43 +175,43 @@ struct _log_msg {
 void
 gf_log_lock (void)
 {
-	pthread_mutex_lock (&logfile_mutex);
+        pthread_mutex_lock (&logfile_mutex);
 }
 
 
 void
 gf_log_unlock (void)
 {
-	pthread_mutex_unlock (&logfile_mutex);
+        pthread_mutex_unlock (&logfile_mutex);
 }
 
 
 void
 gf_log_cleanup (void)
 {
-	pthread_mutex_destroy (&logfile_mutex);
+        pthread_mutex_destroy (&logfile_mutex);
 }
 
 int
 _gf_log_callingfn (const char *domain, const char *file, const char *function,
                    int line, gf_loglevel_t level, const char *fmt, ...)
 {
-	const char     *basename        = NULL;
-	struct tm      *tm              = NULL;
+        const char     *basename        = NULL;
+        struct tm      *tm              = NULL;
         xlator_t       *this            = NULL;
         char           *str1            = NULL;
         char           *str2            = NULL;
         char           *msg             = NULL;
-	char            timestr[256]    = {0,};
-	char            callstr[4096]   = {0,};
+        char            timestr[256]    = {0,};
+        char            callstr[4096]   = {0,};
         struct timeval  tv              = {0,};
         size_t          len             = 0;
         int             ret             = 0;
         gf_loglevel_t   xlator_loglevel = 0;
-	va_list         ap;
+        va_list         ap;
 
-	if (!logfile)
-		return -1;
+        if (!logfile)
+                return -1;
 
         this = THIS;
 
@@ -222,33 +222,33 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         if (level > xlator_loglevel)
                 goto out;
 
-	static char *level_strings[] = {"",  /* NONE */
+        static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */
                                         "A", /* ALERT */
-					"C", /* CRITICAL */
-					"E", /* ERROR */
-					"W", /* WARNING */
-					"N", /* NOTICE */
+                                        "C", /* CRITICAL */
+                                        "E", /* ERROR */
+                                        "W", /* WARNING */
+                                        "N", /* NOTICE */
                                         "I", /* INFO/NORMAL */
-					"D", /* DEBUG */
+                                        "D", /* DEBUG */
                                         "T", /* TRACE */
-					""};
+                                        ""};
 
-	if (!domain || !file || !function || !fmt) {
-		fprintf (stderr,
-			 "logging: %s:%s():%d: invalid argument\n",
-			 __FILE__, __PRETTY_FUNCTION__, __LINE__);
-		return -1;
-	}
+        if (!domain || !file || !function || !fmt) {
+                fprintf (stderr,
+                         "logging: %s:%s():%d: invalid argument\n",
+                         __FILE__, __PRETTY_FUNCTION__, __LINE__);
+                return -1;
+        }
 
 #if HAVE_BACKTRACE
-	/* Print 'calling function' */
-	do {
-		void *array[5];
+        /* Print 'calling function' */
+        do {
+                void *array[5];
                 char **callingfn = NULL;
-		size_t size = 0;
+                size_t size = 0;
 
-		size = backtrace (array, 5);
+                size = backtrace (array, 5);
                 if (size)
                         callingfn = backtrace_symbols (&array[2], size-2);
                 if (!callingfn)
@@ -264,28 +264,28 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                         snprintf (callstr, 4096, "(-->%s)", callingfn[0]);
 
                 free (callingfn);
-	} while (0);
+        } while (0);
 #endif /* HAVE_BACKTRACE */
 
         ret = gettimeofday (&tv, NULL);
         if (-1 == ret)
                 goto out;
 
-	tm    = localtime (&tv.tv_sec);
+        tm    = localtime (&tv.tv_sec);
 
-	pthread_mutex_lock (&logfile_mutex);
-	{
-		va_start (ap, fmt);
+        pthread_mutex_lock (&logfile_mutex);
+        {
+                va_start (ap, fmt);
 
-		strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
                 snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, tv.tv_usec);
 
-		basename = strrchr (file, '/');
-		if (basename)
-			basename++;
-		else
-			basename = file;
+                basename = strrchr (file, '/');
+                if (basename)
+                        basename++;
+                else
+                        basename = file;
 
                 ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s %s: ",
                                    timestr, level_strings[level],
@@ -300,7 +300,7 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                         goto unlock;
                 }
 
-		va_end (ap);
+                va_end (ap);
 
                 len = strlen (str1);
                 msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
@@ -308,8 +308,8 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                 strcpy (msg, str1);
                 strcpy (msg + len, str2);
 
-		fprintf (logfile, "%s\n", msg);
-		fflush (logfile);
+                fprintf (logfile, "%s\n", msg);
+                fflush (logfile);
 
 #ifdef GF_LINUX_HOST_OS
                 /* We want only serious log in 'syslog', not our debug
@@ -317,10 +317,10 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                 if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
                         syslog ((level-1), "%s\n", msg);
 #endif
-	}
+        }
 
 unlock:
-	pthread_mutex_unlock (&logfile_mutex);
+        pthread_mutex_unlock (&logfile_mutex);
 
         if (msg) {
                 GF_FREE (msg);
@@ -338,13 +338,13 @@ out:
 
 int
 _gf_log (const char *domain, const char *file, const char *function, int line,
-	 gf_loglevel_t level, const char *fmt, ...)
+         gf_loglevel_t level, const char *fmt, ...)
 {
-	const char  *basename = NULL;
-	FILE        *new_logfile = NULL;
-	va_list      ap;
-	struct tm   *tm = NULL;
-	char         timestr[256];
+        const char  *basename = NULL;
+        FILE        *new_logfile = NULL;
+        va_list      ap;
+        struct tm   *tm = NULL;
+        char         timestr[256];
         struct timeval tv = {0,};
 
         char        *str1 = NULL;
@@ -355,8 +355,8 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         xlator_t    *this = NULL;
         gf_loglevel_t xlator_loglevel = 0;
 
-	if (!logfile)
-		return -1;
+        if (!logfile)
+                return -1;
 
         this = THIS;
 
@@ -367,61 +367,61 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         if (level > xlator_loglevel)
                 goto out;
 
-	static char *level_strings[] = {"",  /* NONE */
+        static char *level_strings[] = {"",  /* NONE */
                                         "M", /* EMERGENCY */
                                         "A", /* ALERT */
-					"C", /* CRITICAL */
-					"E", /* ERROR */
-					"W", /* WARNING */
-					"N", /* NOTICE */
+                                        "C", /* CRITICAL */
+                                        "E", /* ERROR */
+                                        "W", /* WARNING */
+                                        "N", /* NOTICE */
                                         "I", /* INFO/NORMAL */
-					"D", /* DEBUG */
+                                        "D", /* DEBUG */
                                         "T", /* TRACE */
-					""};
+                                        ""};
 
-	if (!domain || !file || !function || !fmt) {
-		fprintf (stderr,
-			 "logging: %s:%s():%d: invalid argument\n",
-			 __FILE__, __PRETTY_FUNCTION__, __LINE__);
-		return -1;
-	}
+        if (!domain || !file || !function || !fmt) {
+                fprintf (stderr,
+                         "logging: %s:%s():%d: invalid argument\n",
+                         __FILE__, __PRETTY_FUNCTION__, __LINE__);
+                return -1;
+        }
 
 
-	if (logrotate) {
-		logrotate = 0;
+        if (logrotate) {
+                logrotate = 0;
 
-		new_logfile = fopen (filename, "a");
-		if (!new_logfile) {
-			gf_log ("logrotate", GF_LOG_CRITICAL,
-				"failed to open logfile %s (%s)",
-				filename, strerror (errno));
-			goto log;
-		}
+                new_logfile = fopen (filename, "a");
+                if (!new_logfile) {
+                        gf_log ("logrotate", GF_LOG_CRITICAL,
+                                "failed to open logfile %s (%s)",
+                                filename, strerror (errno));
+                        goto log;
+                }
 
-		fclose (logfile);
-		gf_log_logfile = logfile = new_logfile;
-	}
+                fclose (logfile);
+                gf_log_logfile = logfile = new_logfile;
+        }
 
 log:
         ret = gettimeofday (&tv, NULL);
         if (-1 == ret)
                 goto out;
 
-	tm    = localtime (&tv.tv_sec);
+        tm    = localtime (&tv.tv_sec);
 
-	pthread_mutex_lock (&logfile_mutex);
-	{
-		va_start (ap, fmt);
+        pthread_mutex_lock (&logfile_mutex);
+        {
+                va_start (ap, fmt);
 
-		strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
                 snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
                           ".%"GF_PRI_SUSECONDS, tv.tv_usec);
 
-		basename = strrchr (file, '/');
-		if (basename)
-			basename++;
-		else
-			basename = file;
+                basename = strrchr (file, '/');
+                if (basename)
+                        basename++;
+                else
+                        basename = file;
 
                 ret = gf_asprintf (&str1, "[%s] %s [%s:%d:%s] %s: ",
                                    timestr, level_strings[level],
@@ -436,7 +436,7 @@ log:
                         goto unlock;
                 }
 
-		va_end (ap);
+                va_end (ap);
 
                 len = strlen (str1);
                 msg = GF_MALLOC (len + strlen (str2) + 1, gf_common_mt_char);
@@ -444,8 +444,8 @@ log:
                 strcpy (msg, str1);
                 strcpy (msg + len, str2);
 
-		fprintf (logfile, "%s\n", msg);
-		fflush (logfile);
+                fprintf (logfile, "%s\n", msg);
+                fflush (logfile);
 
 #ifdef GF_LINUX_HOST_OS
                 /* We want only serious log in 'syslog', not our debug
@@ -453,10 +453,10 @@ log:
                 if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
                         syslog ((level-1), "%s\n", msg);
 #endif
-	}
+        }
 
 unlock:
-	pthread_mutex_unlock (&logfile_mutex);
+        pthread_mutex_unlock (&logfile_mutex);
 
         if (msg) {
                 if ((ret != -1) && __central_log_enabled &&
@@ -478,7 +478,7 @@ unlock:
                 FREE (str2);
 
 out:
-	return (0);
+        return (0);
 }
 
 
@@ -517,7 +517,7 @@ __logfile_for_client (char *identifier)
 
         if (!client_logs) {
                 client = GF_CALLOC (1, sizeof (*client),
-                                        gf_common_mt_client_log);
+                                    gf_common_mt_client_log);
                 if (!client)
                         return NULL;
 
@@ -533,7 +533,7 @@ __logfile_for_client (char *identifier)
 
         if (!client) {
                 client = GF_CALLOC (1, sizeof (*client),
-                                        gf_common_mt_client_log);
+                                    gf_common_mt_client_log);
                 if (!client)
                         return NULL;
 
@@ -578,8 +578,8 @@ gf_cmd_log_init (const char *filename)
         cmdlogfile = fopen (cmd_log_filename, "a");
         if (!cmdlogfile){
                 gf_log ("glusterd", GF_LOG_CRITICAL,
-                         "gf_cmd_log_init: failed to open logfile \"%s\" "
-                         "(%s)\n", cmd_log_filename, strerror (errno));
+                        "gf_cmd_log_init: failed to open logfile \"%s\" "
+                        "(%s)\n", cmd_log_filename, strerror (errno));
                 return -1;
         }
         return 0;
@@ -604,7 +604,7 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
 
         if (!domain || !fmt) {
                 gf_log ("glusterd", GF_LOG_TRACE,
-                         "logging: invalid argument\n");
+                        "logging: invalid argument\n");
                 return -1;
         }
 
@@ -620,14 +620,14 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
                   ".%"GF_PRI_SUSECONDS, tv.tv_usec);
 
         ret = gf_asprintf (&str1, "[%s] %s : ",
-                          timestr, domain);
+                           timestr, domain);
         if (ret == -1) {
-              goto out;
+                goto out;
         }
 
         ret = vasprintf (&str2, fmt, ap);
         if (ret == -1) {
-               goto out;
+                goto out;
         }
 
         va_end (ap);
@@ -643,7 +643,7 @@ gf_cmd_log (const char *domain, const char *fmt, ...)
 
 out:
         if (msg) {
-               GF_FREE (msg);
+                GF_FREE (msg);
         }
 
         if (str1)

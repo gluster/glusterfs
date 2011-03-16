@@ -32,11 +32,11 @@
 #define MALLOC(size) malloc(size)
 #define CALLOC(cnt,size) calloc(cnt,size)
 
-#define FREE(ptr)				\
-	if (ptr != NULL) {			\
-		free ((void *)ptr);		\
-		ptr = (void *)0xeeeeeeee;	\
-	}                      
+#define FREE(ptr)                               \
+        if (ptr != NULL) {                      \
+                free ((void *)ptr);             \
+                ptr = (void *)0xeeeeeeee;       \
+        }
 
 struct mem_acct {
         uint32_t            num_types;
@@ -73,7 +73,7 @@ gf_asprintf (char **string_ptr, const char *format, ...);
 
 #define GF_REALLOC(ptr, size)  __gf_realloc (ptr, size)
 
-void 
+void
 __gf_free (void *ptr);
 
 
@@ -98,16 +98,14 @@ char * gf_strdup (const char *src)
         return dup_str;
 }
 
-
-
 struct mem_pool {
-	struct list_head  list;
-	int               hot_count;
-	int               cold_count;
-	gf_lock_t         lock;
-	unsigned long     padded_sizeof_type;
-	void             *pool;
-	void             *pool_end;
+        struct list_head  list;
+        int               hot_count;
+        int               cold_count;
+        gf_lock_t         lock;
+        unsigned long     padded_sizeof_type;
+        void             *pool;
+        void             *pool_end;
         int               real_sizeof_type;
 };
 

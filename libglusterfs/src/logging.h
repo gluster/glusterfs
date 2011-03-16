@@ -17,7 +17,6 @@
    <http://www.gnu.org/licenses/>.
 */
 
-
 #ifndef __LOGGING_H__
 #define __LOGGING_H__
 
@@ -57,16 +56,16 @@
 #endif
 
 typedef enum {
-	GF_LOG_NONE,
+        GF_LOG_NONE,
         GF_LOG_EMERG,
         GF_LOG_ALERT,
-	GF_LOG_CRITICAL,   /* fatal errors */
-	GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
-	GF_LOG_WARNING,    /* info about normal operation */
+        GF_LOG_CRITICAL,   /* fatal errors */
+        GF_LOG_ERROR,      /* major failures (not necessarily fatal) */
+        GF_LOG_WARNING,    /* info about normal operation */
         GF_LOG_NOTICE,
-	GF_LOG_INFO,       /* Normal information */
+        GF_LOG_INFO,       /* Normal information */
 #define GF_LOG_NORMAL      GF_LOG_INFO
-	GF_LOG_DEBUG,      /* internal errors */
+        GF_LOG_DEBUG,      /* internal errors */
         GF_LOG_TRACE,      /* full trace of operation */
 } gf_loglevel_t;
 
@@ -77,7 +76,7 @@ extern char gf_log_xl_log_set;
 
 #define FMT_WARN(fmt...) do { if (0) printf (fmt); } while (0)
 
-#define gf_log(dom, levl, fmt...) do {					\
+#define gf_log(dom, levl, fmt...) do {                                  \
                 FMT_WARN (fmt);                                         \
                                                                         \
                 if ((levl > gf_log_loglevel) && !gf_log_xl_log_set)     \
@@ -97,7 +96,7 @@ extern char gf_log_xl_log_set;
 
 /* Log once in GF_UNIVERSAL_ANSWER times */
 #define GF_LOG_OCCASIONALLY(var, args...) if (!(var++%GF_UNIVERSAL_ANSWER)) { \
-                gf_log (args);                                                \
+                gf_log (args);                                          \
         }
 
 
@@ -109,7 +108,7 @@ void gf_log_cleanup (void);
 
 int
 _gf_log (const char *domain, const char *file, const char *function,
-	 int32_t line, gf_loglevel_t level, const char *fmt, ...);
+         int32_t line, gf_loglevel_t level, const char *fmt, ...);
 int
 _gf_log_callingfn (const char *domain, const char *file, const char *function,
                    int32_t line, gf_loglevel_t level, const char *fmt, ...);
@@ -127,14 +126,14 @@ void gf_log_set_loglevel (gf_loglevel_t level);
 gf_loglevel_t gf_log_get_xl_loglevel (void *xl);
 void gf_log_set_xl_loglevel (void *xl, gf_loglevel_t level);
 
-#define GF_DEBUG(xl, format, args...) \
-	gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
-#define GF_INFO(xl, format, args...) \
-	gf_log ((xl)->name, GF_LOG_INFO, format, ##args)
-#define GF_WARNING(xl, format, args...) \
-	gf_log ((xl)->name, GF_LOG_WARNING, format, ##args)
-#define GF_ERROR(xl, format, args...) \
-	gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
+#define GF_DEBUG(xl, format, args...)                           \
+        gf_log ((xl)->name, GF_LOG_DEBUG, format, ##args)
+#define GF_INFO(xl, format, args...)                            \
+        gf_log ((xl)->name, GF_LOG_INFO, format, ##args)
+#define GF_WARNING(xl, format, args...)                         \
+        gf_log ((xl)->name, GF_LOG_WARNING, format, ##args)
+#define GF_ERROR(xl, format, args...)                           \
+        gf_log ((xl)->name, GF_LOG_ERROR, format, ##args)
 
 int
 gf_cmd_log (const char *domain, const char *fmt, ...);
