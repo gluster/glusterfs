@@ -59,7 +59,7 @@ gf_proc_dump_call_frame (call_frame_t *call_frame, const char *key_buf,...)
         ret = TRY_LOCK(&call_frame->lock);
         if (ret) {
                 gf_log("", GF_LOG_WARNING, "Unable to dump call frame"
-                       " errno: %d", errno);
+                       " errno: %s", strerror (errno));
                 return;
         }
 

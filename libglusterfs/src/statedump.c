@@ -28,6 +28,11 @@
 #include <malloc.h>
 #endif /* MALLOC_H */
 
+/* We don't want gf_log in this function because it may cause
+   'deadlock' with statedump */
+#ifdef gf_log
+# undef gf_log
+#endif
 
 #define GF_PROC_DUMP_IS_OPTION_ENABLED(opt)     \
         (dump_options.dump_##opt == _gf_true)

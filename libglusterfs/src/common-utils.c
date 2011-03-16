@@ -85,7 +85,7 @@ gf_resolve_ip6 (const char *hostname,
         char service[NI_MAXSERV], host[NI_MAXHOST];
 
         if (!hostname) {
-                gf_log ("resolver", GF_LOG_WARNING, "hostname is NULL");
+                gf_log_callingfn ("resolver", GF_LOG_WARNING, "hostname is NULL");
                 return -1;
         }
 
@@ -141,13 +141,12 @@ gf_resolve_ip6 (const char *hostname,
                                   service, sizeof (service),
                                   NI_NUMERICHOST);
                 if (ret != 0) {
-                        gf_log ("resolver",
-                                GF_LOG_ERROR,
+                        gf_log ("resolver", GF_LOG_ERROR,
                                 "getnameinfo failed (%s)", gai_strerror (ret));
                         goto err;
                 }
 
-                gf_log ("resolver", GF_LOG_TRACE,
+                gf_log ("resolver", GF_LOG_DEBUG,
                         "returning ip-%s (port-%s) for hostname: %s and port: %d",
                         host, service, hostname, port);
 
@@ -163,13 +162,12 @@ gf_resolve_ip6 (const char *hostname,
                                   service, sizeof (service),
                                   NI_NUMERICHOST);
                 if (ret != 0) {
-                        gf_log ("resolver",
-                                GF_LOG_ERROR,
+                        gf_log ("resolver", GF_LOG_ERROR,
                                 "getnameinfo failed (%s)", gai_strerror (ret));
                         goto err;
                 }
 
-                gf_log ("resolver", GF_LOG_TRACE,
+                gf_log ("resolver", GF_LOG_DEBUG,
                         "next DNS query will return: ip-%s port-%s", host, service);
         }
 
@@ -452,8 +450,8 @@ gf_strsplit (const char *str, const char *delim,
         int i = 0;
         int j = 0;
 
-        if (str == NULL || delim == NULL || tokens == NULL || token_count == NULL)
-        {
+        if (str == NULL || delim == NULL || tokens == NULL || token_count == NULL) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 return -1;
         }
 
@@ -524,6 +522,7 @@ gf_strstr (const char *str, const char *delim, const char *match)
         tmp_str = strdup (str);
 
         if (str == NULL || delim == NULL || match == NULL || tmp_str == NULL) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 ret = -1;
                 goto out;
         }
@@ -553,8 +552,8 @@ gf_volume_name_validate (const char *volume_name)
 {
         const char *vname = NULL;
 
-        if (volume_name == NULL)
-        {
+        if (volume_name == NULL) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 return -1;
         }
 
@@ -583,6 +582,7 @@ gf_string2time (const char *str, uint32_t *n)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -637,6 +637,7 @@ gf_string2percent (const char *str, uint32_t *n)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -689,6 +690,7 @@ _gf_string2long (const char *str, long *n, int base)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -728,6 +730,7 @@ _gf_string2ulong (const char *str, unsigned long *n, int base)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -782,6 +785,7 @@ _gf_string2uint (const char *str, unsigned int *n, int base)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -834,6 +838,7 @@ _gf_string2double (const char *str, double *n)
         int    old_errno = 0;
 
         if (str == NULL || n == NULL) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -868,6 +873,7 @@ _gf_string2longlong (const char *str, long long *n, int base)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -907,6 +913,7 @@ _gf_string2ulonglong (const char *str, unsigned long long *n, int base)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1261,6 +1268,7 @@ gf_string2bytesize (const char *str, uint64_t *n)
 
         if (str == NULL || n == NULL)
         {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 errno = EINVAL;
                 return -1;
         }
@@ -1371,6 +1379,7 @@ int
 gf_string2boolean (const char *str, gf_boolean_t *b)
 {
         if (str == NULL) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 return -1;
         }
 
@@ -1676,6 +1685,7 @@ valid_internet_address (char *address)
         int length = 0;
 
         if (address == NULL) {
+                gf_log_callingfn ("", GF_LOG_WARNING, "arguement invalid");
                 goto out;
         }
 

@@ -446,18 +446,24 @@ glusterfs_graph_prepare (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
         /* XXX: attach to -n volname */
         ret = glusterfs_graph_settop (graph, ctx);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph settop failed");
                 return -1;
+        }
 
         /* XXX: RO VOLUME */
         ret = glusterfs_graph_readonly (graph, ctx);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph readonly failed");
                 return -1;
+        }
 
         /* XXX: MAC COMPAT */
         ret = glusterfs_graph_mac_compat (graph, ctx);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "glusterfs graph mac compat failed");
                 return -1;
+        }
 
         /* XXX: this->ctx setting */
         for (trav = graph->first; trav; trav = trav->next) {
@@ -484,17 +490,23 @@ glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 
         /* XXX: all xlator options validation */
         ret = glusterfs_graph_validate_options (graph);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "validate options failed");
                 return ret;
+        }
 
         /* XXX: perform init () */
         ret = glusterfs_graph_init (graph);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "init failed");
                 return ret;
+        }
 
         ret = glusterfs_graph_unknown_options (graph);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "unknown options failed");
                 return ret;
+        }
 
         /* XXX: log full graph (_gf_dump_details) */
 
@@ -504,14 +516,17 @@ glusterfs_graph_activate (glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
         /* XXX: attach to master and set active pointer */
         if (ctx->master)
                 ret = xlator_notify (ctx->master, GF_EVENT_GRAPH_NEW, graph);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "graph new notification failed");
                 return ret;
+        }
 
         /* XXX: perform parent up */
         ret = glusterfs_graph_parent_up (graph);
-        if (ret)
+        if (ret) {
+                gf_log ("graph", GF_LOG_ERROR, "parent up notification failed");
                 return ret;
-
+        }
 
         return 0;
 }

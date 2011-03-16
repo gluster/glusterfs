@@ -94,40 +94,41 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
 #define VALIDATE_OR_GOTO(arg,label)   do {				\
 		if (!arg) {						\
 			errno = EINVAL;					\
-			gf_log ((this ? this->name : "(Govinda! Govinda!)"), \
-				GF_LOG_ERROR,				\
-				"invalid argument: " #arg);		\
+			gf_log_callingfn ((this ? (this->name) :        \
+                                           "(Govinda! Govinda!)"),      \
+                                          GF_LOG_WARNING,               \
+                                          "invalid argument: " #arg);   \
 			goto label;					\
 		}							\
 	} while (0);
 
-#define GF_VALIDATE_OR_GOTO(name,arg,label)   do {		\
-		if (!arg) {					\
-			errno = EINVAL;			\
-			gf_log (name, GF_LOG_ERROR,		\
-				"invalid argument: " #arg);	\
-			goto label;				\
-		}						\
+#define GF_VALIDATE_OR_GOTO(name,arg,label)   do {                      \
+		if (!arg) {                                             \
+			errno = EINVAL;                                 \
+			gf_log_callingfn (name, GF_LOG_ERROR,           \
+                                          "invalid argument: " #arg);	\
+			goto label;                                     \
+		}                                                       \
 	} while (0);
 
 #define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error) do { \
                 if (!arg) {                                                 \
                         errno = error;                                  \
-                        gf_log (name, GF_LOG_ERROR,                     \
-                                "invalid argument: " #arg);             \
+                        gf_log_callingfn (name, GF_LOG_ERROR,           \
+                                          "invalid argument: " #arg);   \
                         goto label;                                     \
                 }                                                       \
         }while (0);
 
-#define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name,arg,label)       \
-        do {                                                    \
-                GF_VALIDATE_OR_GOTO (name, arg, label);         \
-                if ((arg[0]) != '/') {                          \
-                        errno = EINVAL;                         \
-			gf_log (name, GF_LOG_ERROR,	        \
-				"invalid argument: " #arg);	\
-                        goto label;                             \
-                }                                               \
+#define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name,arg,label)               \
+        do {                                                            \
+                GF_VALIDATE_OR_GOTO (name, arg, label);                 \
+                if ((arg[0]) != '/') {                                  \
+                        errno = EINVAL;                                 \
+			gf_log_callingfn (name, GF_LOG_ERROR,           \
+                                          "invalid argument: " #arg);	\
+                        goto label;                                     \
+                }                                                       \
 	} while (0);
 
 #define GF_FILE_CONTENT_REQUESTED(_xattr_req,_content_limit) \
@@ -136,12 +137,12 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
 #ifdef DEBUG
 #define GF_ASSERT(x) assert (x);
 #else
-#define GF_ASSERT(x)\
-        do {                                                    \
-                if (!(x)) {                                     \
-                        gf_log_callingfn ("", GF_LOG_ERROR,     \
-                                  "Assertion failed: " #x);     \
-                }                                               \
+#define GF_ASSERT(x)                                                    \
+        do {                                                            \
+                if (!(x)) {                                             \
+                        gf_log_callingfn ("", GF_LOG_ERROR,             \
+                                          "Assertion failed: " #x);     \
+                }                                                       \
         } while (0);
 #endif
 

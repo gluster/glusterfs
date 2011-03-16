@@ -28,7 +28,7 @@
 #include "logging.h"
 #include "event.h"
 #include "mem-pool.h"
-
+#include "common-utils.h"
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -70,10 +70,7 @@ __event_getindex (struct event_pool *event_pool, int fd, int idx)
         int  ret = -1;
         int  i = 0;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         if (idx > -1 && idx < event_pool->used) {
                 if (event_pool->reg[idx].fd == fd)
@@ -87,6 +84,7 @@ __event_getindex (struct event_pool *event_pool, int fd, int idx)
                 }
         }
 
+out:
         return ret;
 }
 
@@ -109,8 +107,6 @@ event_pool_new_poll (int count)
                                      gf_common_mt_reg);
 
         if (!event_pool->reg) {
-                gf_log ("poll", GF_LOG_CRITICAL,
-                        "failed to allocate event registry");
                 GF_FREE (event_pool);
                 return NULL;
         }
@@ -181,10 +177,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
 {
         int idx = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         pthread_mutex_lock (&event_pool->mutex);
         {
@@ -244,6 +237,7 @@ event_register_poll (struct event_pool *event_pool, int fd,
 unlock:
         pthread_mutex_unlock (&event_pool->mutex);
 
+out:
         return idx;
 }
 
@@ -253,10 +247,7 @@ event_unregister_poll (struct event_pool *event_pool, int fd, int idx_hint)
 {
         int idx = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         pthread_mutex_lock (&event_pool->mutex);
         {
@@ -276,6 +267,7 @@ event_unregister_poll (struct event_pool *event_pool, int fd, int idx_hint)
 unlock:
         pthread_mutex_unlock (&event_pool->mutex);
 
+out:
         return idx;
 }
 
@@ -286,10 +278,7 @@ event_select_on_poll (struct event_pool *event_pool, int fd, int idx_hint,
 {
         int idx = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         pthread_mutex_lock (&event_pool->mutex);
         {
@@ -339,6 +328,7 @@ event_select_on_poll (struct event_pool *event_pool, int fd, int idx_hint,
 unlock:
         pthread_mutex_unlock (&event_pool->mutex);
 
+out:
         return idx;
 }
 
@@ -433,11 +423,7 @@ event_dispatch_poll (struct event_pool *event_pool)
         int              i = 0;
         int              ret = -1;
 
-
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         while (1) {
                 size = event_dispatch_poll_resize (event_pool, ufds, size);
@@ -461,6 +447,7 @@ event_dispatch_poll (struct event_pool *event_pool)
                 }
         }
 
+out:
         return -1;
 }
 
@@ -489,7 +476,7 @@ event_pool_new_epoll (int count)
                                 gf_common_mt_event_pool);
 
         if (!event_pool)
-                return NULL;
+                goto out;
 
         event_pool->count = count;
         event_pool->reg = GF_CALLOC (event_pool->count,
@@ -497,10 +484,9 @@ event_pool_new_epoll (int count)
                                      gf_common_mt_reg);
 
         if (!event_pool->reg) {
-                gf_log ("epoll", GF_LOG_CRITICAL,
-                        "event registry allocation failed");
                 GF_FREE (event_pool);
-                return NULL;
+                event_pool = NULL;
+                goto out;
         }
 
         epfd = epoll_create (count);
@@ -510,7 +496,8 @@ event_pool_new_epoll (int count)
                         strerror (errno));
                 GF_FREE (event_pool->reg);
                 GF_FREE (event_pool);
-                return NULL;
+                event_pool = NULL;
+                goto out;
         }
 
         event_pool->fd = epfd;
@@ -520,6 +507,7 @@ event_pool_new_epoll (int count)
         pthread_mutex_init (&event_pool->mutex, NULL);
         pthread_cond_init (&event_pool->cond, NULL);
 
+out:
         return event_pool;
 }
 
@@ -535,10 +523,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
         struct event_data  *ev_data = (void *)&epoll_event.data;
 
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         pthread_mutex_lock (&event_pool->mutex);
         {
@@ -617,6 +602,7 @@ event_register_epoll (struct event_pool *event_pool, int fd,
 unlock:
         pthread_mutex_unlock (&event_pool->mutex);
 
+out:
         return ret;
 }
 
@@ -631,10 +617,7 @@ event_unregister_epoll (struct event_pool *event_pool, int fd, int idx_hint)
         struct event_data *ev_data = (void *)&epoll_event.data;
         int                lastidx = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         pthread_mutex_lock (&event_pool->mutex);
         {
@@ -692,6 +675,7 @@ event_unregister_epoll (struct event_pool *event_pool, int fd, int idx_hint)
 unlock:
         pthread_mutex_unlock (&event_pool->mutex);
 
+out:
         return ret;
 }
 
@@ -707,10 +691,7 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx_hint,
         struct event_data *ev_data = (void *)&epoll_event.data;
 
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         pthread_mutex_lock (&event_pool->mutex);
         {
@@ -771,6 +752,7 @@ event_select_on_epoll (struct event_pool *event_pool, int fd, int idx_hint,
 unlock:
         pthread_mutex_unlock (&event_pool->mutex);
 
+out:
         return ret;
 }
 
@@ -825,11 +807,7 @@ event_dispatch_epoll (struct event_pool *event_pool)
         int                 i = 0;
         int                 ret = -1;
 
-
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         while (1) {
                 pthread_mutex_lock (&event_pool->mutex);
@@ -850,6 +828,8 @@ event_dispatch_epoll (struct event_pool *event_pool)
                                 events = GF_CALLOC (event_pool->evcache_size,
                                                     sizeof (struct epoll_event),
                                                     gf_common_mt_epoll_event);
+                                if (!events)
+                                        break;
 
                                 event_pool->evcache = events;
                         }
@@ -878,7 +858,8 @@ event_dispatch_epoll (struct event_pool *event_pool)
                 }
         }
 
-        return -1;
+out:
+        return ret;
 }
 
 
@@ -905,7 +886,7 @@ event_pool_new (int count)
                 event_pool->ops = &event_ops_epoll;
         } else {
                 gf_log ("event", GF_LOG_WARNING,
-                        "failing back to poll based event handling");
+                        "falling back to poll based event handling");
         }
 #endif
 
@@ -927,13 +908,11 @@ event_register (struct event_pool *event_pool, int fd,
 {
         int ret = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         ret = event_pool->ops->event_register (event_pool, fd, handler, data,
                                                poll_in, poll_out);
+out:
         return ret;
 }
 
@@ -943,13 +922,11 @@ event_unregister (struct event_pool *event_pool, int fd, int idx)
 {
         int ret = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         ret = event_pool->ops->event_unregister (event_pool, fd, idx);
 
+out:
         return ret;
 }
 
@@ -960,13 +937,11 @@ event_select_on (struct event_pool *event_pool, int fd, int idx_hint,
 {
         int ret = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         ret = event_pool->ops->event_select_on (event_pool, fd, idx_hint,
                                                 poll_in, poll_out);
+out:
         return ret;
 }
 
@@ -976,12 +951,10 @@ event_dispatch (struct event_pool *event_pool)
 {
         int ret = -1;
 
-        if (event_pool == NULL) {
-                gf_log ("event", GF_LOG_ERROR, "invalid argument");
-                return -1;
-        }
+        GF_VALIDATE_OR_GOTO ("event", event_pool, out);
 
         ret = event_pool->ops->event_dispatch (event_pool);
 
+out:
         return ret;
 }

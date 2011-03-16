@@ -1519,12 +1519,11 @@ fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame || !lock)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", lock, out);
 
         stub = stub_new (frame, 1, GF_FOP_INODELK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.inodelk.fn = fn;
 
@@ -1534,7 +1533,7 @@ fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
         loc_copy (&stub->args.inodelk.loc, loc);
         stub->args.inodelk.cmd  = cmd;
         stub->args.inodelk.lock = *lock;
-
+out:
         return stub;
 }
 
@@ -1544,17 +1543,16 @@ fop_inodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 0, GF_FOP_INODELK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.inodelk_cbk.fn       = fn;
         stub->args.inodelk_cbk.op_ret   = op_ret;
         stub->args.inodelk_cbk.op_errno = op_errno;
 
+out:
         return stub;
 }
 
@@ -1565,12 +1563,11 @@ fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame || !lock)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", lock, out);
 
         stub = stub_new (frame, 1, GF_FOP_FINODELK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.finodelk.fn = fn;
 
@@ -1583,6 +1580,7 @@ fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
         stub->args.finodelk.cmd  = cmd;
         stub->args.finodelk.lock = *lock;
 
+out:
         return stub;
 }
 
@@ -1593,17 +1591,16 @@ fop_finodelk_cbk_stub (call_frame_t *frame, fop_inodelk_cbk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 0, GF_FOP_FINODELK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.finodelk_cbk.fn       = fn;
         stub->args.finodelk_cbk.op_ret   = op_ret;
         stub->args.finodelk_cbk.op_errno = op_errno;
 
+out:
         return stub;
 }
 
@@ -1615,12 +1612,10 @@ fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 1, GF_FOP_ENTRYLK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.entrylk.fn = fn;
 
@@ -1634,6 +1629,7 @@ fop_entrylk_stub (call_frame_t *frame, fop_entrylk_t fn,
         if (name)
                 stub->args.entrylk.name = gf_strdup (name);
 
+out:
         return stub;
 }
 
@@ -1643,17 +1639,16 @@ fop_entrylk_cbk_stub (call_frame_t *frame, fop_entrylk_cbk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 0, GF_FOP_ENTRYLK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.entrylk_cbk.fn       = fn;
         stub->args.entrylk_cbk.op_ret   = op_ret;
         stub->args.entrylk_cbk.op_errno = op_errno;
 
+out:
         return stub;
 }
 
@@ -1665,12 +1660,10 @@ fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 1, GF_FOP_FENTRYLK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.fentrylk.fn = fn;
 
@@ -1684,6 +1677,7 @@ fop_fentrylk_stub (call_frame_t *frame, fop_fentrylk_t fn,
         if (name)
                 stub->args.fentrylk.name = gf_strdup (name);
 
+out:
         return stub;
 }
 
@@ -1693,17 +1687,16 @@ fop_fentrylk_cbk_stub (call_frame_t *frame, fop_fentrylk_cbk_t fn,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 0, GF_FOP_FENTRYLK);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.fentrylk_cbk.fn       = fn;
         stub->args.fentrylk_cbk.op_ret   = op_ret;
         stub->args.fentrylk_cbk.op_errno = op_errno;
 
+out:
         return stub;
 }
 
@@ -1731,8 +1724,7 @@ fop_readdirp_cbk_stub (call_frame_t *frame,
         /* This check must come after the init of head above
          * so we're sure the list is empty for list_empty.
          */
-        if (!entries)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", entries, out);
 
         if (op_ret > 0) {
                 list_for_each_entry (entry, &entries->list, list) {
@@ -1774,8 +1766,7 @@ fop_readdir_cbk_stub (call_frame_t *frame,
         /* This check must come after the init of head above
          * so we're sure the list is empty for list_empty.
          */
-        if (!entries)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", entries, out);
 
         if (op_ret > 0) {
                 list_for_each_entry (entry, &entries->list, list) {
@@ -1803,11 +1794,14 @@ fop_readdir_stub (call_frame_t *frame,
         call_stub_t *stub = NULL;
 
         stub = stub_new (frame, 1, GF_FOP_READDIR);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
         stub->args.readdir.fn = fn;
         stub->args.readdir.fd = fd_ref (fd);
         stub->args.readdir.size = size;
         stub->args.readdir.off = off;
 
+out:
         return stub;
 }
 
@@ -1821,11 +1815,14 @@ fop_readdirp_stub (call_frame_t *frame,
         call_stub_t *stub = NULL;
 
         stub = stub_new (frame, 1, GF_FOP_READDIRP);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
         stub->args.readdirp.fn = fn;
         stub->args.readdirp.fd = fd_ref (fd);
         stub->args.readdirp.size = size;
         stub->args.readdirp.off = off;
 
+out:
         return stub;
 }
 
@@ -1917,6 +1914,8 @@ fop_fxattrop_cbk_stub (call_frame_t *frame,
         GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 0, GF_FOP_FXATTROP);
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
+
         stub->args.fxattrop_cbk.fn = fn;
         stub->args.fxattrop_cbk.op_ret = op_ret;
         stub->args.fxattrop_cbk.op_errno = op_errno;
@@ -1937,12 +1936,11 @@ fop_xattrop_stub (call_frame_t *frame,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame || !xattr)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", xattr, out);
 
         stub = stub_new (frame, 1, GF_FOP_XATTROP);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.xattrop.fn = fn;
 
@@ -1951,6 +1949,7 @@ fop_xattrop_stub (call_frame_t *frame,
         stub->args.xattrop.optype = optype;
         stub->args.xattrop.xattr = dict_ref (xattr);
 
+out:
         return stub;
 }
 
@@ -1963,12 +1962,11 @@ fop_fxattrop_stub (call_frame_t *frame,
 {
         call_stub_t *stub = NULL;
 
-        if (!frame || !xattr)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", xattr, out);
 
         stub = stub_new (frame, 1, GF_FOP_FXATTROP);
-        if (!stub)
-                return NULL;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.fxattrop.fn = fn;
 
@@ -1977,6 +1975,7 @@ fop_fxattrop_stub (call_frame_t *frame,
         stub->args.fxattrop.optype = optype;
         stub->args.fxattrop.xattr = dict_ref (xattr);
 
+out:
         return stub;
 }
 
@@ -1991,12 +1990,10 @@ fop_setattr_cbk_stub (call_frame_t *frame,
 {
         call_stub_t *stub = NULL;
 
-        if (frame == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 0, GF_FOP_SETATTR);
-        if (stub == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.setattr_cbk.fn = fn;
 
@@ -2022,12 +2019,10 @@ fop_fsetattr_cbk_stub (call_frame_t *frame,
 {
         call_stub_t *stub = NULL;
 
-        if (frame == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
 
         stub = stub_new (frame, 0, GF_FOP_FSETATTR);
-        if (stub == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.fsetattr_cbk.fn = fn;
 
@@ -2051,15 +2046,11 @@ fop_setattr_stub (call_frame_t *frame,
 {
         call_stub_t *stub = NULL;
 
-        if (frame == NULL)
-                goto out;
-
-        if (fn == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
 
         stub = stub_new (frame, 1, GF_FOP_SETATTR);
-        if (stub == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.setattr.fn = fn;
 
@@ -2083,15 +2074,11 @@ fop_fsetattr_stub (call_frame_t *frame,
 {
         call_stub_t *stub = NULL;
 
-        if (frame == NULL)
-                goto out;
-
-        if (fn == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", frame, out);
+        GF_VALIDATE_OR_GOTO ("call-stub", fn, out);
 
         stub = stub_new (frame, 1, GF_FOP_FSETATTR);
-        if (stub == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("call-stub", stub, out);
 
         stub->args.fsetattr.fn = fn;
 
@@ -2495,8 +2482,9 @@ call_resume_wind (call_stub_t *stub)
         }
         default:
         {
-                gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
-                        stub->fop);
+                gf_log_callingfn ("call-stub", GF_LOG_ERROR,
+                                  "Invalid value of FOP (%d)",
+                                  stub->fop);
                 break;
         }
 
@@ -3290,8 +3278,9 @@ call_resume_unwind (call_stub_t *stub)
         }
         default:
         {
-                gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
-                        stub->fop);
+                gf_log_callingfn ("call-stub", GF_LOG_ERROR,
+                                  "Invalid value of FOP (%d)",
+                                  stub->fop);
                 break;
         }
         }
@@ -3601,8 +3590,9 @@ call_stub_destroy_wind (call_stub_t *stub)
         }
         default:
         {
-                gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
-                        stub->fop);
+                gf_log_callingfn ("call-stub", GF_LOG_ERROR,
+                                  "Invalid value of FOP (%d)",
+                                  stub->fop);
                 break;
         }
         }
@@ -3822,8 +3812,9 @@ call_stub_destroy_unwind (call_stub_t *stub)
 
         default:
         {
-                gf_log ("call-stub", GF_LOG_ERROR, "Invalid value of FOP (%d)",
-                        stub->fop);
+                gf_log_callingfn ("call-stub", GF_LOG_ERROR,
+                                  "Invalid value of FOP (%d)",
+                                  stub->fop);
                 break;
         }
         }

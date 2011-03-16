@@ -42,20 +42,19 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
 
         if (ctx == NULL)
         {
-                gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
         reg = gf_timer_registry_init (ctx);
 
         if (!reg) {
-                gf_log ("timer", GF_LOG_ERROR, "!reg");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "!reg");
                 return NULL;
         }
 
         event = GF_CALLOC (1, sizeof (*event), gf_common_mt_gf_timer_t);
         if (!event) {
-                gf_log ("timer", GF_LOG_CRITICAL, "Not enough memory");
                 return NULL;
         }
         gettimeofday (&event->at, NULL);
@@ -89,7 +88,7 @@ gf_timer_call_stale (gf_timer_registry_t *reg,
 {
         if (reg == NULL || event == NULL)
         {
-                gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return 0;
         }
 
@@ -111,7 +110,7 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
 
         if (ctx == NULL || event == NULL)
         {
-                gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return 0;
         }
 
@@ -140,7 +139,7 @@ gf_timer_proc (void *ctx)
 
         if (ctx == NULL)
         {
-                gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
@@ -203,7 +202,7 @@ gf_timer_registry_t *
 gf_timer_registry_init (glusterfs_ctx_t *ctx)
 {
         if (ctx == NULL) {
-                gf_log ("timer", GF_LOG_ERROR, "invalid argument");
+                gf_log_callingfn ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
 
