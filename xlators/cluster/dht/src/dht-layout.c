@@ -47,8 +47,6 @@ dht_layout_new (xlator_t *this, int cnt)
         layout = GF_CALLOC (1, layout_size (cnt),
                             gf_dht_mt_dht_layout_t);
         if (!layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto out;
         }
 
@@ -175,7 +173,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
 
         ret = dht_hash_compute (layout->type, name, &hash);
         if (ret != 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "hash computation failed for type=%d name=%s",
                         layout->type, name);
                 goto out;
@@ -190,7 +188,7 @@ dht_layout_search (xlator_t *this, dht_layout_t *layout, const char *name)
         }
 
         if (!subvol) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "no subvolume for hash (value) = %u", hash);
         }
 
@@ -236,8 +234,6 @@ dht_layouts_init (xlator_t *this, dht_conf_t *conf)
                                         sizeof (dht_layout_t *),
                                         gf_dht_mt_dht_layout_t);
         if (!conf->file_layouts) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto out;
         }
 
@@ -271,8 +267,6 @@ dht_disk_layout_extract (xlator_t *this, dht_layout_t *layout,
         disk_layout = GF_CALLOC (5, sizeof (int),
                                  gf_dht_mt_int32_t);
         if (!disk_layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto out;
         }
 
@@ -306,7 +300,7 @@ dht_disk_layout_merge (xlator_t *this, dht_layout_t *layout,
 
         cnt  = ntoh32 (disk_layout[0]);
         if (cnt != 1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "disk layout has invalid count %d", cnt);
                 return -1;
         }
@@ -391,7 +385,6 @@ dht_layout_entry_swap (dht_layout_t *layout, int i, int j)
         uint32_t  stop_swap = 0;
         xlator_t *xlator_swap = 0;
         int       err_swap = 0;
-
 
         start_swap  = layout->list[i].start;
         stop_swap   = layout->list[i].stop;
@@ -562,7 +555,7 @@ dht_layout_normalize (xlator_t *this, loc_t *loc, dht_layout_t *layout)
 
         ret = dht_layout_sort (layout);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "sort failed?! how the ....");
                 goto out;
         }
@@ -645,7 +638,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         if (!xattr) {
                 if (err == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%s - xattr dictionary is NULL",
                                 loc->path);
                         ret = -1;
@@ -658,7 +651,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         if (dict_ret < 0) {
                 if (err == 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "%s - disk layout missing", loc->path);
                         ret = -1;
                 }
@@ -669,7 +662,7 @@ dht_layout_dir_mismatch (xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
         count  = ntoh32 (disk_layout[0]);
         if (count != 1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "%s - disk layout has invalid count %d",
                         loc->path, count);
                 ret = -1;
@@ -709,7 +702,7 @@ dht_layout_preset (xlator_t *this, xlator_t *subvol, inode_t *inode)
 
         layout = dht_layout_for_subvol (this, subvol);
         if (!layout) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "no pre-set layout for subvolume %s",
                         subvol ? subvol->name : "<nil>");
                 ret = -1;

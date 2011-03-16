@@ -98,8 +98,6 @@ nufa_local_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 if (!local->layout) {
                         op_ret   = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_DEBUG,
-                                "memory allocation failed :(");
                         goto err;
                 }
 
@@ -178,8 +176,6 @@ nufa_lookup (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -336,8 +332,6 @@ nufa_create (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -361,8 +355,6 @@ nufa_create (call_frame_t *frame, xlator_t *this,
                 /* create a link file instead of actual file */
                 ret = loc_copy (&local->loc, loc);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         op_errno = ENOMEM;
                         goto err;
                 }
@@ -447,8 +439,6 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -473,8 +463,6 @@ nufa_mknod (call_frame_t *frame, xlator_t *this,
                 /* Create linkfile first */
                 ret = loc_copy (&local->loc, loc);
                 if (ret == -1) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         op_errno = ENOMEM;
                         goto err;
                 }
@@ -575,8 +563,6 @@ init (xlator_t *this)
         conf = GF_CALLOC (1, sizeof (*conf),
                           gf_dht_mt_dht_conf_t);
         if (!conf) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -663,8 +649,6 @@ init (xlator_t *this)
         conf->du_stats = GF_CALLOC (conf->subvolume_cnt, sizeof (dht_du_t),
                                     gf_dht_mt_dht_du_t);
         if (!conf->du_stats) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 

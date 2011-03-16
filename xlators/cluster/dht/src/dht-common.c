@@ -50,7 +50,11 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
 {
         dht_local_t  *local = NULL;
         dht_layout_t *layout = NULL;
-        int           ret = 0;
+	int           ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
 
         local = frame->local;
         ret = op_ret;
@@ -78,7 +82,8 @@ dht_lookup_selfheal_cbk (call_frame_t *frame, void *cookie,
         DHT_STACK_UNWIND (lookup, frame, ret, local->op_errno, local->inode,
                           &local->stbuf, local->xattr, &local->postparent);
 
-        return 0;
+out:
+        return ret;
 }
 
 
@@ -93,8 +98,14 @@ dht_lookup_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt           = 0;
         call_frame_t *prev                    = NULL;
         dht_layout_t *layout                  = NULL;
-        int           ret                     = 0;
+        int           ret                     = -1;
         int           is_dir                  = 0;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, out);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
 
         conf  = this->private;
         local = frame->local;
@@ -199,8 +210,8 @@ selfheal:
         FRAME_SU_DO (frame, dht_local_t);
         ret = dht_selfheal_directory (frame, dht_lookup_selfheal_cbk,
                                       &local->loc, layout);
-
-        return 0;
+out:
+        return ret;
 }
 
 int
@@ -214,8 +225,14 @@ dht_lookup_root_dir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt           = 0;
         call_frame_t *prev                    = NULL;
         dht_layout_t *layout                  = NULL;
-        int           ret                     = 0;
+        int           ret                     = -1;
         int           is_dir                  = 0;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, out);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
 
         conf  = this->private;
         local = frame->local;
@@ -274,7 +291,7 @@ unlock:
                                         local->loc.path);
                         }
 
-                        dht_layout_set (this, local->inode, layout);
+                        ret = dht_layout_set (this, local->inode, layout);
                 }
 
                 DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
@@ -282,7 +299,8 @@ unlock:
                                   &local->postparent);
         }
 
-        return 0;
+out:
+        return ret;
 }
 
 static int
@@ -293,6 +311,11 @@ dht_do_fresh_lookup_on_root (xlator_t *this, call_frame_t *frame)
         int           ret      = -1;
         int           call_cnt = 0;
         int           i        = 0;
+        int           op_errno = EINVAL;
+
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame, unwind);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, unwind);
 
         local = frame->local;
         conf = this->private;
@@ -316,8 +339,6 @@ dht_do_fresh_lookup_on_root (xlator_t *this, call_frame_t *frame)
                                         conf->subvolume_cnt);
         if (!local->layout) {
                 local->op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -333,7 +354,12 @@ err:
         DHT_STACK_UNWIND (lookup, frame, -1, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
+
         return 0;
+unwind:
+        DHT_STACK_UNWIND (lookup, frame, -1, op_errno, NULL, NULL, NULL, NULL);
+out:
+        return -1;
 }
 
 int
@@ -351,6 +377,11 @@ dht_revalidate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           is_dir = 0;
         int           is_linkfile = 0;
         unsigned char root_gfid[16] = {0,};
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, err);
+        GF_VALIDATE_OR_GOTO ("dht", this, err);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, err);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, err);
 
         local = frame->local;
         prev  = cookie;
@@ -470,7 +501,8 @@ out:
                                   &local->postparent);
         }
 
-        return 0;
+err:
+        return ret;
 }
 
 
@@ -485,6 +517,12 @@ dht_lookup_linkfile_create_cbk (call_frame_t *frame, void *cookie,
         xlator_t     *cached_subvol = NULL;
         dht_conf_t   *conf = NULL;
         int           ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, out);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
 
         local = frame->local;
         cached_subvol = local->cached_subvol;
@@ -515,7 +553,8 @@ unwind:
         DHT_STACK_UNWIND (lookup, frame, local->op_ret, local->op_errno,
                           local->inode, &local->stbuf, local->xattr,
                           &local->postparent);
-        return 0;
+out:
+        return ret;
 }
 
 
@@ -537,6 +576,12 @@ dht_lookup_everywhere_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         xlator_t     *hashed_subvol = NULL;
         xlator_t     *cached_subvol = NULL;
         int           ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, out);
 
         conf   = this->private;
 
@@ -673,12 +718,13 @@ unlock:
                         loc->path, cached_subvol->name,
                         hashed_subvol->name);
 
-                dht_linkfile_create (frame,
-                                     dht_lookup_linkfile_create_cbk,
-                                     cached_subvol, hashed_subvol, loc);
+                ret = dht_linkfile_create (frame,
+                                           dht_lookup_linkfile_create_cbk,
+                                           cached_subvol, hashed_subvol, loc);
         }
 
-        return 0;
+out:
+        return ret;
 }
 
 
@@ -690,10 +736,14 @@ dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
         int             i = 0;
         int             call_cnt = 0;
 
+        GF_VALIDATE_OR_GOTO ("dht", frame, err);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, out);
+        GF_VALIDATE_OR_GOTO ("dht", loc, out);
+
         conf = this->private;
         local = frame->local;
-        if (!conf)
-                goto out;
 
         call_cnt = conf->subvolume_cnt;
         local->call_cnt = call_cnt;
@@ -711,7 +761,8 @@ dht_lookup_everywhere (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 out:
         DHT_STACK_UNWIND (lookup, frame, -1, EINVAL, NULL, NULL, NULL, NULL);
-        return 0;
+err:
+        return -1;
 }
 
 
@@ -728,6 +779,12 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         dht_conf_t   *conf          = NULL;
         int           ret           = 0;
 
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, unwind);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, unwind);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, unwind);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, unwind);
+
         prev   = cookie;
         subvol = prev->this;
         conf   = this->private;
@@ -735,21 +792,21 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
         loc    = &local->loc;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "lookup of %s on %s (following linkfile) failed (%s)",
                         local->loc.path, subvol->name, strerror (op_errno));
                 goto err;
         }
 
         if (check_is_dir (inode, stbuf, xattr)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "lookup of %s on %s (following linkfile) reached dir",
                         local->loc.path, subvol->name);
                 goto err;
         }
 
         if (check_is_linkfile (inode, stbuf, xattr)) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "lookup of %s on %s (following linkfile) reached link",
                         local->loc.path, subvol->name);
                 goto err;
@@ -765,15 +822,14 @@ dht_lookup_linkfile_cbk (call_frame_t *frame, void *cookie,
 
         ret = dht_layout_preset (this, prev->this, inode);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "failed to set layout for subvolume %s",
                         prev->this->name);
                 op_ret   = -1;
                 op_errno = EINVAL;
-                goto out;
         }
 
-out:
+unwind:
         WIPE (postparent);
 
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
@@ -783,7 +839,7 @@ out:
 
 err:
         dht_lookup_everywhere (frame, this, loc);
-
+out:
         return 0;
 }
 
@@ -796,19 +852,20 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         dht_conf_t   *conf = NULL;
         dht_local_t  *local = NULL;
 
+        GF_VALIDATE_OR_GOTO ("dht", frame, out);
+        GF_VALIDATE_OR_GOTO ("dht", this, unwind);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, unwind);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, unwind);
+        GF_VALIDATE_OR_GOTO ("dht", loc, unwind);
+
         conf = this->private;
         local = frame->local;
-
-        if (!conf)
-                goto unwind;
 
         call_cnt        = conf->subvolume_cnt;
         local->call_cnt = call_cnt;
 
         local->layout = dht_layout_new (this, conf->subvolume_cnt);
         if (!local->layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto unwind;
         }
 
@@ -821,6 +878,7 @@ dht_lookup_directory (call_frame_t *frame, xlator_t *this, loc_t *loc)
         return 0;
 unwind:
         DHT_STACK_UNWIND (lookup, frame, -1, ENOMEM, NULL, NULL, NULL, NULL);
+out:
         return 0;
 
 }
@@ -843,9 +901,13 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         uint64_t      tmp_layout    = 0;
         dht_layout_t *parent_layout = NULL;
 
+        GF_VALIDATE_OR_GOTO ("dht", frame, err);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
+        GF_VALIDATE_OR_GOTO ("dht", this->private, out);
+
         conf  = this->private;
-        if (!conf)
-                goto out;
 
         prev  = cookie;
         local = frame->local;
@@ -858,6 +920,8 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 memcpy (local->gfid, stbuf->ia_gfid, 16);
 
         if (ENTRY_MISSING (op_ret, op_errno)) {
+                gf_log (this->name, GF_LOG_TRACE, "Entry %s missing on subvol"
+                        " %s", loc->path, prev->this->name);
                 if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_ON) {
                         local->op_errno = ENOENT;
                         dht_lookup_everywhere (frame, this, loc);
@@ -888,8 +952,12 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 return 0;
         }
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "Lookup of %s for subvolume"
+                       " %s failed with error %s", loc->path, prev->this->name,
+                       strerror (op_errno));
                 goto out;
+        }
 
         is_linkfile = check_is_linkfile (inode, stbuf, xattr);
         is_dir      = check_is_dir (inode, stbuf, xattr);
@@ -904,7 +972,7 @@ dht_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 ret = dht_layout_preset (this, prev->this, inode);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "could not set pre-set layout for subvolume %s",
                                 prev->this->name);
                         op_ret   = -1;
@@ -944,6 +1012,7 @@ out:
 
         DHT_STACK_UNWIND (lookup, frame, op_ret, op_errno, inode, stbuf, xattr,
                           postparent);
+err:
         return 0;
 }
 
@@ -977,8 +1046,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
         if (!dht_filter_loc_subvol_key (this, loc, &local->loc,
@@ -1066,8 +1133,6 @@ dht_lookup (call_frame_t *frame, xlator_t *this,
                                                         conf->subvolume_cnt);
                         if (!local->layout) {
                                 op_errno = ENOMEM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory");
                                 goto err;
                         }
 
@@ -1103,6 +1168,10 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
 
+        GF_VALIDATE_OR_GOTO ("dht", frame, err);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
 
         local = frame->local;
         prev = cookie;
@@ -1130,12 +1199,12 @@ dht_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 unlock:
         UNLOCK (&frame->lock);
-
+out:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt))
                 DHT_STACK_UNWIND (truncate, frame, local->op_ret, local->op_errno,
                                   &local->prebuf, &local->stbuf);
-
+err:
         return 0;
 }
 
@@ -1149,6 +1218,10 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int           this_call_cnt = 0;
         call_frame_t *prev = NULL;
 
+        GF_VALIDATE_OR_GOTO ("dht", frame, err);
+        GF_VALIDATE_OR_GOTO ("dht", this, out);
+        GF_VALIDATE_OR_GOTO ("dht", frame->local, out);
+        GF_VALIDATE_OR_GOTO ("dht", cookie, out);
 
         local = frame->local;
         prev = cookie;
@@ -1171,12 +1244,12 @@ dht_attr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         }
 unlock:
         UNLOCK (&frame->lock);
-
+out:
         this_call_cnt = dht_frame_return (frame);
         if (is_last_call (this_call_cnt))
                 DHT_STACK_UNWIND (stat, frame, local->op_ret, local->op_errno,
                                   &local->stbuf);
-
+err:
         return 0;
 }
 
@@ -1202,8 +1275,6 @@ dht_stat (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -1254,8 +1325,6 @@ dht_fstat (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -1313,8 +1382,6 @@ dht_truncate (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -1359,8 +1426,6 @@ dht_ftruncate (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -1580,8 +1645,6 @@ dht_access (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -1650,8 +1713,6 @@ dht_readlink (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -1877,8 +1938,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -1889,23 +1949,20 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 local = dht_local_init (frame);
                 if (!local) {
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
+
                         goto err;
                 }
 
                 ret = loc_dup (loc, &local->loc);
                 if (ret == -1) {
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
+
                         goto err;
                 }
                 local->key = gf_strdup (key);
                 if (!local->key) {
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
+
                         goto err;
                 }
                 local->layout = layout;
@@ -1951,16 +2008,14 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                         local = dht_local_init (frame);
                         if (!local) {
                                 op_errno = ENOMEM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory");
+
                                 goto err;
                         }
 
                         ret = loc_dup (loc, &local->loc);
                         if (ret == -1) {
                                 op_errno = ENOMEM;
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory");
+
                                 goto err;
                         }
                         local->layout = layout;
@@ -2025,8 +2080,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -2034,8 +2088,7 @@ dht_getxattr (call_frame_t *frame, xlator_t *this,
                 local->key = gf_strdup (key);
                 if (!local->key) {
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
+
                         goto err;
                 }
         }
@@ -2086,8 +2139,6 @@ dht_fsetxattr (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -2136,8 +2187,6 @@ dht_setxattr (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -2231,8 +2280,6 @@ dht_removexattr (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -2324,8 +2371,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -2333,8 +2379,7 @@ dht_open (call_frame_t *frame, xlator_t *this,
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -2400,7 +2445,6 @@ dht_readv (call_frame_t *frame, xlator_t *this,
 
         local = dht_local_init (frame);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -2471,8 +2515,7 @@ dht_writev (call_frame_t *frame, xlator_t *this,
 
         local = dht_local_init (frame);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -2516,8 +2559,7 @@ dht_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -2561,8 +2603,7 @@ dht_fsync (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
         local->call_cnt = 1;
@@ -2760,8 +2801,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -2769,8 +2809,7 @@ dht_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -2833,8 +2872,7 @@ dht_readdirp_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
                 entry = gf_dirent_for_name (orig_entry->d_name);
                 if (!entry) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
+
                         goto unwind;
                 }
 
@@ -3024,8 +3062,7 @@ dht_do_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
         local = dht_local_init (frame);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -3137,8 +3174,7 @@ dht_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync)
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -3266,8 +3302,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -3283,8 +3318,7 @@ dht_mknod (call_frame_t *frame, xlator_t *this,
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -3347,8 +3381,7 @@ dht_symlink (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -3431,16 +3464,14 @@ dht_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -3569,24 +3600,21 @@ dht_link (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
         ret = loc_copy (&local->loc, oldloc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
         ret = loc_copy (&local->loc2, newloc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -3707,8 +3735,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
 
         local = dht_local_init (frame);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -3727,8 +3754,7 @@ dht_create (call_frame_t *frame, xlator_t *this,
         ret = loc_dup (loc, &local->loc);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
         subvol = dht_subvol_get_hashed (this, loc);
@@ -3960,8 +3986,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 
         local = dht_local_init (frame);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -3982,8 +4007,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
         local->mode = mode;
 
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -3992,8 +4016,7 @@ dht_mkdir (call_frame_t *frame, xlator_t *this,
 
         local->layout = dht_layout_new (this, conf->subvolume_cnt);
         if (!local->layout) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -4261,8 +4284,6 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
 
                 lookup_frame = copy_frame (frame);
                 if (!lookup_frame) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of Memory");
                         /* out of memory, let the rmdir fail
                            (as non-empty, unfortunately) */
                         goto err;
@@ -4271,8 +4292,6 @@ dht_rmdir_is_subvol_empty (call_frame_t *frame, xlator_t *this,
                 lookup_local = GF_CALLOC (sizeof (*local), 1,
                                           gf_dht_mt_dht_local_t);
                 if (!lookup_local) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of Memory");
                         goto err;
                 }
 
@@ -4409,8 +4428,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 
         local = dht_local_init (frame);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -4420,8 +4438,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -4430,8 +4447,7 @@ dht_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 
         local->fd = fd_create (local->loc.inode, frame->root->pid);
         if (!local->fd) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -4488,8 +4504,7 @@ dht_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -4590,8 +4605,7 @@ dht_inodelk (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -4694,8 +4708,7 @@ dht_entrylk (call_frame_t *frame, xlator_t *this,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -4881,8 +4894,7 @@ dht_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *stbuf,
         local = dht_local_init (frame);
         if (!local) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 goto err;
         }
 
@@ -4955,8 +4967,7 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         conf->subvolumes = GF_CALLOC (cnt, sizeof (xlator_t *),
                                       gf_dht_mt_xlator_t);
         if (!conf->subvolumes) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 return -1;
         }
         conf->subvolume_cnt = cnt;
@@ -4968,16 +4979,14 @@ dht_init_subvolumes (xlator_t *this, dht_conf_t *conf)
         conf->subvolume_status = GF_CALLOC (cnt, sizeof (char),
                                             gf_dht_mt_char);
         if (!conf->subvolume_status) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 return -1;
         }
 
         conf->last_event = GF_CALLOC (cnt, sizeof (int),
                                       gf_dht_mt_char);
         if (!conf->last_event) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+
                 return -1;
         }
         return 0;

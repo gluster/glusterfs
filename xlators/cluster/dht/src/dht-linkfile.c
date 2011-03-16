@@ -36,7 +36,6 @@ dht_linkfile_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 {
         dht_local_t *local = NULL;
 
-
         local = frame->local;
         local->linkfile.linkfile_cbk (frame, cookie, this, op_ret, op_errno,
                                       local->linkfile.inode,
@@ -61,13 +60,15 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         prev  = cookie;
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "%s: failed to create link file (%s)",
+                        local->linkfile.loc.path, strerror (op_errno));
                 goto err;
+        }
 
         xattr = get_new_dict ();
         if (!xattr) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto err;
         }
@@ -77,16 +78,15 @@ dht_linkfile_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         str_data = str_to_data (local->linkfile.srcvol->name);
         if (!str_data) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto err;
         }
 
         ret = dict_set (xattr, "trusted.glusterfs.dht.linkto", str_data);
         if (ret < 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to initialize linkfile data");
+                gf_log (this->name, GF_LOG_INFO,
+                        "%s: failed to initialize linkfile data",
+                        local->linkfile.loc.path);
         }
         str_data = NULL;
 
@@ -129,12 +129,13 @@ dht_linkfile_create (call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
                         goto out;
                 ret = dict_set_static_bin (dict, "gfid-req", local->gfid, 16);
                 if (ret)
-                        gf_log ("dht-linkfile", GF_LOG_DEBUG, "gfid set failed");
+                        gf_log ("dht-linkfile", GF_LOG_INFO,
+                                "%s: gfid set failed", loc->path);
         } else if (local->params) {
                 dict = dict_ref (local->params);
         }
         if (!dict)
-                gf_log ("", GF_LOG_DEBUG,
+                gf_log (frame->this->name, GF_LOG_INFO,
                         "dict is NULL, need to make sure gfid's are same");
 
         STACK_WIND (frame, dht_linkfile_create_cbk,
@@ -166,7 +167,7 @@ dht_linkfile_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         subvol = prev->this;
 
         if (op_ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "unlinking linkfile %s on %s failed (%s)",
                         local->loc.path, subvol->name, strerror (op_errno));
         }
@@ -186,15 +187,11 @@ dht_linkfile_unlink (call_frame_t *frame, xlator_t *this,
 
         unlink_frame = copy_frame (frame);
         if (!unlink_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
         unlink_local = dht_local_init (unlink_frame);
         if (!unlink_local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -221,7 +218,6 @@ dht_linkfile_subvol (xlator_t *this, inode_t *inode, struct iatt *stbuf,
         xlator_t   *subvol = NULL;
         void       *volname = NULL;
         int         i = 0, ret = 0;
-
 
         conf = this->private;
 

@@ -47,8 +47,11 @@ dht_du_info_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         conf = this->private;
         prev = cookie;
 
-        if (op_ret == -1)
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to get disk info from %s", prev->this->name);
                 goto out;
+        }
 
         if (statvfs && statvfs->f_blocks) {
                 percent = (statvfs->f_bfree * 100) / statvfs->f_blocks;
@@ -92,15 +95,11 @@ dht_get_du_info_for_subvol (xlator_t *this, int subvol_idx)
 
         statfs_frame = create_frame (this, pool);
         if (!statfs_frame) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
         statfs_local = dht_local_init (statfs_frame);
         if (!statfs_local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto err;
         }
 
@@ -139,15 +138,11 @@ dht_get_du_info (call_frame_t *frame, xlator_t *this, loc_t *loc)
 
                 statfs_frame = copy_frame (frame);
                 if (!statfs_frame) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         goto err;
                 }
 
                 statfs_local = dht_local_init (statfs_frame);
                 if (!statfs_local) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         goto err;
                 }
 
