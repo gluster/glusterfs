@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 
@@ -42,7 +42,7 @@ __iobuf_arena_init_iobufs (struct iobuf_arena *iobuf_arena)
         iobuf_cnt  = arena_size / page_size;
 
         iobuf_arena->iobufs = GF_CALLOC (sizeof (*iobuf), iobuf_cnt,
-                                        gf_common_mt_iobuf);
+                                         gf_common_mt_iobuf);
         if (!iobuf_arena->iobufs)
                 return;
 
@@ -119,7 +119,7 @@ __iobuf_arena_alloc (struct iobuf_pool *iobuf_pool)
         size_t              arena_size = 0;
 
         iobuf_arena = GF_CALLOC (sizeof (*iobuf_arena), 1,
-                             gf_common_mt_iobuf_arena);
+                                 gf_common_mt_iobuf_arena);
         if (!iobuf_arena)
                 goto err;
 
@@ -642,51 +642,51 @@ out:
         return size;
 }
 
-void 
+void
 iobuf_info_dump (struct iobuf *iobuf, const char *key_prefix)
 {
         char   key[GF_DUMP_MAX_BUF_LEN];
         struct iobuf my_iobuf;
         int    ret = 0;
 
-        if (!iobuf) 
+        if (!iobuf)
                 return;
 
         memset(&my_iobuf, 0, sizeof(my_iobuf));
-        
+
         ret = TRY_LOCK(&iobuf->lock);
         if (ret) {
                 gf_log("", GF_LOG_WARNING, "Unable to dump iobuf"
-                " errno: %d", errno);
+                       " errno: %d", errno);
                 return;
         }
         memcpy(&my_iobuf, iobuf, sizeof(my_iobuf));
         UNLOCK(&iobuf->lock);
 
-	gf_proc_dump_build_key(key, key_prefix,"ref");
+        gf_proc_dump_build_key(key, key_prefix,"ref");
         gf_proc_dump_write(key, "%d", my_iobuf.ref);
-	gf_proc_dump_build_key(key, key_prefix,"ptr");
+        gf_proc_dump_build_key(key, key_prefix,"ptr");
         gf_proc_dump_write(key, "%p", my_iobuf.ptr);
 
 }
 
-void 
+void
 iobuf_arena_info_dump (struct iobuf_arena *iobuf_arena, const char *key_prefix)
 {
-	char key[GF_DUMP_MAX_BUF_LEN];
-	int  i = 1;
+        char key[GF_DUMP_MAX_BUF_LEN];
+        int  i = 1;
         struct iobuf *trav;
 
-	if (!iobuf_arena)
+        if (!iobuf_arena)
                 return;
 
         gf_proc_dump_build_key(key, key_prefix,"mem_base");
         gf_proc_dump_write(key, "%p", iobuf_arena->mem_base);
-	gf_proc_dump_build_key(key, key_prefix, "active_cnt");
+        gf_proc_dump_build_key(key, key_prefix, "active_cnt");
         gf_proc_dump_write(key, "%d", iobuf_arena->active_cnt);
-	gf_proc_dump_build_key(key, key_prefix, "passive_cnt");
+        gf_proc_dump_build_key(key, key_prefix, "passive_cnt");
         gf_proc_dump_write(key, "%d", iobuf_arena->passive_cnt);
-	list_for_each_entry (trav, &iobuf_arena->active.list, list) {
+        list_for_each_entry (trav, &iobuf_arena->active.list, list) {
                 gf_proc_dump_build_key(key, key_prefix,"active_iobuf.%d", i++);
                 gf_proc_dump_add_section(key);
                 iobuf_info_dump(trav, key);
@@ -697,7 +697,7 @@ iobuf_arena_info_dump (struct iobuf_arena *iobuf_arena, const char *key_prefix)
 void
 iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 {
-    
+
         char               msg[1024];
         struct iobuf_arena *trav = NULL;
         int                i = 1;
@@ -712,26 +712,26 @@ iobuf_stats_dump (struct iobuf_pool *iobuf_pool)
 
         if (ret) {
                 gf_log("", GF_LOG_WARNING, "Unable to dump iobuf pool"
-                " errno: %d", errno);
+                       " errno: %d", errno);
                 return;
         }
         gf_proc_dump_add_section("iobuf.global");
         gf_proc_dump_write("iobuf.global.iobuf_pool","%p", iobuf_pool);
         gf_proc_dump_write("iobuf.global.iobuf_pool.page_size", "%d",
-						 iobuf_pool->page_size);
+                           iobuf_pool->page_size);
         gf_proc_dump_write("iobuf.global.iobuf_pool.arena_size", "%d",
-						 iobuf_pool->arena_size);
+                           iobuf_pool->arena_size);
         gf_proc_dump_write("iobuf.global.iobuf_pool.arena_cnt", "%d",
-						 iobuf_pool->arena_cnt);
+                           iobuf_pool->arena_cnt);
 
         list_for_each_entry (trav, &iobuf_pool->arenas.list, list) {
                 snprintf(msg, sizeof(msg), "iobuf.global.iobuf_pool.arena.%d",
-                                                                            i);
-		gf_proc_dump_add_section(msg);
+                         i);
+                gf_proc_dump_add_section(msg);
                 iobuf_arena_info_dump(trav,msg);
                 i++;
         }
-        
+
         pthread_mutex_unlock(&iobuf_pool->mutex);
 
         return;
@@ -744,4 +744,3 @@ iobuf_to_iovec(struct iobuf *iob, struct iovec *iov)
         iov->iov_base = iobuf_ptr (iob);
         iov->iov_len =  iobuf_pagesize (iob);
 }
-

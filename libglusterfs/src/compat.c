@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2006-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CONFIG_H
@@ -39,63 +39,63 @@
 #include "inode.h"
 
 #ifdef GF_SOLARIS_HOST_OS
-int 
-solaris_fsetxattr(int fd, 
-		  const char* key, 
-		  const char *value, 
-		  size_t size, 
-		  int flags)
+int
+solaris_fsetxattr(int fd,
+                  const char* key,
+                  const char *value,
+                  size_t size,
+                  int flags)
 {
-	int attrfd = -1;
-	int ret = 0;
-	
-	attrfd = openat (fd, key, flags|O_CREAT|O_WRONLY|O_XATTR, 0777);
-	if (attrfd >= 0) {
-		ftruncate (attrfd, 0);
-		ret = write (attrfd, value, size);
-		close (attrfd);
-	} else {
-		if (errno != ENOENT)
-			gf_log ("libglusterfs", GF_LOG_ERROR, 
-				"Couldn't set extended attribute for %d (%d)", 
-				fd, errno);
-		return -1;
-	}
-	
-	return 0;
+        int attrfd = -1;
+        int ret = 0;
+
+        attrfd = openat (fd, key, flags|O_CREAT|O_WRONLY|O_XATTR, 0777);
+        if (attrfd >= 0) {
+                ftruncate (attrfd, 0);
+                ret = write (attrfd, value, size);
+                close (attrfd);
+        } else {
+                if (errno != ENOENT)
+                        gf_log ("libglusterfs", GF_LOG_ERROR,
+                                "Couldn't set extended attribute for %d (%d)",
+                                fd, errno);
+                return -1;
+        }
+
+        return 0;
 }
 
 
-int 
-solaris_fgetxattr(int fd, 
-		  const char* key, 
-		  char *value, 
-		  size_t size)
+int
+solaris_fgetxattr(int fd,
+                  const char* key,
+                  char *value,
+                  size_t size)
 {
-	int attrfd = -1;
-	int ret = 0;
-	
-	attrfd = openat (fd, key, O_RDONLY|O_XATTR);
-	if (attrfd >= 0) {
-		if (size == 0) {
-			struct stat buf;
-			fstat (attrfd, &buf);
-			ret = buf.st_size;
-		} else {
-			ret = read (attrfd, value, size);
-		}
-		close (attrfd);
-	} else {
-		if (errno == ENOENT)
-			errno = ENODATA;
-		if (errno != ENOENT)
-			gf_log ("libglusterfs", GF_LOG_DEBUG, 
-				"Couldn't read extended attribute for the file %d (%d)", 
-				fd, errno);
-		return -1;
-	}
-	
-	return ret;
+        int attrfd = -1;
+        int ret = 0;
+
+        attrfd = openat (fd, key, O_RDONLY|O_XATTR);
+        if (attrfd >= 0) {
+                if (size == 0) {
+                        struct stat buf;
+                        fstat (attrfd, &buf);
+                        ret = buf.st_size;
+                } else {
+                        ret = read (attrfd, value, size);
+                }
+                close (attrfd);
+        } else {
+                if (errno == ENOENT)
+                        errno = ENODATA;
+                if (errno != ENOENT)
+                        gf_log ("libglusterfs", GF_LOG_DEBUG,
+                                "Couldn't read extended attribute for the file %d (%d)",
+                                fd, errno);
+                return -1;
+        }
+
+        return ret;
 }
 
 /* Solaris does not support xattr for symlinks and dev files. Since gfid and
@@ -114,7 +114,7 @@ make_export_path (const char *real_path, char **path)
         char   *ptr = NULL;
         char   *freeptr = NULL;
         uuid_t  gfid = {0, };
-        
+
         export_path = GF_CALLOC (1, sizeof (char) * PATH_MAX, 0);
         if (!export_path)
                 goto out;
@@ -133,7 +133,7 @@ make_export_path (const char *real_path, char **path)
                         goto done;
                 }
         }
-        
+
         do {
                 ptr = strtok_r (dup, "/", &tmp);
                 if (!ptr)
@@ -145,7 +145,7 @@ make_export_path (const char *real_path, char **path)
                                 ret = 0;
                                 goto done;
                         }
-                }                                
+                }
                 strcat (export_path, "/");
                 dup = tmp;
         } while (ptr);
@@ -187,26 +187,26 @@ solaris_xattr_resolve_path (const char *real_path, char **path)
                 if (lstat (export_path, &statbuf)) {
                         ret = mkdir (export_path, 0777);
                         if (ret && (errno != EEXIST)) {
-                        	gf_log ("", GF_LOG_DEBUG, "mkdir failed," 
+                                gf_log ("", GF_LOG_DEBUG, "mkdir failed,"
                                         " errno: %d", errno);
-                        	goto out;
+                                goto out;
                         }
                 }
-                
+
                 snprintf(xattr_path, PATH_MAX, "%s%s%lu", export_path,
-                        "/", stbuf.ia_ino);
+                         "/", stbuf.ia_ino);
 
-		ret = lstat (xattr_path, &statbuf);
+                ret = lstat (xattr_path, &statbuf);
 
-		if (ret) {
-			ret = mknod (xattr_path, S_IFREG|O_WRONLY, 0);
-			if (ret && (errno != EEXIST)) {
-				gf_log ("", GF_LOG_WARNING,"Failed to create "
-					"mapped file %s, error %d", xattr_path,
-                                         errno);
-				goto out;
-			}					
-		}
+                if (ret) {
+                        ret = mknod (xattr_path, S_IFREG|O_WRONLY, 0);
+                        if (ret && (errno != EEXIST)) {
+                                gf_log ("", GF_LOG_WARNING,"Failed to create "
+                                        "mapped file %s, error %d", xattr_path,
+                                        errno);
+                                goto out;
+                        }
+                }
                 *path = gf_strdup (xattr_path);
         }
 out:
@@ -218,15 +218,15 @@ out:
                 return -1;
 }
 
-int 
-solaris_setxattr(const char *path, 
-		 const char* key, 
-		 const char *value, 
-		 size_t size, 
-		 int flags)
+int
+solaris_setxattr(const char *path,
+                 const char* key,
+                 const char *value,
+                 size_t size,
+                 int flags)
 {
-	int attrfd = -1;
-	int ret = 0;
+        int attrfd = -1;
+        int ret = 0;
         char *mapped_path = NULL;
 
         ret = solaris_xattr_resolve_path (path, &mapped_path);
@@ -236,149 +236,149 @@ solaris_setxattr(const char *path,
         } else {
                 attrfd = attropen (path, key, flags|O_CREAT|O_WRONLY, 0777);
         }
-	if (attrfd >= 0) {
-		ftruncate (attrfd, 0);
-		ret = write (attrfd, value, size);
-		close (attrfd);
+        if (attrfd >= 0) {
+                ftruncate (attrfd, 0);
+                ret = write (attrfd, value, size);
+                close (attrfd);
                 ret = 0;
-	} else {
-		if (errno != ENOENT)
-			gf_log ("libglusterfs", GF_LOG_ERROR, 
-				"Couldn't set extended attribute for %s (%d)", 
-				path, errno);
-		ret = -1;
-	}
+        } else {
+                if (errno != ENOENT)
+                        gf_log ("libglusterfs", GF_LOG_ERROR,
+                                "Couldn't set extended attribute for %s (%d)",
+                                path, errno);
+                ret = -1;
+        }
         if (mapped_path)
-                GF_FREE (mapped_path);	
-	return ret;
+                GF_FREE (mapped_path);
+        return ret;
 }
 
 
 int
-solaris_listxattr(const char *path, 
-		  char *list, 
-		  size_t size)
+solaris_listxattr(const char *path,
+                  char *list,
+                  size_t size)
 {
-	int attrdirfd = -1;
-	ssize_t len = 0;
-	DIR *dirptr = NULL;
-	struct dirent *dent = NULL;
-	int newfd = -1;
+        int attrdirfd = -1;
+        ssize_t len = 0;
+        DIR *dirptr = NULL;
+        struct dirent *dent = NULL;
+        int newfd = -1;
         char *mapped_path = NULL;
         int ret = -1;
 
         ret = solaris_xattr_resolve_path (path, &mapped_path);
         if (!ret) {
                 attrdirfd = attropen (mapped_path, ".", O_RDONLY, 0);
-        } else {	
+        } else {
                 attrdirfd = attropen (path, ".", O_RDONLY, 0);
         }
-	if (attrdirfd >= 0) {
-		newfd = dup(attrdirfd);
-		dirptr = fdopendir(newfd);
-		if (dirptr) {
-			while ((dent = readdir(dirptr))) {
-				size_t listlen = strlen(dent->d_name);
-				if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) {
-					/* we don't want "." and ".." here */
-					continue;
-				}
-				if (size == 0) {
-					/* return the current size of the list of extended attribute names*/
-					len += listlen + 1;
-				} else {
-					/* check size and copy entrie + nul into list. */
-					if ((len + listlen + 1) > size) {
-						errno = ERANGE;
-						len = -1;
-						break;
-					} else {
-						strncpy(list + len, dent->d_name, listlen);
-						len += listlen;
-						list[len] = '\0';
-						++len;
-					}
-				}
-			}
-			
-			if (closedir(dirptr) == -1) {
-				close (attrdirfd);
-				len = -1;
+        if (attrdirfd >= 0) {
+                newfd = dup(attrdirfd);
+                dirptr = fdopendir(newfd);
+                if (dirptr) {
+                        while ((dent = readdir(dirptr))) {
+                                size_t listlen = strlen(dent->d_name);
+                                if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) {
+                                        /* we don't want "." and ".." here */
+                                        continue;
+                                }
+                                if (size == 0) {
+                                        /* return the current size of the list of extended attribute names*/
+                                        len += listlen + 1;
+                                } else {
+                                        /* check size and copy entrie + nul into list. */
+                                        if ((len + listlen + 1) > size) {
+                                                errno = ERANGE;
+                                                len = -1;
+                                                break;
+                                        } else {
+                                                strncpy(list + len, dent->d_name, listlen);
+                                                len += listlen;
+                                                list[len] = '\0';
+                                                ++len;
+                                        }
+                                }
+                        }
+
+                        if (closedir(dirptr) == -1) {
+                                close (attrdirfd);
+                                len = -1;
                                 goto out;
-			}
-		} else {
-			close (attrdirfd);
-			len = -1;
+                        }
+                } else {
+                        close (attrdirfd);
+                        len = -1;
                         goto out;
-		}
-		close (attrdirfd);
-	}
+                }
+                close (attrdirfd);
+        }
 out:
         if (mapped_path)
                 GF_FREE (mapped_path);
-	return len;
+        return len;
 }
 
 
 int
 solaris_flistxattr(int fd,
-                   char *list, 
+                   char *list,
                    size_t size)
 {
-	int attrdirfd = -1;
-	ssize_t len = 0;
-	DIR *dirptr = NULL;
-	struct dirent *dent = NULL;
-	int newfd = -1;
-	
-	attrdirfd = openat (fd, ".", O_RDONLY, 0);
-	if (attrdirfd >= 0) {
-		newfd = dup(attrdirfd);
-		dirptr = fdopendir(newfd);
-		if (dirptr) {
-			while ((dent = readdir(dirptr))) {
-				size_t listlen = strlen(dent->d_name);
-				if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) {
-					/* we don't want "." and ".." here */
-					continue;
-				}
-				if (size == 0) {
-					/* return the current size of the list of extended attribute names*/
-					len += listlen + 1;
-				} else {
-					/* check size and copy entrie + nul into list. */
-					if ((len + listlen + 1) > size) {
-						errno = ERANGE;
-						len = -1;
-						break;
-					} else {
-						strncpy(list + len, dent->d_name, listlen);
-						len += listlen;
-						list[len] = '\0';
-						++len;
-					}
-				}
-			}
-			
-			if (closedir(dirptr) == -1) {
-				close (attrdirfd);
-				return -1;
-			}
-		} else {
-			close (attrdirfd);
-			return -1;
-		}
-		close (attrdirfd);
-	}
-	return len;
+        int attrdirfd = -1;
+        ssize_t len = 0;
+        DIR *dirptr = NULL;
+        struct dirent *dent = NULL;
+        int newfd = -1;
+
+        attrdirfd = openat (fd, ".", O_RDONLY, 0);
+        if (attrdirfd >= 0) {
+                newfd = dup(attrdirfd);
+                dirptr = fdopendir(newfd);
+                if (dirptr) {
+                        while ((dent = readdir(dirptr))) {
+                                size_t listlen = strlen(dent->d_name);
+                                if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) {
+                                        /* we don't want "." and ".." here */
+                                        continue;
+                                }
+                                if (size == 0) {
+                                        /* return the current size of the list of extended attribute names*/
+                                        len += listlen + 1;
+                                } else {
+                                        /* check size and copy entrie + nul into list. */
+                                        if ((len + listlen + 1) > size) {
+                                                errno = ERANGE;
+                                                len = -1;
+                                                break;
+                                        } else {
+                                                strncpy(list + len, dent->d_name, listlen);
+                                                len += listlen;
+                                                list[len] = '\0';
+                                                ++len;
+                                        }
+                                }
+                        }
+
+                        if (closedir(dirptr) == -1) {
+                                close (attrdirfd);
+                                return -1;
+                        }
+                } else {
+                        close (attrdirfd);
+                        return -1;
+                }
+                close (attrdirfd);
+        }
+        return len;
 }
 
 
-int 
-solaris_removexattr(const char *path, 
-		    const char* key)
+int
+solaris_removexattr(const char *path,
+                    const char* key)
 {
-	int ret = -1;
+        int ret = -1;
         int attrfd = -1;
         char *mapped_path = NULL;
 
@@ -388,14 +388,14 @@ solaris_removexattr(const char *path,
         } else {
                 attrfd = attropen (path, ".", O_RDONLY, 0);
         }
-	if (attrfd >= 0) {
-		ret = unlinkat (attrfd, key, 0);
-		close (attrfd);
-	} else {
-		if (errno == ENOENT)
-			errno = ENODATA;
-		ret = -1;
-	}
+        if (attrfd >= 0) {
+                ret = unlinkat (attrfd, key, 0);
+                close (attrfd);
+        } else {
+                if (errno == ENOENT)
+                        errno = ENODATA;
+                ret = -1;
+        }
 
         if (mapped_path)
                 GF_FREE (mapped_path);
@@ -403,68 +403,68 @@ solaris_removexattr(const char *path,
         return ret;
 }
 
-int 
-solaris_getxattr(const char *path, 
-		 const char* key, 
-		 char *value, 
-		 size_t size)
+int
+solaris_getxattr(const char *path,
+                 const char* key,
+                 char *value,
+                 size_t size)
 {
-	int attrfd = -1;
-	int ret = 0;
+        int attrfd = -1;
+        int ret = 0;
         char *mapped_path = NULL;
 
         ret = solaris_xattr_resolve_path (path, &mapped_path);
         if (!ret) {
                 attrfd = attropen (mapped_path, key, O_RDONLY, 0);
-        } else { 
+        } else {
                 attrfd = attropen (path, key, O_RDONLY, 0);
         }
 
-	if (attrfd >= 0) {
-		if (size == 0) {
-			struct stat buf;
-			fstat (attrfd, &buf);
-			ret = buf.st_size;
-		} else {
-			ret = read (attrfd, value, size);
-		}
-		close (attrfd);
-	} else {
-		if (errno == ENOENT)
-			errno = ENODATA;
-		if (errno != ENOENT)
-			gf_log ("libglusterfs", GF_LOG_DEBUG, 
-				"Couldn't read extended attribute for the file %s (%d)", 
-				path, errno);
-		ret = -1;
-	}
+        if (attrfd >= 0) {
+                if (size == 0) {
+                        struct stat buf;
+                        fstat (attrfd, &buf);
+                        ret = buf.st_size;
+                } else {
+                        ret = read (attrfd, value, size);
+                }
+                close (attrfd);
+        } else {
+                if (errno == ENOENT)
+                        errno = ENODATA;
+                if (errno != ENOENT)
+                        gf_log ("libglusterfs", GF_LOG_DEBUG,
+                                "Couldn't read extended attribute for the file %s (%d)",
+                                path, errno);
+                ret = -1;
+        }
         if (mapped_path)
                 GF_FREE (mapped_path);
-	return ret;
+        return ret;
 }
 
 
 char* strsep(char** str, const char* delims)
 {
-	char* token;
-	
-	if (*str==NULL) {
-		/* No more tokens */
-		return NULL;
-	}
-	
-	token=*str;
-	while (**str!='\0') {
-		if (strchr(delims,**str)!=NULL) {
-			**str='\0';
-			(*str)++;
-			return token;
-		}
-		(*str)++;
-	}
-	/* There is no other token */
-	*str=NULL;
-	return token;
+        char* token;
+
+        if (*str==NULL) {
+                /* No more tokens */
+                return NULL;
+        }
+
+        token=*str;
+        while (**str!='\0') {
+                if (strchr(delims,**str)!=NULL) {
+                        **str='\0';
+                        (*str)++;
+                        return token;
+                }
+                (*str)++;
+        }
+        /* There is no other token */
+        *str=NULL;
+        return token;
 }
 
 /* Code comes from libiberty */
@@ -472,49 +472,49 @@ char* strsep(char** str, const char* delims)
 int
 vasprintf (char **result, const char *format, va_list args)
 {
-  return gf_vasprintf(result, format, args);
+        return gf_vasprintf(result, format, args);
 }
 
 int
 asprintf (char **buf, const char *fmt, ...)
 {
-  int status;
-  va_list ap;
+        int status;
+        va_list ap;
 
-  va_start (ap, fmt);
-  status = vasprintf (buf, fmt, ap);
-  va_end (ap);
-  return status;  
+        va_start (ap, fmt);
+        status = vasprintf (buf, fmt, ap);
+        va_end (ap);
+        return status;
 }
 
 int solaris_unlink (const char *path)
 {
         char *mapped_path = NULL;
-        struct stat	stbuf = {0, };
+        struct stat     stbuf = {0, };
         int ret = -1;
 
         ret = solaris_xattr_resolve_path (path, &mapped_path);
-	
+
 
         if (!ret && mapped_path) {
-		if (lstat(path, &stbuf)) {
-			gf_log ("",GF_LOG_WARNING, "Stat failed on mapped"
-				" file %s with error %d", mapped_path, errno);
-			goto out;
-		}
+                if (lstat(path, &stbuf)) {
+                        gf_log ("",GF_LOG_WARNING, "Stat failed on mapped"
+                                " file %s with error %d", mapped_path, errno);
+                        goto out;
+                }
                 if (stbuf.st_nlink == 1) {
-			 if(remove (mapped_path))
-                        	gf_log ("", GF_LOG_WARNING, "Failed to remove mapped "
-					"file %s. Errno %d", mapped_path, errno);
-		}
+                        if(remove (mapped_path))
+                                gf_log ("", GF_LOG_WARNING, "Failed to remove mapped "
+                                        "file %s. Errno %d", mapped_path, errno);
+                }
 
-	}
+        }
 
 out:
-	if (mapped_path)
-		GF_FREE (mapped_path);
+        if (mapped_path)
+                GF_FREE (mapped_path);
 
-	return  unlink (path);
+        return  unlink (path);
 }
 
 int
@@ -530,8 +530,8 @@ solaris_rename (const char *old_path, const char *new_path)
                 if (!remove (mapped_path))
                         gf_log ("", GF_LOG_WARNING, "Failed to remove mapped "
                                 "file %s. Errno %d", mapped_path, errno);
-        	GF_FREE (mapped_path);
-	}
+                GF_FREE (mapped_path);
+        }
 
         return rename(old_path, new_path);
 
@@ -539,12 +539,12 @@ solaris_rename (const char *old_path, const char *new_path)
 #endif /* GF_SOLARIS_HOST_OS */
 
 #ifndef HAVE_STRNLEN
-size_t 
-strnlen(const char *string, size_t maxlen)                   
+size_t
+strnlen(const char *string, size_t maxlen)
 {
-	int len = 0;
-	while ((len < maxlen) && string[len])
-		len++;
-	return len;
+        int len = 0;
+        while ((len < maxlen) && string[len])
+                len++;
+        return len;
 }
 #endif /* STRNLEN */

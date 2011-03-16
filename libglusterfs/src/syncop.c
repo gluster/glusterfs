@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CONFIG_H
@@ -337,11 +337,11 @@ entry_copy (gf_dirent_t *source)
 
 int32_t
 syncop_readdirp_cbk (call_frame_t *frame,
-		      void *cookie,
-		      xlator_t *this,
-		      int32_t op_ret,
-		      int32_t op_errno,
-		      gf_dirent_t *entries)
+                     void *cookie,
+                     xlator_t *this,
+                     int32_t op_ret,
+                     int32_t op_errno,
+                     gf_dirent_t *entries)
 {
         struct syncargs *args = NULL;
         gf_dirent_t *entry = NULL;
@@ -375,9 +375,9 @@ syncop_readdirp_cbk (call_frame_t *frame,
 
 int
 syncop_readdirp (xlator_t *subvol,
-		 fd_t *fd,
-		 size_t size,
-		 off_t off,
+                 fd_t *fd,
+                 size_t size,
+                 off_t off,
                  gf_dirent_t *entries)
 {
         struct syncargs args = {0, };
@@ -460,8 +460,8 @@ syncop_setxattr (xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags)
 
 int
 syncop_statfs_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-		    int32_t op_ret, int32_t op_errno,
-		    struct statvfs *buf)
+                   int32_t op_ret, int32_t op_errno,
+                   struct statvfs *buf)
 
 {
         struct syncargs *args = NULL;
@@ -537,4 +537,3 @@ syncop_setattr (xlator_t *subvol, loc_t *loc, struct iatt *iatt, int valid,
         errno = args.op_errno;
         return args.op_ret;
 }
-

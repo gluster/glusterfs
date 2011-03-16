@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CONFIG_H
@@ -39,54 +39,54 @@ char *gf_mgmt_list[GF_MGMT_MAXVALUE];
 void
 gf_op_list_init()
 {
-	gf_fop_list[GF_FOP_NULL]        = "NULL";
-	gf_fop_list[GF_FOP_STAT]        = "STAT";
-	gf_fop_list[GF_FOP_READLINK]    = "READLINK";
-	gf_fop_list[GF_FOP_MKNOD]       = "MKNOD";
-	gf_fop_list[GF_FOP_MKDIR]       = "MKDIR";
-	gf_fop_list[GF_FOP_UNLINK]      = "UNLINK";
-	gf_fop_list[GF_FOP_RMDIR]       = "RMDIR";
-	gf_fop_list[GF_FOP_SYMLINK]     = "SYMLINK";
-	gf_fop_list[GF_FOP_RENAME]      = "RENAME";
-	gf_fop_list[GF_FOP_LINK]        = "LINK";
-	gf_fop_list[GF_FOP_TRUNCATE]    = "TRUNCATE";
-	gf_fop_list[GF_FOP_OPEN]        = "OPEN";
-	gf_fop_list[GF_FOP_READ]        = "READ";
-	gf_fop_list[GF_FOP_WRITE]       = "WRITE";
-	gf_fop_list[GF_FOP_STATFS]      = "STATFS";
-	gf_fop_list[GF_FOP_FLUSH]       = "FLUSH";
-	gf_fop_list[GF_FOP_FSYNC]       = "FSYNC";
-	gf_fop_list[GF_FOP_SETXATTR]    = "SETXATTR";
-	gf_fop_list[GF_FOP_GETXATTR]    = "GETXATTR";
-	gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
-	gf_fop_list[GF_FOP_OPENDIR]     = "OPENDIR";
-	gf_fop_list[GF_FOP_FSYNCDIR]    = "FSYNCDIR";
-	gf_fop_list[GF_FOP_ACCESS]      = "ACCESS";
-	gf_fop_list[GF_FOP_CREATE]      = "CREATE";
-	gf_fop_list[GF_FOP_FTRUNCATE]   = "FTRUNCATE";
-	gf_fop_list[GF_FOP_FSTAT]       = "FSTAT";
-	gf_fop_list[GF_FOP_LK]          = "LK";
-	gf_fop_list[GF_FOP_LOOKUP]      = "LOOKUP";
-	gf_fop_list[GF_FOP_READDIR]     = "READDIR";
-	gf_fop_list[GF_FOP_INODELK]     = "INODELK";
-	gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
-	gf_fop_list[GF_FOP_ENTRYLK]     = "ENTRYLK";
-	gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";
-	gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
-	gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
-	gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
-	gf_fop_list[GF_FOP_FGETXATTR]   = "FGETXATTR";
+        gf_fop_list[GF_FOP_NULL]        = "NULL";
+        gf_fop_list[GF_FOP_STAT]        = "STAT";
+        gf_fop_list[GF_FOP_READLINK]    = "READLINK";
+        gf_fop_list[GF_FOP_MKNOD]       = "MKNOD";
+        gf_fop_list[GF_FOP_MKDIR]       = "MKDIR";
+        gf_fop_list[GF_FOP_UNLINK]      = "UNLINK";
+        gf_fop_list[GF_FOP_RMDIR]       = "RMDIR";
+        gf_fop_list[GF_FOP_SYMLINK]     = "SYMLINK";
+        gf_fop_list[GF_FOP_RENAME]      = "RENAME";
+        gf_fop_list[GF_FOP_LINK]        = "LINK";
+        gf_fop_list[GF_FOP_TRUNCATE]    = "TRUNCATE";
+        gf_fop_list[GF_FOP_OPEN]        = "OPEN";
+        gf_fop_list[GF_FOP_READ]        = "READ";
+        gf_fop_list[GF_FOP_WRITE]       = "WRITE";
+        gf_fop_list[GF_FOP_STATFS]      = "STATFS";
+        gf_fop_list[GF_FOP_FLUSH]       = "FLUSH";
+        gf_fop_list[GF_FOP_FSYNC]       = "FSYNC";
+        gf_fop_list[GF_FOP_SETXATTR]    = "SETXATTR";
+        gf_fop_list[GF_FOP_GETXATTR]    = "GETXATTR";
+        gf_fop_list[GF_FOP_REMOVEXATTR] = "REMOVEXATTR";
+        gf_fop_list[GF_FOP_OPENDIR]     = "OPENDIR";
+        gf_fop_list[GF_FOP_FSYNCDIR]    = "FSYNCDIR";
+        gf_fop_list[GF_FOP_ACCESS]      = "ACCESS";
+        gf_fop_list[GF_FOP_CREATE]      = "CREATE";
+        gf_fop_list[GF_FOP_FTRUNCATE]   = "FTRUNCATE";
+        gf_fop_list[GF_FOP_FSTAT]       = "FSTAT";
+        gf_fop_list[GF_FOP_LK]          = "LK";
+        gf_fop_list[GF_FOP_LOOKUP]      = "LOOKUP";
+        gf_fop_list[GF_FOP_READDIR]     = "READDIR";
+        gf_fop_list[GF_FOP_INODELK]     = "INODELK";
+        gf_fop_list[GF_FOP_FINODELK]    = "FINODELK";
+        gf_fop_list[GF_FOP_ENTRYLK]     = "ENTRYLK";
+        gf_fop_list[GF_FOP_FENTRYLK]    = "FENTRYLK";
+        gf_fop_list[GF_FOP_XATTROP]     = "XATTROP";
+        gf_fop_list[GF_FOP_FXATTROP]    = "FXATTROP";
+        gf_fop_list[GF_FOP_FSETXATTR]   = "FSETXATTR";
+        gf_fop_list[GF_FOP_FGETXATTR]   = "FGETXATTR";
         gf_fop_list[GF_FOP_RCHECKSUM]   = "RCHECKSUM";
         gf_fop_list[GF_FOP_SETATTR]     = "SETATTR";
         gf_fop_list[GF_FOP_FSETATTR]    = "FSETATTR";
-	gf_fop_list[GF_FOP_READDIRP]    = "READDIRP";
-	gf_fop_list[GF_FOP_GETSPEC]     = "GETSPEC";
-	gf_fop_list[GF_FOP_FORGET]      = "FORGET";
-	gf_fop_list[GF_FOP_RELEASE]     = "RELEASE";
-	gf_fop_list[GF_FOP_RELEASEDIR]  = "RELEASEDIR";
+        gf_fop_list[GF_FOP_READDIRP]    = "READDIRP";
+        gf_fop_list[GF_FOP_GETSPEC]     = "GETSPEC";
+        gf_fop_list[GF_FOP_FORGET]      = "FORGET";
+        gf_fop_list[GF_FOP_RELEASE]     = "RELEASE";
+        gf_fop_list[GF_FOP_RELEASEDIR]  = "RELEASEDIR";
 
-	gf_fop_list[GF_MGMT_NULL]  = "NULL";
-	return;
+        gf_fop_list[GF_MGMT_NULL]  = "NULL";
+        return;
 }
 
 
@@ -398,4 +398,3 @@ glusterfs_strevent (glusterfs_event_t ev)
 {
         return eventstring[ev];
 }
-

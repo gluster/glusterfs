@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2007-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CONFIG_H
@@ -39,7 +39,7 @@ gf_timer_call_after (glusterfs_ctx_t *ctx,
         gf_timer_t *event = NULL;
         gf_timer_t *trav = NULL;
         unsigned long long at = 0L;
-  
+
         if (ctx == NULL)
         {
                 gf_log ("timer", GF_LOG_ERROR, "invalid argument");
@@ -92,7 +92,7 @@ gf_timer_call_stale (gf_timer_registry_t *reg,
                 gf_log ("timer", GF_LOG_ERROR, "invalid argument");
                 return 0;
         }
-  
+
         event->next->prev = event->prev;
         event->prev->next = event->next;
         event->next = &reg->stale;
@@ -108,13 +108,13 @@ gf_timer_call_cancel (glusterfs_ctx_t *ctx,
                       gf_timer_t *event)
 {
         gf_timer_registry_t *reg = NULL;
-  
+
         if (ctx == NULL || event == NULL)
         {
                 gf_log ("timer", GF_LOG_ERROR, "invalid argument");
                 return 0;
         }
-  
+
         reg = gf_timer_registry_init (ctx);
         if (!reg) {
                 gf_log ("timer", GF_LOG_ERROR, "!reg");
@@ -137,13 +137,13 @@ void *
 gf_timer_proc (void *ctx)
 {
         gf_timer_registry_t *reg = NULL;
-  
+
         if (ctx == NULL)
         {
                 gf_log ("timer", GF_LOG_ERROR, "invalid argument");
                 return NULL;
         }
-  
+
         reg = gf_timer_registry_init (ctx);
         if (!reg) {
                 gf_log ("timer", GF_LOG_ERROR, "!reg");
