@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2009-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2009-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _STAT_PREFETCH_H
@@ -74,7 +74,7 @@ struct sp_inode_ctx {
         char             need_unwind;
         int32_t          op_ret;
         int32_t          op_errno;
-        struct iatt      stbuf;  
+        struct iatt      stbuf;
         gf_lock_t        lock;
         struct list_head waiting_ops;
 };
@@ -89,18 +89,18 @@ typedef struct sp_private sp_private_t;
 
 void sp_local_free (sp_local_t *local);
 
-#define SP_STACK_UNWIND(op, frame, params ...) do { \
-        sp_local_t *__local = frame->local;         \
-        frame->local = NULL;                        \
-        STACK_UNWIND_STRICT (op, frame, params);    \
-        sp_local_free (__local);                    \
-} while (0)
+#define SP_STACK_UNWIND(op, frame, params ...) do {             \
+                sp_local_t *__local = frame->local;             \
+                frame->local = NULL;                            \
+                STACK_UNWIND_STRICT (op, frame, params);        \
+                sp_local_free (__local);                        \
+        } while (0)
 
-#define SP_STACK_DESTROY(frame) do {         \
-        sp_local_t *__local = frame->local;  \
-        frame->local = NULL;                 \
-        STACK_DESTROY (frame->root);         \
-        sp_local_free (__local);             \
-} while (0)
+#define SP_STACK_DESTROY(frame) do {                    \
+                sp_local_t *__local = frame->local;     \
+                frame->local = NULL;                    \
+                STACK_DESTROY (frame->root);            \
+                sp_local_free (__local);                \
+        } while (0)
 
 #endif  /* #ifndef _STAT_PREFETCH_H */
