@@ -35,10 +35,10 @@ extern int ioc_log2_page_size;
 void *
 str_to_ptr (char *string)
 {
-	void *ptr = NULL;
+        void *ptr = NULL;
 
         ptr = (void *)strtoul (string, NULL, 16);
-	return ptr;
+        return ptr;
 }
 
 
@@ -51,102 +51,104 @@ char *
 ptr_to_str (void *ptr)
 {
         int   ret = 0;
-	char *str = NULL;
-	ret = gf_asprintf (&str, "%p", ptr);
+        char *str = NULL;
+        ret = gf_asprintf (&str, "%p", ptr);
         if (-1 == ret) {
-                gf_log ("ioc", GF_LOG_ERROR, 
+                gf_log ("ioc", GF_LOG_ERROR,
                         "asprintf failed while converting ptr to str");
                 return NULL;
         }
-	return str;
+        return str;
 }
+
 
 void
-ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode, 
+ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                   struct iatt *stbuf)
 {
-	ioc_waitq_t *waiter = NULL, *waited = NULL;
-	ioc_waitq_t *page_waitq = NULL;
-	int8_t      cache_still_valid = 1;
-	ioc_local_t *local = NULL;
-	int8_t      need_fault = 0;
-	ioc_page_t  *waiter_page = NULL;
+        ioc_waitq_t *waiter            = NULL, *waited = NULL;
+        ioc_waitq_t *page_waitq        = NULL;
+        int8_t       cache_still_valid = 1;
+        ioc_local_t *local             = NULL;
+        int8_t       need_fault        = 0;
+        ioc_page_t  *waiter_page       = NULL;
 
         local = frame->local;
-	ioc_inode_lock (ioc_inode);
-	{
-		waiter = ioc_inode->waitq;
-		ioc_inode->waitq = NULL;
-	}
-	ioc_inode_unlock (ioc_inode);
+        ioc_inode_lock (ioc_inode);
+        {
+                waiter = ioc_inode->waitq;
+                ioc_inode->waitq = NULL;
+        }
+        ioc_inode_unlock (ioc_inode);
 
-	if (stbuf)
-		cache_still_valid = ioc_cache_still_valid (ioc_inode, stbuf);
-	else
-		cache_still_valid = 0;
+        if (stbuf)
+                cache_still_valid = ioc_cache_still_valid (ioc_inode, stbuf);
+        else
+                cache_still_valid = 0;
 
-	if (!waiter) {
-		gf_log (frame->this->name, GF_LOG_DEBUG,
-			"cache validate called without any "
-			"page waiting to be validated");
-	}
+        if (!waiter) {
+                gf_log (frame->this->name, GF_LOG_DEBUG,
+                        "cache validate called without any "
+                        "page waiting to be validated");
+        }
 
-	while (waiter) {
-		waiter_page = waiter->data;
-		page_waitq = NULL;
-    
-		if (waiter_page) {
-			if (cache_still_valid) {
-				/* cache valid, wake up page */
-				ioc_inode_lock (ioc_inode);
-				{
-					page_waitq = 
-						ioc_page_wakeup (waiter_page);
-				}
-				ioc_inode_unlock (ioc_inode);
-				if (page_waitq)
-					ioc_waitq_return (page_waitq);
-			} else {
-				/* cache invalid, generate page fault and set 
-				 * page->ready = 0, to avoid double faults  
-				 */
-				ioc_inode_lock (ioc_inode);
-	
-				if (waiter_page->ready) {
-					waiter_page->ready = 0;
-					need_fault = 1;
-				} else {
-					gf_log (frame->this->name, 
-						GF_LOG_TRACE,
-						"validate frame(%p) is waiting"
-						"for in-transit page = %p",
-						frame, waiter_page);
-				}
-	
-				ioc_inode_unlock (ioc_inode);
-      
-				if (need_fault) {
-					need_fault = 0;
-					ioc_page_fault (ioc_inode, frame, 
-							local->fd, 
-							waiter_page->offset);
-				}
-			}
-		}
+        while (waiter) {
+                waiter_page = waiter->data;
+                page_waitq = NULL;
 
-		waited = waiter;
-		waiter = waiter->next;
-    
-		waited->data = NULL;
-		GF_FREE (waited);
-	}
+                if (waiter_page) {
+                        if (cache_still_valid) {
+                                /* cache valid, wake up page */
+                                ioc_inode_lock (ioc_inode);
+                                {
+                                        page_waitq =
+                                                ioc_page_wakeup (waiter_page);
+                                }
+                                ioc_inode_unlock (ioc_inode);
+                                if (page_waitq)
+                                        ioc_waitq_return (page_waitq);
+                        } else {
+                                /* cache invalid, generate page fault and set
+                                 * page->ready = 0, to avoid double faults
+                                 */
+                                ioc_inode_lock (ioc_inode);
+
+                                if (waiter_page->ready) {
+                                        waiter_page->ready = 0;
+                                        need_fault = 1;
+                                } else {
+                                        gf_log (frame->this->name,
+                                                GF_LOG_TRACE,
+                                                "validate frame(%p) is waiting"
+                                                "for in-transit page = %p",
+                                                frame, waiter_page);
+                                }
+
+                                ioc_inode_unlock (ioc_inode);
+
+                                if (need_fault) {
+                                        need_fault = 0;
+                                        ioc_page_fault (ioc_inode, frame,
+                                                        local->fd,
+                                                        waiter_page->offset);
+                                }
+                        }
+                }
+
+                waited = waiter;
+                waiter = waiter->next;
+
+                waited->data = NULL;
+                GF_FREE (waited);
+        }
 }
 
-/* 
- * ioc_inode_update - create a new ioc_inode_t structure and add it to 
- *                    the table table. fill in the fields which are derived 
+
+/*
+ * ioc_inode_update - create a new ioc_inode_t structure and add it to
+ *                    the table table. fill in the fields which are derived
  *                    from inode_t corresponding to the file
- * 
+ *
  * @table: io-table structure
  * @inode: inode structure
  *
@@ -155,60 +157,59 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
 ioc_inode_t *
 ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 {
-	ioc_inode_t     *ioc_inode   = NULL;
+        ioc_inode_t     *ioc_inode   = NULL;
 
-        ioc_inode = GF_CALLOC (1, sizeof (ioc_inode_t),
-                               gf_ioc_mt_ioc_inode_t);
+        ioc_inode = GF_CALLOC (1, sizeof (ioc_inode_t), gf_ioc_mt_ioc_inode_t);
         if (ioc_inode == NULL) {
                 goto out;
         }
-  
-	ioc_inode->table = table;
-	INIT_LIST_HEAD (&ioc_inode->cache.page_lru);
 
-	ioc_table_lock (table);
+        ioc_inode->table = table;
+        INIT_LIST_HEAD (&ioc_inode->cache.page_lru);
 
-	table->inode_count++;
-	list_add (&ioc_inode->inode_list, &table->inodes);
-	list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
+        ioc_table_lock (table);
 
-	gf_log (table->xl->name,
-		GF_LOG_TRACE,
-		"adding to inode_lru[%d]", weight);
+        table->inode_count++;
+        list_add (&ioc_inode->inode_list, &table->inodes);
+        list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
 
-	ioc_table_unlock (table);
+        gf_log (table->xl->name,
+                GF_LOG_TRACE,
+                "adding to inode_lru[%d]", weight);
 
-	pthread_mutex_init (&ioc_inode->inode_lock, NULL);
-	ioc_inode->weight = weight;
-  
+        ioc_table_unlock (table);
+
+        pthread_mutex_init (&ioc_inode->inode_lock, NULL);
+        ioc_inode->weight = weight;
+
 out:
-	return ioc_inode;
+        return ioc_inode;
 }
 
 
-/* 
+/*
  * ioc_inode_destroy - destroy an ioc_inode_t object.
  *
  * @inode: inode to destroy
  *
- * to be called only from ioc_forget. 
+ * to be called only from ioc_forget.
  */
 void
 ioc_inode_destroy (ioc_inode_t *ioc_inode)
 {
-	ioc_table_t *table = NULL;
+        ioc_table_t *table = NULL;
 
         table = ioc_inode->table;
 
-	ioc_table_lock (table);
-	table->inode_count--;
-	list_del (&ioc_inode->inode_list);
-	list_del (&ioc_inode->inode_lru);
-	ioc_table_unlock (table);
-  
-	ioc_inode_flush (ioc_inode);
+        ioc_table_lock (table);
+        table->inode_count--;
+        list_del (&ioc_inode->inode_list);
+        list_del (&ioc_inode->inode_lru);
+        ioc_table_unlock (table);
+
+        ioc_inode_flush (ioc_inode);
         rbthash_table_destroy (ioc_inode->cache.page_table);
 
-	pthread_mutex_destroy (&ioc_inode->inode_lock);
-	GF_FREE (ioc_inode);
+        pthread_mutex_destroy (&ioc_inode->inode_lock);
+        GF_FREE (ioc_inode);
 }
