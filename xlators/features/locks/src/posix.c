@@ -274,7 +274,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 {
         struct _truncate_ops *local = NULL;
 
-	local = GF_CALLOC (1, sizeof (struct _truncate_ops),
+        local = GF_CALLOC (1, sizeof (struct _truncate_ops),
                            gf_locks_mt_truncate_ops);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -306,7 +306,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 {
         struct _truncate_ops *local = NULL;
 
-	local = GF_CALLOC (1, sizeof (struct _truncate_ops),
+        local = GF_CALLOC (1, sizeof (struct _truncate_ops),
                            gf_locks_mt_truncate_ops);
         if (!local) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -381,14 +381,14 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
         list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
                 if ((l->transport == transport)
                     && (l->owner == owner)) {
-			gf_log ("posix-locks", GF_LOG_TRACE,
+                        gf_log ("posix-locks", GF_LOG_TRACE,
                                 " Flushing lock"
-				"%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" state: %s",
-				l->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				l->client_pid,
+                                "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" state: %s",
+                                l->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                l->client_pid,
                                 l->owner,
-				l->user_flock.l_start,
-				l->user_flock.l_len,
+                                l->user_flock.l_start,
+                                l->user_flock.l_len,
                                 l->blocked == 1 ? "Blocked" : "Active");
 
                         __delete_lock (pl_inode, l);
@@ -401,11 +401,11 @@ __delete_locks_of_owner (pl_inode_t *pl_inode,
 
 int32_t
 pl_opendir_cbk (call_frame_t *frame,
-		     void *cookie,
-		     xlator_t *this,
-		     int32_t op_ret,
-		     int32_t op_errno,
-		     fd_t *fd)
+                     void *cookie,
+                     xlator_t *this,
+                     int32_t op_ret,
+                     int32_t op_errno,
+                     fd_t *fd)
 {
         pl_fdctx_t *fdctx = NULL;
 
@@ -422,24 +422,24 @@ pl_opendir_cbk (call_frame_t *frame,
         }
 
 unwind:
-	STACK_UNWIND_STRICT (opendir,
+        STACK_UNWIND_STRICT (opendir,
                              frame,
                              op_ret,
                              op_errno,
                              fd);
-	return 0;
+        return 0;
 }
 
-int32_t 
+int32_t
 pl_opendir (call_frame_t *frame, xlator_t *this,
-	     loc_t *loc, fd_t *fd)
+             loc_t *loc, fd_t *fd)
 {
-	STACK_WIND (frame,
-		    pl_opendir_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->opendir,
-		    loc, fd);
-	return 0;
+        STACK_WIND (frame,
+                    pl_opendir_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->opendir,
+                    loc, fd);
+        return 0;
 
 }
 
@@ -478,7 +478,7 @@ pl_flush (call_frame_t *frame, xlator_t *this,
                  * all locks opened with this fd.
                  */
                 gf_log (this->name, GF_LOG_TRACE,
-			"Releasing all locks with fd %p", fd);
+                        "Releasing all locks with fd %p", fd);
                 delete_locks_of_fd (this, pl_inode, fd);
                 goto wind;
 
@@ -704,7 +704,7 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                                 goto unlock;
                         }
 
-			rw = GF_CALLOC (1, sizeof (*rw),
+                        rw = GF_CALLOC (1, sizeof (*rw),
                                         gf_locks_mt_pl_rw_req_t);
                         if (!rw) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -802,7 +802,7 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                 goto unlock;
                         }
 
-			rw = GF_CALLOC (1, sizeof (*rw),
+                        rw = GF_CALLOC (1, sizeof (*rw),
                                         gf_locks_mt_pl_rw_req_t);
                         if (!rw) {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -1200,120 +1200,120 @@ pl_forget (xlator_t *this,
 
         posix_lock_t *ext_tmp = NULL;
         posix_lock_t *ext_l   = NULL;
-	struct list_head posixlks_released;
+        struct list_head posixlks_released;
 
         pl_inode_lock_t *ino_tmp = NULL;
         pl_inode_lock_t *ino_l   = NULL;
-	struct list_head inodelks_released;
+        struct list_head inodelks_released;
 
         pl_rw_req_t *rw_tmp = NULL;
         pl_rw_req_t *rw_req = NULL;
 
         pl_entry_lock_t *entry_tmp = NULL;
         pl_entry_lock_t *entry_l   = NULL;
-	struct list_head entrylks_released;
+        struct list_head entrylks_released;
 
         pl_dom_list_t *dom = NULL;
         pl_dom_list_t *dom_tmp = NULL;
 
-	INIT_LIST_HEAD (&posixlks_released);
-	INIT_LIST_HEAD (&inodelks_released);
-	INIT_LIST_HEAD (&entrylks_released);
+        INIT_LIST_HEAD (&posixlks_released);
+        INIT_LIST_HEAD (&inodelks_released);
+        INIT_LIST_HEAD (&entrylks_released);
 
         pl_inode = pl_inode_get (this, inode);
 
-	pthread_mutex_lock (&pl_inode->mutex);
-	{
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
 
-		if (!list_empty (&pl_inode->rw_list)) {
-			gf_log (this->name, GF_LOG_WARNING,
-				"Pending R/W requests found, releasing.");
+                if (!list_empty (&pl_inode->rw_list)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Pending R/W requests found, releasing.");
 
-			list_for_each_entry_safe (rw_req, rw_tmp, &pl_inode->rw_list,
-						  list) {
+                        list_for_each_entry_safe (rw_req, rw_tmp, &pl_inode->rw_list,
+                                                  list) {
 
-				list_del (&rw_req->list);
-				GF_FREE (rw_req);
-			}
-		}
+                                list_del (&rw_req->list);
+                                GF_FREE (rw_req);
+                        }
+                }
 
-		if (!list_empty (&pl_inode->ext_list)) {
-			gf_log (this->name, GF_LOG_WARNING,
-				"Pending fcntl locks found, releasing.");
+                if (!list_empty (&pl_inode->ext_list)) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "Pending fcntl locks found, releasing.");
 
-			list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list,
-						  list) {
+                        list_for_each_entry_safe (ext_l, ext_tmp, &pl_inode->ext_list,
+                                                  list) {
 
-				__delete_lock (pl_inode, ext_l);
-				if (ext_l->blocked) {
-					list_add_tail (&ext_l->list, &posixlks_released);
-					continue;
-				}
-				__destroy_lock (ext_l);
-			}
-		}
+                                __delete_lock (pl_inode, ext_l);
+                                if (ext_l->blocked) {
+                                        list_add_tail (&ext_l->list, &posixlks_released);
+                                        continue;
+                                }
+                                __destroy_lock (ext_l);
+                        }
+                }
 
 
-		list_for_each_entry_safe (dom, dom_tmp, &pl_inode->dom_list, inode_list) {
+                list_for_each_entry_safe (dom, dom_tmp, &pl_inode->dom_list, inode_list) {
 
-			if (!list_empty (&dom->inodelk_list)) {
-				gf_log (this->name, GF_LOG_WARNING,
-					"Pending inode locks found, releasing.");
+                        if (!list_empty (&dom->inodelk_list)) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Pending inode locks found, releasing.");
 
-				list_for_each_entry_safe (ino_l, ino_tmp, &dom->inodelk_list, list) {
-					__delete_inode_lock (ino_l);
-					__destroy_inode_lock (ino_l);
-				}
+                                list_for_each_entry_safe (ino_l, ino_tmp, &dom->inodelk_list, list) {
+                                        __delete_inode_lock (ino_l);
+                                        __destroy_inode_lock (ino_l);
+                                }
 
-				list_splice_init (&dom->blocked_inodelks, &inodelks_released);
-				
+                                list_splice_init (&dom->blocked_inodelks, &inodelks_released);
 
-			}
-			if (!list_empty (&dom->entrylk_list)) {
-				gf_log (this->name, GF_LOG_WARNING,
-					"Pending entry locks found, releasing.");
 
-				list_for_each_entry_safe (entry_l, entry_tmp, &dom->entrylk_list, domain_list) {
-					list_del_init (&entry_l->domain_list);
+                        }
+                        if (!list_empty (&dom->entrylk_list)) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "Pending entry locks found, releasing.");
 
-					if (entry_l->basename)
-						GF_FREE ((char *)entry_l->basename);
-					GF_FREE (entry_l);
-				}
+                                list_for_each_entry_safe (entry_l, entry_tmp, &dom->entrylk_list, domain_list) {
+                                        list_del_init (&entry_l->domain_list);
 
-				list_splice_init (&dom->blocked_entrylks, &entrylks_released);
-			}
+                                        if (entry_l->basename)
+                                                GF_FREE ((char *)entry_l->basename);
+                                        GF_FREE (entry_l);
+                                }
 
-			list_del (&dom->inode_list);
-			gf_log ("posix-locks", GF_LOG_TRACE,
-				" Cleaning up domain: %s", dom->domain);
-			GF_FREE ((char *)(dom->domain));
-			GF_FREE (dom);
-		}
+                                list_splice_init (&dom->blocked_entrylks, &entrylks_released);
+                        }
 
-	}
-	pthread_mutex_unlock (&pl_inode->mutex);
+                        list_del (&dom->inode_list);
+                        gf_log ("posix-locks", GF_LOG_TRACE,
+                                " Cleaning up domain: %s", dom->domain);
+                        GF_FREE ((char *)(dom->domain));
+                        GF_FREE (dom);
+                }
 
-	list_for_each_entry_safe (ext_l, ext_tmp, &posixlks_released, list) {
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
 
-		STACK_UNWIND_STRICT (lk, ext_l->frame, -1, 0, &ext_l->user_flock);
-		__destroy_lock (ext_l);
-	}
+        list_for_each_entry_safe (ext_l, ext_tmp, &posixlks_released, list) {
 
-	list_for_each_entry_safe (ino_l, ino_tmp, &inodelks_released, blocked_locks) {
+                STACK_UNWIND_STRICT (lk, ext_l->frame, -1, 0, &ext_l->user_flock);
+                __destroy_lock (ext_l);
+        }
 
-		STACK_UNWIND_STRICT (inodelk, ino_l->frame, -1, 0);
-		__destroy_inode_lock (ino_l);
-	}
+        list_for_each_entry_safe (ino_l, ino_tmp, &inodelks_released, blocked_locks) {
 
-	list_for_each_entry_safe (entry_l, entry_tmp, &entrylks_released, blocked_locks) {
+                STACK_UNWIND_STRICT (inodelk, ino_l->frame, -1, 0);
+                __destroy_inode_lock (ino_l);
+        }
 
-		STACK_UNWIND_STRICT (entrylk, entry_l->frame, -1, 0);
-		if (entry_l->basename)
-			GF_FREE ((char *)entry_l->basename);
-		GF_FREE (entry_l);
+        list_for_each_entry_safe (entry_l, entry_tmp, &entrylks_released, blocked_locks) {
 
-	}
+                STACK_UNWIND_STRICT (entrylk, entry_l->frame, -1, 0);
+                if (entry_l->basename)
+                        GF_FREE ((char *)entry_l->basename);
+                GF_FREE (entry_l);
+
+        }
 
         GF_FREE (pl_inode);
 
@@ -1333,7 +1333,7 @@ pl_release (xlator_t *this, fd_t *fd)
                 goto out;
         }
 
-	ret = inode_ctx_get (fd->inode, this, &tmp_pl_inode);
+        ret = inode_ctx_get (fd->inode, this, &tmp_pl_inode);
         if (ret != 0)
                 goto out;
 
@@ -1393,14 +1393,14 @@ __get_posixlk_count (xlator_t *this, pl_inode_t *pl_inode)
 
         list_for_each_entry (lock, &pl_inode->ext_list, list) {
 
-			gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 " XATTR DEBUG"
-				"%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" state: %s",
-				lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-				lock->client_pid,
+                                "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" state: %s",
+                                lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                lock->client_pid,
                                 lock->owner,
-				lock->user_flock.l_start,
-				lock->user_flock.l_len,
+                                lock->user_flock.l_start,
+                                lock->user_flock.l_len,
                                 lock->blocked == 1 ? "Blocked" : "Active");
 
                 count++;
@@ -1484,12 +1484,12 @@ pl_posixlk_xattr_fill (xlator_t *this, inode_t *inode,
 
 int32_t
 pl_lookup_cbk (call_frame_t *frame,
-		    void *cookie,
-		    xlator_t *this,
-		    int32_t op_ret,
-		    int32_t op_errno,
-		    inode_t *inode,
-		    struct iatt *buf,
+                    void *cookie,
+                    xlator_t *this,
+                    int32_t op_ret,
+                    int32_t op_errno,
+                    inode_t *inode,
+                    struct iatt *buf,
                     dict_t *dict,
                     struct iatt *postparent)
 {
@@ -1519,23 +1519,23 @@ pl_lookup_cbk (call_frame_t *frame,
                 GF_FREE (local);
 
 out:
-	STACK_UNWIND_STRICT (
+        STACK_UNWIND_STRICT (
                      lookup,
                      frame,
-		      op_ret,
-		      op_errno,
-		      inode,
-		      buf,
+                      op_ret,
+                      op_errno,
+                      inode,
+                      buf,
                       dict,
                       postparent);
-	return 0;
+        return 0;
 }
 
 int32_t
 pl_lookup (call_frame_t *frame,
-		xlator_t *this,
-		loc_t *loc,
-		dict_t *xattr_req)
+                xlator_t *this,
+                loc_t *loc,
+                dict_t *xattr_req)
 {
         pl_local_t *local  = NULL;
         int         ret    = -1;
@@ -1561,18 +1561,18 @@ pl_lookup (call_frame_t *frame,
 
         frame->local = local;
 
-	STACK_WIND (frame,
-		    pl_lookup_cbk,
-		    FIRST_CHILD(this),
-		    FIRST_CHILD(this)->fops->lookup,
-		    loc,
-		    xattr_req);
+        STACK_WIND (frame,
+                    pl_lookup_cbk,
+                    FIRST_CHILD(this),
+                    FIRST_CHILD(this)->fops->lookup,
+                    loc,
+                    xattr_req);
         ret = 0;
 out:
         if (ret == -1)
                 STACK_UNWIND_STRICT (lookup, frame, -1, 0, NULL, NULL, NULL, NULL);
 
-	return 0;
+        return 0;
 }
 
 void
@@ -1631,7 +1631,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
                                                "entrylk[%d](ACTIVE)",count );
                         snprintf (tmp, 256," %s on %s owner=%llu, transport=%p",
-                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : 
+                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                   "ENTRYLK_WRLCK", lock->basename,
                                   (unsigned long long) lock->owner,
                                   lock->trans);
@@ -1647,7 +1647,7 @@ __dump_entrylks (pl_inode_t *pl_inode)
                                                "xlator.feature.locks.lock-dump.domain.entrylk",
                                                "entrylk[%d](BLOCKED)",count );
                         snprintf (tmp, 256," %s on %s state = Blocked",
-                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" : 
+                                  lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK" :
                                   "ENTRYLK_WRLCK", lock->basename);
 
                         gf_proc_dump_write(key, tmp);
@@ -1854,7 +1854,7 @@ mem_acct_init (xlator_t *this)
                 return ret;
 
         ret = xlator_mem_acct_init (this, gf_locks_mt_end + 1);
-        
+
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                                 "failed");
@@ -1870,7 +1870,7 @@ init (xlator_t *this)
         posix_locks_private_t *priv = NULL;
         xlator_list_t         *trav = NULL;
         data_t                *mandatory = NULL;
-	data_t                *trace = NULL;
+        data_t                *trace = NULL;
 
         if (!this->children || this->children->next) {
                 gf_log (this->name, GF_LOG_CRITICAL,
@@ -1894,7 +1894,7 @@ init (xlator_t *this)
                 return -1;
         }
 
-	priv = GF_CALLOC (1, sizeof (*priv),
+        priv = GF_CALLOC (1, sizeof (*priv),
                           gf_locks_mt_posix_locks_private_t);
 
         mandatory = dict_get (this->options, "mandatory-locks");
@@ -1902,15 +1902,15 @@ init (xlator_t *this)
                 gf_log (this->name, GF_LOG_WARNING,
                         "mandatory locks not supported in this minor release.");
 
-	trace = dict_get (this->options, "trace");
-	if (trace) {
-		if (gf_string2boolean (trace->data,
-				       &priv->trace) == -1) {
-			gf_log (this->name, GF_LOG_ERROR,
-				"'trace' takes on only boolean values.");
-			return -1;
-		}
-	}
+        trace = dict_get (this->options, "trace");
+        if (trace) {
+                if (gf_string2boolean (trace->data,
+                                       &priv->trace) == -1) {
+                        gf_log (this->name, GF_LOG_ERROR,
+                                "'trace' takes on only boolean values.");
+                        return -1;
+                }
+        }
 
         this->private = priv;
         return 0;
@@ -1982,8 +1982,8 @@ struct volume_options options[] = {
         { .key  = { "mandatory-locks", "mandatory" },
           .type = GF_OPTION_TYPE_BOOL
         },
-	{ .key  = { "trace" },
-	  .type = GF_OPTION_TYPE_BOOL
-	},
+        { .key  = { "trace" },
+          .type = GF_OPTION_TYPE_BOOL
+        },
         { .key = {NULL} },
 };

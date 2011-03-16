@@ -57,11 +57,11 @@ allocate_domain (const char *volume)
 
 
         dom->domain = gf_strdup(volume);
-	if (!dom->domain) {
-		gf_log ("posix-locks", GF_LOG_TRACE,
-			"Out of Memory");
-		return NULL;
-	}
+        if (!dom->domain) {
+                gf_log ("posix-locks", GF_LOG_TRACE,
+                        "Out of Memory");
+                return NULL;
+        }
 
         gf_log ("posix-locks", GF_LOG_TRACE,
                 "New domain allocated: %s", dom->domain);
@@ -418,45 +418,45 @@ pl_inode_t *
 pl_inode_get (xlator_t *this, inode_t *inode)
 {
         uint64_t    tmp_pl_inode = 0;
-	pl_inode_t *pl_inode = NULL;
-//	mode_t      st_mode = 0;
-	int         ret = 0;
+        pl_inode_t *pl_inode = NULL;
+//        mode_t      st_mode = 0;
+        int         ret = 0;
 
-	ret = inode_ctx_get (inode, this,&tmp_pl_inode);
-	if (ret == 0) {
+        ret = inode_ctx_get (inode, this,&tmp_pl_inode);
+        if (ret == 0) {
                 pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
-		goto out;
+                goto out;
         }
-	pl_inode = GF_CALLOC (1, sizeof (*pl_inode),
+        pl_inode = GF_CALLOC (1, sizeof (*pl_inode),
                               gf_locks_mt_pl_inode_t);
-	if (!pl_inode) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory.");
-		goto out;
-	}
+        if (!pl_inode) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory.");
+                goto out;
+        }
 
         gf_log (this->name, GF_LOG_TRACE,
                 "Allocating new pl inode");
 
 /*
-	st_mode  = inode->st_mode;
-	if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
-		pl_inode->mandatory = 1;
+        st_mode  = inode->st_mode;
+        if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
+                pl_inode->mandatory = 1;
 */
 
-	pthread_mutex_init (&pl_inode->mutex, NULL);
+        pthread_mutex_init (&pl_inode->mutex, NULL);
 
-	INIT_LIST_HEAD (&pl_inode->dom_list);
-	INIT_LIST_HEAD (&pl_inode->ext_list);
-	INIT_LIST_HEAD (&pl_inode->rw_list);
-	INIT_LIST_HEAD (&pl_inode->reservelk_list);
-	INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
+        INIT_LIST_HEAD (&pl_inode->dom_list);
+        INIT_LIST_HEAD (&pl_inode->ext_list);
+        INIT_LIST_HEAD (&pl_inode->rw_list);
+        INIT_LIST_HEAD (&pl_inode->reservelk_list);
+        INIT_LIST_HEAD (&pl_inode->blocked_reservelks);
         INIT_LIST_HEAD (&pl_inode->blocked_calls);
 
-	inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
+        inode_ctx_put (inode, this, (uint64_t)(long)(pl_inode));
 
 out:
-	return pl_inode;
+        return pl_inode;
 }
 
 
@@ -465,31 +465,31 @@ posix_lock_t *
 new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
                 uint64_t owner, fd_t *fd)
 {
-	posix_lock_t *lock = NULL;
+        posix_lock_t *lock = NULL;
 
-	lock = GF_CALLOC (1, sizeof (posix_lock_t),
+        lock = GF_CALLOC (1, sizeof (posix_lock_t),
                           gf_locks_mt_posix_lock_t);
-	if (!lock) {
-		return NULL;
-	}
+        if (!lock) {
+                return NULL;
+        }
 
-	lock->fl_start = flock->l_start;
-	lock->fl_type  = flock->l_type;
+        lock->fl_start = flock->l_start;
+        lock->fl_type  = flock->l_type;
 
-	if (flock->l_len == 0)
-		lock->fl_end = LLONG_MAX;
-	else
-		lock->fl_end = flock->l_start + flock->l_len - 1;
+        if (flock->l_len == 0)
+                lock->fl_end = LLONG_MAX;
+        else
+                lock->fl_end = flock->l_start + flock->l_len - 1;
 
-	lock->transport  = transport;
+        lock->transport  = transport;
         lock->fd_num     = fd_to_fdnum (fd);
         lock->fd         = fd;
-	lock->client_pid = client_pid;
+        lock->client_pid = client_pid;
         lock->owner      = owner;
 
-	INIT_LIST_HEAD (&lock->list);
+        INIT_LIST_HEAD (&lock->list);
 
-	return lock;
+        return lock;
 }
 
 
@@ -497,7 +497,7 @@ new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
 void
 __delete_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
-	list_del_init (&lock->list);
+        list_del_init (&lock->list);
 }
 
 
@@ -505,7 +505,7 @@ __delete_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
 void
 __destroy_lock (posix_lock_t *lock)
 {
-	GF_FREE (lock);
+        GF_FREE (lock);
 }
 
 
@@ -513,15 +513,15 @@ __destroy_lock (posix_lock_t *lock)
 void
 posix_lock_to_flock (posix_lock_t *lock, struct gf_flock *flock)
 {
-	flock->l_pid   = lock->client_pid;
-	flock->l_type  = lock->fl_type;
-	flock->l_start = lock->fl_start;
+        flock->l_pid   = lock->client_pid;
+        flock->l_type  = lock->fl_type;
+        flock->l_start = lock->fl_start;
         flock->l_owner = lock->owner;
 
-	if (lock->fl_end == LLONG_MAX)
-		flock->l_len = 0;
-	else
-		flock->l_len = lock->fl_end - lock->fl_start + 1;
+        if (lock->fl_end == LLONG_MAX)
+                flock->l_len = 0;
+        else
+                flock->l_len = lock->fl_end - lock->fl_start + 1;
 }
 
 /* Insert the lock into the inode's lock list */
@@ -530,7 +530,7 @@ __insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
         list_add_tail (&lock->list, &pl_inode->ext_list);
 
-	return;
+        return;
 }
 
 
@@ -538,14 +538,14 @@ __insert_lock (pl_inode_t *pl_inode, posix_lock_t *lock)
 int
 locks_overlap (posix_lock_t *l1, posix_lock_t *l2)
 {
-	/* 
-	   Note:
-	   FUSE always gives us absolute offsets, so no need to worry 
-	   about SEEK_CUR or SEEK_END
-	*/
+        /*
+           Note:
+           FUSE always gives us absolute offsets, so no need to worry
+           about SEEK_CUR or SEEK_END
+        */
 
-	return ((l1->fl_end >= l2->fl_start) &&
-		(l2->fl_end >= l1->fl_start));
+        return ((l1->fl_end >= l2->fl_start) &&
+                (l2->fl_end >= l1->fl_start));
 }
 
 
@@ -564,15 +564,15 @@ same_owner (posix_lock_t *l1, posix_lock_t *l2)
 void
 __delete_unlck_locks (pl_inode_t *pl_inode)
 {
-	posix_lock_t *l = NULL;
-	posix_lock_t *tmp = NULL;
+        posix_lock_t *l = NULL;
+        posix_lock_t *tmp = NULL;
 
-	list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
-		if (l->fl_type == F_UNLCK) {
-			__delete_lock (pl_inode, l);
-			__destroy_lock (l);
-		}
-	}
+        list_for_each_entry_safe (l, tmp, &pl_inode->ext_list, list) {
+                if (l->fl_type == F_UNLCK) {
+                        __delete_lock (pl_inode, l);
+                        __destroy_lock (l);
+                }
+        }
 }
 
 
@@ -580,22 +580,22 @@ __delete_unlck_locks (pl_inode_t *pl_inode)
 static posix_lock_t *
 add_locks (posix_lock_t *l1, posix_lock_t *l2)
 {
-	posix_lock_t *sum = NULL;
+        posix_lock_t *sum = NULL;
 
-	sum = GF_CALLOC (1, sizeof (posix_lock_t),
+        sum = GF_CALLOC (1, sizeof (posix_lock_t),
                          gf_locks_mt_posix_lock_t);
-	if (!sum)
-		return NULL;
+        if (!sum)
+                return NULL;
 
-	sum->fl_start = min (l1->fl_start, l2->fl_start);
-	sum->fl_end   = max (l1->fl_end, l2->fl_end);
+        sum->fl_start = min (l1->fl_start, l2->fl_start);
+        sum->fl_end   = max (l1->fl_end, l2->fl_end);
 
-	return sum;
+        return sum;
 }
 
 /* Subtract two locks */
 struct _values {
-	posix_lock_t *locks[3];
+        posix_lock_t *locks[3];
 };
 
 /* {big} must always be contained inside {small} */
@@ -603,85 +603,85 @@ static struct _values
 subtract_locks (posix_lock_t *big, posix_lock_t *small)
 {
 
-	struct _values v = { .locks = {0, 0, 0} };
+        struct _values v = { .locks = {0, 0, 0} };
 
-	if ((big->fl_start == small->fl_start) &&
-	    (big->fl_end   == small->fl_end)) {
-		/* both edges coincide with big */
-		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
+        if ((big->fl_start == small->fl_start) &&
+            (big->fl_end   == small->fl_end)) {
+                /* both edges coincide with big */
+                v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[0])
                         goto out;
-		memcpy (v.locks[0], big, sizeof (posix_lock_t));
-		v.locks[0]->fl_type = small->fl_type;
+                memcpy (v.locks[0], big, sizeof (posix_lock_t));
+                v.locks[0]->fl_type = small->fl_type;
                 goto done;
-	}
+        }
 
-	if ((small->fl_start > big->fl_start) &&
+        if ((small->fl_start > big->fl_start) &&
             (small->fl_end   < big->fl_end)) {
-		/* both edges lie inside big */
-		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
+                /* both edges lie inside big */
+                v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[0])
                         goto out;
 
-		v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
+                v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[1])
                         goto out;
 
-		v.locks[2] = GF_CALLOC (1, sizeof (posix_lock_t),
+                v.locks[2] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[1])
                         goto out;
 
-		memcpy (v.locks[0], big, sizeof (posix_lock_t));
-		v.locks[0]->fl_end = small->fl_start - 1;
+                memcpy (v.locks[0], big, sizeof (posix_lock_t));
+                v.locks[0]->fl_end = small->fl_start - 1;
 
-		memcpy (v.locks[1], small, sizeof (posix_lock_t));
+                memcpy (v.locks[1], small, sizeof (posix_lock_t));
 
-		memcpy (v.locks[2], big, sizeof (posix_lock_t));
-		v.locks[2]->fl_start = small->fl_end + 1;
+                memcpy (v.locks[2], big, sizeof (posix_lock_t));
+                v.locks[2]->fl_start = small->fl_end + 1;
                 goto done;
 
-	}
+        }
 
-	/* one edge coincides with big */
+        /* one edge coincides with big */
         if (small->fl_start == big->fl_start) {
-		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
+                v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[0])
                         goto out;
 
-		v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
+                v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[1])
                         goto out;
 
-		memcpy (v.locks[0], big, sizeof (posix_lock_t));
-		v.locks[0]->fl_start = small->fl_end + 1;
+                memcpy (v.locks[0], big, sizeof (posix_lock_t));
+                v.locks[0]->fl_start = small->fl_end + 1;
 
-		memcpy (v.locks[1], small, sizeof (posix_lock_t));
+                memcpy (v.locks[1], small, sizeof (posix_lock_t));
                 goto done;
-	}
+        }
 
-	if (small->fl_end  == big->fl_end) {
-		v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
+        if (small->fl_end  == big->fl_end) {
+                v.locks[0] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[0])
                         goto out;
 
-		v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
+                v.locks[1] = GF_CALLOC (1, sizeof (posix_lock_t),
                                         gf_locks_mt_posix_lock_t);
                 if (!v.locks[1])
                         goto out;
 
-		memcpy (v.locks[0], big, sizeof (posix_lock_t));
-		v.locks[0]->fl_end = small->fl_start - 1;
+                memcpy (v.locks[0], big, sizeof (posix_lock_t));
+                v.locks[0]->fl_end = small->fl_start - 1;
 
-		memcpy (v.locks[1], small, sizeof (posix_lock_t));
+                memcpy (v.locks[1], small, sizeof (posix_lock_t));
                 goto done;
-	}
+        }
 
         gf_log ("posix-locks", GF_LOG_ERROR,
                 "Unexpected case in subtract_locks. Please send "
@@ -860,7 +860,7 @@ __grant_blocked_locks (xlator_t *this, pl_inode_t *pl_inode, struct list_head *g
                 list_del_init (&l->list);
 
                 if (__is_lock_grantable (pl_inode, l)) {
-			conf = GF_CALLOC (1, sizeof (*conf),
+                        conf = GF_CALLOC (1, sizeof (*conf),
                                           gf_locks_mt_posix_lock_t);
 
                         if (!conf) {
@@ -986,19 +986,19 @@ pl_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                 /* Send unlock before the actual lock to
                    prevent lock upgrade / downgrade
                    problems only if:
-		   - it is a blocking call
-		   - it has other conflicting locks
+                   - it is a blocking call
+                   - it has other conflicting locks
                 */
 
-		if (can_block &&
-		    !(__is_lock_grantable (pl_inode, lock))) {
-			ret = pl_send_prelock_unlock (this, pl_inode,
-						      lock);
-			if (ret)
-				gf_log (this->name, GF_LOG_DEBUG,
+                if (can_block &&
+                    !(__is_lock_grantable (pl_inode, lock))) {
+                        ret = pl_send_prelock_unlock (this, pl_inode,
+                                                      lock);
+                        if (ret)
+                                gf_log (this->name, GF_LOG_DEBUG,
                                 "Could not send pre-lock "
-					"unlock");
-		}
+                                        "unlock");
+                }
 
                 if (__is_lock_grantable (pl_inode, lock)) {
                         gf_log (this->name, GF_LOG_TRACE,
