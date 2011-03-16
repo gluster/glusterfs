@@ -3610,7 +3610,7 @@ stop_gsync (char *master, char *slave, char **op_errstr)
         int32_t         status  = 0;
         pid_t           pid     = 0;
         FILE            *file   = NULL;
-        char            pidfile[1024] = {0,};
+        char            pidfile[PATH_MAX] = {0,};
         char            buf [256] = {0,};
 
         ret = gsync_status (master, slave, &status);
