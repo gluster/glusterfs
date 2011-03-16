@@ -82,12 +82,12 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
         int32_t  ret    = -1;
         char    *parent = NULL;
 
-        if ((loc == NULL) || (inode == NULL) || (path == NULL)
-            || (inode->table == NULL)) {
-                ret = -1;
-                errno = EINVAL;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("quick-read", loc, out, errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("quick-read", inode, out, errno,
+                                        EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("quick-read", path, out, errno, EINVAL);
+        GF_VALIDATE_OR_GOTO_WITH_ERROR ("quick-read", inode->table, out, errno,
+                                        EINVAL);
 
         loc->inode = inode_ref (inode);
         loc->path = gf_strdup (path);
@@ -104,6 +104,9 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
         loc->parent = inode_from_path (inode->table, parent);
         if (loc->parent == NULL) {
                 ret = -1;
+                errno = EINVAL;
+                gf_log ("quick-read", GF_LOG_WARNING,
+                        "cannot search parent inode for path (%s)", path);
                 goto out;
         }
 
@@ -112,7 +115,6 @@ qr_loc_fill (loc_t *loc, inode_t *inode, char *path)
 out:
         if (ret == -1) {
                 qr_loc_wipe (loc);
-
         }
 
         if (parent) {
@@ -129,9 +131,7 @@ qr_resume_pending_ops (qr_fd_ctx_t *qr_fd_ctx, int32_t op_ret, int32_t op_errno)
         call_stub_t      *stub        = NULL, *tmp = NULL;
         struct list_head  waiting_ops = {0, };
 
-        if (qr_fd_ctx == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("quick-read", qr_fd_ctx, out);
 
         INIT_LIST_HEAD (&waiting_ops);
 
@@ -165,9 +165,7 @@ out:
 static void
 qr_fd_ctx_free (qr_fd_ctx_t *qr_fd_ctx)
 {
-        if (qr_fd_ctx == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("quick-read", qr_fd_ctx, out);
 
         GF_ASSERT (list_empty (&qr_fd_ctx->waiting_ops));
 
@@ -178,15 +176,23 @@ out:
         return;
 }
 
+
 static inline uint32_t
 is_match (const char *path, const char *pattern)
 {
-        int32_t ret = 0;
+        int32_t  ret = 0;
+        uint32_t match = 0;
+
+        GF_VALIDATE_OR_GOTO ("quick-read", path, out);
+        GF_VALIDATE_OR_GOTO ("quick-read", pattern, out);
 
         ret = fnmatch (pattern, path, FNM_NOESCAPE);
+        match = (ret == 0);
 
-        return (ret == 0);
+out:
+        return match;
 }
+
 
 uint32_t
 qr_get_priority (qr_conf_t *conf, const char *path)
@@ -194,11 +200,15 @@ qr_get_priority (qr_conf_t *conf, const char *path)
         uint32_t            priority = 0;
         struct qr_priority *curr     = NULL;
 
+        GF_VALIDATE_OR_GOTO ("quick-read", conf, out);
+        GF_VALIDATE_OR_GOTO ("quick-read", path, out);
+
         list_for_each_entry (curr, &conf->priority_list, list) {
                 if (is_match (path, curr->pattern))
                         priority = curr->priority;
         }
 
+out:
         return priority;
 }
 
@@ -211,11 +221,15 @@ __qr_inode_alloc (xlator_t *this, char *path, inode_t *inode)
         qr_private_t  *priv     = NULL;
         int            priority = 0;
 
+        GF_VALIDATE_OR_GOTO ("quick-read", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, path, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
         priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
 
         qr_inode = GF_CALLOC (1, sizeof (*qr_inode), gf_qr_mt_qr_inode_t);
         if (qr_inode == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -236,9 +250,7 @@ out:
 void
 __qr_inode_free (qr_inode_t *qr_inode)
 {
-        if (qr_inode == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("quick-read", qr_inode, out);
 
         if (qr_inode->xattr) {
                 dict_unref (qr_inode->xattr);
@@ -263,7 +275,10 @@ __qr_cache_prune (xlator_t *this)
         uint64_t          size_to_prune = 0;
         uint64_t          size_pruned   = 0;
 
+        GF_VALIDATE_OR_GOTO ("quick-read", this, out);
         priv = this->private;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+
         table = &priv->table;
         conf = &priv->conf;
 
@@ -281,6 +296,8 @@ __qr_cache_prune (xlator_t *this)
 
 done:
         table->cache_used -= size_pruned;
+
+out:
         return;
 }
 
@@ -288,7 +305,15 @@ done:
 inline char
 __qr_need_cache_prune (qr_conf_t *conf, qr_inode_table_t *table)
 {
-        return (table->cache_used > conf->cache_size);
+        char need_prune = 0;
+
+        GF_VALIDATE_OR_GOTO ("quick-read", conf, out);
+        GF_VALIDATE_OR_GOTO ("quick-read", table, out);
+
+        need_prune = (table->cache_used > conf->cache_size);
+
+out:
+        return need_prune;
 }
 
 
@@ -306,7 +331,18 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         qr_private_t     *priv     = NULL;
         qr_local_t       *local    = NULL;
 
+        GF_ASSERT (frame);
+
         if ((op_ret == -1) || (dict == NULL)) {
+                goto out;
+        }
+
+        if ((this == NULL) || (this->private == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "quick-read configuration is not found");
+                op_ret = -1;
+                op_errno = EINVAL;
                 goto out;
         }
 
@@ -327,6 +363,8 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         if (inode == NULL) {
                 op_ret = -1;
                 op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup returned a NULL inode");
                 goto out;
         }
 
@@ -353,6 +391,10 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                 qr_inode = NULL;
                                 op_ret = -1;
                                 op_errno = EINVAL;
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cannot set quick-read context in "
+                                        "inode (ino:%"PRId64" gfid:%s)",
+                                        inode->ino, inode->gfid);
                                 goto unlock;
                         }
                 } else {
@@ -360,6 +402,10 @@ qr_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         if (qr_inode == NULL) {
                                 op_ret = -1;
                                 op_errno = EINVAL;
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cannot find quick-read context in "
+                                        "inode (ino:%"PRId64" gfid:%s)",
+                                        inode->ino, uuid_utoa (inode->gfid));
                                 goto unlock;
                         }
                 }
@@ -399,7 +445,7 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
         qr_conf_t        *conf           = NULL;
         dict_t           *new_req_dict   = NULL;
-        int32_t           op_ret         = -1, op_errno = -1;
+        int32_t           op_ret         = -1, op_errno = EINVAL;
         data_t           *content        = NULL;
         uint64_t          requested_size = 0, size = 0, value = 0;
         char              cached         = 0;
@@ -408,7 +454,13 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         qr_inode_table_t *table          = NULL;
         qr_local_t       *local          = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
+
         priv = this->private;
+        GF_VALIDATE_OR_GOTO (frame->this->name, priv, unwind);
+
         conf = &priv->conf;
         if (conf == NULL) {
                 op_ret = -1;
@@ -445,7 +497,6 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                 if (xattr_req == NULL) {
                         op_ret = -1;
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
                         goto unwind;
                 }
         }
@@ -468,6 +519,10 @@ qr_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
                         if (op_ret < 0) {
                                 op_ret = -1;
                                 op_errno = ENOMEM;
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cannot set key in request dict to "
+                                        "request file "
+                                        "content during lookup cbk");
                                 goto unwind;
                         }
                 }
@@ -501,13 +556,15 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         uint64_t          value     = 0;
         int32_t           ret       = -1;
         qr_local_t       *local     = NULL;
-        qr_inode_t        *qr_inode = NULL;
+        qr_inode_t       *qr_inode  = NULL;
         qr_fd_ctx_t      *qr_fd_ctx = NULL;
         call_stub_t      *stub      = NULL, *tmp = NULL;
         char              is_open   = 0;
         qr_private_t     *priv      = NULL;
         qr_inode_table_t *table     = NULL;
         struct list_head  waiting_ops;
+
+        GF_ASSERT (frame);
 
         priv = this->private;
         table = &priv->table;
@@ -525,6 +582,10 @@ qr_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         if ((ret == -1) && (op_ret != -1)) {
                 op_ret = -1;
                 op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot find quick-read context in fd (%p) opened on "
+                        "inode (ino:%"PRId64" gfid: %s", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 goto out;
         }
 
@@ -595,10 +656,15 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         uint64_t          filep          = 0;
         char              content_cached = 0;
         qr_fd_ctx_t      *qr_fd_ctx      = NULL, *tmp_fd_ctx = NULL;
-        int32_t           op_ret         = -1, op_errno = -1;
+        int32_t           op_ret         = -1, op_errno = EINVAL;
         qr_local_t       *local          = NULL;
         qr_private_t     *priv           = NULL;
         qr_inode_table_t *table          = NULL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this->private, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, unwind);
 
         priv = this->private;
         table = &priv->table;
@@ -608,7 +674,6 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (qr_fd_ctx == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
 
@@ -616,6 +681,12 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         INIT_LIST_HEAD (&qr_fd_ctx->waiting_ops);
 
         qr_fd_ctx->path = gf_strdup (loc->path);
+        if (qr_fd_ctx->path == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto unwind;
+        }
+
         qr_fd_ctx->flags = flags;
         qr_fd_ctx->wbflags = wbflags;
 
@@ -623,15 +694,19 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (ret == -1) {
                 op_ret = -1;
                 op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot set quick-read context in "
+                        "fd (%p) opened on inode (ino:%"PRId64" gfid:%s)", fd,
+                        fd->inode->ino, uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
+
         tmp_fd_ctx = NULL;
 
         local = GF_CALLOC (1, sizeof (*local), gf_qr_mt_qr_local_t);
         if (local == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto unwind;
         }
 
@@ -655,6 +730,8 @@ qr_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if (content_cached && ((flags & O_DIRECTORY) == O_DIRECTORY)) {
                 op_ret = -1;
                 op_errno = ENOTDIR;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "open with O_DIRECTORY flag recieved on non-directory");
                 goto unwind;
         }
 
@@ -701,7 +778,15 @@ wind:
 static inline time_t
 qr_time_elapsed (struct timeval *now, struct timeval *then)
 {
-        return now->tv_sec - then->tv_sec;
+        time_t time_elapsed = 0;
+
+        GF_VALIDATE_OR_GOTO ("quick-read", now, out);
+        GF_VALIDATE_OR_GOTO ("quick-read", then, out);
+
+        time_elapsed = now->tv_sec - then->tv_sec;
+
+out:
+        return time_elapsed;
 }
 
 
@@ -711,11 +796,15 @@ qr_need_validation (qr_conf_t *conf, qr_inode_t *qr_inode)
         struct timeval now             = {0, };
         char           need_validation = 0;
 
+        GF_VALIDATE_OR_GOTO ("quick-read", conf, out);
+        GF_VALIDATE_OR_GOTO ("quick-read", qr_inode, out);
+
         gettimeofday (&now, NULL);
 
         if (qr_time_elapsed (&now, &qr_inode->tv) >= conf->cache_timeout)
                 need_validation = 1;
 
+out:
         return need_validation;
 }
 
@@ -732,10 +821,22 @@ qr_validate_cache_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         qr_inode_table_t *table     = NULL;
         call_stub_t      *stub      = NULL;
 
+        GF_ASSERT (frame);
+        if (this == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "xlator object (this) is NULL");
+                goto unwind;
+        }
+
         local = frame->local;
         if ((local == NULL) || ((local->fd) == NULL)) {
                 op_ret = -1;
                 op_errno = EINVAL;
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (local == NULL) ? "local is NULL"
+                        : "fd is not stored in local");
                 goto unwind;
         }
 
@@ -788,6 +889,9 @@ qr_validate_cache_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
         qr_local_t *local  = NULL;
         int32_t     op_ret = -1, op_errno = -1;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, out);
+
         local = frame->local;
         if (local == NULL) {
                 op_ret = -1;
@@ -797,6 +901,7 @@ qr_validate_cache_helper (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 op_errno = local->op_errno;
         }
 
+out:
         if (op_ret == -1) {
                 qr_validate_cache_cbk (frame, NULL, this, op_ret, op_errno,
                                        NULL);
@@ -822,6 +927,11 @@ qr_validate_cache (call_frame_t *frame, xlator_t *this, fd_t *fd,
         qr_fd_ctx_t *qr_fd_ctx     = NULL;
         call_stub_t *validate_stub = NULL;
         char         need_open     = 0, can_wind = 0;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, fd, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, stub, out);
 
         if (frame->local == NULL) {
                 local = GF_CALLOC (1, sizeof (*local), gf_qr_mt_qr_local_t);
@@ -907,6 +1017,8 @@ qr_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct iatt *stbuf, struct iobref *iobref)
 {
+        GF_ASSERT (frame);
+
         QR_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count,
                          stbuf, iobref);
         return 0;
@@ -1227,6 +1339,7 @@ qr_writev_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (writev, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
@@ -1440,11 +1553,20 @@ qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         qr_fd_ctx_t *qr_fd_ctx = NULL;
         char         need_open = 0, can_wind = 0, need_unwind = 0;
         uint64_t     value     = 0;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         call_stub_t *stub      = NULL;
         loc_t        loc       = {0, };
         char        *path      = NULL;
         int          flags     = 0;
+
+        GF_ASSERT (frame);
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "fd is NULL");
+                need_unwind = 1;
+                goto unwind;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -1497,6 +1619,7 @@ qr_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 can_wind = 1;
         }
 
+unwind:
         if (need_unwind) {
                 QR_STACK_UNWIND (fstat, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
@@ -1526,6 +1649,7 @@ qr_fsetattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno,
                  struct iatt *preop, struct iatt *postop)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, preop, postop);
         return 0;
 }
@@ -1584,8 +1708,17 @@ qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         char        *path      = NULL;
         loc_t        loc       = {0, };
         qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open = 0, can_wind = 0, need_unwind = 0;
+
+        GF_ASSERT (frame);
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL" :
+                        "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -1638,6 +1771,7 @@ qr_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fsetattr, frame, op_ret, op_errno, NULL, NULL);
         } else if (can_wind) {
@@ -1667,6 +1801,7 @@ int32_t
 qr_fsetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno);
         return 0;
 }
@@ -1724,8 +1859,17 @@ qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         loc_t        loc        = {0, };
         int          open_flags = 0;
         qr_fd_ctx_t *qr_fd_ctx  = NULL;
-        int32_t      ret        = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret        = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open  = 0, can_wind = 0, need_unwind = 0;
+
+        GF_ASSERT (frame);
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) "
+                        "is NULL" : "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -1779,6 +1923,7 @@ qr_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fsetxattr, frame, op_ret, op_errno);
         } else if (can_wind) {
@@ -1808,6 +1953,7 @@ int32_t
 qr_fgetxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (fgetxattr, frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -1864,13 +2010,22 @@ qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
         char        *path      = NULL;
         loc_t        loc       = {0, };
         qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open = 0, can_wind = 0, need_unwind = 0;
 
         /*
          * FIXME: Can quick-read use the extended attributes stored in the
          * cache? this needs to be discussed.
          */
+
+        GF_ASSERT (frame);
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL" :
+                        "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -1924,6 +2079,7 @@ qr_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name)
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (open, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
@@ -1952,6 +2108,7 @@ int32_t
 qr_flush_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (flush, frame, op_ret, op_errno);
         return 0;
 }
@@ -2003,8 +2160,17 @@ qr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         uint64_t     value     = 0;
         call_stub_t *stub      = NULL;
         qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         char         can_wind  = 0, need_unwind = 0;
+
+        GF_ASSERT (frame);
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -2051,6 +2217,7 @@ qr_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (flush, frame, op_ret, op_errno);
         } else if (can_wind) {
@@ -2066,9 +2233,11 @@ int32_t
 qr_fentrylk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (fentrylk, frame, op_ret, op_errno);
         return 0;
 }
+
 
 int32_t
 qr_fentrylk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
@@ -2124,8 +2293,16 @@ qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
         char        *path      = NULL;
         loc_t        loc       = {0, };
         qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open = 0, can_wind = 0, need_unwind = 0;
+
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -2180,6 +2357,7 @@ qr_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fentrylk, frame, op_ret, op_errno);
         } else if (can_wind) {
@@ -2210,6 +2388,7 @@ qr_finodelk_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno)
 
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (finodelk, frame, op_ret, op_errno);
         return 0;
 }
@@ -2267,8 +2446,16 @@ qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
         char        *path      = NULL;
         loc_t        loc       = {0, };
         qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open = 0, can_wind = 0, need_unwind = 0;
+
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -2323,6 +2510,7 @@ qr_finodelk (call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (finodelk, frame, op_ret, op_errno);
         } else if (can_wind) {
@@ -2352,6 +2540,7 @@ int32_t
 qr_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *prebuf, struct iatt *postbuf)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (fsync, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
@@ -2406,8 +2595,16 @@ qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         loc_t        loc        = {0, };
         int          open_flags = 0;
         qr_fd_ctx_t *qr_fd_ctx  = NULL;
-        int32_t      ret        = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret        = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open  = 0, can_wind = 0, need_unwind = 0;
+
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -2460,6 +2657,7 @@ qr_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (fsync, frame, op_ret, op_errno, NULL, NULL);
         } else if (can_wind) {
@@ -2496,20 +2694,33 @@ qr_ftruncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         qr_private_t     *priv     = NULL;
         qr_inode_table_t *table    = NULL;
 
+        GF_ASSERT (frame);
+
         if (op_ret == -1) {
                 goto out;
         }
-
-        priv = this->private;
-        table = &priv->table;
 
         local = frame->local;
         if ((local == NULL) || (local->fd == NULL)
             || (local->fd->inode == NULL)) {
                 op_ret = -1;
                 op_errno = EINVAL;
+                gf_log (frame->this->name, GF_LOG_WARNING, "cannot get inode");
                 goto out;
         }
+
+        if ((this == NULL) || (this->private == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "cannot get quick read configuration from xlator "
+                        "object");
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        priv = this->private;
+        table = &priv->table;
 
         LOCK (&table->lock);
         {
@@ -2588,8 +2799,17 @@ qr_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         loc_t        loc       = {0, };
         qr_local_t  *local     = NULL;
         qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open = 0, can_wind = 0, need_unwind = 0;
+
+        GF_ASSERT (frame);
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -2673,6 +2893,7 @@ int32_t
 qr_lk_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
            int32_t op_errno, struct gf_flock *lock)
 {
+        GF_ASSERT (frame);
         QR_STACK_UNWIND (lk, frame, op_ret, op_errno, lock);
         return 0;
 }
@@ -2730,8 +2951,17 @@ qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         char        *path      = NULL;
         loc_t        loc       = {0, };
         qr_fd_ctx_t *qr_fd_ctx = NULL;
-        int32_t      ret       = -1, op_ret = -1, op_errno = -1;
+        int32_t      ret       = -1, op_ret = -1, op_errno = EINVAL;
         char         need_open = 0, can_wind = 0, need_unwind = 0;
+
+        GF_ASSERT (frame);
+        if ((this == NULL) || (fd == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "fd is NULL");
+                need_unwind = 1;
+                goto out;
+        }
 
         ret = fd_ctx_get (fd, this, &value);
         if (ret == 0) {
@@ -2784,6 +3014,7 @@ qr_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 can_wind = 1;
         }
 
+out:
         if (need_unwind) {
                 QR_STACK_UNWIND (lk, frame, op_ret, op_errno, NULL);
         } else if (can_wind) {
@@ -2815,6 +3046,9 @@ qr_release (xlator_t *this, fd_t *fd)
         int32_t      ret       = 0;
         uint64_t     value     = 0;
 
+        GF_VALIDATE_OR_GOTO ("quick-read", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
+
         ret = fd_ctx_del (fd, this, &value);
         if (ret == 0) {
                 qr_fd_ctx = (qr_fd_ctx_t *)(long) value;
@@ -2823,6 +3057,7 @@ qr_release (xlator_t *this, fd_t *fd)
                 }
         }
 
+out:
         return 0;
 }
 
@@ -2834,6 +3069,10 @@ qr_forget (xlator_t *this, inode_t *inode)
         uint64_t      value     = 0;
         int32_t       ret       = -1;
         qr_private_t *priv      = NULL;
+
+        GF_VALIDATE_OR_GOTO ("quick-read", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
         priv = this->private;
 
@@ -2847,6 +3086,7 @@ qr_forget (xlator_t *this, inode_t *inode)
         }
         UNLOCK (&priv->table.lock);
 
+out:
         return 0;
 }
 
@@ -2872,16 +3112,14 @@ qr_priv_dump (xlator_t *this)
         conf = &priv->conf;
 
         if (!conf) {
-                gf_log (this->name, GF_LOG_WARNING,
-                        "conf null in xlator");
+                gf_log (this->name, GF_LOG_WARNING, "conf null in xlator");
                 return -1;
         }
 
         table = &priv->table;
 
 
-        gf_proc_dump_build_key (key_prefix,
-                                "xlator.performance.quick-read",
+        gf_proc_dump_build_key (key_prefix, "xlator.performance.quick-read",
                                 "priv");
 
         gf_proc_dump_add_section (key_prefix);
@@ -2911,6 +3149,7 @@ qr_priv_dump (xlator_t *this)
 out:
         return 0;
 }
+
 
 int32_t
 mem_acct_init (xlator_t *this)
@@ -2995,6 +3234,7 @@ out:
         return ret;
 }
 
+
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
@@ -3005,14 +3245,11 @@ reconfigure (xlator_t *this, dict_t *options)
         int32_t       cache_timeout = 0;
         uint64_t      cache_size    = 0;
 
-        if (!this) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("quick-read", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+        GF_VALIDATE_OR_GOTO (this->name, options, out);
 
         priv = this->private;
-        if (!priv) {
-                goto out;
-        }
 
         conf = &priv->conf;
         if (!conf) {
@@ -3047,7 +3284,7 @@ reconfigure (xlator_t *this, dict_t *options)
                         goto out;
                 }
 
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "Reconfiguring cache-siz to %"PRIu64, cache_size);
                 conf->cache_size = cache_size;
         } else {
@@ -3073,6 +3310,9 @@ qr_get_priority_list (const char *opt_str, struct list_head *first)
         char                *priority     = NULL;
         char                *string       = NULL;
         struct qr_priority  *curr         = NULL, *tmp = NULL;
+
+        GF_VALIDATE_OR_GOTO ("quick-read", opt_str, out);
+        GF_VALIDATE_OR_GOTO ("quick-read", first, out);
 
         string = gf_strdup (opt_str);
         if (string == NULL) {
@@ -3181,8 +3421,6 @@ init (xlator_t *this)
 
         priv = GF_CALLOC (1, sizeof (*priv), gf_qr_mt_qr_private_t);
         if (priv == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 ret = -1;
                 goto out;
         }
@@ -3250,7 +3488,6 @@ init (xlator_t *this)
                                      gf_common_mt_list_head);
         if (priv->table.lru == NULL) {
                 ret = -1;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
