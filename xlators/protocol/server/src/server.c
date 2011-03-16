@@ -50,7 +50,7 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
          */
         iob = iobuf_get (req->svc->ctx->iobuf_pool);
         if (!iob) {
-                gf_log ("", GF_LOG_ERROR, "Failed to get iobuf");
+                gf_log_callingfn ("", GF_LOG_ERROR, "Failed to get iobuf");
                 goto ret;
         }
 
@@ -66,7 +66,7 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
                 /* Failed to Encode 'GlusterFS' msg in RPC is not exactly
                    failure of RPC return values.. client should get
                    notified about this, so there are no missing frames */
-                gf_log ("", GF_LOG_ERROR, "Failed to encode message");
+                gf_log_callingfn ("", GF_LOG_ERROR, "Failed to encode message");
                 req->rpc_err = GARBAGE_ARGS;
                 retlen = 0;
         }
@@ -105,7 +105,6 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         if (!iobref) {
                 iobref = iobref_new ();
                 if (!iobref) {
-                        gf_log ("", GF_LOG_ERROR, "out of memory");
                         goto ret;
                 }
 
@@ -134,7 +133,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
          */
         iobuf_unref (iob);
         if (ret == -1) {
-                gf_log ("", GF_LOG_ERROR, "Reply submission failed");
+                gf_log_callingfn ("", GF_LOG_ERROR, "Reply submission failed");
                 goto ret;
         }
 
@@ -403,8 +402,8 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
 
 
         if (!xl || !data) {
-                gf_log ("server", GF_LOG_WARNING,
-                        "Calling rpc_notify without initializing");
+                gf_log_callingfn ("server", GF_LOG_WARNING,
+                                  "Calling rpc_notify without initializing");
                 goto out;
         }
 
@@ -482,12 +481,10 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         data_t           *data;
         gf_boolean_t      trace;
 
-
-
         if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
                 if (!(inode_lru_limit < (1 * GF_UNIT_MB)  &&
                       inode_lru_limit >1 )) {
-                        gf_log (this->name, GF_LOG_DEBUG, "Validate inode-lru"
+                        gf_log (this->name, GF_LOG_INFO, "Validate inode-lru"
                                 "-limit %d, was WRONG", inode_lru_limit);
                         snprintf (errstr,1024, "Error, Greater than max value %d "
                                   ,inode_lru_limit);
@@ -515,7 +512,6 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
         auth_modules = dict_new ();
         if (!auth_modules) {
-                gf_log (this->name, GF_LOG_ERROR, "Out of memory");
                 ret = -1;
                 goto out;
         }
@@ -587,7 +583,7 @@ reconfigure (xlator_t *this, dict_t *options)
         conf = this->private;
 
         if (!conf) {
-                gf_log (this->name, GF_LOG_DEBUG, "conf == null!!!");
+                gf_log_callingfn (this->name, GF_LOG_DEBUG, "conf == null!!!");
                 goto out;
         }
         if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
@@ -709,6 +705,8 @@ init (xlator_t *this)
         //conf->rpc = rpc_svc_init (&conf->rpc_conf);
         conf->rpc = rpcsvc_init (this->ctx, this->options);
         if (conf->rpc == NULL) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "creation of rpcsvc failed");
                 ret = -1;
                 goto out;
         }
@@ -716,7 +714,7 @@ init (xlator_t *this)
         ret = rpcsvc_create_listeners (conf->rpc, this->options,
                                        this->name);
         if (ret < 1) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "creation of listener failed");
                 ret = -1;
                 goto out;
@@ -724,7 +722,7 @@ init (xlator_t *this)
 
         ret = rpcsvc_register_notify (conf->rpc, server_rpc_notify, this);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "registration of notify with rpcsvc failed");
                 goto out;
         }
@@ -732,7 +730,7 @@ init (xlator_t *this)
         glusterfs3_1_fop_prog.options = this->options;
         ret = rpcsvc_program_register (conf->rpc, &glusterfs3_1_fop_prog);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "registration of program (name:%s, prognum:%d, "
                         "progver:%d) failed", glusterfs3_1_fop_prog.progname,
                         glusterfs3_1_fop_prog.prognum,
@@ -743,7 +741,7 @@ init (xlator_t *this)
         gluster_handshake_prog.options = this->options;
         ret = rpcsvc_program_register (conf->rpc, &gluster_handshake_prog);
         if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "registration of program (name:%s, prognum:%d, "
                         "progver:%d) failed", gluster_handshake_prog.progname,
                         gluster_handshake_prog.prognum,
