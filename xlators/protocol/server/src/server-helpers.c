@@ -32,8 +32,8 @@ server_decode_groups (call_frame_t *frame, rpcsvc_request_t *req)
 {
         int     i = 0;
 
-        if ((!frame) || (!req))
-                return 0;
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+        GF_VALIDATE_OR_GOTO ("server", req, out);
 
         frame->root->ngrps = req->auxgidcount;
         if (frame->root->ngrps == 0)
@@ -44,7 +44,7 @@ server_decode_groups (call_frame_t *frame, rpcsvc_request_t *req)
 
         for (; i < frame->root->ngrps; ++i)
                 frame->root->groups[i] = req->auxgids[i];
-
+out:
         return 0;
 }
 
@@ -155,6 +155,11 @@ gf_add_locker (struct _lock_table *table, const char *volume,
         int32_t         ret = -1;
         struct _locker *new = NULL;
 
+        GF_VALIDATE_OR_GOTO ("server", table, out);
+        GF_VALIDATE_OR_GOTO ("server", volume, out);
+        GF_VALIDATE_OR_GOTO ("server", loc, out);
+        GF_VALIDATE_OR_GOTO ("server", fd, out);
+
         new = GF_CALLOC (1, sizeof (struct _locker), gf_server_mt_locker_t);
         if (new == NULL) {
                 gf_log ("server", GF_LOG_ERROR,
@@ -193,9 +198,14 @@ gf_del_locker (struct _lock_table *table, const char *volume,
 {
         struct _locker    *locker = NULL;
         struct _locker    *tmp = NULL;
-        int32_t            ret = 0;
+        int32_t            ret = -1;
         struct list_head  *head = NULL;
         struct list_head   del;
+
+        GF_VALIDATE_OR_GOTO ("server", table, out);
+        GF_VALIDATE_OR_GOTO ("server", volume, out);
+        GF_VALIDATE_OR_GOTO ("server", loc, out);
+        GF_VALIDATE_OR_GOTO ("server", fd, out);
 
         INIT_LIST_HEAD (&del);
 
@@ -237,6 +247,8 @@ gf_del_locker (struct _lock_table *table, const char *volume,
                 GF_FREE (locker);
         }
 
+        ret = 0;
+out:
         return ret;
 }
 
@@ -262,14 +274,22 @@ static int
 server_nop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno)
 {
+        int             ret   = -1;
         server_state_t *state = NULL;
+
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+        GF_VALIDATE_OR_GOTO ("server", cookie, out);
+        GF_VALIDATE_OR_GOTO ("server", this, out);
 
         state = CALL_STATE(frame);
 
         if (state)
                 free_state (state);
         STACK_DESTROY (frame->root);
-        return 0;
+
+        ret = 0;
+out:
+        return ret;
 }
 
 int
@@ -283,6 +303,11 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
         struct _locker   *locker = NULL, *tmp = NULL;
         int               ret = -1;
         char             *path = NULL;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+        GF_VALIDATE_OR_GOTO ("server", ltable, out);
 
         bound_xl = conn->bound_xl;
         INIT_LIST_HEAD (&inodelk_lockers);
@@ -311,8 +336,8 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                         goto out;
                 }
                 /*
-                   lock owner = 0 is a special case that tells posix-locks
-                   to release all locks from this transport
+                  lock owner = 0 is a special case that tells posix-locks
+                  to release all locks from this transport
                 */
                 tmp_frame->root->pid      = 0;
                 tmp_frame->root->lk_owner = 0;
@@ -416,7 +441,12 @@ server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
                                      xlator_t *this, int32_t op_ret,
                                      int32_t op_errno)
 {
+        int32_t ret = -1;
         fd_t *fd = NULL;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", cookie, out);
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
 
         fd = frame->local;
 
@@ -424,7 +454,10 @@ server_connection_cleanup_flush_cbk (call_frame_t *frame, void *cookie,
         frame->local = NULL;
 
         STACK_DESTROY (frame->root);
-        return 0;
+
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -437,6 +470,11 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
         call_frame_t       *tmp_frame = NULL;
         xlator_t           *bound_xl = NULL;
         char               *path     = NULL;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+        GF_VALIDATE_OR_GOTO ("server", fdentries, out);
 
         bound_xl = conn->bound_xl;
         for (i = 0;i < fd_count; i++) {
@@ -493,6 +531,11 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
         call_frame_t   *frame = NULL;
         server_state_t *state = NULL;
 
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
+        GF_VALIDATE_OR_GOTO ("server", fdentries, out);
+        GF_VALIDATE_OR_GOTO ("server", ltable, out);
+
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL) {
                 gf_log (this->name, GF_LOG_ERROR, "out of memory");
@@ -529,9 +572,8 @@ server_connection_cleanup (xlator_t *this, server_connection_t *conn)
         uint32_t            fd_count = 0;
         int                 ret = 0;
 
-        if (conn == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
 
         pthread_mutex_lock (&conn->lock);
         {
@@ -577,10 +619,8 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
         uint32_t             fd_count = 0;
         char               *path      = NULL;
 
-        if (conn == NULL) {
-                ret = 0;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
 
         bound_xl = (xlator_t *) (conn->bound_xl);
 
@@ -621,8 +661,8 @@ server_connection_destroy (xlator_t *this, server_connection_t *conn)
                                           tmp, &inodelk_lockers, lockers) {
                         tmp_frame = copy_frame (frame);
                         /*
-                           lock_owner = 0 is a special case that tells posix-locks
-                           to release all locks from this transport
+                          lock_owner = 0 is a special case that tells posix-locks
+                          to release all locks from this transport
                         */
                         tmp_frame->root->lk_owner = 0;
                         tmp_frame->root->trans = conn;
@@ -766,9 +806,12 @@ out:
 server_connection_t *
 server_connection_get (xlator_t *this, const char *id)
 {
-	server_connection_t *conn = NULL;
-	server_connection_t *trav = NULL;
-	server_conf_t       *conf = NULL;
+        server_connection_t *conn = NULL;
+        server_connection_t *trav = NULL;
+        server_conf_t       *conf = NULL;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", id, out);
 
         conf = this->private;
 
@@ -793,15 +836,15 @@ server_connection_get (xlator_t *this, const char *id)
                         conn->this    = this;
                         pthread_mutex_init (&conn->lock, NULL);
 
-			list_add (&conn->list, &conf->conns);
-		}
+                        list_add (&conn->list, &conf->conns);
+                }
 
                 conn->ref++;
                 conn->active_transports++;
-	}
+        }
 unlock:
-	pthread_mutex_unlock (&conf->mutex);
-
+        pthread_mutex_unlock (&conf->mutex);
+out:
         return conn;
 }
 
@@ -812,15 +855,11 @@ server_connection_put (xlator_t *this, server_connection_t *conn)
         server_conf_t       *conf = NULL;
         server_connection_t *todel = NULL;
 
-        if (conn == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
 
         conf = this->private;
-
-        if (conf == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("server", conf, out);
 
         pthread_mutex_lock (&conf->mutex);
         {
@@ -848,20 +887,19 @@ server_alloc_frame (rpcsvc_request_t *req)
         server_state_t       *state = NULL;
         server_connection_t  *conn  = NULL;
 
-        GF_VALIDATE_OR_GOTO("server", req, out);
-        GF_VALIDATE_OR_GOTO("server", req->trans, out);
-        GF_VALIDATE_OR_GOTO("server", req->svc, out);
-        GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
+        GF_VALIDATE_OR_GOTO ("server", req, out);
+        GF_VALIDATE_OR_GOTO ("server", req->trans, out);
+        GF_VALIDATE_OR_GOTO ("server", req->svc, out);
+        GF_VALIDATE_OR_GOTO ("server", req->svc->ctx, out);
 
         conn = (server_connection_t *)req->trans->xl_private;
-        if (!conn)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
 
         frame = create_frame (conn->this, req->svc->ctx->pool);
-        GF_VALIDATE_OR_GOTO("server", frame, out);
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
 
         state = GF_CALLOC (1, sizeof (*state), gf_server_mt_state_t);
-        GF_VALIDATE_OR_GOTO("server", state, out);
+        GF_VALIDATE_OR_GOTO ("server", state, out);
 
         if (conn->bound_xl)
                 state->itable = conn->bound_xl->itable;
@@ -887,9 +925,10 @@ get_frame_from_request (rpcsvc_request_t *req)
 {
         call_frame_t *frame = NULL;
 
+        GF_VALIDATE_OR_GOTO ("server", req, out);
+
         frame = server_alloc_frame (req);
-        if (!frame)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
 
         frame->root->op       = req->procnum;
         frame->root->type     = req->type;
@@ -917,6 +956,9 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         int         ret = -1;
         struct stat buf = {0,};
 
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", conf, out);
+
         ret = dict_get_int32 (this->options, "inode-lru-limit",
                               &conf->inode_lru_limit);
         if (ret < 0) {
@@ -935,14 +977,14 @@ server_build_config (xlator_t *this, server_conf_t *conf)
         }
 
         data = dict_get (this->options, "trace");
-	if (data) {
+        if (data) {
                 ret = gf_string2boolean (data->data, &conf->trace);
                 if (ret != 0) {
-			gf_log (this->name, GF_LOG_WARNING,
-				"'trace' takes on only boolean values. "
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "'trace' takes on only boolean values. "
                                 "Neglecting option");
-		}
-	}
+                }
+        }
 
         /* TODO: build_rpc_config (); */
         ret = dict_get_int32 (this->options, "limits.transaction-size",
@@ -984,7 +1026,12 @@ out:
 server_connection_t *
 get_server_conn_state (xlator_t *this, rpc_transport_t *xprt)
 {
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", xprt, out);
+
         return (server_connection_t *)xprt->xl_private;
+out:
+        return NULL;
 }
 
 server_connection_t *
@@ -992,6 +1039,9 @@ create_server_conn_state (xlator_t *this, rpc_transport_t *xprt)
 {
         server_connection_t *conn = NULL;
         int                  ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", xprt, out);
 
         conn = GF_CALLOC (1, sizeof (*conn), gf_server_mt_conn_t);
         if (!conn)
@@ -1022,9 +1072,7 @@ out:
 void
 destroy_server_conn_state (server_connection_t *conn)
 {
-        if (!conn) {
-                return;
-        }
+        GF_VALIDATE_OR_GOTO ("server", conn, out);
 
         if (conn->ltable) {
                 /* TODO */
@@ -1038,7 +1086,7 @@ destroy_server_conn_state (server_connection_t *conn)
         pthread_mutex_destroy (&conn->lock);
 
         GF_FREE (conn);
-
+out:
         return;
 }
 
@@ -1048,6 +1096,9 @@ print_caller (char *str, int size, call_frame_t *frame)
 {
         server_state_t  *state = NULL;
 
+        GF_VALIDATE_OR_GOTO ("server", str, out);
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+
         state = CALL_STATE (frame);
 
         snprintf (str, size,
@@ -1055,6 +1106,7 @@ print_caller (char *str, int size, call_frame_t *frame)
                   frame->root->unique,
                   state->xprt->peerinfo.identifier);
 
+out:
         return;
 }
 
@@ -1063,6 +1115,8 @@ void
 server_print_resolve (char *str, int size, server_resolve_t *resolve)
 {
         int filled = 0;
+
+        GF_VALIDATE_OR_GOTO ("server", str, out);
 
         if (!resolve) {
                 snprintf (str, size, "<nul>");
@@ -1091,6 +1145,8 @@ server_print_resolve (char *str, int size, server_resolve_t *resolve)
                                     "path=%s", resolve->path);
 
         snprintf (str + filled, size - filled, "}");
+out:
+        return;
 }
 
 
@@ -1098,6 +1154,8 @@ void
 server_print_loc (char *str, int size, loc_t *loc)
 {
         int filled = 0;
+
+        GF_VALIDATE_OR_GOTO ("server", str, out);
 
         if (!loc) {
                 snprintf (str, size, "<nul>");
@@ -1118,6 +1176,8 @@ server_print_loc (char *str, int size, loc_t *loc)
                                     "parent=%p", loc->parent);
 
         snprintf (str + filled, size - filled, "}");
+out:
+        return;
 }
 
 
@@ -1125,6 +1185,8 @@ void
 server_print_params (char *str, int size, server_state_t *state)
 {
         int filled = 0;
+
+        GF_VALIDATE_OR_GOTO ("server", str, out);
 
         filled += snprintf (str + filled, size - filled,
                             " Params={");
@@ -1165,6 +1227,8 @@ server_print_params (char *str, int size, server_state_t *state)
 
         snprintf (str + filled, size - filled,
                   "bound_xl=%s}", state->conn->bound_xl->name);
+out:
+        return;
 }
 
 int
@@ -1201,11 +1265,13 @@ server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
         char             fdstr[32];
         char            *op = "UNKNOWN";
 
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+
         this = frame->this;
         conf = this->private;
 
-        if (!conf || !conf->trace)
-                return;
+        GF_VALIDATE_OR_GOTO ("server", conf, out);
+        GF_VALIDATE_OR_GOTO ("server", conf->trace, out);
 
         state = CALL_STATE (frame);
 
@@ -1229,6 +1295,8 @@ server_print_reply (call_frame_t *frame, int op_ret, int op_errno)
         gf_log (this->name, GF_LOG_NORMAL,
                 "%s%s => (%d, %d)%s",
                 op, caller, op_ret, op_errno, fdstr);
+out:
+        return;
 }
 
 
@@ -1246,11 +1314,13 @@ server_print_request (call_frame_t *frame)
         char             caller[512];
         char            *op = "UNKNOWN";
 
+        GF_VALIDATE_OR_GOTO ("server", frame, out);
+
         this = frame->this;
         conf = this->private;
 
-        if (!conf || !conf->trace)
-                return;
+        GF_VALIDATE_OR_GOTO ("server", conf, out);
+        GF_VALIDATE_OR_GOTO ("server", conf->trace, out);
 
         state = CALL_STATE (frame);
 
@@ -1290,17 +1360,22 @@ server_print_request (call_frame_t *frame)
                 "%s%s%s%s%s%s%s",
                 op, caller,
                 resolve_vars, loc_vars, resolve2_vars, loc2_vars, other_vars);
+out:
+        return;
 }
 
 int
 serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
 {
-	gf_dirent_t         *entry = NULL;
+        gf_dirent_t         *entry = NULL;
         gfs3_dirplist       *trav = NULL;
         gfs3_dirplist       *prev = NULL;
-	int                  ret = -1;
+        int                  ret = -1;
 
-	list_for_each_entry (entry, &entries->list, list) {
+        GF_VALIDATE_OR_GOTO ("server", entries, out);
+        GF_VALIDATE_OR_GOTO ("server", rsp, out);
+
+        list_for_each_entry (entry, &entries->list, list) {
                 trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
                 if (!trav)
                         goto out;
@@ -1320,7 +1395,7 @@ serialize_rsp_direntp (gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
                         rsp->reply = trav;
 
                 prev = trav;
-	}
+        }
 
         ret = 0;
 out:
@@ -1331,12 +1406,15 @@ out:
 int
 serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
 {
-	gf_dirent_t         *entry = NULL;
+        gf_dirent_t         *entry = NULL;
         gfs3_dirlist        *trav = NULL;
         gfs3_dirlist        *prev = NULL;
-	int                  ret = -1;
+        int                  ret = -1;
 
-	list_for_each_entry (entry, &entries->list, list) {
+        GF_VALIDATE_OR_GOTO ("server", entries, out);
+        GF_VALIDATE_OR_GOTO ("server", rsp, out);
+
+        list_for_each_entry (entry, &entries->list, list) {
                 trav = GF_CALLOC (1, sizeof (*trav), gf_server_mt_dirent_rsp_t);
                 if (!trav)
                         goto out;
@@ -1351,7 +1429,7 @@ serialize_rsp_dirent (gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
                         rsp->reply = trav;
 
                 prev = trav;
-	}
+        }
 
         ret = 0;
 out:

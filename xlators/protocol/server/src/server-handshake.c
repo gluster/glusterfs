@@ -109,14 +109,14 @@ _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
                 temp_volfile->checksum  = checksum;
         }
 
- out:
+out:
         return 0;
 }
 
 
 static size_t
 getspec_build_volfile_path (xlator_t *this, const char *key, char *path,
-                           size_t path_len)
+                            size_t path_len)
 {
         int              ret = -1;
         int              free_filename = 0;
@@ -205,7 +205,7 @@ _validate_volfile_checksum (xlator_t *this, char *key,
 
         if (!temp_volfile) {
                 ret = getspec_build_volfile_path (this, key, filename,
-                                          sizeof (filename));
+                                                  sizeof (filename));
                 if (ret <= 0)
                         goto out;
                 fd = open (filename, O_RDONLY);
@@ -377,7 +377,7 @@ server_setvolume (rpcsvc_request_t *req)
                 op_errno = ENOMEM;
                 goto fail;
         }
-                        
+
         ret = dict_unserialize (buf, args.dict.dict_len, &params);
         if (ret < 0) {
                 ret = dict_set_str (reply, "ERROR",
@@ -438,7 +438,7 @@ server_setvolume (rpcsvc_request_t *req)
                 ret = gf_asprintf (&msg, "version mismatch: client(%d)"
                                    " - client-mgmt(%d)",
                                    fop_version, mgmt_version);
-                                /* get_supported_version (req)); */
+                /* get_supported_version (req)); */
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "asprintf failed while setting up error msg");
@@ -470,7 +470,7 @@ server_setvolume (rpcsvc_request_t *req)
         xl = get_xlator_by_name (this, name);
         if (xl == NULL) {
                 ret = gf_asprintf (&msg, "remote-subvolume \"%s\" is not found",
-                                name);
+                                   name);
                 if (-1 == ret) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "asprintf failed while setting error msg");

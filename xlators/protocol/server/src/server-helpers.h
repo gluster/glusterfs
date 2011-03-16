@@ -28,16 +28,16 @@
 
 #define XPRT_FROM_FRAME(frame) ((rpc_transport_t *) CALL_STATE(frame)->xprt)
 
-#define SERVER_CONNECTION(frame)  \
-	((server_connection_t *) CALL_STATE(frame)->conn)
+#define SERVER_CONNECTION(frame)                                \
+        ((server_connection_t *) CALL_STATE(frame)->conn)
 
-#define SERVER_CONF(frame) \
-	((server_conf_t *)XPRT_FROM_FRAME(frame)->this->private)
+#define SERVER_CONF(frame)                                              \
+        ((server_conf_t *)XPRT_FROM_FRAME(frame)->this->private)
 
 #define XPRT_FROM_XLATOR(this) ((((server_conf_t *)this->private))->listen)
 
-#define INODE_LRU_LIMIT(this)				\
-	(((server_conf_t *)(this->private))->config.inode_lru_limit)
+#define INODE_LRU_LIMIT(this)                                           \
+        (((server_conf_t *)(this->private))->config.inode_lru_limit)
 
 #define IS_ROOT_INODE(inode) (inode == inode->table->root)
 
@@ -49,17 +49,17 @@ void server_loc_wipe (loc_t *loc);
 
 int32_t
 gf_add_locker (struct _lock_table *table, const char *volume,
-	       loc_t *loc,
-	       fd_t *fd,
-	       pid_t pid,
+               loc_t *loc,
+               fd_t *fd,
+               pid_t pid,
                uint64_t owner,
                glusterfs_fop_t type);
 
 int32_t
 gf_del_locker (struct _lock_table *table, const char *volume,
-	       loc_t *loc,
-	       fd_t *fd,
-	       uint64_t owner,
+               loc_t *loc,
+               fd_t *fd,
+               uint64_t owner,
                glusterfs_fop_t type);
 
 void
