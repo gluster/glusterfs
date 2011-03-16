@@ -44,13 +44,13 @@ int
 rdma_post_unref (rdma_post_t *post);
 
 int32_t
-gf_resolve_ip6 (const char *hostname, 
-                uint16_t port, 
-                int family, 
-                void **dnscache, 
+gf_resolve_ip6 (const char *hostname,
+                uint16_t port,
+                int family,
+                void **dnscache,
                 struct addrinfo **addr_info);
 
-static uint16_t 
+static uint16_t
 rdma_get_local_lid (struct ibv_context *context,
                     int32_t port)
 {
@@ -65,14 +65,14 @@ rdma_get_local_lid (struct ibv_context *context,
 static const char *
 get_port_state_str(enum ibv_port_state pstate)
 {
-	switch (pstate) {
-	case IBV_PORT_DOWN:          return "PORT_DOWN";
-	case IBV_PORT_INIT:          return "PORT_INIT";
-	case IBV_PORT_ARMED:         return "PORT_ARMED";
-	case IBV_PORT_ACTIVE:        return "PORT_ACTIVE";
-	case IBV_PORT_ACTIVE_DEFER:  return "PORT_ACTIVE_DEFER";
-	default:                     return "invalid state";
-	}
+        switch (pstate) {
+        case IBV_PORT_DOWN:          return "PORT_DOWN";
+        case IBV_PORT_INIT:          return "PORT_INIT";
+        case IBV_PORT_ARMED:         return "PORT_ARMED";
+        case IBV_PORT_ACTIVE:        return "PORT_ACTIVE";
+        case IBV_PORT_ACTIVE_DEFER:  return "PORT_ACTIVE_DEFER";
+        default:                     return "invalid state";
+        }
 }
 
 static int32_t
@@ -84,10 +84,10 @@ ib_check_active_port (struct ibv_context *ctx, uint8_t port)
         const char *state_str = NULL;
 
         if (!ctx) {
-		gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                         "Error in supplied context");
                 return -1;
-	}
+        }
 
         ret = ibv_query_port (ctx, port, &port_attr);
 
@@ -105,29 +105,29 @@ ib_check_active_port (struct ibv_context *ctx, uint8_t port)
         if (port_attr.state == IBV_PORT_ACTIVE)
                 return 0;
 
-	return -1;
+        return -1;
 }
 
 static int32_t
 ib_get_active_port (struct ibv_context *ib_ctx)
 {
-	struct ibv_device_attr ib_device_attr;
+        struct ibv_device_attr ib_device_attr;
 
-	int32_t ret     = -1;
-	uint8_t ib_port = 0;
+        int32_t ret     = -1;
+        uint8_t ib_port = 0;
 
-	if (!ib_ctx) {
-		gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+        if (!ib_ctx) {
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                         "Error in supplied context");
-		return -1;
-	}
-	if (ibv_query_device (ib_ctx, &ib_device_attr)) {
-		gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                return -1;
+        }
+        if (ibv_query_device (ib_ctx, &ib_device_attr)) {
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                         "Failed to query device properties");
-		return -1;
-	}
+                return -1;
+        }
 
-	for (ib_port = 1; ib_port <= ib_device_attr.phys_port_cnt; ++ib_port) {
+        for (ib_port = 1; ib_port <= ib_device_attr.phys_port_cnt; ++ib_port) {
                 ret = ib_check_active_port (ib_ctx, ib_port);
                 if (ret == 0)
                         return ib_port;
@@ -135,8 +135,8 @@ ib_get_active_port (struct ibv_context *ib_ctx)
                 gf_log (RDMA_LOG_NAME, GF_LOG_TRACE,
                         "Port:(%u) not active", ib_port);
                 continue;
-	}
-	return ret;
+        }
+        return ret;
 }
 
 
@@ -228,7 +228,7 @@ rdma_get_post (rdma_queue_t *queue)
                 post = queue->passive_posts.next;
                 if (post == &queue->passive_posts)
                         post = NULL;
-    
+
                 if (post) {
                         if (post->prev)
                                 post->prev->next = post->next;
@@ -286,7 +286,7 @@ __rdma_quota_get (rdma_peer_t *peer)
   }
 */
 
-static void 
+static void
 __rdma_ioq_entry_free (rdma_ioq_t *entry)
 {
         list_del_init (&entry->list);
@@ -333,7 +333,7 @@ __rdma_disconnect (rpc_transport_t *this)
                         priv->tcp_connected = 0;
                 }
         }
-  
+
         return ret;
 }
 
@@ -368,7 +368,7 @@ __rdma_encode_error(rdma_peer_t *peer, rdma_reply_info_t *reply_info,
                     struct iovec *rpchdr, uint32_t *ptr,
                     rdma_errcode_t err)
 {
-	uint32_t       *startp = NULL;
+        uint32_t       *startp = NULL;
         struct rpc_msg *rpc_msg = NULL;
 
         startp = ptr;
@@ -382,16 +382,16 @@ __rdma_encode_error(rdma_peer_t *peer, rdma_reply_info_t *reply_info,
                 *ptr++ = rpc_msg->rm_xid;
         }
 
-	*ptr++ = hton32(RDMA_VERSION);
-	*ptr++ = hton32(peer->send_count);
-	*ptr++ = hton32(RDMA_ERROR);
-	*ptr++ = hton32(err);
-	if (err == ERR_VERS) {
-		*ptr++ = hton32(RDMA_VERSION);
-		*ptr++ = hton32(RDMA_VERSION);
-	}
+        *ptr++ = hton32(RDMA_VERSION);
+        *ptr++ = hton32(peer->send_count);
+        *ptr++ = hton32(RDMA_ERROR);
+        *ptr++ = hton32(err);
+        if (err == ERR_VERS) {
+                *ptr++ = hton32(RDMA_VERSION);
+                *ptr++ = hton32(RDMA_VERSION);
+        }
 
-	return (int)((unsigned long)ptr - (unsigned long)startp);
+        return (int)((unsigned long)ptr - (unsigned long)startp);
 }
 
 
@@ -438,7 +438,7 @@ __rdma_create_read_chunks_from_vector (rdma_peer_t *peer,
         rdma_private_t    *priv   = NULL;
         rdma_device_t     *device = NULL;
         struct ibv_mr     *mr     = NULL;
-        rdma_read_chunk_t *readch = NULL; 
+        rdma_read_chunk_t *readch = NULL;
         int32_t            ret    = -1;
 
         if ((peer == NULL) || (readch_ptr == NULL) || (*readch_ptr == NULL)
@@ -576,7 +576,7 @@ __rdma_create_write_chunks_from_vector (rdma_peer_t *peer,
         rdma_private_t     *priv    = NULL;
         rdma_device_t      *device  = NULL;
         struct ibv_mr      *mr      = NULL;
-        rdma_write_chunk_t *writech = NULL; 
+        rdma_write_chunk_t *writech = NULL;
         int32_t             ret     = -1;
 
         if ((peer == NULL) || (writech_ptr == NULL) || (*writech_ptr == NULL)
@@ -588,7 +588,7 @@ __rdma_create_write_chunks_from_vector (rdma_peer_t *peer,
 
         priv = peer->trans->private;
         device = priv->device;
-        
+
         for (i = 0; i < count; i++) {
                 mr = ibv_reg_mr (device->pd, vector[i].iov_base,
                                  vector[i].iov_len,
@@ -645,15 +645,15 @@ __rdma_create_write_chunks (rdma_peer_t *peer, rdma_ioq_t *entry,
         }
 
 /*
-        if ((chunk_type == rdma_writech)
-            && ((entry->msg.request.rsphdr_count == 0)
-                || (entry->msg.request.rsphdr_vec[0].iov_base == NULL))) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
-                        "vector specifying buffer to hold the program's reply "
-                        "header should also be provided when buffers are "
-                        "provided for holding the program's payload in reply");
-                goto out;
-        }
+  if ((chunk_type == rdma_writech)
+  && ((entry->msg.request.rsphdr_count == 0)
+  || (entry->msg.request.rsphdr_vec[0].iov_base == NULL))) {
+  gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+  "vector specifying buffer to hold the program's reply "
+  "header should also be provided when buffers are "
+  "provided for holding the program's payload in reply");
+  goto out;
+  }
 */
 
         if (chunk_type == rdma_writech) {
@@ -684,7 +684,7 @@ __rdma_create_write_chunks (rdma_peer_t *peer, rdma_ioq_t *entry,
                 **ptr = 0;
                 *ptr = *ptr + 1;
         } else {
-                /* no write chunklist */ 
+                /* no write chunklist */
                 **ptr = 0;
                 *ptr = *ptr + 1;
 
@@ -693,7 +693,7 @@ __rdma_create_write_chunks (rdma_peer_t *peer, rdma_ioq_t *entry,
                 warray->wc_nchunks = hton32 (entry->msg.request.rsphdr_count);
 
                 *ptr = (uint32_t *)&warray->wc_array[0];
-                
+
                 ret = __rdma_create_write_chunks_from_vector (peer,
                                                               (rdma_write_chunk_t **)ptr,
                                                               entry->msg.request.rsphdr_vec,
@@ -918,7 +918,7 @@ rdma_post_ref (rdma_post_t *post)
                 post->refcount++;
         }
         pthread_mutex_unlock (&post->lock);
-        
+
 out:
         return post;
 }
@@ -928,7 +928,7 @@ int32_t
 __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
                           rdma_post_t *post)
 {
-        rdma_chunktype_t        rtype               = rdma_noch, wtype = rdma_noch; 
+        rdma_chunktype_t        rtype               = rdma_noch, wtype = rdma_noch;
         uint64_t                send_size           = 0;
         rdma_header_t          *hdr                 = NULL;
         struct rpc_msg         *rpc_msg             = NULL;
@@ -1086,7 +1086,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
         }
 
         len = buf - post->buf;
- 
+
         rdma_post_ref (post);
 
         ret = rdma_post_send (peer->qp, post, len);
@@ -1127,9 +1127,9 @@ __rdma_fill_reply_header (rdma_header_t *header, struct iovec *rpchdr,
                 header->rm_xid = hton32 (reply_info->rm_xid);
         } else {
                 rpc_msg = rpchdr[0].iov_base; /* assume rpchdr contains
-                                                      * only one vector.
-                                                      * (which is true)
-                                                      */
+                                               * only one vector.
+                                               * (which is true)
+                                               */
                 header->rm_xid = rpc_msg->rm_xid;
         }
 
@@ -1188,7 +1188,7 @@ __rdma_send_reply_inline (rdma_peer_t *peer, rdma_ioq_t *entry,
                 iov_unload (buf, entry->proghdr, entry->proghdr_count);
                 buf += iov_length (entry->proghdr, entry->proghdr_count);
         }
-         
+
         if (entry->prog_payload_count != 0) {
                 iov_unload (buf, entry->prog_payload,
                             entry->prog_payload_count);
@@ -1250,7 +1250,7 @@ __rdma_reply_encode_write_chunks (rdma_peer_t *peer, uint32_t payload_size,
 
                 target_array->wc_array[i].wc_target.rs_length
                         = hton32 (min (payload_size,
-                                      reply_info->wc_array->wc_array[i].wc_target.rs_length));
+                                       reply_info->wc_array->wc_array[i].wc_target.rs_length));
         }
 
         target_array->wc_nchunks = hton32 (i);
@@ -1313,7 +1313,7 @@ out:
  * 2. modifies vec
  */
 int32_t
-__rdma_write (rdma_peer_t *peer, rdma_post_t *post, struct iovec *vec, 
+__rdma_write (rdma_peer_t *peer, rdma_post_t *post, struct iovec *vec,
               uint32_t xfer_len, int *idx, rdma_write_chunk_t *writech)
 {
         int                size = 0, num_sge = 0, i = 0;
@@ -1389,7 +1389,7 @@ __rdma_do_rdma_write (rdma_peer_t *peer, rdma_post_t *post,
         int             i                     = 0, payload_idx = 0;
         uint32_t        payload_size          = 0, xfer_len = 0;
         int32_t         ret                   = -1;
-                
+
         if (count != 0) {
                 payload_size = iov_length (vector, count);
         }
@@ -1488,7 +1488,7 @@ __rdma_send_reply_type_nomsg (rdma_peer_t *peer, rdma_ioq_t *entry,
         if (ret) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
                         "rdma_post_send to client (%s) failed with "
-                        "ret = %d (%s)", peer->trans->peerinfo.identifier, ret, 
+                        "ret = %d (%s)", peer->trans->peerinfo.identifier, ret,
                         (ret > 0) ? strerror (ret) : "");
                 ret = -1;
                 rdma_post_unref (post);
@@ -1689,7 +1689,7 @@ __rdma_ioq_churn_entry (rdma_peer_t *peer, rdma_ioq_t *entry)
         quota = __rdma_quota_get (peer);
         if (quota > 0) {
                 post = rdma_get_post (&device->sendq);
-                if (post == NULL) { 
+                if (post == NULL) {
                         post = rdma_new_post (device,
                                               (options->send_size + 2048),
                                               RDMA_SEND_POST);
@@ -1821,7 +1821,7 @@ rdma_ioq_new (rpc_transport_t *this, rpc_transport_data_t *data)
                 if (data->data.req.rsp.rsp_payload_count != 0) {
                         for (i = 0; i < data->data.req.rsp.rsp_payload_count;
                              i++) {
-                                entry->msg.request.rsp_payload[i] 
+                                entry->msg.request.rsp_payload[i]
                                         = data->data.req.rsp.rsp_payload[i];
                         }
 
@@ -1881,7 +1881,7 @@ rdma_submit_request (rpc_transport_t *this,
 {
         int32_t               ret = 0;
         rdma_ioq_t       *entry = NULL;
-        rpc_transport_data_t  data = {0, }; 
+        rpc_transport_data_t  data = {0, };
 
         if (req == NULL) {
                 goto out;
@@ -1985,7 +1985,7 @@ rdma_receive (rpc_transport_t *this, char **hdr_p, size_t *hdrlen_p,
                 ret = -1;
                 goto err;
         }
-                  
+
         copy_from += sizeof (*header);
 
         if (size1) {
@@ -2027,11 +2027,11 @@ rdma_destroy_cq (rpc_transport_t *this)
 {
         rdma_private_t *priv = this->private;
         rdma_device_t *device = priv->device;
-  
+
         if (device->recv_cq)
                 ibv_destroy_cq (device->recv_cq);
         device->recv_cq = NULL;
-  
+
         if (device->send_cq)
                 ibv_destroy_cq (device->send_cq);
         device->send_cq = NULL;
@@ -2072,7 +2072,7 @@ rdma_create_cq (rpc_transport_t *this)
                 ret = -1;
                 goto out;
         }
-    
+
         do {
                 ret = ibv_query_device (priv->device->context, &device_attr);
                 if (ret != 0) {
@@ -2219,7 +2219,7 @@ __rdma_lookup_peer (rdma_device_t *device, int32_t qp_num)
   {
   rdma_qpreg_t *qpreg = NULL;
   rdma_peer_t  *peer  = NULL;
- 
+
   qpreg = &device->qpreg;
   pthread_mutex_lock (&qpreg->lock);
   {
@@ -2269,7 +2269,7 @@ rdma_create_qp (rpc_transport_t *this)
                 },
                 .qp_type = IBV_QPT_RC
         };
-  
+
         struct ibv_qp_attr attr = {
                 .qp_state        = IBV_QPS_INIT,
                 .pkey_index      = 0,
@@ -2277,7 +2277,7 @@ rdma_create_qp (rpc_transport_t *this)
                 .qp_access_flags
                 = IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE
         };
-  
+
         peer->qp = ibv_create_qp (device->pd, &init_attr);
         if (!peer->qp) {
                 gf_log (RDMA_LOG_NAME,
@@ -2504,7 +2504,7 @@ __tcp_rwv (rpc_transport_t *this, struct iovec *vector, int count,
 
                 if (ret == 0)
                 {
-                        gf_log (this->name, GF_LOG_DEBUG, 
+                        gf_log (this->name, GF_LOG_DEBUG,
                                 "EOF from peer %s", this->peerinfo.identifier);
                         opcount = -1;
                         errno = ENOTCONN;
@@ -2519,7 +2519,7 @@ __tcp_rwv (rpc_transport_t *this, struct iovec *vector, int count,
                         gf_log (this->name, GF_LOG_DEBUG,
                                 "%s failed (%s)", write ? "writev" : "readv",
                                 strerror (errno));
-                        if (write && !priv->connected && 
+                        if (write && !priv->connected &&
                             (errno == ECONNREFUSED))
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "possible mismatch of 'rpc-transport-type'"
@@ -2569,7 +2569,7 @@ __tcp_readv (rpc_transport_t *this, struct iovec *vector, int count,
 {
         int ret = -1;
 
-        ret = __tcp_rwv (this, vector, count, 
+        ret = __tcp_rwv (this, vector, count,
                          pending_vector, pending_count, 0);
 
         return ret;
@@ -2583,16 +2583,16 @@ __tcp_writev (rpc_transport_t *this, struct iovec *vector, int count,
         int ret = -1;
         rdma_private_t *priv = this->private;
 
-        ret = __tcp_rwv (this, vector, count, pending_vector, 
+        ret = __tcp_rwv (this, vector, count, pending_vector,
                          pending_count, 1);
 
         if (ret > 0) {
-                /* TODO: Avoid multiple calls when socket is already 
+                /* TODO: Avoid multiple calls when socket is already
                    registered for POLLOUT */
-                priv->idx = event_select_on (this->ctx->event_pool, 
+                priv->idx = event_select_on (this->ctx->event_pool,
                                              priv->sock, priv->idx, -1, 1);
         } else if (ret == 0) {
-                priv->idx = event_select_on (this->ctx->event_pool, 
+                priv->idx = event_select_on (this->ctx->event_pool,
                                              priv->sock,
                                              priv->idx, -1, 0);
         }
@@ -2696,14 +2696,14 @@ rdma_decode_error_msg (rdma_peer_t *peer, rdma_post_t *post,
         struct iobuf  *iobuf  = NULL;
         struct iobref *iobref = NULL;
         int32_t        ret    = -1;
-        
+
         header = (rdma_header_t *)post->buf;
         header->rm_body.rm_error.rm_type
                 = ntoh32 (header->rm_body.rm_error.rm_type);
         if (header->rm_body.rm_error.rm_type == ERR_VERS) {
-                header->rm_body.rm_error.rm_version.rdma_vers_low = 
+                header->rm_body.rm_error.rm_version.rdma_vers_low =
                         ntoh32 (header->rm_body.rm_error.rm_version.rdma_vers_low);
-                header->rm_body.rm_error.rm_version.rdma_vers_high = 
+                header->rm_body.rm_error.rm_version.rdma_vers_high =
                         ntoh32 (header->rm_body.rm_error.rm_version.rdma_vers_high);
         }
 
@@ -2761,7 +2761,7 @@ rdma_decode_msg (rdma_peer_t *peer, rdma_post_t *post,
         rdma_reply_info_t  *reply_info = NULL;
         char               *ptr        = NULL;
         rdma_write_array_t *write_ary  = NULL;
-        size_t              header_len = 0; 
+        size_t              header_len = 0;
 
         header = (rdma_header_t *)post->buf;
 
@@ -2939,7 +2939,7 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
 {
         int32_t         ret    = -1, i = 0, count = 0;
         size_t          size   = 0;
-        char           *ptr    = NULL;  
+        char           *ptr    = NULL;
         struct iobuf   *iobuf  = NULL;
         rdma_private_t *priv   = NULL;
 
@@ -3049,7 +3049,7 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                         goto out;
                 }
 
-                /* handling the case where both hdr and payload of 
+                /* handling the case where both hdr and payload of
                  * GF_FOP_READ_CBK were recieved in a single iobuf
                  * because of server sending entire msg as inline without
                  * doing rdma writes.
@@ -3080,7 +3080,7 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                 if (ret == -1) {
                         gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
                                 "cannot get request information from rpc "
-                                "layer"); 
+                                "layer");
                         goto out;
                 }
 
@@ -3132,7 +3132,7 @@ rdma_recv_reply (rdma_peer_t *peer, rdma_post_t *post)
         int                          i            = 0;
         uint32_t                    *ptr          = NULL;
         rdma_request_context_t      *ctx          = NULL;
-        rpc_request_info_t           request_info = {0, }; 
+        rpc_request_info_t           request_info = {0, };
         struct rpc_req              *rpc_req      = NULL;
 
         header = (rdma_header_t *)post->buf;
@@ -3160,7 +3160,7 @@ rdma_recv_reply (rdma_peer_t *peer, rdma_post_t *post)
                         post->ctx.vector[i + 1].iov_len
                                 = wc_array->wc_array[i].wc_target.rs_length;
                 }
-                
+
                 post->ctx.count += wc_array->wc_nchunks;
         }
 
@@ -3173,7 +3173,7 @@ rdma_recv_reply (rdma_peer_t *peer, rdma_post_t *post)
         if (ret == -1) {
                 gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
                         "cannot get request information from rpc "
-                        "layer"); 
+                        "layer");
                 goto out;
         }
 
@@ -3208,7 +3208,7 @@ rdma_recv_request (rdma_peer_t *peer, rdma_post_t *post,
                    rdma_read_chunk_t *readch)
 {
         int32_t ret = -1;
- 
+
         if (readch != NULL) {
                 ret = rdma_do_reads (peer, post, readch);
         } else {
@@ -3322,7 +3322,7 @@ rdma_recv_completion_proc (void *data)
                 }
 
                 device = event_ctx;
-    
+
                 ret = ibv_req_notify_cq (event_cq, 0);
                 if (ret) {
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
@@ -3382,7 +3382,7 @@ rdma_recv_completion_proc (void *data)
 
                         rdma_post_unref (post);
                 }
-    
+
                 if (ret < 0) {
                         gf_log (RDMA_LOG_NAME,
                                 GF_LOG_ERROR,
@@ -3419,7 +3419,7 @@ rdma_handle_failed_send_completion (rdma_peer_t *peer, struct ibv_wc *wc)
                 "send work request on `%s' returned error "
                 "wc.status = %d, wc.vendor_err = %d, post->buf = %p, "
                 "wc.byte_len = %d, post->reused = %d",
-                (device != NULL) ? device->device_name : NULL, wc->status, 
+                (device != NULL) ? device->device_name : NULL, wc->status,
                 wc->vendor_err, post->buf, wc->byte_len, post->reused);
 
         if (wc->status == IBV_WC_RETRY_EXC_ERR) {
@@ -3484,7 +3484,7 @@ rdma_send_completion_proc (void *data)
         struct ibv_wc            wc         = {0, };
         char                     is_request = 0;
         int32_t                  ret        = 0, quota_ret = 0;
-        
+
         chan = data;
         while (1) {
                 ret = ibv_get_cq_event (chan, &event_cq, &event_ctx);
@@ -3494,7 +3494,7 @@ rdma_send_completion_proc (void *data)
                                 "send thread: %d (%d)", ret, errno);
                         continue;
                 }
-       
+
                 device = event_ctx;
 
                 ret = ibv_req_notify_cq (event_cq, 0);
@@ -3542,12 +3542,12 @@ rdma_send_completion_proc (void *data)
                                     && (post->type == RDMA_SEND_POST)
                                     && (peer != NULL)) {
                                         /* An RDMA_RECV_POST can end up in
-                                         * rdma_send_completion_proc for 
+                                         * rdma_send_completion_proc for
                                          * rdma-reads, and we do not take
                                          * quota for getting an RDMA_RECV_POST.
                                          */
 
-                                        /* 
+                                        /*
                                          * if it is request, quota is returned
                                          * after reply has come.
                                          */
@@ -3577,7 +3577,7 @@ rdma_send_completion_proc (void *data)
                         continue;
                 }
 
-                ibv_ack_cq_events (event_cq, 1); 
+                ibv_ack_cq_events (event_cq, 1);
         }
 
         return NULL;
@@ -3688,7 +3688,7 @@ rdma_get_device (rpc_transport_t *this,
         port        = priv->options.port;
 
         while (trav) {
-                if ((!strcmp (trav->device_name, device_name)) && 
+                if ((!strcmp (trav->device_name, device_name)) &&
                     (trav->port == port))
                         break;
                 trav = trav->next;
@@ -3696,7 +3696,7 @@ rdma_get_device (rpc_transport_t *this,
 
         if (!trav) {
 
-                trav = GF_CALLOC (1, sizeof (*trav), 
+                trav = GF_CALLOC (1, sizeof (*trav),
                                   gf_common_mt_rdma_device_t);
                 if (trav == NULL) {
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
@@ -3707,18 +3707,18 @@ rdma_get_device (rpc_transport_t *this,
 
                 trav->context = ibctx;
 
-		ret = ib_get_active_port (trav->context);
+                ret = ib_get_active_port (trav->context);
 
-		if (ret < 0) {
-			if (!port) {
-				gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
-					"Failed to find any active ports and "
-					"none specified in volume file,"
+                if (ret < 0) {
+                        if (!port) {
+                                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                                        "Failed to find any active ports and "
+                                        "none specified in volume file,"
                                         " exiting");
                                 GF_FREE (trav);
-				return NULL;
-			}
-		}
+                                return NULL;
+                        }
+                }
 
                 trav->request_ctx_pool = mem_pool_new (rdma_request_context_t,
                                                        RDMA_POOL_SIZE);
@@ -3744,7 +3744,7 @@ rdma_get_device (rpc_transport_t *this,
                 }
 
 
-		active_port = ret;
+                active_port = ret;
 
                 if (port) {
                         ret = ib_check_active_port (trav->context, port);
@@ -3754,11 +3754,11 @@ rdma_get_device (rpc_transport_t *this,
                                         "found to be offline, continuing to "
                                         "use the same port", device_name, port);
                         }
-		} else {
-			priv->options.port = active_port;
-			port = active_port;
-			gf_log (RDMA_LOG_NAME, GF_LOG_TRACE,
-				"Port unspecified in volume file using active "
+                } else {
+                        priv->options.port = active_port;
+                        port = active_port;
+                        gf_log (RDMA_LOG_NAME, GF_LOG_TRACE,
+                                "Port unspecified in volume file using active "
                                 "port: %u", port);
                 }
 
@@ -3780,7 +3780,7 @@ rdma_get_device (rpc_transport_t *this,
                         GF_FREE (trav);
                         return NULL;
                 }
-    
+
                 trav->recv_chan = ibv_create_comp_channel (trav->context);
                 if (!trav->recv_chan) {
                         mem_pool_destroy (trav->ioq_pool);
@@ -3794,7 +3794,7 @@ rdma_get_device (rpc_transport_t *this,
                         /* TODO: cleanup current mess */
                         return NULL;
                 }
-      
+
                 if (rdma_create_cq (this) < 0) {
                         mem_pool_destroy (trav->ioq_pool);
                         mem_pool_destroy (trav->request_ctx_pool);
@@ -3914,7 +3914,7 @@ rdma_get_device (rpc_transport_t *this,
                                 "could not create recv completion thread");
                         return NULL;
                 }
-  
+
                 /* qpreg */
                 pthread_mutex_init (&trav->qpreg.lock, NULL);
                 for (i=0; i<42; i++) {
@@ -3925,39 +3925,39 @@ rdma_get_device (rpc_transport_t *this,
         return trav;
 }
 
-static int32_t 
+static int32_t
 rdma_init (rpc_transport_t *this)
 {
         rdma_private_t *priv = this->private;
         rdma_options_t *options = &priv->options;
         struct ibv_device **dev_list;
-	struct ibv_context *ib_ctx = NULL;
-	int32_t ret = 0;
+        struct ibv_context *ib_ctx = NULL;
+        int32_t ret = 0;
 
         rdma_options_init (this);
 
         {
                 dev_list = ibv_get_device_list (NULL);
 
-		if (!dev_list) {
+                if (!dev_list) {
                         gf_log (RDMA_LOG_NAME,
                                 GF_LOG_CRITICAL,
                                 "Failed to get IB devices");
-			ret = -1;
-			goto cleanup;
+                        ret = -1;
+                        goto cleanup;
                 }
 
                 if (!*dev_list) {
                         gf_log (RDMA_LOG_NAME,
                                 GF_LOG_CRITICAL,
                                 "No IB devices found");
-			ret = -1;
+                        ret = -1;
                         goto cleanup;
                 }
 
                 if (!options->device_name) {
                         if (*dev_list) {
-                                options->device_name = 
+                                options->device_name =
                                         gf_strdup (ibv_get_device_name (*dev_list));
                         } else {
                                 gf_log (RDMA_LOG_NAME, GF_LOG_CRITICAL,
@@ -3968,7 +3968,7 @@ rdma_init (rpc_transport_t *this)
                         }
                 }
 
-		while (*dev_list) {
+                while (*dev_list) {
                         if (!strcmp (ibv_get_device_name (*dev_list),
                                      options->device_name)) {
                                 ib_ctx = ibv_open_device (*dev_list);
@@ -3983,38 +3983,38 @@ rdma_init (rpc_transport_t *this)
                                 }
                                 break;
                         }
-			++dev_list;
-		}
+                        ++dev_list;
+                }
 
-		priv->device = rdma_get_device (this, ib_ctx);
+                priv->device = rdma_get_device (this, ib_ctx);
 
                 if (!priv->device) {
                         gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "could not create rdma device for %s",
                                 options->device_name);
                         ret = -1;
-			goto cleanup;
+                        goto cleanup;
                 }
         }
 
         priv->peer.trans = this;
         INIT_LIST_HEAD (&priv->peer.ioq);
-  
+
         pthread_mutex_init (&priv->read_mutex, NULL);
         pthread_mutex_init (&priv->write_mutex, NULL);
         pthread_mutex_init (&priv->recv_mutex, NULL);
         pthread_cond_init (&priv->recv_cond, NULL);
 
 cleanup:
-	if (-1 == ret) {
-		if (ib_ctx)
-			ibv_close_device (ib_ctx);
-	}
+        if (-1 == ret) {
+                if (ib_ctx)
+                        ibv_close_device (ib_ctx);
+        }
 
-	if (dev_list)
-		ibv_free_device_list (dev_list);
+        if (dev_list)
+                ibv_free_device_list (dev_list);
 
-	return ret;
+        return ret;
 }
 
 
@@ -4023,7 +4023,7 @@ rdma_disconnect (rpc_transport_t *this)
 {
         rdma_private_t *priv = this->private;
         int32_t ret = 0;
- 
+
         pthread_mutex_lock (&priv->write_mutex);
         {
                 ret = __rdma_disconnect (this);
@@ -4054,7 +4054,7 @@ __tcp_connect_finish (int fd)
 }
 
 static inline void
-rdma_fill_handshake_data (char *buf, struct rdma_nbio *nbio, 
+rdma_fill_handshake_data (char *buf, struct rdma_nbio *nbio,
                           rdma_private_t *priv)
 {
         sprintf (buf,
@@ -4099,7 +4099,7 @@ rdma_handshake_pollin (rpc_transport_t *this)
         {
                 while (priv->handshake.incoming.state != RDMA_HANDSHAKE_COMPLETE)
                 {
-                        switch (priv->handshake.incoming.state) 
+                        switch (priv->handshake.incoming.state)
                         {
                         case RDMA_HANDSHAKE_START:
                                 buf = priv->handshake.incoming.buf = GF_CALLOC (1, 256, gf_common_mt_char);
@@ -4109,10 +4109,10 @@ rdma_handshake_pollin (rpc_transport_t *this)
                                 break;
 
                         case RDMA_HANDSHAKE_RECEIVING_DATA:
-                                ret = __tcp_readv (this, 
-                                                   &priv->handshake.incoming.vector, 
+                                ret = __tcp_readv (this,
+                                                   &priv->handshake.incoming.vector,
                                                    priv->handshake.incoming.count,
-                                                   &priv->handshake.incoming.pending_vector, 
+                                                   &priv->handshake.incoming.pending_vector,
                                                    &priv->handshake.incoming.pending_count);
                                 if (ret == -1) {
                                         goto unlock;
@@ -4123,7 +4123,7 @@ rdma_handshake_pollin (rpc_transport_t *this)
                                                 "partial header read on NB socket. continue later");
                                         goto unlock;
                                 }
-            
+
                                 if (!ret) {
                                         priv->handshake.incoming.state = RDMA_HANDSHAKE_RECEIVED_DATA;
                                 }
@@ -4140,11 +4140,11 @@ rdma_handshake_pollin (rpc_transport_t *this)
                                               &priv->peer.remote_psn);
 
                                 if ((ret != 5) && (strncmp (buf, "QP1:", 4))) {
-                                        gf_log (RDMA_LOG_NAME, 
+                                        gf_log (RDMA_LOG_NAME,
                                                 GF_LOG_CRITICAL,
                                                 "%s: remote-host(%s)'s "
                                                 "transport type is different",
-                                                this->name, 
+                                                this->name,
                                                 this->peerinfo.identifier);
                                         ret = -1;
                                         goto unlock;
@@ -4154,7 +4154,7 @@ rdma_handshake_pollin (rpc_transport_t *this)
                                         priv->peer.recv_size = recv_buf_size;
                                 if (send_buf_size < priv->peer.send_size)
                                         priv->peer.send_size = send_buf_size;
-          
+
                                 gf_log (RDMA_LOG_NAME, GF_LOG_TRACE,
                                         "%s: transacted recv_size=%d "
                                         "send_size=%d",
@@ -4164,7 +4164,7 @@ rdma_handshake_pollin (rpc_transport_t *this)
                                 priv->peer.quota = priv->peer.send_count;
 
                                 if (rdma_connect_qp (this)) {
-                                        gf_log (RDMA_LOG_NAME, 
+                                        gf_log (RDMA_LOG_NAME,
                                                 GF_LOG_ERROR,
                                                 "%s: failed to connect with "
                                                 "remote QP", this->name);
@@ -4177,10 +4177,10 @@ rdma_handshake_pollin (rpc_transport_t *this)
                                 break;
 
                         case RDMA_HANDSHAKE_RECEIVING_ACK:
-                                ret = __tcp_readv (this, 
-                                                   &priv->handshake.incoming.vector, 
+                                ret = __tcp_readv (this,
+                                                   &priv->handshake.incoming.vector,
                                                    priv->handshake.incoming.count,
-                                                   &priv->handshake.incoming.pending_vector, 
+                                                   &priv->handshake.incoming.pending_vector,
                                                    &priv->handshake.incoming.pending_count);
                                 if (ret == -1) {
                                         goto unlock;
@@ -4192,7 +4192,7 @@ rdma_handshake_pollin (rpc_transport_t *this)
                                                 "socket. continue later");
                                         goto unlock;
                                 }
-            
+
                                 if (!ret) {
                                         priv->handshake.incoming.state = RDMA_HANDSHAKE_RECEIVED_ACK;
                                 }
@@ -4200,7 +4200,7 @@ rdma_handshake_pollin (rpc_transport_t *this)
 
                         case RDMA_HANDSHAKE_RECEIVED_ACK:
                                 if (strncmp (buf, "DONE", 4)) {
-                                        gf_log (RDMA_LOG_NAME, 
+                                        gf_log (RDMA_LOG_NAME,
                                                 GF_LOG_DEBUG,
                                                 "%s: handshake-3 did not "
                                                 "return 'DONE' (%s)",
@@ -4245,7 +4245,7 @@ unlock:
         return ret;
 }
 
-static int 
+static int
 rdma_handshake_pollout (rpc_transport_t *this)
 {
         rdma_private_t *priv = this->private;
@@ -4260,7 +4260,7 @@ rdma_handshake_pollout (rpc_transport_t *this)
         {
                 while (priv->handshake.outgoing.state != RDMA_HANDSHAKE_COMPLETE)
                 {
-                        switch (priv->handshake.outgoing.state) 
+                        switch (priv->handshake.outgoing.state)
                         {
                         case RDMA_HANDSHAKE_START:
                                 buf = priv->handshake.outgoing.buf = GF_CALLOC (1, 256, gf_common_mt_char);
@@ -4269,10 +4269,10 @@ rdma_handshake_pollout (rpc_transport_t *this)
                                 break;
 
                         case RDMA_HANDSHAKE_SENDING_DATA:
-                                ret = __tcp_writev (this, 
-                                                    &priv->handshake.outgoing.vector, 
+                                ret = __tcp_writev (this,
+                                                    &priv->handshake.outgoing.vector,
                                                     priv->handshake.outgoing.count,
-                                                    &priv->handshake.outgoing.pending_vector, 
+                                                    &priv->handshake.outgoing.pending_vector,
                                                     &priv->handshake.outgoing.pending_count);
                                 if (ret == -1) {
                                         goto unlock;
@@ -4283,7 +4283,7 @@ rdma_handshake_pollout (rpc_transport_t *this)
                                                 "partial header read on NB socket. continue later");
                                         goto unlock;
                                 }
-            
+
                                 if (!ret) {
                                         priv->handshake.outgoing.state = RDMA_HANDSHAKE_SENT_DATA;
                                 }
@@ -4311,7 +4311,7 @@ rdma_handshake_pollout (rpc_transport_t *this)
                                                 "socket. continue later");
                                         goto unlock;
                                 }
-            
+
                                 if (!ret) {
                                         GF_FREE (priv->handshake.outgoing.buf);
                                         priv->handshake.outgoing.buf = NULL;
@@ -4350,7 +4350,7 @@ rdma_handshake_pollerr (rpc_transport_t *this)
 
                 connected = priv->connected;
                 if (priv->sock != -1) {
-                        event_unregister (this->ctx->event_pool, 
+                        event_unregister (this->ctx->event_pool,
                                           priv->sock, priv->idx);
                         need_unref = 1;
 
@@ -4402,16 +4402,16 @@ tcp_connect_finish (rpc_transport_t *this)
                 ret = __tcp_connect_finish (priv->sock);
 
                 if (!ret) {
-                        this->myinfo.sockaddr_len = 
+                        this->myinfo.sockaddr_len =
                                 sizeof (this->myinfo.sockaddr);
                         ret = getsockname (priv->sock,
-                                           (struct sockaddr *)&this->myinfo.sockaddr, 
+                                           (struct sockaddr *)&this->myinfo.sockaddr,
                                            &this->myinfo.sockaddr_len);
-                        if (ret == -1) 
+                        if (ret == -1)
                         {
                                 gf_log (this->name, GF_LOG_ERROR,
                                         "getsockname on new client-socket %d "
-                                        "failed (%s)", 
+                                        "failed (%s)",
                                         priv->sock, strerror (errno));
                                 close (priv->sock);
                                 error = 1;
@@ -4424,7 +4424,7 @@ tcp_connect_finish (rpc_transport_t *this)
 
                 if (ret == -1 && errno != EINPROGRESS) {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "tcp connect to %s failed (%s)", 
+                                "tcp connect to %s failed (%s)",
                                 this->peerinfo.identifier, strerror (errno));
                         error = 1;
                 }
@@ -4508,9 +4508,9 @@ static int32_t
 rdma_connect (struct rpc_transport *this, int port)
 {
         dict_t *options = this->options;
-  
+
         rdma_private_t *priv = this->private;
-  
+
         int32_t ret = 0;
         gf_boolean_t non_blocking = 1;
         struct sockaddr_storage sockaddr;
@@ -4523,7 +4523,7 @@ rdma_connect (struct rpc_transport *this, int port)
         if (dict_get (options, "non-blocking-io")) {
                 char *nb_connect = data_to_str (dict_get (this->options,
                                                           "non-blocking-io"));
-          
+
                 if (gf_string2boolean (nb_connect, &non_blocking) == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "'non-blocking-io' takes only boolean "
@@ -4547,10 +4547,10 @@ rdma_connect (struct rpc_transport *this, int port)
                         ret = 0;
                         goto unlock;
                 }
-  
+
                 priv->sock = socket (((struct sockaddr *)&sockaddr)->sa_family,
                                      SOCK_STREAM, 0);
-        
+
                 if (priv->sock == -1) {
                         gf_log (this->name, GF_LOG_ERROR,
                                 "socket () - error: %s", strerror (errno));
@@ -4568,13 +4568,13 @@ rdma_connect (struct rpc_transport *this, int port)
                         ((struct sockaddr_in *) (&sockaddr))->sin_port
                                 = htons (port);
 
-                ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family = 
+                ((struct sockaddr *) &this->myinfo.sockaddr)->sa_family =
                         ((struct sockaddr *)&this->peerinfo.sockaddr)->sa_family;
 
-                if (non_blocking) 
+                if (non_blocking)
                 {
                         ret = __tcp_nonblock (priv->sock);
-        
+
                         if (ret == -1)
                         {
                                 gf_log (this->name, GF_LOG_ERROR,
@@ -4599,13 +4599,13 @@ rdma_connect (struct rpc_transport *this, int port)
                         goto unlock;
                 }
 
-                ret = connect (priv->sock, 
-                               (struct sockaddr *)&this->peerinfo.sockaddr, 
+                ret = connect (priv->sock,
+                               (struct sockaddr *)&this->peerinfo.sockaddr,
                                this->peerinfo.sockaddr_len);
                 if (ret == -1 && errno != EINPROGRESS)
                 {
                         gf_log (this->name, GF_LOG_ERROR,
-                                "connection attempt failed (%s)", 
+                                "connection attempt failed (%s)",
                                 strerror (errno));
                         close (priv->sock);
                         priv->sock = -1;
@@ -4618,10 +4618,10 @@ rdma_connect (struct rpc_transport *this, int port)
 
                 priv->handshake.incoming.state = RDMA_HANDSHAKE_START;
                 priv->handshake.outgoing.state = RDMA_HANDSHAKE_START;
-                        
-                priv->idx = event_register (this->ctx->event_pool, 
+
+                priv->idx = event_register (this->ctx->event_pool,
                                             priv->sock, rdma_event_handler,
-                                            this, 1, 1); 
+                                            this, 1, 1);
         }
 unlock:
         pthread_mutex_unlock (&priv->write_mutex);
@@ -4660,7 +4660,7 @@ rdma_server_event_handler (int fd, int idx, void *data,
                 return -1;
         }
         this->private = priv;
-        /* Copy all the rdma related values in priv, from trans_priv 
+        /* Copy all the rdma related values in priv, from trans_priv
            as other than QP, all the values remain same */
         priv->device = trans_priv->device;
         priv->options = trans_priv->options;
@@ -4677,14 +4677,14 @@ rdma_server_event_handler (int fd, int idx, void *data,
         this->notify = trans->notify;
         this->mydata = trans->mydata;
 
-        memcpy (&this->myinfo.sockaddr, &trans->myinfo.sockaddr, 
+        memcpy (&this->myinfo.sockaddr, &trans->myinfo.sockaddr,
                 trans->myinfo.sockaddr_len);
         this->myinfo.sockaddr_len = trans->myinfo.sockaddr_len;
 
         main_sock = (trans_priv)->sock;
         this->peerinfo.sockaddr_len = sizeof (this->peerinfo.sockaddr);
-        priv->sock = accept (main_sock, 
-                             (struct sockaddr *)&this->peerinfo.sockaddr, 
+        priv->sock = accept (main_sock,
+                             (struct sockaddr *)&this->peerinfo.sockaddr,
                              &this->peerinfo.sockaddr_len);
         if (priv->sock == -1) {
                 gf_log ("rdma/server", GF_LOG_ERROR,
@@ -4747,7 +4747,7 @@ rdma_listen (rpc_transport_t *this)
                 goto err;
         }
 
-        priv->sock = socket (((struct sockaddr *)&sockaddr)->sa_family, 
+        priv->sock = socket (((struct sockaddr *)&sockaddr)->sa_family,
                              SOCK_STREAM, 0);
         if (priv->sock == -1) {
                 gf_log ("rdma/server", GF_LOG_CRITICAL,
@@ -4761,7 +4761,7 @@ rdma_listen (rpc_transport_t *this)
         memcpy (&this->myinfo.sockaddr, &sockaddr, sockaddr_len);
         this->myinfo.sockaddr_len = sockaddr_len;
 
-        ret = getnameinfo ((struct sockaddr *)&this->myinfo.sockaddr, 
+        ret = getnameinfo ((struct sockaddr *)&this->myinfo.sockaddr,
                            this->myinfo.sockaddr_len,
                            host, sizeof (host),
                            service, sizeof (service),
@@ -4772,7 +4772,7 @@ rdma_listen (rpc_transport_t *this)
                 goto err;
         }
         sprintf (this->myinfo.identifier, "%s:%s", host, service);
- 
+
         setsockopt (priv->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt));
         if (bind (priv->sock,
                   (struct sockaddr *)&sockaddr,
@@ -4794,7 +4794,7 @@ rdma_listen (rpc_transport_t *this)
 
         /* Register the main socket */
         priv->idx = event_register (this->ctx->event_pool, priv->sock,
-                                    rdma_server_event_handler, 
+                                    rdma_server_event_handler,
                                     rpc_transport_ref (this), 1, 0);
 
 err:
@@ -4858,51 +4858,51 @@ fini (struct rpc_transport *this)
 /* TODO: expand each option */
 struct volume_options options[] = {
         { .key   = {"transport.rdma.port",
-                    "rdma-port"}, 
+                    "rdma-port"},
           .type  = GF_OPTION_TYPE_INT,
           .min   = 1,
           .max   = 4,
           .description = "check the option by 'ibv_devinfo'"
         },
         { .key   = {"transport.rdma.mtu",
-                    "rdma-mtu"}, 
+                    "rdma-mtu"},
           .type  = GF_OPTION_TYPE_INT,
         },
         { .key   = {"transport.rdma.device-name",
-                    "rdma-device-name"}, 
+                    "rdma-device-name"},
           .type  = GF_OPTION_TYPE_ANY,
           .description = "check by 'ibv_devinfo'"
         },
         { .key   = {"transport.rdma.work-request-send-count",
-                    "rdma-work-request-send-count"}, 
+                    "rdma-work-request-send-count"},
           .type  = GF_OPTION_TYPE_INT,
         },
         { .key   = {"transport.rdma.work-request-recv-count",
-                    "rdma-work-request-recv-count"}, 
+                    "rdma-work-request-recv-count"},
           .type  = GF_OPTION_TYPE_INT,
         },
-        { .key   = {"remote-port", 
+        { .key   = {"remote-port",
                     "transport.remote-port",
-                    "transport.rdma.remote-port"}, 
-          .type  = GF_OPTION_TYPE_INT 
+                    "transport.rdma.remote-port"},
+          .type  = GF_OPTION_TYPE_INT
         },
-        { .key   = {"transport.rdma.listen-port", "listen-port"}, 
-          .type  = GF_OPTION_TYPE_INT 
+        { .key   = {"transport.rdma.listen-port", "listen-port"},
+          .type  = GF_OPTION_TYPE_INT
         },
-        { .key   = {"transport.rdma.connect-path", "connect-path"}, 
-          .type  = GF_OPTION_TYPE_ANY 
+        { .key   = {"transport.rdma.connect-path", "connect-path"},
+          .type  = GF_OPTION_TYPE_ANY
         },
-        { .key   = {"transport.rdma.bind-path", "bind-path"}, 
-          .type  = GF_OPTION_TYPE_ANY 
+        { .key   = {"transport.rdma.bind-path", "bind-path"},
+          .type  = GF_OPTION_TYPE_ANY
         },
-        { .key   = {"transport.rdma.listen-path", "listen-path"}, 
-          .type  = GF_OPTION_TYPE_ANY 
+        { .key   = {"transport.rdma.listen-path", "listen-path"},
+          .type  = GF_OPTION_TYPE_ANY
         },
         { .key   = {"transport.address-family",
-                    "address-family"}, 
+                    "address-family"},
           .value = {"inet", "inet6", "inet/inet6", "inet6/inet",
                     "unix", "inet-sdp" },
-          .type  = GF_OPTION_TYPE_STR 
+          .type  = GF_OPTION_TYPE_STR
         },
         { .key   = {"transport.socket.lowlat"},
           .type  = GF_OPTION_TYPE_BOOL

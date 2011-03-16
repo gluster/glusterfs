@@ -378,20 +378,20 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         {
                 listen_host = data_to_str (listen_host_data);
         } else {
-		if (addr->sa_family == AF_INET6) {
-			struct sockaddr_in6 *in = (struct sockaddr_in6 *) addr;
-			in->sin6_addr = in6addr_any;
-			in->sin6_port = htons(listen_port);
-			*addr_len = sizeof(struct sockaddr_in6);
+                if (addr->sa_family == AF_INET6) {
+                        struct sockaddr_in6 *in = (struct sockaddr_in6 *) addr;
+                        in->sin6_addr = in6addr_any;
+                        in->sin6_port = htons(listen_port);
+                        *addr_len = sizeof(struct sockaddr_in6);
                         goto out;
-		} else if (addr->sa_family == AF_INET) {
-			struct sockaddr_in *in = (struct sockaddr_in *) addr;
-			in->sin_addr.s_addr = htonl(INADDR_ANY);
-			in->sin_port = htons(listen_port);
-			*addr_len = sizeof(struct sockaddr_in);
-			goto out;
-		}
-	}
+                } else if (addr->sa_family == AF_INET) {
+                        struct sockaddr_in *in = (struct sockaddr_in *) addr;
+                        in->sin_addr.s_addr = htonl(INADDR_ANY);
+                        in->sin_port = htons(listen_port);
+                        *addr_len = sizeof(struct sockaddr_in);
+                        goto out;
+                }
+        }
 
         memset (service, 0, sizeof (service));
         sprintf (service, "%d", listen_port);

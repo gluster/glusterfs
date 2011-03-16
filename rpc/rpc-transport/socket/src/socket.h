@@ -88,8 +88,8 @@ typedef enum {
         SP_STATE_REQUEST_HEADER_INIT,
         SP_STATE_READING_RPCHDR1,
         SP_STATE_READ_RPCHDR1,     /* read msg from beginning till and
-                                       * including credlen
-                                       */
+                                    * including credlen
+                                    */
 } sp_rpcfrag_request_header_state_t;
 
 struct ioq {
