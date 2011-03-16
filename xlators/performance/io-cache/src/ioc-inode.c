@@ -36,8 +36,11 @@ void *
 str_to_ptr (char *string)
 {
         void *ptr = NULL;
+        GF_VALIDATE_OR_GOTO ("io-cache", string, out);
 
         ptr = (void *)strtoul (string, NULL, 16);
+
+out:
         return ptr;
 }
 
@@ -52,12 +55,18 @@ ptr_to_str (void *ptr)
 {
         int   ret = 0;
         char *str = NULL;
+
+        GF_VALIDATE_OR_GOTO ("io-cache", ptr, out);
+
         ret = gf_asprintf (&str, "%p", ptr);
         if (-1 == ret) {
-                gf_log ("ioc", GF_LOG_ERROR,
+                gf_log ("io-cache", GF_LOG_WARNING,
                         "asprintf failed while converting ptr to str");
-                return NULL;
+                str = NULL;
+                goto out;
         }
+
+out:
         return str;
 }
 
@@ -73,7 +82,18 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
         int8_t       need_fault        = 0;
         ioc_page_t  *waiter_page       = NULL;
 
+        GF_VALIDATE_OR_GOTO ("io-cache", frame, out);
+
         local = frame->local;
+        GF_VALIDATE_OR_GOTO (frame->this->name, local, out);
+
+        if (ioc_inode == NULL) {
+                local->op_ret = -1;
+                local->op_errno = EINVAL;
+                gf_log (frame->this->name, GF_LOG_WARNING, "ioc_inode is NULL");
+                goto out;
+        }
+
         ioc_inode_lock (ioc_inode);
         {
                 waiter = ioc_inode->waitq;
@@ -87,7 +107,7 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                 cache_still_valid = 0;
 
         if (!waiter) {
-                gf_log (frame->this->name, GF_LOG_DEBUG,
+                gf_log (frame->this->name, GF_LOG_WARNING,
                         "cache validate called without any "
                         "page waiting to be validated");
         }
@@ -117,8 +137,7 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                                         waiter_page->ready = 0;
                                         need_fault = 1;
                                 } else {
-                                        gf_log (frame->this->name,
-                                                GF_LOG_TRACE,
+                                        gf_log (frame->this->name, GF_LOG_TRACE,
                                                 "validate frame(%p) is waiting"
                                                 "for in-transit page = %p",
                                                 frame, waiter_page);
@@ -141,6 +160,9 @@ ioc_inode_wakeup (call_frame_t *frame, ioc_inode_t *ioc_inode,
                 waited->data = NULL;
                 GF_FREE (waited);
         }
+
+out:
+        return;
 }
 
 
@@ -159,6 +181,8 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 {
         ioc_inode_t     *ioc_inode   = NULL;
 
+        GF_VALIDATE_OR_GOTO ("io-cache", table, out);
+
         ioc_inode = GF_CALLOC (1, sizeof (ioc_inode_t), gf_ioc_mt_ioc_inode_t);
         if (ioc_inode == NULL) {
                 goto out;
@@ -166,21 +190,20 @@ ioc_inode_update (ioc_table_t *table, inode_t *inode, uint32_t weight)
 
         ioc_inode->table = table;
         INIT_LIST_HEAD (&ioc_inode->cache.page_lru);
-
-        ioc_table_lock (table);
-
-        table->inode_count++;
-        list_add (&ioc_inode->inode_list, &table->inodes);
-        list_add_tail (&ioc_inode->inode_lru, &table->inode_lru[weight]);
-
-        gf_log (table->xl->name,
-                GF_LOG_TRACE,
-                "adding to inode_lru[%d]", weight);
-
-        ioc_table_unlock (table);
-
         pthread_mutex_init (&ioc_inode->inode_lock, NULL);
         ioc_inode->weight = weight;
+
+        ioc_table_lock (table);
+        {
+                table->inode_count++;
+                list_add (&ioc_inode->inode_list, &table->inodes);
+                list_add_tail (&ioc_inode->inode_lru,
+                               &table->inode_lru[weight]);
+        }
+        ioc_table_unlock (table);
+
+        gf_log (table->xl->name, GF_LOG_TRACE,
+                "adding to inode_lru[%d]", weight);
 
 out:
         return ioc_inode;
@@ -199,12 +222,16 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
 {
         ioc_table_t *table = NULL;
 
+        GF_VALIDATE_OR_GOTO ("io-cache", ioc_inode, out);
+
         table = ioc_inode->table;
 
         ioc_table_lock (table);
-        table->inode_count--;
-        list_del (&ioc_inode->inode_list);
-        list_del (&ioc_inode->inode_lru);
+        {
+                table->inode_count--;
+                list_del (&ioc_inode->inode_list);
+                list_del (&ioc_inode->inode_lru);
+        }
         ioc_table_unlock (table);
 
         ioc_inode_flush (ioc_inode);
@@ -212,4 +239,6 @@ ioc_inode_destroy (ioc_inode_t *ioc_inode)
 
         pthread_mutex_destroy (&ioc_inode->inode_lock);
         GF_FREE (ioc_inode);
+out:
+        return;
 }
