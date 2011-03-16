@@ -979,12 +979,12 @@ fop_lk_cbk_stub (call_frame_t *frame,
 
 call_stub_t *
 fop_inodelk_stub (call_frame_t *frame, fop_inodelk_t fn,
-		  const char *volume, loc_t *loc, int32_t cmd, 
+		  const char *volume, loc_t *loc, int32_t cmd,
                   struct gf_flock *lock);
 
 call_stub_t *
 fop_finodelk_stub (call_frame_t *frame, fop_finodelk_t fn,
-		   const char *volume, fd_t *fd, int32_t cmd, 
+		   const char *volume, fd_t *fd, int32_t cmd,
                    struct gf_flock *lock);
 
 call_stub_t *

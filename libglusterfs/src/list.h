@@ -135,7 +135,7 @@ list_splice_init (struct list_head *list, struct list_head *head)
 	((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
 
 
-#define list_for_each(pos, head)				     \
+#define list_for_each(pos, head)                                        \
 	for (pos = (head)->next; pos != (head); pos = pos->next)
 
 
