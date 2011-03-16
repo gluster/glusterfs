@@ -131,22 +131,21 @@ int
 gf_log_init (const char *file)
 {
         if (!file){
-                fprintf (stderr, "gf_log_init: no filename specified\n");
+                fprintf (stderr, "ERROR: no filename specified\n");
                 return -1;
         }
 
         filename = gf_strdup (file);
         if (!filename) {
-                fprintf (stderr, "gf_log_init: strdup error\n");
+                fprintf (stderr, "ERROR: updating log-filename failed: %s\n",
+                         strerror (errno));
                 return -1;
         }
 
         logfile = fopen (file, "a");
         if (!logfile){
-                fprintf (stderr,
-                         "gf_log_init: failed to open logfile \"%s\" (%s)\n",
-                         file,
-                         strerror (errno));
+                fprintf (stderr, "ERROR: failed to open logfile \"%s\" (%s)\n",
+                         file, strerror (errno));
                 return -1;
         }
 
@@ -156,13 +155,6 @@ gf_log_init (const char *file)
 }
 
 
-/*
- * Initialize logging to a central server.
- * If successful, log messages will be written both to
- * the local file and to the remote server.
- */
-
-static int __central_log_enabled = 0;
 
 struct _msg_queue {
         struct list_head msgs;
@@ -582,15 +574,6 @@ unlock:
         pthread_mutex_unlock (&logfile_mutex);
 
         if (msg) {
-                if ((ret != -1) && __central_log_enabled &&
-                    ((glusterfs_central_log_flag_get ()) == 0)) {
-
-                        glusterfs_central_log_flag_set ();
-                        {
-                                //gf_log_central (msg);
-                        }
-                        glusterfs_central_log_flag_unset ();
-                }
                 GF_FREE (msg);
         }
 
@@ -604,83 +587,6 @@ out:
         return (0);
 }
 
-
-struct _client_log {
-        char *identifier;
-        FILE *file;
-        struct list_head list;
-};
-
-struct _client_log *client_logs = NULL;
-
-
-static void
-client_log_init (struct _client_log *cl, char *identifier)
-{
-        int   ret = 0;
-        char *path = NULL;
-
-        cl->identifier = identifier;
-
-        ret = gf_asprintf (&path, "%s.client-%s", filename, identifier);
-        if (-1 == ret) {
-                return;
-        }
-        cl->file = fopen (path, "a");
-        GF_FREE (path);
-
-        INIT_LIST_HEAD (&cl->list);
-}
-
-
-static FILE *
-__logfile_for_client (char *identifier)
-{
-        struct _client_log *client = NULL;
-
-        if (!client_logs) {
-                client = GF_CALLOC (1, sizeof (*client),
-                                    gf_common_mt_client_log);
-                if (!client)
-                        return NULL;
-
-                client_log_init (client, identifier);
-
-                client_logs = client;
-        }
-
-        list_for_each_entry (client, &client_logs->list, list) {
-                if (!strcmp (client->identifier, identifier))
-                        break;
-        }
-
-        if (!client) {
-                client = GF_CALLOC (1, sizeof (*client),
-                                    gf_common_mt_client_log);
-                if (!client)
-                        return NULL;
-
-                client_log_init (client, identifier);
-
-                list_add_tail (&client->list, &client_logs->list);
-        }
-
-        return client->file;
-}
-
-
-int
-gf_log_from_client (const char *msg, char *identifier)
-{
-        FILE *client_log = NULL;
-
-        client_log = __logfile_for_client (identifier);
-
-        fprintf (client_log, "%s\n", msg);
-        fflush (client_log);
-
-        return 0;
-}
 
 int
 gf_cmd_log_init (const char *filename)

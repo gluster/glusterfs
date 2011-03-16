@@ -211,63 +211,6 @@ glusterfs_this_set (xlator_t *this)
         return 0;
 }
 
-
-/* IS_CENTRAL_LOG */
-
-static pthread_key_t central_log_flag_key;
-
-void
-glusterfs_central_log_flag_destroy (void *ptr)
-{
-        if (ptr)
-                FREE (ptr);
-}
-
-
-int
-glusterfs_central_log_flag_init ()
-{
-        int ret = 0;
-
-        ret = pthread_key_create (&central_log_flag_key,
-                                  glusterfs_central_log_flag_destroy);
-
-        if (ret != 0) {
-                return ret;
-        }
-
-        pthread_setspecific (central_log_flag_key, (void *) 0);
-
-        return ret;
-}
-
-
-void
-glusterfs_central_log_flag_set ()
-{
-        pthread_setspecific (central_log_flag_key, (void *) 1);
-}
-
-
-long
-glusterfs_central_log_flag_get ()
-{
-        long flag = 0;
-
-        flag = (long) pthread_getspecific (central_log_flag_key);
-
-        return flag;
-}
-
-
-void
-glusterfs_central_log_flag_unset ()
-{
-        pthread_setspecific (central_log_flag_key, (void *) 0);
-}
-
-
-
 /* SYNCTASK */
 
 static pthread_key_t synctask_key;
@@ -352,27 +295,34 @@ glusterfs_globals_init ()
         gf_log_globals_init ();
 
         ret = glusterfs_ctx_init ();
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs context init failed");
                 goto out;
+        }
 
         ret = glusterfs_this_init ();
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs-translator init failed");
                 goto out;
-
-        ret = glusterfs_central_log_flag_init ();
-        if (ret)
-                goto out;
+        }
 
         ret = glusterfs_uuid_buf_init ();
-        if(ret)
+        if(ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs uuid buffer init failed");
                 goto out;
+        }
 
         gf_mem_acct_enable_set ();
 
         ret = synctask_init ();
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_CRITICAL,
+                        "ERROR: glusterfs synctask init failed");
                 goto out;
-
+        }
 out:
         return ret;
 }

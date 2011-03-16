@@ -46,12 +46,6 @@ xlator_t **__glusterfs_this_location ();
 xlator_t *glusterfs_this_get ();
 int glusterfs_this_set (xlator_t *);
 
-/* central log */
-
-void glusterfs_central_log_flag_set ();
-long glusterfs_central_log_flag_get ();
-void glusterfs_central_log_flag_unset ();
-
 /* task */
 void *synctask_get ();
 int synctask_set (void *);

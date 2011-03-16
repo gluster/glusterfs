@@ -73,6 +73,13 @@
 #define FNM_EXTMATCH 0
 #endif
 
+#define ZR_MOUNTPOINT_OPT       "mountpoint"
+#define ZR_ATTR_TIMEOUT_OPT     "attribute-timeout"
+#define ZR_ENTRY_TIMEOUT_OPT    "entry-timeout"
+#define ZR_DIRECT_IO_OPT        "direct-io-mode"
+#define ZR_STRICT_VOLFILE_CHECK "strict-volfile-check"
+#define ZR_DUMP_FUSE            "dump-fuse"
+
 #define GF_XATTR_PATHINFO_KEY   "trusted.glusterfs.pathinfo"
 #define GF_XATTR_LINKINFO_KEY   "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"
