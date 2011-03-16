@@ -1826,6 +1826,7 @@ init (xlator_t *this)
 	char            *cache_size_string = NULL, *tmp = NULL;
         int32_t          ret = -1;
         glusterfs_ctx_t *ctx = NULL;
+        data_t          *data = 0;
 
 	if (!this->children || this->children->next) {
 		gf_log (this->name, GF_LOG_ERROR,
@@ -1849,9 +1850,10 @@ init (xlator_t *this)
 	table->page_size = this->ctx->page_size;
 	table->cache_size = IOC_CACHE_SIZE;
 
-	if (dict_get (options, "cache-size"))
-		cache_size_string = data_to_str (dict_get (options,
-							   "cache-size"));
+        data = dict_get (options, "cache-size");
+        if (data)
+		cache_size_string = data_to_str (data);
+
 	if (cache_size_string) {
 		if (gf_string2bytesize (cache_size_string,
 					&table->cache_size) != 0) {
@@ -1868,10 +1870,9 @@ init (xlator_t *this)
 
 	table->cache_timeout = 1;
 
-	if (dict_get (options, "cache-timeout")) {
-		table->cache_timeout =
-			data_to_uint32 (dict_get (options,
-						  "cache-timeout"));
+	data = dict_get (options, "cache-timeout");
+        if (data) {
+		table->cache_timeout = data_to_uint32 (data);
 		gf_log (this->name, GF_LOG_TRACE,
 			"Using %d seconds to revalidate cache",
 			table->cache_timeout);
@@ -1879,9 +1880,9 @@ init (xlator_t *this)
 
 	INIT_LIST_HEAD (&table->priority_list);
 	table->max_pri = 1;
-	if (dict_get (options, "priority")) {
-		char *option_list = data_to_str (dict_get (options,
-							   "priority"));
+        data = dict_get (options, "priority");
+        if (data) {
+		char *option_list = data_to_str (data);
 		gf_log (this->name, GF_LOG_TRACE,
 			"option path %s", option_list);
 		/* parse the list of pattern:priority */
@@ -1896,7 +1897,10 @@ init (xlator_t *this)
 
         table->min_file_size = 0;
 
-        tmp = data_to_str (dict_get (options, "min-file-size"));
+        data = dict_get (options, "min-file-size");
+        if (data)
+                tmp = data_to_str (data);
+
         if (tmp != NULL) {
 		if (gf_string2bytesize (tmp,
                                         (uint64_t *)&table->min_file_size) != 0) {
@@ -1910,8 +1914,12 @@ init (xlator_t *this)
 			"using min-file-size %"PRIu64"", table->min_file_size);
         }
 
+        tmp = NULL;
         table->max_file_size = -1;
-        tmp = data_to_str (dict_get (options, "max-file-size"));
+        data = dict_get (options, "max-file-size");
+        if (data)
+                tmp = data_to_str (data);
+
         if (tmp != NULL) {
                 if (gf_string2bytesize (tmp,
                                         (uint64_t *)&table->max_file_size) != 0) {
