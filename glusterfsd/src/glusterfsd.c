@@ -863,8 +863,8 @@ set_log_file_path (cmd_args_t *cmd_args)
                                 tmp_str[j] = '-';
                 }
                 ret = gf_asprintf (&cmd_args->log_file,
-                                DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
-                                tmp_str);
+                                   DEFAULT_LOG_FILE_DIRECTORY "/%s.log",
+                                   tmp_str);
                 if (ret == -1) {
                         gf_log ("glusterfsd", GF_LOG_ERROR,
                                 "asprintf failed while setting up log-file");
@@ -1214,9 +1214,9 @@ glusterfs_sigwaiter (void *arg)
 
         for (;;) {
                 ret = sigwait (&set, &sig);
-                if (ret) 
+                if (ret)
                         continue;
-                                
+
 
                 switch (sig) {
                 case SIGINT:
@@ -1233,7 +1233,7 @@ glusterfs_sigwaiter (void *arg)
                         gf_latency_toggle (sig);
                         break;
                 default:
-                        
+
                         break;
                 }
         }

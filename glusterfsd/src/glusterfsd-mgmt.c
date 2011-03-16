@@ -451,39 +451,39 @@ static int oldvollen = 0;
 static int
 xlator_equal_rec (xlator_t *xl1, xlator_t *xl2)
 {
-	xlator_list_t *trav1 = NULL;
+        xlator_list_t *trav1 = NULL;
         xlator_list_t *trav2 = NULL;
         int            ret   = 0;
 
-	if (xl1 == NULL || xl2 == NULL)	{
-		gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
-		return -1;
-	}
+        if (xl1 == NULL || xl2 == NULL) {
+                gf_log ("xlator", GF_LOG_DEBUG, "invalid argument");
+                return -1;
+        }
 
-	trav1 = xl1->children;
+        trav1 = xl1->children;
         trav2 = xl2->children;
 
-	while (trav1 && trav2) {
-		ret = xlator_equal_rec (trav1->xlator, trav2->xlator);
+        while (trav1 && trav2) {
+                ret = xlator_equal_rec (trav1->xlator, trav2->xlator);
                 if (ret) {
                         gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                                 "xlators children not equal");
                         goto out;
                 }
 
-		trav1 = trav1->next;
+                trav1 = trav1->next;
                 trav2 = trav2->next;
-	}
+        }
 
-	if (trav1 || trav2) {
-		ret = -1;
-    		goto out;
-	}
-
-	if (strcmp (xl1->name, xl2->name)) {
+        if (trav1 || trav2) {
                 ret = -1;
-		goto out;
-	}
+                goto out;
+        }
+
+        if (strcmp (xl1->name, xl2->name)) {
+                ret = -1;
+                goto out;
+        }
 out :
         return ret;
 }
@@ -508,7 +508,7 @@ is_graph_topology_equal (glusterfs_graph_t *graph1,
                 goto out;
         }
 
-	ret = _gf_true;
+        ret = _gf_true;
         gf_log ("glusterfsd-mgmt", GF_LOG_DEBUG,
                 "graphs are equal");
 
@@ -527,7 +527,7 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
         glusterfs_graph_t *oldvolfile_graph = NULL;
         glusterfs_graph_t *newvolfile_graph = NULL;
         FILE              *oldvolfile_fp    = NULL;
-	glusterfs_ctx_t   *ctx              = NULL;
+        glusterfs_ctx_t   *ctx              = NULL;
 
         int ret = -1;
 
@@ -535,10 +535,10 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
         if (!oldvolfile_fp)
                 goto out;
 
-	if (!oldvollen) {
-		ret = 1; // Has to call INIT for the whole graph
-		goto out;
-	}
+        if (!oldvollen) {
+                ret = 1; // Has to call INIT for the whole graph
+                goto out;
+        }
         fwrite (oldvolfile, oldvollen, 1, oldvolfile_fp);
         fflush (oldvolfile_fp);
 
@@ -566,21 +566,21 @@ glusterfs_volfile_reconfigure (FILE *newvolfile_fp)
                 "Only options have changed in the new "
                 "graph");
 
-	ctx = glusterfs_ctx_get ();
+        ctx = glusterfs_ctx_get ();
 
-	if (!ctx) {
-		gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
-			"glusterfs_ctx_get() returned NULL");
-		goto out;
-	}
+        if (!ctx) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                        "glusterfs_ctx_get() returned NULL");
+                goto out;
+        }
 
-	oldvolfile_graph = ctx->active;
+        oldvolfile_graph = ctx->active;
 
-	if (!oldvolfile_graph) {
-		gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
-			"glsuterfs_ctx->active is NULL");
-		goto out;
-	}
+        if (!oldvolfile_graph) {
+                gf_log ("glusterfsd-mgmt", GF_LOG_ERROR,
+                        "glsuterfs_ctx->active is NULL");
+                goto out;
+        }
 
         /* */
         ret = glusterfs_graph_reconfigure (oldvolfile_graph,
@@ -963,7 +963,7 @@ mgmt_pmap_signout_cbk (struct rpc_req *req, struct iovec *iov, int count,
         pmap_signout_rsp  rsp   = {0,};
         call_frame_t    *frame = NULL;
         int              ret   = 0;
-	glusterfs_ctx_t	 *ctx = NULL;
+        glusterfs_ctx_t  *ctx = NULL;
 
         frame = myframe;
 
