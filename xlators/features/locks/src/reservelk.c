@@ -36,24 +36,24 @@
 void
 __delete_reserve_lock (posix_lock_t *lock)
 {
-	list_del (&lock->list);
+        list_del (&lock->list);
 }
 
 void
 __destroy_reserve_lock (posix_lock_t *lock)
 {
-	GF_FREE (lock);
+        GF_FREE (lock);
 }
 
 /* Return true if the two reservelks have exactly same lock boundaries */
 int
 reservelks_equal (posix_lock_t *l1, posix_lock_t *l2)
 {
-	if ((l1->fl_start == l2->fl_start) &&
-	    (l1->fl_end == l2->fl_end))
-		return 1;
+        if ((l1->fl_start == l2->fl_start) &&
+            (l1->fl_end == l2->fl_end))
+                return 1;
 
-	return 0;
+        return 0;
 }
 
 /* Determine if lock is grantable or not */
@@ -61,24 +61,24 @@ static posix_lock_t *
 __reservelk_grantable (pl_inode_t *pl_inode, posix_lock_t *lock)
 {
         xlator_t     *this     = NULL;
-	posix_lock_t *l        = NULL;
+        posix_lock_t *l        = NULL;
         posix_lock_t *ret_lock = NULL;
 
         this = THIS;
 
-	if (list_empty (&pl_inode->reservelk_list)) {
+        if (list_empty (&pl_inode->reservelk_list)) {
                 gf_log (this->name, GF_LOG_TRACE,
                         "No reservelks in list");
-		goto out;
+                goto out;
         }
-	list_for_each_entry (l, &pl_inode->reservelk_list, list){
-		if (reservelks_equal (lock, l)) {
+        list_for_each_entry (l, &pl_inode->reservelk_list, list){
+                if (reservelks_equal (lock, l)) {
                         ret_lock = l;
                         break;
-		}
-	}
+                }
+        }
 out:
-	return ret_lock;
+        return ret_lock;
 }
 
 static int
@@ -175,16 +175,16 @@ static int
 __lock_reservelk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                   int can_block)
 {
-	posix_lock_t *conf = NULL;
-	int ret = -EINVAL;
+        posix_lock_t *conf = NULL;
+        int ret = -EINVAL;
 
-	conf = __reservelk_grantable (pl_inode, lock);
-	if (conf){
-		ret = -EAGAIN;
-		if (can_block == 0)
-			goto out;
+        conf = __reservelk_grantable (pl_inode, lock);
+        if (conf){
+                ret = -EAGAIN;
+                if (can_block == 0)
+                        goto out;
 
-		list_add_tail (&lock->list, &pl_inode->blocked_reservelks);
+                list_add_tail (&lock->list, &pl_inode->blocked_reservelks);
 
                 gf_log (this->name, GF_LOG_TRACE,
                         "%s (pid=%d) lk-owner:%"PRIu64" %"PRId64" - %"PRId64" => Blocked",
@@ -195,26 +195,26 @@ __lock_reservelk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                         lock->user_flock.l_len);
 
 
-		goto out;
-	}
+                goto out;
+        }
 
-	list_add (&lock->list, &pl_inode->reservelk_list);
+        list_add (&lock->list, &pl_inode->reservelk_list);
 
-	ret = 0;
+        ret = 0;
 
 out:
-	return ret;
+        return ret;
 }
 
 static posix_lock_t *
 find_matching_reservelk (posix_lock_t *lock, pl_inode_t *pl_inode)
 {
-	posix_lock_t *l = NULL;
-	list_for_each_entry (l, &pl_inode->reservelk_list, list) {
-		if (reservelks_equal (l, lock))
-			return l;
-	}
-	return NULL;
+        posix_lock_t *l = NULL;
+        list_for_each_entry (l, &pl_inode->reservelk_list, list) {
+                if (reservelks_equal (l, lock))
+                        return l;
+        }
+        return NULL;
 }
 
 /* Set F_UNLCK removes a lock which has the exact same lock boundaries
@@ -224,20 +224,20 @@ static posix_lock_t *
 __reserve_unlock_lock (xlator_t *this, posix_lock_t *lock, pl_inode_t *pl_inode)
 {
 
-	posix_lock_t *conf = NULL;
+        posix_lock_t *conf = NULL;
 
-	conf = find_matching_reservelk (lock, pl_inode);
-	if (!conf) {
+        conf = find_matching_reservelk (lock, pl_inode);
+        if (!conf) {
                 gf_log (this->name, GF_LOG_DEBUG,
                         " Matching lock not found for unlock");
-		goto out;
+                goto out;
         }
-	__delete_reserve_lock (conf);
+        __delete_reserve_lock (conf);
         gf_log (this->name, GF_LOG_DEBUG,
                 " Matching lock found for unlock");
 
 out:
-	return conf;
+        return conf;
 
 
 }
@@ -246,37 +246,37 @@ static void
 __grant_blocked_reserve_locks (xlator_t *this, pl_inode_t *pl_inode,
                                struct list_head *granted)
 {
-	int	      bl_ret = 0;
-	posix_lock_t *bl = NULL;
-	posix_lock_t *tmp = NULL;
+        int              bl_ret = 0;
+        posix_lock_t *bl = NULL;
+        posix_lock_t *tmp = NULL;
 
         struct list_head blocked_list;
 
         INIT_LIST_HEAD (&blocked_list);
         list_splice_init (&pl_inode->blocked_reservelks, &blocked_list);
 
-	list_for_each_entry_safe (bl, tmp, &blocked_list, list) {
+        list_for_each_entry_safe (bl, tmp, &blocked_list, list) {
 
-		list_del_init (&bl->list);
+                list_del_init (&bl->list);
 
-		bl_ret = __lock_reservelk (this, pl_inode, bl, 1);
+                bl_ret = __lock_reservelk (this, pl_inode, bl, 1);
 
-		if (bl_ret == 0) {
-			list_add (&bl->list, granted);
+                if (bl_ret == 0) {
+                        list_add (&bl->list, granted);
                 }
         }
-	return;
+        return;
 }
 
 /* Grant all reservelks blocked on lock(s) */
 void
 grant_blocked_reserve_locks (xlator_t *this, pl_inode_t *pl_inode)
 {
-	struct list_head granted;
-	posix_lock_t *lock = NULL;
-	posix_lock_t *tmp = NULL;
+        struct list_head granted;
+        posix_lock_t *lock = NULL;
+        posix_lock_t *tmp = NULL;
 
-	INIT_LIST_HEAD (&granted);
+        INIT_LIST_HEAD (&granted);
 
         if (list_empty (&pl_inode->blocked_reservelks)) {
                 gf_log (this->name, GF_LOG_TRACE,
@@ -285,22 +285,22 @@ grant_blocked_reserve_locks (xlator_t *this, pl_inode_t *pl_inode)
         }
 
         pthread_mutex_lock (&pl_inode->mutex);
-	{
-		__grant_blocked_reserve_locks (this, pl_inode, &granted);
-	}
+        {
+                __grant_blocked_reserve_locks (this, pl_inode, &granted);
+        }
         pthread_mutex_unlock (&pl_inode->mutex);
 
-	list_for_each_entry_safe (lock, tmp, &granted, list) {
+        list_for_each_entry_safe (lock, tmp, &granted, list) {
                 gf_log (this->name, GF_LOG_TRACE,
-			"%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => Granted",
-			lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-			lock->client_pid,
-			lock->owner,
-			lock->user_flock.l_start,
-			lock->user_flock.l_len);
+                        "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => Granted",
+                        lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                        lock->client_pid,
+                        lock->owner,
+                        lock->user_flock.l_start,
+                        lock->user_flock.l_len);
 
-		STACK_UNWIND_STRICT (lk, lock->frame, 0, 0, &lock->user_flock);
-	}
+                STACK_UNWIND_STRICT (lk, lock->frame, 0, 0, &lock->user_flock);
+        }
 
 }
 
@@ -308,34 +308,34 @@ static void
 __grant_blocked_lock_calls (xlator_t *this, pl_inode_t *pl_inode,
                             struct list_head *granted)
 {
-	int	      bl_ret = 0;
-	posix_lock_t *bl = NULL;
-	posix_lock_t *tmp = NULL;
+        int              bl_ret = 0;
+        posix_lock_t *bl = NULL;
+        posix_lock_t *tmp = NULL;
 
         struct list_head blocked_list;
 
         INIT_LIST_HEAD (&blocked_list);
         list_splice_init (&pl_inode->blocked_reservelks, &blocked_list);
 
-	list_for_each_entry_safe (bl, tmp, &blocked_list, list) {
+        list_for_each_entry_safe (bl, tmp, &blocked_list, list) {
 
-		list_del_init (&bl->list);
+                list_del_init (&bl->list);
 
-		bl_ret = pl_verify_reservelk (this, pl_inode, bl, bl->blocked);
+                bl_ret = pl_verify_reservelk (this, pl_inode, bl, bl->blocked);
 
-		if (bl_ret == 0) {
+                if (bl_ret == 0) {
                         list_add_tail (&bl->list, granted);
                 }
         }
-	return;
+        return;
 }
 
 void
 grant_blocked_lock_calls (xlator_t *this, pl_inode_t *pl_inode)
 {
-	struct list_head granted;
-	posix_lock_t *lock = NULL;
-	posix_lock_t *tmp = NULL;
+        struct list_head granted;
+        posix_lock_t *lock = NULL;
+        posix_lock_t *tmp = NULL;
         fd_t         *fd  = NULL;
 
         int can_block = 0;
@@ -349,9 +349,9 @@ grant_blocked_lock_calls (xlator_t *this, pl_inode_t *pl_inode)
         }
 
         pthread_mutex_lock (&pl_inode->mutex);
-	{
-		__grant_blocked_lock_calls (this, pl_inode, &granted);
-	}
+        {
+                __grant_blocked_lock_calls (this, pl_inode, &granted);
+        }
         pthread_mutex_unlock (&pl_inode->mutex);
 
         list_for_each_entry_safe (lock, tmp, &granted, list) {
@@ -393,18 +393,18 @@ pl_reserve_unlock (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock)
         int ret = -1;
 
         pthread_mutex_lock (&pl_inode->mutex);
-	{
-		retlock = __reserve_unlock_lock (this, lock, pl_inode);
-		if (!retlock) {
-			gf_log (this->name, GF_LOG_DEBUG,
-				"Bad Unlock issued on Inode lock");
+        {
+                retlock = __reserve_unlock_lock (this, lock, pl_inode);
+                if (!retlock) {
+                        gf_log (this->name, GF_LOG_DEBUG,
+                                "Bad Unlock issued on Inode lock");
                         ret = -EINVAL;
                         goto out;
                 }
 
                 gf_log (this->name, GF_LOG_TRACE,
                         "Reservelk Unlock successful");
-		__destroy_reserve_lock (retlock);
+                __destroy_reserve_lock (retlock);
                 ret = 0;
         }
 out:
@@ -421,22 +421,22 @@ int
 pl_reserve_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                   int can_block)
 {
-	int ret = -EINVAL;
+        int ret = -EINVAL;
 
-	pthread_mutex_lock (&pl_inode->mutex);
-	{
+        pthread_mutex_lock (&pl_inode->mutex);
+        {
 
-			ret = __lock_reservelk (this, pl_inode, lock, can_block);
+                        ret = __lock_reservelk (this, pl_inode, lock, can_block);
                         if (ret < 0)
-				gf_log (this->name, GF_LOG_TRACE,
+                                gf_log (this->name, GF_LOG_TRACE,
                                         "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => NOK",
-					lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
-					lock->client_pid,
+                                        lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
+                                        lock->client_pid,
                                         lock->owner,
-					lock->user_flock.l_start,
-					lock->user_flock.l_len);
+                                        lock->user_flock.l_start,
+                                        lock->user_flock.l_len);
                         else
-				gf_log (this->name, GF_LOG_TRACE,
+                                gf_log (this->name, GF_LOG_TRACE,
                                         "%s (pid=%d) (lk-owner=%"PRIu64") %"PRId64" - %"PRId64" => OK",
                                         lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                                         lock->client_pid,
@@ -444,7 +444,7 @@ pl_reserve_setlk (xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                                         lock->fl_start,
                                         lock->fl_end);
 
-	}
-	pthread_mutex_unlock (&pl_inode->mutex);
+        }
+        pthread_mutex_unlock (&pl_inode->mutex);
         return ret;
 }
