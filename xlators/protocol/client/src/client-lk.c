@@ -34,7 +34,7 @@ __dump_client_lock (client_posix_lock_t *lock)
 
         this = THIS;
 
-        gf_log (this->name, GF_LOG_TRACE,
+        gf_log (this->name, GF_LOG_INFO,
                 "{fd=%p}"
                 "{%s lk-owner:%"PRIu64" %"PRId64" - %"PRId64"}"
                 "{start=%"PRId64" end=%"PRId64"}",
@@ -241,7 +241,8 @@ subtract_locks (client_posix_lock_t *big, client_posix_lock_t *small)
 		memcpy (v.locks[1], small, sizeof (client_posix_lock_t));
 	}
         else {
-                gf_log ("client-protocol", GF_LOG_ERROR,
+                /* LOG-TODO : decide what more info is required here*/
+                gf_log ("client-protocol", GF_LOG_CRITICAL,
                         "Unexpected case in subtract_locks. Please send "
                         "a bug report to gluster-devel@nongnu.org");
         }
@@ -402,7 +403,7 @@ delete_granted_locks_owner (fd_t *fd, uint64_t owner)
                 destroy_client_lock (lock);
         }
 
-/* FIXME: Need to actually print the locks instead of count */
+        /* FIXME: Need to actually print the locks instead of count */
         gf_log (this->name, GF_LOG_DEBUG,
                 "Number of locks cleared=%d", count);
 
@@ -451,6 +452,10 @@ client_mark_bad_fd (fd_t *fd, clnt_fd_ctx_t *fdctx)
         this = THIS;
         if (fdctx)
                 fdctx->remote_fd = -1;
+
+        gf_log (this->name, GF_LOG_WARNING,
+                "marking the file descriptor (%p) bad", fd);
+
         this_fd_set_ctx (fd, this, NULL, fdctx);
 }
 
@@ -492,8 +497,6 @@ new_client_lock (struct gf_flock *flock, uint64_t owner,
         new_lock = GF_CALLOC (1, sizeof (*new_lock),
                               gf_client_mt_clnt_lock_t);
         if (!new_lock) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto out;
         }
 
@@ -511,7 +514,6 @@ new_client_lock (struct gf_flock *flock, uint64_t owner,
 
         new_lock->owner = owner;
         new_lock->cmd = cmd; /* Not really useful */
-
 
 out:
         return new_lock;
@@ -548,16 +550,14 @@ client_add_lock_for_recovery (fd_t *fd, struct gf_flock *flock, uint64_t owner,
         pthread_mutex_unlock (&conf->lock);
 
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "failed to get fd context. Marking as bad fd.");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "failed to get fd context. sending EBADFD");
                 ret = -EBADFD;
                 goto out;
         }
 
         lock = new_client_lock (flock, owner, cmd, fd);
         if (!lock) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -613,7 +613,7 @@ decrement_reopen_fd_count (xlator_t *this, clnt_conf_t *conf)
         UNLOCK (&conf->rec_lock);
 
         if (fd_count == 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "last fd open'd/lock-self-heal'd - notifying CHILD-UP");
                 client_notify_parents_child_up (this);
         }
@@ -638,10 +638,8 @@ client_remove_reserve_lock_cbk (call_frame_t *frame,
         conf  = this->private;
 
         if (op_ret < 0) {
-                /* TODO: critical error describing recovery command
-                   and blanket on ops on fd */
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "Lock recovery failed with error msg=%s",
+                gf_log (this->name, GF_LOG_WARNING,
+                        "removing reserver lock on fd failed: %s",
                         strerror(op_errno));
                 goto cleanup;
         }
@@ -651,11 +649,13 @@ client_remove_reserve_lock_cbk (call_frame_t *frame,
 
 cleanup:
         frame->local = NULL;
-        client_mark_bad_fd (local->client_lock->fd,
-                            local->fdctx);
+
+        client_mark_bad_fd (local->client_lock->fd, local->fdctx);
+
         destroy_client_lock (local->client_lock);
         client_local_wipe (local);
         STACK_DESTROY (frame->root);
+
         fd_count = decrement_reopen_fd_count (this, conf);
         gf_log (this->name, GF_LOG_DEBUG,
                 "Need to attempt lock recovery on %lld open fds",
@@ -703,11 +703,11 @@ unlock:
 
 int32_t
 client_reserve_lock_cbk (call_frame_t *frame,
-		void *cookie,
-		xlator_t *this,
-		int32_t op_ret,
-		int32_t op_errno,
-		struct gf_flock *lock)
+                         void *cookie,
+                         xlator_t *this,
+                         int32_t op_ret,
+                         int32_t op_errno,
+                         struct gf_flock *lock)
 {
 
         clnt_local_t *local = NULL;
@@ -724,14 +724,13 @@ client_reserve_lock_cbk (call_frame_t *frame,
         if (op_ret >= 0) {
                 /* Lock is grantable if flock reflects a successful getlk() call*/
                 if (lock->l_type == F_UNLCK && lock->l_pid) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "Got the reservelk, but the lock is not grantable. ");
                         client_remove_reserve_lock (this, frame, local->client_lock);
                         goto out;
                 }
 
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Reserve Lock succeeded");
+                gf_log (this->name, GF_LOG_DEBUG, "reserve lock succeeded");
                 client_send_recovery_lock (frame, this, local->client_lock);
                 goto out;
         }
@@ -739,8 +738,8 @@ client_reserve_lock_cbk (call_frame_t *frame,
         /* Somebody else has a reserve lk. Lock conflict detected.
            Mark fd as bad */
 
-        gf_log (this->name, GF_LOG_DEBUG,
-                "Reservelk OP failed. Aborting lock recovery and marking bad fd");
+        gf_log (this->name, GF_LOG_WARNING,
+                "reservelk OP failed. aborting lock recovery");
 
         client_mark_bad_fd (local->client_lock->fd,
                             local->fdctx);
@@ -748,10 +747,11 @@ client_reserve_lock_cbk (call_frame_t *frame,
         frame->local = NULL;
         client_local_wipe (local);
         STACK_DESTROY (frame->root);
+
         fd_count = decrement_reopen_fd_count (this, conf);
         gf_log (this->name, GF_LOG_DEBUG,
-                "Need to attempt lock recovery on %lld open fds",
-                (unsigned long long) fd_count);
+                "need to attempt lock recovery on %"PRIu64" open fds",
+                fd_count);
 
 out:
 	return 0;
@@ -777,10 +777,8 @@ client_recovery_lock_cbk (call_frame_t *frame,
         conf  = this->private;
 
         if (op_ret < 0) {
-                /* TODO: critical error describing recovery command
-                   and blanket on ops on fd */
-                gf_log (this->name, GF_LOG_CRITICAL,
-                        "Lock recovery failed with error msg=%s",
+                gf_log (this->name, GF_LOG_ERROR,
+                        "lock recovery failed: %s",
                         strerror(op_errno));
 
                 client_mark_bad_fd (local->client_lock->fd,
@@ -790,12 +788,12 @@ client_recovery_lock_cbk (call_frame_t *frame,
                 /* Lock recovered. Continue with reserve lock for next lock */
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "lock recovered successfully -  Continuing with next lock.");
+                        "lock recovered successfully - continuing with next lock.");
 
                 next_lock = get_next_recovery_lock (this, local);
                 if (!next_lock) {
                         gf_log (this->name, GF_LOG_DEBUG,
-                                "All locks recovered on fd");
+                                "all locks recovered on fd");
                         goto cleanup;
                 }
 
@@ -811,15 +809,20 @@ client_recovery_lock_cbk (call_frame_t *frame,
         }
 
 cleanup:
+
         frame->local = NULL;
         client_local_wipe (local);
+
         if (local->client_lock)
                 destroy_client_lock (local->client_lock);
+
         STACK_DESTROY (frame->root);
+
         fd_count = decrement_reopen_fd_count (this, conf);
+
         gf_log (this->name, GF_LOG_DEBUG,
-                "Need to attempt lock recovery on %lld open fds",
-                (unsigned long long) fd_count);
+                "need to attempt lock recovery on %"PRIu64" open fds",
+                fd_count);
 
 out:
 	return 0;
@@ -872,8 +875,6 @@ client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx)
 
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 ret = -ENOMEM;
                 goto out;
         }
@@ -883,7 +884,7 @@ client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx)
         lock = get_next_recovery_lock (this, local);
         if (!lock) {
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "No locks on fd");
+                        "no locks found on fd");
                 ret = -1;
                 goto out;
         }
@@ -891,7 +892,7 @@ client_attempt_lock_recovery (xlator_t *this, clnt_fd_ctx_t *fdctx)
         frame = create_frame (this, this->ctx->pool);
         if (!frame) {
                 gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
+                        "creating of frame failed, lock recovery failed");
                 ret = -1;
                 goto out;
         }
@@ -928,8 +929,8 @@ client_dump_locks (char *name, inode_t *inode,
 
         ret = dict_set_dynstr(new_dict, CLIENT_DUMP_LOCKS, dict_string);
         if (ret) {
-                gf_log (THIS->name, GF_LOG_DEBUG,
-                        "Could not set dict with %s", CLIENT_DUMP_LOCKS);
+                gf_log (THIS->name, GF_LOG_WARNING,
+                        "could not set dict with %s", CLIENT_DUMP_LOCKS);
                 goto out;
         }
 

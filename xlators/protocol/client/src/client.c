@@ -57,8 +57,9 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         char           start_ping  = 0;
         struct iobref *new_iobref  = NULL;
 
-        if (!this || !prog || !frame)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("client", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, prog, out);
+        GF_VALIDATE_OR_GOTO (this->name, frame, out);
 
         conf = this->private;
 
@@ -68,8 +69,11 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         if (!(conf->connected ||
               ((prog->prognum == GLUSTER_DUMP_PROGRAM) ||
                (prog->prognum == GLUSTER_PMAP_PROGRAM) ||
-               ((prog->prognum == GLUSTER_HNDSK_PROGRAM) && (procnum == GF_HNDSK_SETVOLUME)))))
+               ((prog->prognum == GLUSTER_HNDSK_PROGRAM) && (procnum == GF_HNDSK_SETVOLUME))))) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "connection in disconnected state");
                 goto out;
+        }
 
         iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (!iobuf) {
@@ -104,6 +108,10 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         if (req && sfunc) {
                 ret = sfunc (iov, req);
                 if (ret == -1) {
+                        /* callingfn so that, we can get to know which xdr
+                           function was called */
+                        gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                          "XDR payload creation failed");
                         goto out;
                 }
                 iov.iov_len = ret;
@@ -113,6 +121,10 @@ client_submit_request (xlator_t *this, void *req, call_frame_t *frame,
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count, NULL,
                                0, new_iobref, frame, rsphdr, rsphdr_count,
                                rsp_payload, rsp_payload_count, rsp_iobref);
+
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "rpc_clnt_submit failed");
+        }
 
         if (ret == 0) {
                 pthread_mutex_lock (&conf->rpc->conn.lock);
@@ -162,6 +174,12 @@ client_releasedir (xlator_t *this, fd_t *fd)
         args.fd = fd;
 
         proc = &conf->fops->proctable[GF_FOP_RELEASEDIR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_RELEASEDIR]);
+                goto out;
+        }
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -171,7 +189,7 @@ client_releasedir (xlator_t *this, fd_t *fd)
         }
 out:
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_WARNING,
                         "releasedir fop failed");
 	return 0;
 }
@@ -191,6 +209,12 @@ client_release (xlator_t *this, fd_t *fd)
 
         args.fd = fd;
         proc = &conf->fops->proctable[GF_FOP_RELEASE];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_RELEASE]);
+                goto out;
+        }
         if (proc->fn) {
                 frame = create_frame (this, this->ctx->pool);
                 if (!frame) {
@@ -200,7 +224,7 @@ client_release (xlator_t *this, fd_t *fd)
         }
 out:
         if (ret)
-                gf_log (this->name, GF_LOG_TRACE,
+                gf_log (this->name, GF_LOG_WARNING,
                         "release fop failed");
 	return 0;
 }
@@ -223,6 +247,12 @@ client_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.dict = xattr_req;
 
         proc = &conf->fops->proctable[GF_FOP_LOOKUP];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_LOOKUP]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -250,12 +280,17 @@ client_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         args.loc = loc;
 
         proc = &conf->fops->proctable[GF_FOP_STAT];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_STAT]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
         if (ret)
                 STACK_UNWIND_STRICT (stat, frame, -1, ENOTCONN, NULL);
-
 
 	return 0;
 }
@@ -277,6 +312,12 @@ client_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         args.offset = offset;
 
         proc = &conf->fops->proctable[GF_FOP_TRUNCATE];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_TRUNCATE]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -304,6 +345,12 @@ client_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         args.offset = offset;
 
         proc = &conf->fops->proctable[GF_FOP_FTRUNCATE];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FTRUNCATE]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -331,6 +378,12 @@ client_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         args.mask = mask;
 
         proc = &conf->fops->proctable[GF_FOP_ACCESS];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_ACCESS]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -359,6 +412,12 @@ client_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         args.size = size;
 
         proc = &conf->fops->proctable[GF_FOP_READLINK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_READLINK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -388,6 +447,12 @@ client_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         args.dict = params;
 
         proc = &conf->fops->proctable[GF_FOP_MKNOD];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_MKNOD]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -417,6 +482,12 @@ client_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.dict = params;
 
         proc = &conf->fops->proctable[GF_FOP_MKDIR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_MKDIR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -444,6 +515,12 @@ client_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
         args.loc = loc;
 
         proc = &conf->fops->proctable[GF_FOP_UNLINK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_UNLINK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -470,6 +547,12 @@ client_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         args.flags = flags;
 
         proc = &conf->fops->proctable[GF_FOP_RMDIR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_RMDIR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -500,6 +583,12 @@ client_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         args.dict     = params;
 
         proc = &conf->fops->proctable[GF_FOP_SYMLINK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_SYMLINK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -528,6 +617,12 @@ client_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         args.oldloc = oldloc;
         args.newloc = newloc;
         proc = &conf->fops->proctable[GF_FOP_RENAME];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_RENAME]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -557,6 +652,12 @@ client_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         args.newloc = newloc;
 
         proc = &conf->fops->proctable[GF_FOP_LINK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_LINK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -589,6 +690,12 @@ client_create (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.dict = params;
 
         proc = &conf->fops->proctable[GF_FOP_CREATE];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_CREATE]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -620,6 +727,12 @@ client_open (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.wbflags = wbflags;
 
         proc = &conf->fops->proctable[GF_FOP_OPEN];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_OPEN]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 
@@ -650,6 +763,12 @@ client_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         args.offset = offset;
 
         proc = &conf->fops->proctable[GF_FOP_READ];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_READ]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 
@@ -685,6 +804,12 @@ client_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.iobref = iobref;
 
         proc = &conf->fops->proctable[GF_FOP_WRITE];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_WRITE]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -711,6 +836,12 @@ client_flush (call_frame_t *frame, xlator_t *this, fd_t *fd)
         args.fd = fd;
 
         proc = &conf->fops->proctable[GF_FOP_FLUSH];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FLUSH]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -739,6 +870,12 @@ client_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.flags = flags;
 
         proc = &conf->fops->proctable[GF_FOP_FSYNC];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FSYNC]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -765,6 +902,12 @@ client_fstat (call_frame_t *frame, xlator_t *this, fd_t *fd)
         args.fd = fd;
 
         proc = &conf->fops->proctable[GF_FOP_FSTAT];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FSTAT]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -792,6 +935,12 @@ client_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         args.fd  = fd;
 
         proc = &conf->fops->proctable[GF_FOP_OPENDIR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_OPENDIR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -819,6 +968,12 @@ client_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         args.flags = flags;
 
         proc = &conf->fops->proctable[GF_FOP_FSYNCDIR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FSYNCDIR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -845,6 +1000,12 @@ client_statfs (call_frame_t *frame, xlator_t *this, loc_t *loc)
         args.loc = loc;
 
         proc = &conf->fops->proctable[GF_FOP_STATFS];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_STATFS]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -861,12 +1022,16 @@ is_client_rpc_init_command (dict_t *dict, xlator_t *this,
         gf_boolean_t ret      = _gf_false;
         int          dict_ret = -1;
 
-        if (!strstr (this->name, "replace-brick"))
+        if (!strstr (this->name, "replace-brick")) {
+                gf_log (this->name, GF_LOG_TRACE, "name is !replace-brick");
                 goto out;
-
+        }
         dict_ret = dict_get_str (dict, CLIENT_CMD_CONNECT, value);
-        if (dict_ret)
+        if (dict_ret) {
+                gf_log (this->name, GF_LOG_TRACE, "key %s not present",
+                        CLIENT_CMD_CONNECT);
                 goto out;
+        }
 
         ret = _gf_true;
 
@@ -882,12 +1047,17 @@ is_client_rpc_destroy_command (dict_t *dict, xlator_t *this)
         int          dict_ret = -1;
         char        *dummy    = NULL;
 
-        if (strncmp (this->name, "replace-brick", 13))
+        if (strncmp (this->name, "replace-brick", 13)) {
+                gf_log (this->name, GF_LOG_TRACE, "name is !replace-brick");
                 goto out;
+        }
 
         dict_ret = dict_get_str (dict, CLIENT_CMD_DISCONNECT, &dummy);
-        if (dict_ret)
+        if (dict_ret) {
+                gf_log (this->name, GF_LOG_TRACE, "key %s not present",
+                        CLIENT_CMD_DISCONNECT);
                 goto out;
+        }
 
         ret = _gf_true;
 
@@ -925,8 +1095,6 @@ client_set_remote_options (char *value, xlator_t *this)
 
         host_dup = gf_strdup (host);
         if (!host_dup) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto out;
         }
 
@@ -939,8 +1107,6 @@ client_set_remote_options (char *value, xlator_t *this)
 
         subvol_dup = gf_strdup (subvol);
         if (!subvol_dup) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 goto out;
         }
 
@@ -987,6 +1153,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
 
         if (is_client_rpc_init_command (dict, this, &value) == _gf_true) {
                 GF_ASSERT (value);
+                gf_log (this->name, GF_LOG_INFO, "client rpc init command");
                 ret = client_set_remote_options (value, this);
                 if (ret)
                         ret = client_init_rpc (this);
@@ -1000,6 +1167,7 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
 
         if (is_client_rpc_destroy_command (dict, this) == _gf_true) {
+                gf_log (this->name, GF_LOG_INFO, "client rpc destroy command");
                 ret = client_destroy_rpc (this);
                 if (ret) {
                         op_ret      = 0;
@@ -1021,11 +1189,15 @@ client_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         args.flags = flags;
 
         proc = &conf->fops->proctable[GF_FOP_SETXATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_SETXATTR]);
+                goto out;
+        }
         if (proc->fn) {
                 ret = proc->fn (frame, this, &args);
                 if (ret) {
-                        op_ret = -1;
-                        op_errno = ENOTCONN;
                         need_unwind = 1;
                 }
         }
@@ -1056,6 +1228,12 @@ client_fsetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.flags = flags;
 
         proc = &conf->fops->proctable[GF_FOP_FSETXATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FSETXATTR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1085,6 +1263,12 @@ client_fgetxattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.name = name;
 
         proc = &conf->fops->proctable[GF_FOP_FGETXATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FGETXATTR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1113,6 +1297,12 @@ client_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc  = loc;
 
         proc = &conf->fops->proctable[GF_FOP_GETXATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_GETXATTR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1142,6 +1332,12 @@ client_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.dict = dict;
 
         proc = &conf->fops->proctable[GF_FOP_XATTROP];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_XATTROP]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1171,6 +1367,12 @@ client_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.dict = dict;
 
         proc = &conf->fops->proctable[GF_FOP_FXATTROP];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FXATTROP]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1199,6 +1401,12 @@ client_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.loc  = loc;
 
         proc = &conf->fops->proctable[GF_FOP_REMOVEXATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_REMOVEXATTR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1227,6 +1435,12 @@ client_lk (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         args.flock = lock;
 
         proc = &conf->fops->proctable[GF_FOP_LK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_LK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1256,6 +1470,12 @@ client_inodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.volume = volume;
 
         proc = &conf->fops->proctable[GF_FOP_INODELK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_INODELK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1286,6 +1506,12 @@ client_finodelk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.volume = volume;
 
         proc = &conf->fops->proctable[GF_FOP_FINODELK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FINODELK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1317,6 +1543,12 @@ client_entrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.cmd_entrylk  = cmd;
 
         proc = &conf->fops->proctable[GF_FOP_ENTRYLK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_ENTRYLK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1349,6 +1581,12 @@ client_fentrylk (call_frame_t *frame, xlator_t *this, const char *volume,
         args.cmd_entrylk  = cmd;
 
         proc = &conf->fops->proctable[GF_FOP_FENTRYLK];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FENTRYLK]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1377,6 +1615,12 @@ client_rchecksum (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         args.len = len;
 
         proc = &conf->fops->proctable[GF_FOP_RCHECKSUM];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_RCHECKSUM]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1404,6 +1648,12 @@ client_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.offset = off;
 
         proc = &conf->fops->proctable[GF_FOP_READDIR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_READDIR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1432,6 +1682,12 @@ client_readdirp (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.offset = off;
 
         proc = &conf->fops->proctable[GF_FOP_READDIRP];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_READDIRP]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1460,6 +1716,12 @@ client_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         args.valid = valid;
 
         proc = &conf->fops->proctable[GF_FOP_SETATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_SETATTR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1487,6 +1749,12 @@ client_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd,
         args.valid = valid;
 
         proc = &conf->fops->proctable[GF_FOP_FSETATTR];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_FSETATTR]);
+                goto out;
+        }
         if (proc->fn)
                 ret = proc->fn (frame, this, &args);
 out:
@@ -1515,6 +1783,12 @@ client_getspec (call_frame_t *frame, xlator_t *this, const char *key,
 
         /* For all other xlators, getspec is an fop, hence its in fops table */
         proc = &conf->fops->proctable[GF_FOP_GETSPEC];
+        if (!proc) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "rpc procedure not found for %s",
+                        gf_fop_list[GF_FOP_GETSPEC]);
+                goto out;
+        }
         if (proc->fn) {
                 /* But at protocol level, this is handshake */
                 ret = proc->fn (frame, this, &args);
@@ -1560,8 +1834,9 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         this = mydata;
         if (!this || !this->private) {
                 gf_log ("client", GF_LOG_ERROR,
-                        (this != NULL)?"private structure of the xlator this is NULL":
-                        "xlator this is NULL");
+                        (this != NULL) ?
+                        "private structure of the xlator is NULL":
+                        "xlator is NULL");
                 goto out;
         }
 
@@ -1575,18 +1850,18 @@ client_rpc_notify (struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 ret = dict_get_str (this->options, "disable-handshake",
                                     &handshake);
 
-                gf_log (this->name, GF_LOG_TRACE, "got RPC_CLNT_CONNECT");
+                gf_log (this->name, GF_LOG_DEBUG, "got RPC_CLNT_CONNECT");
 
                 if ((ret < 0) || (strcasecmp (handshake, "on"))) {
                         ret = client_handshake (this, conf->rpc);
                         if (ret)
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "handshake msg returned %d", ret);
                 } else {
                         //conf->rpc->connected = 1;
                         ret = default_notify (this, GF_EVENT_CHILD_UP, NULL);
                         if (ret)
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "default notify failed");
                 }
                 break;
@@ -1635,8 +1910,8 @@ notify (xlator_t *this, int32_t event, void *data, ...)
         switch (event) {
         case GF_EVENT_PARENT_UP:
         {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "got GF_EVENT_PARENT_UP, attempting connect "
+                gf_log (this->name, GF_LOG_INFO,
+                        "parent translators are ready, attempting connect "
                         "on transport");
 
                 rpc_clnt_start (conf->rpc);
@@ -1657,15 +1932,15 @@ notify (xlator_t *this, int32_t event, void *data, ...)
 int
 build_client_config (xlator_t *this, clnt_conf_t *conf)
 {
-        int ret = 0;
+        int ret = -1;
 
         if (!conf)
-                return -1;
+                goto out;
 
         ret = dict_get_int32 (this->options, "frame-timeout",
                               &conf->rpc_conf.rpc_timeout);
         if (ret >= 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "setting frame-timeout to %d",
                         conf->rpc_conf.rpc_timeout);
         } else {
@@ -1677,7 +1952,7 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
         ret = dict_get_int32 (this->options, "remote-port",
                               &conf->rpc_conf.remote_port);
         if (ret >= 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "remote-port is %d", conf->rpc_conf.remote_port);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1687,7 +1962,7 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
         ret = dict_get_int32 (this->options, "ping-timeout",
                               &conf->opt.ping_timeout);
         if (ret >= 0) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_INFO,
                         "setting ping-timeout to %d", conf->opt.ping_timeout);
         } else {
                 gf_log (this->name, GF_LOG_DEBUG,
@@ -1699,7 +1974,7 @@ build_client_config (xlator_t *this, clnt_conf_t *conf)
                             &conf->opt.remote_subvolume);
         if (ret) {
                 /* This is valid only if 'cluster/pump' is the parent */
-                gf_log (this->name, GF_LOG_NORMAL,
+                gf_log (this->name, GF_LOG_WARNING,
                         "option 'remote-subvolume' not given");
                 ret = 1;
                 goto out;
@@ -1723,7 +1998,7 @@ mem_acct_init (xlator_t *this)
 
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                                "failed");
+                        "failed");
                 return ret;
         }
 
@@ -1748,7 +2023,7 @@ client_destroy_rpc (xlator_t *this)
                 goto out;
         }
 
-        gf_log (this->name, GF_LOG_DEBUG,
+        gf_log (this->name, GF_LOG_WARNING,
                 "RPC destory called on already destroyed "
                 "connection");
 
@@ -1765,26 +2040,33 @@ client_init_rpc (xlator_t *this)
         conf = this->private;
 
         if (conf->rpc) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "client rpc already init'ed");
                 ret = -1;
                 goto out;
         }
 
         conf->rpc = rpc_clnt_new (this->options, this->ctx, this->name);
-        if (!conf->rpc)
+        if (!conf->rpc) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to initialize RPC");
                 goto out;
+        }
 
         ret = rpc_clnt_register_notify (conf->rpc, client_rpc_notify, this);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR, "failed to register notify");
                 goto out;
+        }
 
         conf->handshake = &clnt_handshake_prog;
         conf->dump      = &clnt_dump_prog;
 
         ret = rpcclnt_cbk_program_register (conf->rpc, &gluster_cbk_prog);
-        if (ret)
+        if (ret) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "failed to register callback program");
                 goto out;
+        }
 
         ret = 0;
 
@@ -1800,30 +2082,30 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
         int     timeout_ret=0;
         int     ping_timeout;
         int     frame_timeout;
-        
-        
+
+
         timeout_ret = dict_get_int32 (options, "frame-timeout",
                                       &frame_timeout);
         if (timeout_ret == 0) {
                 if (frame_timeout < 5 ) {
-                        gf_log (this->name, GF_LOG_WARNING, "Validation"
-                                        "'option frame-timeout %d failed , Min value"
-                                                        " can be 5", frame_timeout);
+                        gf_log (this->name, GF_LOG_WARNING, "validation of "
+                                "'option frame-timeout %d failed, min value"
+                                " can be 5", frame_timeout);
                         *op_errstr = gf_strdup ("Error, Min Value 5");
                         ret = -1;
                         goto out;
                 }
 
                 if (frame_timeout > 86400 ) {
-                        gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-                                        "'option frame-timeout %d failed , Max value"
-                                                        "can be 86400", frame_timeout );
+                        gf_log (this->name, GF_LOG_WARNING, "reconfiguration of"
+                                " 'option frame-timeout %d failed , max value "
+                                "can be 86400", frame_timeout );
                         *op_errstr = gf_strdup ("Error, Max Value 86400");
                         ret = -1;
                         goto out;
                 }
 
-                
+
                 gf_log (this->name, GF_LOG_DEBUG,
                         "validation otion frame-timeout to %d",
                         frame_timeout);
@@ -1836,8 +2118,8 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 if (ping_timeout < 5 ) {
                         gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-                                        "'option ping-timeout %d failed , Min value"
-                                                        " can be 5", ping_timeout);
+                                " 'option ping-timeout %d failed , Min value"
+                                " can be 5", ping_timeout);
                         *op_errstr = gf_strdup ("Error, Min Value 5");
                         ret = -1;
                         goto out;
@@ -1845,40 +2127,37 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
                 if (ping_timeout > 1013 ) {
                         gf_log (this->name, GF_LOG_WARNING, "Reconfiguration"
-                                        "'option frame-timeout %d failed , Max value"
-                                                        "can be 1013,", frame_timeout);
+                                " 'option frame-timeout %d failed , Max value"
+                                " can be 1013,", frame_timeout);
                         *op_errstr =  gf_strdup ("Error, Max Value 1013");
                         ret = -1;
                         goto out;
                 }
-                
+
                 gf_log (this->name, GF_LOG_DEBUG, "Validated "
-                                "'option ping-timeout' to %d", ping_timeout);
-        
+                        "'option ping-timeout' to %d", ping_timeout);
+
         }
 
         ret = 0;
 
 out:
-                return ret;
-        
+        return ret;
 }
 
 int
 reconfigure (xlator_t *this, dict_t *options)
 {
-	int	ret = 0;
-	int	timeout_ret = 0;
-	int	ping_timeout = 0;
-	int	frame_timeout = 0;
-	clnt_conf_t *conf = NULL;
-        char    *old_remote_subvol = NULL;
-        char    *new_remote_subvol = NULL;
-        char    *old_remote_host   = NULL;
-        char    *new_remote_host   = NULL;
-        int     subvol_ret = 0;
-
-
+	clnt_conf_t *conf              = NULL;
+	int          ret               = 0;
+	int          timeout_ret       = 0;
+	int          ping_timeout      = 0;
+	int          frame_timeout     = 0;
+        int          subvol_ret        = 0;
+        char        *old_remote_subvol = NULL;
+        char        *new_remote_subvol = NULL;
+        char        *old_remote_host   = NULL;
+        char        *new_remote_host   = NULL;
 
 	conf = this->private;
 
@@ -2076,7 +2355,7 @@ client_priv_dump (xlator_t *this)
 
         ret = pthread_mutex_trylock(&conf->lock);
         if (ret) {
-                gf_log("", GF_LOG_WARNING, "Unable to lock client %s"
+                gf_log(this->name, GF_LOG_WARNING, "Unable to lock client %s"
                        " errno: %d", this->name, errno);
                 return -1;
         }

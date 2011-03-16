@@ -83,6 +83,8 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         if (req && sfunc) {
                 ret = sfunc (iov, req);
                 if (ret == -1) {
+                        gf_log_callingfn ("", GF_LOG_WARNING,
+                                          "XDR function failed");
                         goto out;
                 }
 
@@ -93,6 +95,9 @@ client_submit_vec_request (xlator_t  *this, void *req, call_frame_t  *frame,
         ret = rpc_clnt_submit (conf->rpc, prog, procnum, cbk, &iov, count,
                                payload, payloadcnt, new_iobref, frame, NULL, 0,
                                NULL, 0, NULL);
+        if (ret < 0) {
+                gf_log (this->name, GF_LOG_DEBUG, "rpc_clnt_submit failed");
+        }
 
         if (ret == 0) {
                 pthread_mutex_lock (&conf->rpc->conn.lock);
@@ -131,6 +136,9 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int               ret        = 0;
         clnt_local_t     *local      = NULL;
         inode_t          *inode      = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -145,7 +153,7 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_symlink_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -160,6 +168,10 @@ client3_1_symlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         frame->local = NULL;
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (symlink, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode, &stbuf,
                              &preparent, &postparent);
@@ -183,6 +195,9 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int               ret        = 0;
         clnt_local_t     *local      = NULL;
         inode_t          *inode      = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -197,7 +212,7 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_mknod_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -212,6 +227,10 @@ client3_1_mknod_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         frame->local = NULL;
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (mknod, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent);
@@ -234,6 +253,9 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int               ret        = 0;
         clnt_local_t     *local      = NULL;
         inode_t          *inode      = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -248,7 +270,7 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_mkdir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -262,6 +284,10 @@ client3_1_mkdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (mkdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent);
@@ -283,6 +309,9 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         fd_t          *fd    = NULL;
         int            ret   = 0;
         gfs3_open_rsp  rsp   = {0,};
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -298,7 +327,7 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_open_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -332,6 +361,10 @@ client3_1_open_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         frame->local = NULL;
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (open, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), fd);
 
@@ -349,6 +382,9 @@ client3_1_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t   *frame = NULL;
         struct iatt  iatt = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -359,7 +395,7 @@ client3_1_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_stat_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -370,6 +406,10 @@ client3_1_stat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (stat, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &iatt);
 
@@ -384,6 +424,9 @@ client3_1_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t   *frame = NULL;
         struct iatt  iatt = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -394,7 +437,7 @@ client3_1_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_readlink_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -405,6 +448,10 @@ client3_1_readlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (readlink, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), rsp.path, &iatt);
 
@@ -425,6 +472,9 @@ client3_1_unlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt      preparent  = {0,};
         struct iatt      postparent = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -435,7 +485,7 @@ client3_1_unlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_unlink_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -447,6 +497,10 @@ client3_1_unlink_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (unlink, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &preparent,
                              &postparent);
@@ -463,6 +517,9 @@ client3_1_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt  preparent  = {0,};
         struct iatt  postparent = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -473,7 +530,7 @@ client3_1_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_rmdir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -485,6 +542,10 @@ client3_1_rmdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (rmdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &preparent,
                              &postparent);
@@ -502,6 +563,9 @@ client3_1_truncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt  prestat  = {0,};
         struct iatt  poststat = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -512,7 +576,7 @@ client3_1_truncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_truncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -524,6 +588,10 @@ client3_1_truncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (truncate, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
@@ -540,6 +608,9 @@ client3_1_statfs_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t   *frame = NULL;
         struct statvfs  statfs = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -550,7 +621,7 @@ client3_1_statfs_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_statfs_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -561,6 +632,10 @@ client3_1_statfs_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (statfs, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &statfs);
 
@@ -577,6 +652,9 @@ client3_1_writev_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt  prestat  = {0,};
         struct iatt  poststat = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -588,7 +666,7 @@ client3_1_writev_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_truncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -600,6 +678,10 @@ client3_1_writev_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (writev, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
@@ -628,7 +710,7 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -636,10 +718,10 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         if (rsp.op_ret >= 0) {
                 /* Delete all saved locks of the owner issuing flush */
+                ret = delete_granted_locks_owner (local->fd, local->owner);
                 gf_log (this->name, GF_LOG_DEBUG,
-                        "Attempting to delete locks of owner=%llu",
-                        (long long unsigned) local->owner);
-                delete_granted_locks_owner (local->fd, local->owner);
+                        "deleting locks of owner (%llu) returned %d",
+                        (long long unsigned) local->owner, ret);
         }
 
         frame->local = NULL;
@@ -647,6 +729,10 @@ client3_1_flush_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 client_local_wipe (local);
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (flush, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -662,6 +748,9 @@ client3_1_fsync_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt  prestat  = {0,};
         struct iatt  poststat = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -673,7 +762,7 @@ client3_1_fsync_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_truncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -685,6 +774,10 @@ client3_1_fsync_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fsync, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
@@ -699,6 +792,9 @@ client3_1_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -710,13 +806,17 @@ client3_1_setxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (setxattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -736,6 +836,9 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         gfs3_getxattr_rsp  rsp      = {0,};
         int                ret      = 0;
         clnt_local_t    *local    = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -749,7 +852,7 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_getxattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -770,7 +873,7 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
                         ret = dict_unserialize (buf, dict_len, &dict);
                         if (ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_DEBUG,
+                                gf_log (frame->this->name, GF_LOG_WARNING,
                                         "failed to unserialize xattr dict");
                                 op_errno = EINVAL;
                                 goto out;
@@ -782,6 +885,10 @@ client3_1_getxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (getxattr, frame, op_ret, op_errno, dict);
 
         if (rsp.dict.dict_val) {
@@ -815,6 +922,9 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int                 op_ret   = 0;
         int                 op_errno = EINVAL;
         clnt_local_t     *local    = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -827,7 +937,7 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_fgetxattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -847,7 +957,7 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
                         ret = dict_unserialize (buf, dict_len, &dict);
                         if (ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_DEBUG,
+                                gf_log (frame->this->name, GF_LOG_WARNING,
                                         "failed to unserialize xattr dict");
                                 op_errno = EINVAL;
                                 goto out;
@@ -858,6 +968,10 @@ client3_1_fgetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 op_ret = 0;
         }
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fgetxattr, frame, op_ret, op_errno, dict);
         if (rsp.dict.dict_val) {
                 /* don't use GF_FREE, this memory was allocated by libc
@@ -885,6 +999,9 @@ client3_1_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -896,13 +1013,17 @@ client3_1_removexattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (removexattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -916,6 +1037,9 @@ client3_1_fsyncdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -926,13 +1050,17 @@ client3_1_fsyncdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fsyncdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -946,6 +1074,9 @@ client3_1_access_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -956,13 +1087,17 @@ client3_1_access_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (access, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -979,6 +1114,9 @@ client3_1_ftruncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt  prestat  = {0,};
         struct iatt  poststat = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -989,7 +1127,7 @@ client3_1_ftruncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_ftruncate_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1001,6 +1139,10 @@ client3_1_ftruncate_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (ftruncate, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
@@ -1016,6 +1158,9 @@ client3_1_fstat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t   *frame = NULL;
         struct iatt  stat  = {0,};
         int ret = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1026,7 +1171,7 @@ client3_1_fstat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_fstat_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1037,6 +1182,10 @@ client3_1_fstat_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fstat, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &stat);
 
@@ -1051,6 +1200,9 @@ client3_1_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1061,13 +1213,17 @@ client3_1_inodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (inodelk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -1081,6 +1237,9 @@ client3_1_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1091,13 +1250,17 @@ client3_1_finodelk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (finodelk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -1111,6 +1274,9 @@ client3_1_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1121,7 +1287,7 @@ client3_1_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1129,6 +1295,10 @@ client3_1_entrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
 
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (entrylk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -1142,6 +1312,9 @@ client3_1_fentrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1152,13 +1325,17 @@ client3_1_fentrylk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fentrylk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -1178,6 +1355,9 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int               dict_len = 0;
         int               op_errno = EINVAL;
         clnt_local_t   *local    = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -1190,7 +1370,7 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_xattrop_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -1210,7 +1390,7 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
                         op_ret = dict_unserialize (buf, dict_len, &dict);
                         if (op_ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_DEBUG,
+                                gf_log (frame->this->name, GF_LOG_WARNING,
                                         "failed to unserialize xattr dict");
                                 op_errno = EINVAL;
                                 goto out;
@@ -1223,6 +1403,10 @@ client3_1_xattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
 
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (xattrop, frame, op_ret,
                              gf_error_to_errno (op_errno), dict);
 
@@ -1257,6 +1441,9 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int                dict_len = 0;
         int                op_errno = 0;
         clnt_local_t    *local    = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -1272,7 +1459,7 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
         if (ret < 0) {
                 op_ret = -1;
                 op_errno = EINVAL;
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 goto out;
         }
         op_errno = rsp.op_errno;
@@ -1289,7 +1476,7 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
                         GF_VALIDATE_OR_GOTO (frame->this->name, buf, out);
                         op_ret = dict_unserialize (buf, dict_len, &dict);
                         if (op_ret < 0) {
-                                gf_log (frame->this->name, GF_LOG_DEBUG,
+                                gf_log (frame->this->name, GF_LOG_WARNING,
                                         "failed to unserialize xattr dict");
                                 op_errno = EINVAL;
                                 goto out;
@@ -1302,6 +1489,10 @@ client3_1_fxattrop_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
 
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fxattrop, frame, op_ret,
                              gf_error_to_errno (op_errno), dict);
 
@@ -1329,6 +1520,9 @@ client3_1_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t    *frame      = NULL;
         gf_common_rsp    rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1339,13 +1533,17 @@ client3_1_fsetxattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_common_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fsetxattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno));
 
@@ -1361,6 +1559,9 @@ client3_1_fsetattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt      prestat    = {0,};
         struct iatt      poststat   = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1371,7 +1572,7 @@ client3_1_fsetattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
         ret = xdr_to_fsetattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1383,6 +1584,10 @@ client3_1_fsetattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (fsetattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
@@ -1400,6 +1605,9 @@ client3_1_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt      prestat    = {0,};
         struct iatt      poststat   = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1411,7 +1619,7 @@ client3_1_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_setattr_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1423,6 +1631,10 @@ client3_1_setattr_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (setattr, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &prestat,
                              &poststat);
@@ -1445,6 +1657,9 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
         clnt_conf_t     *conf       = NULL;
         clnt_fd_ctx_t   *fdctx      = NULL;
         gfs3_create_rsp  rsp        = {0,};
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local; frame->local = NULL;
@@ -1460,7 +1675,7 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_create_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1498,6 +1713,10 @@ client3_1_create_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         frame->local = NULL;
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (create, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), fd, inode,
                              &stbuf, &preparent, &postparent);
@@ -1514,6 +1733,9 @@ client3_1_rchecksum_cbk (struct rpc_req *req, struct iovec *iov, int count,
         call_frame_t *frame = NULL;
         gfs3_rchecksum_rsp rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1525,13 +1747,17 @@ client3_1_rchecksum_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_rchecksum_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (rchecksum, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno),
                              rsp.weak_checksum,
@@ -1555,6 +1781,9 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct gf_flock     lock       = {0,};
         gfs3_lk_rsp      rsp        = {0,};
         int              ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -1567,7 +1796,7 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_lk_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1595,6 +1824,10 @@ client3_1_lk_cbk (struct rpc_req *req, struct iovec *iov, int count,
         client_local_wipe (local);
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (lk, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &lock);
 
@@ -1610,6 +1843,9 @@ client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int32_t                 ret   = 0;
         clnt_local_t         *local = NULL;
         gf_dirent_t             entries;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -1623,7 +1859,7 @@ client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_readdir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1635,6 +1871,10 @@ client3_1_readdir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (readdir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &entries);
 
@@ -1659,6 +1899,9 @@ client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int32_t                 ret   = 0;
         clnt_local_t         *local = NULL;
         gf_dirent_t             entries;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -1672,7 +1915,7 @@ client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_readdirp_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1684,6 +1927,10 @@ client3_1_readdirp_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (readdirp, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), &entries);
 
@@ -1711,6 +1958,9 @@ client3_1_rename_cbk (struct rpc_req *req, struct iovec *iov, int count,
         struct iatt       prenewparent  = {0,};
         struct iatt       postnewparent = {0,};
         int               ret        = 0;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1722,7 +1972,7 @@ client3_1_rename_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_rename_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1739,6 +1989,10 @@ client3_1_rename_cbk (struct rpc_req *req, struct iovec *iov, int count,
         }
 
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (rename, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno),
                              &stbuf, &preoldparent, &postoldparent,
@@ -1759,6 +2013,9 @@ client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
         int               ret        = 0;
         clnt_local_t     *local      = NULL;
         inode_t          *inode      = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
 
@@ -1774,7 +2031,7 @@ client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_link_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1789,6 +2046,10 @@ client3_1_link_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         frame->local = NULL;
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (link, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), inode,
                              &stbuf, &preparent, &postparent);
@@ -1809,6 +2070,9 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
         fd_t             *fd = NULL;
         int ret = 0;
         gfs3_opendir_rsp  rsp = {0,};
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -1825,7 +2089,7 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_opendir_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -1858,6 +2122,10 @@ client3_1_opendir_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
 out:
         frame->local = NULL;
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (opendir, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), fd);
 
@@ -1881,6 +2149,9 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
         dict_t          *xattr      = NULL;
         inode_t         *inode      = NULL;
         char            *buf        = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         frame = myframe;
         local = frame->local;
@@ -1895,7 +2166,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_lookup_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 op_errno = EINVAL;
                 goto out;
@@ -1919,7 +2190,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
                 ret = dict_unserialize (buf, rsp.dict.dict_len, &xattr);
                 if (ret < 0) {
-                        gf_log (frame->this->name, GF_LOG_DEBUG,
+                        gf_log (frame->this->name, GF_LOG_WARNING,
                                 "%s (%"PRId64"): failed to "
                                 "unserialize dictionary",
                                 local->loc.path, inode->ino);
@@ -1933,7 +2204,7 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         if ((!uuid_is_null (inode->gfid))
             && (uuid_compare (stbuf.ia_gfid, inode->gfid) != 0)) {
-                gf_log (frame->this->name, GF_LOG_DEBUG,
+                gf_log (frame->this->name, GF_LOG_WARNING,
                         "gfid changed for %s", local->loc.path);
                 rsp.op_ret = -1;
                 rsp.op_errno = ESTALE;
@@ -1945,6 +2216,16 @@ client3_1_lookup_cbk (struct rpc_req *req, struct iovec *iov, int count,
 out:
         rsp.op_errno = op_errno;
         frame->local = NULL;
+        if (rsp.op_ret == -1) {
+                /* any error other than ENOENT or for revalidate for ENOENT too */
+                if ((gf_error_to_errno (rsp.op_errno) != ENOENT) ||
+                    !uuid_is_null (local->loc.inode->gfid))
+                        gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                                strerror (gf_error_to_errno (rsp.op_errno)));
+                else
+                        gf_log (this->name, GF_LOG_TRACE, "not found on remote node");
+
+        }
         STACK_UNWIND_STRICT (lookup, frame, rsp.op_ret, rsp.op_errno, inode,
                              &stbuf, xattr, &postparent);
 
@@ -1978,6 +2259,9 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
         gfs3_read_rsp   rsp    = {0,};
         int             ret    = 0, rspcount = 0;
         clnt_local_t   *local  = NULL;
+        xlator_t         *this       = NULL;
+
+        this = THIS;
 
         memset (vector, 0, sizeof (vector));
 
@@ -1993,7 +2277,7 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
 
         ret = xdr_to_readv_rsp (*iov, &rsp);
         if (ret < 0) {
-                gf_log ("", GF_LOG_ERROR, "error");
+                gf_log (this->name, GF_LOG_ERROR, "error");
                 rsp.op_ret   = -1;
                 rsp.op_errno = EINVAL;
                 goto out;
@@ -2009,6 +2293,10 @@ client3_1_readv_cbk (struct rpc_req *req, struct iovec *iov, int count,
                 rspcount = 1;
         }
 out:
+        if (rsp.op_ret == -1) {
+                gf_log (this->name, GF_LOG_INFO, "remote operation failed: %s",
+                        strerror (gf_error_to_errno (rsp.op_errno)));
+        }
         STACK_UNWIND_STRICT (readv, frame, rsp.op_ret,
                              gf_error_to_errno (rsp.op_errno), vector, rspcount,
                              &stat, iobref);
@@ -2050,14 +2338,17 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
         if (!fdctx)
                 goto out;
 
-        if (fdctx->remote_fd == -1)
+        if (fdctx->remote_fd == -1) {
+                gf_log (this->name, GF_LOG_DEBUG, "not a valid fd");
                 goto out;
+        }
 
         fr = create_frame (this, this->ctx->pool);
 
         if (fdctx->is_dir) {
                 gfs3_releasedir_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
+                gf_log (this->name, GF_LOG_INFO, "sending releasedir on fd");
                 ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
                                              GFS3_OP_RELEASEDIR,
                                              client3_1_releasedir_cbk,
@@ -2066,6 +2357,7 @@ client_fdctx_destroy (xlator_t *this, clnt_fd_ctx_t *fdctx)
         } else {
                 gfs3_release_req  req = {{0,},};
                 req.fd = fdctx->remote_fd;
+                gf_log (this->name, GF_LOG_INFO, "sending release on fd");
                 ret = client_submit_request (this, &req, fr, &clnt3_1_fop_prog,
                                              GFS3_OP_RELEASE,
                                              client3_1_release_cbk, NULL,
@@ -2244,15 +2536,11 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                 if (content != NULL) {
                         rsp_iobref = iobref_new ();
                         if (rsp_iobref == NULL) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto unwind;
                         }
 
                         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
                         if (rsp_iobuf == NULL) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto unwind;
                         }
 
@@ -2272,7 +2560,7 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized length of dict");
                         op_errno = EINVAL;
                         goto unwind;
@@ -2304,6 +2592,8 @@ client3_1_lookup (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
+
         if (frame)
                 frame->local = NULL;
 
@@ -2360,6 +2650,8 @@ client3_1_stat (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop %s",
+                strerror (op_errno));
         STACK_UNWIND_STRICT (stat, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -2400,6 +2692,7 @@ client3_1_truncate (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop %s", strerror (op_errno));
         STACK_UNWIND_STRICT (truncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2430,7 +2723,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -2438,7 +2731,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -2458,6 +2751,7 @@ client3_1_ftruncate (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (ftruncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2500,6 +2794,7 @@ client3_1_access (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (access, frame, -1, op_errno);
         return 0;
 }
@@ -2539,6 +2834,7 @@ client3_1_readlink (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (readlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2580,6 +2876,7 @@ client3_1_unlink (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (unlink, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2620,6 +2917,7 @@ client3_1_rmdir (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (rmdir, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -2663,7 +2961,7 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized length of dict");
                         op_errno = EINVAL;
                         goto unwind;
@@ -2686,6 +2984,7 @@ client3_1_symlink (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -2739,6 +3038,7 @@ client3_1_rename (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (rename, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -2791,6 +3091,7 @@ client3_1_link (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (link, frame, -1, op_errno, NULL, NULL, NULL, NULL);
         return 0;
 }
@@ -2836,7 +3137,7 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized length of dict");
                         op_errno = EINVAL;
                         goto unwind;
@@ -2859,6 +3160,7 @@ client3_1_mknod (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -2912,7 +3214,7 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized length of dict");
                         op_errno = EINVAL;
                         goto unwind;
@@ -2935,6 +3237,7 @@ client3_1_mkdir (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -2990,7 +3293,7 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized length of dict");
                         op_errno = EINVAL;
                         goto unwind;
@@ -3013,6 +3316,7 @@ client3_1_create (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -3074,6 +3378,7 @@ client3_1_open (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
 
@@ -3114,7 +3419,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3122,7 +3427,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3134,14 +3439,12 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
 
         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (rsp_iobuf == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
 
         rsp_iobref = iobref_new ();
         if (rsp_iobref == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -3154,7 +3457,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
         rsp_iobuf = NULL;
 
         if (args->size > rsp_vec.iov_len) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "read-size (%lu) is bigger than iobuf size (%lu)",
                         (unsigned long)args->size,
                         (unsigned long)rsp_vec.iov_len);
@@ -3164,8 +3467,6 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
 
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (local == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -3185,6 +3486,7 @@ client3_1_readv (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (rsp_iobuf) {
                 iobuf_unref (rsp_iobuf);
         }
@@ -3221,7 +3523,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3229,7 +3531,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3248,6 +3550,7 @@ client3_1_writev (call_frame_t *frame, xlator_t *this, void *data)
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (writev, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -3278,7 +3581,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3286,7 +3589,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3296,8 +3599,6 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
 
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of Memory");
                 STACK_UNWIND (frame, -1, ENOMEM);
                 return 0;
 
@@ -3319,6 +3620,7 @@ client3_1_flush (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (flush, frame, -1, op_errno);
         return 0;
 }
@@ -3349,7 +3651,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3357,7 +3659,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3376,6 +3678,7 @@ client3_1_fsync (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsync, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -3406,7 +3709,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3414,7 +3717,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3432,6 +3735,7 @@ client3_1_fstat (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fstat, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -3481,6 +3785,7 @@ client3_1_opendir (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         if (frame)
                 frame->local = NULL;
         STACK_UNWIND_STRICT (opendir, frame, -1, op_errno, NULL);
@@ -3514,7 +3819,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3522,7 +3827,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3543,6 +3848,7 @@ client3_1_fsyncdir (call_frame_t *frame, xlator_t *this, void *data)
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsyncdir, frame, -1, op_errno);
         return 0;
 }
@@ -3586,6 +3892,7 @@ client3_1_statfs (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (statfs, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -3617,7 +3924,7 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized dict");
                         op_errno = EINVAL;
                         goto unwind;
@@ -3643,6 +3950,7 @@ client3_1_setxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (setxattr, frame, -1, op_errno);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
@@ -3677,7 +3985,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3685,7 +3993,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3700,7 +4008,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized dict");
                         goto unwind;
                 }
@@ -3722,6 +4030,7 @@ client3_1_fsetxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsetxattr, frame, -1, op_errno);
         if (req.dict.dict_val) {
                 GF_FREE (req.dict.dict_val);
@@ -3762,7 +4071,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -3770,7 +4079,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -3779,8 +4088,6 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         local = GF_CALLOC (1, sizeof (*local),
                            gf_client_mt_clnt_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -3788,8 +4095,6 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         rsp_iobref = iobref_new ();
         if (rsp_iobref == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -3797,8 +4102,6 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 goto unwind;
         }
 
@@ -3832,6 +4135,7 @@ client3_1_fgetxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
 
@@ -3886,8 +4190,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         local = GF_CALLOC (1, sizeof (*local),
                            gf_client_mt_clnt_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3896,8 +4198,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         rsp_iobref = iobref_new ();
         if (rsp_iobref == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -3907,8 +4207,6 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
         if (rsp_iobuf == NULL) {
                 op_ret = -1;
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 goto unwind;
         }
 
@@ -3940,7 +4238,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
                                                  args->loc->inode,
                                                  dict);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_DEBUG,
+                                gf_log (this->name, GF_LOG_WARNING,
                                         "Client dump locks failed");
                                 op_ret = -1;
                                 op_errno = EINVAL;
@@ -3966,6 +4264,7 @@ client3_1_getxattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
         client_local_wipe (local);
@@ -4013,8 +4312,6 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         local = GF_CALLOC (1, sizeof (*local),
                            gf_client_mt_clnt_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4022,8 +4319,6 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
 
         rsp_iobref = iobref_new ();
         if (rsp_iobref == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4031,8 +4326,6 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 goto unwind;
         }
 
@@ -4052,7 +4345,7 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized dict");
                         op_errno = EINVAL;
                         goto unwind;
@@ -4079,6 +4372,7 @@ client3_1_xattrop (call_frame_t *frame, xlator_t *this,
         }
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
 
@@ -4134,7 +4428,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -4142,7 +4436,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -4155,8 +4449,6 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         local = GF_CALLOC (1, sizeof (*local),
                            gf_client_mt_clnt_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4164,8 +4456,6 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
 
         rsp_iobref = iobref_new ();
         if (rsp_iobref == NULL) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4173,8 +4463,6 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
         rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
         if (rsp_iobuf == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR,
-                        "out of memory");
                 goto unwind;
         }
 
@@ -4193,7 +4481,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
                                                    &req.dict.dict_val,
                                                    &dict_len);
                 if (ret < 0) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_WARNING,
                                 "failed to get serialized dict");
                         goto unwind;
                 }
@@ -4216,6 +4504,7 @@ client3_1_fxattrop (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
 
@@ -4276,6 +4565,7 @@ client3_1_removexattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (removexattr, frame, -1, op_errno);
         return 0;
 }
@@ -4302,8 +4592,6 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         conf = this->private;
         local = GF_CALLOC (1, sizeof (*local), gf_client_mt_clnt_local_t);
         if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 goto unwind;
         }
@@ -4315,7 +4603,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -4323,7 +4611,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -4332,8 +4620,9 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
         ret = client_cmd_to_gf_cmd (args->cmd, &gf_cmd);
         if (ret) {
                 op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "Unknown cmd (%d)!", gf_cmd);
+                goto unwind;
         }
 
         switch (args->flock->l_type) {
@@ -4368,6 +4657,7 @@ client3_1_lk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (lk, frame, -1, op_errno, NULL);
         return 0;
 }
@@ -4400,7 +4690,7 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
         else if (args->cmd == F_SETLKW || args->cmd == F_SETLKW64)
                 gf_cmd = GF_LK_SETLKW;
         else {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "Unknown cmd (%d)!", gf_cmd);
                 op_errno = EINVAL;
                 goto unwind;
@@ -4438,6 +4728,7 @@ client3_1_inodelk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (inodelk, frame, -1, op_errno);
         return 0;
 }
@@ -4470,7 +4761,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -4478,7 +4769,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -4491,7 +4782,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
         else if (args->cmd == F_SETLKW || args->cmd == F_SETLKW64)
                 gf_cmd = GF_LK_SETLKW;
         else {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "Unknown cmd (%d)!", gf_cmd);
                 goto unwind;
         }
@@ -4526,6 +4817,7 @@ client3_1_finodelk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (finodelk, frame, -1, op_errno);
         return 0;
 }
@@ -4574,6 +4866,7 @@ client3_1_entrylk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (entrylk, frame, -1, op_errno);
         return 0;
 }
@@ -4604,7 +4897,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -4612,7 +4905,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -4640,6 +4933,7 @@ client3_1_fentrylk (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fentrylk, frame, -1, op_errno);
         return 0;
 }
@@ -4669,7 +4963,7 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -4677,7 +4971,7 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -4699,6 +4993,7 @@ client3_1_rchecksum (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (rchecksum, frame, -1, op_errno, 0, NULL);
         return 0;
 }
@@ -4737,7 +5032,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -4745,7 +5040,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -4759,8 +5054,6 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
                 local = GF_CALLOC (1, sizeof (*local),
                                    gf_client_mt_clnt_local_t);
                 if (!local) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         op_errno = ENOMEM;
                         goto unwind;
                 }
@@ -4768,15 +5061,11 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
 
                 rsp_iobref = iobref_new ();
                 if (rsp_iobref == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory");
                         goto unwind;
                 }
 
                 rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
                 if (rsp_iobuf == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory");
                         goto unwind;
                 }
 
@@ -4810,6 +5099,7 @@ client3_1_readdir (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
         client_local_wipe (local);
@@ -4859,7 +5149,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -4867,7 +5157,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -4882,8 +5172,6 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
                 local = GF_CALLOC (1, sizeof (*local),
                                    gf_client_mt_clnt_local_t);
                 if (!local) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "Out of memory");
                         op_errno = ENOMEM;
                         goto unwind;
                 }
@@ -4891,15 +5179,11 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
 
                 rsp_iobref = iobref_new ();
                 if (rsp_iobref == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory");
                         goto unwind;
                 }
 
                 rsp_iobuf = iobuf_get (this->ctx->iobuf_pool);
                 if (rsp_iobuf == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory");
                         goto unwind;
                 }
 
@@ -4931,6 +5215,7 @@ client3_1_readdirp (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         local = frame->local;
         frame->local = NULL;
         client_local_wipe (local);
@@ -4985,6 +5270,7 @@ client3_1_setattr (call_frame_t *frame, xlator_t *this,
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (setattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
@@ -5012,7 +5298,7 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
         pthread_mutex_unlock (&conf->lock);
 
         if (fdctx == NULL) {
-                gf_log (this->name, GF_LOG_DEBUG,
+                gf_log (this->name, GF_LOG_WARNING,
                         "(%"PRId64"): failed to get fd ctx. EBADFD",
                         args->fd->inode->ino);
                 op_errno = EBADFD;
@@ -5020,7 +5306,7 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
         }
 
         if (fdctx->remote_fd == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "(%"PRId64"): failed to get"
+                gf_log (this->name, GF_LOG_WARNING, "(%"PRId64"): failed to get"
                         " fd ctx. EBADFD", args->fd->inode->ino);
                 op_errno = EBADFD;
                 goto unwind;
@@ -5042,6 +5328,7 @@ client3_1_fsetattr (call_frame_t *frame, xlator_t *this, void *data)
 
         return 0;
 unwind:
+        gf_log (this->name, GF_LOG_WARNING, "failed to send the fop: %s", strerror (op_errno));
         STACK_UNWIND_STRICT (fsetattr, frame, -1, op_errno, NULL, NULL);
         return 0;
 }

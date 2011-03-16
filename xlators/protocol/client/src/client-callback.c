@@ -28,19 +28,24 @@
 int
 client_cbk_null (void *data)
 {
+        gf_log (THIS->name, GF_LOG_WARNING,
+                "this function should not be called");
         return 0;
 }
 
 int
 client_cbk_fetchspec (void *data)
 {
-        gf_log ("", 1, "here i am");
+        gf_log (THIS->name, GF_LOG_WARNING,
+                "this function should not be called");
         return 0;
 }
 
 int
 client_cbk_ino_flush (void *data)
 {
+        gf_log (THIS->name, GF_LOG_WARNING,
+                "this function should not be called");
         return 0;
 }
 
