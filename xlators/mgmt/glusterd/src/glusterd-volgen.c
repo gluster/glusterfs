@@ -141,7 +141,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
         {"performance.stat-prefetch",            "performance/stat-prefetch", "!perf", "on", NO_DOC},      /* NODOC */
 
         {MARKER_VOL_KEY,                         "features/marker",           "!marker", "off", NO_DOC},
-        {"marker_gsync",                         "features/marker",           "gsync", "off"},
+        {"features.marker_gsync",                "features/marker",           "gsync", "off"},
 
         {"nfs.enable-ino32",                     "nfs/server",                "nfs.enable-ino32", NULL, GLOBAL_DOC},
         {"nfs.mem-factor",                       "nfs/server",                "nfs.mem-factor", NULL, GLOBAL_DOC},
@@ -166,9 +166,7 @@ static struct volopt_map_entry glusterd_volopt_map[] = {
 
         {"features.quota",                       "features/quota",            "quota", "off"},
         {"features.quota",                       "features/marker",           "quota", "off"},
-
         {"features.limit-usage",                 "features/quota",            "limit-set", NULL},
-        {"features.quota_version",               "features/quota",            "version", "1"},
 
         {NULL,                                                                }
 };

@@ -1804,6 +1804,31 @@ gsync_validate_config_type (int32_t config_type)
         return 0;
 }
 
+
+int32_t
+glusterd_gsync_volinfo_dict_set (glusterd_volinfo_t *volinfo,
+                                 char *key, char *value)
+{
+        int32_t  ret            = -1;
+        char    *gsync_status   = NULL;
+
+        gsync_status = gf_strdup (value);
+        if (!gsync_status) {
+                gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
+                goto out;
+        }
+
+        ret = dict_set_dynstr (volinfo->dict, key, gsync_status);
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR, "Unable to set dict");
+                goto out;
+        }
+
+        ret = 0;
+out:
+        return 0;
+}
+
 int
 gsync_validate_config_option (dict_t *dict, int32_t config_type,
                               char **op_errstr)
@@ -1932,15 +1957,16 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 goto out;
         }
 
+        ret = glusterd_volinfo_find (volname, &volinfo);
+        if (ret) {
+                 gf_log ("", GF_LOG_WARNING, "volinfo not found "
+                         "for %s", volname);
+                 *op_errstr = gf_strdup ("command unsuccessful");
+                 ret = -1;
+                 goto out;
+        }
+
         if (type == GF_GSYNC_OPTION_TYPE_START) {
-                ret = glusterd_volinfo_find (volname, &volinfo);
-                if (ret) {
-                         gf_log ("", GF_LOG_WARNING, "volinfo not found "
-                                 "for %s", volname);
-                         *op_errstr = gf_strdup ("command unsuccessful");
-                         ret = -1;
-                         goto out;
-                }
                 if (GLUSTERD_STATUS_STARTED != volinfo->status) {
                         gf_log ("", GF_LOG_WARNING, "%s volume not started",
                                 volname);
@@ -1971,12 +1997,14 @@ glusterd_op_stage_gsync_set (dict_t *dict, char **op_errstr)
                 if (ret == 0 && status == -1) {
                         gf_log ("", GF_LOG_WARNING, "gsync not running");
                         *op_errstr = gf_strdup ("gsync not running");
+                        glusterd_gsync_volinfo_dict_set (volinfo,
+                                        "features.marker_gsync", "off");
                         ret = -1;
                         goto out;
                 }  else if (ret == -1) {
                         gf_log ("", GF_LOG_WARNING, "gsync stop validation "
                                 " failed");
-                        *op_errstr = gf_strdup ("command to failed, please "
+                        *op_errstr = gf_strdup ("command failed, please "
                                                 "check the log file");
                         goto out;
                 }
@@ -3871,7 +3899,7 @@ glusterd_marker_dict_set (glusterd_volinfo_t *volinfo, char *value)
                 goto out;
 
         if (flag == _gf_true) {
-                ret = dict_set_str (volinfo->dict, MARKER_VOL_KEY, value);
+                ret = dict_set_dynstr (volinfo->dict, MARKER_VOL_KEY, value);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Setting dict failed");
                         goto out;
@@ -3879,7 +3907,7 @@ glusterd_marker_dict_set (glusterd_volinfo_t *volinfo, char *value)
                 goto create_vol;
         }
 
-        ret = glusterd_volinfo_get (volinfo, "marker_gsync", &marker_gsync);
+        ret = glusterd_volinfo_get (volinfo, "features.marker_gsync", &marker_gsync);
         if (ret)
                 return -1;
 
@@ -3897,7 +3925,7 @@ glusterd_marker_dict_set (glusterd_volinfo_t *volinfo, char *value)
                         goto out;
 
                 if (flag == _gf_false) {
-                        ret = dict_set_str (volinfo->dict, MARKER_VOL_KEY, value);
+                        ret = dict_set_dynstr (volinfo->dict, MARKER_VOL_KEY, value);
                         if (ret) {
                                 gf_log ("", GF_LOG_ERROR, "Setting dict failed");
                                 goto out;
@@ -3953,6 +3981,11 @@ glusterd_set_marker_gsync (char *master, char *value)
                 goto out;
         }
 
+        ret = glusterd_gsync_volinfo_dict_set (volinfo,
+                                               "features.marker_gsync", value);
+        if (ret < 0)
+                goto out;
+
         ret = glusterd_marker_dict_set (volinfo, value);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Setting dict failed");
@@ -3984,22 +4017,12 @@ glusterd_op_gsync_set (dict_t *dict)
 
         if (type == GF_GSYNC_OPTION_TYPE_START) {
                 gsync_status = gf_strdup ("on");
-                if (!gsync_status) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
-                        op_errstr = gf_strdup ("gsync translator "
-                                                "couldnot be enabled");
+                if (gsync_status == NULL) {
+                        ret = -1;
                         goto out;
                 }
 
-                ret = dict_set_str (dict, "marker_gsync", gsync_status);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to set dict");
-                        op_errstr = gf_strdup ("gsync translator "
-                                                "couldnot be enabled");
-                        goto out;
-                }
-
-                ret = glusterd_set_marker_gsync (master, "on");
+                ret = glusterd_set_marker_gsync (master, gsync_status);
                 if (ret != 0) {
                         gf_log ("", GF_LOG_WARNING, "marker start failed");
                         op_errstr = gf_strdup ("gsync start failed");
@@ -4010,21 +4033,12 @@ glusterd_op_gsync_set (dict_t *dict)
 
         if (type == GF_GSYNC_OPTION_TYPE_STOP) {
                 gsync_status = gf_strdup ("off");
-                if (!gsync_status) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to allocate memory");
-                        op_errstr = gf_strdup ("gsync translator "
-                                                "couldnot be enabled");
+                if (gsync_status == NULL) {
+                        ret = -1;
                         goto out;
                 }
 
-                ret = dict_set_str (dict, "marker_gsync", gsync_status);
-                if (ret) {
-                        gf_log ("", GF_LOG_ERROR, "Unable to set dict");
-                        op_errstr = gf_strdup ("gsync translator "
-                                                "couldnot be enabled");
-                        goto out;
-                }
-                ret = glusterd_set_marker_gsync (master, "off");
+                ret = glusterd_set_marker_gsync (master, gsync_status);
                 if (ret != 0) {
                         gf_log ("", GF_LOG_WARNING, "marker stop failed");
                         op_errstr = gf_strdup ("gsync stop failed");
@@ -4054,6 +4068,7 @@ glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo)
 {
         int32_t  ret           = 0;
         char    *quota_status  = NULL;
+        gf_boolean_t flag     = _gf_false;
 
         ret = glusterd_volinfo_get (volinfo, "features.quota", &quota_status);
         if (ret) {
@@ -4062,7 +4077,11 @@ glusterd_check_if_quota_trans_enabled (glusterd_volinfo_t *volinfo)
                 goto out;
         }
 
-        if (strcmp (quota_status, "off") == 0) {
+        ret = gf_string2boolean (quota_status, &flag);
+        if (ret != 0)
+                goto out;
+
+        if (flag == _gf_false) {
                 gf_log ("", GF_LOG_ERROR, "first enable the quota translator");
                 ret = -1;
                 goto out;
@@ -4327,7 +4346,7 @@ glusted_quota_get_limit_usages (glusterd_conf_t *priv,
         }
 
         if (ret_str) {
-                ret = dict_set_str (ctx, "limit_list", ret_str);
+                ret = dict_set_dynstr (ctx, "limit_list", ret_str);
         }
 out:
         return ret;
@@ -4338,6 +4357,7 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
                        gf_boolean_t *crawl)
 {
         int32_t         ret     = -1;
+        char            *status       = NULL;
         char            *quota_status = NULL;
 
         GF_VALIDATE_OR_GOTO ("glusterd", volinfo, out);
@@ -4367,7 +4387,13 @@ glusterd_quota_enable (glusterd_volinfo_t *volinfo, char **op_errstr,
 
         *op_errstr = gf_strdup ("quota translator is enabled");
 
-        ret = glusterd_marker_dict_set (volinfo, "on");
+        status = gf_strdup ("on");
+        if (status == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_marker_dict_set (volinfo, status);
         if (ret)
                 goto out;
 
@@ -4405,7 +4431,13 @@ glusterd_quota_disable (glusterd_volinfo_t *volinfo, char **op_errstr)
 
         dict_del (volinfo->dict, "features.limit-usage");
 
-        ret = glusterd_marker_dict_set (volinfo, "off");
+        quota_status = gf_strdup ("off");
+        if (quota_status == NULL) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = glusterd_marker_dict_set (volinfo, quota_status);
 
         ret = 0;
 out:
@@ -4484,7 +4516,7 @@ glusterd_quota_limit_usage (glusterd_volinfo_t *volinfo, dict_t *dict, char **op
 
         quota_limits = value;
 
-        ret = dict_set_str (volinfo->dict, "features.limit-usage",
+        ret = dict_set_dynstr (volinfo->dict, "features.limit-usage",
                             quota_limits);
         if (ret) {
                 gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
@@ -4532,7 +4564,7 @@ glusterd_quota_remove_limits (glusterd_volinfo_t *volinfo, dict_t *dict, char **
                 goto out;
 
         if (quota_limits) {
-                ret = dict_set_str (volinfo->dict, "features.limit-usage",
+                ret = dict_set_dynstr (volinfo->dict, "features.limit-usage",
                                     quota_limits);
                 if (ret) {
                         gf_log ("", GF_LOG_ERROR, "Unable to set quota limits" );
@@ -4642,7 +4674,7 @@ out:
 
         ctx = glusterd_op_get_ctx (GD_OP_QUOTA);
         if (ctx && *op_errstr) {
-                ret = dict_set_str (ctx, "errstr", *op_errstr);
+                ret = dict_set_dynstr (ctx, "errstr", *op_errstr);
                 if (ret) {
                         GF_FREE (*op_errstr);
                         gf_log ("", GF_LOG_DEBUG,
