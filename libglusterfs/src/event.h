@@ -64,18 +64,18 @@ struct event_pool {
 };
 
 struct event_ops {
-  struct event_pool * (*new) (int count);
+        struct event_pool * (*new) (int count);
 
-  int (*event_register) (struct event_pool *event_pool, int fd,
-			 event_handler_t handler,
-			 void *data, int poll_in, int poll_out);
+        int (*event_register) (struct event_pool *event_pool, int fd,
+                               event_handler_t handler,
+                               void *data, int poll_in, int poll_out);
 
-  int (*event_select_on) (struct event_pool *event_pool, int fd, int idx,
-			  int poll_in, int poll_out);
+        int (*event_select_on) (struct event_pool *event_pool, int fd, int idx,
+                                int poll_in, int poll_out);
 
-  int (*event_unregister) (struct event_pool *event_pool, int fd, int idx);
+        int (*event_unregister) (struct event_pool *event_pool, int fd, int idx);
 
-  int (*event_dispatch) (struct event_pool *event_pool);
+        int (*event_dispatch) (struct event_pool *event_pool);
 };
 
 struct event_pool * event_pool_new (int count);

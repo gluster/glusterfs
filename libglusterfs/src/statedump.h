@@ -19,7 +19,7 @@
 
 
 #ifndef STATEDUMP_H
-#define STATEDUMP_H   
+#define STATEDUMP_H
 
 #include <stdarg.h>
 #include "inode.h"
@@ -58,43 +58,33 @@ void _gf_proc_dump_build_key (char *key, const char *prefix, char *fmt,...)
         va_start(ap, fmt);
         vsnprintf(buf, GF_DUMP_MAX_BUF_LEN, fmt, ap);
         va_end(ap);
-        snprintf(key, GF_DUMP_MAX_BUF_LEN, "%s.%s", prefix, buf);  
+        snprintf(key, GF_DUMP_MAX_BUF_LEN, "%s.%s", prefix, buf);
 }
 
-#define gf_proc_dump_build_key(key, key_prefix, fmt...) \
-{\
-        _gf_proc_dump_build_key(key, key_prefix, ##fmt);\
-}
+#define gf_proc_dump_build_key(key, key_prefix, fmt...)                 \
+        {                                                               \
+                _gf_proc_dump_build_key(key, key_prefix, ##fmt);        \
+        }
 
 #define GF_PROC_DUMP_SET_OPTION(opt,val) opt = val
 
-void
-gf_proc_dump_init();
+void gf_proc_dump_init();
 
-void 
-gf_proc_dump_fini(void);
+void gf_proc_dump_fini(void);
 
-void
-gf_proc_dump_cleanup(void);
+void gf_proc_dump_cleanup(void);
 
-void
-gf_proc_dump_info(int signum);
+void gf_proc_dump_info(int signum);
 
-void
-gf_proc_dump_add_section(char *key,...);
+void gf_proc_dump_add_section(char *key,...);
 
-void
-gf_proc_dump_write(char *key, char *value,...);
+void gf_proc_dump_write(char *key, char *value,...);
 
-void
-inode_table_dump(inode_table_t *itable, char *prefix);
+void inode_table_dump(inode_table_t *itable, char *prefix);
 
-void
-fdtable_dump(fdtable_t *fdtable, char *prefix);
+void fdtable_dump(fdtable_t *fdtable, char *prefix);
 
-void
-inode_dump(inode_t *inode, char *prefix);
+void inode_dump(inode_t *inode, char *prefix);
 
-void
-glusterd_init (int sig);
+void glusterd_init (int sig);
 #endif /* STATEDUMP_H */

@@ -103,7 +103,7 @@ extern char *gf_mgmt_list[GF_MGMT_MAXVALUE];
 
 #define GF_VALIDATE_OR_GOTO(name,arg,label)   do {		\
 		if (!arg) {					\
-			errno = EINVAL;   			\
+			errno = EINVAL;			\
 			gf_log (name, GF_LOG_ERROR,		\
 				"invalid argument: " #arg);	\
 			goto label;				\

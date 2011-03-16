@@ -676,4 +676,5 @@ default_getspec_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
 int32_t
 default_mem_acct_init (xlator_t *this);
+
 #endif /* _DEFAULTS_H */

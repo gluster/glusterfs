@@ -350,8 +350,7 @@ typedef enum {
         GF_EVENT_MAXVAL,
 } glusterfs_event_t;
 
-extern char *
-glusterfs_strevent (glusterfs_event_t ev);
+extern char *glusterfs_strevent (glusterfs_event_t ev);
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
 

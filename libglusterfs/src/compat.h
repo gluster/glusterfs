@@ -45,7 +45,7 @@
 
 #ifndef HAVE_LLISTXATTR
 
-/* This part is valid only incase of old glibc which doesn't support 
+/* This part is valid only incase of old glibc which doesn't support
  * 'llistxattr()' system calls.
  */
 
@@ -57,7 +57,7 @@
 #endif /* HAVE_LLISTXATTR */
 #endif /* GF_LINUX_HOST_OS */
 
-#ifdef GF_BSD_HOST_OS 
+#ifdef GF_BSD_HOST_OS
 /* In case of FreeBSD */
 
 #define UNIX_PATH_MAX 104
@@ -88,7 +88,7 @@ enum {
 
 #ifndef EUCLEAN
 #define EUCLEAN 0
-#endif 
+#endif
 
 #include <netinet/in.h>
 #ifndef s6_addr16
@@ -96,7 +96,7 @@ enum {
 #endif
 #ifndef s6_addr32
 #define s6_addr32 __u6_addr.__u6_addr32
-#endif 
+#endif
 
 /* Posix dictates NAME_MAX to be used */
 # ifndef NAME_MAX
@@ -106,7 +106,7 @@ enum {
 #   define NAME_MAX 255
 #  endif
 # endif
-        
+
 #define F_GETLK64       F_GETLK
 #define F_SETLK64       F_SETLK
 #define F_SETLKW64      F_SETLKW
@@ -146,10 +146,10 @@ enum {
 #include <netinet/in.h>
 #ifndef s6_addr16
 #define s6_addr16 __u6_addr.__u6_addr16
-#endif 
+#endif
 #ifndef s6_addr32
 #define s6_addr32 __u6_addr.__u6_addr32
-#endif 
+#endif
 
 /* Posix dictates NAME_MAX to be used */
 # ifndef NAME_MAX
@@ -177,7 +177,7 @@ int32_t gf_darwin_compat_setxattr (dict_t *dict);
 #ifdef GF_SOLARIS_HOST_OS
 
 #define UNIX_PATH_MAX 108
-#define EUCLEAN 117 
+#define EUCLEAN 117
 
 #include <sys/un.h>
 #include <limits.h>
@@ -189,7 +189,7 @@ int32_t gf_darwin_compat_setxattr (dict_t *dict);
 
 #ifndef lchmod
 #define lchmod chmod
-#endif 
+#endif
 
 #define lgetxattr(path, key, value, size) solaris_getxattr(path,key,value,size)
 enum {
@@ -208,10 +208,10 @@ enum {
 # ifndef NAME_MAX
 #  ifdef  MAXNAMLEN
 #   define NAME_MAX MAXNAMLEN
-#  else 
+#  else
 #   define NAME_MAX 255
 #  endif
-# endif 
+# endif
 
 #include <netinet/in.h>
 #ifndef s6_addr16
@@ -264,19 +264,19 @@ enum {
   #define FTW_CONTINUE 0
 #endif
 
-int asprintf(char **string_ptr, const char *format, ...); 
+int asprintf(char **string_ptr, const char *format, ...);
 
 int vasprintf (char **result, const char *format, va_list args);
 char* strsep(char** str, const char* delims);
 int solaris_listxattr(const char *path, char *list, size_t size);
 int solaris_removexattr(const char *path, const char* key);
-int solaris_getxattr(const char *path, const char* key, 
+int solaris_getxattr(const char *path, const char* key,
                      char *value, size_t size);
-int solaris_setxattr(const char *path, const char* key, const char *value, 
+int solaris_setxattr(const char *path, const char* key, const char *value,
                      size_t size, int flags);
 int solaris_fgetxattr(int fd, const char* key,
                       char *value, size_t size);
-int solaris_fsetxattr(int fd, const char* key, const char *value, 
+int solaris_fsetxattr(int fd, const char* key, const char *value,
                       size_t size, int flags);
 int solaris_flistxattr(int fd, char *list, size_t size);
 
@@ -297,7 +297,7 @@ int solaris_xattr_resolve_path (const char *real_path, char **path);
 #endif /* HAVE_ARGP */
 
 #ifndef HAVE_STRNLEN
-size_t strnlen(const char *string, size_t maxlen);                   
+size_t strnlen(const char *string, size_t maxlen);
 #endif /* STRNLEN */
 
 #ifndef strdupa
@@ -309,7 +309,7 @@ size_t strnlen(const char *string, size_t maxlen);
                  char *__new = (char *) __builtin_alloca (__len);       \
                  (char *) memcpy (__new, __old, __len);                 \
          }))
-#endif 
+#endif
 
 #define GF_DIR_ALIGN(x) (((x) + sizeof (uint64_t) - 1) & ~(sizeof (uint64_t) - 1))
 

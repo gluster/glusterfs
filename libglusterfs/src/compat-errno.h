@@ -199,9 +199,9 @@
 
 
 /* Solaris */
-/*  	ENOTACTIVE 73	/ * Facility is not active		*/
-#define GF_ERROR_CODE_NOTACTIVE   801 
-/*  	ELOCKUNMAPPED	72	/ * locked lock was unmapped */
+/*	ENOTACTIVE 73	/ * Facility is not active		*/
+#define GF_ERROR_CODE_NOTACTIVE   801
+/*	ELOCKUNMAPPED	72	/ * locked lock was unmapped */
 #define GF_ERROR_CODE_LOCKUNMAPPED 802
 
 /* BSD system */
@@ -231,8 +231,8 @@
 #define EBADFD EBADRPC
 #endif /* EBADFD */
 
-/* These functions are defined for all the OS flags, but content will 
- * be different for each OS flag. 
+/* These functions are defined for all the OS flags, but content will
+ * be different for each OS flag.
  */
 int32_t gf_errno_to_error (int32_t op_errno);
 int32_t gf_error_to_errno (int32_t error);

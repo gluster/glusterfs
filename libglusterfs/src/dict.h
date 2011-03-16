@@ -36,34 +36,34 @@ typedef struct _dict dict_t;
 typedef struct _data_pair data_pair_t;
 
 struct _data {
-  unsigned char is_static:1;
-  unsigned char is_const:1;
-  unsigned char is_stdalloc:1;
-  int32_t len;
-  struct iovec *vec;
-  char *data;
-  int32_t refcount;
-  gf_lock_t lock;
+        unsigned char  is_static:1;
+        unsigned char  is_const:1;
+        unsigned char  is_stdalloc:1;
+        int32_t        len;
+        struct iovec  *vec;
+        char          *data;
+        int32_t        refcount;
+        gf_lock_t      lock;
 };
 
 struct _data_pair {
-  struct _data_pair *hash_next;
-  struct _data_pair *prev;
-  struct _data_pair *next;
-  data_t *value;
-  char *key;
+        struct _data_pair *hash_next;
+        struct _data_pair *prev;
+        struct _data_pair *next;
+        data_t            *value;
+        char              *key;
 };
 
 struct _dict {
-  unsigned char is_static:1;
-  int32_t hash_size;
-  int32_t count;
-  int32_t refcount;
-  data_pair_t **members;
-  data_pair_t *members_list;
-  char *extra_free;
-  char *extra_stdfree;
-  gf_lock_t lock;
+        unsigned char   is_static:1;
+        int32_t         hash_size;
+        int32_t         count;
+        int32_t         refcount;
+        data_pair_t   **members;
+        data_pair_t    *members_list;
+        char           *extra_free;
+        char           *extra_stdfree;
+        gf_lock_t       lock;
 };
 
 
@@ -78,19 +78,18 @@ int32_t dict_serialized_length (dict_t *dict);
 int32_t dict_serialize (dict_t *dict, char *buf);
 int32_t dict_unserialize (char *buf, int32_t size, dict_t **fill);
 
-int32_t
-dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length);
+int32_t dict_allocate_and_serialize (dict_t *this, char **buf, size_t *length);
 
 int32_t dict_iovec_len (dict_t *dict);
 int32_t dict_to_iovec (dict_t *dict, struct iovec *vec, int32_t count);
-			  
+
 void dict_destroy (dict_t *dict);
 void dict_unref (dict_t *dict);
 dict_t *dict_ref (dict_t *dict);
 data_t *data_ref (data_t *data);
 void data_unref (data_t *data);
 
-/* 
+/*
    TODO: provide converts for differnt byte sizes, signedness, and void *
  */
 data_t *int_to_data (int64_t value);
@@ -140,13 +139,11 @@ void dict_foreach (dict_t *this,
 			      void *data),
 		   void *data);
 
-dict_t *dict_copy (dict_t *this,
-		   dict_t *new);
+dict_t *dict_copy (dict_t *this, dict_t *new);
 
 /* CLEANED UP FUNCTIONS DECLARATIONS */
 GF_MUST_CHECK dict_t *dict_new (void);
-dict_t *dict_copy_with_ref (dict_t *this,
-			    dict_t *new);
+dict_t *dict_copy_with_ref (dict_t *this, dict_t *new);
 
 GF_MUST_CHECK int dict_get_int8 (dict_t *this, char *key, int8_t *val);
 GF_MUST_CHECK int dict_set_int8 (dict_t *this, char *key, int8_t val);
