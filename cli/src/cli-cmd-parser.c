@@ -1237,3 +1237,136 @@ out:
                 dict_destroy (dict);
         return ret;
 }
+
+int32_t
+cli_cmd_volume_top_parse (const char **words, int wordcount,
+                              dict_t **options)
+{
+        dict_t  *dict           = NULL;
+        char    *volname        = NULL;
+        char    *value          = NULL;
+        char    *key            = NULL;
+        int      ret            = -1;
+        gf1_cli_stats_op op = GF_CLI_STATS_NONE;
+        gf1_cli_top_op    top_op = GF_CLI_TOP_NONE;
+        int32_t  list_cnt       = 0;
+        int      index          = 0;
+        int      perf           = 0;
+        int32_t  blk_size       = 0;
+        int32_t  count          = 0;
+        char    *delimiter      = NULL;
+
+        GF_ASSERT (words);
+        GF_ASSERT (options);
+
+        GF_ASSERT ((strcmp (words[0], "volume")) == 0);
+        GF_ASSERT ((strcmp (words[1], "top")) == 0);
+
+        dict = dict_new ();
+        if (!dict)
+                goto out;
+
+        if (wordcount < 4)
+                goto out;
+
+        volname = (char *)words[2];
+
+        ret = dict_set_str (dict, "volname", volname);
+        if (ret)
+                goto out;
+
+        op = GF_CLI_STATS_TOP;
+        ret = dict_set_int32 (dict, "op", (int32_t)op);
+        if (ret)
+                goto out;
+
+        if (strcmp (words[3], "open") == 0) {
+                top_op = GF_CLI_TOP_OPEN;
+        } else if (strcmp (words[3], "read") == 0) {
+                top_op = GF_CLI_TOP_READ;
+        } else if (strcmp (words[3], "write") == 0) {
+                top_op = GF_CLI_TOP_WRITE;
+        } else if (strcmp (words[3], "opendir") == 0) {
+                top_op = GF_CLI_TOP_OPENDIR;
+        } else if (strcmp (words[3], "readdir") == 0) {
+                top_op = GF_CLI_TOP_READDIR;
+        } else if (strcmp (words[3], "read-perf") == 0) {
+                top_op = GF_CLI_TOP_READ_PERF;
+                perf = 1;
+        } else if (strcmp (words[3], "write-perf") == 0) {
+                top_op = GF_CLI_TOP_WRITE_PERF;
+                perf = 1;
+        } else {
+                ret = -1;
+                goto out;
+        } 
+        ret = dict_set_int32 (dict, "top-op", (int32_t)top_op);
+        if (ret)
+                goto out;
+
+        for (index = 4; index < wordcount; index+=2) {
+
+                key = (char *) words[index];
+                value = (char *) words[index+1];
+
+                if ( key && !value ) {
+                        ret = -1;
+                        goto out;
+                }
+                if (!strcmp (key, "brick")) {
+                        delimiter = strchr (value, ':');
+                        if (!delimiter || delimiter == value 
+                            || *(delimiter+1) != '/') {
+                                cli_out ("wrong brick type: %s, use <HOSTNAME>:"
+                                         "<export-dir-abs-path>", value);
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_str (dict, "brick", value);
+
+                } else if (!strcmp (key, "list-cnt")) {
+                        list_cnt = atoi(value);
+                        if (!list_cnt) {
+                                list_cnt = 100;
+                        }
+                        if (list_cnt < 1 || list_cnt > 100) {
+                                cli_out ("list-cnt should be between 1 to 100");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_int32 (dict, "list-cnt", list_cnt);
+                } else if (perf && !strcmp (key, "bs")){
+                        blk_size = atoi (value);
+                        if (blk_size < 0){
+                                cli_out ("block size should be an integer "
+                                         "greater than zero");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_int32 (dict, "blk-size", blk_size);
+                } else if (perf && !strcmp (key, "count")) {
+                        count = atoi(value);
+                        if (count < 0 ){
+                                cli_out ("count should be an integer greater "
+                                         "zero");
+                                ret = -1;
+                                goto out;
+                        }
+                        ret = dict_set_int32 (dict, "blk-cnt", count);
+                } else {
+                        ret = -1;
+                        goto out;
+                }
+                if (ret) {
+                        gf_log ("", GF_LOG_WARNING, "Dict set failed for "
+                                "key %s", key);
+                        goto out;
+                }
+        }
+        *options = dict;
+out:
+        if (ret && dict)
+                dict_destroy (dict);
+        return ret;
+}
+

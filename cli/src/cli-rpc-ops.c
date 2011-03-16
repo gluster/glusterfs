@@ -3145,6 +3145,210 @@ out:
         return ret;
 }
 
+int32_t
+gf_cli3_1_top_volume_cbk (struct rpc_req *req, struct iovec *iov,
+                              int count, void *myframe)
+{
+        gf1_cli_stats_volume_rsp        rsp   = {0,};
+        int                               ret   = -1;
+        dict_t                            *dict = NULL;
+        gf1_cli_stats_op                op = GF_CLI_STATS_NONE;
+        char                              key[256] = {0};
+        int                               i = 1;
+        int32_t                           brick_count = 0;
+        char                              brick[1024];
+        int32_t                           members = 0;
+        char                              *filename;
+        char                              *bricks;
+        uint64_t                           value = 0;
+        int32_t                           j = 0;
+        gf1_cli_top_op                    top_op = GF_CLI_TOP_NONE;
+        uint64_t                          nr_open = 0;
+        uint64_t                          max_nr_open = 0;
+        double                            throughput = 0;
+        double                            time = 0;
+        long int                          time_sec = 0;
+        long int                           time_usec = 0;
+        struct tm                         *tm = NULL;
+        char                              timestr[256] = {0, };
+
+        if (-1 == req->rpc_status) {
+                goto out;
+        }
+
+        gf_log ("cli", GF_LOG_DEBUG, "Received resp to top");
+        ret = gf_xdr_to_cli_stats_volume_rsp (*iov, &rsp);
+        if (ret < 0) {
+                gf_log ("", GF_LOG_ERROR, "error");
+                goto out;
+        }
+
+        if (rsp.op_ret && strcmp (rsp.op_errstr, "")) {
+                cli_out (rsp.op_errstr);
+        } else {
+                cli_out ("volume top %s ",
+                         (rsp.op_ret) ? "unsuccessful": "successful");
+        }
+
+        if (rsp.op_ret) {
+                ret = rsp.op_ret;
+                goto out;
+        }
+
+        dict = dict_new ();
+
+        if (!dict) {
+                ret = -1;
+                goto out;
+        }
+
+        ret = dict_unserialize (rsp.stats_info.stats_info_val,
+                                rsp.stats_info.stats_info_len,
+                                &dict);
+
+        if (ret) {
+                gf_log ("", GF_LOG_ERROR,
+                                "Unable to allocate memory");
+                goto out;
+        }
+
+        ret = dict_get_int32 (dict, "op", (int32_t*)&op);
+
+        if (op != GF_CLI_STATS_TOP) {
+                ret = 0;
+                goto out;
+        }
+        ret = dict_get_int32 (dict, "count", &brick_count);
+        if (ret)
+                goto out;
+        snprintf (key, sizeof (key), "%d-top-op", i);
+        ret = dict_get_int32 (dict, key, (int32_t*)&top_op);
+        if (ret)
+                goto out;
+        while (i <= brick_count) {
+                snprintf (brick, sizeof (brick), "%d-brick", i);
+                ret = dict_get_str (dict, brick, &bricks);
+                if (ret)
+                        goto out;
+                cli_out ("Brick: %s", bricks);
+                switch (top_op) {
+                case GF_CLI_TOP_OPEN:
+                        snprintf (key, sizeof (key), "%d-current-open", i);
+                        ret = dict_get_uint64 (dict, key, &nr_open);
+                        if (ret)
+                                break;
+                        snprintf (key, sizeof (key), "%d-max-open", i);
+                        ret = dict_get_uint64 (dict, key, &max_nr_open);
+                        if (ret)
+                                goto out;
+                        cli_out ("Current open fd's: %"PRIu64", Max open"
+                                " fd's: %"PRIu64, nr_open, max_nr_open);
+                case GF_CLI_TOP_READ:
+                case GF_CLI_TOP_WRITE:
+                case GF_CLI_TOP_OPENDIR:
+                case GF_CLI_TOP_READDIR:
+                        cli_out ("Count\t\tfilename\n=======================");
+                        break;
+                case GF_CLI_TOP_READ_PERF:
+                case GF_CLI_TOP_WRITE_PERF:
+                        snprintf (key, sizeof (key), "%d-throughput", i);
+                        ret = dict_get_double (dict, key, &throughput);
+                        if (!ret) {
+                                snprintf (key, sizeof (key), "%d-time", i);
+                                ret = dict_get_double (dict, key, &time);
+                        }
+                        if (!ret)
+                                cli_out ("Throughput %.2f MBps time %.4f secs", throughput,
+                                          time / 1e6);
+
+                        cli_out ("MBps\t\tfilename\t\t time\n========================");
+                        break;
+                default:
+                        goto out;
+                }
+                snprintf(key, sizeof (key), "%d-members", i);
+                ret = dict_get_int32 (dict, key, &members);
+                for (j = 1; j <= members; j++) {
+                        snprintf (key, sizeof (key), "%d-filename-%d", i, j);
+                        ret = dict_get_str (dict, key, &filename);
+                        if (ret)
+                                break;
+                        snprintf (key, sizeof (key), "%d-value-%d", i, j);
+                        ret = dict_get_uint64 (dict, key, &value);
+                        if (ret)
+                                goto out;
+                        if ( top_op == GF_CLI_TOP_READ_PERF ||
+                                top_op == GF_CLI_TOP_WRITE_PERF) {
+                                snprintf (key, sizeof (key), "%d-time-sec-%d", i, j);
+                                ret = dict_get_int32 (dict, key, (int32_t *)&time_sec);
+                                if (ret)
+                                        goto out;
+                                snprintf (key, sizeof (key), "%d-time-usec-%d", i, j);
+                                ret = dict_get_int32 (dict, key, (int32_t *)&time_usec);
+                                if (ret)
+                                        goto out;
+                                tm    = localtime (&time_sec);
+                                if (!tm)
+                                        goto out;
+                                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                                  ".%"GF_PRI_SUSECONDS, time_usec);
+
+                                cli_out ("%"PRIu64"\t\t%s\t\t%s", value, filename, timestr);
+                        } else {
+                                cli_out ("%"PRIu64"\t\t%s", value, filename);
+                        }
+                }
+                i++;
+        }
+        ret = rsp.op_ret;
+
+out:
+        cli_cmd_broadcast_response (ret);
+
+        if (dict)
+                dict_unref (dict);
+
+        if (rsp.stats_info.stats_info_val)
+                free (rsp.stats_info.stats_info_val);
+        return ret;
+}
+
+int32_t
+gf_cli3_1_top_volume (call_frame_t *frame, xlator_t *this, void *data)
+{
+        int                        ret   = -1;
+        gf1_cli_stats_volume_req   req   = {0,};
+        dict_t                     *dict = NULL;
+
+        GF_ASSERT (frame);
+        GF_ASSERT (this);
+        GF_ASSERT (data);
+
+        if (!frame || !this || !data)
+                goto out;
+        dict = data;
+        ret = dict_get_str (dict, "volname", &req.volname);
+        if (ret)
+                goto out;
+
+        ret = dict_get_int32 (dict, "op", (int32_t*)&req.op);
+        if (ret)
+                goto out;
+
+        ret = dict_allocate_and_serialize (dict,
+                                           &req.dict_req.dict_req_val,
+                                           (size_t *)&req.dict_req.dict_req_len);
+
+        ret = cli_cmd_submit (&req, frame, cli_rpc_prog,
+                              GLUSTER_CLI_PROFILE_VOLUME, NULL,
+                              gf_xdr_from_cli_stats_volume_req,
+                              this, gf_cli3_1_top_volume_cbk);
+
+out:
+        gf_log ("cli", GF_LOG_DEBUG, "Returning %d", ret);
+        return ret;
+}
 
 struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_NULL]             = {"NULL", NULL },
@@ -3174,7 +3378,7 @@ struct rpc_clnt_procedure gluster_cli_actors[GLUSTER_CLI_MAXVALUE] = {
         [GLUSTER_CLI_GSYNC_SET]        = {"GSYNC_SET", gf_cli3_1_gsync_set},
         [GLUSTER_CLI_PROFILE_VOLUME]   = {"PROFILE_VOLUME", gf_cli3_1_profile_volume},
         [GLUSTER_CLI_QUOTA]            = {"QUOTA", gf_cli3_1_quota},
-
+        [GLUSTER_CLI_TOP_VOLUME]       = {"TOP_VOLUME", gf_cli3_1_top_volume}
 };
 
 struct rpc_clnt_program cli_prog = {

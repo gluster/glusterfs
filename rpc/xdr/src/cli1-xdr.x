@@ -58,6 +58,18 @@ enum gf1_cli_stats_op {
         GF_CLI_STATS_START = 1,
         GF_CLI_STATS_STOP  = 2,
         GF_CLI_STATS_INFO  = 3
+        GF_CLI_STATS_TOP = 4
+};
+
+enum gf1_cli_top_op {
+        GF_CLI_TOP_NONE = 0,
+        GF_CLI_TOP_OPEN,
+        GF_CLI_TOP_READ,
+        GF_CLI_TOP_WRITE,
+        GF_CLI_TOP_OPENDIR,
+        GF_CLI_TOP_READDIR,
+        GF_CLI_TOP_READ_PERF,
+        GF_CLI_TOP_WRITE_PERF
 };
 
  struct gf1_cli_probe_req {
