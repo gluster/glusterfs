@@ -349,6 +349,8 @@ glusterfs_globals_init ()
 
         gf_op_list_init ();
 
+        gf_log_globals_init ();
+
         ret = glusterfs_ctx_init ();
         if (ret)
                 goto out;
