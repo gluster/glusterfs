@@ -102,7 +102,7 @@ _volfile_update_checksum (xlator_t *this, char *key, uint32_t checksum)
         }
 
         if (temp_volfile->checksum != checksum) {
-                gf_log (this->name, GF_LOG_CRITICAL,
+                gf_log (this->name, GF_LOG_INFO,
                         "the volume file got modified between earlier access "
                         "and now, this may lead to inconsistency between "
                         "clients, advised to remount client");
@@ -211,7 +211,7 @@ _validate_volfile_checksum (xlator_t *this, char *key,
                 fd = open (filename, O_RDONLY);
                 if (-1 == fd) {
                         ret = 0;
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_INFO,
                                 "failed to open volume file (%s) : %s",
                                 filename, strerror (errno));
                         goto out;
@@ -372,7 +372,6 @@ server_setvolume (rpcsvc_request_t *req)
 
         buf = memdup (args.dict.dict_val, args.dict.dict_len);
         if (buf == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto fail;

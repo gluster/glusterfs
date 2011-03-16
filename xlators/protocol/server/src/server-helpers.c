@@ -162,8 +162,6 @@ gf_add_locker (struct _lock_table *table, const char *volume,
 
         new = GF_CALLOC (1, sizeof (struct _locker), gf_server_mt_locker_t);
         if (new == NULL) {
-                gf_log ("server", GF_LOG_ERROR,
-                        "failed to allocate memory for \'struct _locker\'");
                 goto out;
         }
         INIT_LIST_HEAD (&new->lockers);
@@ -259,8 +257,6 @@ gf_lock_table_new (void)
 
         new = GF_CALLOC (1, sizeof (struct _lock_table), gf_server_mt_lock_table_t);
         if (new == NULL) {
-                gf_log ("server-protocol", GF_LOG_CRITICAL,
-                        "failed to allocate memory for new lock table");
                 goto out;
         }
         INIT_LIST_HEAD (&new->entrylk_lockers);
@@ -331,8 +327,6 @@ do_lock_table_cleanup (xlator_t *this, server_connection_t *conn,
                                   tmp, &inodelk_lockers, lockers) {
                 tmp_frame = copy_frame (frame);
                 if (tmp_frame == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR,
-                                "out of memory");
                         goto out;
                 }
                 /*
@@ -483,8 +477,6 @@ do_fd_cleanup (xlator_t *this, server_connection_t *conn, call_frame_t *frame,
                 if (fd != NULL) {
                         tmp_frame = copy_frame (frame);
                         if (tmp_frame == NULL) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto out;
                         }
 
@@ -538,7 +530,6 @@ do_connection_cleanup (xlator_t *this, server_connection_t *conn,
 
         frame = create_frame (this, this->ctx->pool);
         if (frame == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -896,10 +887,12 @@ server_alloc_frame (rpcsvc_request_t *req)
         GF_VALIDATE_OR_GOTO ("server", conn, out);
 
         frame = create_frame (conn->this, req->svc->ctx->pool);
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
+        if (!frame)
+                goto out;
 
         state = GF_CALLOC (1, sizeof (*state), gf_server_mt_state_t);
-        GF_VALIDATE_OR_GOTO ("server", state, out);
+        if (!state)
+                goto out;
 
         if (conn->bound_xl)
                 state->itable = conn->bound_xl->itable;
@@ -928,7 +921,8 @@ get_frame_from_request (rpcsvc_request_t *req)
         GF_VALIDATE_OR_GOTO ("server", req, out);
 
         frame = server_alloc_frame (req);
-        GF_VALIDATE_OR_GOTO ("server", frame, out);
+        if (!frame)
+                goto out;
 
         frame->root->op       = req->procnum;
         frame->root->type     = req->type;
@@ -1320,7 +1314,9 @@ server_print_request (call_frame_t *frame)
         conf = this->private;
 
         GF_VALIDATE_OR_GOTO ("server", conf, out);
-        GF_VALIDATE_OR_GOTO ("server", conf->trace, out);
+
+        if (!conf->trace)
+                goto out;
 
         state = CALL_STATE (frame);
 
