@@ -1094,7 +1094,6 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname, int po
         if (!dict)
                 goto out;
 
-
         host = gf_strdup ((char*)hostname);
         if (!hostname) {
                 ret = -1;
@@ -1102,20 +1101,31 @@ rpc_transport_inet_options_build (dict_t **options, const char *hostname, int po
         }
 
         ret = dict_set_dynstr (dict, "remote-host", host);
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "failed to set remote-host with %s",
+                        host);
                 goto out;
+        }
 
         ret = dict_set_int32 (dict, "remote-port", port);
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING, "failed to set remote-port with %d",
+                        port);
                 goto out;
-
+        }
         ret = dict_set_str (dict, "transport.address-family", "inet");
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING,
+                        "failed to set addr-family with inet");
                 goto out;
+        }
 
         ret = dict_set_str (dict, "transport-type", "socket");
-        if (ret)
+        if (ret) {
+                gf_log ("", GF_LOG_WARNING,
+                        "failed to set trans-type with socket");
                 goto out;
+        }
 
         *options = dict;
 out:

@@ -25,7 +25,6 @@
 #include "config.h"
 #endif
 
-#include "glusterfsd-common.h"
 
 #define DEFAULT_GLUSTERD_VOLFILE              CONFDIR "/glusterd.vol"
 #define DEFAULT_CLIENT_VOLFILE                CONFDIR "/glusterfs.vol"
@@ -47,36 +46,36 @@
 #define ENABLE_DEBUG_MODE         1
 
 enum argp_option_keys {
-        ARGP_VOLFILE_SERVER_KEY = 's',
-        ARGP_VOLUME_FILE_KEY = 'f',
-        ARGP_LOG_LEVEL_KEY = 'L',
-        ARGP_LOG_FILE_KEY = 'l',
-        ARGP_VOLFILE_SERVER_PORT_KEY = 131,
+        ARGP_VOLFILE_SERVER_KEY           = 's',
+        ARGP_VOLUME_FILE_KEY              = 'f',
+        ARGP_LOG_LEVEL_KEY                = 'L',
+        ARGP_LOG_FILE_KEY                 = 'l',
+        ARGP_VOLFILE_SERVER_PORT_KEY      = 131,
         ARGP_VOLFILE_SERVER_TRANSPORT_KEY = 132,
-        ARGP_PID_FILE_KEY = 'p',
-        ARGP_SOCK_FILE_KEY = 'S',
-        ARGP_NO_DAEMON_KEY = 'N',
-        ARGP_RUN_ID_KEY = 'r',
-        ARGP_DEBUG_KEY = 133,
-        ARGP_ENTRY_TIMEOUT_KEY = 135,
-        ARGP_ATTRIBUTE_TIMEOUT_KEY = 136,
-        ARGP_VOLUME_NAME_KEY = 137,
-        ARGP_XLATOR_OPTION_KEY = 138,
-        ARGP_DIRECT_IO_MODE_KEY = 139,
+        ARGP_PID_FILE_KEY                 = 'p',
+        ARGP_SOCK_FILE_KEY                = 'S',
+        ARGP_NO_DAEMON_KEY                = 'N',
+        ARGP_RUN_ID_KEY                   = 'r',
+        ARGP_DEBUG_KEY                    = 133,
+        ARGP_ENTRY_TIMEOUT_KEY            = 135,
+        ARGP_ATTRIBUTE_TIMEOUT_KEY        = 136,
+        ARGP_VOLUME_NAME_KEY              = 137,
+        ARGP_XLATOR_OPTION_KEY            = 138,
+        ARGP_DIRECT_IO_MODE_KEY           = 139,
 #ifdef GF_DARWIN_HOST_OS
-        ARGP_NON_LOCAL_KEY = 140,
+        ARGP_NON_LOCAL_KEY                = 140,
 #endif /* DARWIN */
-        ARGP_VOLFILE_ID_KEY = 143,
-        ARGP_VOLFILE_CHECK_KEY = 144,
-        ARGP_VOLFILE_MAX_FETCH_ATTEMPTS = 145,
-        ARGP_LOG_SERVER_KEY = 146,
-        ARGP_LOG_SERVER_PORT_KEY = 147,
-        ARGP_READ_ONLY_KEY = 148,
-        ARGP_MAC_COMPAT_KEY = 149,
-        ARGP_DUMP_FUSE_KEY = 150,
-        ARGP_BRICK_NAME_KEY = 151,
-        ARGP_BRICK_PORT_KEY = 152,
-        ARGP_CLIENT_PID_KEY = 153,
+        ARGP_VOLFILE_ID_KEY               = 143,
+        ARGP_VOLFILE_CHECK_KEY            = 144,
+        ARGP_VOLFILE_MAX_FETCH_ATTEMPTS   = 145,
+        ARGP_LOG_SERVER_KEY               = 146,
+        ARGP_LOG_SERVER_PORT_KEY          = 147,
+        ARGP_READ_ONLY_KEY                = 148,
+        ARGP_MAC_COMPAT_KEY               = 149,
+        ARGP_DUMP_FUSE_KEY                = 150,
+        ARGP_BRICK_NAME_KEY               = 151,
+        ARGP_BRICK_PORT_KEY               = 152,
+        ARGP_CLIENT_PID_KEY               = 153,
 };
 
 int glusterfs_mgmt_pmap_signout (glusterfs_ctx_t *ctx);

@@ -247,8 +247,7 @@ logging_init (glusterfs_ctx_t *ctx)
         cmd_args = &ctx->cmd_args;
 
         if (gf_log_init (cmd_args->log_file) == -1) {
-                fprintf (stderr,
-                         "failed to open logfile %s.  exiting\n",
+                fprintf (stderr, "ERROR: failed to open logfile %s\n",
                          cmd_args->log_file);
                 return -1;
         }

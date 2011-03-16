@@ -39,7 +39,6 @@
 #include "xlator.h"
 #include "defaults.h"
 #include "common-utils.h"
-#include "glusterfsd-common.h"
 #include "statedump.h"
 
 #ifdef GF_DARWIN_HOST_OS
