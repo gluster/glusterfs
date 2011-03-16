@@ -108,6 +108,15 @@ xdr_gf1_cli_stats_op (XDR *xdrs, gf1_cli_stats_op *objp)
 }
 
 bool_t
+xdr_gf1_cli_top_op (XDR *xdrs, gf1_cli_top_op *objp)
+{
+
+         if (!xdr_enum (xdrs, (enum_t *) objp))
+                 return FALSE;
+        return TRUE;
+}
+
+bool_t
 xdr_gf1_cli_probe_req (XDR *xdrs, gf1_cli_probe_req *objp)
 {
 
@@ -764,6 +773,9 @@ xdr_gf1_cli_stats_volume_req (XDR *xdrs, gf1_cli_stats_volume_req *objp)
 		 return FALSE;
 	 if (!xdr_gf1_cli_stats_op (xdrs, &objp->op))
 		 return FALSE;
+	 if (!xdr_bytes (xdrs, (char **)&objp->dict_req.dict_req_val, (u_int *) &objp->dict_req.dict_req_len, ~0))
+		 return FALSE;
+
 	return TRUE;
 }
 
