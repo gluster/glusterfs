@@ -22,21 +22,13 @@
 
 #include "list.h"
 #include "locking.h"
+#include "logging.h"
 #include "mem-types.h"
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include <stdarg.h>
 
-
-#define MALLOC(size) malloc(size)
-#define CALLOC(cnt,size) calloc(cnt,size)
-
-#define FREE(ptr)                               \
-        if (ptr != NULL) {                      \
-                free ((void *)ptr);             \
-                ptr = (void *)0xeeeeeeee;       \
-        }
 
 struct mem_acct {
         uint32_t            num_types;
@@ -67,15 +59,61 @@ gf_vasprintf (char **string_ptr, const char *format, va_list arg);
 int
 gf_asprintf (char **string_ptr, const char *format, ...);
 
+void
+__gf_free (void *ptr);
+
+
+static inline
+void* __gf_default_malloc (size_t size)
+{
+        void *ptr = NULL;
+
+        ptr = malloc (size);
+        if (!ptr)
+                gf_log_nomem ("", GF_LOG_ALERT, size);
+
+        return ptr;
+}
+
+static inline
+void* __gf_default_calloc (int cnt, size_t size)
+{
+        void *ptr = NULL;
+
+        ptr = calloc (cnt, size);
+        if (!ptr)
+                gf_log_nomem ("", GF_LOG_ALERT, (cnt * size));
+
+        return ptr;
+}
+
+static inline
+void* __gf_default_realloc (void *oldptr, size_t size)
+{
+        void *ptr = NULL;
+
+        ptr = realloc (oldptr, size);
+        if (!ptr)
+                gf_log_nomem ("", GF_LOG_ALERT, size);
+
+        return ptr;
+}
+
+#define MALLOC(size)       __gf_default_malloc(size)
+#define CALLOC(cnt,size)   __gf_default_calloc(cnt,size)
+#define REALLOC(ptr,size)  __gf_default_realloc(ptr,size)
+
+#define FREE(ptr)                               \
+        if (ptr != NULL) {                      \
+                free ((void *)ptr);             \
+                ptr = (void *)0xeeeeeeee;       \
+        }
+
 #define GF_CALLOC(nmemb, size, type) __gf_calloc (nmemb, size, type)
 
 #define GF_MALLOC(size, type)  __gf_malloc (size, type)
 
 #define GF_REALLOC(ptr, size)  __gf_realloc (ptr, size)
-
-void
-__gf_free (void *ptr);
-
 
 #define GF_FREE(free_ptr) __gf_free (free_ptr);
 

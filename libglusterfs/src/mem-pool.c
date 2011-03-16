@@ -141,9 +141,10 @@ __gf_calloc (size_t nmemb, size_t size, uint32_t type)
 
         ptr = calloc (1, tot_size);
 
-        if (!ptr)
+        if (!ptr) {
+                gf_log_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
-
+        }
         gf_mem_set_acct_info (xl, &ptr, req_size, type);
 
         return (void *)ptr;
@@ -164,9 +165,10 @@ __gf_malloc (size_t size, uint32_t type)
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
 
         ptr = malloc (tot_size);
-        if (!ptr)
+        if (!ptr) {
+                gf_log_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
-
+        }
         gf_mem_set_acct_info (xl, &ptr, size, type);
 
         return (void *)ptr;
@@ -181,7 +183,7 @@ __gf_realloc (void *ptr, size_t size)
         uint32_t        type = 0;
 
         if (!gf_mem_acct_enable)
-                return realloc (ptr, size);
+                return REALLOC (ptr, size);
 
         tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
 
@@ -196,8 +198,10 @@ __gf_realloc (void *ptr, size_t size)
         type = *(uint32_t *)orig_ptr;
 
         ptr = realloc (orig_ptr, tot_size);
-        if (!ptr)
+        if (!ptr) {
+                gf_log_nomem ("", GF_LOG_ALERT, tot_size);
                 return NULL;
+        }
 
         gf_mem_set_acct_info (xl, (char **)&ptr, size, type);
 
@@ -221,12 +225,7 @@ gf_vasprintf (char **string_ptr, const char *format, va_list arg)
         size++;
         str = GF_MALLOC (size, gf_common_mt_asprintf);
         if (str == NULL) {
-                /*
-                 * Strictly speaking, GNU asprintf doesn't do this,
-                 * but the caller isn't checking the return value.
-                 */
-                gf_log ("libglusterfs", GF_LOG_CRITICAL,
-                        "failed to allocate memory");
+                /* log is done in GF_MALLOC itself */
                 return -1;
         }
         rv = vsnprintf (str, size, format, arg_save);

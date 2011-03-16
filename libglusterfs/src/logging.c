@@ -48,8 +48,8 @@ static pthread_mutex_t  logfile_mutex;
 static char            *filename = NULL;
 static uint8_t          logrotate = 0;
 static FILE            *logfile = NULL;
-static gf_loglevel_t    loglevel = GF_LOG_MAX;
-static int              gf_log_syslog = 0;
+static gf_loglevel_t    loglevel = GF_LOG_INFO;
+static int              gf_log_syslog = 1;
 
 char                    gf_log_xl_log_set;
 gf_loglevel_t           gf_log_loglevel; /* extern'd */
@@ -115,6 +115,18 @@ gf_log_fini (void)
 }
 
 
+void
+gf_log_globals_init (void)
+{
+        pthread_mutex_init (&logfile_mutex, NULL);
+
+#ifdef GF_LINUX_HOST_OS
+        /* For the 'syslog' output. one can grep 'GlusterFS' in syslog
+           for serious logs */
+        openlog ("GlusterFS", LOG_PID, LOG_DAEMON);
+#endif
+}
+
 int
 gf_log_init (const char *file)
 {
@@ -122,8 +134,6 @@ gf_log_init (const char *file)
                 fprintf (stderr, "gf_log_init: no filename specified\n");
                 return -1;
         }
-
-        pthread_mutex_init (&logfile_mutex, NULL);
 
         filename = gf_strdup (file);
         if (!filename) {
@@ -139,12 +149,6 @@ gf_log_init (const char *file)
                          strerror (errno));
                 return -1;
         }
-
-#ifdef GF_LINUX_HOST_OS
-        /* For the 'syslog' output. one can grep 'GlusterFS' in syslog
-           for serious logs */
-        openlog ("GlusterFS", LOG_PID, LOG_DAEMON);
-#endif
 
         gf_log_logfile = logfile;
 
@@ -170,8 +174,6 @@ struct _log_msg {
 };
 
 
-
-
 void
 gf_log_lock (void)
 {
@@ -193,6 +195,123 @@ gf_log_cleanup (void)
 }
 
 int
+_gf_log_nomem (const char *domain, const char *file,
+               const char *function, int line, gf_loglevel_t level,
+               size_t size)
+{
+        const char     *basename        = NULL;
+        struct tm      *tm              = NULL;
+        xlator_t       *this            = NULL;
+        struct timeval  tv              = {0,};
+        int             ret             = 0;
+        gf_loglevel_t   xlator_loglevel = 0;
+        char            msg[8092];
+        char            timestr[256];
+        char            callstr[4096];
+
+        this = THIS;
+
+        xlator_loglevel = this->loglevel;
+        if (xlator_loglevel == 0)
+                xlator_loglevel = loglevel;
+
+        if (level > xlator_loglevel)
+                goto out;
+
+        static char *level_strings[] = {"",  /* NONE */
+                                        "M", /* EMERGENCY */
+                                        "A", /* ALERT */
+                                        "C", /* CRITICAL */
+                                        "E", /* ERROR */
+                                        "W", /* WARNING */
+                                        "N", /* NOTICE */
+                                        "I", /* INFO/NORMAL */
+                                        "D", /* DEBUG */
+                                        "T", /* TRACE */
+                                        ""};
+
+        if (!domain || !file || !function) {
+                fprintf (stderr,
+                         "logging: %s:%s():%d: invalid argument\n",
+                         __FILE__, __PRETTY_FUNCTION__, __LINE__);
+                return -1;
+        }
+
+#if HAVE_BACKTRACE
+        /* Print 'calling function' */
+        do {
+                void *array[5];
+                char **callingfn = NULL;
+                size_t bt_size = 0;
+
+                bt_size = backtrace (array, 5);
+                if (bt_size)
+                        callingfn = backtrace_symbols (&array[2], bt_size-2);
+                if (!callingfn)
+                        break;
+
+                if (bt_size == 5)
+                        snprintf (callstr, 4096, "(-->%s (-->%s (-->%s)))",
+                                  callingfn[2], callingfn[1], callingfn[0]);
+                if (bt_size == 4)
+                        snprintf (callstr, 4096, "(-->%s (-->%s))",
+                                  callingfn[1], callingfn[0]);
+                if (bt_size == 3)
+                        snprintf (callstr, 4096, "(-->%s)", callingfn[0]);
+
+                free (callingfn);
+        } while (0);
+#endif /* HAVE_BACKTRACE */
+
+        ret = gettimeofday (&tv, NULL);
+        if (-1 == ret)
+                goto out;
+
+        tm    = localtime (&tv.tv_sec);
+
+        pthread_mutex_lock (&logfile_mutex);
+        {
+                strftime (timestr, 256, "%Y-%m-%d %H:%M:%S", tm);
+                snprintf (timestr + strlen (timestr), 256 - strlen (timestr),
+                          ".%"GF_PRI_SUSECONDS, tv.tv_usec);
+
+                basename = strrchr (file, '/');
+                if (basename)
+                        basename++;
+                else
+                        basename = file;
+
+                ret = sprintf (msg, "[%s] %s [%s:%d:%s] %s %s: no memory "
+                               "available for size (%"GF_PRI_SIZET")",
+                               timestr, level_strings[level],
+                               basename, line, function, callstr,
+                               domain, size);
+                if (-1 == ret) {
+                        goto unlock;
+                }
+
+                if (logfile) {
+                        fprintf (logfile, "%s\n", msg);
+                        fflush (logfile);
+                } else {
+                        fprintf (stderr, "%s\n", msg);
+                }
+
+#ifdef GF_LINUX_HOST_OS
+                /* We want only serious log in 'syslog', not our debug
+                   and trace logs */
+                if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
+                        syslog ((level-1), "%s\n", msg);
+#endif
+        }
+
+unlock:
+        pthread_mutex_unlock (&logfile_mutex);
+out:
+        return ret;
+ }
+
+int
 _gf_log_callingfn (const char *domain, const char *file, const char *function,
                    int line, gf_loglevel_t level, const char *fmt, ...)
 {
@@ -209,9 +328,6 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
         int             ret             = 0;
         gf_loglevel_t   xlator_loglevel = 0;
         va_list         ap;
-
-        if (!logfile)
-                return -1;
 
         this = THIS;
 
@@ -308,13 +424,17 @@ _gf_log_callingfn (const char *domain, const char *file, const char *function,
                 strcpy (msg, str1);
                 strcpy (msg + len, str2);
 
-                fprintf (logfile, "%s\n", msg);
-                fflush (logfile);
+                if (logfile) {
+                        fprintf (logfile, "%s\n", msg);
+                        fflush (logfile);
+                } else {
+                        fprintf (stderr, "%s\n", msg);
+                }
 
 #ifdef GF_LINUX_HOST_OS
                 /* We want only serious log in 'syslog', not our debug
                    and trace logs */
-                if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
+                if (gf_log_syslog && level && (level <= GF_LOG_CRITICAL))
                         syslog ((level-1), "%s\n", msg);
 #endif
         }
@@ -354,9 +474,6 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
         int          ret  = 0;
         xlator_t    *this = NULL;
         gf_loglevel_t xlator_loglevel = 0;
-
-        if (!logfile)
-                return -1;
 
         this = THIS;
 
@@ -398,7 +515,9 @@ _gf_log (const char *domain, const char *file, const char *function, int line,
                         goto log;
                 }
 
-                fclose (logfile);
+                if (logfile)
+                        fclose (logfile);
+
                 gf_log_logfile = logfile = new_logfile;
         }
 
@@ -444,13 +563,17 @@ log:
                 strcpy (msg, str1);
                 strcpy (msg + len, str2);
 
-                fprintf (logfile, "%s\n", msg);
-                fflush (logfile);
+                if (logfile) {
+                        fprintf (logfile, "%s\n", msg);
+                        fflush (logfile);
+                } else {
+                        fprintf (stderr, "%s\n", msg);
+                }
 
 #ifdef GF_LINUX_HOST_OS
                 /* We want only serious log in 'syslog', not our debug
                    and trace logs */
-                if (gf_log_syslog && level && (level <= GF_LOG_ERROR))
+                if (gf_log_syslog && level && (level <= GF_LOG_CRITICAL))
                         syslog ((level-1), "%s\n", msg);
 #endif
         }
