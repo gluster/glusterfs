@@ -467,44 +467,53 @@ int32_t
 rpc_transport_get_myaddr (rpc_transport_t *this, char *peeraddr, int addrlen,
                           struct sockaddr_storage *sa, size_t salen)
 {
-        if (!this)
-                return -1;
+        int32_t ret = -1;
+        GF_VALIDATE_OR_GOTO ("rpc", this, out);
 
-        return this->ops->get_myaddr (this, peeraddr, addrlen, sa, salen);
+        ret = this->ops->get_myaddr (this, peeraddr, addrlen, sa, salen);
+
+out:
+        return ret;
 }
 
 int32_t
 rpc_transport_get_myname (rpc_transport_t *this, char *hostname, int hostlen)
 {
-        if (!this)
-                return -1;
+        int32_t ret = -1;
+        GF_VALIDATE_OR_GOTO ("rpc", this, out);
 
-        return this->ops->get_myname (this, hostname, hostlen);
+        ret = this->ops->get_myname (this, hostname, hostlen);
+out:
+        return ret;
 }
 
 int32_t
 rpc_transport_get_peername (rpc_transport_t *this, char *hostname, int hostlen)
 {
-        if (!this)
-                return -1;
-        return this->ops->get_peername (this, hostname, hostlen);
+        int32_t ret = -1;
+        GF_VALIDATE_OR_GOTO ("rpc", this, out);
+
+        ret = this->ops->get_peername (this, hostname, hostlen);
+out:
+        return ret;
 }
 
 int32_t
 rpc_transport_get_peeraddr (rpc_transport_t *this, char *peeraddr, int addrlen,
                             struct sockaddr_storage *sa, size_t salen)
 {
-        if (!this)
-                return -1;
-        return this->ops->get_peeraddr (this, peeraddr, addrlen, sa, salen);
+        int32_t ret = -1;
+        GF_VALIDATE_OR_GOTO ("rpc", this, out);
+
+        ret = this->ops->get_peeraddr (this, peeraddr, addrlen, sa, salen);
+out:
+        return ret;
 }
 
 void
 rpc_transport_pollin_destroy (rpc_transport_pollin_t *pollin)
 {
-        if (!pollin) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("rpc", pollin, out);
 
         if (pollin->iobref) {
                 iobref_unref (pollin->iobref);
@@ -533,7 +542,6 @@ rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
         rpc_transport_pollin_t *msg = NULL;
         msg = GF_CALLOC (1, sizeof (*msg), gf_common_mt_rpc_trans_pollin_t);
         if (!msg) {
-                gf_log ("rpc-transport", GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -549,143 +557,6 @@ rpc_transport_pollin_alloc (rpc_transport_t *this, struct iovec *vector,
 
 out:
         return msg;
-}
-
-
-rpc_transport_pollin_t *
-rpc_transport_same_process_pollin_alloc (rpc_transport_t *this,
-                                         struct iovec *rpchdr, int rpchdrcount,
-                                         struct iovec *proghdr,
-                                         int proghdrcount,
-                                         struct iovec *progpayload,
-                                         int progpayloadcount,
-                                         rpc_transport_rsp_t *rsp,
-                                         char is_request)
-{
-        rpc_transport_pollin_t *msg            = NULL;
-        int                     rpchdrlen      = 0, proghdrlen = 0;
-        int                     progpayloadlen = 0;
-        char                    vectored       = 0;
-        char                   *hdr            = NULL, *progpayloadbuf = NULL;
-        struct iobuf           *iobuf          = NULL;
-
-        if (!rpchdr || !proghdr) {
-                goto err;
-        }
-
-        msg = GF_CALLOC (1, sizeof (*msg), gf_common_mt_rpc_trans_pollin_t);
-        if (!msg) {
-                gf_log ("rpc-transport", GF_LOG_ERROR, "out of memory");
-                goto err;
-        }
-
-        rpchdrlen = iov_length (rpchdr, rpchdrcount);
-        proghdrlen = iov_length (proghdr, proghdrcount);
-
-        if (progpayload) {
-                vectored = 1;
-                progpayloadlen = iov_length (progpayload, progpayloadcount);
-        }
-
-        /* FIXME: we are assuming rpchdr and proghdr will fit into
-         * an iobuf (128KB)
-         */
-        if ((rpchdrlen + proghdrlen) > this->ctx->page_size) {
-                gf_log ("rpc_transport", GF_LOG_DEBUG, "program hdr and rpc"
-                        " hdr together combined (%d) is bigger than "
-                        "iobuf size (%zu)", (rpchdrlen + proghdrlen),
-                        this->ctx->page_size);
-                goto err;
-        }
-
-        if (vectored) {
-                msg->iobref = iobref_new ();
-                if (!msg->iobref) {
-                        gf_log ("rpc-transport", GF_LOG_ERROR,
-                                "out of memory");
-                        goto err;
-                }
-
-                iobuf = iobuf_get (this->ctx->iobuf_pool);
-                if (!iobuf) {
-                        gf_log ("rpc_transport", GF_LOG_ERROR,
-                                "out of memory");
-                        goto err;
-                }
-
-                iobref_add (msg->iobref, iobuf);
-                iobuf_unref (iobuf);
-
-                msg->vector[0].iov_len = rpchdrlen + proghdrlen;
-                msg->vector[0].iov_base = hdr = iobuf_ptr (iobuf);
-
-                if (!is_request && rsp) {
-                        msg->vector[1] = rsp->rsp_payload[0];
-                        progpayloadbuf = rsp->rsp_payload[0].iov_base;
-                } else {
-                        iobuf = iobuf_get (this->ctx->iobuf_pool);
-                        if (!iobuf) {
-                                gf_log ("rpc_transport", GF_LOG_ERROR,
-                                        "out of memory");
-                                goto err;
-                        }
-
-                        iobref_add (msg->iobref, iobuf);
-                        iobuf_unref (iobuf);
- 
-                        msg->vector[1].iov_base
-                                = progpayloadbuf = iobuf_ptr (iobuf);
-                }
-                msg->vector[1].iov_len = progpayloadlen;
-        } else {
-                if (!is_request && rsp) {
-                        /* FIXME: Assuming rspvec contains only one vector */
-                        hdr = rsp->rsphdr[0].iov_base;
-                        msg->vector[0] = rsp->rsphdr[0];
-                } else {
-                        msg->iobref = iobref_new ();
-                        if (!msg->iobref) {
-                                gf_log ("rpc-transport", GF_LOG_ERROR,
-                                        "out of memory");
-                                goto err;
-                        }
-
-                        iobuf = iobuf_get (this->ctx->iobuf_pool);
-                        if (!iobuf) {
-                                gf_log ("rpc_transport", GF_LOG_ERROR,
-                                        "out of memory");
-                                goto err;
-                        }
-
-                        iobref_add (msg->iobref, iobuf);
-                        iobuf_unref (iobuf);
-
-                        hdr = iobuf_ptr (iobuf);
-                        msg->vector[0].iov_base = hdr;
-                }
-
-                msg->vector[0].iov_len = rpchdrlen + proghdrlen;
-        }
-
-        iov_unload (hdr, rpchdr, rpchdrcount);
-        hdr += rpchdrlen;
-        iov_unload (hdr, proghdr, proghdrcount);
-
-        if (progpayload) {
-                iov_unload (progpayloadbuf, progpayload,
-                            progpayloadcount);
-        }
-
-        if (is_request) {
-                msg->private = rsp;
-        }
-        return msg;
-err:
-        if (msg) {
-                rpc_transport_pollin_destroy (msg);
-        }
-
-        return NULL;
 }
 
 
@@ -707,10 +578,12 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	GF_VALIDATE_OR_GOTO("rpc-transport", trans_name, fail);
 
 	trans = GF_CALLOC (1, sizeof (struct rpc_transport), gf_common_mt_rpc_trans_t);
-	GF_VALIDATE_OR_GOTO("rpc-transport", trans, fail);
+        if (!trans)
+                goto fail;
 
         trans->name = gf_strdup (trans_name);
-        GF_VALIDATE_OR_GOTO ("rpc-transport", trans->name, fail);
+        if (!trans->name)
+                goto fail;
 
 	trans->ctx = ctx;
 	type = str;
@@ -722,9 +595,10 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 		if (ret < 0)
 			gf_log ("dict", GF_LOG_DEBUG,
 				"setting transport-type failed");
-		gf_log ("rpc-transport", GF_LOG_WARNING,
-			"missing 'option transport-type'. defaulting to "
-			"\"socket\"");
+                else
+                        gf_log ("rpc-transport", GF_LOG_WARNING,
+                                "missing 'option transport-type'. defaulting to "
+                                "\"socket\"");
 	} else {
 		{
 			/* Backword compatibility to handle * /client,
@@ -772,9 +646,9 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 
 	ret = gf_asprintf (&name, "%s/%s.so", RPC_TRANSPORTDIR, type);
         if (-1 == ret) {
-                gf_log ("rpc-transport", GF_LOG_ERROR, "asprintf failed");
                 goto fail;
         }
+
 	gf_log ("rpc-transport", GF_LOG_DEBUG,
 		"attempt to load file %s", name);
 
@@ -818,7 +692,6 @@ rpc_transport_load (glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 	vol_opt = GF_CALLOC (1, sizeof (volume_opt_list_t),
                              gf_common_mt_volume_opt_list_t);
         if (!vol_opt) {
-                gf_log (trans_name, GF_LOG_ERROR, "out of memory");
                 goto fail;
         }
 
@@ -1020,10 +893,7 @@ rpc_transport_notify (rpc_transport_t *this, rpc_transport_event_t event,
                       void *data, ...)
 {
         int32_t ret = -1;
-
-        if (this == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("rpc", this, out);
 
         if (this->notify != NULL) {
                 ret = this->notify (this, this->mydata, event, data);
@@ -1040,11 +910,8 @@ inline int
 rpc_transport_register_notify (rpc_transport_t *trans,
                                rpc_transport_notify_t notify, void *mydata)
 {
-        int ret = -1;
-
-        if (trans == NULL) {
-                goto out;
-        }
+        int32_t ret = -1;
+        GF_VALIDATE_OR_GOTO ("rpc", trans, out);
 
         trans->notify = notify;
         trans->mydata = mydata;

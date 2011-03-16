@@ -34,6 +34,7 @@
 #include "xdr-rpc.h"
 #include "xdr-common.h"
 #include "logging.h"
+#include "common-utils.h"
 
 /* Decodes the XDR format in msgbuf into rpc_msg.
  * The remaining payload is returned into payload.
@@ -43,12 +44,10 @@ xdr_to_rpc_reply (char *msgbuf, size_t len, struct rpc_msg *reply,
                   struct iovec *payload, char *verfbytes)
 {
         XDR                     xdr;
-        int                     ret = -1;
+        int                     ret = -EINVAL;
 
-        if ((!msgbuf) || (!reply)) {
-                ret = -EINVAL;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("rpc", msgbuf, out);
+        GF_VALIDATE_OR_GOTO ("rpc", reply, out);
 
         memset (reply, 0, sizeof (struct rpc_msg));
 
@@ -58,6 +57,7 @@ xdr_to_rpc_reply (char *msgbuf, size_t len, struct rpc_msg *reply,
 
         xdrmem_create (&xdr, msgbuf, len, XDR_DECODE);
         if (!xdr_replymsg (&xdr, reply)) {
+                gf_log ("rpc", GF_LOG_WARNING, "failed to decode reply msg");
                 ret = -errno;
                 goto out;
         }
@@ -71,13 +71,6 @@ out:
         return ret;
 }
 
-#if 0
-bool_t
-true_func (XDR *s, caddr_t *a)
-{
-        return TRUE;
-}
-#endif
 
 int
 rpc_request_to_xdr (struct rpc_msg *request, char *dest, size_t len,
@@ -86,12 +79,13 @@ rpc_request_to_xdr (struct rpc_msg *request, char *dest, size_t len,
         XDR xdr;
         int ret = -1;
 
-        if ((!dest) || (!request) || (!dst)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("rpc", dest, out);
+        GF_VALIDATE_OR_GOTO ("rpc", request, out);
+        GF_VALIDATE_OR_GOTO ("rpc", dst, out);
 
         xdrmem_create (&xdr, dest, len, XDR_ENCODE);
         if (!xdr_callmsg (&xdr, request)) {
+                gf_log ("rpc", GF_LOG_WARNING, "failed to encode call msg");
                 goto out;
         }
 
@@ -112,13 +106,14 @@ auth_unix_cred_to_xdr (struct authunix_parms *au, char *dest, size_t len,
         XDR xdr;
         int ret = -1;
 
-        if (!au || !dest || !iov) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("rpc", au, out);
+        GF_VALIDATE_OR_GOTO ("rpc", dest, out);
+        GF_VALIDATE_OR_GOTO ("rpc", iov, out);
 
         xdrmem_create (&xdr, dest, len, XDR_DECODE);
 
         if (!xdr_authunix_parms (&xdr, au)) {
+                gf_log ("rpc", GF_LOG_WARNING, "failed to decode authunix parms");
                 goto out;
         }
 

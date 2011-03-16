@@ -54,6 +54,7 @@ int auth_unix_authenticate (rpcsvc_request_t *req, void *priv)
         ret = xdr_to_auth_unix_cred (req->cred.authdata, req->cred.datalen,
                                      &aup, machname, req->auxgids);
         if (ret == -1) {
+                gf_log ("", GF_LOG_WARNING, "failed to decode unix credentials");
                 ret = RPCSVC_AUTH_REJECT;
                 goto err;
         }

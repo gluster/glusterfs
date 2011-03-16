@@ -78,7 +78,6 @@ __saved_frames_put (struct saved_frames *frames, void *frame,
 
         saved_frame = mem_get (rpcreq->conn->rpc_clnt->saved_frames_pool);
 	if (!saved_frame) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
                 goto out;
 	}
         /* THIS should be saved and set back */
@@ -103,9 +102,8 @@ void
 saved_frames_delete (struct saved_frame *saved_frame,
                      rpc_clnt_connection_t *conn)
 {
-        if (!saved_frame || !conn) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("rpc-clnt", saved_frame, out);
+        GF_VALIDATE_OR_GOTO ("rpc-clnt", conn, out);
 
         pthread_mutex_lock (&conn->lock);
         {
@@ -164,7 +162,7 @@ call_bail (void *data)
                                                            (void *) clnt);
 
                         if (conn->timer == NULL) {
-                                gf_log (conn->trans->name, GF_LOG_DEBUG,
+                                gf_log (conn->trans->name, GF_LOG_WARNING,
                                         "Cannot create bailout timer");
                         }
                 }
@@ -250,7 +248,6 @@ saved_frames_new (void)
 	saved_frames = GF_CALLOC (1, sizeof (*saved_frames),
                                   gf_common_mt_rpcclnt_savedframe_t);
 	if (!saved_frames) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
 		return NULL;
 	}
 
@@ -330,13 +327,14 @@ saved_frames_unwind (struct saved_frames *saved_frames)
                 if (!trav->rpcreq || !trav->rpcreq->prog)
                         continue;
 
-                gf_log_callingfn ("rpc-clnt", GF_LOG_ERROR,
+                gf_log_callingfn (trav->rpcreq->conn->trans->name,
+                                  GF_LOG_ERROR,
                                   "forced unwinding frame type(%s) op(%s(%d)) "
                                   "called at %s",
                                   trav->rpcreq->prog->progname,
-                                  (trav->rpcreq->prog->procnames) ?
-                                  trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
-                                  : "--",
+                                  ((trav->rpcreq->prog->procnames) ?
+                                   trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
+                                   : "--"),
                                   trav->rpcreq->procnum, timestr);
 		saved_frames->count--;
 
@@ -429,10 +427,8 @@ rpc_clnt_fill_request_info (struct rpc_clnt *clnt, rpc_request_info_t *info)
         pthread_mutex_unlock (&clnt->conn.lock);
 
         if (ret == -1) {
-                gf_log ("rpc-clnt", GF_LOG_CRITICAL, "cannot lookup the saved "
-                        "frame corresponding to xid (%d) for msg arrived on "
-                        "transport %s",
-                        info->xid, clnt->conn.trans->name);
+                gf_log (clnt->conn.trans->name, GF_LOG_CRITICAL, "cannot lookup the saved "
+                        "frame corresponding to xid (%d)", info->xid);
                 goto out;
         }
 
@@ -490,7 +486,7 @@ rpc_clnt_connection_cleanup (rpc_clnt_connection_t *conn)
 
         clnt = conn->rpc_clnt;
 
-        gf_log ("rpc-clnt", GF_LOG_DEBUG,
+        gf_log (conn->trans->name, GF_LOG_TRACE,
                 "cleaning up state in transport object %p", conn->trans);
 
         pthread_mutex_lock (&conn->lock);
@@ -618,7 +614,8 @@ rpc_clnt_reply_init (rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
         ret = xdr_to_rpc_reply (msgbuf, msglen, &rpcmsg, &progmsg,
                                 req->verf.authdata);
         if (ret != 0) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "RPC reply decoding failed");
+                gf_log (conn->trans->name, GF_LOG_WARNING,
+                        "RPC reply decoding failed");
                 goto out;
         }
 
@@ -628,34 +625,13 @@ rpc_clnt_reply_init (rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
                 goto out;
         }
 
-        gf_log ("rpc-clnt", GF_LOG_TRACE, "recieved rpc message (RPC XID: 0x%ux"
+        gf_log (conn->trans->name, GF_LOG_TRACE, "recieved rpc message (RPC XID: 0x%ux"
                 " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
                 saved_frame->rpcreq->xid,
                 saved_frame->rpcreq->prog->progname,
                 saved_frame->rpcreq->prog->progver,
                 saved_frame->rpcreq->procnum, conn->trans->name);
-/* TODO: */
-        /* TODO: AUTH */
-        /* The verifier that is sent in a reply is a string that can be used as
-         * a shorthand in credentials for future transactions. We can opt not to
-         * use this shorthand, preffering to use the original AUTH_UNIX method
-         * for authentication (containing all the details for authentication in
-         * credential itself). Hence it is not mandatory for us to be checking
-         * the verifier. See Appendix A of rfc-5531 for more details.
-         */
 
-        /*
-         * ret = rpc_authenticate (req);
-         * if (ret == RPC_AUTH_REJECT) {
-         * gf_log ("rpc-clnt", GF_LOG_ERROR, "Failed authentication");
-         * ret = -1;
-         * goto out;
-         * }
-         */
-
-        /* If the error is not RPC_MISMATCH, we consider the call as accepted
-         * since we are not handling authentication failures for now.
-         */
         req->rpc_status = 0;
 
 out:
@@ -684,11 +660,13 @@ rpc_clnt_handle_cbk (struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
         clnt = rpc_clnt_ref (clnt);
         ret = xdr_to_rpc_call (msgbuf, msglen, &rpcmsg, &progmsg, NULL,NULL);
         if (ret == -1) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "RPC call decoding failed");
+                gf_log (clnt->conn.trans->name, GF_LOG_WARNING,
+                        "RPC call decoding failed");
                 goto out;
         }
 
-        gf_log ("rpc-clnt", GF_LOG_INFO, "recieved rpc message (XID: 0x%lx, "
+        gf_log (clnt->conn.trans->name, GF_LOG_TRACE,
+                "recieved rpc message (XID: 0x%lx, "
                 "Ver: %ld, Program: %ld, ProgVers: %ld, Proc: %ld) "
                 "from rpc-transport (%s)", rpc_call_xid (&rpcmsg),
                 rpc_call_rpcvers (&rpcmsg), rpc_call_program (&rpcmsg),
@@ -735,23 +713,24 @@ rpc_clnt_handle_reply (struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
         xid = ntoh32 (*((uint32_t *)pollin->vector[0].iov_base));
         saved_frame = lookup_frame (conn, xid);
         if (saved_frame == NULL) {
-                gf_log ("rpc-clnt", GF_LOG_CRITICAL, "cannot lookup the "
-                        "saved frame for reply with xid (%d)", xid);
+                gf_log (conn->trans->name, GF_LOG_ERROR,
+                        "cannot lookup the saved frame for reply with xid (%u)",
+                        xid);
                 goto out;
         }
 
         req = saved_frame->rpcreq;
         if (req == NULL) {
-                gf_log ("rpc-clnt", GF_LOG_CRITICAL,
-                        "saved_frame for reply with xid (%d)", xid);
+                gf_log (conn->trans->name, GF_LOG_ERROR,
+                        "no request with frame for xid (%u)", xid);
                 goto out;
         }
 
         ret = rpc_clnt_reply_init (conn, pollin, req, saved_frame);
         if (ret != 0) {
                 req->rpc_status = -1;
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "initialising rpc reply "
-                        "failed");
+                gf_log (conn->trans->name, GF_LOG_WARNING,
+                        "initialising rpc reply failed");
         }
 
         req->cbkfn (req, req->rsp, req->rspcnt, saved_frame->frame);
@@ -928,7 +907,7 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         ret = dict_get_int32 (options, "frame-timeout",
                               &conn->frame_timeout);
         if (ret >= 0) {
-                gf_log (name, GF_LOG_DEBUG,
+                gf_log (name, GF_LOG_INFO,
                         "setting frame-timeout to %d", conn->frame_timeout);
         } else {
                 gf_log (name, GF_LOG_DEBUG,
@@ -938,7 +917,7 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
 
         conn->trans = rpc_transport_load (ctx, options, name);
         if (!conn->trans) {
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "loading of new rpc-transport"
+                gf_log (name, GF_LOG_WARNING, "loading of new rpc-transport"
                         " failed");
                 goto out;
         }
@@ -950,7 +929,7 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         ret = rpc_transport_register_notify (conn->trans, rpc_clnt_notify,
                                              conn);
         if (ret == -1) {
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "registering notify failed");
+                gf_log (name, GF_LOG_WARNING, "registering notify failed");
                 rpc_clnt_connection_cleanup (conn);
                 conn = NULL;
                 goto out;
@@ -958,7 +937,7 @@ rpc_clnt_connection_init (struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
 
         conn->saved_frames = saved_frames_new ();
         if (!conn->saved_frames) {
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "creation of saved_frames "
+                gf_log (name, GF_LOG_WARNING, "creation of saved_frames "
                         "failed");
                 rpc_clnt_connection_cleanup (conn);
                 goto out;
@@ -979,7 +958,6 @@ rpc_clnt_new (dict_t *options,
 
         rpc = GF_CALLOC (1, sizeof (*rpc), gf_common_mt_rpcclnt_t);
         if (!rpc) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1064,6 +1042,7 @@ xdr_serialize_glusterfs_auth (char *dest, struct auth_glusterfs_parms *au)
                        XDR_ENCODE);
 
         if (!xdr_auth_glusterfs_parms (&xdr, au)) {
+                gf_log ("", GF_LOG_WARNING, "failed to encode auth glusterfs elements");
                 ret = -1;
                 goto ret;
         }
@@ -1176,7 +1155,6 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
          */
         request_iob = iobuf_get (clnt->ctx->iobuf_pool);
         if (!request_iob) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "Failed to get iobuf");
                 goto out;
         }
 
@@ -1188,8 +1166,8 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         ret = rpc_clnt_fill_request (prognum, progver, procnum, payload, xid,
                                      au, &request, auth_data);
         if (ret == -1) {
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "cannot build a rpc-request "
-                        "xid (%"PRIu64")", xid);
+                gf_log (clnt->conn.trans->name, GF_LOG_WARNING,
+                        "cannot build a rpc-request xid (%"PRIu64")", xid);
                 goto out;
         }
 
@@ -1199,8 +1177,8 @@ rpc_clnt_record_build_record (struct rpc_clnt *clnt, int prognum, int progver,
         //GF_FREE (request.rm_call.cb_cred.oa_base);
 
         if (!recordhdr.iov_base) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "Failed to build record "
-                        " header");
+                gf_log (clnt->conn.trans->name, GF_LOG_ERROR,
+                        "Failed to build record header");
                 iobuf_unref (request_iob);
                 request_iob = NULL;
                 recbuf->iov_base = NULL;
@@ -1235,7 +1213,7 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
         if (!au.lk_owner)
                 au.lk_owner = au.pid;
 
-        gf_log ("", GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
+        gf_log (clnt->conn.trans->name, GF_LOG_TRACE, "Auth Info: pid: %u, uid: %d"
                 ", gid: %d, owner: %"PRId64,
                 au.pid, au.uid, au.gid, au.lk_owner);
 
@@ -1253,7 +1231,8 @@ rpc_clnt_record (struct rpc_clnt *clnt, call_frame_t *call_frame,
                                                     callid, &au,
                                                     rpchdr);
         if (!request_iob) {
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "cannot build rpc-record");
+                gf_log (clnt->conn.trans->name, GF_LOG_WARNING,
+                        "cannot build rpc-record");
                 goto out;
         }
 
@@ -1288,7 +1267,8 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
         pthread_mutex_unlock (&clnt->lock);
 
         if (already_registered) {
-                gf_log ("rpc-clnt", GF_LOG_DEBUG, "already registered");
+                gf_log_callingfn (clnt->conn.trans->name, GF_LOG_DEBUG,
+                                  "already registered");
                 ret = 0;
                 goto out;
         }
@@ -1296,7 +1276,6 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
         tmp = GF_CALLOC (1, sizeof (*tmp),
                          gf_common_mt_rpcclnt_cb_program_t);
         if (tmp == NULL) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1310,13 +1289,15 @@ rpcclnt_cbk_program_register (struct rpc_clnt *clnt,
         pthread_mutex_unlock (&clnt->lock);
 
         ret = 0;
-        gf_log ("rpc-clnt", GF_LOG_DEBUG, "New program registered: %s, Num: %d,"
-                " Ver: %d", program->progname, program->prognum,
+        gf_log (clnt->conn.trans->name, GF_LOG_DEBUG,
+                "New program registered: %s, Num: %d, Ver: %d",
+                program->progname, program->prognum,
                 program->progver);
 
 out:
         if (ret == -1) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "Program registration failed:"
+                gf_log (clnt->conn.trans->name, GF_LOG_ERROR,
+                        "Program registration failed:"
                         " %s, Num: %d, Ver: %d", program->progname,
                         program->prognum, program->progver);
         }
@@ -1350,7 +1331,6 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
 
         rpcreq = mem_get (rpc->reqpool);
         if (rpcreq == NULL) {
-                gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1360,7 +1340,6 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
         if (!iobref) {
                 iobref = iobref_new ();
                 if (!iobref) {
-                        gf_log ("rpc-clnt", GF_LOG_ERROR, "out of memory");
                         goto out;
                 }
 
@@ -1399,7 +1378,7 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                                                procnum, proglen,
                                                &rpchdr, callid);
                 if (!request_iob) {
-                        gf_log ("rpc-clnt", GF_LOG_DEBUG,
+                        gf_log (conn->trans->name, GF_LOG_WARNING,
                                 "cannot build rpc-record");
                         goto unlock;
                 }
@@ -1424,8 +1403,8 @@ rpc_clnt_submit (struct rpc_clnt *rpc, rpc_clnt_prog_t *prog,
                 ret = rpc_transport_submit_request (rpc->conn.trans,
                                                     &req);
                 if (ret == -1) {
-                        gf_log ("rpc-clnt", GF_LOG_TRACE, "failed to "
-                                "submit rpc-request "
+                        gf_log (conn->trans->name, GF_LOG_WARNING,
+                                "failed to submit rpc-request "
                                 "(XID: 0x%ux Program: %s, ProgVers: %d, "
                                 "Proc: %d) to rpc-transport (%s)", rpcreq->xid,
                                 rpcreq->prog->progname, rpcreq->prog->progver,
@@ -1535,15 +1514,40 @@ rpc_clnt_unref (struct rpc_clnt *rpc)
 void
 rpc_clnt_reconfig (struct rpc_clnt *rpc, struct rpc_clnt_config *config)
 {
-        if (config->rpc_timeout)
+        if (config->rpc_timeout) {
+                if (config->rpc_timeout != rpc->conn.config.rpc_timeout)
+                        gf_log (rpc->conn.trans->name, GF_LOG_INFO,
+                                "changing timeout to %d (from %d)",
+                                config->rpc_timeout,
+                                rpc->conn.config.rpc_timeout);
                 rpc->conn.config.rpc_timeout = config->rpc_timeout;
+        }
 
-        if (config->remote_port)
+        if (config->remote_port) {
+                if (config->remote_port != rpc->conn.config.remote_port)
+                        gf_log (rpc->conn.trans->name, GF_LOG_INFO,
+                                "changing port to %d (from %d)",
+                                config->remote_port,
+                                rpc->conn.config.remote_port);
+
                 rpc->conn.config.remote_port = config->remote_port;
+        }
 
         if (config->remote_host) {
-                if (rpc->conn.config.remote_host)
+                if (rpc->conn.config.remote_host) {
+                        if (strcmp (rpc->conn.config.remote_host,
+                                    config->remote_host))
+                                gf_log (rpc->conn.trans->name, GF_LOG_INFO,
+                                        "changing port to %s (from %s)",
+                                        config->remote_host,
+                                        rpc->conn.config.remote_host);
                         FREE (rpc->conn.config.remote_host);
+                } else {
+                        gf_log (rpc->conn.trans->name, GF_LOG_INFO,
+                                "setting hostname to %s",
+                                config->remote_host);
+                }
+
                 rpc->conn.config.remote_host = gf_strdup (config->remote_host);
         }
 }

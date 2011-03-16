@@ -33,6 +33,7 @@
 #include "xdr-rpc.h"
 #include "xdr-common.h"
 #include "logging.h"
+#include "common-utils.h"
 
 /* Decodes the XDR format in msgbuf into rpc_msg.
  * The remaining payload is returned into payload.
@@ -44,9 +45,10 @@ xdr_to_rpc_call (char *msgbuf, size_t len, struct rpc_msg *call,
         XDR                     xdr;
         char                    opaquebytes[MAX_AUTH_BYTES];
         struct opaque_auth      *oa = NULL;
+        int ret = -1;
 
-        if ((!msgbuf) || (!call))
-                return -1;
+        GF_VALIDATE_OR_GOTO ("rpc", msgbuf, out);
+        GF_VALIDATE_OR_GOTO ("rpc", call, out);
 
         memset (call, 0, sizeof (*call));
 
@@ -63,15 +65,19 @@ xdr_to_rpc_call (char *msgbuf, size_t len, struct rpc_msg *call,
                 oa->oa_base = verfbytes;
 
         xdrmem_create (&xdr, msgbuf, len, XDR_DECODE);
-        if (!xdr_callmsg (&xdr, call))
-                return -1;
+        if (!xdr_callmsg (&xdr, call)) {
+                gf_log ("rpc", GF_LOG_WARNING, "failed to decode call msg");
+                goto out;
+        }
 
         if (payload) {
                 payload->iov_base = xdr_decoded_remaining_addr (xdr);
                 payload->iov_len = xdr_decoded_remaining_len (xdr);
         }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -85,8 +91,9 @@ true_func (XDR *s, caddr_t *a)
 int
 rpc_fill_empty_reply (struct rpc_msg *reply, uint32_t xid)
 {
-        if (!reply)
-                return -1;
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("rpc", reply, out);
 
         /* Setting to 0 also results in reply verifier flavor to be
          * set to AUTH_NULL which is what we want right now.
@@ -95,14 +102,17 @@ rpc_fill_empty_reply (struct rpc_msg *reply, uint32_t xid)
         reply->rm_xid = xid;
         reply->rm_direction = REPLY;
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 int
 rpc_fill_denied_reply (struct rpc_msg *reply, int rjstat, int auth_err)
 {
-        if (!reply)
-                return -1;
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("rpc", reply, out);
 
         reply->rm_reply.rp_stat = MSG_DENIED;
         reply->rjcted_rply.rj_stat = rjstat;
@@ -116,7 +126,9 @@ rpc_fill_denied_reply (struct rpc_msg *reply, int rjstat, int auth_err)
         } else if (rjstat == AUTH_ERROR)
                 reply->rjcted_rply.rj_why = auth_err;
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -124,8 +136,9 @@ int
 rpc_fill_accepted_reply (struct rpc_msg *reply, int arstat, int proglow,
                          int proghigh, int verf, int len, char *vdata)
 {
-        if (!reply)
-                return -1;
+        int ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("rpc", reply, out);
 
         reply->rm_reply.rp_stat = MSG_ACCEPTED;
         reply->acpted_rply.ar_stat = arstat;
@@ -145,26 +158,34 @@ rpc_fill_accepted_reply (struct rpc_msg *reply, int arstat, int proglow,
                 reply->acpted_rply.ar_results.where = NULL;
         }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 int
 rpc_reply_to_xdr (struct rpc_msg *reply, char *dest, size_t len,
                   struct iovec *dst)
 {
-        XDR             xdr;
+        XDR xdr;
+        int ret = -1;
 
-        if ((!dest) || (!reply) || (!dst))
-                return -1;
+        GF_VALIDATE_OR_GOTO ("rpc", reply, out);
+        GF_VALIDATE_OR_GOTO ("rpc", dest, out);
+        GF_VALIDATE_OR_GOTO ("rpc", dst, out);
 
         xdrmem_create (&xdr, dest, len, XDR_ENCODE);
-        if (!xdr_replymsg(&xdr, reply))
-                return -1;
+        if (!xdr_replymsg(&xdr, reply)) {
+                gf_log ("rpc", GF_LOG_WARNING, "failed to encode reply msg");
+                goto out;
+        }
 
         dst->iov_base = dest;
         dst->iov_len = xdr_encoded_length (xdr);
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -173,9 +194,12 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
                        char *machname, gid_t *gids)
 {
         XDR             xdr;
+        int ret = -1;
 
-        if ((!msgbuf) || (!machname) || (!gids) || (!au))
-                return -1;
+        GF_VALIDATE_OR_GOTO ("rpc", msgbuf, out);
+        GF_VALIDATE_OR_GOTO ("rpc", machname, out);
+        GF_VALIDATE_OR_GOTO ("rpc", gids, out);
+        GF_VALIDATE_OR_GOTO ("rpc", au, out);
 
         au->aup_machname = machname;
 #ifdef GF_DARWIN_HOST_OS
@@ -186,8 +210,12 @@ xdr_to_auth_unix_cred (char *msgbuf, int msglen, struct authunix_parms *au,
 
         xdrmem_create (&xdr, msgbuf, msglen, XDR_DECODE);
 
-        if (!xdr_authunix_parms (&xdr, au))
-                return -1;
+        if (!xdr_authunix_parms (&xdr, au)) {
+                gf_log ("rpc", GF_LOG_WARNING, "failed to decode auth unix parms");
+                goto out;
+        }
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
