@@ -35,6 +35,8 @@ ra_page_get (ra_file_t *file, off_t offset)
         ra_page_t *page           = NULL;
         off_t      rounded_offset = 0;
 
+        GF_VALIDATE_OR_GOTO ("read-ahead", file, out);
+
         page = file->pages.next;
         rounded_offset = floor (offset, file->page_size);
 
@@ -44,6 +46,7 @@ ra_page_get (ra_file_t *file, off_t offset)
         if (page == &file->pages || page->offset != rounded_offset)
                 page = NULL;
 
+out:
         return page;
 }
 
@@ -55,6 +58,8 @@ ra_page_create (ra_file_t *file, off_t offset)
         off_t       rounded_offset = 0;
         ra_page_t  *newpage        = NULL;
 
+        GF_VALIDATE_OR_GOTO ("read-ahead", file, out);
+
         page           = file->pages.next;
         rounded_offset = floor (offset, file->page_size);
 
@@ -62,10 +67,10 @@ ra_page_create (ra_file_t *file, off_t offset)
                 page = page->next;
 
         if (page == &file->pages || page->offset != rounded_offset) {
-                newpage = GF_CALLOC (1, sizeof (*newpage),
-                                     gf_ra_mt_ra_page_t);
-                if (!newpage)
-                        return NULL;
+                newpage = GF_CALLOC (1, sizeof (*newpage), gf_ra_mt_ra_page_t);
+                if (!newpage) {
+                        goto out;
+                }
 
                 newpage->offset = rounded_offset;
                 newpage->prev = page->prev;
@@ -77,6 +82,7 @@ ra_page_create (ra_file_t *file, off_t offset)
                 page = newpage;
         }
 
+out:
         return page;
 }
 
@@ -87,12 +93,13 @@ ra_wait_on_page (ra_page_t *page, call_frame_t *frame)
         ra_waitq_t *waitq = NULL;
         ra_local_t *local = NULL;
 
+        GF_VALIDATE_OR_GOTO ("read-ahead", frame, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, page, out);
+
         local = frame->local;
-        waitq = GF_CALLOC (1, sizeof (*waitq),
-                           gf_ra_mt_ra_waitq_t);
+
+        waitq = GF_CALLOC (1, sizeof (*waitq), gf_ra_mt_ra_waitq_t);
         if (!waitq) {
-                gf_log (frame->this->name, GF_LOG_ERROR,
-                        "out of memory");
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
                 goto out;
@@ -127,6 +134,8 @@ ra_waitq_return (ra_waitq_t *waitq)
                 ra_frame_return (frame);
                 GF_FREE (trav);
         }
+
+        return;
 }
 
 
@@ -143,6 +152,8 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         fd_t         *fd             = NULL;
         uint64_t      tmp_file       = 0;
 
+        GF_ASSERT (frame);
+
         local = frame->local;
         fd  = local->fd;
 
@@ -150,6 +161,14 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         file = (ra_file_t *)(long)tmp_file;
         pending_offset = local->pending_offset;
+
+        if (file == NULL) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "read-ahead context not set in fd (%p)", fd);
+                op_ret = -1;
+                op_errno = EBADF;
+                goto out;
+        }
 
         ra_file_lock (file);
         {
@@ -165,7 +184,7 @@ ra_fault_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 page = ra_page_get (file, pending_offset);
                 if (!page) {
-                        gf_log (this->name, GF_LOG_DEBUG,
+                        gf_log (this->name, GF_LOG_TRACE,
                                 "wasted copy: %"PRId64"[+%"PRId64"] file=%p",
                                 pending_offset, file->page_size, file);
                         goto unlock;
@@ -200,6 +219,7 @@ unlock:
         GF_FREE (frame->local);
         frame->local = NULL;
 
+out:
         STACK_DESTROY (frame->root);
         return 0;
 }
@@ -214,6 +234,9 @@ ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
         ra_waitq_t   *waitq       = NULL;
         int32_t       op_ret      = -1, op_errno = -1;
 
+        GF_VALIDATE_OR_GOTO ("read-ahead", frame, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, file, out);
+
         fault_frame = copy_frame (frame);
         if (fault_frame == NULL) {
                 op_ret = -1;
@@ -221,8 +244,7 @@ ra_page_fault (ra_file_t *file, call_frame_t *frame, off_t offset)
                 goto err;
         }
 
-        fault_local = GF_CALLOC (1, sizeof (ra_local_t),
-                                 gf_ra_mt_ra_local_t);
+        fault_local = GF_CALLOC (1, sizeof (ra_local_t), gf_ra_mt_ra_local_t);
         if (fault_local == NULL) {
                 STACK_DESTROY (fault_frame->root);
                 op_ret = -1;
@@ -256,7 +278,11 @@ err:
         if (waitq != NULL) {
                 ra_waitq_return (waitq);
         }
+
+out:
+        return;
 }
+
 
 void
 ra_frame_fill (ra_page_t *page, call_frame_t *frame)
@@ -267,6 +293,9 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
         off_t       dst_offset = 0;
         ssize_t     copy_size  = 0;
         ra_fill_t  *new        = NULL;
+
+        GF_VALIDATE_OR_GOTO ("read-ahead", frame, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, page, out);
 
         local = frame->local;
         fill  = &local->fill;
@@ -294,8 +323,7 @@ ra_frame_fill (ra_page_t *page, call_frame_t *frame)
                         fill = fill->next;
                 }
 
-                new = GF_CALLOC (1, sizeof (*new),
-                                 gf_ra_mt_ra_fill_t);
+                new = GF_CALLOC (1, sizeof (*new), gf_ra_mt_ra_fill_t);
                 if (new == NULL) {
                         local->op_ret = -1;
                         local->op_errno = ENOMEM;
@@ -348,6 +376,8 @@ ra_frame_unwind (call_frame_t *frame)
         ra_file_t     *file     = NULL;
         uint64_t       tmp_file = 0;
 
+        GF_VALIDATE_OR_GOTO ("read-ahead", frame, out);
+
         local = frame->local;
         fill  = local->fill.next;
 
@@ -364,8 +394,7 @@ ra_frame_unwind (call_frame_t *frame)
                 fill = fill->next;
         }
 
-        vector = GF_CALLOC (count, sizeof (*vector),
-                            gf_ra_mt_iovec);
+        vector = GF_CALLOC (count, sizeof (*vector), gf_ra_mt_iovec);
         if (vector == NULL) {
                 local->op_ret = -1;
                 local->op_errno = ENOMEM;
@@ -408,6 +437,7 @@ ra_frame_unwind (call_frame_t *frame)
         GF_FREE (local);
         GF_FREE (vector);
 
+out:
         return;
 }
 
@@ -422,6 +452,8 @@ ra_frame_return (call_frame_t *frame)
         ra_local_t  *local      = NULL;
         int32_t      wait_count = 0;
 
+        GF_VALIDATE_OR_GOTO ("read-ahead", frame, out);
+
         local = frame->local;
         GF_ASSERT (local->wait_count > 0);
 
@@ -434,6 +466,7 @@ ra_frame_return (call_frame_t *frame)
         if (!wait_count)
                 ra_frame_unwind (frame);
 
+out:
         return;
 }
 
@@ -448,6 +481,8 @@ ra_page_wakeup (ra_page_t *page)
         ra_waitq_t   *waitq = NULL, *trav = NULL;
         call_frame_t *frame = NULL;
 
+        GF_VALIDATE_OR_GOTO ("read-ahead", page, out);
+
         waitq = page->waitq;
         page->waitq = NULL;
 
@@ -456,6 +491,7 @@ ra_page_wakeup (ra_page_t *page)
                 ra_frame_fill (page, frame);
         }
 
+out:
         return waitq;
 }
 
@@ -467,14 +503,20 @@ ra_page_wakeup (ra_page_t *page)
 void
 ra_page_purge (ra_page_t *page)
 {
+        GF_VALIDATE_OR_GOTO ("read-ahead", page, out);
+
         page->prev->next = page->next;
         page->next->prev = page->prev;
 
         if (page->iobref) {
                 iobref_unref (page->iobref);
         }
+
         GF_FREE (page->vector);
         GF_FREE (page);
+
+out:
+        return;
 }
 
 /*
@@ -487,11 +529,12 @@ ra_page_purge (ra_page_t *page)
 ra_waitq_t *
 ra_page_error (ra_page_t *page, int32_t op_ret, int32_t op_errno)
 {
-
         ra_waitq_t   *waitq = NULL;
         ra_waitq_t   *trav  = NULL;
         call_frame_t *frame = NULL;
         ra_local_t   *local = NULL;
+
+        GF_VALIDATE_OR_GOTO ("read-ahead", page, out);
 
         waitq = page->waitq;
         page->waitq = NULL;
@@ -508,6 +551,7 @@ ra_page_error (ra_page_t *page, int32_t op_ret, int32_t op_errno)
 
         ra_page_purge (page);
 
+out:
         return waitq;
 }
 
@@ -521,6 +565,8 @@ ra_file_destroy (ra_file_t *file)
 {
         ra_conf_t *conf = NULL;
         ra_page_t *trav = NULL;
+
+        GF_VALIDATE_OR_GOTO ("read-ahead", file, out);
 
         conf = file->conf;
 
@@ -539,4 +585,7 @@ ra_file_destroy (ra_file_t *file)
 
         pthread_mutex_destroy (&file->file_lock);
         GF_FREE (file);
+
+out:
+        return;
 }
