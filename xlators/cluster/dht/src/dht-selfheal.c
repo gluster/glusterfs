@@ -1,20 +1,20 @@
 /*
-   Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
-   This file is part of GlusterFS.
+  Copyright (c) 2008-2010 Gluster, Inc. <http://www.gluster.com>
+  This file is part of GlusterFS.
 
-   GlusterFS is free software; you can redistribute it and/or modify
-   it under the terms of the GNU Affero General Public License as published
-   by the Free Software Foundation; either version 3 of the License,
-   or (at your option) any later version.
+  GlusterFS is free software; you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation; either version 3 of the License,
+  or (at your option) any later version.
 
-   GlusterFS is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Affero General Public License for more details.
+  GlusterFS is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Affero General Public License for more details.
 
-   You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see
-   <http://www.gnu.org/licenses/>.
+  You should have received a copy of the GNU Affero General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
 */
 
 #ifndef _CONFIG_H
@@ -31,164 +31,164 @@
 int
 dht_selfheal_dir_finish (call_frame_t *frame, xlator_t *this, int ret)
 {
-	dht_local_t  *local = NULL;
+        dht_local_t  *local = NULL;
 
 
-	local = frame->local;
-	local->selfheal.dir_cbk (frame, NULL, frame->this, ret,
-				 local->op_errno);
+        local = frame->local;
+        local->selfheal.dir_cbk (frame, NULL, frame->this, ret,
+                                 local->op_errno);
 
-	return 0;
+        return 0;
 }
 
 
 int
 dht_selfheal_dir_xattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			    int op_ret, int op_errno)
+                            int op_ret, int op_errno)
 {
-	dht_local_t  *local = NULL;
-	call_frame_t *prev = NULL;
-	xlator_t     *subvol = NULL;
-	int           i = 0;
-	dht_layout_t *layout = NULL;
-	int           err = 0;
-	int           this_call_cnt = 0;
+        dht_local_t  *local = NULL;
+        call_frame_t *prev = NULL;
+        xlator_t     *subvol = NULL;
+        int           i = 0;
+        dht_layout_t *layout = NULL;
+        int           err = 0;
+        int           this_call_cnt = 0;
 
-	local = frame->local;
-	layout = local->selfheal.layout;
-	prev = cookie;
-	subvol = prev->this;
+        local = frame->local;
+        layout = local->selfheal.layout;
+        prev = cookie;
+        subvol = prev->this;
 
-	if (op_ret == 0)
-		err = 0;
-	else
-		err = op_errno;
+        if (op_ret == 0)
+                err = 0;
+        else
+                err = op_errno;
 
-	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].xlator == subvol) {
-			layout->list[i].err = err;
-			break;
-		}
-	}
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].xlator == subvol) {
+                        layout->list[i].err = err;
+                        break;
+                }
+        }
 
-	this_call_cnt = dht_frame_return (frame);
+        this_call_cnt = dht_frame_return (frame);
 
-	if (is_last_call (this_call_cnt)) {
-		dht_selfheal_dir_finish (frame, this, 0);
-	}
+        if (is_last_call (this_call_cnt)) {
+                dht_selfheal_dir_finish (frame, this, 0);
+        }
 
-	return 0;
+        return 0;
 }
 
 
 int
 dht_selfheal_dir_xattr_persubvol (call_frame_t *frame, loc_t *loc,
-				  dht_layout_t *layout, int i)
+                                  dht_layout_t *layout, int i)
 {
-	xlator_t          *subvol = NULL;
-	dict_t            *xattr = NULL;
-	int                ret = 0;
-	xlator_t          *this = NULL;
-	int32_t           *disk_layout = NULL;
+        xlator_t          *subvol = NULL;
+        dict_t            *xattr = NULL;
+        int                ret = 0;
+        xlator_t          *this = NULL;
+        int32_t           *disk_layout = NULL;
 
 
-	subvol = layout->list[i].xlator;
-	this = frame->this;
+        subvol = layout->list[i].xlator;
+        this = frame->this;
 
-	xattr = get_new_dict ();
-	if (!xattr) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"Out of memory");
-		goto err;
-	}
+        xattr = get_new_dict ();
+        if (!xattr) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "Out of memory");
+                goto err;
+        }
 
-	ret = dht_disk_layout_extract (this, layout, i, &disk_layout);
-	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to extract disk layout");
-		goto err;
-	}
+        ret = dht_disk_layout_extract (this, layout, i, &disk_layout);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to extract disk layout");
+                goto err;
+        }
 
-	ret = dict_set_bin (xattr, "trusted.glusterfs.dht",
-			    disk_layout, 4 * 4);
-	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"failed to set xattr dictionary");
-		goto err;
-	}
-	disk_layout = NULL;
+        ret = dict_set_bin (xattr, "trusted.glusterfs.dht",
+                            disk_layout, 4 * 4);
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "failed to set xattr dictionary");
+                goto err;
+        }
+        disk_layout = NULL;
 
-	gf_log (this->name, GF_LOG_TRACE,
-		"setting hash range %u - %u (type %d) on subvolume %s for %s",
-		layout->list[i].start, layout->list[i].stop,
-		layout->type, subvol->name, loc->path);
+        gf_log (this->name, GF_LOG_TRACE,
+                "setting hash range %u - %u (type %d) on subvolume %s for %s",
+                layout->list[i].start, layout->list[i].stop,
+                layout->type, subvol->name, loc->path);
 
-	dict_ref (xattr);
+        dict_ref (xattr);
 
-	STACK_WIND (frame, dht_selfheal_dir_xattr_cbk,
-		    subvol, subvol->fops->setxattr,
-		    loc, xattr, 0);
+        STACK_WIND (frame, dht_selfheal_dir_xattr_cbk,
+                    subvol, subvol->fops->setxattr,
+                    loc, xattr, 0);
 
-	dict_unref (xattr);
+        dict_unref (xattr);
 
-	return 0;
+        return 0;
 
 err:
-	if (xattr)
-		dict_destroy (xattr);
+        if (xattr)
+                dict_destroy (xattr);
 
-	if (disk_layout)
-		GF_FREE (disk_layout);
+        if (disk_layout)
+                GF_FREE (disk_layout);
 
-	dht_selfheal_dir_xattr_cbk (frame, subvol, frame->this,
-				    -1, ENOMEM);
-	return 0;
+        dht_selfheal_dir_xattr_cbk (frame, subvol, frame->this,
+                                    -1, ENOMEM);
+        return 0;
 }
 
 
 int
 dht_selfheal_dir_xattr (call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
 {
-	dht_local_t *local = NULL;
-	int          missing_xattr = 0;
-	int          i = 0;
-	xlator_t    *this = NULL;
+        dht_local_t *local = NULL;
+        int          missing_xattr = 0;
+        int          i = 0;
+        xlator_t    *this = NULL;
 
-	local = frame->local;
-	this = frame->this;
+        local = frame->local;
+        this = frame->this;
 
-	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err != -1 || !layout->list[i].stop) {
-			/* err != -1 would mean xattr present on the directory
-			 * or the directory is itself non existant.
-			 * !layout->list[i].stop would mean layout absent
-			 */
-			continue;
-		}
-		missing_xattr++;
-	}
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err != -1 || !layout->list[i].stop) {
+                        /* err != -1 would mean xattr present on the directory
+                         * or the directory is itself non existant.
+                         * !layout->list[i].stop would mean layout absent
+                         */
+                        continue;
+                }
+                missing_xattr++;
+        }
 
-	gf_log (this->name, GF_LOG_TRACE,
-		"%d subvolumes missing xattr for %s",
-		missing_xattr, loc->path);
+        gf_log (this->name, GF_LOG_TRACE,
+                "%d subvolumes missing xattr for %s",
+                missing_xattr, loc->path);
 
-	if (missing_xattr == 0) {
-		dht_selfheal_dir_finish (frame, this, 0);
-		return 0;
-	}
+        if (missing_xattr == 0) {
+                dht_selfheal_dir_finish (frame, this, 0);
+                return 0;
+        }
 
-	local->call_cnt = missing_xattr;
+        local->call_cnt = missing_xattr;
 
-	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err != -1 || !layout->list[i].stop)
-			continue;
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err != -1 || !layout->list[i].stop)
+                        continue;
 
-		dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
+                dht_selfheal_dir_xattr_persubvol (frame, loc, layout, i);
 
-		if (--missing_xattr == 0)
-			break;
-	}
-	return 0;
+                if (--missing_xattr == 0)
+                        break;
+        }
+        return 0;
 }
 
 int
@@ -254,31 +254,31 @@ dht_selfheal_dir_setattr (call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
 
 int
 dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
-			    int op_ret, int op_errno,
+                            int op_ret, int op_errno,
                             inode_t *inode, struct iatt *stbuf,
                             struct iatt *preparent, struct iatt *postparent)
 {
-	dht_local_t   *local = NULL;
-	dht_layout_t  *layout = NULL;
-	call_frame_t  *prev = NULL;
-	xlator_t      *subvol = NULL;
-	int            i = 0;
-	int            this_call_cnt = 0;
+        dht_local_t   *local = NULL;
+        dht_layout_t  *layout = NULL;
+        call_frame_t  *prev = NULL;
+        xlator_t      *subvol = NULL;
+        int            i = 0;
+        int            this_call_cnt = 0;
 
 
-	local  = frame->local;
-	layout = local->selfheal.layout;
-	prev   = cookie;
-	subvol = prev->this;
+        local  = frame->local;
+        layout = local->selfheal.layout;
+        prev   = cookie;
+        subvol = prev->this;
 
-	if ((op_ret == 0) || ((op_ret == -1) && (op_errno == EEXIST))) {
-		for (i = 0; i < layout->cnt; i++) {
-			if (layout->list[i].xlator == subvol) {
-				layout->list[i].err = -1;
-				break;
-			}
-		}
-	}
+        if ((op_ret == 0) || ((op_ret == -1) && (op_errno == EEXIST))) {
+                for (i = 0; i < layout->cnt; i++) {
+                        if (layout->list[i].xlator == subvol) {
+                                layout->list[i].err = -1;
+                                break;
+                        }
+                }
+        }
 
         if (op_ret)
                 goto out;
@@ -292,41 +292,41 @@ dht_selfheal_dir_mkdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         dht_iatt_merge (this, &local->postparent, postparent, prev->this);
 
 out:
-	this_call_cnt = dht_frame_return (frame);
+        this_call_cnt = dht_frame_return (frame);
 
-	if (is_last_call (this_call_cnt)) {
-		dht_selfheal_dir_setattr (frame, &local->loc, &local->stbuf, 0xffffff, layout);
-	}
+        if (is_last_call (this_call_cnt)) {
+                dht_selfheal_dir_setattr (frame, &local->loc, &local->stbuf, 0xffffff, layout);
+        }
 
-	return 0;
+        return 0;
 }
 
 
 int
 dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
-                       dht_layout_t *layout, int force)
+                        dht_layout_t *layout, int force)
 {
-	int           missing_dirs = 0;
-	int           i     = 0;
-	int           ret   = -1;
-	dht_local_t  *local = NULL;
-	xlator_t     *this = NULL;
+        int           missing_dirs = 0;
+        int           i     = 0;
+        int           ret   = -1;
+        dht_local_t  *local = NULL;
+        xlator_t     *this = NULL;
         dict_t       *dict = NULL;
 
-	local = frame->local;
-	this = frame->this;
+        local = frame->local;
+        this = frame->this;
 
-	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err == ENOENT || force)
-			missing_dirs++;
-	}
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err == ENOENT || force)
+                        missing_dirs++;
+        }
 
-	if (missing_dirs == 0) {
-		dht_selfheal_dir_setattr (frame, loc, &local->stbuf, 0xffffffff, layout);
-		return 0;
-	}
+        if (missing_dirs == 0) {
+                dht_selfheal_dir_setattr (frame, loc, &local->stbuf, 0xffffffff, layout);
+                return 0;
+        }
 
-	local->call_cnt = missing_dirs;
+        local->call_cnt = missing_dirs;
         if (!uuid_is_null (local->gfid)) {
                 dict = dict_new ();
                 if (!dict)
@@ -345,26 +345,26 @@ dht_selfheal_dir_mkdir (call_frame_t *frame, loc_t *loc,
                 gf_log (this->name, GF_LOG_DEBUG,
                         "dict is NULL, need to make sure gfid's are same");
 
-	for (i = 0; i < layout->cnt; i++) {
-		if (layout->list[i].err == ENOENT || force) {
-			gf_log (this->name, GF_LOG_TRACE,
-				"creating directory %s on subvol %s",
-				loc->path, layout->list[i].xlator->name);
+        for (i = 0; i < layout->cnt; i++) {
+                if (layout->list[i].err == ENOENT || force) {
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "creating directory %s on subvol %s",
+                                loc->path, layout->list[i].xlator->name);
 
-			STACK_WIND (frame, dht_selfheal_dir_mkdir_cbk,
-				    layout->list[i].xlator,
-				    layout->list[i].xlator->fops->mkdir,
-				    loc,
+                        STACK_WIND (frame, dht_selfheal_dir_mkdir_cbk,
+                                    layout->list[i].xlator,
+                                    layout->list[i].xlator->fops->mkdir,
+                                    loc,
                                     st_mode_from_ia (local->stbuf.ia_prot,
                                                      local->stbuf.ia_type),
                                     dict);
-		}
-	}
+                }
+        }
 
         if (dict)
                 dict_unref (dict);
 
-	return 0;
+        return 0;
 }
 
 
@@ -387,25 +387,25 @@ dht_selfheal_layout_alloc_start (xlator_t *this, loc_t *loc,
 
 void
 dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
-				   dht_layout_t *layout)
+                                   dht_layout_t *layout)
 {
-	xlator_t    *this = NULL;
-	uint32_t     chunk = 0;
-	int          i = 0;
-	uint32_t     start = 0;
-	int          cnt = 0;
-	int          err = 0;
+        xlator_t    *this = NULL;
+        uint32_t     chunk = 0;
+        int          i = 0;
+        uint32_t     start = 0;
+        int          cnt = 0;
+        int          err = 0;
         int          start_subvol = 0;
 
-	this = frame->this;
+        this = frame->this;
 
-	for (i = 0; i < layout->cnt; i++) {
-		err = layout->list[i].err;
-		if (err == -1 || err == 0) {
-			layout->list[i].err = -1;
-			cnt++;
-		}
-	}
+        for (i = 0; i < layout->cnt; i++) {
+                err = layout->list[i].err;
+                if (err == -1 || err == 0) {
+                        layout->list[i].err = -1;
+                        cnt++;
+                }
+        }
 
         /* no subvolume has enough space, but can't stop directory creation */
         if (!cnt) {
@@ -418,197 +418,197 @@ dht_selfheal_layout_new_directory (call_frame_t *frame, loc_t *loc,
                 }
         }
 
-	chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
+        chunk = ((unsigned long) 0xffffffff) / ((cnt) ? cnt : 1);
 
-	start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
+        start_subvol = dht_selfheal_layout_alloc_start (this, loc, layout);
 
-	for (i = start_subvol; i < layout->cnt; i++) {
-		err = layout->list[i].err;
-		if (err == -1) {
-			layout->list[i].start = start;
-			layout->list[i].stop  = start + chunk - 1;
-			
-			start = start + chunk;
+        for (i = start_subvol; i < layout->cnt; i++) {
+                err = layout->list[i].err;
+                if (err == -1) {
+                        layout->list[i].start = start;
+                        layout->list[i].stop  = start + chunk - 1;
 
-			gf_log (this->name, GF_LOG_TRACE,
-				"gave fix: %u - %u on %s for %s",
-				layout->list[i].start, layout->list[i].stop,
-				layout->list[i].xlator->name, loc->path);
-			if (--cnt == 0) {
-				layout->list[i].stop = 0xffffffff;
-				break;
-			}
-		}
-	}
+                        start = start + chunk;
 
-	for (i = 0; i < start_subvol; i++) {
-		err = layout->list[i].err;
-		if (err == -1) {
-			layout->list[i].start = start;
-			layout->list[i].stop  = start + chunk - 1;
-			
-			start = start + chunk;
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "gave fix: %u - %u on %s for %s",
+                                layout->list[i].start, layout->list[i].stop,
+                                layout->list[i].xlator->name, loc->path);
+                        if (--cnt == 0) {
+                                layout->list[i].stop = 0xffffffff;
+                                break;
+                        }
+                }
+        }
 
-			gf_log (this->name, GF_LOG_TRACE,
-				"gave fix: %u - %u on %s for %s",
-				layout->list[i].start, layout->list[i].stop,
-				layout->list[i].xlator->name, loc->path);
-			if (--cnt == 0) {
-				layout->list[i].stop = 0xffffffff;
-				break;
-			}
-		}
-	}
+        for (i = 0; i < start_subvol; i++) {
+                err = layout->list[i].err;
+                if (err == -1) {
+                        layout->list[i].start = start;
+                        layout->list[i].stop  = start + chunk - 1;
+
+                        start = start + chunk;
+
+                        gf_log (this->name, GF_LOG_TRACE,
+                                "gave fix: %u - %u on %s for %s",
+                                layout->list[i].start, layout->list[i].stop,
+                                layout->list[i].xlator->name, loc->path);
+                        if (--cnt == 0) {
+                                layout->list[i].stop = 0xffffffff;
+                                break;
+                        }
+                }
+        }
 }
 
 
 int
 dht_selfheal_dir_getafix (call_frame_t *frame, loc_t *loc,
-			  dht_layout_t *layout)
+                          dht_layout_t *layout)
 {
-	dht_conf_t  *conf = NULL;
-	xlator_t    *this = NULL;
-	dht_local_t *local = NULL;
-	int          missing = -1;
-	int          down = -1;
-	int          holes = -1;
-	int          ret = -1;
-	int          i = -1;
-	int          overlaps = -1;
+        dht_conf_t  *conf = NULL;
+        xlator_t    *this = NULL;
+        dht_local_t *local = NULL;
+        int          missing = -1;
+        int          down = -1;
+        int          holes = -1;
+        int          ret = -1;
+        int          i = -1;
+        int          overlaps = -1;
 
-	this = frame->this;
-	conf = this->private;
-	local = frame->local;
+        this = frame->this;
+        conf = this->private;
+        local = frame->local;
 
-	missing = local->selfheal.missing;
-	down = local->selfheal.down;
-	holes = local->selfheal.hole_cnt;
-	overlaps = local->selfheal.overlaps_cnt;
+        missing = local->selfheal.missing;
+        down = local->selfheal.down;
+        holes = local->selfheal.hole_cnt;
+        overlaps = local->selfheal.overlaps_cnt;
 
-	if ((missing + down) == conf->subvolume_cnt) {
-		dht_selfheal_layout_new_directory (frame, loc, layout);
-		ret = 0;
-	}
+        if ((missing + down) == conf->subvolume_cnt) {
+                dht_selfheal_layout_new_directory (frame, loc, layout);
+                ret = 0;
+        }
 
-	if (holes <= down) {
-		/* the down subvol might fill up the holes */
-		ret = 0;
-	}
+        if (holes <= down) {
+                /* the down subvol might fill up the holes */
+                ret = 0;
+        }
 
-	if (holes || overlaps) {
-		dht_selfheal_layout_new_directory (frame, loc, layout);
-		ret = 0;
-	}
+        if (holes || overlaps) {
+                dht_selfheal_layout_new_directory (frame, loc, layout);
+                ret = 0;
+        }
 
-	for (i = 0; i < layout->cnt; i++) {
-		/* directory not present */
-		if (layout->list[i].err == ENOENT) {
-			ret = 0;
-			break;
-		}
-	}
+        for (i = 0; i < layout->cnt; i++) {
+                /* directory not present */
+                if (layout->list[i].err == ENOENT) {
+                        ret = 0;
+                        break;
+                }
+        }
 
-	/* TODO: give a fix to these non-virgins */
+        /* TODO: give a fix to these non-virgins */
 
-	return ret;
+        return ret;
 }
 
 int
-dht_selfheal_new_directory (call_frame_t *frame, 
-			    dht_selfheal_dir_cbk_t dir_cbk,
-			    dht_layout_t *layout)
+dht_selfheal_new_directory (call_frame_t *frame,
+                            dht_selfheal_dir_cbk_t dir_cbk,
+                            dht_layout_t *layout)
 {
-	dht_local_t *local = NULL;
+        dht_local_t *local = NULL;
 
-	local = frame->local;
+        local = frame->local;
 
-	local->selfheal.dir_cbk = dir_cbk;
-	local->selfheal.layout = dht_layout_ref (frame->this, layout);
+        local->selfheal.dir_cbk = dir_cbk;
+        local->selfheal.layout = dht_layout_ref (frame->this, layout);
 
-	dht_layout_sort_volname (layout);
-	dht_selfheal_layout_new_directory (frame, &local->loc, layout);
-	dht_selfheal_dir_xattr (frame, &local->loc, layout);
-	return 0;
+        dht_layout_sort_volname (layout);
+        dht_selfheal_layout_new_directory (frame, &local->loc, layout);
+        dht_selfheal_dir_xattr (frame, &local->loc, layout);
+        return 0;
 }
 
 
 int
 dht_selfheal_directory (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
-			loc_t *loc, dht_layout_t *layout)
+                        loc_t *loc, dht_layout_t *layout)
 {
-	dht_local_t *local    = NULL;
-	uint32_t     holes    = 0;
-	uint32_t     down     = 0;
-	uint32_t     misc     = 0;
-	int          ret      = 0;
-	xlator_t    *this     = NULL;
+        dht_local_t *local    = NULL;
+        uint32_t     holes    = 0;
+        uint32_t     down     = 0;
+        uint32_t     misc     = 0;
+        int          ret      = 0;
+        xlator_t    *this     = NULL;
 
-	local = frame->local;
-	this = frame->this;
+        local = frame->local;
+        this = frame->this;
 
-	dht_layout_anomalies (this, loc, layout,
+        dht_layout_anomalies (this, loc, layout,
                               &local->selfheal.hole_cnt,
                               &local->selfheal.overlaps_cnt,
                               &local->selfheal.missing,
                               &local->selfheal.down,
                               &local->selfheal.misc);
 
-	holes    = local->selfheal.hole_cnt;
-	down     = local->selfheal.down;
-	misc     = local->selfheal.misc;
+        holes    = local->selfheal.hole_cnt;
+        down     = local->selfheal.down;
+        misc     = local->selfheal.misc;
 
-	local->selfheal.dir_cbk = dir_cbk;
-	local->selfheal.layout = dht_layout_ref (this, layout);
+        local->selfheal.dir_cbk = dir_cbk;
+        local->selfheal.layout = dht_layout_ref (this, layout);
 
-	if (down) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"%d subvolumes down -- not fixing", down);
-		ret = 0;
-		goto sorry_no_fix;
-	}
+        if (down) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%d subvolumes down -- not fixing", down);
+                ret = 0;
+                goto sorry_no_fix;
+        }
 
-	if (misc) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"%d subvolumes have unrecoverable errors", misc);
-		ret = 0;
-		goto sorry_no_fix;
-	}
+        if (misc) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "%d subvolumes have unrecoverable errors", misc);
+                ret = 0;
+                goto sorry_no_fix;
+        }
 
-	dht_layout_sort_volname (layout);
-	ret = dht_selfheal_dir_getafix (frame, loc, layout);
+        dht_layout_sort_volname (layout);
+        ret = dht_selfheal_dir_getafix (frame, loc, layout);
 
-	if (ret == -1) {
-		gf_log (this->name, GF_LOG_DEBUG,
-			"not able to form layout for the directory");
-		goto sorry_no_fix;
-	}
+        if (ret == -1) {
+                gf_log (this->name, GF_LOG_DEBUG,
+                        "not able to form layout for the directory");
+                goto sorry_no_fix;
+        }
 
-	dht_selfheal_dir_mkdir (frame, loc, layout, 0);
+        dht_selfheal_dir_mkdir (frame, loc, layout, 0);
 
-	return 0;
+        return 0;
 
 sorry_no_fix:
-	/* TODO: need to put appropriate local->op_errno */
-	dht_selfheal_dir_finish (frame, this, ret);
+        /* TODO: need to put appropriate local->op_errno */
+        dht_selfheal_dir_finish (frame, this, ret);
 
-	return 0;
+        return 0;
 }
 
 
 int
 dht_selfheal_restore (call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
-		      loc_t *loc, dht_layout_t *layout)
+                      loc_t *loc, dht_layout_t *layout)
 {
-	int          ret = 0;
-	dht_local_t *local    = NULL;
+        int          ret = 0;
+        dht_local_t *local    = NULL;
 
 
-	local = frame->local;
+        local = frame->local;
 
-	local->selfheal.dir_cbk = dir_cbk;
-	local->selfheal.layout = dht_layout_ref (frame->this, layout);
+        local->selfheal.dir_cbk = dir_cbk;
+        local->selfheal.layout = dht_layout_ref (frame->this, layout);
 
-	ret = dht_selfheal_dir_mkdir (frame, loc, layout, 1);
+        ret = dht_selfheal_dir_mkdir (frame, loc, layout, 1);
 
-	return ret;
+        return ret;
 }
