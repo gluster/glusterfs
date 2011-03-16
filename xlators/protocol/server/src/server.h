@@ -35,34 +35,34 @@
 typedef struct _server_state server_state_t;
 
 struct _locker {
-	struct list_head  lockers;
+        struct list_head  lockers;
         char             *volume;
-	loc_t             loc;
-	fd_t             *fd;
+        loc_t             loc;
+        fd_t             *fd;
         uint64_t          owner;
-	pid_t             pid;
+        pid_t             pid;
 };
 
 struct _lock_table {
-	struct list_head  inodelk_lockers;
-	struct list_head  entrylk_lockers;
-	gf_lock_t         lock;
-	size_t            count;
+        struct list_head  inodelk_lockers;
+        struct list_head  entrylk_lockers;
+        gf_lock_t         lock;
+        size_t            count;
 };
 
 /* private structure per connection (transport object)
  * used as transport_t->xl_private
  */
 struct _server_connection {
-	struct list_head    list;
-	char               *id;
-	int                 ref;
+        struct list_head    list;
+        char               *id;
+        int                 ref;
         int                 active_transports;
-	pthread_mutex_t     lock;
-	char                disconnected;
-	fdtable_t          *fdtable;
-	struct _lock_table *ltable;
-	xlator_t           *bound_xl;
+        pthread_mutex_t     lock;
+        char                disconnected;
+        fdtable_t          *fdtable;
+        struct _lock_table *ltable;
+        xlator_t           *bound_xl;
         xlator_t           *this;
 };
 
@@ -95,9 +95,9 @@ struct server_conf {
         char                   *conf_dir;
         struct _volfile_ctx    *volfile;
 
-	dict_t                 *auth_modules;
-	pthread_mutex_t         mutex;
-	struct list_head        conns;
+        dict_t                 *auth_modules;
+        pthread_mutex_t         mutex;
+        struct list_head        conns;
         struct list_head        xprt_list;
 };
 typedef struct server_conf server_conf_t;
@@ -129,7 +129,7 @@ typedef struct {
         u_char                 pargfid[16];
         char                  *path;
         char                  *bname;
-	char                  *resolved;
+        char                  *resolved;
         int                    op_ret;
         int                    op_errno;
         loc_t                  deep_loc;
@@ -150,8 +150,8 @@ struct _server_state {
 
         server_resume_fn_t    resume_fn;
 
-	loc_t             loc;
-	loc_t             loc2;
+        loc_t             loc;
+        loc_t             loc2;
         server_resolve_t  resolve;
         server_resolve_t  resolve2;
 
@@ -162,29 +162,29 @@ struct _server_state {
         struct iatt       stbuf;
         int               valid;
 
-	fd_t             *fd;
+        fd_t             *fd;
         dict_t           *params;
-	int               flags;
+        int               flags;
         int               wbflags;
         struct iovec      payload_vector[MAX_IOVEC];
         int               payload_count;
         struct iobuf     *iobuf;
         struct iobref    *iobref;
 
-	size_t            size;
-	off_t             offset;
-	mode_t            mode;
-	dev_t             dev;
-	size_t            nr_count;
-	int               cmd;
-	int               type;
-	char             *name;
-	int               name_len;
+        size_t            size;
+        off_t             offset;
+        mode_t            mode;
+        dev_t             dev;
+        size_t            nr_count;
+        int               cmd;
+        int               type;
+        char             *name;
+        int               name_len;
 
-	int               mask;
-	char              is_revalidate;
-	dict_t           *dict;
-	struct gf_flock      flock;
+        int               mask;
+        char              is_revalidate;
+        dict_t           *dict;
+        struct gf_flock      flock;
         const char       *volume;
         dir_entry_t      *entry;
 };

@@ -43,6 +43,8 @@ gfs_serialize_reply (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc,
         struct iobuf            *iob = NULL;
         ssize_t                  retlen = -1;
 
+        GF_VALIDATE_OR_GOTO ("server", req, ret);
+
         /* First, get the io buffer into which the reply in arg will
          * be serialized.
          */
@@ -93,9 +95,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
         server_state_t         *state      = NULL;
         char                    new_iobref = 0;
 
-        if (!req) {
-                goto ret;
-        }
+        GF_VALIDATE_OR_GOTO ("server", req, ret);
 
         if (frame) {
                 state = CALL_STATE (frame);
@@ -126,7 +126,7 @@ server_submit_reply (call_frame_t *frame, rpcsvc_request_t *req, void *arg,
 
         /* TODO: this is demo purpose only */
         /* ret = rpcsvc_callback_submit (req->svc, req->trans, req->prog,
-                                         GF_CBK_NULL, &rsp, 1);
+           GF_CBK_NULL, &rsp, 1);
         */
         /* Now that we've done our job of handing the message to the RPC layer
          * we can safely unref the iob in the hope that RPC layer must have
@@ -161,74 +161,73 @@ xdr_to_glusterfs_req (rpcsvc_request_t *req, void *arg, gfs_serialize_t sfunc)
 {
         int                     ret = -1;
 
-        if (!req)
-                return -1;
+        GF_VALIDATE_OR_GOTO ("server", req, out);
 
         ret = sfunc (req->msg[0], arg);
 
         if (ret > 0)
                 ret = 0;
-
+out:
         return ret;
 }
 
 int
 server_fd (xlator_t *this)
 {
-         server_conf_t        *conf = NULL;
-         server_connection_t  *trav = NULL;
-         char                 key[GF_DUMP_MAX_BUF_LEN];
-         int                  i = 1;
-         int                  ret = -1;
+        server_conf_t        *conf = NULL;
+        server_connection_t  *trav = NULL;
+        char                 key[GF_DUMP_MAX_BUF_LEN];
+        int                  i = 1;
+        int                  ret = -1;
 
-         if (!this)
-                 return -1;
+        GF_VALIDATE_OR_GOTO ("server", this, out);
 
-         conf = this->private;
-         if (!conf) {
+        conf = this->private;
+        if (!conf) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "conf null in xlator");
                 return -1;
-         }
+        }
 
-         gf_proc_dump_add_section("xlator.protocol.server.conn");
+        gf_proc_dump_add_section("xlator.protocol.server.conn");
 
-         ret = pthread_mutex_trylock (&conf->mutex);
-         if (ret) {
+        ret = pthread_mutex_trylock (&conf->mutex);
+        if (ret) {
                 gf_log("", GF_LOG_WARNING, "Unable to dump fdtable"
-                " errno: %d", errno);
+                       " errno: %d", errno);
                 return -1;
         }
 
-         list_for_each_entry (trav, &conf->conns, list) {
-                 if (trav->id) {
-                         gf_proc_dump_build_key(key,
-                                          "xlator.protocol.server.conn",
-                                          "%d.id", i);
-                         gf_proc_dump_write(key, "%s", trav->id);
-                 }
+        list_for_each_entry (trav, &conf->conns, list) {
+                if (trav->id) {
+                        gf_proc_dump_build_key(key,
+                                               "xlator.protocol.server.conn",
+                                               "%d.id", i);
+                        gf_proc_dump_write(key, "%s", trav->id);
+                }
 
-                 gf_proc_dump_build_key(key,"xlator.protocol.server.conn",
-                                        "%d.ref",i)
-                 gf_proc_dump_write(key, "%d", trav->ref);
-                 if (trav->bound_xl) {
-                         gf_proc_dump_build_key(key,
-                                          "xlator.protocol.server.conn",
-                                          "%d.bound_xl", i);
-                         gf_proc_dump_write(key, "%s", trav->bound_xl->name);
-                 }
+                gf_proc_dump_build_key(key,"xlator.protocol.server.conn",
+                                       "%d.ref",i)
+                        gf_proc_dump_write(key, "%d", trav->ref);
+                if (trav->bound_xl) {
+                        gf_proc_dump_build_key(key,
+                                               "xlator.protocol.server.conn",
+                                               "%d.bound_xl", i);
+                        gf_proc_dump_write(key, "%s", trav->bound_xl->name);
+                }
 
-                 gf_proc_dump_build_key(key,
-                                        "xlator.protocol.server.conn",
-                                         "%d.id", i);
-                 fdtable_dump(trav->fdtable,key);
-                 i++;
-         }
+                gf_proc_dump_build_key(key,
+                                       "xlator.protocol.server.conn",
+                                       "%d.id", i);
+                fdtable_dump(trav->fdtable,key);
+                i++;
+        }
         pthread_mutex_unlock (&conf->mutex);
 
-
-        return 0;
- }
+        ret = 0;
+out:
+        return ret;
+}
 
 int
 server_priv (xlator_t *this)
@@ -238,6 +237,9 @@ server_priv (xlator_t *this)
         char              key[GF_DUMP_MAX_BUF_LEN] = {0,};
         uint64_t          total_read = 0;
         uint64_t          total_write = 0;
+        int32_t           ret  = -1;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
 
         conf = this->private;
         if (!conf)
@@ -254,49 +256,51 @@ server_priv (xlator_t *this)
         gf_proc_dump_build_key(key, "server", "total-bytes-write");
         gf_proc_dump_write(key, "%"PRIu64, total_write);
 
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 int
 server_inode (xlator_t *this)
 {
-         server_conf_t        *conf = NULL;
-         server_connection_t  *trav = NULL;
-         char                 key[GF_DUMP_MAX_BUF_LEN];
-         int                  i = 1;
-         int                  ret = -1;
+        server_conf_t        *conf = NULL;
+        server_connection_t  *trav = NULL;
+        char                 key[GF_DUMP_MAX_BUF_LEN];
+        int                  i = 1;
+        int                  ret = -1;
 
-         if (!this)
-                 return -1;
+        GF_VALIDATE_OR_GOTO ("server", this, out);
 
-         conf = this->private;
-         if (!conf) {
+        conf = this->private;
+        if (!conf) {
                 gf_log (this->name, GF_LOG_WARNING,
                         "conf null in xlator");
                 return -1;
-         }
+        }
 
-         ret = pthread_mutex_trylock (&conf->mutex);
-         if (ret) {
+        ret = pthread_mutex_trylock (&conf->mutex);
+        if (ret) {
                 gf_log("", GF_LOG_WARNING, "Unable to dump itable"
-                " errno: %d", errno);
+                       " errno: %d", errno);
                 return -1;
         }
 
         list_for_each_entry (trav, &conf->conns, list) {
-                 if (trav->bound_xl && trav->bound_xl->itable) {
-                         gf_proc_dump_build_key(key,
-                                          "xlator.protocol.server.conn",
-                                          "%d.bound_xl.%s",
-                                          i, trav->bound_xl->name);
-                         inode_table_dump(trav->bound_xl->itable,key);
-                         i++;
-                 }
+                if (trav->bound_xl && trav->bound_xl->itable) {
+                        gf_proc_dump_build_key(key,
+                                               "xlator.protocol.server.conn",
+                                               "%d.bound_xl.%s",
+                                               i, trav->bound_xl->name);
+                        inode_table_dump(trav->bound_xl->itable,key);
+                        i++;
+                }
         }
         pthread_mutex_unlock (&conf->mutex);
 
-
-        return 0;
+        ret = 0;
+out:
+        return ret;
 }
 
 
@@ -308,6 +312,10 @@ get_auth_types (dict_t *this, char *key, data_t *value, void *data)
         char     *tmp = NULL;
         char     *key_cpy = NULL;
         int32_t   ret = -1;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", key, out);
+        GF_VALIDATE_OR_GOTO ("server", data, out);
 
         auth_dict = data;
         key_cpy = gf_strdup (key);
@@ -340,10 +348,13 @@ out:
 int
 validate_auth_options (xlator_t *this, dict_t *dict)
 {
-        int            error = 0;
+        int            error = -1;
         xlator_list_t *trav = NULL;
         data_pair_t   *pair = NULL;
         char          *tail = NULL;
+
+        GF_VALIDATE_OR_GOTO ("server", this, out);
+        GF_VALIDATE_OR_GOTO ("server", dict, out);
 
         trav = this->children;
         while (trav) {
@@ -376,7 +387,7 @@ validate_auth_options (xlator_t *this, dict_t *dict)
                 }
                 trav = trav->next;
         }
-
+out:
         return error;
 }
 
@@ -406,11 +417,11 @@ server_rpc_notify (rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
         {
                 /* Have a structure per new connection */
                 /* TODO: Should we create anything here at all ? * /
-                conn = create_server_conn_state (this, xprt);
-                if (!conn)
-                        goto out;
+                   conn = create_server_conn_state (this, xprt);
+                   if (!conn)
+                   goto out;
 
-                xprt->protocol_private = conn;
+                   xprt->protocol_private = conn;
                 */
                 INIT_LIST_HEAD (&xprt->list);
 
@@ -448,21 +459,20 @@ mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
-        if (!this)
-                return ret;
+        GF_VALIDATE_OR_GOTO ("server", this, out);
 
         ret = xlator_mem_acct_init (this, gf_server_mt_end + 1);
 
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
-                                "failed");
+                        "failed");
                 return ret;
         }
-
+out:
         return ret;
 }
 
-int 
+int
 validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 {
         int               inode_lru_limit = 0;
@@ -475,34 +485,34 @@ validate_options (xlator_t *this, dict_t *options, char **op_errstr)
 
 
         if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
-                if (!(inode_lru_limit < (1 * GF_UNIT_MB)  && 
+                if (!(inode_lru_limit < (1 * GF_UNIT_MB)  &&
                       inode_lru_limit >1 )) {
                         gf_log (this->name, GF_LOG_DEBUG, "Validate inode-lru"
-                                        "-limit %d, was WRONG", inode_lru_limit);
+                                "-limit %d, was WRONG", inode_lru_limit);
                         snprintf (errstr,1024, "Error, Greater than max value %d "
-                                        ,inode_lru_limit);
+                                  ,inode_lru_limit);
 
                         *op_errstr = gf_strdup (errstr);
                         ret = -1;
                         goto out;
-                      }
+                }
         }
-        
+
         data = dict_get (options, "trace");
         if (data) {
                 ret = gf_string2boolean (data->data, &trace);
                 if (ret != 0) {
                         gf_log (this->name, GF_LOG_WARNING,
                                 "'trace' takes on only boolean values. "
-                                                "Neglecting option");
+                                "Neglecting option");
                         snprintf (errstr,1024, "Error, trace takes only boolean"
-                                               "values");
+                                  "values");
                         *op_errstr = gf_strdup (errstr);
                         ret = -1;
                         goto out;
                 }
         }
-        
+
         auth_modules = dict_new ();
         if (!auth_modules) {
                 gf_log (this->name, GF_LOG_ERROR, "Out of memory");
@@ -566,32 +576,32 @@ int
 reconfigure (xlator_t *this, dict_t *options)
 {
 
-	server_conf_t	         *conf =NULL;
+        server_conf_t            *conf =NULL;
         rpcsvc_t                 *rpc_conf;
         rpcsvc_listener_t        *listeners;
-	int		          inode_lru_limit;
-	gf_boolean_t	          trace;
-	data_t		         *data;
-	int		          ret = 0;
+        int                       inode_lru_limit;
+        gf_boolean_t              trace;
+        data_t                   *data;
+        int                       ret = 0;
 
-	conf = this->private;
+        conf = this->private;
 
         if (!conf) {
                 gf_log (this->name, GF_LOG_DEBUG, "conf == null!!!");
                 goto out;
         }
-	if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
-		conf->inode_lru_limit = inode_lru_limit;
-		gf_log (this->name, GF_LOG_TRACE, "Reconfigured inode-lru-limit"
-			" to %d", conf->inode_lru_limit);
-	}
+        if (dict_get_int32 ( options, "inode-lru-limit", &inode_lru_limit) == 0){
+                conf->inode_lru_limit = inode_lru_limit;
+                gf_log (this->name, GF_LOG_TRACE, "Reconfigured inode-lru-limit"
+                        " to %d", conf->inode_lru_limit);
+        }
 
-	data = dict_get (options, "trace");
-	if (data) {
+        data = dict_get (options, "trace");
+        if (data) {
                 ret = gf_string2boolean (data->data, &trace);
                 if (ret != 0) {
-			gf_log (this->name, GF_LOG_WARNING,
-				"'trace' takes on only boolean values. "
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "'trace' takes on only boolean values. "
                                 "Neglecting option");
 			ret = -1;
                         goto out;
@@ -630,12 +640,10 @@ reconfigure (xlator_t *this, dict_t *options)
                         if (listeners->trans->reconfigure )
                                 listeners->trans->reconfigure (listeners->trans, options);
                         else
-                               gf_log (this->name, GF_LOG_ERROR,
-                                       "Reconfigure not found for transport" );
+                                gf_log (this->name, GF_LOG_ERROR,
+                                        "Reconfigure not found for transport" );
                 }
         }
-        
-        
 
 out:
         gf_log ("", GF_LOG_DEBUG, "returning %d", ret);
@@ -649,8 +657,7 @@ init (xlator_t *this)
         server_conf_t     *conf     = NULL;
         rpcsvc_listener_t *listener = NULL;
 
-        if (!this)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("init", this, out);
 
         if (this->children == NULL) {
                 gf_log (this->name, GF_LOG_ERROR,
@@ -664,7 +671,9 @@ init (xlator_t *this)
                 goto out;
         }
 
-        conf = GF_CALLOC (1, sizeof (server_conf_t), gf_server_mt_server_conf_t);
+        conf = GF_CALLOC (1, sizeof (server_conf_t),
+                          gf_server_mt_server_conf_t);
+
         GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
         INIT_LIST_HEAD (&conf->conns);
@@ -798,10 +807,10 @@ fini (xlator_t *this)
                 if (conf->rpc) {
                         /* TODO: memory leak here, have to free RPC */
                         /*
-                        if (conf->rpc->conn) {
-                                rpcsvc_conn_destroy (conf->rpc->conn);
-                        }
-                        rpcsvc_fini (conf->rpc);
+                          if (conf->rpc->conn) {
+                          rpcsvc_conn_destroy (conf->rpc->conn);
+                          }
+                          rpcsvc_fini (conf->rpc);
                         */
                         ;
                 }

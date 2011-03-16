@@ -1328,8 +1328,8 @@ server_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
                 if (link_inode != inode) {
                         /*
-                           VERY racy code (if used anywhere else)
-                           -- don't do this without understanding
+                          VERY racy code (if used anywhere else)
+                          -- don't do this without understanding
                         */
 
                         inode_unref (fd->inode);
@@ -2025,7 +2025,7 @@ err:
 
 
 int
- server_readdir_resume (call_frame_t *frame, xlator_t *bound_xl)
+server_readdir_resume (call_frame_t *frame, xlator_t *bound_xl)
 {
         server_state_t  *state = NULL;
 
@@ -4835,7 +4835,7 @@ server_lk (rpcsvc_request_t *req)
         case GF_LK_SETLKW:
                 state->cmd = F_SETLKW;
                 break;
-         case GF_LK_RESLK_LCK:
+        case GF_LK_RESLK_LCK:
                 state->cmd = F_RESLK_LCK;
                 break;
         case GF_LK_RESLK_LCKW:
@@ -4946,8 +4946,7 @@ server_lookup (rpcsvc_request_t *req)
         gfs3_lookup_req      args                   = {{0,},};
         int                  ret                    = -1;
 
-        if (!req)
-                return ret;
+        GF_VALIDATE_OR_GOTO ("server", req, err);
 
         conn = req->trans->xl_private;
 
@@ -5113,8 +5112,8 @@ rpcsvc_actor_t glusterfs3_1_fop_actors[] = {
         [GFS3_OP_READDIR]     = { "READDIR",    GFS3_OP_READDIR, server_readdir, NULL, NULL },
         [GFS3_OP_INODELK]     = { "INODELK",    GFS3_OP_INODELK, server_inodelk, NULL, NULL },
         [GFS3_OP_FINODELK]    = { "FINODELK",   GFS3_OP_FINODELK, server_finodelk, NULL, NULL },
-	[GFS3_OP_ENTRYLK]     = { "ENTRYLK",    GFS3_OP_ENTRYLK, server_entrylk, NULL, NULL },
-	[GFS3_OP_FENTRYLK]    = { "FENTRYLK",   GFS3_OP_FENTRYLK, server_fentrylk, NULL, NULL },
+        [GFS3_OP_ENTRYLK]     = { "ENTRYLK",    GFS3_OP_ENTRYLK, server_entrylk, NULL, NULL },
+        [GFS3_OP_FENTRYLK]    = { "FENTRYLK",   GFS3_OP_FENTRYLK, server_fentrylk, NULL, NULL },
         [GFS3_OP_XATTROP]     = { "XATTROP",    GFS3_OP_XATTROP, server_xattrop, NULL, NULL },
         [GFS3_OP_FXATTROP]    = { "FXATTROP",   GFS3_OP_FXATTROP, server_fxattrop, NULL, NULL },
         [GFS3_OP_FGETXATTR]   = { "FGETXATTR",  GFS3_OP_FGETXATTR, server_fgetxattr, NULL, NULL },
