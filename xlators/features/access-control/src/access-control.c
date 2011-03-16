@@ -376,12 +376,12 @@ ac_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
                 return 0;
         }
         stub = fop_truncate_stub (frame, ac_truncate_resume, loc, offset);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_truncate_stat_cbk, FIRST_CHILD (this),
@@ -467,12 +467,12 @@ ac_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
                 return 0;
         }
         stub = fop_access_stub (frame, ac_access_resume, loc, mask);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_access_stat_cbk, FIRST_CHILD (this),
@@ -536,12 +536,12 @@ ac_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
                 return 0;
         }
         stub = fop_readlink_stub (frame, ac_readlink_resume, loc, size);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_readlink_stat_cbk, FIRST_CHILD (this),
@@ -610,12 +610,12 @@ ac_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 return 0;
         }
         stub = fop_mknod_stub (frame, ac_mknod_resume, loc, mode, rdev, params);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, loc);
@@ -699,12 +699,12 @@ ac_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                 return 0;
         }
         stub = fop_mkdir_stub (frame, ac_mkdir_resume, loc, mode, params);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, loc);
@@ -781,12 +781,12 @@ ac_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                 return 0;
         }
         stub = fop_unlink_stub (frame, ac_unlink_resume, loc);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, loc);
@@ -862,12 +862,12 @@ ac_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
                 return 0;
         }
         stub = fop_rmdir_stub (frame, ac_rmdir_resume, loc, flags);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, loc);
@@ -947,12 +947,12 @@ ac_symlink (call_frame_t *frame, xlator_t *this, const char *linkname,
         }
         stub = fop_symlink_stub (frame, ac_symlink_resume, linkname, loc,
                                  params);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, loc);
@@ -1076,12 +1076,12 @@ ac_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 return 0;
         }
         stub = fop_rename_stub (frame, ac_rename_resume, oldloc, newloc);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, oldloc);
@@ -1165,12 +1165,12 @@ ac_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
                 return 0;
         }
         stub = fop_link_stub (frame, ac_link_resume, oldloc, newloc);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, newloc);
@@ -1252,12 +1252,12 @@ ac_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
         stub = fop_create_stub (frame, ac_create_resume, loc, flags, mode,
                                 fd, params);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         ret = ac_parent_loc_fill (&parentloc, loc);
@@ -1415,12 +1415,12 @@ ac_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
 
         stub = fop_open_stub (frame, ac_open_resume, loc, flags, fd, wbflags);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         /* If we are not supposed to create the file then there is no need to
@@ -1497,12 +1497,12 @@ ac_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
         stub = fop_readv_stub (frame, ac_readv_resume, fd, size, offset);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_readv_fstat_cbk, FIRST_CHILD (this),
@@ -1575,12 +1575,12 @@ ac_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 
         stub = fop_writev_stub (frame, ac_writev_resume, fd, vector, count,
                                 offset, iobref);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_writev_fstat_cbk, FIRST_CHILD (this),
@@ -1643,12 +1643,12 @@ ac_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         }
 
         stub = fop_opendir_stub (frame, ac_opendir_resume, loc, fd);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_opendir_stat_cbk, FIRST_CHILD (this),
@@ -1753,12 +1753,12 @@ ac_setattr (call_frame_t *frame, xlator_t *this, loc_t *loc, struct iatt *buf,
         }
 
         stub = fop_setattr_stub (frame, ac_setattr_resume, loc, buf, valid);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_setattr_stat_cbk, FIRST_CHILD (this),
@@ -1864,12 +1864,12 @@ ac_fsetattr (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iatt *buf,
         }
 
         stub = fop_fsetattr_stub (frame, ac_fsetattr_resume, fd, buf, valid);
-	if (!stub) {
-		gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
+        if (!stub) {
+                gf_log (this->name, GF_LOG_ERROR, "cannot create call stub: "
                         "(out of memory)");
                 ret = -ENOMEM;
                 goto out;
-	}
+        }
 
         frame->local = stub;
         STACK_WIND (frame, ac_fsetattr_fstat_cbk, FIRST_CHILD (this),
@@ -1921,17 +1921,17 @@ init (xlator_t *this)
 {
         int ret = -1;
 
-	if (!this->children || this->children->next) {
-		gf_log (this->name, GF_LOG_ERROR,
-			"FATAL: access-control not configured with "
+        if (!this->children || this->children->next) {
+                gf_log (this->name, GF_LOG_ERROR,
+                        "FATAL: access-control not configured with "
                         "exactly one  child");
                 goto out;
-	}
+        }
 
-	if (!this->parents) {
-		gf_log (this->name, GF_LOG_WARNING,
-			"dangling volume. check volfile ");
-	}
+        if (!this->parents) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "dangling volume. check volfile ");
+        }
 
         ret = 0;
 out:
