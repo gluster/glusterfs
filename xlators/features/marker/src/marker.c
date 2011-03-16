@@ -1579,7 +1579,14 @@ init_gsync_priv (xlator_t *this)
         int32_t          ret     = 0;
         marker_conf_t   *priv    = NULL;
 
+        if (!this) {
+                ret = -1;
+                goto out;
+        }
+
         options = this->options;
+
+        priv = this->private;
 
         if((data = dict_get (options, VOLUME_UUID)) != NULL) {
                 priv->volume_uuid = data->data;
@@ -1673,7 +1680,7 @@ init (xlator_t *this)
                 }
         }
 
-        data = dict_get (options, "marker");
+        data = dict_get (options, "gsync");
         if (data) {
                 if (strcmp (data->data, "on") == 0) {
                         priv->feature_enabled |= GF_GSYNC;
@@ -1773,6 +1780,6 @@ struct volume_options options[] = {
         {.key = {"volume-uuid"}},
         {.key = {"timestamp-file"}},
         {.key = {"quota"}},
-        {.key = {"marker"}},
+        {.key = {"gsync"}},
         {.key = {NULL}}
 };
