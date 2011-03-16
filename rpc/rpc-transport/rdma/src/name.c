@@ -360,8 +360,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
         listen_host_data = dict_get (options,
                                      "transport.rdma.bind-address");
 
-        if (listen_port_data)
-        {
+        if (listen_port_data) {
                 listen_port = data_to_uint16 (listen_port_data);
         } else {
                 if (addr->sa_family == AF_INET6) {
@@ -383,8 +382,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
                 listen_port = GF_DEFAULT_RDMA_LISTEN_PORT;
 
 
-        if (listen_host_data)
-        {
+        if (listen_host_data) {
                 listen_host = data_to_str (listen_host_data);
         }
 
@@ -398,8 +396,7 @@ af_inet_server_get_local_sockaddr (rpc_transport_t *this,
 
         ret = getaddrinfo(listen_host, service, &hints, &res);
         if (ret != 0) {
-                gf_log (this->name,
-                        GF_LOG_ERROR,
+                gf_log (this->name, GF_LOG_ERROR,
                         "getaddrinfo failed for host %s, service %s (%s)",
                         listen_host, service, gai_strerror (ret));
                 ret = -1;

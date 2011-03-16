@@ -126,6 +126,8 @@ client_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
         int32_t  ret                 = -1;
 
         if (sa_family == NULL) {
+                gf_log_callingfn ("", GF_LOG_WARNING,
+                                  "sa_family argument is NULL");
                 goto out;
         }
 
@@ -469,12 +471,9 @@ socket_client_get_remote_sockaddr (rpc_transport_t *this,
 {
         int32_t ret = 0;
 
-        if ((sockaddr == NULL) || (sockaddr_len == NULL)
-            || (sa_family == NULL)) {
-                ret = -1;
-                goto err;
-        }
-
+        GF_VALIDATE_OR_GOTO ("socket", sockaddr, err);
+        GF_VALIDATE_OR_GOTO ("socket", sockaddr_len, err);
+        GF_VALIDATE_OR_GOTO ("socket", sa_family, err);
 
         ret = client_fill_address_family (this, &sockaddr->sa_family);
         if (ret) {
@@ -522,9 +521,7 @@ server_fill_address_family (rpc_transport_t *this, sa_family_t *sa_family)
         data_t  *address_family_data = NULL;
         int32_t  ret                 = -1;
 
-        if (sa_family == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("socket", sa_family, out);
 
         address_family_data = dict_get (this->options,
                                         "transport.address-family");
@@ -566,9 +563,9 @@ socket_server_get_local_sockaddr (rpc_transport_t *this, struct sockaddr *addr,
 {
         int32_t ret = -1;
 
-        if ((addr == NULL) || (addr_len == NULL) || (sa_family == NULL)) {
-                goto err;
-        }
+        GF_VALIDATE_OR_GOTO ("socket", sa_family, err);
+        GF_VALIDATE_OR_GOTO ("socket", addr, err);
+        GF_VALIDATE_OR_GOTO ("socket", addr_len, err);
 
         ret = server_fill_address_family (this, &addr->sa_family);
         if (ret == -1) {

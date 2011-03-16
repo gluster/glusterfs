@@ -84,8 +84,8 @@ ib_check_active_port (struct ibv_context *ctx, uint8_t port)
         const char *state_str = NULL;
 
         if (!ctx) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
-                        "Error in supplied context");
+                gf_log_callingfn (RDMA_LOG_NAME, GF_LOG_ERROR,
+                                  "Error in supplied context");
                 return -1;
         }
 
@@ -117,8 +117,8 @@ ib_get_active_port (struct ibv_context *ib_ctx)
         uint8_t ib_port = 0;
 
         if (!ib_ctx) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
-                        "Error in supplied context");
+                gf_log_callingfn (RDMA_LOG_NAME, GF_LOG_ERROR,
+                                  "Error in supplied context");
                 return -1;
         }
         if (ibv_query_device (ib_ctx, &ib_device_attr)) {
@@ -176,7 +176,6 @@ rdma_new_post (rdma_device_t *device, int32_t len, rdma_post_type_t type)
         post = (rdma_post_t *) GF_CALLOC (1, sizeof (*post),
                                           gf_common_mt_rdma_post_t);
         if (post == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -186,7 +185,7 @@ rdma_new_post (rdma_device_t *device, int32_t len, rdma_post_type_t type)
 
         post->buf = valloc (len);
         if (!post->buf) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
+                gf_log_nomem (RDMA_LOG_NAME, GF_LOG_ERROR, len);
                 goto out;
         }
 
@@ -195,7 +194,7 @@ rdma_new_post (rdma_device_t *device, int32_t len, rdma_post_type_t type)
                                post->buf_size,
                                IBV_ACCESS_LOCAL_WRITE);
         if (!post->mr) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                         "memory registration failed");
                 goto out;
         }
@@ -325,8 +324,7 @@ __rdma_disconnect (rpc_transport_t *this)
         if (priv->connected || priv->tcp_connected) {
                 fcntl (priv->sock, F_SETFL, O_NONBLOCK);
                 if (shutdown (priv->sock, SHUT_RDWR) != 0) {
-                        gf_log (RDMA_LOG_NAME,
-                                GF_LOG_DEBUG,
+                        gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
                                 "shutdown () - error: %s",
                                 strerror (errno));
                         ret = -errno;
@@ -404,6 +402,8 @@ __rdma_send_error (rdma_peer_t *peer, rdma_ioq_t *entry, rdma_post_t *post,
         len = __rdma_encode_error (peer, reply_info, entry->rpchdr,
                                    (uint32_t *)post->buf, err);
         if (len == -1) {
+                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
+                        "encode error returned -1");
                 goto out;
         }
 
@@ -413,7 +413,7 @@ __rdma_send_error (rdma_peer_t *peer, rdma_ioq_t *entry, rdma_post_t *post,
         if (!ret) {
                 ret = len;
         } else {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "rdma_post_send (to %s) failed with ret = %d (%s)",
                         peer->trans->peerinfo.identifier, ret,
                         (ret > 0) ? strerror (ret) : "");
@@ -441,10 +441,11 @@ __rdma_create_read_chunks_from_vector (rdma_peer_t *peer,
         rdma_read_chunk_t *readch = NULL;
         int32_t            ret    = -1;
 
-        if ((peer == NULL) || (readch_ptr == NULL) || (*readch_ptr == NULL)
-            || (request_ctx == NULL) || (vector == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, peer, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, readch_ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, *readch_ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, request_ctx, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, vector, out);
 
         priv = peer->trans->private;
         device = priv->device;
@@ -458,7 +459,7 @@ __rdma_create_read_chunks_from_vector (rdma_peer_t *peer,
                                  vector[i].iov_len,
                                  IBV_ACCESS_REMOTE_READ);
                 if (!mr) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "memory registration failed");
                         goto out;
                 }
@@ -493,10 +494,11 @@ __rdma_create_read_chunks (rdma_peer_t *peer, rdma_ioq_t *entry,
         rdma_private_t    *priv     = NULL;
         int                pos      = 0;
 
-        if ((peer == NULL) || (entry == NULL) || (ptr == NULL)
-            || (*ptr == NULL) || (request_ctx == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, peer, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, entry, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, *ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, request_ctx, out);
 
         priv = peer->trans->private;
         device = priv->device;
@@ -579,10 +581,11 @@ __rdma_create_write_chunks_from_vector (rdma_peer_t *peer,
         rdma_write_chunk_t *writech = NULL;
         int32_t             ret     = -1;
 
-        if ((peer == NULL) || (writech_ptr == NULL) || (*writech_ptr == NULL)
-            || (request_ctx == NULL) || (vector == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, peer, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, writech_ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, *writech_ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, request_ctx, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, vector, out);
 
         writech = *writech_ptr;
 
@@ -595,7 +598,7 @@ __rdma_create_write_chunks_from_vector (rdma_peer_t *peer,
                                  IBV_ACCESS_REMOTE_WRITE
                                  | IBV_ACCESS_LOCAL_WRITE);
                 if (!mr) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR,
                                 "memory registration failed");
                         goto out;
                 }
@@ -626,15 +629,16 @@ __rdma_create_write_chunks (rdma_peer_t *peer, rdma_ioq_t *entry,
         int32_t             ret      = -1;
         rdma_write_array_t *warray   = NULL;
 
-        if ((peer == NULL) || (entry == NULL) || (ptr == NULL)
-            || (*ptr == NULL) || (request_ctx == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, peer, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, *ptr, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, request_ctx, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, entry, out);
 
         if ((chunk_type == rdma_replych)
             && ((entry->msg.request.rsphdr_count != 1) ||
                 (entry->msg.request.rsphdr_vec[0].iov_base == NULL))) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         (entry->msg.request.rsphdr_count == 1)
                         ? "chunktype specified as reply chunk but the vector "
                         "specifying the buffer to be used for holding reply"
@@ -942,14 +946,14 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
         uint32_t                prog_payload_length = 0, len = 0;
         struct rpc_req         *rpc_req             = NULL;
 
-        if ((peer == NULL) || (entry == NULL) || (post == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, peer, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, entry, out);
+        GF_VALIDATE_OR_GOTO (RDMA_LOG_NAME, post, out);
 
         if ((entry->msg.request.rsphdr_count != 0)
             && (entry->msg.request.rsp_payload_count != 0)) {
                 ret = -1;
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "both write-chunklist and reply-chunk cannot be "
                         "present");
                 goto out;
@@ -1001,7 +1005,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
 
         if (chunk_count > RDMA_MAX_SEGMENTS) {
                 ret = -1;
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "chunk count(%d) exceeding maximum allowed RDMA "
                         "segment count(%d)", chunk_count, RDMA_MAX_SEGMENTS);
                 goto out;
@@ -1011,7 +1015,6 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
                 request_ctx = mem_get (priv->device->request_ctx_pool);
                 if (request_ctx == NULL) {
                         ret = -1;
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         goto out;
                 }
 
@@ -1093,7 +1096,7 @@ __rdma_ioq_churn_request (rdma_peer_t *peer, rdma_ioq_t *entry,
         if (!ret) {
                 ret = len;
         } else {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "rdma_post_send (to %s) failed with ret = %d (%s)",
                         peer->trans->peerinfo.identifier, ret,
                         (ret > 0) ? strerror (ret) : "");
@@ -1202,7 +1205,7 @@ __rdma_send_reply_inline (rdma_peer_t *peer, rdma_ioq_t *entry,
         if (!ret) {
                 ret = send_size;
         } else {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "rdma_post_send (to %s) failed with ret = %d (%s)",
                         peer->trans->peerinfo.identifier, ret,
                         (ret > 0) ? strerror (ret) : "");
@@ -1337,7 +1340,6 @@ __rdma_write (rdma_peer_t *peer, rdma_post_t *post, struct iovec *vec,
 
         sg_list = GF_CALLOC (num_sge, sizeof (struct ibv_sge), gf_common_mt_sge);
         if (sg_list == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 ret = -1;
                 goto out;
         }
@@ -1368,7 +1370,7 @@ __rdma_write (rdma_peer_t *peer, rdma_post_t *post, struct iovec *vec,
 
         ret = ibv_post_send(peer->qp, &wr, &bad_wr);
         if (ret) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG, "rdma write to "
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING, "rdma write to "
                         "client (%s) failed with ret = %d (%s)",
                         peer->trans->peerinfo.identifier, ret,
                         (ret > 0) ? strerror (ret) : "");
@@ -1486,7 +1488,7 @@ __rdma_send_reply_type_nomsg (rdma_peer_t *peer, rdma_ioq_t *entry,
 
         ret = rdma_post_send (peer->qp, post, (buf - post->buf));
         if (ret) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "rdma_post_send to client (%s) failed with "
                         "ret = %d (%s)", peer->trans->peerinfo.identifier, ret,
                         (ret > 0) ? strerror (ret) : "");
@@ -1520,7 +1522,7 @@ __rdma_send_reply_type_msg (rdma_peer_t *peer, rdma_ioq_t *entry,
                 + GLUSTERFS_RDMA_MAX_HEADER_SIZE;
 
         if (send_size > GLUSTERFS_RDMA_INLINE_THRESHOLD) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "client has provided only write chunks, but the "
                         "combined size of rpc and program header (%d) is "
                         "exceeding the size of msg that can be sent using "
@@ -1572,7 +1574,7 @@ __rdma_send_reply_type_msg (rdma_peer_t *peer, rdma_ioq_t *entry,
 
         ret = rdma_post_send (peer->qp, post, (ptr - post->buf));
         if (ret) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "rdma send to client (%s) failed with ret = %d (%s)",
                         peer->trans->peerinfo.identifier, ret,
                         (ret > 0) ? strerror (ret) : "");
@@ -1615,7 +1617,6 @@ rdma_reply_info_alloc (rdma_peer_t *peer)
 
         reply_info = mem_get (priv->device->reply_info_pool);
         if (reply_info == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1659,7 +1660,7 @@ __rdma_ioq_churn_reply (rdma_peer_t *peer, rdma_ioq_t *entry, rdma_post_t *post)
                 break;
 
         default:
-                gf_log (RDMA_LOG_NAME, GF_LOG_DEBUG,
+                gf_log (RDMA_LOG_NAME, GF_LOG_WARNING,
                         "invalid chunktype (%d) specified for sending reply",
                         type);
                 break;
@@ -1800,7 +1801,6 @@ rdma_ioq_new (rpc_transport_t *this, rpc_transport_data_t *data)
         /* TODO: use mem-pool */
         entry = mem_get (priv->device->ioq_pool);
         if (entry == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
         memset (entry, 0, sizeof (*entry));
@@ -2145,7 +2145,6 @@ rdma_register_peer (rdma_device_t *device,
                 ent = (struct _qpent *) GF_CALLOC (1, sizeof (*ent),
                                                    gf_common_mt_qpent);
                 if (ent == NULL) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         goto unlock;
                 }
 
@@ -2626,7 +2625,6 @@ rdma_get_write_chunklist (char **ptr, rdma_write_array_t **write_ary)
 
         to = GF_CALLOC (1, size, gf_common_mt_char);
         if (to == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 ret = -1;
                 goto out;
         }
@@ -2709,14 +2707,12 @@ rdma_decode_error_msg (rdma_peer_t *peer, rdma_post_t *post,
 
         iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
         if (iobuf == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 ret = -1;
                 goto out;
         }
 
         post->ctx.iobref = iobref = iobref_new ();
         if (iobref == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 ret = -1;
                 goto out;
         }
@@ -2817,7 +2813,6 @@ rdma_decode_msg (rdma_peer_t *peer, rdma_post_t *post,
         if (header->rm_type != RDMA_NOMSG) {
                 post->ctx.hdr_iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
                 if (post->ctx.hdr_iobuf == NULL) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         ret = -1;
                         goto out;
                 }
@@ -2969,7 +2964,6 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
 
         iobuf = iobuf_get (peer->trans->ctx->iobuf_pool);
         if (iobuf == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -2977,7 +2971,6 @@ rdma_do_reads (rdma_peer_t *peer, rdma_post_t *post, rdma_read_chunk_t *readch)
                 post->ctx.iobref = iobref_new ();
                 if (post->ctx.iobref == NULL) {
                         iobuf_unref (iobuf);
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         goto out;
                 }
         }
@@ -3045,7 +3038,6 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
         if (post->ctx.iobref == NULL) {
                 post->ctx.iobref = iobref_new ();
                 if (post->ctx.iobref == NULL) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         goto out;
                 }
 
@@ -3064,7 +3056,6 @@ rdma_pollin_notify (rdma_peer_t *peer, rdma_post_t *post)
                                              post->ctx.iobref,
                                              post->ctx.reply_info);
         if (pollin == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -3699,7 +3690,6 @@ rdma_get_device (rpc_transport_t *this,
                 trav = GF_CALLOC (1, sizeof (*trav),
                                   gf_common_mt_rdma_device_t);
                 if (trav == NULL) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         return NULL;
                 }
 
@@ -3723,21 +3713,18 @@ rdma_get_device (rpc_transport_t *this,
                 trav->request_ctx_pool = mem_pool_new (rdma_request_context_t,
                                                        RDMA_POOL_SIZE);
                 if (trav->request_ctx_pool == NULL) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         return NULL;
                 }
 
                 trav->ioq_pool = mem_pool_new (rdma_ioq_t, RDMA_POOL_SIZE);
                 if (trav->ioq_pool == NULL) {
                         mem_pool_destroy (trav->request_ctx_pool);
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         return NULL;
                 }
 
                 trav->reply_info_pool = mem_pool_new (rdma_reply_info_t,
                                                       RDMA_POOL_SIZE);
                 if (trav->reply_info_pool == NULL) {
-                        gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                         mem_pool_destroy (trav->request_ctx_pool);
                         mem_pool_destroy (trav->ioq_pool);
                         return NULL;
@@ -4646,7 +4633,6 @@ rdma_server_event_handler (int fd, int idx, void *data,
         this = GF_CALLOC (1, sizeof (rpc_transport_t),
                           gf_common_mt_rpc_transport_t);
         if (this == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 return -1;
         }
 
@@ -4655,7 +4641,6 @@ rdma_server_event_handler (int fd, int idx, void *data,
         priv = GF_CALLOC (1, sizeof (rdma_private_t),
                           gf_common_mt_rdma_private_t);
         if (priv == NULL) {
-                gf_log (RDMA_LOG_NAME, GF_LOG_ERROR, "out of memory");
                 GF_FREE (priv);
                 return -1;
         }
