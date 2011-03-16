@@ -53,15 +53,11 @@ allocate_domain (const char *volume)
         dom = GF_CALLOC (1, sizeof (*dom),
                          gf_locks_mt_pl_dom_list_t);
         if (!dom)
-                return NULL;
-
+                goto out;
 
         dom->domain = gf_strdup(volume);
-        if (!dom->domain) {
-                gf_log ("posix-locks", GF_LOG_TRACE,
-                        "Out of Memory");
-                return NULL;
-        }
+        if (!dom->domain)
+                goto out;
 
         gf_log ("posix-locks", GF_LOG_TRACE,
                 "New domain allocated: %s", dom->domain);
@@ -71,6 +67,12 @@ allocate_domain (const char *volume)
         INIT_LIST_HEAD (&dom->blocked_entrylks);
         INIT_LIST_HEAD (&dom->inodelk_list);
         INIT_LIST_HEAD (&dom->blocked_inodelks);
+
+out:
+        if (dom && (NULL == dom->domain)) {
+                GF_FREE (dom);
+                dom = NULL;
+        }
 
         return dom;
 }
@@ -83,6 +85,9 @@ get_domain (pl_inode_t *pl_inode, const char *volume)
 {
         pl_dom_list_t *dom = NULL;
 
+        GF_VALIDATE_OR_GOTO (POSIX_LOCKS, pl_inode, out);
+        GF_VALIDATE_OR_GOTO (POSIX_LOCKS, volume, out);
+
         list_for_each_entry (dom, &pl_inode->dom_list, inode_list) {
                 if (strcmp (dom->domain, volume) == 0)
                         goto found;
@@ -90,12 +95,16 @@ get_domain (pl_inode_t *pl_inode, const char *volume)
 
         }
 
-        dom = allocate_domain(volume);
-
+        dom = allocate_domain (volume);
         if (dom)
                 list_add (&dom->inode_list, &pl_inode->dom_list);
 found:
-
+        if (dom) {
+                gf_log (POSIX_LOCKS, GF_LOG_TRACE, "Domain %s found", volume);
+        } else {
+                gf_log (POSIX_LOCKS, GF_LOG_TRACE, "Domain %s not found", volume);
+        }
+out:
         return dom;
 }
 
@@ -419,7 +428,6 @@ pl_inode_get (xlator_t *this, inode_t *inode)
 {
         uint64_t    tmp_pl_inode = 0;
         pl_inode_t *pl_inode = NULL;
-//        mode_t      st_mode = 0;
         int         ret = 0;
 
         ret = inode_ctx_get (inode, this,&tmp_pl_inode);
@@ -430,19 +438,11 @@ pl_inode_get (xlator_t *this, inode_t *inode)
         pl_inode = GF_CALLOC (1, sizeof (*pl_inode),
                               gf_locks_mt_pl_inode_t);
         if (!pl_inode) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 goto out;
         }
 
         gf_log (this->name, GF_LOG_TRACE,
                 "Allocating new pl inode");
-
-/*
-        st_mode  = inode->st_mode;
-        if ((st_mode & S_ISGID) && !(st_mode & S_IXGRP))
-                pl_inode->mandatory = 1;
-*/
 
         pthread_mutex_init (&pl_inode->mutex, NULL);
 
@@ -467,10 +467,14 @@ new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
 {
         posix_lock_t *lock = NULL;
 
+        GF_VALIDATE_OR_GOTO (POSIX_LOCKS, flock, out);
+        GF_VALIDATE_OR_GOTO (POSIX_LOCKS, transport, out);
+        GF_VALIDATE_OR_GOTO (POSIX_LOCKS, fd, out);
+
         lock = GF_CALLOC (1, sizeof (posix_lock_t),
                           gf_locks_mt_posix_lock_t);
         if (!lock) {
-                return NULL;
+                goto out;
         }
 
         lock->fl_start = flock->l_start;
@@ -489,6 +493,7 @@ new_posix_lock (struct gf_flock *flock, void *transport, pid_t client_pid,
 
         INIT_LIST_HEAD (&lock->list);
 
+out:
         return lock;
 }
 
@@ -683,9 +688,8 @@ subtract_locks (posix_lock_t *big, posix_lock_t *small)
                 goto done;
         }
 
-        gf_log ("posix-locks", GF_LOG_ERROR,
-                "Unexpected case in subtract_locks. Please send "
-                "a bug report to gluster-devel@nongnu.org");
+        GF_ASSERT (0);
+        gf_log (POSIX_LOCKS, GF_LOG_ERROR, "Unexpected case in subtract_locks");
 
 out:
         if (v.locks[0]) {
@@ -933,7 +937,7 @@ pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
         posix_lock_t     *tmp = NULL;
         posix_lock_t     *lock = NULL;
 
-        int ret = 0;
+        int ret = -1;
 
         INIT_LIST_HEAD (&granted_list);
 
@@ -946,12 +950,8 @@ pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
         unlock_lock = new_posix_lock (&flock, old_lock->transport,
                                       old_lock->client_pid, old_lock->owner,
                                       old_lock->fd);
-        if (!unlock_lock) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
-                ret = -1;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (this->name, unlock_lock, out);
+        ret = 0;
 
         __insert_and_merge (pl_inode, unlock_lock);
 
@@ -969,7 +969,6 @@ pl_send_prelock_unlock (xlator_t *this, pl_inode_t *pl_inode,
         }
 
 out:
-
         return ret;
 }
 

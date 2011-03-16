@@ -62,11 +62,11 @@ pl_new_fdctx ()
 
         fdctx = GF_CALLOC (1, sizeof (*fdctx),
                            gf_locks_mt_pl_fdctx_t);
-        if (!fdctx)
-                return NULL;
+        GF_VALIDATE_OR_GOTO (POSIX_LOCKS, fdctx, out);
 
         INIT_LIST_HEAD (&fdctx->locks_list);
 
+out:
         return fdctx;
 }
 
@@ -77,9 +77,8 @@ pl_check_n_create_fdctx (xlator_t *this, fd_t *fd)
         uint64_t    tmp   = 0;
         pl_fdctx_t *fdctx = NULL;
 
-        if ((this == NULL) || (fd == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (POSIX_LOCKS, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
         LOCK (&fd->lock);
         {
@@ -87,8 +86,6 @@ pl_check_n_create_fdctx (xlator_t *this, fd_t *fd)
                 if ((ret != 0) || (tmp == 0)) {
                         fdctx = pl_new_fdctx ();
                         if (fdctx == NULL) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto unlock;
                         }
                 }
@@ -107,48 +104,6 @@ unlock:
 out:
         return fdctx;
 }
-
-/*
-static pl_fdctx_t *
-pl_get_fdctx (xlator_t *this, fd_t *fd)
-{
-        int ret = 0;
-        uint64_t tmp = 0;
-
-        ret = fd_ctx_get (fd, this, &tmp);
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Could not get fdctx");
-                goto out;
-        }
-
-        return ((pl_fdctx_t *) (long) tmp);
-
-out:
-        return NULL;
-
-}
-
-static int
-pl_set_fdctx (xlator_t *this, fd_t *fd,
-              pl_fdctx_t *fdctx)
-{
-        int ret = 0;
-
-        ret = fd_ctx_set (fd, this,
-                          (uint64_t) (unsigned long) (fdctx));
-
-        if (ret) {
-                gf_log (this->name, GF_LOG_DEBUG,
-                        "Could not set fdctx");
-                goto out;
-        }
-
-out:
-        return ret;
-
-}
-*/
 
 int
 pl_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
@@ -190,6 +145,8 @@ truncate_allowed (pl_inode_t *pl_inode,
                             && locks_overlap (&region, l)
                             && !same_owner (&region, l)) {
                                 ret = 0;
+                                gf_log (POSIX_LOCKS, GF_LOG_TRACE, "Truncate "
+                                        "allowed");
                                 break;
                         }
                 }
@@ -227,8 +184,6 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         pl_inode = pl_inode_get (this, inode);
         if (!pl_inode) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_ret   = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -260,6 +215,8 @@ truncate_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         return 0;
 
 unwind:
+        gf_log (this->name, GF_LOG_ERROR, "truncate failed with ret: %d, "
+                "error: %s", op_ret, strerror (op_errno));
         if (local->op == TRUNCATE)
                 loc_wipe (&local->loc);
 
@@ -276,11 +233,7 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
 
         local = GF_CALLOC (1, sizeof (struct _truncate_ops),
                            gf_locks_mt_truncate_ops);
-        if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
-                goto unwind;
-        }
+        GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         local->op         = TRUNCATE;
         local->offset     = offset;
@@ -294,6 +247,8 @@ pl_truncate (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
+        gf_log (this->name, GF_LOG_ERROR, "truncate for %s failed with ret: %d, "
+                "error: %s", loc->path, -1, strerror (ENOMEM));
         STACK_UNWIND_STRICT (truncate, frame, -1, ENOMEM, NULL, NULL);
 
         return 0;
@@ -308,11 +263,7 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
 
         local = GF_CALLOC (1, sizeof (struct _truncate_ops),
                            gf_locks_mt_truncate_ops);
-        if (!local) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
-                goto unwind;
-        }
+        GF_VALIDATE_OR_GOTO (this->name, local, unwind);
 
         local->op         = FTRUNCATE;
         local->offset     = offset;
@@ -325,6 +276,8 @@ pl_ftruncate (call_frame_t *frame, xlator_t *this,
         return 0;
 
 unwind:
+        gf_log (this->name, GF_LOG_ERROR, "ftruncate failed with ret: %d, "
+                "error: %s", -1, strerror (ENOMEM));
         STACK_UNWIND_STRICT (ftruncate, frame, -1, ENOMEM, NULL, NULL);
 
         return 0;
@@ -414,8 +367,6 @@ pl_opendir_cbk (call_frame_t *frame,
 
         fdctx = pl_check_n_create_fdctx (this, fd);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 op_ret   = -1;
                 goto unwind;
@@ -512,8 +463,6 @@ pl_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
 
         fdctx = pl_check_n_create_fdctx (this, fd);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 op_ret   = -1;
                 goto unwind;
@@ -552,8 +501,6 @@ pl_create_cbk (call_frame_t *frame, void *cookie,
 
         fdctx = pl_check_n_create_fdctx (this, fd);
         if (!fdctx) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory");
                 op_errno = ENOMEM;
                 op_ret   = -1;
                 goto unwind;
@@ -707,8 +654,6 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                         rw = GF_CALLOC (1, sizeof (*rw),
                                         gf_locks_mt_pl_rw_req_t);
                         if (!rw) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory.");
                                 op_errno = ENOMEM;
                                 op_ret = -1;
                                 goto unlock;
@@ -717,8 +662,6 @@ pl_readv (call_frame_t *frame, xlator_t *this,
                         rw->stub = fop_readv_stub (frame, pl_readv_cont,
                                                    fd, size, offset);
                         if (!rw->stub) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory.");
                                 op_errno = ENOMEM;
                                 op_ret = -1;
                                 GF_FREE (rw);
@@ -805,8 +748,6 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                         rw = GF_CALLOC (1, sizeof (*rw),
                                         gf_locks_mt_pl_rw_req_t);
                         if (!rw) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory.");
                                 op_errno = ENOMEM;
                                 op_ret = -1;
                                 goto unlock;
@@ -816,8 +757,6 @@ pl_writev (call_frame_t *frame, xlator_t *this, fd_t *fd,
                                                     fd, vector, count, offset,
                                                     iobref);
                         if (!rw->stub) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory.");
                                 op_errno = ENOMEM;
                                 op_ret = -1;
                                 GF_FREE (rw);
@@ -883,8 +822,6 @@ __dup_locks_to_fdctx (pl_inode_t *pl_inode, fd_t *fd,
                 if ((l->fd_num == fd_to_fdnum(fd))) {
                         duplock = lock_dup (l);
                         if (!duplock) {
-                                gf_log (THIS->name, GF_LOG_DEBUG,
-                                        "Out of memory");
                                 ret = -1;
                                 break;
                         }
@@ -1000,8 +937,6 @@ pl_getlk_fd (xlator_t *this, pl_inode_t *pl_inode,
 
                         ret = __copy_locks_to_fdctx (pl_inode, fd, fdctx);
                         if (ret) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "Out of memory");
                                 goto unlock;
                         }
 
@@ -1052,8 +987,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
 
         pl_inode = pl_inode_get (this, fd->inode);
         if (!pl_inode) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1063,8 +996,6 @@ pl_lk (call_frame_t *frame, xlator_t *this,
                                   owner, fd);
 
         if (!reqlock) {
-                gf_log (this->name, GF_LOG_ERROR,
-                        "Out of memory.");
                 op_ret = -1;
                 op_errno = ENOMEM;
                 goto unwind;
@@ -1495,9 +1426,7 @@ pl_lookup_cbk (call_frame_t *frame,
 {
         pl_local_t *local = NULL;
 
-        if (!frame->local) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (this->name, frame->local, out);
 
         if (op_ret) {
                 goto out;
@@ -1545,19 +1474,16 @@ pl_lookup (call_frame_t *frame,
         VALIDATE_OR_GOTO (loc, out);
 
         local = GF_CALLOC (1, sizeof (*local), gf_locks_mt_pl_local_t);
-        if (!local) {
-                ret = -1;
-                gf_log (this->name, GF_LOG_ERROR,
-                        " Out of memory");
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO (this->name, local, out);
 
-        if (dict_get (xattr_req, GLUSTERFS_ENTRYLK_COUNT))
-                local->entrylk_count_req = 1;
-        if (dict_get (xattr_req, GLUSTERFS_INODELK_COUNT))
-                local->inodelk_count_req = 1;
-        if (dict_get (xattr_req, GLUSTERFS_POSIXLK_COUNT))
-                local->posixlk_count_req = 1;
+        if (xattr_req) {
+                if (dict_get (xattr_req, GLUSTERFS_ENTRYLK_COUNT))
+                        local->entrylk_count_req = 1;
+                if (dict_get (xattr_req, GLUSTERFS_INODELK_COUNT))
+                        local->inodelk_count_req = 1;
+                if (dict_get (xattr_req, GLUSTERFS_POSIXLK_COUNT))
+                        local->posixlk_count_req = 1;
+        }
 
         frame->local = local;
 
@@ -1778,18 +1704,19 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
 
         int count      = 0;
 
-        if (!inode)
-                return -1;
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
         ret = inode_ctx_get (inode, this, &tmp_pl_inode);
 
         if (ret != 0)
-                return ret;
+                goto out;
 
         pl_inode = (pl_inode_t *)(long)tmp_pl_inode;
 
-        if (!pl_inode)
-                return -1;
+        if (!pl_inode) {
+                ret = -1;
+                goto out;
+        }
 
         gf_proc_dump_build_key(key,
                                "xlator.feature.locks.inode",
@@ -1822,7 +1749,8 @@ pl_dump_inode_priv (xlator_t *this, inode_t *inode)
                 dump_posixlks(pl_inode);
 
 
-        return 0;
+out:
+        return ret;
 }
 
 
