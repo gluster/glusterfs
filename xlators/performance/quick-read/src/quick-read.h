@@ -108,11 +108,11 @@ typedef struct qr_private qr_private_t;
 
 void qr_local_free (qr_local_t *local);
 
-#define QR_STACK_UNWIND(op, frame, params ...) do { \
-        qr_local_t *__local = frame->local;         \
-        frame->local = NULL;                        \
-        STACK_UNWIND_STRICT (op, frame, params);    \
-        qr_local_free (__local);                    \
-} while (0)
+#define QR_STACK_UNWIND(op, frame, params ...) do {             \
+                qr_local_t *__local = frame->local;             \
+                frame->local = NULL;                            \
+                STACK_UNWIND_STRICT (op, frame, params);        \
+                qr_local_free (__local);                        \
+        } while (0)
 
 #endif /* #ifndef __QUICK_READ_H */
