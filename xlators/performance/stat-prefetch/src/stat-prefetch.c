@@ -35,22 +35,21 @@ sp_inode_ctx_free (xlator_t *this, sp_inode_ctx_t *ctx)
 {
         call_stub_t *stub = NULL, *tmp = NULL;
 
-        if (ctx == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, ctx, out);
 
         LOCK (&ctx->lock);
         {
                 if (!list_empty (&ctx->waiting_ops)) {
-                        gf_log (this->name, GF_LOG_CRITICAL, "inode ctx is "
+                        gf_log (this->name, GF_LOG_WARNING, "inode ctx is "
                                 "being freed even when there are file "
                                 "operations waiting for lookup-behind to "
                                 "complete. The operations in the waiting list "
                                 "are:");
                         list_for_each_entry_safe (stub, tmp, &ctx->waiting_ops,
                                                   list) {
-                                gf_log (this->name, GF_LOG_CRITICAL,
-                                        "OP (%d)", stub->fop);
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "OP (%s)", gf_fop_list[stub->fop]);
 
                                 list_del_init (&stub->list);
                                 call_stub_destroy (stub);
@@ -91,9 +90,12 @@ sp_update_inode_ctx (xlator_t *this, inode_t *inode, int32_t *op_ret,
                      char *looked_up, struct iatt *stbuf,
                      struct list_head *waiting_ops, int32_t *error)
 {
-        int32_t         ret       = 0;
+        int32_t         ret       = -1;
         sp_inode_ctx_t *inode_ctx = NULL;
         uint64_t        value     = 0;
+
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
         ret = inode_ctx_get (inode, this, &value);
         if (ret == 0) {
@@ -106,6 +108,10 @@ sp_update_inode_ctx (xlator_t *this, inode_t *inode, int32_t *op_ret,
                         *error = EINVAL;
                 }
 
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", inode->ino,
+                        uuid_utoa (inode->gfid));
                 goto out;
         }
 
@@ -129,16 +135,16 @@ sp_update_inode_ctx (xlator_t *this, inode_t *inode, int32_t *op_ret,
 
                 if ((op_ret != NULL ) && (*op_ret == 0) && (stbuf != NULL)
                     && IA_ISDIR (stbuf->ia_type)) {
-                        memcpy (&inode_ctx->stbuf, stbuf,
-                                sizeof (*stbuf));
+                        memcpy (&inode_ctx->stbuf, stbuf, sizeof (*stbuf));
                 }
 
                 if (waiting_ops != NULL) {
-                        list_splice_init (&inode_ctx->waiting_ops,
-                                          waiting_ops);
+                        list_splice_init (&inode_ctx->waiting_ops, waiting_ops);
                 }
         }
         UNLOCK (&inode_ctx->lock);
+
+        ret = 0;
 
 out:
         return ret;
@@ -147,30 +153,39 @@ out:
 
 sp_inode_ctx_t *
 sp_check_and_create_inode_ctx (xlator_t *this, inode_t *inode,
-                               sp_expect_t expect, glusterfs_fop_t caller)
+                               sp_expect_t expect)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
         int32_t         ret       = 0;
 
-        if ((this == NULL) || (inode == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
         LOCK (&inode->lock);
         {
                 ret = __inode_ctx_get (inode, this, &value);
                 if (ret == 0) {
-                        if (expect == SP_DONT_EXPECT) {
-                                gf_log (this->name, GF_LOG_DEBUG, "inode_ctx "
-                                        "is not NULL (caller %d)", caller);
-                        }
-
                         inode_ctx = (sp_inode_ctx_t *)(long)value;
+
+                        if ((expect == SP_DONT_EXPECT) && (inode_ctx != NULL)) {
+                                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                                  "stat-prefetch context is "
+                                                  "present in inode "
+                                                  "(ino:%"PRId64" gfid:%s) "
+                                                  "when it is supposed to be "
+                                                  "not present", inode->ino,
+                                                  uuid_utoa (inode->gfid));
+                        }
                 } else {
                         if (expect == SP_EXPECT) {
-                                gf_log (this->name, GF_LOG_DEBUG, "inode_ctx is"
-                                        " NULL (caller %d)", caller);
+                                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                                  "stat-prefetch context is "
+                                                  "not present in inode "
+                                                  "(ino:%"PRId64" gfid:%s)"
+                                                  " when it is supposed to be "
+                                                  "present", inode->ino,
+                                                  uuid_utoa (inode->gfid));
                         }
 
                         inode_ctx = sp_inode_ctx_init ();
@@ -237,9 +252,9 @@ out:
 int32_t
 sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
                       call_stub_t *stub, char *need_unwind, char *need_lookup,
-                      char *can_wind, int32_t *error, glusterfs_fop_t caller)
+                      char *can_wind, int32_t *error)
 {
-        int32_t         ret          = -1, op_errno = -1;
+        int32_t         ret          = -1, op_errno = EINVAL;
         sp_local_t     *local        = NULL;
         sp_inode_ctx_t *inode_ctx    = NULL;
         uint64_t        value        = 0;
@@ -248,17 +263,22 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 *need_unwind = 1;
         }
 
-        if ((this == NULL) || (loc == NULL) || (loc->inode == NULL)
-            || (need_unwind == NULL) || (need_lookup == NULL)
-            || (can_wind == NULL)) {
-                op_errno = EINVAL;
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", frame, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc->inode, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, need_unwind, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, need_lookup, out);
+        GF_VALIDATE_OR_GOTO (frame->this->name, can_wind, out);
 
-        ret = inode_ctx_get (loc->inode, this, &value);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p) (caller %d)", loc->inode, caller);
+        inode_ctx_get (loc->inode, this, &value);
+
+        inode_ctx = (sp_inode_ctx_t *)(long) value;
+        if (inode_ctx == NULL) {
+                gf_log_callingfn (this->name, GF_LOG_WARNING,
+                                  "stat-prefetch context not set in inode "
+                                  "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                                  uuid_utoa (loc->inode->gfid));
                 *can_wind = 1;
                 *need_unwind = 0;
                 op_errno = 0;
@@ -266,27 +286,24 @@ sp_process_inode_ctx (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 goto out;
         }
 
-        inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, out, op_errno,
-                                        EINVAL);
-
         LOCK (&inode_ctx->lock);
         {
                 if (!(inode_ctx->looked_up || inode_ctx->lookup_in_progress)) {
                         if (frame->local == NULL) {
                                 local = GF_CALLOC (1, sizeof (*local),
                                                    gf_sp_mt_sp_local_t);
-                                GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
-                                                                local, unlock,
-                                                                op_errno,
-                                                                ENOMEM);
+                                if (local == NULL) {
+                                        op_errno = ENOMEM;
+                                        goto unlock;
+                                }
 
                                 frame->local = local;
 
                                 ret = loc_copy (&local->loc, loc);
                                 if (ret == -1) {
                                         op_errno = errno;
-                                        gf_log (this->name, GF_LOG_ERROR, "%s",
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "loc_copy failed (%s)",
                                                 strerror (op_errno));
                                         goto unlock;
                                 }
@@ -328,19 +345,18 @@ sp_hashfn (void *data, int len)
         return gf_dm_hashfn ((const char *)data, len);
 }
 
+
 sp_cache_t *
 sp_cache_init (xlator_t *this)
 {
         sp_cache_t      *cache = NULL;
         sp_private_t    *priv  = NULL;
 
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+
         priv = this->private;
-
-        if (!priv)
-                goto out;
-
-        if (!priv->mem_pool)
-                goto out;
+        GF_VALIDATE_OR_GOTO (this->name, priv, out);
+        GF_VALIDATE_OR_GOTO (this->name, priv->mem_pool, out);
 
         cache = GF_CALLOC (1, sizeof (*cache), gf_sp_mt_sp_cache_t);
         if (cache) {
@@ -349,6 +365,9 @@ sp_cache_init (xlator_t *this)
                                             sp_hashfn, __gf_free,
                                             0, priv->mem_pool);
                 if (cache->table == NULL) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot init a new rbthash table to hold "
+                                "cache");
                         GF_FREE (cache);
                         cache = NULL;
                         goto out;
@@ -382,17 +401,18 @@ sp_cache_remove_entry (sp_cache_t *cache, char *name, char remove_all)
         sp_private_t    *priv  = NULL;
         void            *data  = NULL;
 
-        if ((cache == NULL) || ((name == NULL) && !remove_all)) {
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", cache, out);
+        if ((name == NULL) && !remove_all) {
+                gf_log ((cache->this ? cache->this->name : "stat-prefetch"),
+                        GF_LOG_WARNING,
+                        "request to remove a single entry from cache and is no "
+                        "name passed to identify it");
                 goto out;
         }
 
         this = cache->this;
-
-        if (this == NULL)
-                goto out;
-
-        if (this->private == NULL)
-                goto out;
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
 
         priv = this->private;
 
@@ -443,9 +463,10 @@ sp_cache_get_entry (sp_cache_t *cache, char *name, gf_dirent_t **entry)
         int32_t      ret = -1;
         gf_dirent_t *tmp = NULL, *new = NULL;
 
-        if ((cache == NULL) || (name == NULL) || (entry == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", cache, out);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", cache->this, out);
+        GF_VALIDATE_OR_GOTO (cache->this->name, name, out);
+        GF_VALIDATE_OR_GOTO (cache->this->name, entry, out);
 
         LOCK (&cache->lock);
         {
@@ -453,6 +474,9 @@ sp_cache_get_entry (sp_cache_t *cache, char *name, gf_dirent_t **entry)
                 if (tmp != NULL) {
                         new = gf_dirent_for_name (tmp->d_name);
                         if (new == NULL) {
+                                gf_log (cache->this->name, GF_LOG_WARNING,
+                                        "cannot create a new dentry to copy "
+                                        "from cache");
                                 goto unlock;
                         }
 
@@ -509,9 +533,8 @@ sp_get_cache_fd (xlator_t *this, fd_t *fd)
 {
         sp_cache_t  *cache     = NULL;
 
-        if (fd == NULL) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
 
         LOCK (&fd->lock);
         {
@@ -572,7 +595,6 @@ sp_fd_ctx_new (xlator_t *this, inode_t *parent, char *name, sp_cache_t *cache)
 
         fd_ctx = sp_fd_ctx_init ();
         if (fd_ctx == NULL) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -646,6 +668,7 @@ out:
         return cache;
 }
 
+
 fd_t *
 _fd_ref (fd_t *fd);
 
@@ -668,9 +691,8 @@ sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode,
 
         INIT_LIST_HEAD (&head);
 
-        if ((this == NULL) || (inode == NULL)) {
-                goto out;
-        }
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
 
         remove_all = (name == NULL);
 
@@ -680,8 +702,6 @@ sp_remove_caches_from_all_fds_opened (xlator_t *this, inode_t *inode,
                         wrapper = GF_CALLOC (1, sizeof (*wrapper),
                                              gf_sp_mt_fd_wrapper_t);
                         if (wrapper == NULL) {
-                                gf_log (this->name, GF_LOG_ERROR,
-                                        "out of memory");
                                 goto unlock;
                         }
 
@@ -724,13 +744,17 @@ __sp_put_cache (xlator_t *this, fd_t *fd, sp_cache_t *cache)
         } else {
                 fd_ctx = sp_fd_ctx_init ();
                 if (fd_ctx == NULL) {
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
                         ret = -1;
                         goto out;
                 }
 
                 ret = __fd_ctx_set (fd, this, (long)(void *)fd_ctx);
                 if (ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "cannot set stat-prefetch context in fd (%p) "
+                                "opened on inode (ino:%"PRId64" gfid:%s)",
+                                fd, fd->inode->ino,
+                                uuid_utoa (fd->inode->gfid));
                         sp_fd_ctx_free (fd_ctx);
                         goto out;
                 }
@@ -773,6 +797,8 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
         xlator_t     *this           = NULL;
         sp_private_t *priv           = NULL;
 
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", cache, out);
+
         this = cache->this;
         if (this && this->private) {
                 priv = this->private;
@@ -790,6 +816,9 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
 
                         new = gf_dirent_for_name (entry->d_name);
                         if (new == NULL) {
+                                gf_log (cache->this->name, GF_LOG_WARNING,
+                                        "cannot create a new dentry to store "
+                                        "in cache");
                                 goto unlock;
                         }
 
@@ -802,6 +831,10 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
                         ret = rbthash_insert (cache->table, new, new->d_name,
                                               strlen (new->d_name));
                         if (ret == -1) {
+                                gf_log (this->name, GF_LOG_WARNING, "cannot "
+                                        "insert dentry (name:%s) into cache",
+                                        new->d_name);
+
                                 GF_FREE (new);
                                 continue;
                         }
@@ -823,6 +856,7 @@ sp_cache_add_entries (sp_cache_t *cache, gf_dirent_t *entries)
 unlock:
         UNLOCK (&cache->lock);
 
+out:
         return ret;
 }
 
@@ -838,17 +872,28 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int                  need_unwind = 0;
         char                 looked_up   = 0, lookup_in_progress = 0;
 
+        GF_ASSERT (frame);
+
         INIT_LIST_HEAD (&waiting_ops);
 
         local = frame->local;
         if (local == NULL) {
                 op_ret = -1;
                 op_errno = EINVAL;
-                gf_log (this->name, GF_LOG_DEBUG, "local is NULL, but it is "
+                gf_log (this->name, GF_LOG_WARNING, "local is NULL, but it is "
                         "needed to find and resume operations waiting on "
                         "lookup");
                 goto out;
         }
+
+        if (this == NULL) {
+                op_ret = -1;
+                op_errno = EINVAL;
+                gf_log (frame->this ? frame->this->name : "stat-prefetch",
+                        GF_LOG_WARNING, "xlator object (this) is NULL");
+                goto out;
+        }
+
         if (op_ret == -1) {
                 sp_remove_caches_from_all_fds_opened (this, local->loc.parent,
                                                       (char *)local->loc.name);
@@ -867,7 +912,6 @@ sp_lookup_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 list_del_init (&stub->list);
                 call_resume (stub);
         }
-
 
 out:
         if (need_unwind) {
@@ -897,6 +941,7 @@ sp_get_ancestors (char *path, char **parent, char **grand_parent)
 
                 cpy = gf_strdup (path);
                 if (cpy == NULL) {
+                        ret = -errno;
                         goto out;
                 }
 
@@ -927,8 +972,7 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this,
         int32_t     ret       = -1;
 
         ret = sp_get_ancestors (path, &parent, &grand_parent);
-        if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+        if (ret < 0) {
                 goto out;
         }
 
@@ -937,8 +981,8 @@ sp_cache_remove_parent_entry (call_frame_t *frame, xlator_t *this,
                 if (inode_gp) {
                         cpy = gf_strdup (parent);
                         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name,
-                                                        cpy, out, errno,
-                                                        ENOMEM);
+                                                        cpy, out, ret,
+                                                        -ENOMEM);
                         path = basename (cpy);
                         sp_remove_caches_from_all_fds_opened (this, inode_gp,
                                                               path);
@@ -982,14 +1026,16 @@ sp_lookup_helper (call_frame_t *frame,xlator_t *this, loc_t *loc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
         call_stub_t    *stub      = NULL;
         char            can_wind  = 0;
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
         }
@@ -998,8 +1044,7 @@ sp_lookup_helper (call_frame_t *frame,xlator_t *this, loc_t *loc,
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
                                         EINVAL);
 
-        stub = fop_lookup_stub (frame, sp_lookup_helper, loc,
-                                xattr_req);
+        stub = fop_lookup_stub (frame, sp_lookup_helper, loc, xattr_req);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, stub, unwind,
                                         op_errno, ENOMEM);
 
@@ -1064,14 +1109,19 @@ sp_lookup (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         sp_local_t     *local           = NULL;
         call_stub_t    *stub            = NULL;
 
-        if (loc == NULL || loc->inode == NULL) {
-                goto unwind;
-        }
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc->inode, unwind);
 
         inode_ctx = sp_check_and_create_inode_ctx (this, loc->inode,
-                                                   SP_DONT_CARE, GF_FOP_LOOKUP);
+                                                   SP_DONT_CARE);
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot create stat-prefetch context in inode (ino:%"
+                        PRId64", gfid:%s)(%s)", loc->inode->ino,
+                        loc->inode->gfid, strerror (op_errno));
                 goto unwind;
         }
 
@@ -1149,8 +1199,8 @@ wind:
                 ret = loc_copy (&local->loc, loc);
                 if (ret == -1) {
                         op_errno = errno;
-                        gf_log (this->name, GF_LOG_ERROR, "%s",
-                                strerror (op_errno));
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "loc_copy failed (%s)", strerror (op_errno));
                         goto unwind;
                 }
 
@@ -1201,16 +1251,26 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         char             was_present = 1;
         sp_private_t    *priv        = NULL;
 
+        GF_ASSERT (frame);
         if (op_ret == -1) {
                 goto out;
         }
 
-        if (!this->private) {
+        if ((this == NULL) || (this->private == NULL)) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        (this == NULL) ? "xlator object (this) is NULL"
+                        : "stat-prefetch configuration (this->private) is "
+                        "NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
                 goto out;
         }
 
         local = frame->local;
         if (local == NULL) {
+                gf_log (frame->this->name, GF_LOG_WARNING, "local is NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
                 goto out;
         }
 
@@ -1236,12 +1296,23 @@ sp_readdir_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                         was_present = 0;
                         cache = sp_cache_init (this);
                         if (cache == NULL) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "creation of stat-prefetch cache "
+                                        "for fd (%p) opened on inode "
+                                        "(ino:%"PRId64", gfid:%s) failed", fd,
+                                        fd->inode->ino,
+                                        uuid_utoa (fd->inode->gfid));
                                 goto unlock;
                         }
 
                         ret = __sp_put_cache (this, fd, cache);
                         if (ret == -1) {
                                 sp_cache_free (cache);
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "cannot store cache in fd (%p) opened "
+                                        "on inode (ino:%"PRId64", gfid:%s)", fd,
+                                        fd->inode->ino,
+                                        uuid_utoa (fd->inode->gfid));
                                 goto unlock;
                         }
                 }
@@ -1271,7 +1342,11 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         sp_cache_t *cache    = NULL;
         sp_local_t *local    = NULL;
         char       *path     = NULL;
-        int32_t     ret      = -1;
+        int32_t     ret      = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
 
         cache = sp_get_cache_fd (this, fd);
         if (cache) {
@@ -1283,19 +1358,27 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
         ret = inode_path (fd->inode, NULL, &path);
-        if (ret == -1) {
+        if (ret < 0) {
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_WARNING, "cannot construct path on "
+                        "which fd (%p) is opened (fd.inode.ino = %"PRId64", "
+                        "fd.inode.gfid = %s) (%s)", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid), strerror (op_errno));
                 goto unwind;
         }
 
         ret = sp_cache_remove_parent_entry (frame, this, fd->inode->table,
                                             path);
 
-        GF_FREE (path);
-
         if (ret < 0) {
-                errno = -ret;
+                op_errno = -ret;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache"
+                        " for path %s", path);
                 goto unwind;
         }
+
+        GF_FREE (path);
 
         local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         if (local) {
@@ -1309,7 +1392,11 @@ sp_readdir (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (readdir, frame, -1, errno, NULL);
+        if (path != NULL) {
+                GF_FREE (path);
+        }
+
+        SP_STACK_UNWIND (readdir, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -1319,6 +1406,8 @@ sp_truncate_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf)
 {
+        GF_ASSERT (frame);
+
         SP_STACK_UNWIND (truncate, frame, op_ret, op_errno, prebuf, postbuf);
         return 0;
 }
@@ -1331,6 +1420,7 @@ sp_rename_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *preoldparent, struct iatt *postoldparent,
                struct iatt *prenewparent, struct iatt *postnewparent)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (rename, frame, op_ret, op_errno, buf, preoldparent,
                          postoldparent, prenewparent, postnewparent);
         return 0;
@@ -1344,21 +1434,49 @@ sp_fd_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         sp_local_t  *local = NULL;
         sp_fd_ctx_t *fd_ctx = NULL;
 
+        GF_ASSERT (frame);
+
         if (op_ret == -1) {
                 goto out;
         }
 
+        if (this == NULL) {
+                gf_log (frame->this ? frame->this->name : "stat-prefetch",
+                        GF_LOG_WARNING, "xlator object (this) is NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
         local = frame->local;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
-                                        EINVAL);
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (fd == NULL) {
+                gf_log (this->name, GF_LOG_WARNING, "fd is NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
 
         fd_ctx = sp_fd_ctx_new (this, local->loc.parent,
                                 (char *)local->loc.name, NULL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, op_errno,
-                                        ENOMEM);
+        if (fd_ctx == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
 
         op_ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot set stat-prefetch context in fd (%p) opened on "
+                        "inode (ino:%"PRId64", gfid:%s)", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 sp_fd_ctx_free (fd_ctx);
                 op_errno = ENOMEM;
         }
@@ -1375,12 +1493,18 @@ sp_open_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, unwind);
+        GF_VALIDATE_OR_GOTO (frame->this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
         }
@@ -1399,6 +1523,9 @@ sp_open_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         if ((op_ret == -1) && ((op_errno != ENOENT)
                                || !((op_errno == ENOENT)
                                     && (flags & O_CREAT)))) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding open call waiting on "
+                        "it", loc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -1419,13 +1546,13 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 {
         call_stub_t    *stub         = NULL;
         sp_local_t     *local        = NULL;
-        int32_t         op_errno     = -1, ret = -1;
+        int32_t         op_errno     = EINVAL, ret = -1;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
@@ -1436,7 +1563,8 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "%s", strerror (errno));
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed (%s)",
+                        strerror (op_errno));
                 goto out;
         }
 
@@ -1447,7 +1575,7 @@ sp_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno, GF_FOP_OPEN);
+                              &need_lookup, &can_wind, &op_errno);
 out:
         if (need_unwind) {
                 SP_STACK_UNWIND (open, frame, -1, op_errno, fd);
@@ -1474,32 +1602,66 @@ sp_create_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         sp_fd_ctx_t    *fd_ctx             = NULL;
         char            lookup_in_progress = 0, looked_up = 0;
 
-        if (op_ret < 0) {
+        GF_ASSERT (frame);
+
+        if (op_ret == -1) {
+                goto out;
+        }
+
+        if (this == NULL) {
+                gf_log (frame->this ? frame->this->name : "stat-prefetch",
+                        GF_LOG_WARNING, "xlator object (this) is NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
                 goto out;
         }
 
         local = frame->local;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
-                                        EINVAL);
+        if (local == NULL) {
+                gf_log (this->name, GF_LOG_WARNING, "local is NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
 
         looked_up = 1;
         op_ret = sp_update_inode_ctx (this, local->loc.inode, &op_ret,
                                       &op_errno, &lookup_in_progress,
                                       &looked_up, buf, NULL, &op_errno);
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "updating stat-prefetch context in inode (ino:%"
+                        PRId64", gfid:%s) (path: %s) failed (%s)",
+                        local->loc.inode->ino,
+                        uuid_utoa (local->loc.inode->gfid), local->loc.path,
+                        strerror (op_errno));
                 goto out;
         }
 
-        sp_update_inode_ctx (this, local->loc.parent, NULL, NULL, NULL,
-                             NULL, postparent, NULL, NULL);
+        op_ret = sp_update_inode_ctx (this, local->loc.parent, NULL, NULL, NULL,
+                                      NULL, postparent, NULL, &op_errno);
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "updating stat-prefetch context in parent inode failed "
+                        "for path (%s)(%s)", local->loc.path,
+                        strerror (op_errno));
+                goto out;
+        }
 
         fd_ctx = sp_fd_ctx_new (this, local->loc.parent,
                                 (char *)local->loc.name, NULL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, fd_ctx, out, op_errno,
-                                        ENOMEM);
+        if (fd_ctx == NULL) {
+                op_ret = -1;
+                op_errno = ENOMEM;
+                goto out;
+        }
 
         op_ret = fd_ctx_set (fd, this, (long)(void *)fd_ctx);
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot set stat-prefetch context in fd (%p) opened on "
+                        "inode (ino:%"PRId64", gfid:%s)", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 sp_fd_ctx_free (fd_ctx);
                 op_errno = ENOMEM;
         }
@@ -1533,7 +1695,6 @@ sp_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                                             (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1546,14 +1707,19 @@ sp_create (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
                 op_errno = errno;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "loc_copy failed (%s)", strerror (op_errno));
                 goto out;
         }
 
         inode_ctx = sp_check_and_create_inode_ctx (this, loc->inode,
-                                                   SP_DONT_EXPECT,
-                                                   GF_FOP_CREATE);
+                                                   SP_DONT_EXPECT);
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot create stat-prefetch context in inode (ino:%"
+                        PRId64", gfid:%s)(%s)", loc->inode->ino,
+                        loc->inode->gfid, strerror (op_errno));
                 goto out;
         }
 
@@ -1576,19 +1742,24 @@ sp_opendir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -1598,6 +1769,9 @@ sp_opendir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding opendir call waiting "
+                        "on it", loc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -1617,13 +1791,14 @@ sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
 {
         sp_local_t     *local        = NULL;
         call_stub_t    *stub         = NULL;
-        int32_t         op_errno     = -1, ret = -1;
+        int32_t         op_errno     = EINVAL, ret = -1;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         local = GF_CALLOC (1, sizeof (*local), gf_sp_mt_sp_local_t);
         GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, local, out, op_errno,
@@ -1634,19 +1809,19 @@ sp_opendir (call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd)
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
                 op_errno = errno;
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed (%s)",
+                        strerror (op_errno));
                 goto out;
         }
 
         stub = fop_opendir_stub (frame, sp_opendir_helper, loc, fd);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_OPENDIR);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -1672,12 +1847,24 @@ sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         sp_local_t *local              = NULL;
         char        lookup_in_progress = 0, looked_up = 0;
 
+        GF_ASSERT (frame);
+
         if (op_ret == -1) {
                 goto out;
         }
 
         local = frame->local;
         if (local == NULL) {
+                gf_log (frame->this->name, GF_LOG_WARNING, "local is NULL");
+                op_ret = -1;
+                op_errno = EINVAL;
+                goto out;
+        }
+
+        if (this == NULL) {
+                gf_log (frame->this->name, GF_LOG_WARNING,
+                        "xlator object (this) is NULL");
+                op_ret = -1;
                 op_errno = EINVAL;
                 goto out;
         }
@@ -1687,11 +1874,23 @@ sp_new_entry_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                                       &op_errno, &lookup_in_progress,
                                       &looked_up, buf, NULL, &op_errno);
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "updating stat-prefetch context in inode (ino:%"
+                        PRId64", gfid:%s) (path: %s) failed (%s)",
+                        local->loc.inode->ino,
+                        uuid_utoa (local->loc.inode->gfid), local->loc.path,
+                        strerror (op_errno));
                 goto out;
         }
 
-        sp_update_inode_ctx (this, local->loc.parent, NULL, NULL, NULL,
-                             NULL, postparent, NULL, NULL);
+        op_ret = sp_update_inode_ctx (this, local->loc.parent, NULL, NULL, NULL,
+                                      NULL, postparent, NULL, &op_errno);
+        if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "updating stat-prefetch context in parent inode failed "
+                        "for path (%s)(%s)", local->loc.path,
+                        strerror (op_errno));
+        }
 
 out:
         SP_STACK_UNWIND (mkdir, frame, op_ret, op_errno, inode, buf, preparent,
@@ -1704,25 +1903,25 @@ int
 sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           dict_t *params)
 {
-        int32_t         ret          = -1, op_errno = -1;
+        int32_t         ret          = -1, op_errno = EINVAL;
         char            need_unwind  = 1;
         sp_inode_ctx_t *inode_ctx    = NULL;
         sp_local_t     *local        = NULL;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this->name, this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
                                             (char *)loc->path);
         if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", loc->path);
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1735,15 +1934,19 @@ sp_mkdir (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed (%s)",
+                        strerror (op_errno));
                 goto out;
         }
 
         inode_ctx = sp_check_and_create_inode_ctx (this, loc->inode,
-                                                   SP_DONT_EXPECT,
-                                                   GF_FOP_MKDIR);
+                                                   SP_DONT_EXPECT);
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot create stat-prefetch context in inode (ino:%"
+                        PRId64", gfid:%s)(%s)", loc->inode->ino,
+                        loc->inode->gfid, strerror (op_errno));
                 goto out;
         }
 
@@ -1765,25 +1968,26 @@ int
 sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
           dev_t rdev, dict_t *params)
 {
-        int32_t         op_errno     = -1, ret = -1;
+        int32_t         op_errno     = EINVAL, ret = -1;
         char            need_unwind  = 1;
         sp_inode_ctx_t *inode_ctx    = NULL;
         sp_local_t     *local        = NULL;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
                                             (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", loc->path);
                 goto out;
         }
 
@@ -1796,15 +2000,19 @@ sp_mknod (call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed (%s)",
+                        strerror (op_errno));
                 goto out;
         }
 
         inode_ctx = sp_check_and_create_inode_ctx (this, loc->inode,
-                                                   SP_DONT_EXPECT,
-                                                   GF_FOP_MKNOD);
+                                                   SP_DONT_EXPECT);
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot create stat-prefetch context in inode (ino:%"
+                        PRId64", gfid:%s)(%s)", loc->inode->ino,
+                        loc->inode->gfid, strerror (op_errno));
                 goto out;
         }
 
@@ -1827,24 +2035,28 @@ int
 sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
             loc_t *loc, dict_t *params)
 {
-        int32_t         ret          = -1, op_errno = -1;
+        int32_t         ret          = -1, op_errno = EINVAL;
         char            need_unwind  = 1;
         sp_inode_ctx_t *inode_ctx    = NULL;
         sp_local_t     *local        = NULL;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out, op_errno,
-                                        EINVAL);
+        GF_ASSERT (frame);
+
+        GF_VALIDATE_OR_GOTO ((frame->this ? frame->this->name
+                              : "stat-prefetch"),
+                             this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         ret = sp_cache_remove_parent_entry (frame, this, loc->inode->table,
                                             (char *)loc->path);
         if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", loc->path);
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1857,15 +2069,19 @@ sp_symlink (call_frame_t *frame, xlator_t *this, const char *linkpath,
         ret = loc_copy (&local->loc, loc);
         if (ret == -1) {
                 op_errno = errno;
-                gf_log (this->name, GF_LOG_ERROR, "%s", strerror (op_errno));
+                gf_log (this->name, GF_LOG_WARNING, "loc_copy failed (%s)",
+                        strerror (op_errno));
                 goto out;
         }
 
         inode_ctx = sp_check_and_create_inode_ctx (this, loc->inode,
-                                                   SP_DONT_EXPECT,
-                                                   GF_FOP_SYMLINK);
+                                                   SP_DONT_EXPECT);
         if (inode_ctx == NULL) {
                 op_errno = ENOMEM;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot create stat-prefetch context in inode (ino:%"
+                        PRId64", gfid:%s)(%s)", loc->inode->ino,
+                        loc->inode->gfid, strerror (op_errno));
                 goto out;
         }
 
@@ -1890,10 +2106,12 @@ sp_link_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
              struct iatt *buf, struct iatt *preparent,
              struct iatt *postparent)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (link, frame, op_ret, op_errno, inode, buf, preparent,
                          postparent);
         return 0;
 }
+
 
 int32_t
 sp_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
@@ -1901,13 +2119,20 @@ sp_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, newloc, unwind);
 
         ret = inode_ctx_get (oldloc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", oldloc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", oldloc->inode->ino,
+                        uuid_utoa (oldloc->inode->gfid));
                 goto unwind;
         }
 
@@ -1923,6 +2148,9 @@ sp_link_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding link call waiting on "
+                        "it", oldloc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -1941,26 +2169,25 @@ int32_t
 sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
 {
         call_stub_t *stub         = NULL;
-        int32_t      ret          = 0, op_errno = -1;
+        int32_t      ret          = 0, op_errno = EINVAL;
         char         can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, out,
-                                        op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->name, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->inode, out,
-                                        op_errno, EINVAL);
-
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, out);
+        GF_VALIDATE_OR_GOTO (this->name, newloc, out);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->path, out);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->name, out);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->inode, out);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->name, out);
 
         ret = sp_cache_remove_parent_entry (frame, this, newloc->parent->table,
                                             (char *)newloc->path);
         if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", newloc->path);
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
@@ -1970,12 +2197,11 @@ sp_link (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc)
         stub = fop_link_stub (frame, sp_link_helper, oldloc, newloc);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, oldloc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno, GF_FOP_LINK);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -1999,13 +2225,19 @@ sp_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
@@ -2021,6 +2253,9 @@ sp_truncate_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding truncate call "
+                        "waiting on it", loc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -2038,13 +2273,15 @@ unwind:
 int32_t
 sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2052,13 +2289,11 @@ sp_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset)
         stub = fop_truncate_stub (frame, sp_truncate_helper, loc, offset);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_TRUNCATE);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -2080,13 +2315,21 @@ sp_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
-        int32_t      ret    = 0;
+        int32_t      ret    = 0, op_errno = EINVAL;
         inode_t     *parent = NULL;
         char        *name   = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
+
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
-                errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
+                        "set in fd (%p) opened on inode (ino:%"PRId64", "
+                        "gfid:%s", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
 
@@ -2101,7 +2344,7 @@ sp_ftruncate (call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (ftruncate, frame, -1, errno, NULL, NULL);
+        SP_STACK_UNWIND (ftruncate, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2111,6 +2354,7 @@ sp_setattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno,
                 struct iatt *prestat, struct iatt *poststat)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (setattr, frame, op_ret, op_errno, prestat, poststat);
         return 0;
 }
@@ -2122,19 +2366,25 @@ sp_setattr_helper (call_frame_t *frame, xlator_t *this,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 op_errno = EINVAL;
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -2144,6 +2394,9 @@ sp_setattr_helper (call_frame_t *frame, xlator_t *this,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding setattr call "
+                        "waiting on it", loc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -2162,13 +2415,15 @@ int
 sp_setattr (call_frame_t *frame, xlator_t *this,
             loc_t *loc, struct iatt *buf, int32_t valid)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2176,13 +2431,11 @@ sp_setattr (call_frame_t *frame, xlator_t *this,
         stub = fop_setattr_stub (frame, sp_setattr_helper, loc, buf, valid);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_SETATTR);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -2204,6 +2457,7 @@ sp_readlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, const char *path,
                  struct iatt *buf)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (readlink, frame, op_ret, op_errno, path, buf);
         return 0;
 }
@@ -2215,19 +2469,24 @@ sp_readlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -2237,6 +2496,9 @@ sp_readlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding readlink call "
+                        "waiting on it", loc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -2254,13 +2516,14 @@ unwind:
 int32_t
 sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2268,13 +2531,11 @@ sp_readlink (call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size)
         stub = fop_readlink_stub (frame, sp_readlink_helper, loc, size);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_READLINK);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -2296,6 +2557,7 @@ sp_unlink_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                struct iatt *postparent)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (unlink, frame, op_ret, op_errno, preparent,
                          postparent);
         return 0;
@@ -2307,6 +2569,7 @@ int32_t
 sp_err_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
             int32_t op_ret, int32_t op_errno)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (setxattr, frame, op_ret, op_errno);
         return 0;
 }
@@ -2317,19 +2580,23 @@ sp_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -2339,6 +2606,9 @@ sp_unlink_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding unlink call "
+                        "waiting on it", loc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -2356,13 +2626,12 @@ unwind:
 int32_t
 sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
-        int32_t         ret          = -1, op_errno = -1;
+        int32_t         ret          = -1, op_errno = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2371,20 +2640,20 @@ sp_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc)
                                             (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", loc->path);
                 goto out;
         }
 
         stub = fop_unlink_stub (frame, sp_unlink_helper, loc);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_UNLINK);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -2406,19 +2675,23 @@ sp_rmdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -2428,6 +2701,9 @@ sp_rmdir_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "lookup-behind has failed "
+                        "for path (%s)(%s), unwinding rmdir call "
+                        "waiting on it", loc->path, strerror (op_errno));
                 goto unwind;
         }
 
@@ -2445,17 +2721,16 @@ unwind:
 int
 sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
 {
-        int32_t         ret          = -1, op_errno = -1;
+        int32_t         ret          = -1, op_errno = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->path, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->path, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->inode, NULL);
 
@@ -2463,19 +2738,20 @@ sp_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags)
                                             (char *)loc->path);
         if (ret == -1) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", loc->path);
                 goto out;
         }
 
         stub = fop_rmdir_stub (frame, sp_rmdir_helper, loc, flags);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno, GF_FOP_RMDIR);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -2497,6 +2773,7 @@ sp_readv_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct iatt *stbuf, struct iobref *iobref)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (readv, frame, op_ret, op_errno, vector, count, stbuf,
                          iobref);
         return 0;
@@ -2509,13 +2786,20 @@ sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
-        int32_t      ret    = 0;
+        int32_t      ret    = 0, op_errno = EINVAL;
         inode_t     *parent = NULL;
         char        *name   = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
+
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
-                errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
+                        "set in fd (%p) opened on inode (ino:%"PRId64", "
+                        "gfid:%s", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
 
@@ -2530,7 +2814,7 @@ sp_readv (call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (readv, frame, -1, errno, NULL, -1, NULL, NULL);
+        SP_STACK_UNWIND (readv, frame, -1, op_errno, NULL, -1, NULL, NULL);
         return 0;
 }
 
@@ -2541,13 +2825,20 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
-        int32_t      ret    = 0;
+        int32_t      ret    = 0, op_errno = EINVAL;
         inode_t     *parent = NULL;
         char        *name   = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
+
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
-                errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
+                        "set in fd (%p) opened on inode (ino:%"PRId64", "
+                        "gfid:%s", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
 
@@ -2563,7 +2854,7 @@ sp_writev (call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (writev, frame, -1, errno, NULL, NULL);
+        SP_STACK_UNWIND (writev, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2573,13 +2864,20 @@ sp_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
-        int32_t      ret    = 0;
+        int32_t      ret    = 0, op_errno = EINVAL;
         inode_t     *parent = NULL;
         char        *name   = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
+
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
-                errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
+                        "set in fd (%p) opened on inode (ino:%"PRId64", "
+                        "gfid:%s", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
 
@@ -2594,7 +2892,7 @@ sp_fsync (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags)
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (fsync, frame, -1, errno, NULL, NULL);
+        SP_STACK_UNWIND (fsync, frame, -1, op_errno, NULL, NULL);
         return 0;
 }
 
@@ -2606,23 +2904,29 @@ sp_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
         uint64_t        value               = 0;
         char            need_unwind         = 0;
         char            can_wind            = 0;
-        int32_t         ret                 = 0, op_errno = -1;
+        int32_t         ret                 = 0, op_errno = EINVAL;
         int32_t         old_op_ret          = -1, old_op_errno = -1;
         int32_t         new_op_ret          = -1, new_op_errno = -1;
         char            old_inode_looked_up = 0, new_inode_looked_up = 0;
         sp_inode_ctx_t *old_inode_ctx       = NULL, *new_inode_ctx = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, newloc, unwind);
+
         ret = inode_ctx_get (oldloc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", oldloc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", oldloc->inode->ino,
+                        uuid_utoa (oldloc->inode->gfid));
                 goto unwind;
         }
 
         old_inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, old_inode_ctx, unwind,
-                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, old_inode_ctx, unwind);
 
         LOCK (&old_inode_ctx->lock);
         {
@@ -2635,6 +2939,9 @@ sp_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         if (need_unwind) {
                 /* there was an error while queuing up lookup stub for newloc */
+                gf_log (this->name, GF_LOG_WARNING,
+                        "could not queue lookup stub for path (%s)",
+                        newloc->path);
                 goto unwind;
         }
 
@@ -2657,6 +2964,12 @@ sp_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
 
         if (new_inode_ctx == NULL) {
                 if (old_op_ret == -1) {
+                        gf_log (this->name, GF_LOG_WARNING,
+                                "lookup-behind has failed "
+                                "for path (%s)(%s), unwinding rename call "
+                                "waiting on it", oldloc->path,
+                                strerror (old_op_errno));
+
                         op_errno = old_op_errno;
                         goto unwind;
                 } else {
@@ -2668,8 +2981,20 @@ sp_rename_helper (call_frame_t *frame, xlator_t *this, loc_t *oldloc,
                             || ((new_op_ret == -1)
                                 && (new_op_errno != ENOENT))) {
                                 if (old_op_ret == -1) {
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "lookup-behind has failed "
+                                                "for path (%s)(%s), unwinding "
+                                                "rename call waiting on it",
+                                                oldloc->path,
+                                                strerror (old_op_errno));
                                         op_errno = old_op_errno;
                                 } else {
+                                        gf_log (this->name, GF_LOG_WARNING,
+                                                "lookup-behind has failed "
+                                                "for path (%s)(%s), unwinding "
+                                                "rename call waiting on it",
+                                                newloc->path,
+                                                strerror (new_op_errno));
                                         op_errno = new_op_errno;
                                 }
 
@@ -2701,23 +3026,20 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         uint64_t        value                 = 0;
         call_stub_t    *stub                  = NULL;
         sp_inode_ctx_t *inode_ctx             = NULL;
-        int32_t         ret                   = -1, op_errno = -1;
+        int32_t         ret                   = -1, op_errno = EINVAL;
         char            old_inode_can_wind    = 0, new_inode_can_wind = 0;
         char            old_inode_need_lookup = 0, new_inode_need_lookup = 0;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->path, out,
-                                        op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->name, out,
-                                        op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, oldloc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (frame->this ? frame->this->name : "stat-prefetch",
+                             this, out);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc, out);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->path, out);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->name, out);
+        GF_VALIDATE_OR_GOTO (this->name, oldloc->inode, out);
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, newloc->path, out,
-                                        op_errno, EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, newloc, out);
+        GF_VALIDATE_OR_GOTO (this->name, newloc->path, out);
 
         sp_remove_caches_from_all_fds_opened (this, oldloc->parent,
                                               (char *)oldloc->name);
@@ -2728,14 +3050,18 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         ret = sp_cache_remove_parent_entry (frame, this, oldloc->parent->table,
                                             (char *)oldloc->path);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", oldloc->path);
                 goto out;
         }
 
         ret = sp_cache_remove_parent_entry (frame, this, newloc->parent->table,
                                             (char *)newloc->path);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
+                gf_log (this->name, GF_LOG_WARNING,
+                        "cannot remove parent entry from grand-parent's cache "
+                        "for path (%s)", newloc->path);
                 goto out;
         }
 
@@ -2747,14 +3073,18 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
         stub = fop_rename_stub (frame, sp_rename_helper, oldloc, newloc);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         ret = sp_process_inode_ctx (frame, this, oldloc, stub, &need_unwind,
                                     &old_inode_need_lookup, &old_inode_can_wind,
-                                    &op_errno, GF_FOP_RENAME);
+                                    &op_errno);
         if (ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING, "processing stat-prefetch "
+                        "context in inode (ino:%"PRId64", gfid:%s) (path:%s) "
+                        "failed (%s)", oldloc->inode->ino,
+                        uuid_utoa (oldloc->inode->gfid), oldloc->path,
+                        strerror (op_errno));
                 goto out;
         }
 
@@ -2763,23 +3093,24 @@ sp_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc,loc_t *newloc)
                                         newloc);
                 if (stub == NULL) {
                         op_errno = ENOMEM;
-                        gf_log (this->name, GF_LOG_ERROR, "out of memory");
                         goto out;
                 }
 
                 ret = sp_process_inode_ctx (frame, this, newloc, stub,
                                             &need_unwind,
                                             &new_inode_need_lookup,
-                                            &new_inode_can_wind, &op_errno,
-                                            GF_FOP_RENAME);
+                                            &new_inode_can_wind, &op_errno);
                 if (ret == -1) {
                         ret = inode_ctx_get (oldloc->inode, this, &value);
-                        if (ret == -1) {
-                                goto out;
-                        }
 
                         inode_ctx = (sp_inode_ctx_t *)(long)value;
                         if (inode_ctx == NULL) {
+                                gf_log (this->name, GF_LOG_WARNING,
+                                        "stat-prefetch context not set in inode"
+                                        " (ino:%"PRId64", gfid:%s) (path:%s)",
+                                        oldloc->inode->ino,
+                                        uuid_utoa (oldloc->inode->gfid),
+                                        oldloc->path);
                                 goto out;
                         }
 
@@ -2829,19 +3160,23 @@ sp_setxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -2851,6 +3186,10 @@ sp_setxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding setxattr call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -2870,14 +3209,12 @@ int32_t
 sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
              int32_t flags)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2885,13 +3222,11 @@ sp_setxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         stub = fop_setxattr_stub (frame, sp_setxattr_helper, loc, dict, flags);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_SETXATTR);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -2915,19 +3250,23 @@ sp_removexattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -2937,6 +3276,10 @@ sp_removexattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding setxattr call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -2955,13 +3298,12 @@ int32_t
 sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
                 const char *name)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno, EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -2969,13 +3311,11 @@ sp_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
         stub = fop_removexattr_stub (frame, sp_removexattr_helper, loc, name);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_REMOVEXATTR);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -2996,6 +3336,7 @@ int32_t
 sp_getxattr_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (getxattr, frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -3007,19 +3348,23 @@ sp_getxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -3029,6 +3374,10 @@ sp_getxattr_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding getxattr call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -3046,25 +3395,22 @@ unwind:
 int32_t
 sp_getxattr (call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         stub = fop_getxattr_stub (frame, sp_getxattr_helper, loc, name);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_GETXATTR);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -3085,6 +3431,7 @@ int32_t
 sp_xattrop_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *dict)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (xattrop, frame, op_ret, op_errno, dict);
         return 0;
 }
@@ -3096,19 +3443,23 @@ sp_xattrop_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -3118,6 +3469,10 @@ sp_xattrop_helper (call_frame_t *frame, xlator_t *this, loc_t *loc,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding xattrop call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -3136,14 +3491,13 @@ int32_t
 sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
             gf_xattrop_flags_t flags, dict_t *dict)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->name, out, op_errno,
-                                        EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->name, out);
 
         sp_remove_caches_from_all_fds_opened (this, loc->parent,
                                               (char *)loc->name);
@@ -3151,13 +3505,11 @@ sp_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
         stub = fop_xattrop_stub (frame, sp_xattrop_helper, loc, flags, dict);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_XATTROP);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -3180,13 +3532,20 @@ sp_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
         sp_fd_ctx_t *fd_ctx = NULL;
         uint64_t     value  = 0;
-        int32_t      ret    = 0;
+        int32_t      ret    = 0, op_errno = EINVAL;
         inode_t     *parent = NULL;
         char        *name   = NULL;
 
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, fd, unwind);
+
         ret = fd_ctx_get (fd, this, &value);
         if (ret == -1) {
-                errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING, "stat-prefetch context not "
+                        "set in fd (%p) opened on inode (ino:%"PRId64", "
+                        "gfid:%s", fd, fd->inode->ino,
+                        uuid_utoa (fd->inode->gfid));
                 goto unwind;
         }
 
@@ -3201,7 +3560,7 @@ sp_fxattrop (call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
 
 unwind:
-        SP_STACK_UNWIND (xattrop, frame, -1, errno, NULL);
+        SP_STACK_UNWIND (xattrop, frame, -1, op_errno, NULL);
         return 0;
 }
 
@@ -3209,6 +3568,7 @@ int32_t
 sp_stbuf_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *buf)
 {
+        GF_ASSERT (frame);
         SP_STACK_UNWIND (stat, frame, op_ret, op_errno, buf);
         return 0;
 }
@@ -3219,19 +3579,23 @@ sp_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -3241,6 +3605,10 @@ sp_stat_helper (call_frame_t *frame, xlator_t *this, loc_t *loc)
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding stat call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -3262,21 +3630,19 @@ sp_stat (call_frame_t *frame, xlator_t *this, loc_t *loc)
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         stub = fop_stat_stub (frame, sp_stat_helper, loc);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_STAT);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -3298,19 +3664,23 @@ sp_access_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -3320,6 +3690,10 @@ sp_access_helper (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding access call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -3341,21 +3715,19 @@ sp_access (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask)
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         stub = fop_access_stub (frame, sp_access_helper, loc, mask);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_ACCESS);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -3378,19 +3750,23 @@ sp_inodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -3400,6 +3776,10 @@ sp_inodelk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding inodelk call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -3418,26 +3798,24 @@ int32_t
 sp_inodelk (call_frame_t *frame, xlator_t *this, const char *volume, loc_t *loc,
             int32_t cmd, struct gf_flock *lock)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         stub = fop_inodelk_stub (frame, sp_inodelk_helper, volume, loc, cmd,
                                  lock);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_INODELK);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -3462,19 +3840,23 @@ sp_entrylk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
 {
         uint64_t        value     = 0;
         sp_inode_ctx_t *inode_ctx = NULL;
-        int32_t         ret       = 0, op_ret = -1, op_errno = -1;
+        int32_t         ret       = 0, op_ret = -1, op_errno = EINVAL;
+
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, unwind);
+        GF_VALIDATE_OR_GOTO (this->name, loc, unwind);
 
         ret = inode_ctx_get (loc->inode, this, &value);
         if (ret == -1) {
-                gf_log (this->name, GF_LOG_DEBUG, "context not set in inode "
-                        "(%p)", loc->inode);
-                op_errno = EINVAL;
+                gf_log (this->name, GF_LOG_WARNING,
+                        "stat-prefetch context not set in inode "
+                        "(ino:%"PRId64" gfid:%s)", loc->inode->ino,
+                        uuid_utoa (loc->inode->gfid));
                 goto unwind;
         }
 
         inode_ctx = (sp_inode_ctx_t *)(long) value;
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, inode_ctx, unwind, op_errno,
-                                        EINVAL);
+        GF_VALIDATE_OR_GOTO (this->name, inode_ctx, unwind);
 
         LOCK (&inode_ctx->lock);
         {
@@ -3484,6 +3866,10 @@ sp_entrylk_helper (call_frame_t *frame, xlator_t *this, const char *volume,
         UNLOCK (&inode_ctx->lock);
 
         if (op_ret == -1) {
+                gf_log (this->name, GF_LOG_WARNING,
+                        "lookup-behind has failed for path (%s)(%s), "
+                        "unwinding entrylk call waiting on it", loc->path,
+                        strerror (op_errno));
                 goto unwind;
         }
 
@@ -3503,26 +3889,24 @@ int32_t
 sp_entrylk (call_frame_t *frame, xlator_t *this, const char *volume, loc_t *loc,
             const char *basename, entrylk_cmd cmd, entrylk_type type)
 {
-        int32_t         op_errno     = -1;
+        int32_t         op_errno     = EINVAL;
         call_stub_t    *stub         = NULL;
         char            can_wind     = 0, need_lookup = 0, need_unwind = 1;
 
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc, out, op_errno,
-                                        EINVAL);
-        GF_VALIDATE_OR_GOTO_WITH_ERROR (this->name, loc->inode, out,
-                                        op_errno, EINVAL);
+        GF_ASSERT (frame);
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc, out);
+        GF_VALIDATE_OR_GOTO (this->name, loc->inode, out);
 
         stub = fop_entrylk_stub (frame, sp_entrylk_helper, volume, loc,
                                  basename, cmd, type);
         if (stub == NULL) {
                 op_errno = ENOMEM;
-                gf_log (this->name, GF_LOG_ERROR, "out of memory");
                 goto out;
         }
 
         sp_process_inode_ctx (frame, this, loc, stub, &need_unwind,
-                              &need_lookup, &can_wind, &op_errno,
-                              GF_FOP_ENTRYLK);
+                              &need_lookup, &can_wind, &op_errno);
 
 out:
         if (need_unwind) {
@@ -3546,6 +3930,9 @@ sp_forget (xlator_t *this, inode_t *inode)
         struct iatt *buf   = NULL;
         uint64_t     value = 0;
 
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, inode, out);
+
         inode_ctx_del (inode, this, &value);
 
         if (value) {
@@ -3553,6 +3940,7 @@ sp_forget (xlator_t *this, inode_t *inode)
                 GF_FREE (buf);
         }
 
+out:
         return 0;
 }
 
@@ -3565,20 +3953,24 @@ sp_release (xlator_t *this, fd_t *fd)
         int32_t      ret    = 0;
         sp_cache_t  *cache  = NULL;
 
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, fd, out);
         ret = fd_ctx_del (fd, this, &value);
         if (!ret) {
                 fd_ctx = (void *)(long) value;
                 cache = fd_ctx->cache;
                 if (cache) {
-                        gf_log (this->name, GF_LOG_DEBUG, "cache hits: %lu, "
+                        gf_log (this->name, GF_LOG_TRACE, "cache hits: %lu, "
                                 "cache miss: %lu", cache->hits, cache->miss);
                 }
 
                 sp_fd_ctx_free (fd_ctx);
         }
 
+out:
         return 0;
 }
+
 
 int
 sp_priv_dump (xlator_t *this)
@@ -3589,10 +3981,10 @@ sp_priv_dump (xlator_t *this)
         char                    key[GF_DUMP_MAX_BUF_LEN];
         char                    key_prefix[GF_DUMP_MAX_BUF_LEN];
 
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
+        GF_VALIDATE_OR_GOTO (this->name, this->private, out);
+
         priv = this->private;
-        if (!priv) {
-                goto out;
-        }
 
         total_entries = priv->entries;
 
@@ -3610,30 +4002,34 @@ out:
         return ret;
 }
 
+
 int32_t
 mem_acct_init (xlator_t *this)
 {
         int     ret = -1;
 
-        if (!this)
-                return ret;
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
 
         ret = xlator_mem_acct_init (this, gf_sp_mt_end + 1);
 
         if (ret != 0) {
                 gf_log (this->name, GF_LOG_ERROR, "Memory accounting init"
                         "failed");
-                return ret;
+                goto out;
         }
 
+out:
         return ret;
 }
+
 
 int32_t
 init (xlator_t *this)
 {
         int32_t         ret  = -1;
         sp_private_t   *priv = NULL;
+
+        GF_VALIDATE_OR_GOTO ("stat-prefetch", this, out);
 
         if (!this->children || this->children->next) {
                 gf_log ("stat-prefetch",
